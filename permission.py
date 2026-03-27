@@ -8,7 +8,7 @@
 
 from db import get_db
 
-ACTIVE_ACTIONS = {"write_profile", "view_self_intro", "manage_perm", "generate_key", "send_msg", "create_project", "split_task"}
+ACTIVE_ACTIONS = {"write_profile", "view_self_intro", "manage_perm", "generate_key", "send_msg", "create_project"}
 
 
 def is_valid_passive_action(action: str) -> bool:
@@ -63,21 +63,42 @@ async def check_active(subject_tg_id: int, action: str, target_tg_id: int, is_su
     return _has_action(perms, str(target_tg_id), action)
 
 
-async def grant_active(subject_tg_id: int, action: str, target_tg_id: int | str):
+async def grant_active(subject_tg_id: int, action: str, target_tg_id: int | str) -> bool:
     """给 subject 授予对 target 的主动权限"""
     if action not in ACTIVE_ACTIONS:
-        return
+        return False
     key = "_all" if target_tg_id == "_all" else str(target_tg_id)
     await _grant(subject_tg_id, "active_perms", key, action)
+    return True
 
 
-async def revoke_active(subject_tg_id: int, action: str, target_tg_id: int | str):
+async def revoke_active(subject_tg_id: int, action: str, target_tg_id: int | str) -> bool:
     key = "_all" if target_tg_id == "_all" else str(target_tg_id)
     await _revoke(subject_tg_id, "active_perms", key, action)
+    return True
 
 
 async def list_active(tg_id: int) -> dict:
     return await _get_perms(tg_id, "active_perms")
+
+
+async def inherit_view_perms(from_tg_id: int, to_tg_id: int, is_superadmin: bool = False):
+    """把 from 的 view_self_intro 权限范围继承给 to"""
+    if is_superadmin:
+        # 超管分配：给被分配人 view_self_intro: _all
+        await grant_active(to_tg_id, "view_self_intro", "_all")
+        return
+    perms = await _get_perms(from_tg_id, "active_perms")
+    # 收集 from 能看的人
+    targets = set()
+    if "_all" in perms and "view_self_intro" in perms["_all"]:
+        await grant_active(to_tg_id, "view_self_intro", "_all")
+        return
+    for key, actions in perms.items():
+        if "view_self_intro" in actions:
+            targets.add(key)
+    for target_key in targets:
+        await grant_active(to_tg_id, "view_self_intro", target_key if target_key == "_all" else int(target_key))
 
 
 # ===== 被动权限 =====
@@ -90,17 +111,21 @@ async def check_passive(target_tg_id: int, action: str, subject_tg_id: int, is_s
     return _has_action(perms, str(subject_tg_id), action)
 
 
-async def grant_passive(target_tg_id: int, action: str, subject_tg_id: int | str):
+async def grant_passive(target_tg_id: int, action: str, subject_tg_id: int | str) -> bool:
     """给 target 添加被动权限，允许 subject 执行 action"""
     if not is_valid_passive_action(action):
-        return
+        return False
     key = "_all" if subject_tg_id == "_all" else str(subject_tg_id)
     await _grant(target_tg_id, "passive_perms", key, action)
+    return True
 
 
-async def revoke_passive(target_tg_id: int, action: str, subject_tg_id: int | str):
+async def revoke_passive(target_tg_id: int, action: str, subject_tg_id: int | str) -> bool:
+    if not is_valid_passive_action(action):
+        return False
     key = "_all" if subject_tg_id == "_all" else str(subject_tg_id)
     await _revoke(target_tg_id, "passive_perms", key, action)
+    return True
 
 
 async def list_passive(tg_id: int) -> dict:

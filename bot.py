@@ -5,6 +5,7 @@ import auth
 import ai
 import key
 import notify
+import scheduler
 from telegram import BotCommand, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -72,8 +73,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user = update.effective_user
-    text = update.message.text
-    logger.info(f"收到消息 from {user.id} ({user.full_name}): {text}")
+    msg = update.message
+
+    # 提取文本和图片
+    text = msg.text or msg.caption or ""
+    file_ids = []
+    if msg.photo:
+        file_ids.append(msg.photo[-1].file_id)  # 最大尺寸
+    if msg.document and msg.document.mime_type and msg.document.mime_type.startswith("image/"):
+        file_ids.append(msg.document.file_id)
+
+    if not text and not file_ids:
+        return
+
+    logger.info(f"收到消息 from {user.id} ({user.full_name}): {text} files={len(file_ids)}")
 
     cached_user = await auth.get_user(user.id)
     if not cached_user:
@@ -81,6 +94,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"您好 {user.full_name}，您的ID为 {user.id}，暂未获得使用权限。"
         )
         return
+
+    # 附加图片信息
+    if file_ids:
+        text += f"\n[附带图片 file_id: {', '.join(file_ids)}]"
 
     # 超管首次使用检测
     if cached_user.is_superadmin and not cached_user.has_profile:
@@ -110,13 +127,14 @@ def main():
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("new", new))
     app.add_handler(CommandHandler("join", join))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.Document.IMAGE) & ~filters.COMMAND, handle_message))
 
     async def post_init(application):
         await db.ensure_indexes()
         await auth._load_superadmins()
         notify.init(application.bot)
         await ai.init(application.bot)
+        scheduler.init(application, config["superadmins"])
         await application.bot.set_my_commands([
             BotCommand("start", "开始使用"),
             BotCommand("help", "查看帮助"),

@@ -83,7 +83,7 @@ async def create_task(
         "title": title, "goal": goal, "description": description,
         "assignee_tg_id": assignee_tg_id, "assigner_tg_id": assigner_tg_id,
         "status": "pending",
-        "checklist": [], "progress_notes": [],
+        "checklist": [], "progress_notes": [], "attachments": [],
         "split_into": None, "split_at": None,
         "created_at": now, "updated_at": now,
     })
@@ -157,6 +157,8 @@ async def set_checklist(task_id: str, items: list[dict]) -> bool:
 
 
 async def toggle_checklist_item(task_id: str, index: int, done: bool) -> bool:
+    if index < 0:
+        return False
     try:
         result = await get_db().tasks.update_one(
             {"_id": ObjectId(task_id), f"checklist.{index}": {"$exists": True}},
@@ -173,7 +175,10 @@ async def add_progress_note(task_id: str, content: str) -> bool:
     try:
         result = await get_db().tasks.update_one(
             {"_id": ObjectId(task_id)},
-            {"$push": {"progress_notes": {"content": content, "time": _NOW()}}, "$set": {"updated_at": _NOW()}},
+            {
+                "$push": {"progress_notes": {"content": content, "time": _NOW()}},
+                "$set": {"updated_at": _NOW()},
+            },
         )
         return result.modified_count > 0
     except Exception:
@@ -213,6 +218,17 @@ async def delete_project(project_id: str) -> bool:
     try:
         result = await get_db().projects.delete_one({"_id": ObjectId(project_id)})
         return result.deleted_count > 0
+    except Exception:
+        return False
+
+
+async def add_attachment(task_id: str, file_id: str, description: str = "") -> bool:
+    try:
+        result = await get_db().tasks.update_one(
+            {"_id": ObjectId(task_id)},
+            {"$push": {"attachments": {"file_id": file_id, "description": description, "time": _NOW()}}},
+        )
+        return result.modified_count > 0
     except Exception:
         return False
 

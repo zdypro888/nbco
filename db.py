@@ -17,7 +17,7 @@ def init(uri: str, db_name: str):
 async def ensure_indexes():
     """创建必要的索引"""
     await _db.users.create_index("tg_id", unique=True)
-    await _db.tasks.create_index("assignee_tg_id")
+    await _db.tasks.create_index([("assignee_tg_id", 1), ("status", 1)])
     await _db.tasks.create_index("assigner_tg_id")
     await _db.tasks.create_index("project_id")
     await _db.projects.create_index("creator_tg_id")

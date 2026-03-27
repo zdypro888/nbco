@@ -78,6 +78,7 @@ async def chat(user_id: int, text: str, chat_id: int = 0) -> str:
     options = ClaudeAgentOptions(
         system_prompt=_build_prompt(user, has_admin, chat_id),
         allowed_tools=allowed,
+        disallowed_tools=["CronCreate", "CronDelete", "CronList"],
         mcp_servers=mcp_servers,
         max_turns=10,
         permission_mode="bypassPermissions",

@@ -29,8 +29,8 @@ async def get_all(target_tg_id: int) -> dict[str, list[str]]:
 async def replace(target_tg_id: int, author_tg_id: int, items: list[str]) -> bool:
     """整体替换某作者对 target 的描述数组"""
     author_key = str(author_tg_id)
-    await get_db().users.update_one(
+    result = await get_db().users.update_one(
         {"tg_id": target_tg_id},
         {"$set": {f"infos.{author_key}": items}},
     )
-    return True
+    return result.matched_count > 0

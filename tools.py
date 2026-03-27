@@ -8,6 +8,7 @@ import profile
 import task
 import role
 import notify
+import scheduler
 
 _EDITABLE_FIELDS = {"name", "nickname", "phone", "email", "position"}
 _PROFILE_EXCLUDE = {"_id": 0, "infos": 0, "active_perms": 0, "passive_perms": 0}
@@ -206,8 +207,11 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
         notes = t.get("progress_notes", [])
         if notes:
             lines.append("进度日志：")
-            for n in notes[-5:]:  # 最近5条
+            for n in notes[-5:]:
                 lines.append(f"  {n['time'].strftime('%m-%d %H:%M')}: {n['content']}")
+        attachments = t.get("attachments", [])
+        if attachments:
+            lines.append(f"附件：{len(attachments)} 张图片")
         return _ok("\n".join(lines))
 
     @tool("view_my_task_tree", "查看我的某个任务的完整拆分树。",
@@ -342,11 +346,11 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
         if t["status"] in ("split", "done", "cancelled"):
             return _err(f"状态为 {t['status']} 的任务不能拆分。")
 
-        # 校验权限（分给自己不需要权限）
+        # 校验权限（分给自己不需要权限，分给别人需要能看到对方）
         for sub in args["subtasks"]:
             assignee = sub["assignee_tg_id"]
             if assignee != tg_id:
-                if not await permission.check_active(tg_id, "split_task", assignee, False):
+                if not await permission.check_active(tg_id, "view_self_intro", assignee, is_superadmin):
                     return _err(f"你没有把任务分配给 {assignee} 的权限。")
                 if not await _user_exists(assignee):
                     return _err(f"用户 {assignee} 不存在。")
@@ -360,10 +364,17 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
             )
             children_info.append({"task_id": child_id, "assignee_tg_id": sub["assignee_tg_id"]})
 
-        await task.mark_split(args["task_id"], children_info)
-        # 通知：给每个子任务的 assignee 发通知，给原任务的 assigner 发拆分通知
+        ok = await task.mark_split(args["task_id"], children_info)
+        if not ok:
+            # 回滚：删除已创建的子任务
+            for info in children_info:
+                await task.delete_task(info["task_id"])
+            return _err("拆分失败，任务状态可能已变化。")
+        # 自动继承权限 + 通知
         for sub, info in zip(args["subtasks"], children_info):
             if info["assignee_tg_id"] != tg_id:
+                await permission.inherit_view_perms(tg_id, info["assignee_tg_id"], is_superadmin)
+                auth.invalidate(info["assignee_tg_id"])
                 await notify.task_assigned(info["assignee_tg_id"], sub["title"], sub["goal"], tg_id)
         if t["assigner_tg_id"] != tg_id:
             await notify.task_split(t["assigner_tg_id"], t["title"], tg_id, len(children_info))
@@ -382,6 +393,64 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
 
     # ----- 角色/Skill -----
 
+    @tool("attach_to_task", "给任务附加图片。需要提供任务 ID 和图片 file_id。",
+          {"type": "object", "properties": {
+              "task_id": {"type": "string"},
+              "file_id": {"type": "string", "description": "Telegram file_id"},
+              "description": {"type": "string", "description": "图片说明（可选）"},
+          }, "required": ["task_id", "file_id"]})
+    async def attach_to_task(args: dict) -> dict:
+        t, err = await _check_my_task(args["task_id"])
+        if err:
+            # 也允许 assigner 添加附件
+            t = await task.get_task(args["task_id"])
+            if not t or t["assigner_tg_id"] != tg_id:
+                return _err("任务不存在或你无权操作。")
+        ok = await task.add_attachment(args["task_id"], args["file_id"], args.get("description", ""))
+        return _ok("图片已附加到任务。") if ok else _err("附加失败。")
+
+    # ----- 定时任务 -----
+
+    @tool("schedule_once", "设置单次定时提醒。时间格式：ISO 8601（如 2026-03-28T09:00:00+08:00）。",
+          {"type": "object", "properties": {
+              "name": {"type": "string", "description": "任务名称（唯一标识）"},
+              "message": {"type": "string", "description": "提醒内容"},
+              "run_at": {"type": "string", "description": "执行时间 ISO 格式"},
+          }, "required": ["name", "message", "run_at"]})
+    async def schedule_once_tool(args: dict) -> dict:
+        from datetime import datetime as dt
+        try:
+            run_at = dt.fromisoformat(args["run_at"])
+        except ValueError:
+            return _err("时间格式无效，需要 ISO 8601 格式。")
+        err = await scheduler.schedule_once(tg_id, args["name"], args["message"], run_at, is_superadmin)
+        return _ok(f"已设置定时提醒：{args['name']}") if err is None else _err(err)
+
+    @tool("schedule_repeating", "设置循环定时提醒。最小间隔 60 秒。",
+          {"type": "object", "properties": {
+              "name": {"type": "string", "description": "任务名称（唯一标识）"},
+              "message": {"type": "string", "description": "提醒内容"},
+              "interval_seconds": {"type": "integer", "description": "间隔秒数"},
+          }, "required": ["name", "message", "interval_seconds"]})
+    async def schedule_repeating_tool(args: dict) -> dict:
+        err = await scheduler.schedule_repeating(tg_id, args["name"], args["message"], args["interval_seconds"], is_superadmin)
+        return _ok(f"已设置循环提醒：{args['name']}") if err is None else _err(err)
+
+    @tool("cancel_schedule", "取消一个定时任务。",
+          {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]})
+    async def cancel_schedule(args: dict) -> dict:
+        ok = await scheduler.cancel_job(tg_id, args["name"])
+        return _ok("已取消。") if ok else _err("任务不存在。")
+
+    @tool("list_schedules", "查看我的所有定时任务。",
+          {"type": "object", "properties": {}, "required": []})
+    async def list_schedules(args: dict) -> dict:
+        jobs = scheduler.list_user_jobs(tg_id)
+        if not jobs:
+            return _ok("没有定时任务。")
+        lines = [f"{j['name']}：{j['message']} (下次: {j['next_run']})" for j in jobs]
+        return _ok("\n".join(lines))
+
     @tool("activate_role", "激活一个角色/Skill。激活后 AI 将按该角色的思维方式工作。",
           {"type": "object", "properties": {
               "name": {"type": "string", "description": "角色名称"},
@@ -398,6 +467,8 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
         get_my_projects, get_my_tasks_tool, get_my_all_tasks_tool, get_task_detail, view_my_task_tree,
         update_my_task_status, save_checklist, toggle_checklist, add_progress,
         get_assigned_tasks, update_assigned_task, split_my_task, delete_assigned_task,
+        attach_to_task,
+        schedule_once_tool, schedule_repeating_tool, cancel_schedule, list_schedules,
         activate_role,
     ])
 
@@ -525,6 +596,7 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
                 if not await permission.check_active(tg_id, action, target, False):
                     return _err(f"你自己没有对该目标的 {action} 权限，无法转授。")
         await permission.grant_active(subject, action, target)
+        auth.invalidate(subject)
         return _ok("已授权。")
 
     @tool("revoke_active_perm", "撤销某人的主动权限。",
@@ -542,6 +614,7 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
         except ValueError as e:
             return _err(str(e))
         await permission.revoke_active(subject, args["action"], target)
+        auth.invalidate(subject)
         return _ok("已撤销。")
 
     # ----- 被动权限管理 -----
@@ -654,6 +727,8 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
             description=args["description"],
             assignee_tg_id=assignee, assigner_tg_id=tg_id,
         )
+        await permission.inherit_view_perms(tg_id, assignee, is_superadmin)
+        auth.invalidate(assignee)
         await notify.task_assigned(assignee, args["title"], args["goal"], tg_id)
         return _ok(f"任务已创建并分配给 {assignee} (id:{tid})")
 
@@ -820,4 +895,55 @@ def create_telegram_tools(bot, tg_id: int, is_superadmin: bool, own_chat_id: int
         except Exception as e:
             return _err(f"删除失败：{e}")
 
-    return create_sdk_mcp_server(name="telegram", version="1.0.0", tools=[send_message, edit_message, delete_message])
+    @tool("send_photo", "发送图片。可附带说明文字。",
+          {"type": "object", "properties": {
+              "chat_id": {"type": "integer"},
+              "file_id": {"type": "string", "description": "Telegram file_id"},
+              "caption": {"type": "string", "description": "图片说明（可选）"},
+          }, "required": ["chat_id", "file_id"]})
+    async def send_photo(args: dict) -> dict:
+        target_chat = args["chat_id"]
+        if target_chat != own_chat_id:
+            if not await permission.check_active(tg_id, "send_msg", target_chat, is_superadmin):
+                return _err("你没有权限向该用户发送消息。")
+        try:
+            msg = await bot.send_photo(
+                chat_id=target_chat, photo=args["file_id"],
+                caption=args.get("caption", ""), parse_mode="HTML",
+            )
+            return _ok(f"已发送图片，message_id={msg.message_id}")
+        except Exception as e:
+            return _err(f"发送失败：{e}")
+
+    @tool("send_local_photo", "发送本地图片文件（如 AI 生成的图片）。",
+          {"type": "object", "properties": {
+              "chat_id": {"type": "integer"},
+              "file_path": {"type": "string", "description": "本地图片文件路径"},
+              "caption": {"type": "string", "description": "图片说明（可选）"},
+          }, "required": ["chat_id", "file_path"]})
+    async def send_local_photo(args: dict) -> dict:
+        import os
+        target_chat = args["chat_id"]
+        if target_chat != own_chat_id:
+            if not await permission.check_active(tg_id, "send_msg", target_chat, is_superadmin):
+                return _err("你没有权限向该用户发送消息。")
+        path = os.path.realpath(args["file_path"])
+        # 限制只能发送工作目录下的图片
+        allowed_dir = os.path.realpath(os.getcwd())
+        if not path.startswith(allowed_dir):
+            return _err("只能发送工作目录下的图片。")
+        if not os.path.isfile(path):
+            return _err(f"文件不存在：{path}")
+        try:
+            with open(path, "rb") as f:
+                msg = await bot.send_photo(
+                    chat_id=target_chat, photo=f,
+                    caption=args.get("caption", ""), parse_mode="HTML",
+                )
+            return _ok(f"已发送图片，message_id={msg.message_id}")
+        except Exception as e:
+            return _err(f"发送失败：{e}")
+
+    return create_sdk_mcp_server(name="telegram", version="1.0.0", tools=[
+        send_message, edit_message, delete_message, send_photo, send_local_photo,
+    ])
