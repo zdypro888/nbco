@@ -17,6 +17,7 @@ import db
 import auth
 import api_token
 import role
+import fields
 from tools import create_user_tools, create_admin_tools
 
 logging.basicConfig(
@@ -116,6 +117,7 @@ async def on_startup(app_):
     await db.ensure_indexes()
     await auth._load_superadmins()
     await role.load()
+    await fields.load()
     logger.info("HTTP API Server 启动完成")
 
 

@@ -8,7 +8,7 @@
 
 from db import get_db
 
-ACTIVE_ACTIONS = {"write_profile", "view_self_intro", "manage_perm", "generate_key", "send_msg", "create_project"}
+ACTIVE_ACTIONS = {"write_profile", "view_self_intro", "manage_perm", "generate_key", "send_msg", "create_project", "edit_info"}
 
 
 def is_valid_passive_action(action: str) -> bool:

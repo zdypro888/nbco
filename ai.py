@@ -3,6 +3,7 @@ from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, Assistant
 from tools import create_user_tools, create_telegram_tools, create_admin_tools
 import auth
 import role
+import fields
 from db import get_db
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ async def init(bot):
     global _bot
     _bot = bot
     await role.load()
+    await fields.load()
 
 
 def _build_prompt(user, has_admin: bool, chat_id: int) -> str:

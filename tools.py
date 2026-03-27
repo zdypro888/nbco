@@ -10,9 +10,14 @@ import role
 import notify
 import scheduler
 import api_token
+import fields
 
-_EDITABLE_FIELDS = {"name", "nickname", "phone", "email", "position"}
-_PROFILE_EXCLUDE = {"_id": 0, "infos": 0, "active_perms": 0, "passive_perms": 0}
+_INTERNAL_FIELDS = {"_id", "infos", "active_perms", "passive_perms", "session_id", "api_token", "api_token_created_at"}
+
+
+def _profile_projection() -> dict:
+    """动态生成排除内部字段的 projection"""
+    return {f: 0 for f in _INTERNAL_FIELDS}
 
 
 def _fmt_task(t: dict) -> str:
@@ -64,15 +69,16 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
     @tool("get_my_profile", "查询自己的个人信息（不含画像）。",
           {"type": "object", "properties": {}, "required": []})
     async def get_my_profile(args: dict) -> dict:
-        doc = await get_db().users.find_one({"tg_id": tg_id}, _PROFILE_EXCLUDE)
+        doc = await get_db().users.find_one({"tg_id": tg_id}, _profile_projection())
         if doc is None:
             return _ok("你尚未录入个人信息。")
         return _ok(str(doc))
 
-    @tool("update_my_profile", "更新自己的基本信息。可更新：name/nickname/phone/email/position。",
+    @tool("update_my_profile", f"更新自己的基本信息。可更新字段：{', '.join(fields.get_fields())}。",
           {"type": "object", "properties": {"fields": {"type": "object"}}, "required": ["fields"]})
     async def update_my_profile(args: dict) -> dict:
-        update_data = {k: v for k, v in args["fields"].items() if k in _EDITABLE_FIELDS and isinstance(v, str)}
+        valid_fields = set(fields.get_fields())
+        update_data = {k: v for k, v in args["fields"].items() if k in valid_fields and isinstance(v, str)}
         if not update_data:
             return _err("没有可更新的有效字段。")
         update_data["updated_at"] = datetime.now(timezone.utc)
@@ -82,7 +88,7 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
             upsert=True,
         )
         auth.invalidate(tg_id)
-        doc = await get_db().users.find_one({"tg_id": tg_id}, _PROFILE_EXCLUDE)
+        doc = await get_db().users.find_one({"tg_id": tg_id}, _profile_projection())
         return _ok(f"已更新：{doc}")
 
     @tool("get_my_infos", "查看自己的自我介绍列表。",
@@ -795,6 +801,63 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
         await task.delete_project(args["project_id"])
         return _ok("项目及所有任务已删除。")
 
+    # ----- 用户信息管理 -----
+
+    @tool("update_user_info", "修改某用户的基本信息。需要 edit_info 主动权限。",
+          {"type": "object", "properties": {
+              "target_tg_id": {"type": "integer"},
+              "fields_data": {"type": "object", "description": "要更新的字段"},
+          }, "required": ["target_tg_id", "fields_data"]})
+    async def update_user_info(args: dict) -> dict:
+        target = args["target_tg_id"]
+        if err := await _check_active("edit_info", target):
+            return _err(err)
+        if not await _user_exists(target):
+            return _err("用户不存在。")
+        from datetime import datetime, timezone
+        valid_fields = set(fields.get_fields())
+        update_data = {k: v for k, v in args["fields_data"].items() if k in valid_fields and isinstance(v, str)}
+        if not update_data:
+            return _err("没有可更新的有效字段。")
+        update_data["updated_at"] = datetime.now(timezone.utc)
+        await get_db().users.update_one({"tg_id": target}, {"$set": update_data})
+        auth.invalidate(target)
+        return _ok("已更新。")
+
+    @tool("get_user_info", "查看某用户的基本信息。需要 view_self_intro 主动权限。",
+          {"type": "object", "properties": {"target_tg_id": {"type": "integer"}}, "required": ["target_tg_id"]})
+    async def get_user_info(args: dict) -> dict:
+        target = args["target_tg_id"]
+        if err := await _check_active("view_self_intro", target):
+            return _err(err)
+        doc = await get_db().users.find_one({"tg_id": target}, _profile_projection())
+        if not doc:
+            return _err("用户不存在。")
+        return _ok(str(doc))
+
+    # ----- 字段管理 -----
+
+    @tool("add_info_field", "添加一个基本信息字段。超管专用。",
+          {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]})
+    async def add_info_field(args: dict) -> dict:
+        if not is_superadmin:
+            return _err("只有超管可以管理字段。")
+        ok = await fields.add_field(args["name"])
+        return _ok(f"字段 '{args['name']}' 已添加。") if ok else _err("字段已存在或无效。")
+
+    @tool("remove_info_field", "移除一个基本信息字段。超管专用。",
+          {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]})
+    async def remove_info_field(args: dict) -> dict:
+        if not is_superadmin:
+            return _err("只有超管可以管理字段。")
+        ok = await fields.remove_field(args["name"])
+        return _ok(f"字段 '{args['name']}' 已移除。") if ok else _err("字段不存在。")
+
+    @tool("list_info_fields", "查看当前所有基本信息字段。",
+          {"type": "object", "properties": {}, "required": []})
+    async def list_info_fields(args: dict) -> dict:
+        return _ok(", ".join(fields.get_fields()))
+
     # ----- 用户管理 -----
 
     @tool("disable_user", "禁用一个用户（从系统中移除，清除权限）。超管专用。",
@@ -862,6 +925,8 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
         view_user_perms,
         create_project_tool, list_my_projects, assign_task_tool,
         view_project_tool, archive_project_tool, delete_project_tool,
+        update_user_info, get_user_info,
+        add_info_field, remove_info_field, list_info_fields,
         disable_user,
         create_role, update_role, delete_role, list_roles,
     ]
