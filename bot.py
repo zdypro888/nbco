@@ -134,7 +134,7 @@ def main():
         await auth._load_superadmins()
         notify.init(application.bot)
         await ai.init(application.bot)
-        scheduler.init(application, config["superadmins"])
+        await scheduler.init(config["superadmins"])
         await application.bot.set_my_commands([
             BotCommand("start", "开始使用"),
             BotCommand("help", "查看帮助"),

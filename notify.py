@@ -12,14 +12,16 @@ def init(bot):
     _bot = bot
 
 
-async def send(tg_id: int, text: str):
-    """给指定用户发送通知"""
+async def send(tg_id: int, text: str) -> bool:
+    """给指定用户发送通知，返回是否成功"""
     if not _bot:
-        return
+        return False
     try:
         await _bot.send_message(chat_id=tg_id, text=text, parse_mode="HTML")
+        return True
     except Exception as e:
         logger.warning(f"通知发送失败 ({tg_id}): {e}")
+        return False
 
 
 async def task_assigned(assignee_tg_id: int, title: str, goal: str, assigner_tg_id: int):
