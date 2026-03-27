@@ -9,6 +9,7 @@ import task
 import role
 import notify
 import scheduler
+import api_token
 
 _EDITABLE_FIELDS = {"name", "nickname", "phone", "email", "position"}
 _PROFILE_EXCLUDE = {"_id": 0, "infos": 0, "active_perms": 0, "passive_perms": 0}
@@ -461,7 +462,21 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
             return _err(f"角色 '{args['name']}' 不存在。")
         return _ok(f"已激活角色：{r['name']}\n\n{r['prompt']}")
 
-    return create_sdk_mcp_server(name="user", version="1.0.0", tools=[
+    # ----- API Token -----
+
+    @tool("generate_api_token", "生成 API Token，用于 HTTP MCP 接口认证。会替换旧 token。",
+          {"type": "object", "properties": {}, "required": []})
+    async def generate_api_token(args: dict) -> dict:
+        token = await api_token.generate(tg_id)
+        return _ok(f"你的 API Token：\n<code>{token}</code>\n请妥善保管，不要泄露。")
+
+    @tool("revoke_api_token", "撤销 API Token。",
+          {"type": "object", "properties": {}, "required": []})
+    async def revoke_api_token(args: dict) -> dict:
+        ok = await api_token.revoke(tg_id)
+        return _ok("API Token 已撤销。") if ok else _err("没有有效的 Token。")
+
+    _user_tool_list = [
         get_my_profile, update_my_profile, get_my_infos, save_my_infos,
         list_my_active_perms, list_my_passive_perms, grant_my_passive_perm, revoke_my_passive_perm,
         get_my_projects, get_my_tasks_tool, get_my_all_tasks_tool, get_task_detail, view_my_task_tree,
@@ -469,8 +484,9 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
         get_assigned_tasks, update_assigned_task, split_my_task, delete_assigned_task,
         attach_to_task,
         schedule_once_tool, schedule_repeating_tool, cancel_schedule, list_schedules,
-        activate_role,
-    ])
+        activate_role, generate_api_token, revoke_api_token,
+    ]
+    return create_sdk_mcp_server(name="user", version="1.0.0", tools=_user_tool_list), _user_tool_list
 
 
 # ===== Admin Tools =====
@@ -838,7 +854,7 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
         lines = [f"{r['name']}：{r['trigger']}" for r in roles]
         return _ok("\n".join(lines))
 
-    return create_sdk_mcp_server(name="admin", version="1.0.0", tools=[
+    _admin_tool_list = [
         generate_key_tool, cancel_key_tool, list_users,
         view_user_infos, get_my_infos_on_user, save_infos_on_user,
         grant_active_perm, revoke_active_perm,
@@ -848,7 +864,8 @@ def create_admin_tools(tg_id: int, is_superadmin: bool):
         view_project_tool, archive_project_tool, delete_project_tool,
         disable_user,
         create_role, update_role, delete_role, list_roles,
-    ])
+    ]
+    return create_sdk_mcp_server(name="admin", version="1.0.0", tools=_admin_tool_list), _admin_tool_list
 
 
 # ===== Telegram Tools =====

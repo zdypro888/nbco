@@ -64,14 +64,14 @@ async def chat(user_id: int, text: str, chat_id: int = 0) -> str:
     user = await auth.get_user(user_id)
     is_superadmin = user.is_superadmin if user else False
 
-    user_tools = create_user_tools(user_id, is_superadmin)
+    user_tools, _ = create_user_tools(user_id, is_superadmin)
     tg_tools = create_telegram_tools(_bot, user_id, is_superadmin, chat_id)
     mcp_servers = {"user": user_tools, "telegram": tg_tools}
     allowed = ["mcp__user__*", "mcp__telegram__*"]
 
     has_admin = user.has_admin if user else False
     if has_admin:
-        admin_tools = create_admin_tools(user_id, is_superadmin)
+        admin_tools, _ = create_admin_tools(user_id, is_superadmin)
         mcp_servers["admin"] = admin_tools
         allowed.append("mcp__admin__*")
 
