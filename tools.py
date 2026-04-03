@@ -455,7 +455,7 @@ def create_user_tools(tg_id: int, is_superadmin: bool = False):
         jobs = scheduler.list_user_jobs(tg_id)
         if not jobs:
             return _ok("没有定时任务。")
-        lines = [f"{j['name']}：{j['message']} (下次: {j['next_run']})" for j in jobs]
+        lines = [f"{'🔁' if j['repeating'] else '⏰'} {j['name']}：{j['message']}" for j in jobs]
         return _ok("\n".join(lines))
 
     @tool("activate_role", "激活一个角色/Skill。激活后 AI 将按该角色的思维方式工作。",

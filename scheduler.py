@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 _superadmins: list[int] = []
 _known_users: set[int] = set()
 _custom_jobs: dict[str, asyncio.Task] = {}
+_job_meta: dict[str, dict] = {}  # key -> {"tg_id", "message", "repeating"}
 _running = False
 _MAX_JOBS_PER_USER = 10
 
@@ -32,6 +33,7 @@ async def shutdown():
     for t in _custom_jobs.values():
         t.cancel()
     _custom_jobs.clear()
+    _job_meta.clear()
 
 
 # ===== 内置循环任务 =====
@@ -91,6 +93,7 @@ async def _run_once_job(key: str, tg_id: int, message: str, delay: float):
     await asyncio.sleep(delay)
     await notify.send(tg_id, message)
     _custom_jobs.pop(key, None)
+    _job_meta.pop(key, None)
     await get_db().schedules.delete_one({"key": key})
 
 
@@ -110,20 +113,22 @@ async def _restore_jobs():
         key = doc["key"]
         if key in _custom_jobs:
             continue
+        meta = {"tg_id": doc["tg_id"], "message": doc["message"], "repeating": doc["repeating"]}
         if doc["repeating"]:
             t = asyncio.create_task(_run_repeating_job(key, doc["tg_id"], doc["message"], doc["interval"]))
             _custom_jobs[key] = t
+            _job_meta[key] = meta
             restored += 1
         else:
             run_at = doc.get("run_at")
             if run_at:
-                # MongoDB 存的可能是 naive datetime，统一转 UTC
                 if run_at.tzinfo is None:
                     run_at = run_at.replace(tzinfo=timezone.utc)
             if run_at and run_at > now:
                 delay = (run_at - now).total_seconds()
                 t = asyncio.create_task(_run_once_job(key, doc["tg_id"], doc["message"], delay))
                 _custom_jobs[key] = t
+                _job_meta[key] = meta
                 restored += 1
             else:
                 await get_db().schedules.delete_one({"key": key})
@@ -144,6 +149,7 @@ async def schedule_once(tg_id: int, name: str, message: str, run_at: datetime, i
         return "时间已过。"
     t = asyncio.create_task(_run_once_job(key, tg_id, message, delay))
     _custom_jobs[key] = t
+    _job_meta[key] = {"tg_id": tg_id, "message": message, "repeating": False}
     await get_db().schedules.update_one(
         {"key": key},
         {"$set": {"key": key, "tg_id": tg_id, "message": message, "repeating": False, "run_at": run_at}},
@@ -162,6 +168,7 @@ async def schedule_repeating(tg_id: int, name: str, message: str, interval_secon
         return "最小间隔 60 秒。"
     t = asyncio.create_task(_run_repeating_job(key, tg_id, message, interval_seconds))
     _custom_jobs[key] = t
+    _job_meta[key] = {"tg_id": tg_id, "message": message, "repeating": True}
     await get_db().schedules.update_one(
         {"key": key},
         {"$set": {"key": key, "tg_id": tg_id, "message": message, "repeating": True, "interval": interval_seconds}},
@@ -176,6 +183,7 @@ async def cancel_job(tg_id: int, name: str) -> bool:
         return False
     _custom_jobs[key].cancel()
     del _custom_jobs[key]
+    _job_meta.pop(key, None)
     await get_db().schedules.delete_one({"key": key})
     return True
 
@@ -185,5 +193,10 @@ def list_user_jobs(tg_id: int) -> list[dict]:
     result = []
     for key in _custom_jobs:
         if key.startswith(prefix):
-            result.append({"name": key[len(prefix):]})
+            meta = _job_meta.get(key, {})
+            result.append({
+                "name": key[len(prefix):],
+                "message": meta.get("message", ""),
+                "repeating": meta.get("repeating", False),
+            })
     return result
