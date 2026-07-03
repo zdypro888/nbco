@@ -208,5 +208,7 @@ __marimo__/
 
 # Project
 config.json
+nbco.json
+/nbco
 .vscode
 .claude/

@@ -1,0 +1,19 @@
+{
+  "telegram_token": "123456:ABC-DEF...",
+  "superadmins": [111111111],
+  "postgres_dsn": "postgres://nbco:nbco@127.0.0.1:5432/nbco?sslmode=disable",
+  "listen": "127.0.0.1:8900",
+  "public_base_url": "",
+  "timezone": "Asia/Shanghai",
+  "daily_summary_hour": 9,
+  "ai": {
+    "engine": "eino",
+    "provider": "claude",
+    "api_key": "sk-ant-...",
+    "base_url": "",
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "max_turns": 16,
+    "claude_cmd": "claude"
+  }
+}

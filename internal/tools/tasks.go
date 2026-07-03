@@ -1,0 +1,756 @@
+package tools
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/zdypro888/nbco/internal/ai"
+	"github.com/zdypro888/nbco/internal/perm"
+	"github.com/zdypro888/nbco/internal/store"
+)
+
+// taskTools 项目与任务（用户视角 + 管理视角）。
+func taskTools(d Deps, u *store.User) []ai.Tool {
+	return []ai.Tool{
+		// --- 我的视角 ---
+		tool("get_my_projects", "查看我参与的项目（有我任务的项目）。", obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				ps, err := d.Store.ProjectsOfAssignee(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				return renderProjects(ps), nil
+			}),
+
+		tool("get_my_tasks", "查看我的待办任务（待处理+进行中）。", obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, true)
+				if err != nil {
+					return "", err
+				}
+				return renderTasks(ts, d.TZ), nil
+			}),
+
+		tool("get_my_all_tasks", "查看我的所有任务（含已完成和已拆分）。", obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, false)
+				if err != nil {
+					return "", err
+				}
+				return renderTasks(ts, d.TZ), nil
+			}),
+
+		tool("get_task_detail", "查看任务详情（含描述、验收标准、清单、进度日志、附件）。需要是任务的执行人或分配者。",
+			obj(map[string]any{"task_id": p("integer", "任务ID")}, "task_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID int64 `json:"task_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if !canSeeTask(u, t) {
+					return "你不是该任务的执行人或分配者。", nil
+				}
+				return renderTaskDetail(ctx, d, t)
+			}),
+
+		tool("view_my_task_tree", "查看我的某个任务的完整拆分树。",
+			obj(map[string]any{"task_id": p("integer", "任务ID")}, "task_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID int64 `json:"task_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if !canSeeTask(u, t) {
+					return "你不是该任务的执行人或分配者。", nil
+				}
+				var b strings.Builder
+				if err := renderTree(ctx, d.Store, t, 0, &b, d.TZ); err != nil {
+					return "", err
+				}
+				return b.String(), nil
+			}),
+
+		tool("update_my_task_status", "更新我的任务状态。status: pending/in_progress/done。",
+			obj(map[string]any{
+				"task_id": p("integer", "任务ID"),
+				"status":  p("string", "pending | in_progress | done"),
+			}, "task_id", "status"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID int64  `json:"task_id"`
+					Status string `json:"status"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				switch args.Status {
+				case store.TaskPending, store.TaskInProgress, store.TaskDone:
+				default:
+					return "status 必须是 pending/in_progress/done。", nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssigneeID != u.ID {
+					return "只有任务执行人能更新状态。", nil
+				}
+				if t.Status == store.TaskSplit {
+					return "该任务已拆分，状态由子任务决定。", nil
+				}
+				if _, err := d.Store.UpdateTaskStatus(ctx, t.ID, args.Status); err != nil {
+					return "", err
+				}
+				// 完成时通知分配者。
+				if args.Status == store.TaskDone && t.AssignerID != u.ID {
+					notifyQuiet(ctx, d, t.AssignerID,
+						fmt.Sprintf("✅ %s 完成了任务「%s」（#%d）", u.Name, t.Title, t.ID))
+				}
+				return "已更新为 " + args.Status + "。", nil
+			}),
+
+		tool("save_checklist", "保存任务的工作清单（整体替换）。根据任务描述归纳生成。需要是任务执行人。",
+			obj(map[string]any{
+				"task_id": p("integer", "任务ID"),
+				"items":   arr("string", "清单条目"),
+			}, "task_id", "items"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID int64    `json:"task_id"`
+					Items  []string `json:"items"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssigneeID != u.ID {
+					return "只有任务执行人能编辑清单。", nil
+				}
+				if err := d.Store.ReplaceChecklist(ctx, t.ID, args.Items); err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("已保存 %d 条清单。", len(args.Items)), nil
+			}),
+
+		tool("toggle_checklist", "勾选或取消勾选清单条目（按序号，从1开始）。",
+			obj(map[string]any{
+				"task_id":  p("integer", "任务ID"),
+				"position": p("integer", "条目序号（从1开始）"),
+				"done":     p("boolean", "是否完成"),
+			}, "task_id", "position", "done"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID   int64 `json:"task_id"`
+					Position int   `json:"position"`
+					Done     bool  `json:"done"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssigneeID != u.ID {
+					return "只有任务执行人能勾选清单。", nil
+				}
+				if err := d.Store.ToggleChecklist(ctx, t.ID, args.Position-1, args.Done); err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "清单条目不存在。", nil
+					}
+					return "", err
+				}
+				return "已更新。", nil
+			}),
+
+		tool("add_progress", "给任务添加进度记录（把用户汇报总结后写入）。需要是任务执行人。",
+			obj(map[string]any{
+				"task_id": p("integer", "任务ID"),
+				"content": p("string", "进度内容"),
+			}, "task_id", "content"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID  int64  `json:"task_id"`
+					Content string `json:"content"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssigneeID != u.ID {
+					return "只有任务执行人能记录进度。", nil
+				}
+				if err := d.Store.AddProgress(ctx, t.ID, u.ID, args.Content); err != nil {
+					return "", err
+				}
+				return "已记录。", nil
+			}),
+
+		tool("attach_to_task", "给任务附加文件/图片引用。需要是任务执行人或分配者。",
+			obj(map[string]any{
+				"task_id":  p("integer", "任务ID"),
+				"file_ref": p("string", "文件引用（如 Telegram file_id）"),
+				"caption":  p("string", "说明（可选）"),
+			}, "task_id", "file_ref"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID  int64  `json:"task_id"`
+					FileRef string `json:"file_ref"`
+					Caption string `json:"caption"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if !canSeeTask(u, t) {
+					return "你不是该任务的执行人或分配者。", nil
+				}
+				if err := d.Store.AddAttachment(ctx, store.Attachment{
+					TaskID: t.ID, Kind: "file", FileRef: args.FileRef, Caption: args.Caption,
+				}); err != nil {
+					return "", err
+				}
+				return "已附加。", nil
+			}),
+
+		tool("split_my_task", "拆分我的任务并分配给他人（也可分给自己）。原任务标记为已拆分，执行转移到子任务。",
+			obj(map[string]any{
+				"task_id": p("integer", "要拆分的任务ID"),
+				"subtasks": map[string]any{
+					"type": "array", "description": "子任务列表",
+					"items": obj(map[string]any{
+						"assignee_id": p("integer", "执行人用户ID"),
+						"title":       p("string", "标题"),
+						"goal":        p("string", "为什么做（可选）"),
+						"description": p("string", "做什么"),
+						"acceptance":  p("string", "验收标准（可选）"),
+						"deadline":    p("string", "截止时间 ISO8601（可选）"),
+					}, "assignee_id", "title", "description"),
+				},
+			}, "task_id", "subtasks"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID   int64 `json:"task_id"`
+					Subtasks []struct {
+						AssigneeID  int64  `json:"assignee_id"`
+						Title       string `json:"title"`
+						Goal        string `json:"goal"`
+						Description string `json:"description"`
+						Acceptance  string `json:"acceptance"`
+						Deadline    string `json:"deadline"`
+					} `json:"subtasks"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if len(args.Subtasks) == 0 {
+					return "至少要有一个子任务。", nil
+				}
+				parent, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if parent.AssigneeID != u.ID {
+					return "只能拆分分配给你的任务。", nil
+				}
+				subs := make([]*store.Task, 0, len(args.Subtasks))
+				for _, st := range args.Subtasks {
+					if _, err := mustUser(ctx, d.Store, st.AssigneeID); err != nil {
+						return err.Error(), nil
+					}
+					deadline, derr := parseDeadline(st.Deadline, d.TZ)
+					if derr != nil {
+						return derr.Error(), nil
+					}
+					subs = append(subs, &store.Task{
+						ProjectID: parent.ProjectID, AssignerID: u.ID, AssigneeID: st.AssigneeID,
+						Title: st.Title, Goal: st.Goal, Description: st.Description,
+						Acceptance: st.Acceptance, Deadline: deadline,
+					})
+				}
+				created, err := d.Store.SplitTask(ctx, parent.ID, subs)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "任务当前状态不允许拆分（可能已完成或已拆分）。", nil
+					}
+					return "", err
+				}
+				// 权限继承：子任务执行人继承拆分者的 view_self_intro 范围（超管 → _all）。
+				inheritViewPerms(ctx, d, u, created)
+				// 通知各执行人。
+				for _, t := range created {
+					if t.AssigneeID != u.ID {
+						notifyQuiet(ctx, d, t.AssigneeID,
+							fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
+					}
+				}
+				var b strings.Builder
+				fmt.Fprintf(&b, "已拆分为 %d 个子任务：\n", len(created))
+				for _, t := range created {
+					fmt.Fprintf(&b, "- #%d %s → 用户%d\n", t.ID, t.Title, t.AssigneeID)
+				}
+				return b.String(), nil
+			}),
+
+		tool("get_assigned_tasks", "查看我分配出去的任务及其进度。", obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				ts, err := d.Store.TasksOfAssigner(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				return renderTasks(ts, d.TZ), nil
+			}),
+
+		tool("update_assigned_task", "修改我分配出去的任务的目标/描述/验收标准/截止时间。只有分配者能改。",
+			obj(map[string]any{
+				"task_id":     p("integer", "任务ID"),
+				"goal":        p("string", "新目标（可选）"),
+				"description": p("string", "新描述（可选）"),
+				"acceptance":  p("string", "新验收标准（可选）"),
+				"deadline":    p("string", "新截止时间 ISO8601（可选）"),
+			}, "task_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID      int64   `json:"task_id"`
+					Goal        *string `json:"goal"`
+					Description *string `json:"description"`
+					Acceptance  *string `json:"acceptance"`
+					Deadline    string  `json:"deadline"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssignerID != u.ID {
+					return "只有分配者能修改任务。", nil
+				}
+				deadline, derr := parseDeadline(args.Deadline, d.TZ)
+				if derr != nil {
+					return derr.Error(), nil
+				}
+				if _, err := d.Store.UpdateTaskContent(ctx, t.ID, args.Goal, args.Description, args.Acceptance, deadline); err != nil {
+					return "", err
+				}
+				if t.AssigneeID != u.ID {
+					notifyQuiet(ctx, d, t.AssigneeID,
+						fmt.Sprintf("✏️ 任务「%s」（#%d）的要求被 %s 更新了，请查看详情。", t.Title, t.ID, u.Name))
+				}
+				return "已更新。", nil
+			}),
+
+		tool("delete_assigned_task", "删除我分配出去的任务（递归删除其子任务）。只有分配者能删。",
+			obj(map[string]any{"task_id": p("integer", "任务ID")}, "task_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID int64 `json:"task_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssignerID != u.ID {
+					return "只有分配者能删除任务。", nil
+				}
+				if err := d.Store.DeleteTask(ctx, t.ID); err != nil {
+					return "", err
+				}
+				return "已删除。", nil
+			}),
+
+		// --- 管理视角 ---
+		tool("create_project", "创建一个新项目。需要 create_project 权限。",
+			obj(map[string]any{
+				"name":        p("string", "项目名"),
+				"description": p("string", "项目描述（可选）"),
+			}, "name"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Name        string `json:"name"`
+					Description string `json:"description"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if !u.IsSuperadmin {
+					grants, err := d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+					if !hasAnyActive(grants, perm.ActCreateProject) {
+						return "你没有 create_project 权限。", nil
+					}
+				}
+				pj, err := d.Store.CreateProject(ctx, args.Name, args.Description, u.ID)
+				if err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("项目「%s」已创建（ID %d）。", pj.Name, pj.ID), nil
+			}),
+
+		tool("list_my_projects", "查看我创建的项目。", obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				ps, err := d.Store.ProjectsByCreator(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				return renderProjects(ps), nil
+			}),
+
+		tool("assign_task", "在项目中创建任务并分配给某人。需要对该人的 create_project 权限。",
+			obj(map[string]any{
+				"project_id":  p("integer", "项目ID"),
+				"assignee_id": p("integer", "执行人用户ID"),
+				"title":       p("string", "标题"),
+				"goal":        p("string", "为什么做（可选）"),
+				"description": p("string", "做什么"),
+				"acceptance":  p("string", "验收标准（可选）"),
+				"deadline":    p("string", "截止时间 ISO8601（可选）"),
+				"priority":    p("string", "low/normal/high（可选）"),
+			}, "project_id", "assignee_id", "title", "description"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					ProjectID   int64  `json:"project_id"`
+					AssigneeID  int64  `json:"assignee_id"`
+					Title       string `json:"title"`
+					Goal        string `json:"goal"`
+					Description string `json:"description"`
+					Acceptance  string `json:"acceptance"`
+					Deadline    string `json:"deadline"`
+					Priority    string `json:"priority"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				pj, err := d.Store.ProjectByID(ctx, args.ProjectID)
+				if err != nil {
+					return fmt.Sprintf("项目 %d 不存在", args.ProjectID), nil
+				}
+				if pj.CreatorID != u.ID && !u.IsSuperadmin {
+					return "只有项目创建者能在项目中派任务。", nil
+				}
+				if _, err := mustUser(ctx, d.Store, args.AssigneeID); err != nil {
+					return err.Error(), nil
+				}
+				if !u.IsSuperadmin && args.AssigneeID != u.ID {
+					grants, err := d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+					if !perm.CheckActive(grants, perm.ActCreateProject, args.AssigneeID) {
+						return "你没有对该用户的 create_project 权限。", nil
+					}
+				}
+				deadline, derr := parseDeadline(args.Deadline, d.TZ)
+				if derr != nil {
+					return derr.Error(), nil
+				}
+				t, err := d.Store.CreateTask(ctx, &store.Task{
+					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: args.AssigneeID,
+					Title: args.Title, Goal: args.Goal, Description: args.Description,
+					Acceptance: args.Acceptance, Priority: args.Priority, Deadline: deadline,
+				})
+				if err != nil {
+					return "", err
+				}
+				inheritViewPerms(ctx, d, u, []*store.Task{t})
+				if t.AssigneeID != u.ID {
+					notifyQuiet(ctx, d, t.AssigneeID,
+						fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
+				}
+				return fmt.Sprintf("任务「%s」已创建（#%d）并分配给用户 %d。", t.Title, t.ID, t.AssigneeID), nil
+			}),
+
+		tool("view_project", "查看项目的完整任务树。需要是项目创建者。",
+			obj(map[string]any{"project_id": p("integer", "项目ID")}, "project_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					ProjectID int64 `json:"project_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				pj, err := d.Store.ProjectByID(ctx, args.ProjectID)
+				if err != nil {
+					return fmt.Sprintf("项目 %d 不存在", args.ProjectID), nil
+				}
+				if pj.CreatorID != u.ID && !u.IsSuperadmin {
+					return "只有项目创建者能查看全景。", nil
+				}
+				ts, err := d.Store.TasksOfProject(ctx, pj.ID)
+				if err != nil {
+					return "", err
+				}
+				var b strings.Builder
+				fmt.Fprintf(&b, "项目「%s」（%s）\n", pj.Name, pj.Status)
+				for _, t := range ts {
+					if t.ParentID == nil {
+						if err := renderTree(ctx, d.Store, t, 0, &b, d.TZ); err != nil {
+							return "", err
+						}
+					}
+				}
+				return b.String(), nil
+			}),
+
+		tool("archive_project", "归档项目。需要是项目创建者。",
+			obj(map[string]any{"project_id": p("integer", "项目ID")}, "project_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				return setProjectStatus(ctx, d, u, raw, store.ProjectArchived)
+			}),
+
+		tool("delete_project", "删除项目及其所有任务。不可恢复，需要是项目创建者。",
+			obj(map[string]any{"project_id": p("integer", "项目ID")}, "project_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					ProjectID int64 `json:"project_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				pj, err := d.Store.ProjectByID(ctx, args.ProjectID)
+				if err != nil {
+					return fmt.Sprintf("项目 %d 不存在", args.ProjectID), nil
+				}
+				if pj.CreatorID != u.ID && !u.IsSuperadmin {
+					return "只有项目创建者能删除项目。", nil
+				}
+				if err := d.Store.DeleteProject(ctx, pj.ID); err != nil {
+					return "", err
+				}
+				return "项目及其任务已删除。", nil
+			}),
+	}
+}
+
+func setProjectStatus(ctx context.Context, d Deps, u *store.User, raw json.RawMessage, status string) (string, error) {
+	var args struct {
+		ProjectID int64 `json:"project_id"`
+	}
+	if err := decode(raw, &args); err != nil {
+		return err.Error(), nil
+	}
+	pj, err := d.Store.ProjectByID(ctx, args.ProjectID)
+	if err != nil {
+		return fmt.Sprintf("项目 %d 不存在", args.ProjectID), nil
+	}
+	if pj.CreatorID != u.ID && !u.IsSuperadmin {
+		return "只有项目创建者能操作。", nil
+	}
+	if err := d.Store.SetProjectStatus(ctx, pj.ID, status); err != nil {
+		return "", err
+	}
+	return "已更新为 " + status + "。", nil
+}
+
+func canSeeTask(u *store.User, t *store.Task) bool {
+	return u.IsSuperadmin || t.AssigneeID == u.ID || t.AssignerID == u.ID
+}
+
+func hasAnyActive(grants []store.Grant, action string) bool {
+	for _, g := range grants {
+		if g.Kind == store.KindActive && g.Action == action {
+			return true
+		}
+	}
+	return false
+}
+
+// inheritViewPerms 派任务时的权限继承：执行人获得分配者 view_self_intro 的可见范围。
+// 失败只记日志，不阻断派发。
+func inheritViewPerms(ctx context.Context, d Deps, assigner *store.User, created []*store.Task) {
+	grantTo := func(assigneeID int64, target string) {
+		err := d.Store.GrantPerm(ctx, store.Grant{
+			Kind: store.KindActive, UserID: assigneeID, Action: perm.ActViewSelfIntro,
+			Target: target, GrantedBy: assigner.ID,
+		})
+		if err != nil && !errors.Is(err, store.ErrConflict) {
+			slog.Warn("权限继承失败", "assignee", assigneeID, "err", err)
+		}
+	}
+	var all bool
+	var targets []int64
+	if assigner.IsSuperadmin {
+		all = true
+	} else {
+		grants, err := d.Store.PermsOf(ctx, assigner.ID)
+		if err != nil {
+			slog.Warn("权限继承读取失败", "err", err)
+			return
+		}
+		all, targets = perm.ViewIntroTargets(grants)
+	}
+	for _, t := range created {
+		if t.AssigneeID == assigner.ID {
+			continue
+		}
+		if all {
+			grantTo(t.AssigneeID, store.TargetAll)
+			continue
+		}
+		for _, tg := range targets {
+			grantTo(t.AssigneeID, fmt.Sprintf("%d", tg))
+		}
+	}
+}
+
+func notifyQuiet(ctx context.Context, d Deps, userID int64, text string) {
+	if d.Notifier == nil {
+		return
+	}
+	if err := d.Notifier.Send(ctx, userID, text); err != nil {
+		slog.Warn("通知投递失败", "user", userID, "err", err)
+	}
+}
+
+// parseDeadline 解析 ISO8601；不带时区时按配置时区解释（修复 legacy 的 naive 时间异常）。
+func parseDeadline(s string, tz *time.Location) (*time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return &t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05", s, tz); err == nil {
+		return &t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02 15:04", s, tz); err == nil {
+		return &t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02", s, tz); err == nil {
+		return &t, nil
+	}
+	return nil, fmt.Errorf("时间格式无法解析: %q（请用 ISO8601，如 2026-07-05T18:00:00+08:00）", s)
+}
+
+func renderProjects(ps []store.Project) string {
+	if len(ps) == 0 {
+		return "（无项目）"
+	}
+	var b strings.Builder
+	for _, pj := range ps {
+		fmt.Fprintf(&b, "- #%d %s（%s）%s\n", pj.ID, pj.Name, pj.Status, pj.Description)
+	}
+	return b.String()
+}
+
+func renderTasks(ts []*store.Task, tz *time.Location) string {
+	if len(ts) == 0 {
+		return "（无任务）"
+	}
+	var b strings.Builder
+	for _, t := range ts {
+		b.WriteString(taskLine(t, tz))
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+func taskLine(t *store.Task, tz *time.Location) string {
+	line := fmt.Sprintf("#%d [%s] %s（执行人 %d，分配者 %d）", t.ID, t.Status, t.Title, t.AssigneeID, t.AssignerID)
+	if t.Deadline != nil {
+		line += " 截止 " + fmtTime(*t.Deadline, tz)
+	}
+	if t.Priority != "" && t.Priority != "normal" {
+		line += " 优先级 " + t.Priority
+	}
+	return line
+}
+
+func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error) {
+	var b strings.Builder
+	b.WriteString(taskLine(t, d.TZ))
+	b.WriteByte('\n')
+	if t.Goal != "" {
+		fmt.Fprintf(&b, "目标: %s\n", t.Goal)
+	}
+	if t.Description != "" {
+		fmt.Fprintf(&b, "描述: %s\n", t.Description)
+	}
+	if t.Acceptance != "" {
+		fmt.Fprintf(&b, "验收标准: %s\n", t.Acceptance)
+	}
+	items, err := d.Store.Checklist(ctx, t.ID)
+	if err != nil {
+		return "", err
+	}
+	if len(items) > 0 {
+		b.WriteString("清单:\n")
+		for _, it := range items {
+			mark := "☐"
+			if it.Done {
+				mark = "☑"
+			}
+			fmt.Fprintf(&b, "  %s %d. %s\n", mark, it.Position+1, it.Item)
+		}
+	}
+	progress, err := d.Store.ProgressOf(ctx, t.ID)
+	if err != nil {
+		return "", err
+	}
+	if len(progress) > 0 {
+		b.WriteString("进度:\n")
+		for _, pr := range progress {
+			fmt.Fprintf(&b, "  [%s] %s\n", fmtTime(pr.CreatedAt, d.TZ), pr.Content)
+		}
+	}
+	atts, err := d.Store.AttachmentsOf(ctx, t.ID)
+	if err != nil {
+		return "", err
+	}
+	if len(atts) > 0 {
+		fmt.Fprintf(&b, "附件: %d 个\n", len(atts))
+	}
+	return b.String(), nil
+}
+
+func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b *strings.Builder, tz *time.Location) error {
+	if depth > 32 {
+		return nil // 防御环
+	}
+	b.WriteString(strings.Repeat("  ", depth))
+	b.WriteString(taskLine(t, tz))
+	b.WriteByte('\n')
+	subs, err := s.SubTasks(ctx, t.ID)
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		if err := renderTree(ctx, s, sub, depth+1, b, tz); err != nil {
+			return err
+		}
+	}
+	return nil
+}
