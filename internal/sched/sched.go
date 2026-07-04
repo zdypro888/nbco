@@ -33,6 +33,8 @@ const (
 	escalateAfter = 2
 	// digestOverdueLimit 日报中列出的过期任务上限。
 	digestOverdueLimit = 10
+	// sendConcurrency 模板类推送/查询的并发上限（廉价、网络受限，可高于 AI）。
+	sendConcurrency = 16
 )
 
 // Scheduler 调度器。
@@ -44,11 +46,36 @@ type Scheduler struct {
 	channel   string // AI 轮次挂在用户哪个渠道的会话上（与主入口一致，保证上下文连续）
 	tz        *time.Location
 	dailyHour int // -1 关闭每日/每周汇总
+
+	aiPool   *pool // AI 轮次限并发（护后端网关）：催办/周报/画像/定时 AI 推送
+	sendPool *pool // 模板推送/逐人查询限并发（廉价）：每日汇总扇出
 }
 
-// New 创建调度器。
-func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, channel string, tz *time.Location, dailyHour int) *Scheduler {
-	return &Scheduler{store: s, notifier: n, orch: orch, channel: channel, tz: tz, dailyHour: dailyHour}
+// New 创建调度器。aiConcurrency 是同时进行的 AI 轮次上限（<=0 取默认 4）。
+func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, channel string, tz *time.Location, dailyHour, aiConcurrency int) *Scheduler {
+	if aiConcurrency <= 0 {
+		aiConcurrency = 4
+	}
+	return &Scheduler{
+		store: s, notifier: n, orch: orch, channel: channel, tz: tz, dailyHour: dailyHour,
+		aiPool: newPool(aiConcurrency), sendPool: newPool(sendConcurrency),
+	}
+}
+
+// dispatchAI 派发一轮系统触发的 AI 生成 + 推送，受 aiPool 限并发、对 tick 非阻塞。
+// prefix 前缀（如「🧭 月度人员盘点\n」），after 在推送成功后执行（可为 nil，用于催办升级）。
+func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, directive, prefix, label string, after func()) {
+	s.aiPool.submit(ctx, func() {
+		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+		if err != nil {
+			slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
+			return
+		}
+		s.send(ctx, u.ID, prefix+reply)
+		if after != nil {
+			after()
+		}
+	})
 }
 
 // Run 阻塞运行直到 ctx 结束。
@@ -106,14 +133,13 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
 					"需要事实（如其今日待办、任务状态）先用工具查询，个性化、简洁、不编造：\n%s\n"+
 					"你的回复会作为主动消息直接推送给该用户。", sc.Message)
-			reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
-			if err != nil {
-				slog.Error("定时 AI 轮次失败", "schedule", sc.ID, "user", u.ID, "err", err)
-				continue
-			}
-			s.send(ctx, u.ID, reply)
+			// 每位目标一轮 AI，受 aiPool 限并发异步跑：全员推送不会齐发打爆网关，
+			// 也不阻塞调度节拍。
+			s.dispatchAI(ctx, u, directive, "", "定时推送", nil)
 		default:
-			s.send(ctx, u.ID, "⏰ 提醒："+sc.Message)
+			msg := "⏰ 提醒：" + sc.Message
+			uid := u.ID
+			s.sendPool.submit(ctx, func() { s.send(ctx, uid, msg) })
 		}
 	}
 }
@@ -170,18 +196,16 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 				"语气友善但明确，询问具体卡点，提醒截止影响；若对方确有困难，建议其联系分配者调整任务或期限。"+
 				"你的回复会作为主动消息直接推送给执行人。",
 			t.ID, t.Title, s.fmtTime(*t.Deadline), int(nudgeInterval.Hours()))
-		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
-		if err != nil {
-			slog.Error("催办 AI 轮次失败", "task", t.ID, "user", u.ID, "err", err)
-			continue
+		t := t // 捕获循环变量
+		// 催办成功后升级：累计多次仍无进度 → 分配者介入（模板消息，确定性投递）。
+		escalate := func() {
+			if t.NudgeCount >= escalateAfter && t.AssignerID != t.AssigneeID {
+				s.send(ctx, t.AssignerID,
+					fmt.Sprintf("⚠️ 你分配的任务「%s」（#%d，执行人 %s）已催办 %d 次仍无进度，请介入：调整任务、改期或改派。",
+						t.Title, t.ID, u.Name, t.NudgeCount))
+			}
 		}
-		s.send(ctx, u.ID, reply)
-		// 升级：累计多次催办仍无进度 → 分配者介入（模板消息，确定性投递）。
-		if t.NudgeCount >= escalateAfter && t.AssignerID != t.AssigneeID {
-			s.send(ctx, t.AssignerID,
-				fmt.Sprintf("⚠️ 你分配的任务「%s」（#%d，执行人 %s）已催办 %d 次仍无进度，请介入：调整任务、改期或改派。",
-					t.Title, t.ID, u.Name, t.NudgeCount))
-		}
+		s.dispatchAI(ctx, u, directive, "", "催办", escalate)
 	}
 }
 
@@ -222,12 +246,7 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		if !u.IsSuperadmin || u.Status != store.UserActive {
 			continue
 		}
-		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
-		if err != nil {
-			slog.Error("画像盘点 AI 轮次失败", "user", u.ID, "err", err)
-			continue
-		}
-		s.send(ctx, u.ID, "🧭 月度人员盘点\n"+reply)
+		s.dispatchAI(ctx, u, directive, "🧭 月度人员盘点\n", "画像盘点", nil)
 	}
 }
 
@@ -271,12 +290,7 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 		if !u.IsSuperadmin || u.Status != store.UserActive {
 			continue
 		}
-		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
-		if err != nil {
-			slog.Error("周报 AI 轮次失败", "user", u.ID, "err", err)
-			continue
-		}
-		s.send(ctx, u.ID, "📈 每周汇总\n"+reply)
+		s.dispatchAI(ctx, u, directive, "📈 每周汇总\n", "周报", nil)
 	}
 }
 
@@ -287,8 +301,11 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 		slog.Error("取临近截止任务失败", "err", err)
 	}
 	for _, t := range warn {
-		s.send(ctx, t.AssigneeID,
-			fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+		t := t
+		s.sendPool.submit(ctx, func() {
+			s.send(ctx, t.AssigneeID,
+				fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+		})
 	}
 
 	over, err := s.store.DueOverdueNotices(ctx, now)
@@ -296,12 +313,15 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 		slog.Error("取过期任务失败", "err", err)
 	}
 	for _, t := range over {
-		s.send(ctx, t.AssigneeID,
-			fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
-		if t.AssignerID != t.AssigneeID {
-			s.send(ctx, t.AssignerID,
-				fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline)))
-		}
+		t := t
+		s.sendPool.submit(ctx, func() {
+			s.send(ctx, t.AssigneeID,
+				fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+			if t.AssignerID != t.AssigneeID {
+				s.send(ctx, t.AssignerID,
+					fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline)))
+			}
+		})
 	}
 }
 
@@ -336,21 +356,26 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 		return
 	}
 	digest := s.buildDigest(ctx, users)
+	// 逐人查待办 + 推送：受 sendPool 限并发异步扇出，几百上千人也不会串行拖成
+	// 一长串，也不阻塞调度节拍（都是廉价 DB 查询 + 一条推送）。
 	for _, u := range users {
 		if u.Status != store.UserActive {
 			continue
 		}
-		tasks, err := s.store.TasksOfAssignee(ctx, u.ID, true)
-		if err != nil {
-			slog.Warn("每日汇总取任务失败", "user", u.ID, "err", err)
-			continue
-		}
-		if len(tasks) > 0 {
-			s.send(ctx, u.ID, renderTodos(tasks, s.tz))
-		}
-		if u.IsSuperadmin && digest != "" {
-			s.send(ctx, u.ID, digest)
-		}
+		u := u
+		s.sendPool.submit(ctx, func() {
+			tasks, err := s.store.TasksOfAssignee(ctx, u.ID, true)
+			if err != nil {
+				slog.Warn("每日汇总取任务失败", "user", u.ID, "err", err)
+				return
+			}
+			if len(tasks) > 0 {
+				s.send(ctx, u.ID, renderTodos(tasks, s.tz))
+			}
+			if u.IsSuperadmin && digest != "" {
+				s.send(ctx, u.ID, digest)
+			}
+		})
 	}
 }
 

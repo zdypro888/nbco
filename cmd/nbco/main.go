@@ -86,7 +86,7 @@ func run(configPath string) error {
 	api := httpapi.New(st, orch, deps)
 
 	// AI 催办/周报轮次挂在 Telegram 渠道会话上（与主入口一致，上下文连续）。
-	scheduler := sched.New(st, hub, orch, telegram.Provider, tz, *cfg.DailySummaryHour)
+	scheduler := sched.New(st, hub, orch, telegram.Provider, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
 
 	slog.Info("nbco 启动", "engine", engine.Name(), "listen", cfg.Listen, "tz", tz.String())
 

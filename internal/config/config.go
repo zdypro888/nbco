@@ -58,6 +58,10 @@ type Config struct {
 	// DailySummaryHour 每日待办汇总的本地小时（0-23），-1 关闭。默认 9。
 	DailySummaryHour *int   `json:"daily_summary_hour"`
 	Timezone         string `json:"timezone"` // IANA 时区，默认 Asia/Shanghai
+	// SchedAIConcurrency 调度器同时进行的 AI 轮次上限（催办/周报/定时 AI 推送）。
+	// 每轮 AI 都要调一次模型 API，此上限防止「早安问候推给全体」时几百轮并发打爆
+	// 后端网关。默认 4；设小更省、更慢，设大更快、更吃后端。
+	SchedAIConcurrency int `json:"sched_ai_concurrency"`
 }
 
 // Load 从文件读取并校验配置。
@@ -87,6 +91,9 @@ func (c *Config) applyDefaults() {
 	if c.DailySummaryHour == nil {
 		h := 9
 		c.DailySummaryHour = &h
+	}
+	if c.SchedAIConcurrency <= 0 {
+		c.SchedAIConcurrency = 4
 	}
 	if c.AI.Engine == "" {
 		c.AI.Engine = EngineEino

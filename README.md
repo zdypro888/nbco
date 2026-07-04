@@ -46,6 +46,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `public_base_url` | 保留给外部回调集成，通常留空 |
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
 | `daily_summary_hour` | 每日待办推送小时（0-23），-1 关闭 |
+| `sched_ai_concurrency` | 调度器同时进行的 AI 轮次上限（催办/周报/定时 AI 推送），默认 4；防「全员问候」几百轮齐发打爆后端 |
 | `mcp_servers` | 外接 MCP 工具服务列表（`name`/`url`/`headers`），可选 |
 | `ai.engine` | 仅支持 `eino`（直调 API） |
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
@@ -95,10 +96,17 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 
 `nbco-worker` 装在工作机上，把一台机器变成可派活的 AI 员工。worker 本质是一个特殊用户，复用任务、进度、验收、催办、画像与审计机制。
 
+本机 LaunchAgent 部署用统一脚本，避免 repo 内二进制/配置与实际运行路径漂移：
+
 ```bash
-go build -o nbco-worker ./cmd/nbco-worker
-nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的一次性令牌>
-nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
+scripts/deploy-local.sh
+```
+
+脚本会构建 `nbco` / `nbco-worker`，同步到 `~/.local/bin`，复制 `nbco.json` 到 `~/Library/Application Support/nbco/`，重启 `com.zdypro.nbco` 并检查 `/healthz`。
+
+```bash
+~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的一次性令牌>
+~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
 执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
@@ -141,7 +149,9 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 
 ## 主动运营（AI 主动，人被动）
 
-调度器每 30 秒扫库，发送标记落库（原子认领），重启不重发。两级主动性——模板消息（确定性）与 **AI 轮次**（调度器把系统指令注入用户会话跑一轮引擎，产出个性化内容后推送）：
+调度器每 30 秒扫库，发送标记落库（原子认领），重启不重发。两级主动性——模板消息（确定性）与 **AI 轮次**（调度器把系统指令注入用户会话跑一轮引擎，产出个性化内容后推送）。
+
+**资源模型**：每次 tick 只做几条**命中部分索引**的原子认领查询（`WHERE fire_at <= now()` / `deadline` / kv 日期），成本随「到期数」而非「任务总数」增长——库里堆多少未来任务都不扫。重活（AI 轮次、逐人推送）**在认领后派发到限并发协程池异步执行**，既不阻塞 30 秒节拍（截止提醒照常及时），又用 `sched_ai_concurrency`（默认 4）护住模型网关：全员 AI 问候不会几百轮齐发，而是限并发滚动完成。模板推送另走 16 并发池。
 
 - **定时提醒**：用户让 AI 设置的单次/循环提醒（`schedule_once` / `schedule_repeating`）
 - **动态运营节奏（`schedule_push`）**：管理者一句话（如"我们10点上班6:30下班，上下班问候一下大家"），AI 自己落成定时规则：目标（某人/全体）× 时间（每天 HH:MM，可限工作日）× 模式（`ai`=每次触发为每位目标现场跑一轮 AI，结合其当天待办等真实数据生成个性化内容；`message`=原文投递）。**代码里没有任何"作息"概念**——政策全在数据行里，说句话就能改；给他人/全体设置需要 `send_msg` 权限
