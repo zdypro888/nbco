@@ -123,11 +123,17 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta)
 }
 
-// readStream 逐块读一条流式消息：助手消息的文本增量实时经 onDelta 推出，同时收集
-// 所有分块，末尾用 ConcatMessages 重组成完整消息（含拼好的 tool_calls）。
+// readStream 逐块读一条流式消息，末尾用 ConcatMessages 重组成完整消息（含拼好的
+// tool_calls）。onDelta 收到的是【本条助手消息累积到目前的可显示文本】快照（含推理
+// ReasoningContent + 正文 Content）——网关据此「替换」显示。这样：
+//   - 推理模型（DeepSeek-R1/o1 等）的思考过程边冒字，不再干等；
+//   - 一条消息若以 tool_calls 收尾，其前导文字只在本消息窗口内显示，下一条消息
+//     （最终答复）开始时快照重置，网关随之刷新，不会「前导+答复」拼接。
+// 收尾时网关用权威 res.Text（仅 Content）覆盖，抹掉推理态。
 func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, onDelta func(string)) (*schema.Message, error) {
 	defer sr.Close()
 	var chunks []*schema.Message
+	var acc strings.Builder // 本条消息累积的可显示文本
 	for {
 		m, err := sr.Recv()
 		if errors.Is(err, io.EOF) {
@@ -140,8 +146,19 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 			continue
 		}
 		chunks = append(chunks, m)
-		if onDelta != nil && role == schema.Assistant && m.Content != "" {
-			onDelta(m.Content)
+		if onDelta != nil && role == schema.Assistant {
+			wrote := false
+			if m.ReasoningContent != "" {
+				acc.WriteString(m.ReasoningContent)
+				wrote = true
+			}
+			if m.Content != "" {
+				acc.WriteString(m.Content)
+				wrote = true
+			}
+			if wrote {
+				onDelta(acc.String())
+			}
 		}
 	}
 	if len(chunks) == 0 {

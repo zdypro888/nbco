@@ -26,7 +26,7 @@ type streamEditor struct {
 	ok     bool // 占位消息就绪、可编辑
 
 	mu   sync.Mutex
-	buf  strings.Builder
+	buf  string // 当前要显示的完整文本（onDelta 替换式写入）
 	sent string // 上次已编辑上去的内容，避免重复编辑报 not modified
 
 	stop    chan struct{}
@@ -64,20 +64,21 @@ func (ed *streamEditor) loop(ctx context.Context) {
 	}
 }
 
-// onDelta 追加增量（引擎 goroutine 调用，只做快操作）。
-func (ed *streamEditor) onDelta(delta string) {
-	if !ed.ok || delta == "" {
+// onDelta 收到当前助手消息的累积快照，【替换】显示缓冲（引擎 goroutine 调，只做快
+// 操作）。替换语义让新消息（如工具调用后的最终答复）自然刷新，不与前导文字拼接。
+func (ed *streamEditor) onDelta(snapshot string) {
+	if !ed.ok || snapshot == "" {
 		return
 	}
 	ed.mu.Lock()
-	ed.buf.WriteString(delta)
+	ed.buf = snapshot
 	ed.mu.Unlock()
 }
 
 // flush 把当前缓冲以纯文本编辑上去（截断到上限；无变化则跳过）。
 func (ed *streamEditor) flush(ctx context.Context) {
 	ed.mu.Lock()
-	cur := strings.TrimSpace(ed.buf.String())
+	cur := strings.TrimSpace(ed.buf)
 	ed.mu.Unlock()
 	if cur == "" || cur == ed.sent {
 		return
@@ -105,7 +106,8 @@ func (ed *streamEditor) stopLoop() {
 }
 
 // finish 收尾：停协程，用最终答复 + HTML 排版覆盖占位消息；过长（多片）则占位改
-// 成首片、其余追加发送。
+// 成首片、其余追加发送。占位消息不可编辑（被用户删/限流）时【发新消息兜底】——
+// 绝不因编辑失败把答复静默丢掉。
 func (ed *streamEditor) finish(ctx context.Context, answer string) {
 	ed.stopLoop()
 	answer = strings.TrimSpace(answer)
@@ -117,13 +119,11 @@ func (ed *streamEditor) finish(ctx context.Context, answer string) {
 		return
 	}
 	chunks := splitChunks(toTelegramHTML(answer), chunkLimit)
-	// 首片覆盖占位消息（HTML 失败降级纯文本）。
-	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
-		ChatID: ed.chatID, MessageID: ed.msgID, Text: chunks[0], ParseMode: models.ParseModeHTML,
-	}); err != nil {
-		_, _ = ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
-			ChatID: ed.chatID, MessageID: ed.msgID, Text: plainFallback(answer, chunks[0]),
-		})
+	// 首片覆盖占位消息；编辑不成（HTML 非法先降级纯文本，仍不成=占位不可编辑）则
+	// 整条答复作为新消息发（sendChunks 内部分片 + HTML 兜底），不丢内容。
+	if !ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0])) {
+		ed.g.reply(ctx, ed.chatID, answer)
+		return
 	}
 	// 其余片作为新消息追加。
 	for _, chunk := range chunks[1:] {
@@ -133,21 +133,37 @@ func (ed *streamEditor) finish(ctx context.Context, answer string) {
 	}
 }
 
-// fail 收尾并把占位消息改成错误提示（无占位则直接发）。
+// fail 收尾并把占位消息改成错误提示；占位不可编辑则发新消息，不吞掉提示。
 func (ed *streamEditor) fail(ctx context.Context, msg string) {
 	ed.stopLoop()
 	if !ed.ok {
 		ed.g.reply(ctx, ed.chatID, msg)
 		return
 	}
-	_, _ = ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
+	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: msg,
-	})
+	}); err != nil {
+		ed.g.reply(ctx, ed.chatID, msg)
+	}
 }
 
-// plainFallback：HTML 单片发送失败时的纯文本兜底。单片时用原始答复；多片时该片
-// 已是 HTML 转换后的分片，退而用它本身（宁可带标签也别丢内容）。
-func plainFallback(answer, chunk string) string {
+// editPlaceholder 用 HTML 编辑占位消息，失败降级纯文本；两者都失败（占位不可编辑）
+// 返回 false，让调用方走发新消息兜底。
+func (ed *streamEditor) editPlaceholder(ctx context.Context, htmlChunk, plainText string) bool {
+	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID: ed.chatID, MessageID: ed.msgID, Text: htmlChunk, ParseMode: models.ParseModeHTML,
+	}); err == nil {
+		return true
+	}
+	_, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID: ed.chatID, MessageID: ed.msgID, Text: plainText,
+	})
+	return err == nil
+}
+
+// plainOf：HTML 编辑失败时的纯文本兜底。单片时用原始答复；多片时该片已是 HTML
+// 转换后的分片，退而用它本身（宁可带标签也别丢内容）。
+func plainOf(answer, chunk string) string {
 	if strings.TrimSpace(answer) != "" && len([]rune(answer)) <= chunkLimit {
 		return answer
 	}

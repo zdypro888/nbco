@@ -1,46 +1,68 @@
 package einoengine
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/cloudwego/eino/schema"
 )
 
-// readStream 逐块读、拼回完整消息、并实时把助手文本增量推给 onDelta。
-func TestReadStreamEmitsDeltasAndConcats(t *testing.T) {
+// readStream 逐块读、拼回完整消息，并把「本条消息累积快照」实时推给 onDelta。
+func TestReadStreamEmitsSnapshotsAndConcats(t *testing.T) {
 	chunks := []*schema.Message{
 		{Role: schema.Assistant, Content: "你好"},
 		{Role: schema.Assistant, Content: "，世界"},
 		{Role: schema.Assistant, Content: "！"},
 	}
-	sr := schema.StreamReaderFromArray(chunks)
-
-	var deltas []string
-	msg, err := readStream(sr, schema.Assistant, func(d string) { deltas = append(deltas, d) })
+	var snaps []string
+	msg, err := readStream(schema.StreamReaderFromArray(chunks), schema.Assistant,
+		func(s string) { snaps = append(snaps, s) })
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(deltas, "") != "你好，世界！" {
-		t.Fatalf("增量流不对: %v", deltas)
+	// 快照是累积的（替换式显示），最后一帧=完整文本。
+	want := []string{"你好", "你好，世界", "你好，世界！"}
+	if len(snaps) != 3 || snaps[0] != want[0] || snaps[1] != want[1] || snaps[2] != want[2] {
+		t.Fatalf("累积快照不对: %v", snaps)
 	}
 	if msg == nil || msg.Content != "你好，世界！" {
 		t.Fatalf("重组消息不对: %+v", msg)
 	}
 }
 
-// 非助手角色（工具消息）不推增量；onDelta 为 nil 不 panic。
+// 推理模型：ReasoningContent 也要边冒字（否则占位冻结几十秒）。
+func TestReadStreamEmitsReasoning(t *testing.T) {
+	chunks := []*schema.Message{
+		{Role: schema.Assistant, ReasoningContent: "先想想"},
+		{Role: schema.Assistant, ReasoningContent: "……嗯"},
+		{Role: schema.Assistant, Content: "答案是42"},
+	}
+	var snaps []string
+	msg, err := readStream(schema.StreamReaderFromArray(chunks), schema.Assistant,
+		func(s string) { snaps = append(snaps, s) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 推理阶段就有快照（不再全程 0 增量），末帧含推理+正文。
+	if len(snaps) != 3 || snaps[0] != "先想想" || snaps[2] != "先想想……嗯答案是42" {
+		t.Fatalf("推理未流式: %v", snaps)
+	}
+	if msg == nil || msg.Content != "答案是42" {
+		t.Fatalf("重组消息正文不对: %+v", msg)
+	}
+}
+
+// 非助手角色（工具消息）不推快照；onDelta 为 nil 不 panic。
 func TestReadStreamSkipsNonAssistantAndNilDelta(t *testing.T) {
-	sr := schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Tool, Content: "工具结果"}})
 	called := false
-	if _, err := readStream(sr, schema.Tool, func(string) { called = true }); err != nil {
+	if _, err := readStream(schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Tool, Content: "工具结果"}}),
+		schema.Tool, func(string) { called = true }); err != nil {
 		t.Fatal(err)
 	}
 	if called {
-		t.Error("工具消息不应推文本增量")
+		t.Error("工具消息不应推快照")
 	}
-	sr2 := schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Assistant, Content: "x"}})
-	if _, err := readStream(sr2, schema.Assistant, nil); err != nil {
+	if _, err := readStream(schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Assistant, Content: "x"}}),
+		schema.Assistant, nil); err != nil {
 		t.Fatal(err) // onDelta=nil 不应 panic
 	}
 }

@@ -80,10 +80,11 @@ type TurnRequest struct {
 	// OnEvent 可选回调：工具调用与文本产出实时上报（审计/流式）。
 	// 引擎在任意 goroutine 调用它，实现方需自行保证并发安全。
 	OnEvent func(Step)
-	// OnDelta 可选：模型最终答复的文本【增量】实时回调（eino 流式）。nil 表示
-	// 不需要流式；非 nil 时引擎边生成边推增量，供网关渐进式显示（长轮次不干等）。
+	// OnDelta 可选：流式渐进显示回调（eino 流式）。nil = 不流式。传入的是【当前
+	// 助手消息累积到目前的可显示文本快照】（含推理 + 正文），网关应「替换」显示而非
+	// 追加；新消息开始时快照重置（短），网关随之刷新。收尾以 TurnResult.Text 为准。
 	// 与 OnEvent 一样可能在任意 goroutine 调用，实现方自行保证并发安全。
-	OnDelta func(delta string)
+	OnDelta func(text string)
 }
 
 // TurnResult 一轮对话结果。
