@@ -55,6 +55,7 @@ func (ed *streamEditor) loop(ctx context.Context) {
 	defer editTick.Stop()
 	typingTick := time.NewTicker(streamTypingEvery)
 	defer typingTick.Stop()
+	typingInFlight := make(chan struct{}, 1)
 	for {
 		select {
 		case <-ed.stop:
@@ -64,7 +65,14 @@ func (ed *streamEditor) loop(ctx context.Context) {
 		case <-editTick.C:
 			ed.flush(ctx)
 		case <-typingTick.C:
-			ed.g.sendTyping(ctx, ed.chatID)
+			select {
+			case typingInFlight <- struct{}{}:
+				go func() {
+					defer func() { <-typingInFlight }()
+					ed.g.sendTyping(ctx, ed.chatID)
+				}()
+			default:
+			}
 		}
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// BindKey 入职绑定 Key：落库、带过期、一次性。
+// BindKey 真人员工入职 Key：落库、带过期、一次性。
 type BindKey struct {
 	Key       string
 	CreatedBy int64
@@ -18,7 +18,7 @@ type BindKey struct {
 	CreatedAt time.Time
 }
 
-// CreateBindKey 生成绑定 Key。
+// CreateBindKey 生成真人员工入职 Key。
 func (s *Store) CreateBindKey(ctx context.Context, createdBy int64, ttl time.Duration) (*BindKey, error) {
 	key, err := randomHex(16)
 	if err != nil {

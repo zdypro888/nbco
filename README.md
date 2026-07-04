@@ -2,7 +2,7 @@
 
 让几十人规模、没有职业中层的公司，靠 AI 运转起来。AI 是每个员工的直属经理 + 老板的参谋部；IM、Web 都只是它的接口。规划见 [PLAN.md](PLAN.md)。
 
-Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有运行状态（用户、权限、任务、会话、绑定 Key、定时任务、审计）落 PostgreSQL，随时可杀可重启。
+Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有运行状态（用户、权限、任务、会话、真人员工入职 Key、Worker 接入 Token、定时任务、审计）落 PostgreSQL，随时可杀可重启。
 
 ## 架构
 
@@ -83,6 +83,16 @@ curl -X POST http://<listen>/api/bootstrap \
 
 该接口仅在系统没有活跃超管时可用，会返回首任超管和首个 API token；已有超管后再调用会返回 `409`。已有账号可在 TG/Web 对话里让 AI 调 `generate_api_token` 重新生成自己的 token。
 
+## 凭证区别
+
+| 凭证 | 给谁用 | 怎么生成 | 生命周期 | 用途 |
+| --- | --- | --- | --- | --- |
+| 真人员工入职 Key | 真人员工 | `generate_key` | 24 小时有效，只能用一次 | 员工首次在 Telegram 绑定身份 |
+| 用户 API Token | 真人员工或超管 | `generate_api_token` | 常驻，重新生成会替换旧 token | HTTP API / Web / MCP 认证 |
+| Worker 接入 Token | `nbco-worker` 客户端 | `create_worker` | 常驻，吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
+
+这三种不要混用。多个 worker 必须各自 `create_worker`，每个 worker 拿自己的 Worker 接入 Token；同一个 Worker Token 放到多台机器上，服务端仍把它们视为同一个 AI worker。
+
 常用接口：
 
 - `POST /api/chat` `{"message":"..."}` → `{"reply":"..."}` — 与 TG 同一编排器，独立会话
@@ -110,7 +120,7 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 
 `nbco-worker` 装在工作机上，把一台机器变成可派活的 AI 员工。worker 本质是一个特殊用户，复用任务、进度、验收、催办、画像与审计机制。
 worker 是独立工作代理，不依赖 Telegram；Telegram、Web、HTTP API、MCP 都只是给中枢创建任务和查看结果的入口。文件与产物闭环规划见 [docs/worker-roadmap.md](docs/worker-roadmap.md)。
-每个 worker 必须使用自己独立的 `create_worker` 接入令牌；服务端用 token 反查 worker 用户 ID 来区分身份。不要把同一个 token 复制给多个 worker，那会被视为同一个 AI 员工，多进程只是在抢同一身份的任务。
+每个 worker 必须使用自己独立的 `create_worker` Worker 接入 Token；服务端用 token 反查 worker 用户 ID 来区分身份。不要把同一个 Worker Token 复制给多个 worker，那会被视为同一个 AI worker，多进程只是在抢同一身份的任务。
 
 本机 LaunchAgent 部署用统一脚本，避免 repo 内二进制/配置与实际运行路径漂移：
 
@@ -121,13 +131,13 @@ scripts/deploy-local.sh
 脚本会构建 `nbco` / `nbco-worker`，同步到 `~/.local/bin`，复制 `nbco.json` 到 `~/Library/Application Support/nbco/`，重启 `com.zdypro.nbco` 并检查 `/healthz`。
 
 ```bash
-~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的仅显示一次的常驻接入令牌>
+~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的 Worker 接入 Token>
 ~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
 `bind` 会校验 token 必须属于 worker，并把 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
 
-> **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身接入令牌）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 worker 令牌、SSH 私钥等）挡在其可达范围外。
+> **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身 Worker 接入 Token）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 Worker Token、SSH 私钥等）挡在其可达范围外。
 
 执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
 

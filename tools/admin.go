@@ -104,7 +104,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已更新。", nil
 			}),
 
-		tool("generate_key", "生成入职绑定 Key（24小时有效、一次性）。需要 generate_key 权限。",
+		tool("generate_key", "生成真人员工入职 Key（24小时有效、一次性，用于 Telegram 首次加入；不是 worker 接入 Token）。需要 generate_key 权限。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				if !u.IsSuperadmin {
@@ -120,10 +120,10 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("绑定 Key：%s\n有效期至 %s，仅可使用一次。", bk.Key, fmtTime(bk.ExpiresAt, d.TZ)), nil
+				return fmt.Sprintf("真人员工入职 Key：%s\n有效期至 %s，仅可在 Telegram 首次绑定时使用一次。\n注意：这不是 worker 接入 Token，不能用于 nbco-worker bind。", bk.Key, fmtTime(bk.ExpiresAt, d.TZ)), nil
 			}),
 
-		tool("cancel_key", "作废我生成的全部未使用绑定 Key。", obj(nil),
+		tool("cancel_key", "作废我生成的全部未使用真人员工入职 Key。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				if err := d.Store.CancelBindKeys(ctx, u.ID); err != nil {
 					return "", err
