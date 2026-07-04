@@ -131,11 +131,23 @@ scripts/deploy-local.sh
 脚本会构建 `nbco` / `nbco-worker`，同步到 `~/.local/bin`，复制 `nbco.json` 到 `~/Library/Application Support/nbco/`，重启 `com.zdypro.nbco` 并检查 `/healthz`。
 
 ```bash
-~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的 Worker 接入 Token>
+~/.local/bin/nbco-worker bind https://im.app:8443 <create_worker 返回的 Worker 接入 Token>
 ~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
 `bind` 会校验 token 必须属于 worker，并把 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
+
+同一台机器跑多个 worker 时，每个 worker 用独立配置文件：
+
+```bash
+~/.local/bin/nbco-worker bind -config ~/.config/nbco/workers/frontend.json https://im.app:8443 <frontend-worker-token>
+~/.local/bin/nbco-worker bind -config ~/.config/nbco/workers/reviewer.json https://im.app:8443 <reviewer-worker-token>
+
+~/.local/bin/nbco-worker run -config ~/.config/nbco/workers/frontend.json -engine claude
+~/.local/bin/nbco-worker run -config ~/.config/nbco/workers/reviewer.json -engine codex
+```
+
+也可以用环境变量 `NBCO_WORKER_CONFIG` 指向配置文件。
 
 > **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身 Worker 接入 Token）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 Worker Token、SSH 私钥等）挡在其可达范围外。
 

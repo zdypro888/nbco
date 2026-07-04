@@ -122,9 +122,9 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 					return "没有你可见的画像。", nil
 				}
 				var b strings.Builder
-				fmt.Fprintf(&b, "%s（ID %d）的画像：\n", subject.Name, subject.ID)
+				fmt.Fprintf(&b, "%s 的画像：\n", subject.Name)
 				for _, pr := range visible {
-					who := fmt.Sprintf("作者 %d", pr.AuthorID)
+					who := "他人评价"
 					if pr.AuthorID == subject.ID {
 						who = "自我介绍"
 					}
@@ -184,9 +184,11 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 
 func renderUser(u *store.User) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "ID: %d\n名字: %s\n状态: %s\n", u.ID, u.Name, u.Status)
+	fmt.Fprintf(&b, "名字: %s\n状态: %s\n", u.Name, renderUserStatus(u.Status))
 	if u.IsSuperadmin {
 		b.WriteString("身份: 超级管理员\n")
+	} else if u.IsWorker {
+		b.WriteString("身份: AI worker\n")
 	}
 	// 字段按名排序，输出稳定（利于模型缓存与人眼比对）。
 	keys := make([]string, 0, len(u.Info))
@@ -198,6 +200,17 @@ func renderUser(u *store.User) string {
 		fmt.Fprintf(&b, "%s: %s\n", k, u.Info[k])
 	}
 	return b.String()
+}
+
+func renderUserStatus(status string) string {
+	switch status {
+	case store.UserActive:
+		return "正常"
+	case store.UserDisabled:
+		return "已停用"
+	default:
+		return status
+	}
 }
 
 func renderProfiles(ps []store.Profile) string {

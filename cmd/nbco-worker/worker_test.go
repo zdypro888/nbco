@@ -96,6 +96,18 @@ func TestBuildPromptWithAttachmentsAndArtifacts(t *testing.T) {
 	}
 }
 
+func TestBuildPromptAttachmentFallbackMatchesDownloadedName(t *testing.T) {
+	p := buildPrompt(&Task{
+		Title: "处理附件",
+		Attachments: []Attachment{{
+			ID: 12, OriginalName: "../合同?.pdf", MIMEType: "application/pdf", SizeBytes: 5,
+		}},
+	}, nil, nil)
+	if !strings.Contains(p, "attachments/12-合同_.pdf") {
+		t.Fatalf("prompt 应提示真实下载文件名:\n%s", p)
+	}
+}
+
 func TestSafeFileName(t *testing.T) {
 	cases := map[string]string{
 		"../secret.txt": "secret.txt",

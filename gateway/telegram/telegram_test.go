@@ -139,7 +139,7 @@ func TestGroupChannelAndListenKey(t *testing.T) {
 
 func TestOnboardingMessages(t *testing.T) {
 	help := unboundHelpMessage(false)
-	for _, want := range []string{"欢迎来到", "加入方式", "绑定 Key", "查任务", "设置提醒"} {
+	for _, want := range []string{"欢迎来到", "加入方式", "真人员工入职 Key", "查任务", "设置提醒"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("未绑定帮助缺少 %q:\n%s", want, help)
 		}

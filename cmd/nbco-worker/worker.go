@@ -277,11 +277,7 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	}
 	for i := range task.Attachments {
 		a := &task.Attachments[i]
-		name := safeFileName(a.OriginalName)
-		if name == "" {
-			name = fmt.Sprintf("file-%d", a.ID)
-		}
-		name = fmt.Sprintf("%d-%s", a.ID, name)
+		name := attachmentFileName(*a)
 		dst := filepath.Join(dir, "attachments", name)
 		if err := w.client.DownloadFile(ctx, a.DownloadURL, dst); err != nil {
 			return fmt.Errorf("%s: %w", a.OriginalName, err)
@@ -298,6 +294,14 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 		a.LocalPath = filepath.ToSlash(filepath.Join("attachments", name))
 	}
 	return nil
+}
+
+func attachmentFileName(a Attachment) string {
+	name := safeFileName(a.OriginalName)
+	if name == "" {
+		name = fmt.Sprintf("file-%d", a.ID)
+	}
+	return fmt.Sprintf("%d-%s", a.ID, name)
 }
 
 // uploadArtifacts 上传 dir 下的产物文件。单个失败不中断其余（避免「第 N 个失败
@@ -439,12 +443,12 @@ func buildPrompt(task *Task, knowledge, history []string) string {
 		for _, a := range task.Attachments {
 			path := a.LocalPath
 			if path == "" {
-				path = filepath.ToSlash(filepath.Join("attachments", safeFileName(a.OriginalName)))
+				path = filepath.ToSlash(filepath.Join("attachments", attachmentFileName(a)))
 			}
 			fmt.Fprintf(&b, "- %s（%s，%d bytes）\n", path, a.MIMEType, a.SizeBytes)
 		}
 	}
-	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。")
+	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
 	b.WriteString("如果需要交付文件，请把文件放进 artifacts/ 目录，系统会在提交前自动上传。\n")
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
 	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
