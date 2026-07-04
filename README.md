@@ -111,6 +111,8 @@ scripts/deploy-local.sh
 ~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
+> **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身接入令牌）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 worker 令牌、SSH 私钥等）挡在其可达范围外。
+
 执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
 
 - **vt10x 屏幕仿真**：PTY 字节流喂进内存终端仿真器，一切检测读渲染后的屏幕，不在原始流上扒 ANSI
