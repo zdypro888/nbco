@@ -36,6 +36,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, taskTools(d, u)...)
 	ts = append(ts, scheduleTools(d, u)...)
 	ts = append(ts, roleTools(d, u)...)
+	ts = append(ts, knowledgeTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
 	for i := range ts {

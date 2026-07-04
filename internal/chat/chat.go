@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zdypro888/nbco/internal/ai"
@@ -24,15 +25,34 @@ type Orchestrator struct {
 	engine ai.Engine
 	deps   tools.Deps
 	tz     *time.Location
+
+	mu    sync.Mutex
+	locks map[int64]*sync.Mutex // 同一用户的轮次串行：用户消息与系统触发轮次（催办/周报）不互踩会话
 }
 
 // New 创建编排器。
 func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location) *Orchestrator {
-	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz}
+	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz, locks: map[int64]*sync.Mutex{}}
+}
+
+func (o *Orchestrator) userLock(id int64) *sync.Mutex {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	l, ok := o.locks[id]
+	if !ok {
+		l = &sync.Mutex{}
+		o.locks[id] = l
+	}
+	return l
 }
 
 // HandleMessage 处理用户在某渠道的一轮输入，返回给用户的答复。
+// 系统触发的轮次（催办/周报）同样走这里：调度器把系统指令作为输入传入。
 func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel, text string) (string, error) {
+	lock := o.userLock(u.ID)
+	lock.Lock()
+	defer lock.Unlock()
+
 	sess, err := o.ensureSession(ctx, u, channel)
 	if err != nil {
 		return "", err
@@ -43,12 +63,29 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 		return "", err
 	}
 
+	start := time.Now()
+	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
+	slog.Debug("轮次输入", "session", sess.ID, "text", text)
+
 	req := &ai.TurnRequest{
 		SessionID:     fmt.Sprintf("%d", sess.ID),
 		EngineSession: sess.EngineRef,
 		System:        system,
 		UserText:      text,
 		Tools:         tools.ForUser(o.deps, u, &sess.ID),
+		// 实时轨迹：工具调用与产出上报到日志（审计层另行落库）。
+		OnEvent: func(s ai.Step) {
+			switch {
+			case s.Kind == ai.StepToolCall && s.Err != "":
+				slog.Warn("工具调用失败", "session", sess.ID, "tool", s.ToolName, "err", s.Err)
+			case s.Kind == ai.StepToolCall:
+				slog.Info("工具调用", "session", sess.ID, "tool", s.ToolName, "result_len", len(s.Result))
+				slog.Debug("工具调用详情", "session", sess.ID, "tool", s.ToolName,
+					"args", string(s.Args), "result", truncate(s.Result, 500))
+			case s.Kind == ai.StepText:
+				slog.Debug("模型产出", "session", sess.ID, "text_len", len(s.Result))
+			}
+		},
 	}
 	// eino 引擎需要重放历史；claudecli 用 EngineSession 自带记忆。
 	msgs, err := o.store.MessagesOf(ctx, sess.ID, historyLimit)
@@ -59,15 +96,23 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 		req.History = append(req.History, ai.Message{Role: ai.Role(m.Role), Content: m.Content})
 	}
 
-	res, err := o.engine.RunTurn(ctx, req)
-	if err != nil {
-		return "", fmt.Errorf("AI 引擎失败: %w", err)
-	}
-
-	// 落库：本轮两条消息 + 引擎侧会话标识。审计层已记录工具轨迹。
+	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
+	// 失败轮次会留下孤立的 user 消息，einoengine 重放时做同角色合并兜底。
 	if err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), text); err != nil {
 		slog.Warn("用户消息落库失败", "err", err)
 	}
+
+	res, err := o.engine.RunTurn(ctx, req)
+	if err != nil {
+		slog.Warn("轮次失败", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond), "err", err)
+		return "", fmt.Errorf("AI 引擎失败: %w", err)
+	}
+	slog.Info("轮次完成", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond),
+		"steps", len(res.Steps), "in_tokens", res.Usage.InputTokens, "out_tokens", res.Usage.OutputTokens,
+		"reply_len", len(res.Text))
+	slog.Debug("轮次答复", "session", sess.ID, "text", truncate(res.Text, 500))
+
+	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
 	if err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), res.Text); err != nil {
 		slog.Warn("助手消息落库失败", "err", err)
 	}
@@ -79,10 +124,20 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 	return res.Text, nil
 }
 
-// NewSession 强制开新会话（用户主动重开）。
+// NewSession 强制开新会话（用户主动重开）。等待该用户进行中的轮次结束。
 func (o *Orchestrator) NewSession(ctx context.Context, u *store.User, channel string) error {
+	lock := o.userLock(u.ID)
+	lock.Lock()
+	defer lock.Unlock()
 	_, err := o.store.StartSession(ctx, u.ID, channel, o.engine.Name())
 	return err
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 // ensureSession 取活跃会话；不存在或引擎不匹配时新开。
@@ -109,7 +164,9 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User) (string,
 	b.WriteString("原则：\n")
 	b.WriteString("- 优先用工具查询真实数据，不要凭空编造用户、任务或权限状态。\n")
 	b.WriteString("- 删除项目、删除任务等不可逆操作，先与用户确认再执行。\n")
-	b.WriteString("- 回复用用户的语言，简洁直接，避免罗列内部 ID 之外的技术细节。\n\n")
+	b.WriteString("- 回复用用户的语言，简洁直接，避免罗列内部 ID 之外的技术细节。\n")
+	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动提议存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
+	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n\n")
 
 	fmt.Fprintf(&b, "当前用户：%s（ID %d）", u.Name, u.ID)
 	if u.IsSuperadmin {

@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // 项目状态。
@@ -11,12 +14,14 @@ const (
 	ProjectArchived = "archived"
 )
 
-// 任务状态。
+// 任务状态。流转：pending → in_progress → done（提交待验收）→ accepted（验收通过）。
+// 打回：done → in_progress。自派任务（分配者=执行人）提交即 accepted，免自我验收。
 const (
 	TaskPending    = "pending"
 	TaskInProgress = "in_progress"
-	TaskDone       = "done"
-	TaskSplit      = "split" // 已拆分：由子任务承载执行
+	TaskDone       = "done"     // 已提交，等待分配者验收
+	TaskAccepted   = "accepted" // 验收通过（终态）
+	TaskSplit      = "split"    // 已拆分：由子任务承载执行
 )
 
 // Project 项目。
@@ -43,6 +48,7 @@ type Task struct {
 	Priority    string
 	Deadline    *time.Time
 	Status      string
+	NudgeCount  int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -75,13 +81,13 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, status, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, status, nudge_count, created_at, updated_at`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
 		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.Priority, &t.Deadline,
-		&t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		&t.Status, &t.NudgeCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &t, nil
@@ -135,6 +141,25 @@ func (s *Store) ProjectsOfAssignee(ctx context.Context, userID int64) ([]Project
 		`SELECT DISTINCT p.id, p.name, p.description, p.creator_id, p.status, p.created_at
 		 FROM projects p JOIN tasks t ON t.project_id = p.id
 		 WHERE t.assignee_id = $1 ORDER BY p.id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ps []Project
+	for rows.Next() {
+		var p Project
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.CreatorID, &p.Status, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		ps = append(ps, p)
+	}
+	return ps, rows.Err()
+}
+
+// ListProjects 全部项目（老板全景/周报用）。
+func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, name, description, creator_id, status, created_at FROM projects ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +234,7 @@ func (s *Store) UpdateTaskStatus(ctx context.Context, id int64, status string) (
 }
 
 // UpdateTaskContent 分配者修改任务要素（nil 字段不动）。
+// 截止时间变更时重置提醒标记，让新截止时间重新获得临近提醒与过期通知。
 func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, description, acceptance *string, deadline *time.Time) (*Task, error) {
 	return scanTask(s.pool.QueryRow(ctx,
 		`UPDATE tasks SET
@@ -216,8 +242,236 @@ func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, descripti
 		   description = COALESCE($3, description),
 		   acceptance = COALESCE($4, acceptance),
 		   deadline = COALESCE($5, deadline),
+		   deadline_reminded_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminded_at END,
+		   overdue_notified_at  = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE overdue_notified_at END,
 		   updated_at = now()
 		 WHERE id = $1 RETURNING `+taskCols, id, goal, description, acceptance, deadline))
+}
+
+// SubmitTask 执行人提交完成：自派任务（分配者=执行人）免验收直接 accepted 并向上级联；
+// 其余置为 done 等待分配者验收。已验收/已拆分的任务不可提交（ErrNotFound）。
+func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	t, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks SET
+		   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
+		   updated_at = now()
+		 WHERE id = $1 AND status IN ('pending', 'in_progress', 'done')
+		 RETURNING `+taskCols, id))
+	if err != nil {
+		return nil, nil, err
+	}
+	var chain []*Task
+	if t.Status == TaskAccepted {
+		if chain, err = cascadeUp(ctx, tx, t.ParentID); err != nil {
+			return nil, nil, err
+		}
+	}
+	return t, chain, tx.Commit(ctx)
+}
+
+// AcceptTask 分配者验收通过：done → accepted，并向上级联。
+// 任务不在待验收状态时返回 ErrNotFound。
+func (s *Store) AcceptTask(ctx context.Context, id int64) (*Task, []*Task, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	t, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks SET status = 'accepted', updated_at = now()
+		 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
+	if err != nil {
+		return nil, nil, err
+	}
+	chain, err := cascadeUp(ctx, tx, t.ParentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return t, chain, tx.Commit(ctx)
+}
+
+// RejectTask 验收打回：done → in_progress，理由写入进度记录。
+// 任务不在待验收状态时返回 ErrNotFound。
+func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason string) (*Task, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	t, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks SET status = 'in_progress', updated_at = now()
+		 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO task_progress (task_id, author_id, content) VALUES ($1, $2, $3)`,
+		id, reviewerID, "🔍 验收未通过："+reason); err != nil {
+		return nil, err
+	}
+	return t, tx.Commit(ctx)
+}
+
+// cascadeUp 子任务验收通过后的向上传播：父任务（split）的全部子任务 accepted 时，
+// 父任务转 done（交付物就绪，等待其分配者验收）；父任务是自派任务则直接 accepted
+// 并继续向上。返回状态被改变的祖先（自下而上）。
+// 注：验收后的子任务被打回不会反向撤销祖先状态（罕见，由分配者人工纠正）。
+func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error) {
+	var chain []*Task
+	for parentID != nil {
+		p, err := scanTask(tx.QueryRow(ctx,
+			`UPDATE tasks SET
+			   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
+			   updated_at = now()
+			 WHERE id = $1 AND status = 'split'
+			   AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_id = $1 AND c.status <> 'accepted')
+			 RETURNING `+taskCols, *parentID))
+		if errors.Is(err, ErrNotFound) {
+			break // 还有未验收的兄弟任务，或父状态不是 split
+		}
+		if err != nil {
+			return nil, err
+		}
+		chain = append(chain, p)
+		if p.Status != TaskAccepted {
+			break // 父任务等待真人验收，传播止步于此
+		}
+		parentID = p.ParentID
+	}
+	return chain, nil
+}
+
+// TasksAwaitingReview 我分配出去、已提交待我验收的任务。
+func (s *Store) TasksAwaitingReview(ctx context.Context, assignerID int64) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`SELECT `+taskCols+` FROM tasks
+		 WHERE assigner_id = $1 AND assignee_id <> $1 AND status = 'done' ORDER BY updated_at`, assignerID)
+}
+
+// DueNudges 原子认领需要 AI 催办的任务：已发过期通知，且距最近一次
+// 「过期通知 / 催办 / 进度更新」超过 interval 的开放任务。
+func (s *Store) DueNudges(ctx context.Context, now time.Time, interval time.Duration) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`UPDATE tasks SET nudged_at = $1, nudge_count = nudge_count + 1 WHERE id IN (
+		   SELECT t.id FROM tasks t
+		   LEFT JOIN LATERAL (
+		     SELECT max(created_at) AS at FROM task_progress p WHERE p.task_id = t.id
+		   ) prog ON TRUE
+		   WHERE t.status IN ('pending', 'in_progress')
+		     AND t.overdue_notified_at IS NOT NULL
+		     AND GREATEST(t.overdue_notified_at,
+		                  COALESCE(t.nudged_at, t.overdue_notified_at),
+		                  COALESCE(prog.at, t.overdue_notified_at)) <= $2
+		 ) RETURNING `+taskCols, now, now.Add(-interval))
+}
+
+// DueDeadlineReminders 原子认领「临近截止」提醒：开放任务、截止落在 (now, now+window]、未提醒过。
+func (s *Store) DueDeadlineReminders(ctx context.Context, now time.Time, window time.Duration) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`UPDATE tasks SET deadline_reminded_at = $1
+		 WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
+		   AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
+		 RETURNING `+taskCols, now, now.Add(window))
+}
+
+// DueOverdueNotices 原子认领「已过期」通知：开放任务、截止已过、未通知过。
+func (s *Store) DueOverdueNotices(ctx context.Context, now time.Time) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`UPDATE tasks SET overdue_notified_at = $1
+		 WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
+		   AND overdue_notified_at IS NULL AND deadline <= $1
+		 RETURNING `+taskCols, now)
+}
+
+// TaskStats 全局任务统计（老板摘要用）。
+type TaskStats struct {
+	Open      int64 // 待处理 + 进行中
+	Overdue   int64 // 其中已过截止时间
+	Awaiting  int64 // 已提交待验收
+	DoneSince int64 // 自给定时刻以来验收通过
+}
+
+// GlobalTaskStats 全局任务统计。
+func (s *Store) GlobalTaskStats(ctx context.Context, doneSince time.Time) (*TaskStats, error) {
+	var st TaskStats
+	err := s.pool.QueryRow(ctx,
+		`SELECT
+		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress') AND deadline IS NOT NULL AND deadline < now()),
+		   count(*) FILTER (WHERE status = 'done'),
+		   count(*) FILTER (WHERE status = 'accepted' AND updated_at >= $1)
+		 FROM tasks`, doneSince).Scan(&st.Open, &st.Overdue, &st.Awaiting, &st.DoneSince)
+	return &st, err
+}
+
+// AssigneeStats 某人的任务履历统计（画像与分配决策的原料）。
+type AssigneeStats struct {
+	Open                 int64 // 手上开放任务
+	OverdueNow           int64 // 其中已过截止
+	Awaiting             int64 // 已提交待验收
+	Accepted             int64 // 验收通过总数
+	AcceptedWithDeadline int64 // 其中有截止时间的
+	AcceptedOnTime       int64 // 其中截止前通过的
+}
+
+// StatsOfAssignee 某执行人的任务统计。按时率以验收时间（updated_at）对比截止时间近似。
+func (s *Store) StatsOfAssignee(ctx context.Context, userID int64) (*AssigneeStats, error) {
+	var st AssigneeStats
+	err := s.pool.QueryRow(ctx,
+		`SELECT
+		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress') AND deadline IS NOT NULL AND deadline < now()),
+		   count(*) FILTER (WHERE status = 'done'),
+		   count(*) FILTER (WHERE status = 'accepted'),
+		   count(*) FILTER (WHERE status = 'accepted' AND deadline IS NOT NULL),
+		   count(*) FILTER (WHERE status = 'accepted' AND deadline IS NOT NULL AND updated_at <= deadline)
+		 FROM tasks WHERE assignee_id = $1`, userID).
+		Scan(&st.Open, &st.OverdueNow, &st.Awaiting, &st.Accepted, &st.AcceptedWithDeadline, &st.AcceptedOnTime)
+	return &st, err
+}
+
+// ProjectCounts 单个项目的任务计数。
+type ProjectCounts struct {
+	Open     int64
+	Awaiting int64
+	Accepted int64
+}
+
+// ProjectTaskCounts 各项目的任务计数（全景视图用）。
+func (s *Store) ProjectTaskCounts(ctx context.Context) (map[int64]ProjectCounts, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT project_id,
+		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
+		   count(*) FILTER (WHERE status = 'done'),
+		   count(*) FILTER (WHERE status = 'accepted')
+		 FROM tasks GROUP BY project_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := map[int64]ProjectCounts{}
+	for rows.Next() {
+		var id int64
+		var c ProjectCounts
+		if err := rows.Scan(&id, &c.Open, &c.Awaiting, &c.Accepted); err != nil {
+			return nil, err
+		}
+		m[id] = c
+	}
+	return m, rows.Err()
+}
+
+// OverdueTasks 已过期的开放任务（按截止时间升序，最多 limit 条）。
+func (s *Store) OverdueTasks(ctx context.Context, limit int) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`SELECT `+taskCols+` FROM tasks
+		 WHERE status IN ('pending','in_progress') AND deadline IS NOT NULL AND deadline < now()
+		 ORDER BY deadline LIMIT $1`, limit)
 }
 
 // SplitTask 拆分任务：原任务置为 split，并在同一事务中创建子任务。

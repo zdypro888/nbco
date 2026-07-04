@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // 用户状态。
@@ -42,6 +44,75 @@ func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// HasSuperadmin 系统中是否已有活跃超管。
+func (s *Store) HasSuperadmin(ctx context.Context) (bool, error) {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM users WHERE is_superadmin AND status = 'active')`).Scan(&exists)
+	return exists, err
+}
+
+// bootstrapLockKey /superadmin 引导的事务咨询锁（防两人同时抢首任超管）。
+const bootstrapLockKey = 7767001
+
+// BootstrapSuperadmin 首任超管引导：系统尚无活跃超管时，把发起者建为超管并绑定身份；
+// 已有超管返回 ErrConflict。
+func (s *Store) BootstrapSuperadmin(ctx context.Context, name string, ident Identity) (*User, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockNoSuperadmin(ctx, tx); err != nil {
+		return nil, err
+	}
+	u, err := scanUser(tx.QueryRow(ctx,
+		`INSERT INTO users (name, is_superadmin) VALUES ($1, TRUE) RETURNING `+userCols, name))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO identities (provider, external_id, user_id, chat_ref) VALUES ($1, $2, $3, $4)`,
+		ident.Provider, ident.ExternalID, u.ID, ident.ChatRef); err != nil {
+		return nil, wrapErr(err)
+	}
+	return u, tx.Commit(ctx)
+}
+
+// PromoteFirstSuperadmin 已绑定用户的首任超管引导：无活跃超管时晋升该用户；
+// 已有超管返回 ErrConflict。
+func (s *Store) PromoteFirstSuperadmin(ctx context.Context, userID int64) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockNoSuperadmin(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET is_superadmin = TRUE, updated_at = now() WHERE id = $1`, userID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// lockNoSuperadmin 取事务咨询锁并确认当前没有活跃超管（有则 ErrConflict）。
+func lockNoSuperadmin(ctx context.Context, tx pgx.Tx) error {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, bootstrapLockKey); err != nil {
+		return err
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM users WHERE is_superadmin AND status = 'active')`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists {
+		return ErrConflict
+	}
+	return nil
 }
 
 // CreateUser 建用户并绑定身份（一个事务）。

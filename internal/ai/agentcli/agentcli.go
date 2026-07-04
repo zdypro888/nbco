@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -25,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -84,6 +86,10 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		return nil, err
 	}
 
+	slog.Debug("CLI 引擎启动", "bin", plan.Bin, "session", req.SessionID,
+		"resume", req.EngineSession != "", "tools", len(req.Tools))
+	started := time.Now()
+
 	cmd := exec.CommandContext(ctx, plan.Bin, plan.Args...)
 	cmd.Dir = plan.Dir
 	if len(plan.Env) > 0 {
@@ -110,6 +116,8 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 	scanErr := scanner.Err()
 	waitErr := cmd.Wait()
+	slog.Debug("CLI 引擎退出", "session", req.SessionID, "dur", time.Since(started).Round(time.Millisecond),
+		"wait_err", waitErr != nil, "stderr", truncate(stderr.String(), 300))
 	if scanErr != nil {
 		return nil, fmt.Errorf("读取 CLI 输出: %w", scanErr)
 	}

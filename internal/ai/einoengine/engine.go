@@ -97,15 +97,24 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 
 	msgs := make([]*schema.Message, 0, len(req.History)+1)
+	// 引擎失败的轮次历史里只有 user 消息，重放会出现同角色相邻，
+	// 部分 API 要求角色严格交替：相邻同角色合并为一条。
+	push := func(m *schema.Message) {
+		if n := len(msgs); n > 0 && msgs[n-1].Role == m.Role {
+			msgs[n-1].Content += "\n\n" + m.Content
+			return
+		}
+		msgs = append(msgs, m)
+	}
 	for _, m := range req.History {
 		switch m.Role {
 		case ai.RoleUser:
-			msgs = append(msgs, schema.UserMessage(m.Content))
+			push(schema.UserMessage(m.Content))
 		case ai.RoleAssistant:
-			msgs = append(msgs, schema.AssistantMessage(m.Content, nil))
+			push(schema.AssistantMessage(m.Content, nil))
 		}
 	}
-	msgs = append(msgs, schema.UserMessage(req.UserText))
+	push(schema.UserMessage(req.UserText))
 
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent})
 	return collect(runner.Run(ctx, msgs), req.OnEvent)

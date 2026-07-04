@@ -75,7 +75,7 @@ func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 
 func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update) {
 	msg := update.Message
-	if msg == nil || msg.From == nil || strings.TrimSpace(msg.Text) == "" {
+	if msg == nil || msg.From == nil || messageText(msg) == "" {
 		return
 	}
 	// 逐 update 起 goroutine，按用户加锁：慢轮次不阻塞他人，同人消息不并发。
@@ -89,11 +89,14 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
-	text := strings.TrimSpace(msg.Text)
+	text := messageText(msg)
 	externalID := strconv.FormatInt(msg.From.ID, 10)
+
+	slog.Debug("TG 消息", "tg_user", msg.From.ID, "chat", chatID, "text", text)
 
 	u, err := g.store.UserByIdentity(ctx, Provider, externalID)
 	if errors.Is(err, store.ErrNotFound) {
+		slog.Info("TG 未绑定用户", "tg_user", msg.From.ID, "text_len", len(text))
 		g.onboard(ctx, msg, chatID, externalID, text)
 		return
 	}
@@ -119,6 +122,22 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	case "/start":
 		g.reply(ctx, chatID, fmt.Sprintf("你好，%s。直接说事就行 —— 任务、提醒、查进展都可以。/new 开新会话。", u.Name))
 		return
+	case "/superadmin":
+		// 首任超管引导：已绑定但系统无超管的用户可自我晋升。
+		if u.IsSuperadmin {
+			g.reply(ctx, chatID, "你已经是超级管理员。")
+			return
+		}
+		switch err := g.store.PromoteFirstSuperadmin(ctx, u.ID); {
+		case errors.Is(err, store.ErrConflict):
+			g.reply(ctx, chatID, "系统已有超级管理员，此命令仅用于首次初始化。")
+		case err != nil:
+			slog.Error("超管晋升失败", "err", err)
+			g.reply(ctx, chatID, "操作失败，请稍后再试。")
+		default:
+			g.reply(ctx, chatID, "👑 你已成为超级管理员。")
+		}
+		return
 	}
 
 	g.sendTyping(ctx, chatID)
@@ -139,6 +158,21 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 	}
 	ident := store.Identity{Provider: Provider, ExternalID: externalID, ChatRef: strconv.FormatInt(chatID, 10)}
 
+	// 首任超管引导：全新系统里第一个发 /superadmin 的人成为超管（零配置起步）。
+	if text == "/superadmin" {
+		u, err := g.store.BootstrapSuperadmin(ctx, name, ident)
+		switch {
+		case errors.Is(err, store.ErrConflict):
+			g.reply(ctx, chatID, "系统已有超级管理员。请向管理员索取绑定 Key 加入。")
+		case err != nil:
+			slog.Error("超管引导失败", "err", err)
+			g.reply(ctx, chatID, "初始化失败，请稍后再试。")
+		default:
+			g.reply(ctx, chatID, fmt.Sprintf("👑 %s，你已成为首位超级管理员（ID %d）。直接说事就行。", u.Name, u.ID))
+		}
+		return
+	}
+
 	if g.superadmins[msg.From.ID] {
 		u, err := g.store.CreateUser(ctx, name, true, ident)
 		if err != nil {
@@ -152,7 +186,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 
 	key := strings.ToLower(text)
 	if !bindKeyRe.MatchString(key) {
-		g.reply(ctx, chatID, "你还未加入系统。请把管理员发给你的绑定 Key 发过来（32 位字符串）。")
+		g.reply(ctx, chatID, "你还未加入系统。请把管理员发给你的绑定 Key 发过来（32 位字符串）；全新系统可发送 /superadmin 成为首位管理员。")
 		return
 	}
 	// 单事务绑定：Key 无效不会留下半开账号。
@@ -192,6 +226,7 @@ func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) err
 	if text == "" {
 		text = "（空回复）"
 	}
+	slog.Debug("TG 发送", "chat", chatID, "text_len", len(text))
 	for _, chunk := range splitChunks(text, chunkLimit) {
 		if _, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: chunk}); err != nil {
 			return err
@@ -202,6 +237,36 @@ func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) err
 
 func (g *Gateway) sendTyping(ctx context.Context, chatID int64) {
 	_, _ = g.bot.SendChatAction(ctx, &bot.SendChatActionParams{ChatID: chatID, Action: models.ChatActionTyping})
+}
+
+// messageText 把消息转成给编排器的文本：纯文本原样返回；带媒体的消息把
+// 文件引用（file_id）拼进文本，AI 据此可调用 attach_to_task 等工具处理附件。
+func messageText(msg *models.Message) string {
+	var parts []string
+	if msg.Document != nil {
+		name := msg.Document.FileName
+		if name == "" {
+			name = "未命名"
+		}
+		parts = append(parts, fmt.Sprintf("[用户发来文件「%s」，file_id=%s]", name, msg.Document.FileID))
+	}
+	if n := len(msg.Photo); n > 0 {
+		// Photo 按尺寸升序，取最大的一张。
+		parts = append(parts, fmt.Sprintf("[用户发来图片，file_id=%s]", msg.Photo[n-1].FileID))
+	}
+	if msg.Video != nil {
+		parts = append(parts, fmt.Sprintf("[用户发来视频，file_id=%s]", msg.Video.FileID))
+	}
+	if msg.Voice != nil {
+		parts = append(parts, fmt.Sprintf("[用户发来语音，file_id=%s（当前无法转写，请让用户改用文字）]", msg.Voice.FileID))
+	}
+	if caption := strings.TrimSpace(msg.Caption); caption != "" {
+		parts = append(parts, caption)
+	}
+	if text := strings.TrimSpace(msg.Text); text != "" {
+		parts = append(parts, text)
+	}
+	return strings.Join(parts, "\n")
 }
 
 // splitChunks 按行优先、字符兜底分片。

@@ -46,6 +46,7 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.SlogLevel()})))
 	tz, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
 		return fmt.Errorf("时区 %q: %w", cfg.Timezone, err)
@@ -88,7 +89,8 @@ func run(configPath string) error {
 	api := httpapi.New(st, orch, deps)
 	api.CLIHandler = cliHandler
 
-	scheduler := sched.New(st, hub, tz, *cfg.DailySummaryHour)
+	// AI 催办/周报轮次挂在 Telegram 渠道会话上（与主入口一致，上下文连续）。
+	scheduler := sched.New(st, hub, orch, telegram.Provider, tz, *cfg.DailySummaryHour)
 
 	slog.Info("nbco 启动", "engine", engine.Name(), "listen", cfg.Listen, "tz", tz.String())
 

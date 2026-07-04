@@ -1,5 +1,10 @@
-// Package sched 是 DB 驱动的调度器：定时提醒投递 + 每日待办汇总。
-// 状态全在库里（schedules 表 + kv_state），进程随时可重启。
+// Package sched 是 DB 驱动的调度器：定时提醒投递、任务截止提醒/过期通知、
+// AI 催办、每日待办汇总 + 超管全局日报、AI 周报。
+// 状态全在库里（schedules 表 + tasks 发送标记 + kv_state），进程随时可重启，
+// 不重发不漏发（原子认领）。
+//
+// 两级主动性：模板消息（提醒/通知/日报，确定性）与 AI 轮次（催办/周报——
+// 调度器把系统指令注入用户会话跑一轮引擎，产出个性化内容后经 Notifier 推送）。
 package sched
 
 import (
@@ -9,27 +14,41 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zdypro888/nbco/internal/chat"
 	"github.com/zdypro888/nbco/internal/notify"
 	"github.com/zdypro888/nbco/internal/store"
 )
 
 const (
-	pollInterval    = 30 * time.Second
-	kvDailySummary  = "daily_summary_last_day"
-	summaryMaxTasks = 20
+	pollInterval     = 30 * time.Second
+	kvDailySummary   = "daily_summary_last_day"
+	kvWeeklyReport   = "weekly_report_last_week"
+	kvProfileRefresh = "profile_refresh_last_month"
+	summaryMaxTasks  = 20
+	// deadlineWarnWindow 截止前多久发临近提醒。
+	deadlineWarnWindow = 24 * time.Hour
+	// nudgeInterval 过期任务多久没有动静（过期通知/催办/进度更新）就 AI 催办一次。
+	nudgeInterval = 48 * time.Hour
+	// escalateAfter 累计催办达到该次数仍无进度时，通知分配者介入。
+	escalateAfter = 2
+	// digestOverdueLimit 日报中列出的过期任务上限。
+	digestOverdueLimit = 10
 )
 
 // Scheduler 调度器。
 type Scheduler struct {
-	store     *store.Store
-	notifier  notify.Notifier
+	store    *store.Store
+	notifier notify.Notifier
+	// orch 跑系统触发的 AI 轮次（催办/周报）；nil 时这两项能力关闭（测试或降级）。
+	orch      *chat.Orchestrator
+	channel   string // AI 轮次挂在用户哪个渠道的会话上（与主入口一致，保证上下文连续）
 	tz        *time.Location
-	dailyHour int // -1 关闭
+	dailyHour int // -1 关闭每日/每周汇总
 }
 
 // New 创建调度器。
-func New(s *store.Store, n notify.Notifier, tz *time.Location, dailyHour int) *Scheduler {
-	return &Scheduler{store: s, notifier: n, tz: tz, dailyHour: dailyHour}
+func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, channel string, tz *time.Location, dailyHour int) *Scheduler {
+	return &Scheduler{store: s, notifier: n, orch: orch, channel: channel, tz: tz, dailyHour: dailyHour}
 }
 
 // Run 阻塞运行直到 ctx 结束。
@@ -53,14 +72,178 @@ func (s *Scheduler) tick(ctx context.Context) {
 		slog.Error("取到期提醒失败", "err", err)
 	}
 	for _, sc := range due {
-		if err := s.notifier.Send(ctx, sc.UserID, "⏰ 提醒："+sc.Message); err != nil {
-			slog.Warn("提醒投递失败", "schedule", sc.ID, "user", sc.UserID, "err", err)
-		}
+		s.send(ctx, sc.UserID, "⏰ 提醒："+sc.Message)
 	}
+	s.deadlinePass(ctx, now)
+	s.nudgePass(ctx, now)
 	s.maybeDailySummary(ctx)
+	s.maybeWeeklyReport(ctx)
+	s.maybeProfileRefresh(ctx)
 }
 
-// maybeDailySummary 每天在配置小时给每个有待办的用户推送任务清单。
+// nudgePass AI 催办：过期且长时间无动静的任务，跑一轮 AI 让它核实状态后
+// 向执行人发出个性化催办。轮次挂在用户会话上，用户回复时 AI 记得自己问过什么。
+func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
+	if s.orch == nil {
+		return
+	}
+	due, err := s.store.DueNudges(ctx, now, nudgeInterval)
+	if err != nil {
+		slog.Error("取待催办任务失败", "err", err)
+		return
+	}
+	for _, t := range due {
+		if t.Deadline == nil {
+			continue // 不应发生：过期通知必有截止时间；防御 panic 拖垮调度器
+		}
+		u, err := s.store.UserByID(ctx, t.AssigneeID)
+		if err != nil || u.Status != store.UserActive {
+			continue
+		}
+		slog.Info("AI 催办启动", "task", t.ID, "user", u.ID, "nudge_count", t.NudgeCount)
+		directive := fmt.Sprintf(
+			"[系统定时触发·催办]（此输入来自系统调度器，不是用户本人）任务 #%d「%s」已过截止时间（%s），且超过 %d 小时没有进度更新。"+
+				"请先用工具核实该任务的最新状态、进度与清单，然后直接向执行人（当前用户）发出催办："+
+				"语气友善但明确，询问具体卡点，提醒截止影响；若对方确有困难，建议其联系分配者调整任务或期限。"+
+				"你的回复会作为主动消息直接推送给执行人。",
+			t.ID, t.Title, s.fmtTime(*t.Deadline), int(nudgeInterval.Hours()))
+		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+		if err != nil {
+			slog.Error("催办 AI 轮次失败", "task", t.ID, "user", u.ID, "err", err)
+			continue
+		}
+		s.send(ctx, u.ID, reply)
+		// 升级：累计多次催办仍无进度 → 分配者介入（模板消息，确定性投递）。
+		if t.NudgeCount >= escalateAfter && t.AssignerID != t.AssigneeID {
+			s.send(ctx, t.AssignerID,
+				fmt.Sprintf("⚠️ 你分配的任务「%s」（#%d，执行人 %s）已催办 %d 次仍无进度，请介入：调整任务、改期或改派。",
+					t.Title, t.ID, u.Name, t.NudgeCount))
+		}
+	}
+}
+
+// maybeProfileRefresh 每月 1 号在配置小时，让 AI（以超管身份）基于任务履历
+// 盘点成员并更新画像草稿——「对每个人的了解越来越准」的自动化落点。
+func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
+	if s.dailyHour < 0 || s.orch == nil {
+		return
+	}
+	local := time.Now().In(s.tz)
+	if local.Day() != 1 || local.Hour() != s.dailyHour {
+		return
+	}
+	month := local.Format("2006-01")
+	last, err := s.store.GetKV(ctx, kvProfileRefresh)
+	if err != nil {
+		slog.Error("读画像盘点状态失败", "err", err)
+		return
+	}
+	if last == month {
+		return
+	}
+	if err := s.store.SetKV(ctx, kvProfileRefresh, month); err != nil {
+		slog.Error("写画像盘点状态失败", "err", err)
+		return
+	}
+	users, err := s.store.ListUsers(ctx)
+	if err != nil {
+		slog.Error("画像盘点取用户失败", "err", err)
+		return
+	}
+	directive := "[系统定时触发·月度人员盘点]（此输入来自系统调度器，不是用户本人）请做月度人员盘点：" +
+		"用 list_users 取成员列表，逐个用 get_user_stats 看任务履历（负载、验收数、按时率、被催办情况），" +
+		"结合 view_user_infos 里已有画像，用 save_infos_on_user 更新你名下对每位活跃成员的画像（整体替换，保留仍然成立的旧条目；无任务往来的成员跳过）。" +
+		"画像条目写可执行的判断（擅长什么、可靠度、适合派什么任务），不写空话。" +
+		"最后回复一份简短盘点摘要（每人一行）。若工具轮次不够用，优先覆盖任务量最大的成员，并在摘要里说明未覆盖谁。"
+	for _, u := range users {
+		if !u.IsSuperadmin || u.Status != store.UserActive {
+			continue
+		}
+		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+		if err != nil {
+			slog.Error("画像盘点 AI 轮次失败", "user", u.ID, "err", err)
+			continue
+		}
+		s.send(ctx, u.ID, "🧭 月度人员盘点\n"+reply)
+	}
+}
+
+// maybeWeeklyReport 每周一在配置小时，让 AI 用真实数据给每位超管写周报。
+// kv_state 记 ISO 周号，重启不重发。
+func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
+	if s.dailyHour < 0 || s.orch == nil {
+		return
+	}
+	local := time.Now().In(s.tz)
+	if local.Weekday() != time.Monday || local.Hour() != s.dailyHour {
+		return
+	}
+	year, week := local.ISOWeek()
+	key := fmt.Sprintf("%d-W%02d", year, week)
+	last, err := s.store.GetKV(ctx, kvWeeklyReport)
+	if err != nil {
+		slog.Error("读周报状态失败", "err", err)
+		return
+	}
+	if last == key {
+		return
+	}
+	// 先写状态再发送：宁可漏发一周，不可无限重发。
+	if err := s.store.SetKV(ctx, kvWeeklyReport, key); err != nil {
+		slog.Error("写周报状态失败", "err", err)
+		return
+	}
+	users, err := s.store.ListUsers(ctx)
+	if err != nil {
+		slog.Error("周报取用户失败", "err", err)
+		return
+	}
+	directive := fmt.Sprintf(
+		"[系统定时触发·每周汇总]（此输入来自系统调度器，不是用户本人）今天是 %s 周一，请给老板写一份公司周报。"+
+			"先用 company_overview 核实全局数据，需要细节时再用 view_project、get_user_stats 等工具追查；一切以工具返回为准，不得编造。"+
+			"结构：一、整体进展；二、上周完成亮点；三、风险与过期任务（点名到人、给出建议动作）；四、本周建议关注。"+
+			"语言简洁，直接给结论。你的回复会作为周报直接推送给老板。",
+		local.Format("2006-01-02"))
+	for _, u := range users {
+		if !u.IsSuperadmin || u.Status != store.UserActive {
+			continue
+		}
+		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+		if err != nil {
+			slog.Error("周报 AI 轮次失败", "user", u.ID, "err", err)
+			continue
+		}
+		s.send(ctx, u.ID, "📈 每周汇总\n"+reply)
+	}
+}
+
+// deadlinePass 任务临近截止提醒 + 过期通知。发送标记在认领时落库，不重发。
+func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
+	warn, err := s.store.DueDeadlineReminders(ctx, now, deadlineWarnWindow)
+	if err != nil {
+		slog.Error("取临近截止任务失败", "err", err)
+	}
+	for _, t := range warn {
+		s.send(ctx, t.AssigneeID,
+			fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+	}
+
+	over, err := s.store.DueOverdueNotices(ctx, now)
+	if err != nil {
+		slog.Error("取过期任务失败", "err", err)
+	}
+	for _, t := range over {
+		s.send(ctx, t.AssigneeID,
+			fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+		if t.AssignerID != t.AssigneeID {
+			s.send(ctx, t.AssignerID,
+				fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline)))
+		}
+	}
+}
+
+// maybeDailySummary 每天在配置小时给每个有待办的用户推送任务清单；
+// 超管额外收到全局日报（老板视角：不追问也能掌握全局）。
 // 用 kv_state 记录最后发送日，重启不重发。
 func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 	if s.dailyHour < 0 {
@@ -89,6 +272,7 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 		slog.Error("每日汇总取用户失败", "err", err)
 		return
 	}
+	digest := s.buildDigest(ctx, users)
 	for _, u := range users {
 		if u.Status != store.UserActive {
 			continue
@@ -98,24 +282,93 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 			slog.Warn("每日汇总取任务失败", "user", u.ID, "err", err)
 			continue
 		}
-		if len(tasks) == 0 {
-			continue
+		if len(tasks) > 0 {
+			s.send(ctx, u.ID, renderTodos(tasks, s.tz))
 		}
-		var b strings.Builder
-		fmt.Fprintf(&b, "☀️ 早上好，你今天有 %d 个待办：\n", len(tasks))
-		for i, t := range tasks {
-			if i >= summaryMaxTasks {
-				fmt.Fprintf(&b, "…等共 %d 个\n", len(tasks))
-				break
-			}
-			fmt.Fprintf(&b, "- #%d [%s] %s", t.ID, t.Status, t.Title)
-			if t.Deadline != nil {
-				fmt.Fprintf(&b, "（截止 %s）", t.Deadline.In(s.tz).Format("01-02 15:04"))
-			}
-			b.WriteByte('\n')
-		}
-		if err := s.notifier.Send(ctx, u.ID, b.String()); err != nil {
-			slog.Warn("每日汇总投递失败", "user", u.ID, "err", err)
+		if u.IsSuperadmin && digest != "" {
+			s.send(ctx, u.ID, digest)
 		}
 	}
+}
+
+// buildDigest 组装全局日报；没有值得说的内容时返回空串。
+func (s *Scheduler) buildDigest(ctx context.Context, users []*store.User) string {
+	stats, err := s.store.GlobalTaskStats(ctx, time.Now().UTC().Add(-24*time.Hour))
+	if err != nil {
+		slog.Error("日报统计失败", "err", err)
+		return ""
+	}
+	if stats.Open == 0 && stats.DoneSince == 0 {
+		return ""
+	}
+	var overdue []*store.Task
+	if stats.Overdue > 0 {
+		if overdue, err = s.store.OverdueTasks(ctx, digestOverdueLimit); err != nil {
+			slog.Error("日报过期任务查询失败", "err", err)
+		}
+	}
+	names := make(map[int64]string, len(users))
+	for _, u := range users {
+		names[u.ID] = u.Name
+	}
+	return renderDigest(stats, overdue, names, s.tz)
+}
+
+// renderTodos 个人待办清单（纯函数，可单测）。
+func renderTodos(tasks []*store.Task, tz *time.Location) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "☀️ 早上好，你今天有 %d 个待办：\n", len(tasks))
+	for i, t := range tasks {
+		if i >= summaryMaxTasks {
+			fmt.Fprintf(&b, "…等共 %d 个\n", len(tasks))
+			break
+		}
+		fmt.Fprintf(&b, "- #%d [%s] %s", t.ID, t.Status, t.Title)
+		if t.Deadline != nil {
+			fmt.Fprintf(&b, "（截止 %s）", t.Deadline.In(tz).Format("01-02 15:04"))
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// renderDigest 超管全局日报（纯函数，可单测）。
+func renderDigest(stats *store.TaskStats, overdue []*store.Task, names map[int64]string, tz *time.Location) string {
+	var b strings.Builder
+	b.WriteString("📊 全局概览\n")
+	fmt.Fprintf(&b, "进行中任务 %d（其中已过期 %d）· 待验收 %d · 过去24小时验收通过 %d\n",
+		stats.Open, stats.Overdue, stats.Awaiting, stats.DoneSince)
+	if len(overdue) > 0 {
+		b.WriteString("过期任务：\n")
+		for _, t := range overdue {
+			name := names[t.AssigneeID]
+			if name == "" {
+				name = fmt.Sprintf("用户%d", t.AssigneeID)
+			}
+			fmt.Fprintf(&b, "- #%d %s（执行人 %s，截止 %s）\n", t.ID, t.Title, name, t.Deadline.In(tz).Format("01-02 15:04"))
+		}
+		if int(stats.Overdue) > len(overdue) {
+			fmt.Fprintf(&b, "…等共 %d 个\n", stats.Overdue)
+		}
+	}
+	return b.String()
+}
+
+func (s *Scheduler) send(ctx context.Context, userID int64, text string) {
+	if err := s.notifier.Send(ctx, userID, text); err != nil {
+		slog.Warn("调度消息投递失败", "user", userID, "err", err)
+		return
+	}
+	slog.Info("调度消息已投递", "user", userID, "text_len", len(text))
+}
+
+func (s *Scheduler) userName(ctx context.Context, id int64) string {
+	if u, err := s.store.UserByID(ctx, id); err == nil {
+		return u.Name
+	}
+	return fmt.Sprintf("用户%d", id)
+}
+
+func (s *Scheduler) fmtTime(t time.Time) string {
+	return t.In(s.tz).Format("2006-01-02 15:04")
 }

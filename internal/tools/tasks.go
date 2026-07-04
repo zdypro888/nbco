@@ -87,7 +87,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("update_my_task_status", "更新我的任务状态。status: pending/in_progress/done。",
+		tool("update_my_task_status", "更新我的任务状态。status: pending/in_progress/done。done=提交给分配者验收（自派任务直接完成）。",
 			obj(map[string]any{
 				"task_id": p("integer", "任务ID"),
 				"status":  p("string", "pending | in_progress | done"),
@@ -115,15 +115,118 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if t.Status == store.TaskSplit {
 					return "该任务已拆分，状态由子任务决定。", nil
 				}
-				if _, err := d.Store.UpdateTaskStatus(ctx, t.ID, args.Status); err != nil {
+				if t.Status == store.TaskAccepted {
+					return "任务已验收通过，状态不可再改。", nil
+				}
+				if args.Status != store.TaskDone {
+					if _, err := d.Store.UpdateTaskStatus(ctx, t.ID, args.Status); err != nil {
+						return "", err
+					}
+					return "已更新为 " + args.Status + "。", nil
+				}
+				// 提交完成：自派任务免验收直接 accepted 并向上级联；否则进入待验收。
+				t2, chain, err := d.Store.SubmitTask(ctx, t.ID)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "任务当前状态不允许提交。", nil
+					}
 					return "", err
 				}
-				// 完成时通知分配者。
-				if args.Status == store.TaskDone && t.AssignerID != u.ID {
+				if t2.Status == store.TaskDone {
 					notifyQuiet(ctx, d, t.AssignerID,
-						fmt.Sprintf("✅ %s 完成了任务「%s」（#%d）", u.Name, t.Title, t.ID))
+						fmt.Sprintf("📥 %s 提交了任务「%s」（#%d），等你验收。", u.Name, t.Title, t.ID))
+					return "已提交，等待分配者验收。", nil
 				}
-				return "已更新为 " + args.Status + "。", nil
+				notifyChain(ctx, d, u, chain)
+				return "已完成（自派任务免验收）。", nil
+			}),
+
+		tool("get_review_queue", "查看我分配出去、已提交待我验收的任务。", obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				ts, err := d.Store.TasksAwaitingReview(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				if len(ts) == 0 {
+					return "（没有待验收的任务）", nil
+				}
+				return renderTasks(ts, d.TZ), nil
+			}),
+
+		tool("accept_task", "验收通过我分配的任务。子任务全部通过时上级任务自动进入待验收。",
+			obj(map[string]any{
+				"task_id": p("integer", "任务ID"),
+				"comment": p("string", "验收评语（可选，写入进度记录）"),
+			}, "task_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID  int64  `json:"task_id"`
+					Comment string `json:"comment"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssignerID != u.ID && !u.IsSuperadmin {
+					return "只有任务分配者能验收。", nil
+				}
+				_, chain, err := d.Store.AcceptTask(ctx, t.ID)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "任务不在待验收状态。", nil
+					}
+					return "", err
+				}
+				if c := strings.TrimSpace(args.Comment); c != "" {
+					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 验收通过："+c); err != nil {
+						return "", err
+					}
+				}
+				if t.AssigneeID != u.ID {
+					notifyQuiet(ctx, d, t.AssigneeID,
+						fmt.Sprintf("✅ 你的任务「%s」（#%d）验收通过。", t.Title, t.ID))
+				}
+				notifyChain(ctx, d, u, chain)
+				return "已验收通过。", nil
+			}),
+
+		tool("reject_task", "验收打回我分配的任务（回到进行中），必须给出理由。",
+			obj(map[string]any{
+				"task_id": p("integer", "任务ID"),
+				"reason":  p("string", "打回理由"),
+			}, "task_id", "reason"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID int64  `json:"task_id"`
+					Reason string `json:"reason"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if strings.TrimSpace(args.Reason) == "" {
+					return "打回必须给出理由。", nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssignerID != u.ID && !u.IsSuperadmin {
+					return "只有任务分配者能验收。", nil
+				}
+				if _, err := d.Store.RejectTask(ctx, t.ID, u.ID, args.Reason); err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "任务不在待验收状态。", nil
+					}
+					return "", err
+				}
+				if t.AssigneeID != u.ID {
+					notifyQuiet(ctx, d, t.AssigneeID,
+						fmt.Sprintf("🔁 任务「%s」（#%d）验收未通过：%s\n请修改后重新提交。", t.Title, t.ID, args.Reason))
+				}
+				return "已打回，任务回到进行中。", nil
 			}),
 
 		tool("save_checklist", "保存任务的工作清单（整体替换）。根据任务描述归纳生成。需要是任务执行人。",
@@ -460,6 +563,9 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if pj.CreatorID != u.ID && !u.IsSuperadmin {
 					return "只有项目创建者能在项目中派任务。", nil
 				}
+				if pj.Status != store.ProjectActive {
+					return "项目已归档，不能再派任务。", nil
+				}
 				if _, err := mustUser(ctx, d.Store, args.AssigneeID); err != nil {
 					return err.Error(), nil
 				}
@@ -621,6 +727,18 @@ func inheritViewPerms(ctx context.Context, d Deps, assigner *store.User, created
 		}
 		for _, tg := range targets {
 			grantTo(t.AssigneeID, fmt.Sprintf("%d", tg))
+		}
+	}
+}
+
+// notifyChain 验收级联改变了状态的祖先任务：
+// 转入待验收（done）的通知其分配者来验收；自动验收通过（accepted，自派任务）的
+// 相关人就是级联的触发者本人，无需通知。
+func notifyChain(ctx context.Context, d Deps, operator *store.User, chain []*store.Task) {
+	for _, a := range chain {
+		if a.Status == store.TaskDone && a.AssignerID != operator.ID {
+			notifyQuiet(ctx, d, a.AssignerID,
+				fmt.Sprintf("📥 任务「%s」（#%d）的全部子任务已验收通过，等你验收。", a.Title, a.ID))
 		}
 	}
 }

@@ -165,6 +165,45 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已发送。", nil
 			}),
 
+		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个。",
+			obj(map[string]any{"user_id": p("integer", "用户ID")}, "user_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					UserID int64 `json:"user_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if args.UserID != u.ID && !u.IsSuperadmin {
+					grants, err := d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+					if !perm.CheckActive(grants, perm.ActViewSelfIntro, args.UserID) {
+						return "你没有权限查看该用户的统计。", nil
+					}
+				}
+				other, err := d.Store.UserByID(ctx, args.UserID)
+				if err != nil {
+					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+				}
+				st, err := d.Store.StatsOfAssignee(ctx, other.ID)
+				if err != nil {
+					return "", err
+				}
+				var b strings.Builder
+				fmt.Fprintf(&b, "%s（ID %d）的任务履历：\n", other.Name, other.ID)
+				fmt.Fprintf(&b, "手上任务 %d（其中已过期 %d）· 待验收 %d\n", st.Open, st.OverdueNow, st.Awaiting)
+				fmt.Fprintf(&b, "累计验收通过 %d", st.Accepted)
+				if st.AcceptedWithDeadline > 0 {
+					fmt.Fprintf(&b, "，有截止时间的 %d 个中按时 %d 个（%.0f%%）",
+						st.AcceptedWithDeadline, st.AcceptedOnTime,
+						float64(st.AcceptedOnTime)*100/float64(st.AcceptedWithDeadline))
+				}
+				b.WriteByte('\n')
+				return b.String(), nil
+			}),
+
 		tool("list_info_fields", "查看当前定义的基本信息字段。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				fields, err := d.Store.ListInfoFields(ctx)
@@ -184,6 +223,57 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 
 	// --- 超管专属 ---
 	ts = append(ts,
+		tool("company_overview", "公司全景：全局任务统计、各项目进度、过期任务点名。写汇总/周报前先调它。超管专用。",
+			obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				stats, err := d.Store.GlobalTaskStats(ctx, time.Now().Add(-7*24*time.Hour))
+				if err != nil {
+					return "", err
+				}
+				projects, err := d.Store.ListProjects(ctx)
+				if err != nil {
+					return "", err
+				}
+				counts, err := d.Store.ProjectTaskCounts(ctx)
+				if err != nil {
+					return "", err
+				}
+				overdue, err := d.Store.OverdueTasks(ctx, 20)
+				if err != nil {
+					return "", err
+				}
+				users, err := d.Store.ListUsers(ctx)
+				if err != nil {
+					return "", err
+				}
+				names := make(map[int64]string, len(users))
+				for _, other := range users {
+					names[other.ID] = other.Name
+				}
+				var b strings.Builder
+				fmt.Fprintf(&b, "全局：进行中 %d（其中已过期 %d）· 待验收 %d · 近7天验收通过 %d\n",
+					stats.Open, stats.Overdue, stats.Awaiting, stats.DoneSince)
+				if len(projects) > 0 {
+					b.WriteString("项目：\n")
+					for _, pj := range projects {
+						c := counts[pj.ID]
+						fmt.Fprintf(&b, "- #%d %s（%s）：进行中 %d · 待验收 %d · 已完成 %d\n",
+							pj.ID, pj.Name, pj.Status, c.Open, c.Awaiting, c.Accepted)
+					}
+				}
+				if len(overdue) > 0 {
+					b.WriteString("过期任务：\n")
+					for _, t := range overdue {
+						name := names[t.AssigneeID]
+						if name == "" {
+							name = fmt.Sprintf("用户%d", t.AssigneeID)
+						}
+						fmt.Fprintf(&b, "- #%d %s（执行人 %s，截止 %s）\n", t.ID, t.Title, name, fmtTime(*t.Deadline, d.TZ))
+					}
+				}
+				return b.String(), nil
+			}),
+
 		tool("add_info_field", "添加一个基本信息字段定义。超管专用。",
 			obj(map[string]any{"name": p("string", "字段名")}, "name"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {

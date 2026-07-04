@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -52,7 +53,8 @@ type Config struct {
 	TelegramToken string  `json:"telegram_token"`
 	Superadmins   []int64 `json:"superadmins"`
 	PostgresDSN   string  `json:"postgres_dsn"`
-	Listen        string  `json:"listen"` // MCP/HTTP 监听地址，默认 127.0.0.1:8900
+	Listen        string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
+	LogLevel      string  `json:"log_level"` // debug | info | warn | error，默认 info
 	// PublicBaseURL claude CLI 回连 MCP 的基地址；默认由 Listen 推导为 http://127.0.0.1:<port>
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
@@ -109,6 +111,23 @@ func (c *Config) applyDefaults() {
 	if c.AI.CodexCmd == "" {
 		c.AI.CodexCmd = "codex"
 	}
+	if c.LogLevel == "" {
+		c.LogLevel = "info"
+	}
+}
+
+// SlogLevel 配置的日志级别（Load 已校验合法性）。
+func (c *Config) SlogLevel() slog.Level {
+	switch c.LogLevel {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 func (c *Config) validate() error {
@@ -116,11 +135,14 @@ func (c *Config) validate() error {
 	if strings.TrimSpace(c.TelegramToken) == "" {
 		errs = append(errs, errors.New("telegram_token 必填"))
 	}
-	if len(c.Superadmins) == 0 {
-		errs = append(errs, errors.New("superadmins 至少一个"))
-	}
+	// superadmins 可留空：全新系统里第一个发 /superadmin 的人自动成为超管。
 	if strings.TrimSpace(c.PostgresDSN) == "" {
 		errs = append(errs, errors.New("postgres_dsn 必填"))
+	}
+	switch c.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		errs = append(errs, fmt.Errorf("log_level 不支持: %q", c.LogLevel))
 	}
 	switch c.AI.Engine {
 	case EngineEino:

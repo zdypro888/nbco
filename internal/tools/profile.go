@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/zdypro888/nbco/internal/ai"
@@ -187,8 +188,14 @@ func renderUser(u *store.User) string {
 	if u.IsSuperadmin {
 		b.WriteString("身份: 超级管理员\n")
 	}
-	for k, v := range u.Info {
-		fmt.Fprintf(&b, "%s: %s\n", k, v)
+	// 字段按名排序，输出稳定（利于模型缓存与人眼比对）。
+	keys := make([]string, 0, len(u.Info))
+	for k := range u.Info {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s: %s\n", k, u.Info[k])
 	}
 	return b.String()
 }
