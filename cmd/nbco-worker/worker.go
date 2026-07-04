@@ -18,6 +18,7 @@ import (
 const (
 	pollInterval = 10 * time.Second // 无活时的轮询间隔
 	taskTimeout  = 30 * time.Minute // 单任务总时限
+	exitGrace    = 5 * time.Second  // 识别完成哨兵后给 CLI 自行退出的时间
 	flushBytes   = 1500             // 进度攒够这么多字节回传一次
 	ansiEscape   = "\x1b\\[[0-9;?]*[ -/]*[@-~]|\x1b\\][^\x07]*\x07|\x1b[@-Z\\-_]"
 )
@@ -76,7 +77,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 
 	runCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(runCtx, w.cfg.Bin, w.cliArgs(prompt)...)
+	cmd := exec.CommandContext(runCtx, w.cfg.Bin, w.cliArgs()...)
 	cmd.Dir = dir
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
@@ -85,10 +86,16 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 	}
 	defer func() { _ = ptmx.Close() }()
 
+	if err := writeInteractivePrompt(ptmx, prompt); err != nil {
+		w.report(ctx, task.ID, "写入任务指令失败: "+err.Error())
+		return
+	}
+
 	// 读 PTY 输出：累积全文（供解析哨兵）+ 节流回传进度。
 	var full strings.Builder
 	pending := &strings.Builder{}
 	buf := make([]byte, 4096)
+	seenEnd := false
 	for {
 		n, readErr := ptmx.Read(buf)
 		if n > 0 {
@@ -98,6 +105,11 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 			if pending.Len() >= flushBytes {
 				w.report(ctx, task.ID, pending.String())
 				pending.Reset()
+			}
+			if !seenEnd && hasCompletionEnd(full.String()) {
+				seenEnd = true
+				_, _ = ptmx.Write([]byte("\n/exit\n"))
+				time.AfterFunc(exitGrace, func() { _ = cmd.Process.Kill() })
 			}
 		}
 		if readErr != nil {
@@ -120,14 +132,22 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 	log.Printf("任务 #%d 已提交验收", task.ID)
 }
 
-// cliArgs 按引擎拼命令行。安全按放宽处理：让 CLI 自主执行、不卡在权限询问。
-func (w *Worker) cliArgs(prompt string) []string {
+// cliArgs 按引擎拼交互式命令行。严禁使用 claude -p / codex exec 等非交互入口；
+// worker 必须像人一样在 PTY 里操作 CLI，只把任务文本写进终端。
+func (w *Worker) cliArgs() []string {
 	switch w.cfg.Engine {
 	case "codex":
-		return []string{"exec", "--dangerously-bypass-approvals-and-sandbox", prompt}
+		return []string{"--dangerously-bypass-approvals-and-sandbox"}
 	default: // claude
-		return []string{"-p", prompt, "--dangerously-skip-permissions"}
+		return []string{"--dangerously-skip-permissions"}
 	}
+}
+
+func writeInteractivePrompt(w io.Writer, prompt string) error {
+	// Bracketed paste lets interactive CLIs receive the whole multi-line task as
+	// one pasted message, instead of treating each newline as a separate submit.
+	_, err := io.WriteString(w, "\x1b[200~"+prompt+"\x1b[201~\n")
+	return err
 }
 
 func (w *Worker) workDir(taskID int64) (string, error) {
@@ -173,6 +193,7 @@ func buildPrompt(task *Task, knowledge []string) string {
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
 	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
 		markSummary, markLessons, markEnd)
+	b.WriteString("\n输出完成标记后不要继续解释，等待系统退出当前交互会话。")
 	return b.String()
 }
 
@@ -199,10 +220,20 @@ func parseTail(out string) (summary, lessons string) {
 	return summary, lessons
 }
 
+func hasCompletionEnd(out string) bool {
+	i := strings.LastIndex(out, markEnd)
+	if i < 0 {
+		return false
+	}
+	tail := out[i+len(markEnd):]
+	if strings.Contains(tail, "输出完成标记后") {
+		return strings.Count(out, markEnd) >= 2
+	}
+	return true
+}
+
 // stripANSI 去掉终端转义序列，让回传的进度可读。
 func stripANSI(s string) string {
 	s = ansiRe.ReplaceAllString(s, "")
 	return strings.ReplaceAll(s, "\r", "")
 }
-
-var _ = io.Discard

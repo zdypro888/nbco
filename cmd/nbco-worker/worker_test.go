@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -68,12 +69,44 @@ func TestBuildPrompt(t *testing.T) {
 }
 
 func TestCliArgs(t *testing.T) {
-	claude := (&Worker{cfg: Config{Engine: "claude"}}).cliArgs("干活")
-	if claude[0] != "-p" || claude[1] != "干活" {
+	claude := (&Worker{cfg: Config{Engine: "claude"}}).cliArgs()
+	for _, arg := range claude {
+		if arg == "-p" || arg == "--print" {
+			t.Errorf("claude args = %v", claude)
+		}
+	}
+	if strings.Contains(strings.Join(claude, " "), "干活") {
 		t.Errorf("claude args = %v", claude)
 	}
-	codex := (&Worker{cfg: Config{Engine: "codex"}}).cliArgs("干活")
-	if codex[0] != "exec" || codex[len(codex)-1] != "干活" {
+	codex := (&Worker{cfg: Config{Engine: "codex"}}).cliArgs()
+	if len(codex) > 0 && codex[0] == "exec" {
 		t.Errorf("codex args = %v", codex)
+	}
+}
+
+func TestWriteInteractivePromptUsesBracketedPaste(t *testing.T) {
+	var b bytes.Buffer
+	if err := writeInteractivePrompt(&b, "第一行\n第二行"); err != nil {
+		t.Fatal(err)
+	}
+	got := b.String()
+	if !strings.HasPrefix(got, "\x1b[200~") || !strings.Contains(got, "\x1b[201~\n") {
+		t.Fatalf("未使用 bracketed paste: %q", got)
+	}
+	if !strings.Contains(got, "第一行\n第二行") {
+		t.Fatalf("prompt 内容丢失: %q", got)
+	}
+}
+
+func TestHasCompletionEndIgnoresPromptEcho(t *testing.T) {
+	echo := buildPrompt(&Task{Title: "测试"}, nil)
+	if hasCompletionEnd(echo) {
+		t.Fatal("只看到 prompt 回显时不应判定完成")
+	}
+	if !hasCompletionEnd(echo + "\n真正输出\n" + markEnd + "\n") {
+		t.Fatal("看到第二个完成标记应判定完成")
+	}
+	if !hasCompletionEnd("无回显输出\n" + markEnd + "\n") {
+		t.Fatal("无回显时看到完成标记应判定完成")
 	}
 }

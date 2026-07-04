@@ -14,7 +14,7 @@ import (
 // workerTools AI 员工管理：创建/列出/停用。创建与停用限超管（工具即权限边界，只组装给超管）；
 // 列出对所有人开放（只看自己名下）。
 func workerTools(d Deps, u *store.User) []ai.Tool {
-	list := tool("list_workers", "查看 AI 员工（client 驱动 CLI 干活的虚拟成员）及其在线状态。", obj(nil),
+	list := tool("list_workers", "查看 AI 员工（client 用交互式 PTY 驱动 CLI 干活的虚拟成员）及其在线状态。", obj(nil),
 		func(ctx context.Context, _ json.RawMessage) (string, error) {
 			owner := u.ID
 			if u.IsSuperadmin {
@@ -47,7 +47,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 
 	return []ai.Tool{
 		list,
-		tool("create_worker", "创建一个 AI 员工并签发接入令牌（明文仅返回一次）。在工作机上运行 nbco-worker 并绑定该令牌，它便能领取分配给它的任务、用 claude/codex 自动完成。超管专用。",
+		tool("create_worker", "创建一个 AI 员工并签发接入令牌（明文仅返回一次）。在工作机上运行 nbco-worker 并绑定该令牌，它便能领取任务、用交互式 PTY 驱动 claude/codex 自动完成。超管专用。",
 			obj(map[string]any{"name": p("string", "员工名，如「小码」")}, "name"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
