@@ -175,9 +175,10 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("你通过工具完成一切业务操作（用户、画像、权限、项目任务、提醒）。工具集已按当前用户的权限裁剪，权限不足时工具会返回提示，如实转告即可。\n")
 	b.WriteString("原则：\n")
 	b.WriteString("- 优先用工具查询真实数据，不要凭空编造用户、任务或权限状态。\n")
-	b.WriteString("- 删除项目、删除任务等不可逆操作，先与用户确认再执行。\n")
-	b.WriteString("- 回复用用户的语言，简洁直接，避免罗列内部 ID 之外的技术细节。\n")
-	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动提议存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
+	b.WriteString("- 建设性操作直接执行，不要反问确认：用户给了信息就立即存档（信息字段未定义时，超管直接用 add_info_field 定义后再存；普通用户存入自我介绍），要建任务就建，要设提醒就设。只有删除项目/任务这类不可逆操作才先确认。\n")
+	b.WriteString("- 不向用户展示内部技术细节：数字用户 ID、TG ID、会话 ID 一律不提，提到人只用名字；任务可用 #编号 引用。身份绑定系统已自动管理，绝不建议用户记录 TG ID 之类系统已知的信息。\n")
+	b.WriteString("- 回复用用户的语言，简洁直接。\n")
+	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n\n")
 
 	if style, ok := channelStyle[channel]; ok {
