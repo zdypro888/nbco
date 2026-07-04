@@ -39,6 +39,12 @@ type waitOpts struct {
 	// Busy 匹配 TUI 的「工作中」状态行；匹配期间无论屏幕多久没变都不算完成
 	// （深度思考/慢工具调用时屏幕会静止）。
 	Busy *regexp.Regexp
+	// BusyStable 兜底：即便 Busy 持续命中，若屏幕连续这么久【毫无变化】也判完成。
+	// 防「自定义 harness 的 busy_pattern 误匹配到屏幕上常驻文本（如提示符/横幅）」
+	// 导致每个任务空转到 taskTimeout。真正在干活的 CLI 会流式刷新屏幕，够不到这
+	// 个阈值；只有屏幕彻底冻结才触发。<=0 关闭（内置引擎的 busy 标记随忙闲出没，
+	// 不需要它）。
+	BusyStable time.Duration
 }
 
 // busyRe：claude 与 codex 工作中都渲染 "esc to interrupt"，空闲时消失。
@@ -46,11 +52,12 @@ var busyRe = regexp.MustCompile(`(?i)esc to interrupt`)
 
 func defaultWaitOpts() waitOpts {
 	return waitOpts{
-		Poll:   500 * time.Millisecond,
-		Stable: 5 * time.Second,
-		Settle: 30 * time.Second,
-		Stuck:  10 * time.Minute,
-		Busy:   busyRe,
+		Poll:       500 * time.Millisecond,
+		Stable:     5 * time.Second,
+		Settle:     30 * time.Second,
+		Stuck:      10 * time.Minute,
+		Busy:       busyRe,
+		BusyStable: 2 * time.Minute,
 	}
 }
 
@@ -242,8 +249,17 @@ func waitIdle(ctx context.Context, o waitOpts, baseline string, screen func() st
 		}
 
 		if busy {
-			last = cur
-			lastChange = time.Now()
+			// 忙碌但屏幕在变（流式输出）：正常在干活，重置静止计时、继续等。
+			if cur != last {
+				last = cur
+				lastChange = time.Now()
+				continue
+			}
+			// 忙碌但屏幕彻底冻结超过 BusyStable：几乎必是 busy_pattern 误匹配到
+			// 常驻文本（提示符/横幅），而非真在干活——兜底判完成，避免空转到超时。
+			if o.BusyStable > 0 && time.Since(lastChange) >= o.BusyStable {
+				return cur, nil
+			}
 			continue
 		}
 		if cur != last {

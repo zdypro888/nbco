@@ -5,6 +5,7 @@ package knowledge
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
 	"time"
@@ -29,36 +30,59 @@ func New(s *store.Store, embedder ai.Embedder) *Service {
 	return &Service{store: s, embedder: embedder}
 }
 
-// Save 存一条知识，并（best-effort）落 embedding。embedding 失败不阻断保存——
-// 内容照存，向量留空，回填 pass 之后会补上。
+// Save 存一条知识，并【异步 fire-and-forget】落 embedding——绝不阻塞建知识的
+// 用户/对话轮次（向量化走本地 HTTP，可能慢/冷启动）。失败也无妨，回填兜底。
 func (svc *Service) Save(ctx context.Context, title, content string, tags []string, authorID int64) (*store.Knowledge, error) {
 	k, err := svc.store.CreateKnowledge(ctx, title, content, tags, authorID)
 	if err != nil {
 		return nil, err
 	}
-	svc.embedOne(ctx, k)
+	svc.embedAsync(k)
 	return k, nil
 }
 
-// Reembed 内容更新后重算 embedding（best-effort）。
-func (svc *Service) Reembed(ctx context.Context, k *store.Knowledge) {
-	svc.embedOne(ctx, k)
+// Reembed 内容更新后异步重算 embedding（同样不阻塞调用方）。
+func (svc *Service) Reembed(_ context.Context, k *store.Knowledge) {
+	svc.embedAsync(k)
 }
 
-func (svc *Service) embedOne(ctx context.Context, k *store.Knowledge) {
+// embedAsync 后台向量化一条知识：脱离请求 ctx（用独立 background+超时），
+// 请求返回后仍能跑完；不阻塞用户可感知的返回路径。
+func (svc *Service) embedAsync(k *store.Knowledge) {
 	if svc.embedder == nil {
 		return
 	}
-	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
-	defer cancel()
-	vecs, err := svc.embedder.Embed(ectx, []string{embedText(k.Title, k.Content)})
-	if err != nil || len(vecs) != 1 {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), embedTimeout)
+		defer cancel()
+		svc.embedOne(ctx, k)
+	}()
+}
+
+// embedOne 同步向量化一条知识并落库。返回是否成功落库（回填据此计成功数，
+// 避免失败行被反复重选形成死循环）。embed_model 存「模型:维度」标签——维度随
+// 外部服务变更时标签变，旧向量既不会污染检索、也会被回填识别为需重嵌入。
+func (svc *Service) embedOne(ctx context.Context, k *store.Knowledge) bool {
+	if svc.embedder == nil {
+		return false
+	}
+	vecs, err := svc.embedder.Embed(ctx, []string{embedText(k.Title, k.Content)})
+	if err != nil || len(vecs) != 1 || len(vecs[0]) == 0 {
 		slog.Warn("知识向量化失败（内容已存，回填时补）", "id", k.ID, "err", err)
-		return
+		return false
 	}
-	if err := svc.store.SetKnowledgeEmbedding(ctx, k.ID, svc.embedder.Model(), vecs[0]); err != nil {
+	tag := modelTag(svc.embedder.Model(), len(vecs[0]))
+	if err := svc.store.SetKnowledgeEmbedding(ctx, k.ID, tag, vecs[0]); err != nil {
 		slog.Warn("知识向量落库失败", "id", k.ID, "err", err)
+		return false
 	}
+	return true
+}
+
+// modelTag 把模型名与向量维度合成检索/回填的标识。维度并入标签是维度变更自愈的
+// 关键：换了不同维度的 embedding 实现（模型名不变）后标签自动不同。
+func modelTag(model string, dim int) string {
+	return fmt.Sprintf("%s:%d", model, dim)
 }
 
 // Search 混合检索：有 embedder 则语义 cosine + 词法融合，否则纯词法。
@@ -81,15 +105,17 @@ func (svc *Service) Search(ctx context.Context, query string, limit int) ([]*sto
 	return merge(ranked, lexical, limit), nil
 }
 
-// semantic 查询向量化 → 与全部已嵌入知识做 cosine → 取 topN。
+// semantic 查询向量化 → 与「同模型同维度」的已嵌入知识做 cosine → 取 topN。
+// 按 modelTag（含维度）取候选：维度变更后旧向量自动排除，绝不用零余弦污染结果。
 func (svc *Service) semantic(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	defer cancel()
 	qv, err := svc.embedder.Embed(ectx, []string{query})
-	if err != nil || len(qv) != 1 {
+	if err != nil || len(qv) != 1 || len(qv[0]) == 0 {
 		return nil, err
 	}
-	cands, err := svc.store.EmbeddedKnowledge(ctx, svc.embedder.Model())
+	tag := modelTag(svc.embedder.Model(), len(qv[0]))
+	cands, err := svc.store.EmbeddedKnowledge(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -132,25 +158,38 @@ func merge(primary, secondary []*store.Knowledge, limit int) []*store.Knowledge 
 	return out
 }
 
-// Backfill 给尚未按当前模型嵌入的知识补 embedding（启动时后台跑一趟）。
-// batch 控制单次处理量，避免一次拉爆；返回处理条数。
-func (svc *Service) Backfill(ctx context.Context, batch int) (int, error) {
+// Backfill 给尚未按「当前模型:维度」嵌入的知识补 embedding（启动后台跑）。
+// 返回 (attempted 本批尝试数, embedded 本批成功落库数)。成功数用于让驱动循环
+// 在「零推进」时收敛退出，杜绝 embedding 服务失败时的死循环空转。
+// 先探一次当前维度确定标签：探测失败=服务不可用，直接返回错误让驱动停手。
+func (svc *Service) Backfill(ctx context.Context, batch int) (attempted, embedded int, err error) {
 	if svc.embedder == nil {
-		return 0, nil
+		return 0, 0, nil
 	}
-	ks, err := svc.store.KnowledgeNeedingEmbedding(ctx, svc.embedder.Model(), batch)
+	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
+	probe, perr := svc.embedder.Embed(ectx, []string{"nbco"})
+	cancel()
+	if perr != nil || len(probe) != 1 || len(probe[0]) == 0 {
+		return 0, 0, fmt.Errorf("embedding 服务探测失败: %w", perr)
+	}
+	tag := modelTag(svc.embedder.Model(), len(probe[0]))
+	ks, err := svc.store.KnowledgeNeedingEmbedding(ctx, tag, batch)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	done := 0
 	for _, k := range ks {
 		if ctx.Err() != nil {
 			break
 		}
-		svc.embedOne(ctx, k)
-		done++
+		ectx, cancel := context.WithTimeout(ctx, embedTimeout)
+		ok := svc.embedOne(ectx, k)
+		cancel()
+		attempted++
+		if ok {
+			embedded++
+		}
 	}
-	return done, nil
+	return attempted, embedded, nil
 }
 
 // embedText 拼向量化文本：标题权重高（重复一次），加正文。

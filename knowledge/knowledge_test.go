@@ -57,10 +57,20 @@ func TestSemanticSearchRanks(t *testing.T) {
 
 	emb := bagEmbedder{vocab: []string{"数据库", "备份", "前端", "样式", "部署"}}
 	svc := New(s, emb)
-	// 存三条，都会被 embed。
+	// 存三条（embed 现在异步 fire-and-forget）。
 	dbK, _ := svc.Save(ctx, "数据库备份", "每天凌晨备份数据库到对象存储", nil, u.ID)
 	_, _ = svc.Save(ctx, "前端样式规范", "统一使用设计系统的样式变量", nil, u.ID)
 	_, _ = svc.Save(ctx, "部署脚本", "一键部署到生产", nil, u.ID)
+	// 用 Backfill（同步）确保三条都嵌入，消除异步竞态。
+	for {
+		_, embedded, err := svc.Backfill(ctx, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if embedded == 0 {
+			break
+		}
+	}
 
 	// 语义查询「数据库怎么备份」——即便措辞不同，词袋相似度也把 dbK 排首位。
 	res, err := svc.Search(ctx, "数据库 备份 怎么做", 3)
@@ -69,5 +79,44 @@ func TestSemanticSearchRanks(t *testing.T) {
 	}
 	if len(res) == 0 || res[0].ID != dbK.ID {
 		t.Fatalf("语义检索应把数据库备份排首位: %+v", res)
+	}
+}
+
+// failEmbedder：始终失败，验证 Backfill 探测失败即停、不死循环空转。
+type failEmbedder struct{}
+
+func (failEmbedder) Model() string { return "fail" }
+func (failEmbedder) Embed(context.Context, []string) ([][]float32, error) {
+	return nil, context.DeadlineExceeded
+}
+
+func TestBackfillStopsWhenServiceDown(t *testing.T) {
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err := s.Pool().Exec(ctx, `TRUNCATE knowledge RESTART IDENTITY CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	u, _ := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "kbfail"})
+	_, _ = s.CreateKnowledge(ctx, "标题", "正文", nil, u.ID)
+
+	// 服务失败：探测失败→返回 error、零尝试零成功（驱动据此停手，不空转）。
+	attempted, embedded, err := New(s, failEmbedder{}).Backfill(ctx, 10)
+	if err == nil {
+		t.Fatal("服务失败应返回 error 让驱动停手")
+	}
+	if attempted != 0 || embedded != 0 {
+		t.Fatalf("探测失败不应尝试嵌入: attempted=%d embedded=%d", attempted, embedded)
+	}
+	// nil embedder：安全空返回。
+	if a, e, err := New(s, nil).Backfill(ctx, 10); a != 0 || e != 0 || err != nil {
+		t.Fatalf("nil embedder Backfill = %d %d %v", a, e, err)
 	}
 }

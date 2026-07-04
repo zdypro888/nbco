@@ -473,3 +473,19 @@ func TestNewWorkerCustomBusyPattern(t *testing.T) {
 		t.Fatal("非法 busy_pattern 应回退默认")
 	}
 }
+
+func TestWaitIdleBusyStableBackstop(t *testing.T) {
+	// busy 常驻命中（误配的 busy_pattern 匹配到屏幕常驻文本）但屏幕彻底冻结：
+	// BusyStable 到点应兜底判完成，而不是空转到 taskTimeout。
+	const frozen = "swarm> ready  ·  esc to interrupt" // 恒 busy 且永不变
+	got, err := waitIdle(context.Background(), waitOpts{
+		Poll: 5 * time.Millisecond, Stable: time.Second, Settle: time.Second,
+		Stuck: time.Minute, Busy: busyRe, BusyStable: 60 * time.Millisecond,
+	}, "boot", func() string { return frozen })
+	if err != nil {
+		t.Fatalf("常驻 busy 冻结屏幕应兜底判完成，got err %v", err)
+	}
+	if got != frozen {
+		t.Fatalf("got %q", got)
+	}
+}
