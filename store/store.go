@@ -32,6 +32,9 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
+// Pool 暴露底层连接池，供跨包的健康检查、高级查询与集成测试使用。
+func (s *Store) Pool() *pgxpool.Pool { return s.pool }
+
 // Open 连接数据库并执行迁移。
 func Open(ctx context.Context, dsn string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, dsn)

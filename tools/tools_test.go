@@ -87,3 +87,9 @@ func TestFmtTime(t *testing.T) {
 		t.Errorf("fmtTime = %q", got)
 	}
 }
+
+func TestFormatBytesHuge(t *testing.T) {
+	if got := formatBytes(1 << 62); got == "" {
+		t.Fatal("formatBytes should not return empty string")
+	}
+}

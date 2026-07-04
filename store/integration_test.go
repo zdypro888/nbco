@@ -240,13 +240,15 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	if ok, err := s.UserCanAccessFile(ctx, outsider.ID, false, in.ID); err != nil || ok {
 		t.Fatalf("无关用户不应可访问附件 ok=%v err=%v", ok, err)
 	}
-	if ok, err := s.WorkerCanAccessFile(ctx, worker.ID, in.ID); err != nil || !ok {
-		t.Fatalf("worker 应可下载自己的任务附件 ok=%v err=%v", ok, err)
-	}
-
 	claimed, err := s.ClaimNextTask(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, "stale", in.ID); err != nil || ok {
+		t.Fatalf("旧 claim 不应可下载附件 ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, in.ID); err != nil || !ok {
+		t.Fatalf("worker 应可用当前 claim 下载自己的任务附件 ok=%v err=%v", ok, err)
 	}
 	out, err := s.CreateFile(ctx, &File{
 		Source: "worker", OriginalName: "result.txt", MIMEType: "text/plain",
@@ -475,10 +477,14 @@ func TestSuperadminBootstrap(t *testing.T) {
 	if err != nil || has {
 		t.Fatalf("空库不应有超管: %v err=%v", has, err)
 	}
-	// 首任引导成功。
-	u, err := s.BootstrapSuperadmin(ctx, "老板", Identity{Provider: "test", ExternalID: "boss"})
+	// 首任 HTTP 引导成功，且同事务签发首个 API token。
+	u, token, err := s.BootstrapSuperadminWithAPIToken(ctx, "老板", Identity{Provider: "test", ExternalID: "boss"})
 	if err != nil || !u.IsSuperadmin {
 		t.Fatalf("引导 = %+v err=%v", u, err)
+	}
+	authed, err := s.UserByAPIToken(ctx, token)
+	if err != nil || authed.ID != u.ID {
+		t.Fatalf("引导 token 不可用: user=%+v err=%v", authed, err)
 	}
 	// 第二个人抢注被拒。
 	if _, err := s.BootstrapSuperadmin(ctx, "路人", Identity{Provider: "test", ExternalID: "someone"}); !errors.Is(err, ErrConflict) {
@@ -799,5 +805,59 @@ func TestWorkerArtifactGating(t *testing.T) {
 	}
 	if _, err := s.FileByID(ctx, orphan.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatal("孤儿 files 行应已删除")
+	}
+}
+
+func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	author := mkUser(t, s, "作者", true)
+
+	k1, _ := s.CreateKnowledge(ctx, "报销流程", "发票拍照上传财务系统，三天到账", []string{"财务"}, author.ID)
+	k2, _ := s.CreateKnowledge(ctx, "请假规定", "提前一天在钉钉提交", nil, author.ID)
+
+	// 多词词法：命中词数多的排前。
+	res, err := s.SearchKnowledge(ctx, "报销 发票 财务", 5)
+	if err != nil || len(res) == 0 || res[0].ID != k1.ID {
+		t.Fatalf("多词检索应把报销排首位: %+v err=%v", res, err)
+	}
+	// tag 精确命中优先级最高。
+	if res, _ := s.SearchKnowledge(ctx, "财务", 5); len(res) == 0 || res[0].ID != k1.ID {
+		t.Fatalf("tag 命中应排首位: %+v", res)
+	}
+
+	// embedding 存取往返（同时验证 pgx []float32 ↔ real[] 映射）。
+	vec := []float32{0.1, 0.2, 0.3, 0.4}
+	if err := s.SetKnowledgeEmbedding(ctx, k1.ID, "test-model", vec); err != nil {
+		t.Fatal(err)
+	}
+	cands, err := s.EmbeddedKnowledge(ctx, "test-model")
+	if err != nil || len(cands) != 1 || cands[0].ID != k1.ID || len(cands[0].Embedding) != 4 {
+		t.Fatalf("EmbeddedKnowledge = %+v err=%v", cands, err)
+	}
+	if cands[0].Embedding[2] != 0.3 {
+		t.Fatalf("向量往返值不对: %v", cands[0].Embedding)
+	}
+	// 只 k1 嵌入了 test-model；k2 应在待回填列表里。
+	need, err := s.KnowledgeNeedingEmbedding(ctx, "test-model", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hasK2, hasK1 bool
+	for _, k := range need {
+		if k.ID == k2.ID {
+			hasK2 = true
+		}
+		if k.ID == k1.ID {
+			hasK1 = true
+		}
+	}
+	if !hasK2 || hasK1 {
+		t.Fatalf("待回填应含 k2 不含 k1: need=%+v", need)
+	}
+	// KnowledgeByIDs 保序。
+	byIDs, _ := s.KnowledgeByIDs(ctx, []int64{k2.ID, k1.ID})
+	if len(byIDs) != 2 || byIDs[0].ID != k2.ID || byIDs[1].ID != k1.ID {
+		t.Fatalf("KnowledgeByIDs 未保序: %+v", byIDs)
 	}
 }

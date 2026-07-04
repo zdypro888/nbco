@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -430,7 +429,7 @@ func TestOpenArtifactFileRejectsLinks(t *testing.T) {
 
 	// FIFO：非常规文件应拒绝，且不阻塞。
 	fifo := filepath.Join(dir, "pipe")
-	if err := syscall.Mkfifo(fifo, 0o644); err == nil {
+	if err := makeFIFO(fifo, 0o644); err == nil {
 		done := make(chan error, 1)
 		go func() {
 			f, e := openArtifactFile(fifo)
@@ -447,5 +446,30 @@ func TestOpenArtifactFileRejectsLinks(t *testing.T) {
 		case <-time.After(3 * time.Second):
 			t.Fatal("openArtifactFile 在 FIFO 上阻塞了（应 O_NONBLOCK 立即返回）")
 		}
+	}
+}
+
+func TestCliArgsCustomEngine(t *testing.T) {
+	// 自定义 harness：Args 覆盖内置默认。
+	w := &Worker{cfg: Config{Engine: "ruflo", Args: []string{"chat", "--swarm"}}}
+	got := w.cliArgs()
+	if len(got) != 2 || got[0] != "chat" || got[1] != "--swarm" {
+		t.Fatalf("自定义 Args 未生效: %v", got)
+	}
+	// 无 Args 时回退内置。
+	if a := (&Worker{cfg: Config{Engine: "claude"}}).cliArgs(); len(a) == 0 || a[0] != "--dangerously-skip-permissions" {
+		t.Fatalf("claude 内置参数错: %v", a)
+	}
+}
+
+func TestNewWorkerCustomBusyPattern(t *testing.T) {
+	w := newWorker(Config{Server: "http://x", Token: "t", BusyPattern: "(?i)swarm running"})
+	if w.wait.Busy == nil || !w.wait.Busy.MatchString("... SWARM RUNNING ...") {
+		t.Fatal("自定义 busy_pattern 未生效")
+	}
+	// 非法正则回退默认（不 panic、Busy 仍非 nil）。
+	w2 := newWorker(Config{Server: "http://x", Token: "t", BusyPattern: "("})
+	if w2.wait.Busy == nil {
+		t.Fatal("非法 busy_pattern 应回退默认")
 	}
 }

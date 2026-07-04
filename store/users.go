@@ -86,6 +86,38 @@ func (s *Store) BootstrapSuperadmin(ctx context.Context, name string, ident Iden
 	return u, tx.Commit(ctx)
 }
 
+// BootstrapSuperadminWithAPIToken 首任超管 HTTP 引导：系统无活跃超管时创建首任超管，
+// 并在同一事务里签发首个 API token；已有超管返回 ErrConflict。
+func (s *Store) BootstrapSuperadminWithAPIToken(ctx context.Context, name string, ident Identity) (*User, string, error) {
+	plain, err := randomHex(24)
+	if err != nil {
+		return nil, "", err
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockNoSuperadmin(ctx, tx); err != nil {
+		return nil, "", err
+	}
+	u, err := scanUser(tx.QueryRow(ctx,
+		`INSERT INTO users (name, is_superadmin) VALUES ($1, TRUE) RETURNING `+userCols, name))
+	if err != nil {
+		return nil, "", err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO identities (provider, external_id, user_id, chat_ref) VALUES ($1, $2, $3, $4)`,
+		ident.Provider, ident.ExternalID, u.ID, ident.ChatRef); err != nil {
+		return nil, "", wrapErr(err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO api_tokens (token_hash, user_id) VALUES ($1, $2)`, hashToken(plain), u.ID); err != nil {
+		return nil, "", wrapErr(err)
+	}
+	return u, plain, tx.Commit(ctx)
+}
+
 // PromoteFirstSuperadmin 已绑定用户的首任超管引导：无活跃超管时晋升该用户；
 // 已有超管返回 ErrConflict。
 func (s *Store) PromoteFirstSuperadmin(ctx context.Context, userID int64) error {

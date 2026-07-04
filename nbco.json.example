@@ -17,6 +17,9 @@
     "base_url": "",
     "model": "claude-sonnet-5",
     "max_tokens": 4096,
-    "max_turns": 16
+    "max_turns": 16,
+    "embed_model": "",
+    "embed_base_url": "",
+    "embed_api_key": ""
   }
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -45,10 +45,18 @@ type Worker struct {
 }
 
 func newWorker(cfg Config) *Worker {
+	wait := defaultWaitOpts()
+	if p := strings.TrimSpace(cfg.BusyPattern); p != "" {
+		if re, err := regexp.Compile(p); err != nil {
+			log.Printf("busy_pattern %q 非法，沿用默认: %v", p, err)
+		} else {
+			wait.Busy = re // 自定义 harness 的「工作中」状态行
+		}
+	}
 	return &Worker{
 		cfg:    cfg,
 		client: newClient(cfg.Server, cfg.Token),
-		wait:   defaultWaitOpts(),
+		wait:   wait,
 		link:   newWSLink(cfg.Server, cfg.Token),
 	}
 }
@@ -235,7 +243,11 @@ func (w *Worker) relayProgress(ctx context.Context, taskID int64, claimID string
 
 // cliArgs 按引擎拼交互式命令行。严禁使用 claude -p / codex exec 等非交互入口；
 // worker 必须像人一样在 PTY 里操作 CLI，只把任务文本写进终端。
+// 自定义引擎（swarm harness 等）用 cfg.Args 指定启动参数，覆盖内置默认。
 func (w *Worker) cliArgs() []string {
+	if len(w.cfg.Args) > 0 {
+		return w.cfg.Args
+	}
 	switch w.cfg.Engine {
 	case "codex":
 		return []string{"--dangerously-bypass-approvals-and-sandbox"}
@@ -323,32 +335,6 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 	return uploaded, failed, rejected, nil
 }
 
-// openArtifactFile 安全打开产物文件：拒绝软链接（O_NOFOLLOW，仅最终路径段）、
-// 硬链接、FIFO、设备等一切非「常规且唯一硬链接」的文件。校验作用在已打开的
-// fd 上（fstat），与后续读取同一 inode，故 fstat↔read 之间无 TOCTOU。
-// 局限见调用处注释：这是纵深加固，非安全边界（真正边界靠沙箱化 worker）。
-func openArtifactFile(path string) (*os.File, error) {
-	// O_NONBLOCK 防无写端的 FIFO 让 open 永久阻塞。
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		_ = f.Close()
-		return nil, err
-	}
-	if !fi.Mode().IsRegular() {
-		_ = f.Close()
-		return nil, fmt.Errorf("非常规文件（%s）", fi.Mode().Type())
-	}
-	if st, ok := fi.Sys().(*syscall.Stat_t); ok && uint64(st.Nlink) > 1 {
-		_ = f.Close()
-		return nil, fmt.Errorf("硬链接（nlink=%d），拒绝上传", st.Nlink)
-	}
-	return f, nil
-}
-
 // artifactEntries 枚举 dir 下的候选产物文件名（跳过目录、软链接、.tmp、点文件）。
 // 真正的安全校验在 openArtifactFile（打开时的 fd）上做，这里只是廉价预筛。
 func artifactEntries(dir string) ([]string, error) {
@@ -400,12 +386,16 @@ func safeFileName(name string) string {
 }
 
 func verifySHA256(path, want string) (bool, error) {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return false, err
 	}
-	sum := sha256.Sum256(data)
-	return strings.EqualFold(hex.EncodeToString(sum[:]), want), nil
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false, err
+	}
+	return strings.EqualFold(hex.EncodeToString(h.Sum(nil)), want), nil
 }
 
 func (w *Worker) report(ctx context.Context, taskID int64, claimID, content string) {

@@ -136,33 +136,46 @@ func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
 // task_id/claim_id 走 query（而非 multipart 字段），服务端可在解析文件体之前
 // 就校验 claim、拒绝时不把大文件 spool 到临时盘。
 func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, name string, r io.Reader) error {
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	part, err := mw.CreateFormFile("file", name)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(part, r); err != nil {
-		return err
-	}
-	if err := mw.Close(); err != nil {
-		return err
-	}
 	ctx, cancel := context.WithTimeout(ctx, fileTransferTimeout)
 	defer cancel()
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	writeErr := make(chan error, 1)
+	go func() {
+		part, err := mw.CreateFormFile("file", name)
+		if err == nil {
+			_, err = io.Copy(part, r)
+		}
+		if cerr := mw.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			_ = pw.CloseWithError(err)
+		} else {
+			err = pw.Close()
+		}
+		writeErr <- err
+	}()
 	q := url.Values{"task_id": {fmt.Sprint(taskID)}, "claim_id": {claimID}}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts?"+q.Encode(), &buf)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts?"+q.Encode(), pr)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	c.auth(req)
 	resp, err := c.files.Do(req)
 	if err != nil {
+		_ = pr.CloseWithError(err)
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return c.errStatus(resp)
+		err := c.errStatus(resp)
+		cancel()
+		_ = pr.CloseWithError(err)
+		return err
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
+	if err := <-writeErr; err != nil {
+		return err
+	}
 	return nil
 }
 

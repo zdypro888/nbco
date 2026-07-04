@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -51,6 +52,7 @@ func (s *Server) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/me", s.handleMe)
 	mux.HandleFunc("GET /api/me/tasks", s.handleMyTasks)
@@ -309,12 +311,20 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "认领失败"})
 		return
 	}
-	// 进化：用任务标题检索知识库，把公司既有经验交给 worker 一起干。
+	// 进化：用任务标题+描述语义检索知识库，把公司相关经验交给 worker 一起干。
 	var lessons []string
-	if ks, err := s.store.SearchKnowledge(ctx, t.Title, workerKnowledgeHits); err == nil {
-		for _, k := range ks {
-			lessons = append(lessons, k.Title+"："+k.Content)
-		}
+	query := t.Title
+	if strings.TrimSpace(t.Description) != "" {
+		query += " " + t.Description
+	}
+	var ks []*store.Knowledge
+	if s.deps.Knowledge != nil {
+		ks, _ = s.deps.Knowledge.Search(ctx, query, workerKnowledgeHits)
+	} else {
+		ks, _ = s.store.SearchKnowledge(ctx, query, workerKnowledgeHits)
+	}
+	for _, k := range ks {
+		lessons = append(lessons, k.Title+"："+k.Content)
 	}
 	// 返工闭环：带上任务已有的过程记录（含验收打回理由），worker 按它改。
 	var history []string
@@ -329,7 +339,8 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	var attachments []fileJSON
 	if fs, err := s.store.TaskFileAttachments(ctx, t.ID); err == nil {
 		for _, f := range fs {
-			attachments = append(attachments, toFileJSON(f, "/api/worker/files/"+fmt.Sprint(f.ID)))
+			q := url.Values{"task_id": {fmt.Sprint(t.ID)}, "claim_id": {t.WorkerClaimID}}
+			attachments = append(attachments, toFileJSON(f, "/api/worker/files/"+fmt.Sprint(f.ID)+"?"+q.Encode()))
 		}
 	} else {
 		slog.Warn("worker 附件查询失败", "worker", u.ID, "task", t.ID, "err", err)

@@ -15,10 +15,12 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/ai/einoengine"
+	"github.com/zdypro888/nbco/ai/embed"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/config"
 	"github.com/zdypro888/nbco/gateway/httpapi"
 	"github.com/zdypro888/nbco/gateway/telegram"
+	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/mcptools"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/sched"
@@ -57,7 +59,19 @@ func run(configPath string) error {
 	defer st.Close()
 
 	hub := &notify.Hub{}
-	deps := tools.Deps{Store: st, Notifier: hub, TZ: tz, Workers: workerhub.New()}
+
+	// 语义检索的 embedder（可选）：配了 ai.embed_model 才构建，否则知识检索回退词法。
+	embedder, err := embed.New(cfg.AI)
+	if err != nil {
+		return err
+	}
+	kb := knowledge.New(st, embedder)
+	if embedder != nil {
+		slog.Info("语义检索已启用", "embed_model", embedder.Model())
+		go backfillKnowledge(ctx, kb)
+	}
+
+	deps := tools.Deps{Store: st, Notifier: hub, TZ: tz, Knowledge: kb, Workers: workerhub.New()}
 
 	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
 	for _, srv := range cfg.MCPServers {
@@ -121,4 +135,24 @@ func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, error) {
 		return eng, err
 	}
 	return nil, fmt.Errorf("不支持的 ai.engine: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", cfg.AI.Engine)
+}
+
+// backfillKnowledge 启动后分批给存量知识补 embedding（首次启用语义检索或换模型时）。
+func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
+	const batch = 64
+	total := 0
+	for ctx.Err() == nil {
+		n, err := kb.Backfill(ctx, batch)
+		if err != nil {
+			slog.Warn("知识 embedding 回填失败", "err", err)
+			return
+		}
+		total += n
+		if n < batch {
+			break // 已无待补
+		}
+	}
+	if total > 0 {
+		slog.Info("知识 embedding 回填完成", "count", total)
+	}
 }

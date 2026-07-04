@@ -22,8 +22,13 @@ import (
 type Config struct {
 	Server string `json:"server"` // nbco 基地址，如 http://127.0.0.1:8900
 	Token  string `json:"token"`  // worker 接入令牌
-	Engine string `json:"engine"` // claude | codex，默认 claude
+	Engine string `json:"engine"` // 引擎名：内置 claude | codex，或自定义（配 bin+args）
 	Bin    string `json:"bin"`    // CLI 可执行文件，默认同 engine
+	// 深执行引擎可插拔（前瞻「买管道、留业务」）：把任意交互式 harness（如
+	// swarm 编排器 ruflo/claude-flow 的交互 REPL）配成一个引擎，无需改代码。
+	// 仍守 PTY 交互铁律——只是换掉「启动哪个 CLI、怎么判完成」。
+	Args        []string `json:"args"`         // 自定义启动参数（非空则覆盖内置 claude/codex 默认参数）
+	BusyPattern string   `json:"busy_pattern"` // 自定义「工作中」状态行正则（完成检测用；空=默认 "esc to interrupt"）
 }
 
 func configPath() string {

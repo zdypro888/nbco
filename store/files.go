@@ -174,13 +174,17 @@ func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin 
 	return ok, err
 }
 
-// WorkerCanAccessFile 判断 worker 是否能下载某个任务文件。
-func (s *Store) WorkerCanAccessFile(ctx context.Context, workerID, fileID int64) (bool, error) {
+// WorkerCanDownloadFile 判断 worker 是否能用当前 claim 下载某个任务附件。
+func (s *Store) WorkerCanDownloadFile(ctx context.Context, taskID, workerID int64, claimID string, fileID int64) (bool, error) {
+	if claimID == "" {
+		return false, nil
+	}
 	var ok bool
 	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS(
 		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
-		    WHERE a.file_id = $1 AND t.assignee_id = $2
-		)`, fileID, workerID).Scan(&ok)
+		    WHERE a.task_id = $1 AND a.file_id = $4
+		      AND t.assignee_id = $2 AND t.status = 'in_progress' AND t.worker_claim_id = $3
+		)`, taskID, workerID, claimID, fileID).Scan(&ok)
 	return ok, err
 }

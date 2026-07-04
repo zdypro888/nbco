@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
@@ -24,12 +25,31 @@ type Deps struct {
 	Store    *store.Store
 	Notifier notify.Notifier
 	TZ       *time.Location
+	// Knowledge 知识库服务（语义+词法混合检索）。可为 nil（测试场景），
+	// 此时知识工具回退到直接走 store 的词法检索。
+	Knowledge *knowledge.Service
 	// Workers worker 实时通道（可为 nil）：派活时唤醒在线 worker 秒领任务、
 	// 删任务时取消执行、展示真实在线状态。任务队列仍以数据库为准。
 	Workers *workerhub.Hub
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
+}
+
+// saveKnowledge / searchKnowledge：优先走 Knowledge 服务（含语义检索），
+// nil 时回退直接走 store 的词法路径（测试或未装配场景）。
+func (d Deps) saveKnowledge(ctx context.Context, title, content string, tags []string, authorID int64) (*store.Knowledge, error) {
+	if d.Knowledge != nil {
+		return d.Knowledge.Save(ctx, title, content, tags, authorID)
+	}
+	return d.Store.CreateKnowledge(ctx, title, content, tags, authorID)
+}
+
+func (d Deps) searchKnowledge(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+	if d.Knowledge != nil {
+		return d.Knowledge.Search(ctx, query, limit)
+	}
+	return d.Store.SearchKnowledge(ctx, query, limit)
 }
 
 // wakeWorker 若目标是 worker 且实时在线，推送唤醒（尽力而为，轮询兜底）。

@@ -34,15 +34,15 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				if strings.TrimSpace(args.Title) == "" || strings.TrimSpace(args.Content) == "" {
 					return "标题和正文都不能为空。", nil
 				}
-				k, err := d.Store.CreateKnowledge(ctx, args.Title, args.Content, args.Tags, u.ID)
+				k, err := d.saveKnowledge(ctx, args.Title, args.Content, args.Tags, u.ID)
 				if err != nil {
 					return "", err
 				}
 				return fmt.Sprintf("已存入知识库（#%d）。", k.ID), nil
 			}),
 
-		tool("search_knowledge", "检索公司知识库（标题/正文模糊匹配或标签精确匹配）。回答公司事实类问题前先查这里。",
-			obj(map[string]any{"query": p("string", "关键词")}, "query"),
+		tool("search_knowledge", "检索公司知识库（语义+关键词混合召回，按相关度排序）。回答公司事实类问题、决策/方案/流程前先查这里。",
+			obj(map[string]any{"query": p("string", "查询（自然语言或关键词皆可）")}, "query"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					Query string `json:"query"`
@@ -52,9 +52,9 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				}
 				q := strings.TrimSpace(args.Query)
 				if q == "" {
-					return "关键词不能为空。", nil
+					return "查询不能为空。", nil
 				}
-				ks, err := d.Store.SearchKnowledge(ctx, q, knowledgeSearchLimit)
+				ks, err := d.searchKnowledge(ctx, q, knowledgeSearchLimit)
 				if err != nil {
 					return "", err
 				}
@@ -120,8 +120,13 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				if strings.TrimSpace(args.Content) != "" {
 					content = &args.Content
 				}
-				if _, err := d.Store.UpdateKnowledge(ctx, args.ID, title, content, args.Tags); err != nil {
+				updated, err := d.Store.UpdateKnowledge(ctx, args.ID, title, content, args.Tags)
+				if err != nil {
 					return "", err
+				}
+				// 正文变了就重算 embedding（best-effort）。
+				if content != nil && d.Knowledge != nil {
+					d.Knowledge.Reembed(ctx, updated)
 				}
 				return "已更新。", nil
 			}),

@@ -50,6 +50,8 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.engine` | 仅支持 `eino`（直调 API） |
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
 | `ai.api_key` / `ai.model` | eino 引擎必填 |
+| `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
+| `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥（空则回退 `ai.base_url` / `ai.api_key`） |
 
 ## 构建与运行
 
@@ -70,13 +72,23 @@ docker compose up -d
 浏览器打开 `http://<listen>/` 即是 Web 入口（内嵌单页，无需部署前端）：粘贴 API Token 登录，
 可对话（与 REST 同一会话）、看我的待办/待验收/我分配的任务；超管多一个全景页（统计+项目+过期点名）。
 
-认证一律 `Authorization: Bearer <token>`（在 TG 里让 AI 调 `generate_api_token` 生成）：
+认证一律 `Authorization: Bearer <token>`。全新系统且没有 Telegram 时，先调一次：
+
+```bash
+curl -X POST http://<listen>/api/bootstrap \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"老板"}'
+```
+
+该接口仅在系统没有活跃超管时可用，会返回首任超管和首个 API token；已有超管后再调用会返回 `409`。已有账号可在 TG/Web 对话里让 AI 调 `generate_api_token` 重新生成自己的 token。
+
+常用接口：
 
 - `POST /api/chat` `{"message":"..."}` → `{"reply":"..."}` — 与 TG 同一编排器，独立会话
 - `GET /api/me` — 当前用户
 - `GET /api/me/tasks` / `GET /api/me/review` / `GET /api/me/assigned` — 待办 / 待我验收 / 我分配的
 - `GET /api/overview` — 全局统计+项目+过期任务（超管）
-- `POST /api/files`（multipart `file`）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）
+- `POST /api/files`（multipart `file`，最大 200MB）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）
 - `POST /api/tasks/{id}/attachments` `{"file_id":123,"caption":"..."}` — 把文件挂到任务
 - `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具
 - `GET /healthz`
@@ -121,6 +133,8 @@ scripts/deploy-local.sh
 - **启动对话框自动应答**：Bypass Permissions 确认（选 Yes）、目录 trust 确认
 - **收尾解析防回显**：从最后一个哨兵块回溯、跳过任务原文的回显；没按格式收尾会补提醒，仍失败则以屏幕摘录提交
 - **进度即屏幕**：定期回传屏幕快照作为任务进度
+
+**深执行引擎可插拔（前瞻·买管道留业务）**：worker 驱动的不限于 claude/codex——`~/.nbco-worker.json` 里配 `bin` + `args` + `busy_pattern`，就能把任意**交互式** harness（如 swarm 编排器 ruflo/claude-flow 的交互 REPL）挂成一个引擎，无需改代码。重活可交给更强的 swarm 深啃，nbco 只管派活/验收的业务闭环。仍守 PTY 交互铁律，只是换掉「启动哪个 CLI、怎么判完成」。例：`{"engine":"ruflo","bin":"ruflo","args":["chat","--swarm"],"busy_pattern":"(?i)running|swarm"}`
 
 ### 实时通道（WebSocket）
 
@@ -181,6 +195,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 ## 知识与画像（越用越值钱）
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
+- **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`embed_base_url`/`embed_api_key` 空则回退主引擎的）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 权限体系

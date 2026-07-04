@@ -18,7 +18,10 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
-const maxUploadBytes = 200 << 20
+const (
+	maxUploadBytes     = 200 << 20
+	maxMultipartMemory = 8 << 20
+)
 
 type fileJSON struct {
 	ID           int64  `json:"id"`
@@ -125,7 +128,17 @@ func (s *Server) handleWorkerDownloadFile(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	ok, err := s.store.WorkerCanAccessFile(r.Context(), u.ID, id)
+	taskID, err := parseID(r.URL.Query().Get("task_id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
+		return
+	}
+	claimID := strings.TrimSpace(r.URL.Query().Get("claim_id"))
+	if claimID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "claim_id 必填"})
+		return
+	}
+	ok, err := s.store.WorkerCanDownloadFile(r.Context(), taskID, u.ID, claimID, id)
 	if err != nil || !ok {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权访问文件"})
 		return
@@ -184,7 +197,7 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 // 校验（worker 产物端点用 query 参数预校验），避免给未授权请求 spool 文件体。
 func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userID int64, source string) (*store.File, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
-	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil {
 		return nil, fmt.Errorf("解析上传失败")
 	}
 	// multipart 解析会把大文件缓冲到临时文件，请求结束务必清理。

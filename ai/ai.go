@@ -11,6 +11,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"math"
 )
 
 // Tool 是领域能力暴露给 AI 的最小单元。
@@ -98,4 +99,35 @@ type Engine interface {
 	RunTurn(ctx context.Context, req *TurnRequest) (*TurnResult, error)
 	// Name 引擎标识（配置值），用于日志与会话落库。
 	Name() string
+}
+
+// Embedder 把文本编码成向量，供语义检索（知识库、worker 经验召回）。
+// 可选组件：未配置时为 nil，检索回退到词法匹配。实现：ai/embed。
+type Embedder interface {
+	// Embed 批量向量化，返回与 texts 一一对应、等维的向量。
+	Embed(ctx context.Context, texts []string) ([][]float32, error)
+	// Model 向量模型标识，随向量落库，模型变更时据此识别需重嵌入的旧数据。
+	Model() string
+}
+
+// Cosine 余弦相似度（两向量维度需一致；任一为零向量返回 0）。
+// 语义排序用；nbco 规模下暴力两两点积足够，无需向量索引扩展。
+func Cosine(a, b []float32) float32 {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0
+	}
+	var dot, na, nb float32
+	for i := range a {
+		dot += a[i] * b[i]
+		na += a[i] * a[i]
+		nb += b[i] * b[i]
+	}
+	if na == 0 || nb == 0 {
+		return 0
+	}
+	return dot / (sqrt32(na) * sqrt32(nb))
+}
+
+func sqrt32(x float32) float32 {
+	return float32(math.Sqrt(float64(x)))
 }

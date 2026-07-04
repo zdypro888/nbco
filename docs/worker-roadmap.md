@@ -53,7 +53,7 @@
 - `POST /api/files`：Web/API 上传文件。
 - `GET /api/files/{id}`：下载文件，按权限校验。
 - `POST /api/tasks/{id}/attachments`：把文件挂到任务。
-- `GET /api/worker/files/{id}`：worker 下载被授权任务文件。
+- `GET /api/worker/files/{id}?task_id=...&claim_id=...`：worker 用当前 claim 下载被授权任务文件。
 - `POST /api/worker/artifacts`：worker 上传产物并绑定当前 claim。
 - `/api/worker/next`：返回附件列表和下载 URL。
 

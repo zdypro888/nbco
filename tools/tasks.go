@@ -320,15 +320,17 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return "已记录。", nil
 			}),
 
-		tool("attach_to_task", "给任务附加文件/图片引用。需要是任务执行人或分配者。",
+		tool("attach_to_task", "给任务附加文件。优先传 file_id（系统真实文件ID）；也兼容旧 file_ref（如 Telegram file_id）。需要是任务执行人或分配者。",
 			obj(map[string]any{
 				"task_id":  p("integer", "任务ID"),
-				"file_ref": p("string", "文件引用（如 Telegram file_id）"),
+				"file_id":  p("integer", "系统文件ID（/api/files 上传返回的 id，可选）"),
+				"file_ref": p("string", "旧文件引用（如 Telegram file_id，可选）"),
 				"caption":  p("string", "说明（可选）"),
-			}, "task_id", "file_ref"),
+			}, "task_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					TaskID  int64  `json:"task_id"`
+					FileID  int64  `json:"file_id"`
 					FileRef string `json:"file_ref"`
 					Caption string `json:"caption"`
 				}
@@ -341,6 +343,23 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if !canSeeTask(u, t) {
 					return "你不是该任务的执行人或分配者。", nil
+				}
+				if args.FileID > 0 {
+					ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, args.FileID)
+					if err != nil {
+						return "", err
+					}
+					if !ok {
+						return "你无权访问这个文件。", nil
+					}
+					if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, args.FileID, args.Caption); err != nil {
+						return "", err
+					}
+					return "已附加文件。", nil
+				}
+				args.FileRef = strings.TrimSpace(args.FileRef)
+				if args.FileRef == "" {
+					return "file_id 或 file_ref 至少填写一个。", nil
 				}
 				if err := d.Store.AddAttachment(ctx, store.Attachment{
 					TaskID: t.ID, Kind: "file", FileRef: args.FileRef, Caption: args.Caption,
@@ -916,11 +935,12 @@ func formatBytes(n int64) string {
 		return fmt.Sprintf("%d B", n)
 	}
 	div, exp := int64(unit), 0
-	for v := n / unit; v >= unit; v /= unit {
+	units := "KMGTPE"
+	for v := n / unit; v >= unit && exp < len(units)-1; v /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), units[exp])
 }
 
 func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b *strings.Builder, tz *time.Location) error {
