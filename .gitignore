@@ -210,5 +210,6 @@ __marimo__/
 config.json
 nbco.json
 /nbco
+/nbco-worker
 .vscode
 .claude/
