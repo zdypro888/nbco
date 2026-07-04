@@ -27,9 +27,11 @@ func TestSmokeRealChat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var deltas int
 	res, err := eng.RunTurn(context.Background(), &ai.TurnRequest{
 		System:   "你是测试助手，简短回答。",
-		UserText: "只回复两个字：收到",
+		UserText: "用一句话介绍你自己",
+		OnDelta:  func(string) { deltas++ },
 	})
 	if err != nil {
 		t.Fatalf("RunTurn: %v", err)
@@ -37,5 +39,8 @@ func TestSmokeRealChat(t *testing.T) {
 	if strings.TrimSpace(res.Text) == "" {
 		t.Fatal("回复为空")
 	}
-	t.Logf("chat 冒烟通过：%q", res.Text)
+	if deltas < 2 {
+		t.Errorf("流式增量块数=%d（<2，可能没走流式）", deltas)
+	}
+	t.Logf("chat 流式冒烟通过：%d 块增量，最终 %q", deltas, res.Text)
 }

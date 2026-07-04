@@ -411,14 +411,16 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		return
 	}
 
+	// 流式：发占位消息，把最终答复的增量渐进编辑上去（本地模型慢，不让用户干等）。
 	g.sendTyping(ctx, chatID)
-	answer, err := g.orch.HandleMessage(ctx, u, Provider, text)
+	ed := g.newStreamEditor(ctx, chatID)
+	answer, err := g.orch.HandleMessageStream(ctx, u, Provider, text, ed.onDelta)
 	if err != nil {
 		slog.Error("对话轮次失败", "user", u.ID, "err", err)
-		g.reply(ctx, chatID, "这轮对话出错了，请重试；连续失败请联系管理员。")
+		ed.fail(ctx, "这轮对话出错了，请重试；连续失败请联系管理员。")
 		return
 	}
-	g.reply(ctx, chatID, answer)
+	ed.finish(ctx, answer)
 }
 
 // onboard 未绑定用户：超管自动开通；其他人凭绑定 Key。

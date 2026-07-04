@@ -90,7 +90,21 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 	if err != nil {
 		return "", err
 	}
-	return o.runTurn(ctx, u, sess, channel, text)
+	return o.runTurn(ctx, u, sess, channel, text, nil)
+}
+
+// HandleMessageStream 同 HandleMessage，但把最终答复的文本增量实时喂给 onDelta
+// （eino 流式）——网关据此渐进显示，长轮次不让用户干等。返回仍是完整答复。
+func (o *Orchestrator) HandleMessageStream(ctx context.Context, u *store.User, channel, text string, onDelta func(string)) (string, error) {
+	lock := o.userLock(u.ID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	sess, err := o.ensureSession(ctx, u, channel)
+	if err != nil {
+		return "", err
+	}
+	return o.runTurn(ctx, u, sess, channel, text, onDelta)
 }
 
 // HandleGroupMessage 群共享会话的一轮：会话按渠道共享，工具集按发言人权限
@@ -104,7 +118,7 @@ func (o *Orchestrator) HandleGroupMessage(ctx context.Context, u *store.User, ch
 	if err != nil {
 		return "", err
 	}
-	return o.runTurn(ctx, u, sess, channel, speakerLine(speaker, text))
+	return o.runTurn(ctx, u, sess, channel, speakerLine(speaker, text), nil)
 }
 
 // speakerLine 组装群消息的署名行。剥掉正文里的【】，防止有人在正文里嵌
@@ -141,7 +155,8 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 }
 
 // runTurn 一轮引擎调用的公共路径：摘要+历史重放 → 引擎 → 落库 → 触发压缩。
-func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string) (string, error) {
+// onDelta 非 nil 时把最终答复的文本增量实时推给调用方（流式，网关渐进显示）。
+func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string)) (string, error) {
 	system, err := o.systemPrompt(ctx, u, channel)
 	if err != nil {
 		return "", err
@@ -178,6 +193,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 				slog.Debug("模型产出", "session", sess.ID, "text_len", len(s.Result))
 			}
 		},
+		OnDelta: onDelta,
 	}
 	// eino 引擎需要重放历史：只取摘要位点之后的消息。
 	msgs, err := o.store.MessagesAfter(ctx, sess.ID, sess.SummaryUpto, historyLimit)

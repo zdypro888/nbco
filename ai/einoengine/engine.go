@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/cloudwego/eino-ext/components/model/claude"
@@ -116,12 +117,41 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 	push(schema.UserMessage(req.UserText))
 
-	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent})
-	return collect(runner.Run(ctx, msgs), req.OnEvent)
+	// 开启流式：ADK 把助手消息以 StreamReader 逐块吐出，collect 逐块读、把最终
+	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
+	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
+	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta)
+}
+
+// readStream 逐块读一条流式消息：助手消息的文本增量实时经 onDelta 推出，同时收集
+// 所有分块，末尾用 ConcatMessages 重组成完整消息（含拼好的 tool_calls）。
+func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, onDelta func(string)) (*schema.Message, error) {
+	defer sr.Close()
+	var chunks []*schema.Message
+	for {
+		m, err := sr.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if m == nil {
+			continue
+		}
+		chunks = append(chunks, m)
+		if onDelta != nil && role == schema.Assistant && m.Content != "" {
+			onDelta(m.Content)
+		}
+	}
+	if len(chunks) == 0 {
+		return nil, nil
+	}
+	return schema.ConcatMessages(chunks)
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step)) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string)) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
@@ -143,15 +173,13 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step)) (*
 		}
 		mo := event.Output.MessageOutput
 		msg := mo.Message
-		if mo.IsStreaming {
-			// 非流式 Runner 不应产生流事件；防御性消费。
-			if mo.MessageStream != nil {
-				m, err := schema.ConcatMessageStream(mo.MessageStream)
-				if err != nil {
-					return nil, err
-				}
-				msg = m
+		if mo.IsStreaming && mo.MessageStream != nil {
+			// 流式：逐块读，助手最终答复的文本增量经 onDelta 实时推出，重组成完整消息。
+			m, err := readStream(mo.MessageStream, mo.Role, onDelta)
+			if err != nil {
+				return nil, err
 			}
+			msg = m
 		}
 		if msg == nil {
 			continue
