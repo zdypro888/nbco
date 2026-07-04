@@ -1,31 +1,30 @@
-// Package embed 是 OpenAI 兼容的 embeddings 客户端（走 /v1/embeddings）。
-// 指向任何 OpenAI 兼容端点即可：用户的 exo/本地 embedding 服务、云厂商 API。
-// nbco 用它把知识、worker 经验向量化做语义检索；未配置时中枢不构建它，检索回退词法。
+// Package embed 封装 OpenAI 兼容的 embeddings 客户端，用 eino 的 openai embedding
+// 组件实现（与中枢 chat 引擎同一套 eino/acl，风格统一、复用其批处理与错误处理）。
+// nbco 用它把知识、worker 经验向量化做语义检索；未配 embed_model 时中枢不构建它，
+// 检索回退词法。对外仍是 ai.Embedder（返回 []float32），knowledge/存储层不感知 eino。
 package embed
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
+
+	einoembed "github.com/cloudwego/eino-ext/components/embedding/openai"
 
 	"github.com/zdypro888/nbco/config"
 )
 
-// Client 实现 ai.Embedder。
+const embedHTTPTimeout = 60 * time.Second
+
+// Client 实现 ai.Embedder，内部委托 eino 的 openai embedding 组件。
 type Client struct {
-	baseURL string
-	apiKey  string
-	model   string
-	http    *http.Client
+	model string
+	emb   *einoembed.Embedder
 }
 
 // New 按配置建 embedder。embed_base_url / embed_api_key 为空时回退主引擎的
-// base_url / api_key（同一个 OpenAI 兼容网关常同时提供 chat 与 embeddings）。
+// base_url / api_key（同一 OpenAI 兼容网关常同时提供 chat 与 embeddings）。
 // model 为空返回 (nil, nil) —— 表示未启用语义检索，调用方按 nil 处理。
 func New(cfg config.AIConfig) (*Client, error) {
 	model := strings.TrimSpace(cfg.EmbedModel)
@@ -44,70 +43,42 @@ func New(cfg config.AIConfig) (*Client, error) {
 	if key == "" {
 		key = cfg.APIKey
 	}
-	return &Client{
-		baseURL: base,
-		apiKey:  key,
-		model:   model,
-		http:    &http.Client{Timeout: 60 * time.Second},
-	}, nil
+	emb, err := einoembed.NewEmbedder(context.Background(), &einoembed.EmbeddingConfig{
+		APIKey:  key,
+		BaseURL: base, // 非 Azure：acl 拼 {base}/embeddings（base 含 /v1 与 chat 一致）
+		Model:   model,
+		Timeout: embedHTTPTimeout,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("构建 embedder: %w", err)
+	}
+	return &Client{model: model, emb: emb}, nil
 }
 
 func (c *Client) Model() string { return c.model }
 
-type embedRequest struct {
-	Model string   `json:"model"`
-	Input []string `json:"input"`
-}
-
-type embedResponse struct {
-	Data []struct {
-		Index     int       `json:"index"`
-		Embedding []float32 `json:"embedding"`
-	} `json:"data"`
-}
-
-// Embed 批量向量化，返回与 texts 一一对应、按 index 归位的向量。
+// Embed 批量向量化，返回与 texts 一一对应的向量（float64→float32，存 real[] 更省）。
 func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	body, _ := json.Marshal(embedRequest{Model: c.model, Input: texts})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/embeddings", bytes.NewReader(body))
+	vecs, err := c.emb.EmbedStrings(ctx, texts)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if len(vecs) != len(texts) {
+		return nil, fmt.Errorf("embeddings 返回 %d 条，期望 %d", len(vecs), len(texts))
 	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
-		return nil, fmt.Errorf("embeddings %s: %s", resp.Status, strings.TrimSpace(string(b)))
-	}
-	var er embedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&er); err != nil {
-		return nil, err
-	}
-	if len(er.Data) != len(texts) {
-		return nil, fmt.Errorf("embeddings 返回 %d 条，期望 %d", len(er.Data), len(texts))
-	}
-	// 按 index 归位（有的实现不保证顺序）。
-	out := make([][]float32, len(texts))
-	for _, d := range er.Data {
-		if d.Index < 0 || d.Index >= len(out) {
-			return nil, fmt.Errorf("embeddings 返回非法 index %d", d.Index)
-		}
-		out[d.Index] = d.Embedding
-	}
-	for i, v := range out {
+	out := make([][]float32, len(vecs))
+	for i, v := range vecs {
 		if len(v) == 0 {
 			return nil, fmt.Errorf("embeddings 第 %d 条为空", i)
 		}
+		f32 := make([]float32, len(v))
+		for j, x := range v {
+			f32[j] = float32(x)
+		}
+		out[i] = f32
 	}
 	return out, nil
 }
