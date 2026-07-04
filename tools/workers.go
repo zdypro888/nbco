@@ -67,8 +67,9 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return fmt.Sprintf("已创建 AI 员工「%s」。接入令牌（仅显示一次，请妥善保存）：\n<code>%s</code>\n"+
-					"在工作机上运行：nbco-worker bind %s（令牌），再 nbco-worker run 即可上线接活。",
-					w.Name, token, token), nil
+					"在工作机上运行：nbco-worker bind <nbco-server-url> <上面的令牌>，再 nbco-worker run 即可上线接活。\n"+
+					"例如：nbco-worker bind https://im.app:8443 <上面的令牌>",
+					w.Name, token), nil
 			}),
 
 		tool("revoke_worker", "停用一个 AI 员工并吊销其令牌（历史任务保留）。超管专用。",

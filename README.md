@@ -120,7 +120,7 @@ scripts/deploy-local.sh
 脚本会构建 `nbco` / `nbco-worker`，同步到 `~/.local/bin`，复制 `nbco.json` 到 `~/Library/Application Support/nbco/`，重启 `com.zdypro.nbco` 并检查 `/healthz`。
 
 ```bash
-~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的一次性令牌>
+~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的仅显示一次的常驻接入令牌>
 ~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
