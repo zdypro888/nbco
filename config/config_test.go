@@ -84,6 +84,9 @@ func TestLoadValidation(t *testing.T) {
 		{"mcp server 缺 url",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","mcp_servers":[{"name":"x"}],"ai":{"api_key":"k","model":"m"}}`,
 			"mcp_servers[0]"},
+		{"TLS 证书缺 key",
+			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","tls_cert_file":"/x/cert.pem","ai":{"api_key":"k","model":"m"}}`,
+			"tls_cert_file"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

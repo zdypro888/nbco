@@ -5,6 +5,8 @@
   "listen": "127.0.0.1:8900",
   "log_level": "info",
   "file_store_path": "files",
+  "tls_cert_file": "",
+  "tls_key_file": "",
   "public_base_url": "",
   "timezone": "Asia/Shanghai",
   "daily_summary_hour": 9,

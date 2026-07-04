@@ -435,17 +435,26 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 	return mcpbridge.NewServer("nbco", "1", tools.ForUser(s.deps, u, nil))
 }
 
-// Serve 启动 HTTP 服务并随 ctx 关停。
-func (s *Server) Serve(ctx context.Context, addr string) error {
+// Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。
+func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) error {
 	srv := &http.Server{Addr: addr, Handler: s.Handler()}
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.ListenAndServe() }()
+	go func() {
+		if certFile != "" && keyFile != "" {
+			errCh <- srv.ListenAndServeTLS(certFile, keyFile)
+			return
+		}
+		errCh <- srv.ListenAndServe()
+	}()
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	case err := <-errCh:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
 		return err
 	}
 }

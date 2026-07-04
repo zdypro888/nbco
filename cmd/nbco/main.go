@@ -110,10 +110,14 @@ func run(configPath string) error {
 	}
 	scheduler := sched.New(st, hub, orch, schedulerChannel, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
 
-	slog.Info("nbco 启动", "engine", engine.Name(), "listen", cfg.Listen, "tz", tz.String())
+	scheme := "http"
+	if strings.TrimSpace(cfg.TLSCertFile) != "" {
+		scheme = "https"
+	}
+	slog.Info("nbco 启动", "engine", engine.Name(), "listen", cfg.Listen, "scheme", scheme, "tz", tz.String())
 
 	errCh := make(chan error, 2)
-	go func() { errCh <- api.Serve(ctx, cfg.Listen) }()
+	go func() { errCh <- api.Serve(ctx, cfg.Listen, cfg.TLSCertFile, cfg.TLSKeyFile) }()
 	go scheduler.Run(ctx)
 	if tg != nil {
 		go tg.Run(ctx)

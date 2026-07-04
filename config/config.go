@@ -57,6 +57,8 @@ type Config struct {
 	Listen        string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
 	LogLevel      string  `json:"log_level"` // debug | info | warn | error，默认 info
 	FileStorePath string  `json:"file_store_path"`
+	TLSCertFile   string  `json:"tls_cert_file"` // 可选；配置后 HTTP 服务改用 HTTPS
+	TLSKeyFile    string  `json:"tls_key_file"`  // 可选；PEM bundle 可与 tls_cert_file 指向同一文件
 	// PublicBaseURL 保留给外部回调集成；当前中枢引擎不使用 CLI 回连。
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
@@ -142,6 +144,9 @@ func (c *Config) validate() error {
 	// superadmins 可留空：启用 Telegram 时，全新系统里第一个发 /superadmin 的人自动成为超管。
 	if strings.TrimSpace(c.PostgresDSN) == "" {
 		errs = append(errs, errors.New("postgres_dsn 必填"))
+	}
+	if (strings.TrimSpace(c.TLSCertFile) == "") != (strings.TrimSpace(c.TLSKeyFile) == "") {
+		errs = append(errs, errors.New("tls_cert_file 与 tls_key_file 必须同时配置"))
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
