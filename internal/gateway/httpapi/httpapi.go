@@ -6,6 +6,8 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -56,6 +58,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
 	mux.HandleFunc("GET /api/overview", s.handleOverview)
+	// AI 员工（worker client）接口。
+	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
+	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
+	mux.HandleFunc("POST /api/worker/submit", s.handleWorkerSubmit)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
 	if s.CLIHandler != nil {
 		// 回连 token 在路径最后一段：/mcp/cli/<token>
@@ -261,6 +267,132 @@ func (s *Server) userNames(ctx context.Context) (map[int64]string, error) {
 		m[u.ID] = u.Name
 	}
 	return m, nil
+}
+
+// --- AI 员工（worker）接口 ---
+
+const workerKnowledgeHits = 3
+
+// requireWorker 认证并要求是 worker 用户。
+func (s *Server) requireWorker(w http.ResponseWriter, r *http.Request) *store.User {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return nil
+	}
+	if !u.IsWorker {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "仅 AI 员工令牌可用"})
+		return nil
+	}
+	return u
+}
+
+// handleWorkerNext 认领下一个待办任务；顺带注入相关历史经验（越干越准）。
+func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	ctx := r.Context()
+	_ = s.store.WorkerHeartbeat(ctx, u.ID)
+
+	t, err := s.store.ClaimNextTask(ctx, u.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		w.WriteHeader(http.StatusNoContent) // 无活可干
+		return
+	}
+	if err != nil {
+		slog.Error("worker 认领任务失败", "worker", u.ID, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "认领失败"})
+		return
+	}
+	// 进化：用任务标题检索知识库，把公司既有经验交给 worker 一起干。
+	var lessons []string
+	if ks, err := s.store.SearchKnowledge(ctx, t.Title, workerKnowledgeHits); err == nil {
+		for _, k := range ks {
+			lessons = append(lessons, k.Title+"："+k.Content)
+		}
+	}
+	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"task": map[string]any{
+			"id": t.ID, "title": t.Title, "goal": t.Goal,
+			"description": t.Description, "acceptance": t.Acceptance,
+		},
+		"knowledge": lessons,
+	})
+}
+
+// handleWorkerProgress worker 回传执行进度（PTY 输出的节流片段）。
+func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		TaskID  int64  `json:"task_id"`
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Content) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 与 content 必填"})
+		return
+	}
+	if !s.workerOwnsTask(r, u, req.TaskID) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "该任务不属于你"})
+		return
+	}
+	if err := s.store.AddProgress(r.Context(), req.TaskID, u.ID, req.Content); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "记录失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+}
+
+// handleWorkerSubmit worker 提交完成：进入验收流；可复用经验回流知识库（进化闭环）。
+func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		TaskID  int64  `json:"task_id"`
+		Summary string `json:"summary"`
+		Lessons string `json:"lessons"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TaskID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
+		return
+	}
+	ctx := r.Context()
+	t, err := s.store.TaskByID(ctx, req.TaskID)
+	if err != nil || t.AssigneeID != u.ID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "该任务不属于你"})
+		return
+	}
+	if summary := strings.TrimSpace(req.Summary); summary != "" {
+		_ = s.store.AddProgress(ctx, req.TaskID, u.ID, "🤖 完成汇报："+summary)
+	}
+	if _, _, err := s.store.SubmitTask(ctx, req.TaskID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "提交失败"})
+		return
+	}
+	// 进化：可复用经验回流知识库，供后续同类任务检索。
+	if lessons := strings.TrimSpace(req.Lessons); lessons != "" {
+		if _, err := s.store.CreateKnowledge(ctx, t.Title, lessons, []string{"worker经验"}, u.ID); err != nil {
+			slog.Warn("worker 经验入库失败", "task", t.ID, "err", err)
+		}
+	}
+	// 通知派活人来验收。
+	if t.AssignerID != u.ID && s.deps.Notifier != nil {
+		_ = s.deps.Notifier.Send(ctx, t.AssignerID,
+			fmt.Sprintf("📥 AI 员工 %s 提交了任务「%s」（#%d），等你验收。", u.Name, t.Title, t.ID))
+	}
+	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "lessons", req.Lessons != "")
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+}
+
+func (s *Server) workerOwnsTask(r *http.Request, u *store.User, taskID int64) bool {
+	t, err := s.store.TaskByID(r.Context(), taskID)
+	return err == nil && t.AssigneeID == u.ID
 }
 
 // mcpServer 对外 MCP：按 token 换用户，暴露其权限内的工具集。

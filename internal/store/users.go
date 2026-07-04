@@ -15,13 +15,17 @@ const (
 )
 
 // User 一名成员。Info 是动态字段值（字段定义见 info_fields）。
+// IsWorker 为真表示这是一个 AI 员工（client 驱动 CLI 执行任务），OwnerID 是其监护人。
 type User struct {
-	ID           int64
-	Name         string
-	Info         map[string]string
-	Status       string
-	IsSuperadmin bool
-	CreatedAt    time.Time
+	ID             int64
+	Name           string
+	Info           map[string]string
+	Status         string
+	IsSuperadmin   bool
+	IsWorker       bool
+	OwnerID        *int64
+	WorkerLastSeen *time.Time
+	CreatedAt      time.Time
 }
 
 // Identity 一条 IM 身份绑定。ChatRef 是该渠道的通知投递地址。
@@ -32,12 +36,13 @@ type Identity struct {
 	ChatRef    string
 }
 
-const userCols = `id, name, info, status, is_superadmin, created_at`
+const userCols = `id, name, info, status, is_superadmin, is_worker, owner_id, worker_last_seen, created_at`
 
 func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 	var u User
 	var info []byte
-	if err := row.Scan(&u.ID, &u.Name, &info, &u.Status, &u.IsSuperadmin, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Name, &info, &u.Status, &u.IsSuperadmin,
+		&u.IsWorker, &u.OwnerID, &u.WorkerLastSeen, &u.CreatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	if err := json.Unmarshal(info, &u.Info); err != nil {
