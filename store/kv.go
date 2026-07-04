@@ -1,6 +1,26 @@
 package store
 
-import "context"
+import (
+	"context"
+	"strings"
+)
+
+const (
+	// KVAIStreamReasoning 保存运行时 AI 流式推理展示开关；配置文件只做默认值。
+	KVAIStreamReasoning = "settings.ai.stream_reasoning"
+)
+
+// BoolSetting 把 kv_state 里的布尔字符串解析成 bool；空值或未知值走 fallback。
+func BoolSetting(value string, fallback bool) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "t", "yes", "y", "on", "enabled":
+		return true
+	case "0", "false", "f", "no", "n", "off", "disabled":
+		return false
+	default:
+		return fallback
+	}
+}
 
 // GetKV 读键值；不存在返回空串。
 func (s *Store) GetKV(ctx context.Context, key string) (string, error) {

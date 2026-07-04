@@ -71,7 +71,14 @@ func run(configPath string) error {
 		go backfillKnowledge(ctx, kb)
 	}
 
-	deps := tools.Deps{Store: st, Notifier: hub, TZ: tz, Knowledge: kb, Workers: workerhub.New()}
+	deps := tools.Deps{
+		Store:                    st,
+		Notifier:                 hub,
+		TZ:                       tz,
+		Knowledge:                kb,
+		Workers:                  workerhub.New(),
+		AIStreamReasoningDefault: cfg.AI.StreamReasoning,
+	}
 
 	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
 	for _, srv := range cfg.MCPServers {
@@ -90,7 +97,7 @@ func run(configPath string) error {
 		return err
 	}
 
-	orch := chat.New(st, engine, deps, tz)
+	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning)
 
 	api := httpapi.New(st, orch, deps, cfg.FileStorePath)
 

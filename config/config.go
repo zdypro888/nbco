@@ -33,6 +33,8 @@ type AIConfig struct {
 	MaxTokens   int     `json:"max_tokens"` // 默认 4096
 	Temperature float32 `json:"temperature"`
 	MaxTurns    int     `json:"max_turns"` // tool 循环上限，默认 16
+	// StreamReasoning 控制流式阶段是否把模型推理内容展示给用户；默认 false。
+	StreamReasoning bool `json:"stream_reasoning"`
 	// 语义检索的 embedding 配置（可选）。EmbedModel 空=不启用，知识检索回退词法。
 	// EmbedBaseURL / EmbedAPIKey 空时回退 BaseURL / APIKey（同一 OpenAI 兼容网关
 	// 常同时提供 chat 与 embeddings）。指向你的本地 embedding 服务即可激活。

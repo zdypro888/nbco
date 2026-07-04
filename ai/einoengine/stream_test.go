@@ -15,7 +15,7 @@ func TestReadStreamEmitsSnapshotsAndConcats(t *testing.T) {
 	}
 	var snaps []string
 	msg, err := readStream(schema.StreamReaderFromArray(chunks), schema.Assistant,
-		func(s string) { snaps = append(snaps, s) })
+		func(s string) { snaps = append(snaps, s) }, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,8 +29,7 @@ func TestReadStreamEmitsSnapshotsAndConcats(t *testing.T) {
 	}
 }
 
-// 推理模型：ReasoningContent 也要边冒字（否则占位冻结几十秒）。
-func TestReadStreamEmitsReasoning(t *testing.T) {
+func TestReadStreamHidesReasoningByDefault(t *testing.T) {
 	chunks := []*schema.Message{
 		{Role: schema.Assistant, ReasoningContent: "先想想"},
 		{Role: schema.Assistant, ReasoningContent: "……嗯"},
@@ -38,16 +37,31 @@ func TestReadStreamEmitsReasoning(t *testing.T) {
 	}
 	var snaps []string
 	msg, err := readStream(schema.StreamReaderFromArray(chunks), schema.Assistant,
-		func(s string) { snaps = append(snaps, s) })
+		func(s string) { snaps = append(snaps, s) }, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 推理阶段就有快照（不再全程 0 增量），末帧含推理+正文。
-	if len(snaps) != 3 || snaps[0] != "先想想" || snaps[2] != "先想想……嗯答案是42" {
-		t.Fatalf("推理未流式: %v", snaps)
+	if len(snaps) != 1 || snaps[0] != "答案是42" {
+		t.Fatalf("默认不应流式展示推理: %v", snaps)
 	}
 	if msg == nil || msg.Content != "答案是42" {
 		t.Fatalf("重组消息正文不对: %+v", msg)
+	}
+}
+
+func TestReadStreamCanEmitReasoning(t *testing.T) {
+	chunks := []*schema.Message{
+		{Role: schema.Assistant, ReasoningContent: "先想想"},
+		{Role: schema.Assistant, ReasoningContent: "……嗯"},
+		{Role: schema.Assistant, Content: "答案是42"},
+	}
+	var snaps []string
+	if _, err := readStream(schema.StreamReaderFromArray(chunks), schema.Assistant,
+		func(s string) { snaps = append(snaps, s) }, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(snaps) != 3 || snaps[0] != "先想想" || snaps[2] != "先想想……嗯答案是42" {
+		t.Fatalf("开启后应流式展示推理: %v", snaps)
 	}
 }
 
@@ -55,14 +69,14 @@ func TestReadStreamEmitsReasoning(t *testing.T) {
 func TestReadStreamSkipsNonAssistantAndNilDelta(t *testing.T) {
 	called := false
 	if _, err := readStream(schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Tool, Content: "工具结果"}}),
-		schema.Tool, func(string) { called = true }); err != nil {
+		schema.Tool, func(string) { called = true }, false); err != nil {
 		t.Fatal(err)
 	}
 	if called {
 		t.Error("工具消息不应推快照")
 	}
 	if _, err := readStream(schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Assistant, Content: "x"}}),
-		schema.Assistant, nil); err != nil {
+		schema.Assistant, nil, false); err != nil {
 		t.Fatal(err) // onDelta=nil 不应 panic
 	}
 }

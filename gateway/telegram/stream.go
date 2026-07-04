@@ -12,7 +12,8 @@ import (
 
 const (
 	streamEditInterval = 1500 * time.Millisecond // 渐进编辑节流：防 TG 限流与「未改动」报错
-	streamMaxRunes     = 3900                     // 流式编辑单条上限（低于 TG 4096，避免中途超限）
+	streamTypingEvery  = 4 * time.Second         // Telegram typing 状态有效期很短，长轮次要续
+	streamMaxRunes     = 3900                    // 流式编辑单条上限（低于 TG 4096，避免中途超限）
 )
 
 // streamEditor 把 AI 流式增量渐进编辑进一条占位消息：本地模型慢，用户能边看边等。
@@ -38,7 +39,7 @@ type streamEditor struct {
 // onDelta 变 no-op、finish 直接发完整答复（优雅降级为非流式）。
 func (g *Gateway) newStreamEditor(ctx context.Context, chatID int64) *streamEditor {
 	ed := &streamEditor{g: g, chatID: chatID, stop: make(chan struct{}), done: make(chan struct{})}
-	m, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: "💭 …"})
+	m, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: "💭 正在处理…"})
 	if err != nil || m == nil {
 		close(ed.done)
 		return ed
@@ -50,16 +51,20 @@ func (g *Gateway) newStreamEditor(ctx context.Context, chatID int64) *streamEdit
 
 func (ed *streamEditor) loop(ctx context.Context) {
 	defer close(ed.done)
-	t := time.NewTicker(streamEditInterval)
-	defer t.Stop()
+	editTick := time.NewTicker(streamEditInterval)
+	defer editTick.Stop()
+	typingTick := time.NewTicker(streamTypingEvery)
+	defer typingTick.Stop()
 	for {
 		select {
 		case <-ed.stop:
 			return
 		case <-ctx.Done():
 			return
-		case <-t.C:
+		case <-editTick.C:
 			ed.flush(ctx)
+		case <-typingTick.C:
+			ed.g.sendTyping(ctx, ed.chatID)
 		}
 	}
 }

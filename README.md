@@ -50,6 +50,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.engine` | 仅支持 `eino`（直调 API） |
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
 | `ai.api_key` / `ai.model` | eino 引擎必填 |
+| `ai.stream_reasoning` | 是否在流式回复阶段展示模型推理内容，默认 `false`；超管可通过对话修改，运行时设置优先于配置文件默认值 |
 | `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
 | `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥（空则回退 `ai.base_url` / `ai.api_key`） |
 

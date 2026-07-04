@@ -37,10 +37,11 @@ const compactSystem = "你是会话压缩器。把输入的既有摘要与对话
 
 // Orchestrator 对话编排器。
 type Orchestrator struct {
-	store  *store.Store
-	engine ai.Engine
-	deps   tools.Deps
-	tz     *time.Location
+	store                  *store.Store
+	engine                 ai.Engine
+	deps                   tools.Deps
+	tz                     *time.Location
+	defaultStreamReasoning bool
 
 	mu         sync.Mutex
 	locks      map[int64]*sync.Mutex  // 同一用户的轮次串行：用户消息与系统触发轮次（催办/周报）不互踩会话
@@ -49,8 +50,8 @@ type Orchestrator struct {
 }
 
 // New 创建编排器。
-func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location) *Orchestrator {
-	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz,
+func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, streamReasoning bool) *Orchestrator {
+	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz, defaultStreamReasoning: streamReasoning,
 		locks: map[int64]*sync.Mutex{}, groupLocks: map[string]*sync.Mutex{}, compacting: map[int64]bool{}}
 }
 
@@ -193,7 +194,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 				slog.Debug("模型产出", "session", sess.ID, "text_len", len(s.Result))
 			}
 		},
-		OnDelta: onDelta,
+		OnDelta:         onDelta,
+		StreamReasoning: o.streamReasoningEnabled(ctx),
 	}
 	// eino 引擎需要重放历史：只取摘要位点之后的消息。
 	msgs, err := o.store.MessagesAfter(ctx, sess.ID, sess.SummaryUpto, historyLimit)
@@ -234,6 +236,15 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(text)+len(res.Text))
 	return res.Text, nil
+}
+
+func (o *Orchestrator) streamReasoningEnabled(ctx context.Context) bool {
+	raw, err := o.store.GetKV(ctx, store.KVAIStreamReasoning)
+	if err != nil {
+		slog.Warn("读取 AI 运行设置失败，使用配置默认值", "key", store.KVAIStreamReasoning, "err", err)
+		return o.defaultStreamReasoning
+	}
+	return store.BoolSetting(raw, o.defaultStreamReasoning)
 }
 
 // maybeCompact 达到阈值则启动后台压缩（同一会话最多一个压缩在跑）。

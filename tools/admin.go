@@ -274,6 +274,49 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
+		tool("get_ai_settings", "查看 AI 运行设置。超管专用。",
+			obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				raw, err := d.Store.GetKV(ctx, store.KVAIStreamReasoning)
+				if err != nil {
+					return "", err
+				}
+				enabled := store.BoolSetting(raw, d.AIStreamReasoningDefault)
+				source := "默认值"
+				if strings.TrimSpace(raw) != "" {
+					source = "运行时设置"
+				}
+				mode := "不展示模型推理过程，只展示最终正文"
+				if enabled {
+					mode = "展示模型推理过程与最终正文"
+				}
+				return fmt.Sprintf("AI 运行设置：\n- stream_reasoning: %t（%s，%s）", enabled, source, mode), nil
+			}),
+
+		tool("set_ai_settings", "修改 AI 运行设置。超管专用。stream_reasoning=false 时默认不向用户展示模型推理过程。",
+			obj(map[string]any{
+				"stream_reasoning": p("boolean", "是否在流式回复中展示模型推理过程"),
+			}, "stream_reasoning"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					StreamReasoning bool `json:"stream_reasoning"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				value := "0"
+				if args.StreamReasoning {
+					value = "1"
+				}
+				if err := d.Store.SetKV(ctx, store.KVAIStreamReasoning, value); err != nil {
+					return "", err
+				}
+				if args.StreamReasoning {
+					return "已开启 stream_reasoning：后续流式回复会展示模型推理过程。", nil
+				}
+				return "已关闭 stream_reasoning：后续流式回复只展示最终正文。", nil
+			}),
+
 		tool("add_info_field", "添加一个基本信息字段定义。超管专用。",
 			obj(map[string]any{"name": p("string", "字段名")}, "name"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {

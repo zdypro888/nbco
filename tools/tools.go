@@ -31,6 +31,8 @@ type Deps struct {
 	// Workers worker 实时通道（可为 nil）：派活时唤醒在线 worker 秒领任务、
 	// 删任务时取消执行、展示真实在线状态。任务队列仍以数据库为准。
 	Workers *workerhub.Hub
+	// AIStreamReasoningDefault 是配置文件里的流式推理展示默认值；运行时 KV 设置优先。
+	AIStreamReasoningDefault bool
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
@@ -115,6 +117,8 @@ var toolPerm = map[string]string{
 	"view_user_perms":     perm.ActManagePerm,
 	// 超管专属（组装函数已裁剪，这里再声明一层防御 + 让矩阵完整）
 	"company_overview":  reqSuper,
+	"get_ai_settings":   reqSuper,
+	"set_ai_settings":   reqSuper,
 	"add_info_field":    reqSuper,
 	"remove_info_field": reqSuper,
 	"disable_user":      reqSuper,
@@ -160,6 +164,8 @@ var groupSensitive = map[string]bool{
 	"enable_user":         true,
 	"create_worker":       true,
 	"revoke_worker":       true,
+	"get_ai_settings":     true,
+	"set_ai_settings":     true,
 	"remove_info_field":   true,
 	"send_message":        true, // 群里可直接说，无需借 bot 向他人/全体转发
 	"schedule_push":       true, // 定向推送涉及他人，回私聊设更稳妥

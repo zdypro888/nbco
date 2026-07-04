@@ -41,6 +41,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 {
 		t.Errorf("MaxTokens/MaxTurns 默认值 = %d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns)
 	}
+	if cfg.AI.StreamReasoning {
+		t.Error("stream_reasoning 默认不应展示推理过程")
+	}
 	if cfg.FileStorePath != "files" {
 		t.Errorf("FileStorePath 默认值 = %q", cfg.FileStorePath)
 	}

@@ -120,17 +120,19 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	// 开启流式：ADK 把助手消息以 StreamReader 逐块吐出，collect 逐块读、把最终
 	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
-	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta)
+	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning)
 }
 
 // readStream 逐块读一条流式消息，末尾用 ConcatMessages 重组成完整消息（含拼好的
-// tool_calls）。onDelta 收到的是【本条助手消息累积到目前的可显示文本】快照（含推理
-// ReasoningContent + 正文 Content）——网关据此「替换」显示。这样：
-//   - 推理模型（DeepSeek-R1/o1 等）的思考过程边冒字，不再干等；
+// tool_calls）。onDelta 收到的是【本条助手消息累积到目前的可显示文本】快照——网关
+// 据此「替换」显示。默认只展示正文 Content；showReasoning=true 时才包含推理内容。
+// 这样：
+//   - 默认不暴露模型内部推理；
 //   - 一条消息若以 tool_calls 收尾，其前导文字只在本消息窗口内显示，下一条消息
 //     （最终答复）开始时快照重置，网关随之刷新，不会「前导+答复」拼接。
-// 收尾时网关用权威 res.Text（仅 Content）覆盖，抹掉推理态。
-func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, onDelta func(string)) (*schema.Message, error) {
+//
+// 收尾时网关用权威 res.Text（仅 Content）覆盖。
+func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, onDelta func(string), showReasoning bool) (*schema.Message, error) {
 	defer sr.Close()
 	var chunks []*schema.Message
 	var acc strings.Builder // 本条消息累积的可显示文本
@@ -148,7 +150,7 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 		chunks = append(chunks, m)
 		if onDelta != nil && role == schema.Assistant {
 			wrote := false
-			if m.ReasoningContent != "" {
+			if showReasoning && m.ReasoningContent != "" {
 				acc.WriteString(m.ReasoningContent)
 				wrote = true
 			}
@@ -168,7 +170,7 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string)) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
@@ -192,7 +194,7 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 		msg := mo.Message
 		if mo.IsStreaming && mo.MessageStream != nil {
 			// 流式：逐块读，助手最终答复的文本增量经 onDelta 实时推出，重组成完整消息。
-			m, err := readStream(mo.MessageStream, mo.Role, onDelta)
+			m, err := readStream(mo.MessageStream, mo.Role, onDelta, showReasoning)
 			if err != nil {
 				return nil, err
 			}

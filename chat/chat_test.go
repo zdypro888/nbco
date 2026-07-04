@@ -96,7 +96,7 @@ func TestCompactionCycle(t *testing.T) {
 	}
 
 	eng := &fakeEngine{}
-	o := New(s, eng, tools.Deps{Store: s, TZ: time.UTC}, time.UTC)
+	o := New(s, eng, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false)
 
 	// 每轮落 2 条消息；compactAfter=30 → 15 轮后触发后台压缩。
 	for i := 0; i < compactAfter/2+1; i++ {
