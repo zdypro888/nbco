@@ -45,7 +45,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
 	if s.CLIHandler != nil {
-		mux.Handle("/mcp/cli", s.CLIHandler)
+		// 回连 token 在路径最后一段：/mcp/cli/<token>
+		mux.Handle("/mcp/cli/", s.CLIHandler)
 	}
 	return mux
 }

@@ -22,6 +22,9 @@ type Deps struct {
 	Store    *store.Store
 	Notifier notify.Notifier
 	TZ       *time.Location
+	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
+	// 与内建工具一样经过审计层。
+	Extra []ai.Tool
 }
 
 // ForUser 组装 user 的工具集（已按身份裁剪：超管专属工具只给超管），
@@ -34,6 +37,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, scheduleTools(d, u)...)
 	ts = append(ts, roleTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
+	ts = append(ts, d.Extra...)
 	for i := range ts {
 		ts[i] = withAudit(d.Store, u.ID, sessionID, ts[i])
 	}

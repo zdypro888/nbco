@@ -14,7 +14,8 @@ import (
 // AI 引擎类型。
 const (
 	EngineEino      = "eino"      // 直接调 API（eino ADK），客户自带 key 的产品路径
-	EngineClaudeCLI = "claudecli" // 驱动 claude CLI（headless -p + MCP 回连）
+	EngineClaudeCLI = "claudecli" // 驱动 claude CLI（headless + MCP 回连）
+	EngineCodexCLI  = "codexcli"  // 驱动 codex CLI（exec --json + MCP 回连）
 )
 
 // eino 引擎的模型 provider。
@@ -35,6 +36,15 @@ type AIConfig struct {
 	MaxTurns    int     `json:"max_turns"` // tool 循环上限，默认 16
 
 	ClaudeCmd string `json:"claude_cmd"` // claudecli 引擎的可执行文件，默认 "claude"
+	CodexCmd  string `json:"codex_cmd"`  // codexcli 引擎的可执行文件，默认 "codex"
+}
+
+// MCPServer 外接 MCP 工具服务（Streamable HTTP）。
+// 其工具经统一审计层并入所有用户的工具集，各引擎通吃。
+type MCPServer struct {
+	Name    string            `json:"name"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"` // 可选，如 Authorization
 }
 
 // Config 全量配置。
@@ -46,6 +56,8 @@ type Config struct {
 	// PublicBaseURL claude CLI 回连 MCP 的基地址；默认由 Listen 推导为 http://127.0.0.1:<port>
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
+	// MCPServers 外接 MCP 工具服务列表（可选）。
+	MCPServers []MCPServer `json:"mcp_servers"`
 	// DailySummaryHour 每日待办汇总的本地小时（0-23），-1 关闭。默认 9。
 	DailySummaryHour *int   `json:"daily_summary_hour"`
 	Timezone         string `json:"timezone"` // IANA 时区，默认 Asia/Shanghai
@@ -94,6 +106,9 @@ func (c *Config) applyDefaults() {
 	if c.AI.ClaudeCmd == "" {
 		c.AI.ClaudeCmd = "claude"
 	}
+	if c.AI.CodexCmd == "" {
+		c.AI.CodexCmd = "codex"
+	}
 }
 
 func (c *Config) validate() error {
@@ -118,10 +133,15 @@ func (c *Config) validate() error {
 		if c.AI.Provider != ProviderClaude && c.AI.Provider != ProviderOpenAI {
 			errs = append(errs, fmt.Errorf("ai.provider 不支持: %q", c.AI.Provider))
 		}
-	case EngineClaudeCLI:
-		// claude CLI 自带认证（订阅或环境变量 ANTHROPIC_API_KEY），不强制 api_key
+	case EngineClaudeCLI, EngineCodexCLI:
+		// CLI 引擎自带认证（订阅或各自的环境变量），不强制 api_key
 	default:
 		errs = append(errs, fmt.Errorf("ai.engine 不支持: %q", c.AI.Engine))
+	}
+	for i, m := range c.MCPServers {
+		if strings.TrimSpace(m.Name) == "" || strings.TrimSpace(m.URL) == "" {
+			errs = append(errs, fmt.Errorf("mcp_servers[%d]: name 与 url 必填", i))
+		}
 	}
 	return errors.Join(errs...)
 }

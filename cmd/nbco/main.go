@@ -16,12 +16,13 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/internal/ai"
-	"github.com/zdypro888/nbco/internal/ai/claudecli"
+	"github.com/zdypro888/nbco/internal/ai/agentcli"
 	"github.com/zdypro888/nbco/internal/ai/einoengine"
 	"github.com/zdypro888/nbco/internal/chat"
 	"github.com/zdypro888/nbco/internal/config"
 	"github.com/zdypro888/nbco/internal/gateway/httpapi"
 	"github.com/zdypro888/nbco/internal/gateway/telegram"
+	"github.com/zdypro888/nbco/internal/mcptools"
 	"github.com/zdypro888/nbco/internal/notify"
 	"github.com/zdypro888/nbco/internal/sched"
 	"github.com/zdypro888/nbco/internal/store"
@@ -59,6 +60,18 @@ func run(configPath string) error {
 	hub := &notify.Hub{}
 	deps := tools.Deps{Store: st, Notifier: hub, TZ: tz}
 
+	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
+	for _, srv := range cfg.MCPServers {
+		ext, closeFn, err := mcptools.Connect(ctx, srv)
+		if err != nil {
+			slog.Warn("外接 MCP 服务不可用，已跳过", "server", srv.Name, "err", err)
+			continue
+		}
+		defer closeFn()
+		deps.Extra = append(deps.Extra, ext...)
+		slog.Info("外接 MCP 工具已接入", "server", srv.Name, "tools", len(ext))
+	}
+
 	engine, cliHandler, err := buildEngine(ctx, cfg)
 	if err != nil {
 		return err
@@ -93,25 +106,31 @@ func run(configPath string) error {
 	}
 }
 
-// buildEngine 按配置构建 AI 引擎；claudecli 引擎同时返回回连 MCP handler。
+// buildEngine 按配置构建 AI 引擎；CLI 类引擎同时返回回连 MCP handler。
 func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, http.Handler, error) {
-	switch cfg.AI.Engine {
-	case config.EngineEino:
+	if cfg.AI.Engine == config.EngineEino {
 		eng, err := einoengine.New(ctx, cfg.AI)
 		return eng, nil, err
+	}
+
+	// CLI 类引擎：同一套通用模板，换驱动即换 CLI。
+	var driver agentcli.Driver
+	switch cfg.AI.Engine {
 	case config.EngineClaudeCLI:
-		registry := claudecli.NewRegistry()
-		base := strings.TrimRight(cfg.PublicBaseURL, "/")
-		if base == "" {
-			_, port, err := net.SplitHostPort(cfg.Listen)
-			if err != nil {
-				return nil, nil, fmt.Errorf("listen 地址 %q: %w", cfg.Listen, err)
-			}
-			base = "http://127.0.0.1:" + port
-		}
-		eng, err := claudecli.New(cfg.AI, registry, base+"/mcp/cli")
-		return eng, registry.Handler(), err
+		driver = &agentcli.ClaudeDriver{Cmd: cfg.AI.ClaudeCmd, Model: cfg.AI.Model}
+	case config.EngineCodexCLI:
+		driver = &agentcli.CodexDriver{Cmd: cfg.AI.CodexCmd, Model: cfg.AI.Model}
 	default:
 		return nil, nil, fmt.Errorf("不支持的 ai.engine: %q", cfg.AI.Engine)
 	}
+	base := strings.TrimRight(cfg.PublicBaseURL, "/")
+	if base == "" {
+		_, port, err := net.SplitHostPort(cfg.Listen)
+		if err != nil {
+			return nil, nil, fmt.Errorf("listen 地址 %q: %w", cfg.Listen, err)
+		}
+		base = "http://127.0.0.1:" + port
+	}
+	registry := agentcli.NewRegistry()
+	return agentcli.NewEngine(driver, registry, base+"/mcp/cli"), registry.Handler(), nil
 }
