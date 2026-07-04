@@ -9,6 +9,7 @@ package store
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
@@ -31,14 +32,23 @@ func openTestStore(t *testing.T) *Store {
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
-	// TRUNCATE 会清掉迁移种入的内置角色；用种子迁移幂等补种，保证每个测试
-	// 都从"新部署"状态出发。
-	seed, err := migrationsFS.ReadFile("migrations/0006_seed_roles.sql")
+	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
+	// 保证每个测试从"新部署"状态出发。
+	entries, err := fs.ReadDir(migrationsFS, "migrations")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.pool.Exec(ctx, string(seed)); err != nil {
-		t.Fatal(err)
+	for _, e := range entries {
+		if !strings.Contains(e.Name(), "seed") {
+			continue
+		}
+		seed, err := migrationsFS.ReadFile("migrations/" + e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.pool.Exec(ctx, string(seed)); err != nil {
+			t.Fatalf("重放种子 %s: %v", e.Name(), err)
+		}
 	}
 	return s
 }
@@ -398,9 +408,18 @@ func TestSeedRoles(t *testing.T) {
 			t.Errorf("内置角色 %s 的触发描述/提示词不应为空", r.Name)
 		}
 	}
-	for _, want := range []string{"CEO参谋", "产品经理", "开发工程师", "测试工程师", "前端工程师"} {
+	for _, want := range []string{
+		"CEO参谋", "产品经理", "开发工程师", "测试工程师", "前端工程师",
+		"运营经理", "市场营销", "销售顾问", "财务顾问", "HR招聘", "UI设计师",
+	} {
 		if !names[want] {
 			t.Errorf("缺内置角色 %s", want)
+		}
+	}
+	// v2 升级应已生效（v1 没有"关键规则"小节）。
+	for _, r := range roles {
+		if r.Name == "CEO参谋" && !strings.Contains(r.Prompt, "关键规则") {
+			t.Error("CEO参谋 应为 v2 提示词")
 		}
 	}
 }
