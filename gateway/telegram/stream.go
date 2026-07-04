@@ -148,17 +148,25 @@ func (ed *streamEditor) fail(ctx context.Context, msg string) {
 }
 
 // editPlaceholder 用 HTML 编辑占位消息，失败降级纯文本；两者都失败（占位不可编辑）
-// 返回 false，让调用方走发新消息兜底。
+// 返回 false，让调用方走发新消息兜底。「内容未变」(not modified) 视作成功——占位
+// 已显示目标文本（流式期间已编辑上去），此时若当作失败去 reply 会发重复消息。
 func (ed *streamEditor) editPlaceholder(ctx context.Context, htmlChunk, plainText string) bool {
 	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: htmlChunk, ParseMode: models.ParseModeHTML,
-	}); err == nil {
+	}); err == nil || isNotModified(err) {
 		return true
 	}
 	_, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: plainText,
 	})
-	return err == nil
+	return err == nil || isNotModified(err)
+}
+
+// isNotModified 判断编辑是否因「新内容与现有完全相同」被 TG 拒绝（HTTP 400
+// "message is not modified"）。这不是失败——占位消息已显示目标文本，无需再发。
+// 只有占位真被删/不可编辑（"message to edit not found" 等）才需发新消息兜底。
+func isNotModified(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "message is not modified")
 }
 
 // plainOf：HTML 编辑失败时的纯文本兜底。单片时用原始答复；多片时该片已是 HTML
