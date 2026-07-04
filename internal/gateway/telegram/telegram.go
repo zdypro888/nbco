@@ -228,6 +228,8 @@ func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) err
 		text = "（空回复）"
 	}
 	slog.Debug("TG 发送", "chat", chatID, "text_len", len(text))
+	// 模型不守 HTML 指引时（本地模型常见）把 Markdown 兜底转成 TG HTML。
+	text = toTelegramHTML(text)
 	for _, chunk := range splitChunks(text, chunkLimit) {
 		if err := g.sendOne(ctx, chatID, chunk); err != nil {
 			return err
