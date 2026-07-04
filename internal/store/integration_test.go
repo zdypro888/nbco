@@ -376,6 +376,26 @@ func TestSuperadminBootstrap(t *testing.T) {
 	}
 }
 
+func TestSeedRoles(t *testing.T) {
+	s := openTestStore(t)
+	roles, err := s.ListRoles(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, r := range roles {
+		names[r.Name] = true
+		if r.TriggerDesc == "" || r.Prompt == "" {
+			t.Errorf("内置角色 %s 的触发描述/提示词不应为空", r.Name)
+		}
+	}
+	for _, want := range []string{"CEO参谋", "产品经理", "开发工程师", "测试工程师", "前端工程师"} {
+		if !names[want] {
+			t.Errorf("缺内置角色 %s", want)
+		}
+	}
+}
+
 func TestAPITokenRoundtrip(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

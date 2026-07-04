@@ -193,6 +193,18 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("\n")
 	fmt.Fprintf(&b, "当前时间：%s（%s）\n", time.Now().In(o.tz).Format("2006-01-02 15:04 Monday"), o.tz.String())
 
+	// 角色清单注入：让 AI 知道有哪些工作模式，匹配场景时主动建议或直接切换。
+	roles, err := o.store.ListRoles(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(roles) > 0 {
+		b.WriteString("\n可用角色（当前工作场景匹配时，主动建议用户切换或直接 activate_role）：\n")
+		for _, r := range roles {
+			fmt.Fprintf(&b, "- %s：%s\n", r.Name, r.TriggerDesc)
+		}
+	}
+
 	// 激活角色注入。
 	role, err := o.store.ActiveRole(ctx, u.ID)
 	if err == nil {
