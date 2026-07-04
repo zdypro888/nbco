@@ -1,12 +1,38 @@
 package tools
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/zdypro888/nbco/internal/store"
 )
+
+// TestAllToolSchemasValid 全部内建工具的 InputSchema 必须是合法 object schema：
+// properties 序列化后必须是对象而非 null（null 会让 claude CLI 拒掉整个 tools/list）。
+func TestAllToolSchemasValid(t *testing.T) {
+	super := &store.User{ID: 1, Name: "t", Status: store.UserActive, IsSuperadmin: true}
+	for _, tool := range ForUser(Deps{}, super, nil) {
+		raw, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatalf("%s: schema 序列化失败: %v", tool.Name, err)
+		}
+		var schema struct {
+			Type       string          `json:"type"`
+			Properties json.RawMessage `json:"properties"`
+		}
+		if err := json.Unmarshal(raw, &schema); err != nil {
+			t.Fatalf("%s: schema 反序列化失败: %v", tool.Name, err)
+		}
+		if schema.Type != "object" {
+			t.Errorf("%s: type = %q, 应为 object", tool.Name, schema.Type)
+		}
+		if len(schema.Properties) == 0 || schema.Properties[0] != '{' {
+			t.Errorf("%s: properties 必须是对象, got %s", tool.Name, schema.Properties)
+		}
+	}
+}
 
 func TestParseTarget(t *testing.T) {
 	if key, _, isAll, err := parseTarget(store.TargetAll); err != nil || !isAll || key != store.TargetAll {

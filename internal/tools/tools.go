@@ -66,6 +66,11 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 // --- schema 构建助手 ---
 
 func obj(props map[string]any, required ...string) map[string]any {
+	if props == nil {
+		// 必须是空对象而非 null：MCP 客户端（claude CLI）对 properties 做
+		// record 校验，null 会导致整个 tools/list 被拒、所有工具失效。
+		props = map[string]any{}
+	}
 	m := map[string]any{"type": "object", "properties": props}
 	if len(required) > 0 {
 		m["required"] = required
