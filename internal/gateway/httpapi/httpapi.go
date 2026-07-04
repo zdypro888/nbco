@@ -345,7 +345,7 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 与 content 必填"})
 		return
 	}
-	if !s.workerOwnsTask(r, u, req.TaskID) {
+	if _, ok := s.workerRunningTask(r, u, req.TaskID); !ok {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "该任务不属于你"})
 		return
 	}
@@ -372,15 +372,21 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	t, err := s.store.TaskByID(ctx, req.TaskID)
-	if err != nil || t.AssigneeID != u.ID {
+	t, ok := s.workerRunningTask(r, u, req.TaskID)
+	if !ok {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "该任务不属于你"})
 		return
 	}
 	if summary := strings.TrimSpace(req.Summary); summary != "" {
 		_ = s.store.AddProgress(ctx, req.TaskID, u.ID, "🤖 完成汇报："+summary)
 	}
-	if _, _, err := s.store.SubmitTask(ctx, req.TaskID); err != nil {
+	// 原子提交：要求任务仍是本 worker 手上的 in_progress。若此刻分配者刚把它
+	// 改需求重置为 pending，提交落空（ErrNotFound），旧交付不会被当成完成。
+	if _, _, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许提交（可能已被改派或重置）"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "提交失败"})
 		return
 	}
@@ -399,9 +405,12 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
 }
 
-func (s *Server) workerOwnsTask(r *http.Request, u *store.User, taskID int64) bool {
+func (s *Server) workerRunningTask(r *http.Request, u *store.User, taskID int64) (*store.Task, bool) {
 	t, err := s.store.TaskByID(r.Context(), taskID)
-	return err == nil && t.AssigneeID == u.ID
+	if err != nil || t.AssigneeID != u.ID || t.Status != store.TaskInProgress {
+		return nil, false
+	}
+	return t, true
 }
 
 // mcpServer 对外 MCP：按 token 换用户，暴露其权限内的工具集。

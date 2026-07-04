@@ -3,7 +3,7 @@ package telegram
 // Markdown → Telegram HTML 兜底转换。
 // 系统提示要求模型输出 Telegram HTML 子集，但本地模型（DeepSeek 等）服从度有限，
 // 常冒出 Markdown（**加粗**、表格、# 标题）。发送前做保守转换：
-// 已含合法 HTML 标签的文本视为守规矩，原样放行；其余按 Markdown-ish 纯文本转 HTML。
+// 合法 HTML 标签会保留，其他内容按 Markdown-ish 文本转成 TG HTML。
 
 import (
 	"fmt"
@@ -13,8 +13,7 @@ import (
 )
 
 var (
-	// 模型已按 TG HTML 输出的判定（出现任一支持标签即放行）。
-	tgHTMLTagRe = regexp.MustCompile(`(?i)<(b|strong|i|em|u|s|del|code|pre|blockquote|a\s|a>)`)
+	tgAllowedHTMLTagRe = regexp.MustCompile(`(?i)(</?(b|strong|i|em|u|s|del|code|pre|blockquote)>|</a>|<a\s+href="https?://[^"<>\s]+">)`)
 
 	fencedCodeRe = regexp.MustCompile("(?s)```[a-zA-Z0-9_+-]*\n?(.*?)```")
 	inlineCodeRe = regexp.MustCompile("`([^`\n]+)`")
@@ -27,34 +26,42 @@ var (
 
 // toTelegramHTML 把一条待发送文本整理成 Telegram HTML。
 func toTelegramHTML(s string) string {
-	if tgHTMLTagRe.MatchString(s) {
-		return s // 模型守规矩：已是 TG HTML，原样发送
+	var earlyStash []string // HTML 标签：转义后先还原，让 Telegram 标签生效。
+	earlyPut := func(rendered string) string {
+		earlyStash = append(earlyStash, rendered)
+		return fmt.Sprintf("\x01%d\x01", len(earlyStash)-1)
 	}
-	esc := html.EscapeString(s)
+	var lateStash []string // 代码块/表格：最后还原，避免内部 Markdown 被误转。
+	latePut := func(rendered string) string {
+		lateStash = append(lateStash, rendered)
+		return fmt.Sprintf("\x02%d\x02", len(lateStash)-1)
+	}
 
 	// 先摘出代码块/行内代码，避免内部内容被后续规则误伤。
-	var stash []string
-	stashPut := func(rendered string) string {
-		stash = append(stash, rendered)
-		return fmt.Sprintf("\x00%d\x00", len(stash)-1)
-	}
-	esc = fencedCodeRe.ReplaceAllStringFunc(esc, func(m string) string {
+	s = fencedCodeRe.ReplaceAllStringFunc(s, func(m string) string {
 		body := fencedCodeRe.FindStringSubmatch(m)[1]
-		return stashPut("<pre>" + strings.TrimRight(body, "\n") + "</pre>")
+		return latePut("<pre>" + html.EscapeString(strings.TrimRight(body, "\n")) + "</pre>")
 	})
-	esc = inlineCodeRe.ReplaceAllStringFunc(esc, func(m string) string {
+	s = inlineCodeRe.ReplaceAllStringFunc(s, func(m string) string {
 		body := inlineCodeRe.FindStringSubmatch(m)[1]
-		return stashPut("<code>" + body + "</code>")
+		return latePut("<code>" + html.EscapeString(body) + "</code>")
 	})
 
-	esc = convertTables(esc, stashPut)
+	// 保留 Telegram 支持的 HTML 标签，其他尖括号统一转义。
+	s = tgAllowedHTMLTagRe.ReplaceAllStringFunc(s, earlyPut)
+	esc := html.EscapeString(s)
+	for i, r := range earlyStash {
+		esc = strings.Replace(esc, fmt.Sprintf("\x01%d\x01", i), r, 1)
+	}
+
+	esc = convertTables(esc, latePut)
 	esc = boldRe.ReplaceAllString(esc, "<b>$1</b>")
 	esc = headerRe.ReplaceAllString(esc, "<b>$1</b>")
 	esc = bulletRe.ReplaceAllString(esc, "$1• ")
 	esc = linkRe.ReplaceAllString(esc, `<a href="$2">$1</a>`)
 
-	for i, r := range stash {
-		esc = strings.Replace(esc, fmt.Sprintf("\x00%d\x00", i), r, 1)
+	for i, r := range lateStash {
+		esc = strings.Replace(esc, fmt.Sprintf("\x02%d\x02", i), r, 1)
 	}
 	return esc
 }

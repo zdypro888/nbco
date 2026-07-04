@@ -73,3 +73,66 @@ func TestSplitChunksLongLine(t *testing.T) {
 		}
 	}
 }
+
+func TestCommandOf(t *testing.T) {
+	const me = "nbi_jp_bot"
+	cases := map[string]string{
+		"/listen":            "/listen",
+		"/listen@nbi_jp_bot": "/listen",
+		"/listen@NBI_JP_BOT": "/listen", // 大小写不敏感
+		"/new@nbi_jp_bot 参数": "/new",
+		"/new@other_bot":     "", // 发给别的 bot，忽略
+		"/listen@other_bot":  "",
+		"  /start  ":         "/start",
+		"你好 /listen":         "",
+		"listen":             "",
+		"":                   "",
+	}
+	for in, want := range cases {
+		if got := commandOf(in, me); got != want {
+			t.Errorf("commandOf(%q) = %q, want %q", in, got, want)
+		}
+	}
+	// botUsername 未知时保守：只认裸命令，@后缀一律忽略。
+	if commandOf("/new", "") != "/new" || commandOf("/new@nbi_jp_bot", "") != "" {
+		t.Error("botUsername 未知时应只认裸命令")
+	}
+}
+
+func TestHasMention(t *testing.T) {
+	const me = "nbi_jp_bot"
+	yes := []string{"@nbi_jp_bot 帮我看看", "查一下 @NBI_JP_BOT", "开头 @nbi_jp_bot", "尾部说完 @nbi_jp_bot"}
+	no := []string{"交给 @nbi_jp_bot_dev 跟进", "@nbi_jp_botx", "没有提及"}
+	for _, s := range yes {
+		if !hasMention(s, me) {
+			t.Errorf("hasMention(%q) 应为 true", s)
+		}
+	}
+	for _, s := range no {
+		if hasMention(s, me) {
+			t.Errorf("hasMention(%q) 应为 false", s)
+		}
+	}
+}
+
+func TestStripMention(t *testing.T) {
+	const me = "nbi_jp_bot"
+	if got := stripMention("@nbi_jp_bot 帮我看看进度", me); strings.TrimSpace(got) != "帮我看看进度" {
+		t.Errorf("stripMention 结果 = %q", got)
+	}
+	if got := stripMention("@nbi_jp_bot 转告 @someone_bot", me); !strings.Contains(got, "@someone_bot") {
+		t.Errorf("应保留他人句柄: %q", got)
+	}
+	if got := stripMention("交给 @nbi_jp_bot_dev", me); got != "交给 @nbi_jp_bot_dev" {
+		t.Errorf("不应剥相似前缀: %q", got)
+	}
+}
+
+func TestGroupChannelAndListenKey(t *testing.T) {
+	if groupChannel(-100123) != "telegram:group:-100123" {
+		t.Errorf("groupChannel = %q", groupChannel(-100123))
+	}
+	if listenKey(-100123) != "tg_listen:-100123" {
+		t.Errorf("listenKey = %q", listenKey(-100123))
+	}
+}

@@ -47,6 +47,18 @@ func TestToTelegramHTMLTable(t *testing.T) {
 	}
 }
 
+func TestToTelegramHTMLMixedHTMLAndMarkdown(t *testing.T) {
+	got := toTelegramHTML("<b>概览</b>\n\n**重点**\n| 项目 | 内容 |\n|---|---|\n| ID | 1 |\n<script>x</script>")
+	for _, want := range []string{"<b>概览</b>", "<b>重点</b>", "<pre>项目  内容\nID  1</pre>", "&lt;script&gt;x&lt;/script&gt;"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("缺 %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "**") || strings.Contains(got, "|---|") {
+		t.Errorf("混合格式仍有 Markdown 残留:\n%s", got)
+	}
+}
+
 func TestToTelegramHTMLCodeBlockProtected(t *testing.T) {
 	got := toTelegramHTML("```\n**这里不是加粗** | 也不是表格 |\n```")
 	if !strings.Contains(got, "<pre>**这里不是加粗** | 也不是表格 |</pre>") {

@@ -132,6 +132,9 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	if err != nil || t1.Status != TaskDone || len(chain) != 0 {
 		t.Fatalf("提交后 = %+v chain=%d err=%v", t1, len(chain), err)
 	}
+	if _, _, err := s.SubmitTask(ctx, tk.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("待验收任务重复提交应 ErrNotFound, got %v", err)
+	}
 	// 打回 → 回到进行中，理由入进度。
 	t2, err := s.RejectTask(ctx, tk.ID, boss.ID, "缺预算部分")
 	if err != nil || t2.Status != TaskInProgress {
@@ -164,6 +167,34 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	gs, err := s.GlobalTaskStats(ctx, time.Now().Add(-time.Hour))
 	if err != nil || gs.DoneSince != 1 {
 		t.Errorf("全局统计 = %+v err=%v", gs, err)
+	}
+}
+
+func TestWorkerClaimRecoversStaleTask(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "跑测试", nil)
+
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != tk.ID || claimed.Status != TaskInProgress {
+		t.Fatalf("首次认领 = %+v err=%v", claimed, err)
+	}
+	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("未超时不应重复认领, got %v", err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE tasks SET worker_claimed_at = now() - interval '4 hours' WHERE id = $1`, tk.ID); err != nil {
+		t.Fatal(err)
+	}
+	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || reclaimed.ID != tk.ID || reclaimed.Status != TaskInProgress {
+		t.Fatalf("超时任务应可重新认领 = %+v err=%v", reclaimed, err)
 	}
 }
 
@@ -523,5 +554,98 @@ func TestDirectedDailySchedule(t *testing.T) {
 	}
 	if err := s.CancelSchedule(ctx, sc.ID, boss.ID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// 群共享会话 + 滚动摘要：按渠道取会话、按渠道重置、摘要位点只前进、
+// MessagesAfter 只取位点之后。
+func TestGroupSessionAndSummary(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u1 := mkUser(t, s, "甲", true)
+	u2 := mkUser(t, s, "乙", false)
+	ch := "telegram:group:-42"
+
+	sess, err := s.StartGroupSession(ctx, u1.ID, ch, "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ActiveSessionByChannel(ctx, ch)
+	if err != nil || got.ID != sess.ID {
+		t.Fatalf("按渠道取会话失败: %v", err)
+	}
+	// 其他人重置（按渠道关旧）：旧会话应失活。
+	sess2, err := s.StartGroupSession(ctx, u2.ID, ch, "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.ActiveSessionByChannel(ctx, ch); got.ID != sess2.ID {
+		t.Fatal("重置后活跃会话应是新会话")
+	}
+
+	for i := 0; i < 5; i++ {
+		if err := s.AppendMessage(ctx, sess2.ID, "user", "m"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, _ := s.MessagesAfter(ctx, sess2.ID, 0, 0)
+	if len(all) != 5 {
+		t.Fatalf("消息数 = %d", len(all))
+	}
+	mid := all[2].ID
+	if err := s.UpdateSessionSummary(ctx, sess2.ID, "要点摘要", mid); err != nil {
+		t.Fatal(err)
+	}
+	fresh, _ := s.SessionByID(ctx, sess2.ID)
+	if fresh.Summary != "要点摘要" || fresh.SummaryUpto != mid {
+		t.Fatalf("摘要回读不符: %+v", fresh)
+	}
+	after, _ := s.MessagesAfter(ctx, sess2.ID, fresh.SummaryUpto, 0)
+	if len(after) != 2 {
+		t.Fatalf("位点后消息数 = %d", len(after))
+	}
+	// 位点只前进：回退应 ErrNotFound（execOne 无行）。
+	if err := s.UpdateSessionSummary(ctx, sess2.ID, "旧摘要", mid-1); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("位点回退应被拒: %v", err)
+	}
+}
+
+// SubmitWorkerTask 只在任务仍是该 worker 手上的 in_progress 时提交，
+// 覆盖「分配者同时改需求把任务重置为 pending」的竞态。
+func TestSubmitWorkerTaskAtomic(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "写脚本", nil)
+	if _, err := s.ClaimNextTask(ctx, worker.ID); err != nil {
+		t.Fatal(err)
+	}
+	// 分配者此刻把任务重置为 pending（模拟改需求）。
+	if _, err := s.UpdateTaskStatus(ctx, tk.ID, TaskPending); err != nil {
+		t.Fatal(err)
+	}
+	// worker 的提交应落空（任务已非 in_progress），不把旧交付当完成。
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("重置为 pending 后提交应被拒: %v", err)
+	}
+	got, _ := s.TaskByID(ctx, tk.ID)
+	if got.Status != TaskPending {
+		t.Fatalf("任务应仍为 pending 待重做, got %s", got.Status)
+	}
+	// 重新认领后提交成功。
+	if _, err := s.ClaimNextTask(ctx, worker.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID); err != nil {
+		t.Fatalf("正常提交应成功: %v", err)
+	}
+	got, _ = s.TaskByID(ctx, tk.ID)
+	if got.Status != TaskDone {
+		t.Fatalf("提交后应为 done 待验收, got %s", got.Status)
 	}
 }

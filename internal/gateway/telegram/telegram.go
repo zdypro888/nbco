@@ -36,7 +36,8 @@ type Gateway struct {
 	superadmins map[int64]bool
 
 	mu    sync.Mutex
-	locks map[int64]*sync.Mutex // 按用户串行化，避免并发轮次互相踩会话
+	locks map[int64]*sync.Mutex // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
+	self  *models.User          // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
 }
 
 // New 创建网关。
@@ -58,8 +59,68 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, superadmins []in
 	return g, nil
 }
 
-// Run 长轮询直到 ctx 结束。
-func (g *Gateway) Run(ctx context.Context) { g.bot.Start(ctx) }
+// Run 长轮询直到 ctx 结束。启动时缓存 bot 身份并按作用域注册命令菜单
+// （私聊菜单与群菜单各自只列有意义的命令）。
+func (g *Gateway) Run(ctx context.Context) {
+	if me, err := g.bot.GetMe(ctx); err == nil {
+		g.mu.Lock()
+		g.self = me
+		g.mu.Unlock()
+		// 群内纯文本 @提及要送达 bot 必须关闭 privacy mode（BotFather /setprivacy →
+		// Disable）。CanReadAllGroupMessages=false 表示仍开着，@提及流程会静默失效。
+		if !me.CanReadAllGroupMessages {
+			slog.Warn("Telegram bot 处于 privacy mode：群内纯 @提及收不到，只有『回复 bot 消息』能触发；" +
+				"如需 @提及生效，请在 @BotFather 用 /setprivacy 对本 bot 选 Disable")
+		}
+	} else {
+		slog.Warn("GetMe 失败，群内 @提及识别不可用", "err", err)
+	}
+	g.setupCommands(ctx)
+	g.bot.Start(ctx)
+}
+
+// setupCommands 按作用域注册命令菜单：群命令（如 /listen）只出现在群里，
+// 私聊命令只出现在私聊——快捷键只在有意义的场景展示。失败仅记日志。
+func (g *Gateway) setupCommands(ctx context.Context) {
+	private := []models.BotCommand{
+		{Command: "start", Description: "开始使用 / 查看说明"},
+		{Command: "new", Description: "开启新会话（清空对话上下文）"},
+	}
+	group := []models.BotCommand{
+		{Command: "listen", Description: "开/关本群监听（记录讨论作为上下文，超管专用）"},
+		{Command: "new", Description: "重置本群会话（超管专用）"},
+	}
+	if _, err := g.bot.SetMyCommands(ctx, &bot.SetMyCommandsParams{
+		Commands: private, Scope: &models.BotCommandScopeAllPrivateChats{},
+	}); err != nil {
+		slog.Warn("注册私聊命令菜单失败", "err", err)
+	}
+	if _, err := g.bot.SetMyCommands(ctx, &bot.SetMyCommandsParams{
+		Commands: group, Scope: &models.BotCommandScopeAllGroupChats{},
+	}); err != nil {
+		slog.Warn("注册群命令菜单失败", "err", err)
+	}
+}
+
+// botUsername 缓存的 bot 用户名（未知时空串）。
+func (g *Gateway) botUsername() string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.self == nil {
+		return ""
+	}
+	return g.self.Username
+}
+
+// botID 缓存的 bot 用户 ID（未知时 0）。
+func (g *Gateway) botID() int64 {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.self == nil {
+		return 0
+	}
+	return g.self.ID
+}
 
 // Send 实现 notify.Notifier：按用户查渠道地址投递。
 func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
@@ -79,13 +140,192 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	if msg == nil || msg.From == nil || messageText(msg) == "" {
 		return
 	}
-	// 逐 update 起 goroutine，按用户加锁：慢轮次不阻塞他人，同人消息不并发。
+	// 逐 update 起 goroutine 并加锁串行：私聊按用户、群按 chat（群共享会话不并发）。
+	// 慢轮次不阻塞其他人/其他群。
+	lockKey := msg.From.ID
+	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
+	if isGroup {
+		lockKey = msg.Chat.ID // 群 chat ID 为负数，与用户 ID 不冲突
+	}
 	go func() {
-		lock := g.userLock(msg.From.ID)
+		lock := g.userLock(lockKey)
 		lock.Lock()
 		defer lock.Unlock()
+		if isGroup {
+			g.processGroup(ctx, msg)
+			return
+		}
+		if msg.Chat.Type != models.ChatTypePrivate {
+			return // channel 等场景不处理
+		}
 		g.process(ctx, msg)
 	}()
+}
+
+// --- 群聊 ---
+
+// groupChannel 群共享会话的渠道值。
+func groupChannel(chatID int64) string { return fmt.Sprintf("telegram:group:%d", chatID) }
+
+// listenKey 群监听开关的 kv 键。
+func listenKey(chatID int64) string { return fmt.Sprintf("tg_listen:%d", chatID) }
+
+// processGroup 群消息：命令 → 显式处理；@提及/回复 bot → 以发言人权限跑群会话；
+// 其余消息仅在监听开启时旁听进上下文（不回复）。绝不在群里做绑定引导。
+func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
+	chatID := msg.Chat.ID
+	channel := groupChannel(chatID)
+	text := messageText(msg)
+	u, uerr := g.store.UserByIdentity(ctx, Provider, strconv.FormatInt(msg.From.ID, 10))
+	bound := uerr == nil && u.Status == store.UserActive
+
+	switch commandOf(text, g.botUsername()) {
+	case "/listen":
+		if !bound || !u.IsSuperadmin {
+			g.reply(ctx, chatID, "只有超级管理员能开关群监听。")
+			return
+		}
+		on, _ := g.store.GetKV(ctx, listenKey(chatID))
+		if on == "1" {
+			if err := g.store.SetKV(ctx, listenKey(chatID), ""); err != nil {
+				g.reply(ctx, chatID, "操作失败，请稍后再试。")
+				return
+			}
+			g.reply(ctx, chatID, "🔇 已关闭本群监听。之后只有 @我 才会参与。")
+			return
+		}
+		if err := g.store.SetKV(ctx, listenKey(chatID), "1"); err != nil {
+			g.reply(ctx, chatID, "操作失败，请稍后再试。")
+			return
+		}
+		_ = g.orch.TouchGroupSession(ctx, u, channel)
+		g.reply(ctx, chatID, "🎧 已开启本群监听：我会把群里的讨论记为上下文（不插话），@我 时能接住前文。\n"+
+			"注意：若我收不到普通群消息，请在 @BotFather 的 /setprivacy 里选择 Disable。再次 /listen 关闭。")
+		return
+	case "/new":
+		if !bound || !u.IsSuperadmin {
+			g.reply(ctx, chatID, "只有超级管理员能重置群会话。")
+			return
+		}
+		if err := g.orch.NewGroupSession(ctx, u, channel); err != nil {
+			g.reply(ctx, chatID, "重置失败，请稍后再试。")
+			return
+		}
+		g.reply(ctx, chatID, "🆕 本群会话已重置。")
+		return
+	}
+
+	mentioned := g.mentioned(msg, text)
+	if !mentioned {
+		// 旁听：监听开启才记录，谁说的都署名（未绑定用户用 TG 显示名）。
+		if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
+			speaker := displayName(msg.From)
+			if bound {
+				speaker = u.Name
+			}
+			g.orch.RecordGroupMessage(ctx, channel, speaker, text)
+		}
+		return
+	}
+	if !bound {
+		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要绑定 Key），之后就能在群里 @我 了。")
+		return
+	}
+	ask := strings.TrimSpace(stripMention(text, g.botUsername()))
+	if ask == "" {
+		ask = "（在群里叫了你一声）"
+	}
+	g.sendTyping(ctx, chatID)
+	answer, err := g.orch.HandleGroupMessage(ctx, u, channel, u.Name, ask)
+	if err != nil {
+		slog.Error("群对话轮次失败", "chat", chatID, "user", u.ID, "err", err)
+		g.reply(ctx, chatID, "这轮对话出错了，请重试。")
+		return
+	}
+	g.reply(ctx, chatID, answer)
+}
+
+// mentioned 是否点名了 bot：文本里 @用户名（大小写不敏感、需词边界），
+// 或回复了 bot 的消息。
+func (g *Gateway) mentioned(msg *models.Message, text string) bool {
+	if un := g.botUsername(); un != "" && hasMention(text, un) {
+		return true
+	}
+	return msg.ReplyToMessage != nil && msg.ReplyToMessage.From != nil &&
+		g.botID() != 0 && msg.ReplyToMessage.From.ID == g.botID()
+}
+
+// isUsernameByte Telegram 用户名字符集 [A-Za-z0-9_]（全 ASCII）。
+func isUsernameByte(b byte) bool {
+	return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '_'
+}
+
+// hasMention 文本是否包含 @username（大小写不敏感，且要求词边界——
+// 后一个字符不是用户名字符，避免 @bot 误匹配 @bot_dev）。
+func hasMention(text, username string) bool {
+	lower := strings.ToLower(text)
+	at := "@" + strings.ToLower(username)
+	for i := 0; ; {
+		j := strings.Index(lower[i:], at)
+		if j < 0 {
+			return false
+		}
+		end := i + j + len(at)
+		if end >= len(lower) || !isUsernameByte(lower[end]) {
+			return true
+		}
+		i = end
+	}
+}
+
+// stripMention 去掉文本里对本 bot 的 @提及（大小写不敏感、词边界），
+// 保留其他 @句柄不动。
+func stripMention(text, username string) string {
+	if username == "" {
+		return text
+	}
+	lower := strings.ToLower(text)
+	at := "@" + strings.ToLower(username)
+	var b strings.Builder
+	for i := 0; i < len(text); {
+		if strings.HasPrefix(lower[i:], at) {
+			end := i + len(at)
+			if end >= len(text) || !isUsernameByte(text[end]) {
+				i = end // 跳过本 bot 的提及
+				continue
+			}
+		}
+		b.WriteByte(text[i])
+		i++
+	}
+	return b.String()
+}
+
+// commandOf 消息首词的命令形式。群里命令常带 @bot 后缀（/cmd@botname）：
+// 只认裸命令或后缀正是本 bot 的命令，发给其他 bot 的（/cmd@other）返回空串。
+// botUsername 未知（GetMe 失败）时保守只认裸命令。
+func commandOf(text, botUsername string) string {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) == 0 || !strings.HasPrefix(fields[0], "/") {
+		return ""
+	}
+	cmd, suffix, hasAt := strings.Cut(fields[0], "@")
+	if hasAt && !strings.EqualFold(suffix, botUsername) {
+		return "" // 命令是发给别的 bot 的
+	}
+	return cmd
+}
+
+// displayName TG 用户显示名（名+姓，否则用户名）。
+func displayName(from *models.User) string {
+	name := strings.TrimSpace(strings.Join([]string{from.FirstName, from.LastName}, " "))
+	if name == "" {
+		name = from.Username
+	}
+	if name == "" {
+		name = fmt.Sprintf("成员%d", from.ID)
+	}
+	return name
 }
 
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
@@ -153,10 +393,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 
 // onboard 未绑定用户：超管自动开通；其他人凭绑定 Key。
 func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64, externalID, text string) {
-	name := strings.TrimSpace(strings.Join([]string{msg.From.FirstName, msg.From.LastName}, " "))
-	if name == "" {
-		name = msg.From.Username
-	}
+	name := displayName(msg.From)
 	ident := store.Identity{Provider: Provider, ExternalID: externalID, ChatRef: strconv.FormatInt(chatID, 10)}
 
 	// 首任超管引导：全新系统里第一个发 /superadmin 的人成为超管（零配置起步）。

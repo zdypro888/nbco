@@ -475,6 +475,22 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if _, err := d.Store.UpdateTaskContent(ctx, t.ID, args.Goal, args.Description, args.Acceptance, deadline); err != nil {
 					return "", err
 				}
+				if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
+					switch t.Status {
+					case store.TaskInProgress:
+						_ = d.Store.AddProgress(ctx, t.ID, u.ID, "✏️ 任务要求已更新：请按最新目标/描述/验收标准重新执行。")
+						if _, serr := d.Store.UpdateTaskStatus(ctx, t.ID, store.TaskPending); serr != nil {
+							return "", serr
+						}
+						if d.Workers != nil {
+							d.Workers.Cancel(au.ID, t.ID)
+						}
+						wakeWorker(d, au)
+						return "已更新；AI 员工当前执行已终止，将按新要求重新领取。", nil
+					case store.TaskPending:
+						wakeWorker(d, au)
+					}
+				}
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("✏️ 任务「%s」（#%d）的要求被 %s 更新了，请查看详情。", t.Title, t.ID, u.Name))

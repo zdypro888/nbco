@@ -1,6 +1,11 @@
 package store
 
-import "context"
+import (
+	"context"
+	"time"
+)
+
+const workerClaimTimeout = 3 * time.Hour
 
 // CreateWorker 建一个 AI 员工用户并签发常驻 API token（明文仅此一次返回）。
 // worker 无 IM 身份，靠 token 认证；owner 为监护人。
@@ -59,15 +64,29 @@ func (s *Store) WorkerHeartbeat(ctx context.Context, workerID int64) error {
 
 // ClaimNextTask 原子认领 worker 的下一个待办任务：取最早的 pending 置为 in_progress。
 // 无任务返回 ErrNotFound。SKIP LOCKED 防多进程重复认领。
+// 已被 worker 认领但超时未提交的 in_progress 任务会被回收，避免 client 崩溃后永久卡住。
 func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error) {
+	staleBefore := time.Now().Add(-workerClaimTimeout)
 	return scanTask(s.pool.QueryRow(ctx,
-		`UPDATE tasks SET status = 'in_progress', updated_at = now()
-		 WHERE id = (
-		   SELECT id FROM tasks
-		   WHERE assignee_id = $1 AND status = 'pending'
-		   ORDER BY (priority = 'high') DESC, COALESCE(deadline, 'infinity'), id
-		   LIMIT 1 FOR UPDATE SKIP LOCKED
-		 ) RETURNING `+taskCols, workerID))
+		`UPDATE tasks
+		    SET status = 'in_progress',
+		        worker_claimed_by = $1,
+		        worker_claimed_at = now(),
+		        updated_at = now()
+			 WHERE id = (
+			   SELECT id FROM tasks
+			   WHERE assignee_id = $1
+			     AND (
+			       status = 'pending'
+			       OR (status = 'in_progress' AND worker_claimed_at IS NOT NULL AND worker_claimed_at <= $2)
+			     )
+			   ORDER BY
+			     (status = 'in_progress') DESC,
+			     (priority = 'high') DESC,
+			     COALESCE(deadline, 'infinity'),
+			     id
+			   LIMIT 1 FOR UPDATE SKIP LOCKED
+			 ) RETURNING `+taskCols, workerID, staleBefore))
 }
 
 // RevokeWorker 停用 worker 并撤销其 token（历史任务保留）。目标非 worker 时 ErrNotFound。

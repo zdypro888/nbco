@@ -230,7 +230,12 @@ func (s *Store) SubTasks(ctx context.Context, parentID int64) ([]*Task, error) {
 // UpdateTaskStatus 更新状态并返回更新后的任务。
 func (s *Store) UpdateTaskStatus(ctx context.Context, id int64, status string) (*Task, error) {
 	return scanTask(s.pool.QueryRow(ctx,
-		`UPDATE tasks SET status = $2, updated_at = now() WHERE id = $1 RETURNING `+taskCols, id, status))
+		`UPDATE tasks
+		    SET status = $2,
+		        worker_claimed_by = NULL,
+		        worker_claimed_at = NULL,
+		        updated_at = now()
+		  WHERE id = $1 RETURNING `+taskCols, id, status))
 }
 
 // UpdateTaskContent 分配者修改任务要素（nil 字段不动）。
@@ -258,10 +263,41 @@ func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
+			   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
+			   worker_claimed_by = NULL,
+			   worker_claimed_at = NULL,
+			   updated_at = now()
+			 WHERE id = $1 AND status IN ('pending', 'in_progress')
+			 RETURNING `+taskCols, id))
+	if err != nil {
+		return nil, nil, err
+	}
+	var chain []*Task
+	if t.Status == TaskAccepted {
+		if chain, err = cascadeUp(ctx, tx, t.ParentID); err != nil {
+			return nil, nil, err
+		}
+	}
+	return t, chain, tx.Commit(ctx)
+}
+
+// SubmitWorkerTask worker 提交：仅当任务仍是该 worker 手上的 in_progress 时才提交，
+// 原子避开「分配者同时改需求把任务重置为 pending」的竞态（那时 status 已非
+// in_progress，本次提交落空返回 ErrNotFound，旧交付不会被当成完成）。
+func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64) (*Task, []*Task, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	t, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks SET
 		   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
+		   worker_claimed_by = NULL,
+		   worker_claimed_at = NULL,
 		   updated_at = now()
-		 WHERE id = $1 AND status IN ('pending', 'in_progress', 'done')
-		 RETURNING `+taskCols, id))
+		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress'
+		 RETURNING `+taskCols, id, workerID))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -283,8 +319,12 @@ func (s *Store) AcceptTask(ctx context.Context, id int64) (*Task, []*Task, error
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
-		`UPDATE tasks SET status = 'accepted', updated_at = now()
-		 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
+		`UPDATE tasks
+			    SET status = 'accepted',
+			        worker_claimed_by = NULL,
+			        worker_claimed_at = NULL,
+			        updated_at = now()
+			 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,8 +344,12 @@ func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason str
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
-		`UPDATE tasks SET status = 'in_progress', updated_at = now()
-		 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
+		`UPDATE tasks
+			    SET status = 'in_progress',
+			        worker_claimed_by = NULL,
+			        worker_claimed_at = NULL,
+			        updated_at = now()
+			 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +370,10 @@ func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error)
 	for parentID != nil {
 		p, err := scanTask(tx.QueryRow(ctx,
 			`UPDATE tasks SET
-			   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
-			   updated_at = now()
+				   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
+				   worker_claimed_by = NULL,
+				   worker_claimed_at = NULL,
+				   updated_at = now()
 			 WHERE id = $1 AND status = 'split'
 			   AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_id = $1 AND c.status <> 'accepted')
 			 RETURNING `+taskCols, *parentID))

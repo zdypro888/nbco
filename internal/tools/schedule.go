@@ -56,7 +56,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					return "触发时间必须在未来。", nil
 				}
 				sc, err := d.Store.CreateSchedule(ctx, &store.Schedule{
-					UserID: u.ID, Kind: store.ScheduleOnce, Message: args.Message, FireAt: at.UTC(),
+					UserID: u.ID, Kind: store.ScheduleOnce, Message: args.Message, FireAt: at.UTC(), CreatedBy: u.ID,
 				})
 				if err != nil {
 					return "", err
@@ -91,7 +91,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				}
 				sc, err := d.Store.CreateSchedule(ctx, &store.Schedule{
 					UserID: u.ID, Kind: store.ScheduleRepeat, Message: args.Message,
-					FireAt: at.UTC(), IntervalS: args.IntervalSeconds,
+					FireAt: at.UTC(), IntervalS: args.IntervalSeconds, CreatedBy: u.ID,
 				})
 				if err != nil {
 					return "", err

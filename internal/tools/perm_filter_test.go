@@ -106,3 +106,27 @@ func TestToolPermRegistryNamesExist(t *testing.T) {
 		}
 	}
 }
+
+func TestStripGroupSensitive(t *testing.T) {
+	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
+	full := namesOf(ForUser(Deps{}, su, nil))
+	grouped := namesOf(StripGroupSensitive(ForUser(Deps{}, su, nil)))
+	// 群里必须剔除的机密/高危工具。
+	for _, gone := range []string{
+		"generate_api_token", "revoke_api_token", "generate_key", "send_message",
+		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "schedule_push",
+	} {
+		if !full[gone] {
+			t.Fatalf("前置条件：超管私聊应有 %s", gone)
+		}
+		if grouped[gone] {
+			t.Errorf("群里不应有高危工具 %s", gone)
+		}
+	}
+	// 日常工具保留。
+	for _, keep := range []string{"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview"} {
+		if !grouped[keep] {
+			t.Errorf("群里应保留 %s", keep)
+		}
+	}
+}

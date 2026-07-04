@@ -125,6 +125,38 @@ var workerAllowed = map[string]bool{
 	"list_recent_knowledge": true,
 }
 
+// groupSensitive 群共享会话里必须剔除的工具：结果含机密（Token）、或影响面
+// 大/破坏性的操作。群历史全员可见且会被后续所有成员的轮次重放，这些必须回私聊做。
+// 防的是「机密外泄进群」与「他人发言经共享历史注入驱动高危操作」两条路径。
+var groupSensitive = map[string]bool{
+	"generate_api_token":  true,
+	"revoke_api_token":    true,
+	"generate_key":        true,
+	"grant_active_perm":   true,
+	"revoke_active_perm":  true,
+	"grant_passive_perm":  true,
+	"revoke_passive_perm": true,
+	"disable_user":        true,
+	"enable_user":         true,
+	"create_worker":       true,
+	"revoke_worker":       true,
+	"remove_info_field":   true,
+	"send_message":        true, // 群里可直接说，无需借 bot 向他人/全体转发
+	"schedule_push":       true, // 定向推送涉及他人，回私聊设更稳妥
+}
+
+// StripGroupSensitive 从工具集剔除群不宜的高危工具（群共享会话专用）。
+func StripGroupSensitive(ts []ai.Tool) []ai.Tool {
+	out := ts[:0]
+	for _, t := range ts {
+		if groupSensitive[t.Name] {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
 // filterByPerm 按注册表裁剪工具集（超管全通过；worker 走白名单）。
 func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 	out := ts[:0]
