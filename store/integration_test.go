@@ -204,6 +204,72 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	}
 }
 
+func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outsider := mkUser(t, s, "outsider", false)
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "处理附件", nil)
+
+	fileOwner := boss.ID
+	in, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "input.txt", MIMEType: "text/plain",
+		SizeBytes: 5, SHA256: strings.Repeat("a", 64), StoragePath: "aa/input", CreatedBy: &fileOwner,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddTaskAttachmentFile(ctx, tk.ID, in.ID, "输入"); err != nil {
+		t.Fatal(err)
+	}
+	atts, err := s.TaskFileAttachments(ctx, tk.ID)
+	if err != nil || len(atts) != 1 || atts[0].ID != in.ID {
+		t.Fatalf("附件 = %+v err=%v", atts, err)
+	}
+	if ok, err := s.UserCanAccessFile(ctx, boss.ID, false, in.ID); err != nil || !ok {
+		t.Fatalf("分配者应可访问附件 ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.UserCanAccessFile(ctx, worker.ID, false, in.ID); err != nil || !ok {
+		t.Fatalf("执行人应可访问附件 ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.UserCanAccessFile(ctx, outsider.ID, false, in.ID); err != nil || ok {
+		t.Fatalf("无关用户不应可访问附件 ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.WorkerCanAccessFile(ctx, worker.ID, in.ID); err != nil || !ok {
+		t.Fatalf("worker 应可下载自己的任务附件 ok=%v err=%v", ok, err)
+	}
+
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := s.CreateFile(ctx, &File{
+		Source: "worker", OriginalName: "result.txt", MIMEType: "text/plain",
+		SizeBytes: 6, SHA256: strings.Repeat("b", 64), StoragePath: "bb/result", CreatedBy: &worker.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, "stale", out.ID, "旧 claim"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("旧 claim 不应可登记产物: %v", err)
+	}
+	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, out.ID, "结果"); err != nil {
+		t.Fatal(err)
+	}
+	arts, err := s.TaskArtifacts(ctx, tk.ID)
+	if err != nil || len(arts) != 1 || arts[0].File.ID != out.ID {
+		t.Fatalf("产物 = %+v err=%v", arts, err)
+	}
+	if ok, err := s.UserCanAccessFile(ctx, boss.ID, false, out.ID); err != nil || !ok {
+		t.Fatalf("分配者应可访问产物 ok=%v err=%v", ok, err)
+	}
+}
+
 func TestSelfAssignedSkipsReview(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

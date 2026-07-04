@@ -4,6 +4,7 @@
   "postgres_dsn": "postgres://nbco:nbco@127.0.0.1:5432/nbco?sslmode=disable",
   "listen": "127.0.0.1:8900",
   "log_level": "info",
+  "file_store_path": "files",
   "public_base_url": "",
   "timezone": "Asia/Shanghai",
   "daily_summary_hour": 9,

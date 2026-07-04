@@ -17,11 +17,13 @@
 - 只用交互式 PTY 驱动 CLI，禁止 `claude -p` / `codex exec`。
 - vt10x 屏幕仿真、两步投递、忙碌感知等待、屏幕快照进度、结构化收尾。
 - 验收打回后自动重新领取，带上历史过程和打回理由返工。
+- HTTP/API 文件上传下载、任务附件挂载、worker 附件下载到 `attachments/`、worker 产物从 `artifacts/` 上传。
+- Telegram 网关可选；未配置 `telegram_token` 时，HTTP/API/MCP/worker 仍可运行。
 
 ## 核心缺口
 
-1. 文件没有打通：Telegram/Web/API 可以产生文件引用，但 worker 领任务时拿不到真实文件。
-2. worker 产物无法作为文件回传：只能提交文字 summary / lessons。
+1. Telegram 文件适配还没打通：Bot API 文件下载、自动挂任务、发回产物还待实现。
+2. Web UI 还没有文件上传/下载控件；HTTP API 已有。
 3. worker 缺少本机可观测命令：状态、当前任务、工作目录、最近日志、配置检查。
 4. 安装分发还粗糙：目前依赖手工构建/复制，没有平台包、校验和、升级策略。
 5. workspace 边界还不够产品化：当前默认 `~/nbco-work/task-<id>`，需要显式配置、展示和检查。
@@ -99,11 +101,10 @@ worker 是明示安装、明示绑定、明示运行的工作代理：
 
 ## 实施顺序
 
-1. 文件模型与本地存储：`files` 表、存储目录、sha256、权限校验、下载接口。
-2. 任务附件下发：`/api/worker/next` 返回附件，worker 下载到 `attachments/`。
-3. worker 产物上传：`artifacts/` 扫描、上传接口、验收通知展示。
-4. Web/API 文件入口：网页上传/下载，脱离 Telegram 完整可用。
-5. Telegram 文件适配：Bot API 下载上传文件、必要时发 artifact。
-6. worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
-7. 分发安装：release 二进制、校验和、平台安装脚本；仍由用户显式执行。
-
+1. [x] 文件模型与本地存储：`files` 表、存储目录、sha256、权限校验、下载接口。
+2. [x] 任务附件下发：`/api/worker/next` 返回附件，worker 下载到 `attachments/`。
+3. [x] worker 产物上传：`artifacts/` 扫描、上传接口、验收通知展示。
+4. [ ] Web UI 文件入口：网页上传/下载，脱离 Telegram 完整可用。
+5. [ ] Telegram 文件适配：Bot API 下载上传文件、必要时发 artifact。
+6. [ ] worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
+7. [ ] 分发安装：release 二进制、校验和、平台安装脚本；仍由用户显式执行。

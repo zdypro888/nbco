@@ -41,6 +41,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 {
 		t.Errorf("MaxTokens/MaxTurns 默认值 = %d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns)
 	}
+	if cfg.FileStorePath != "files" {
+		t.Errorf("FileStorePath 默认值 = %q", cfg.FileStorePath)
+	}
 }
 
 func TestLoadDailySummaryOff(t *testing.T) {
@@ -63,9 +66,6 @@ func TestLoadValidation(t *testing.T) {
 	cases := []struct {
 		name, body, wantErr string
 	}{
-		{"缺 telegram_token",
-			`{"superadmins":[1],"postgres_dsn":"d","ai":{"api_key":"k","model":"m"}}`,
-			"telegram_token"},
 		{"缺 postgres_dsn",
 			`{"telegram_token":"t","superadmins":[1],"ai":{"api_key":"k","model":"m"}}`,
 			"postgres_dsn"},
@@ -106,6 +106,15 @@ func TestLoadEmptySuperadminsAllowed(t *testing.T) {
 		"ai": {"api_key": "k", "model": "m"}
 	}`)); err != nil {
 		t.Errorf("superadmins 留空应合法: %v", err)
+	}
+}
+
+func TestLoadTelegramOptional(t *testing.T) {
+	if _, err := Load(writeConfig(t, `{
+		"postgres_dsn": "postgres://x",
+		"ai": {"api_key": "k", "model": "m"}
+	}`)); err != nil {
+		t.Errorf("telegram_token 留空应允许 HTTP/API/worker 独立运行: %v", err)
 	}
 }
 

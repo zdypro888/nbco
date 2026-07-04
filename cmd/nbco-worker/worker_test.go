@@ -80,6 +80,34 @@ func TestBuildPrompt(t *testing.T) {
 	}
 }
 
+func TestBuildPromptWithAttachmentsAndArtifacts(t *testing.T) {
+	p := buildPrompt(&Task{
+		Title: "处理报告",
+		Attachments: []Attachment{{
+			ID: 7, OriginalName: "report.pdf", MIMEType: "application/pdf",
+			SizeBytes: 123, LocalPath: "attachments/7-report.pdf",
+		}},
+	}, nil, nil)
+	for _, want := range []string{"attachments/7-report.pdf", "application/pdf", "artifacts/"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("prompt 缺 %q:\n%s", want, p)
+		}
+	}
+}
+
+func TestSafeFileName(t *testing.T) {
+	cases := map[string]string{
+		"../secret.txt": "secret.txt",
+		"合同?.pdf":       "合同_.pdf",
+		" .hidden ":     "hidden",
+	}
+	for in, want := range cases {
+		if got := safeFileName(in); got != want {
+			t.Errorf("safeFileName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestCompletionNudgeHasNoSentinel(t *testing.T) {
 	for _, m := range []string{markSummary, markLessons, markEnd} {
 		if strings.Contains(completionNudge, m) {

@@ -36,11 +36,12 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 
 | 字段 | 说明 |
 |------|------|
-| `telegram_token` | Bot token |
-| `superadmins` | Telegram 用户 ID 列表（可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |
+| `telegram_token` | Bot token；可留空，留空则不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用 |
+| `superadmins` | Telegram 用户 ID 列表（启用 Telegram 时可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |
 | `postgres_dsn` | PostgreSQL 连接串（首次启动自动建表） |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
 | `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 会记录消息与工具调用全文） |
+| `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释 |
 | `public_base_url` | 保留给外部回调集成，通常留空 |
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
 | `daily_summary_hour` | 每日待办推送小时（0-23），-1 关闭 |
@@ -75,6 +76,8 @@ docker compose up -d
 - `GET /api/me` — 当前用户
 - `GET /api/me/tasks` / `GET /api/me/review` / `GET /api/me/assigned` — 待办 / 待我验收 / 我分配的
 - `GET /api/overview` — 全局统计+项目+过期任务（超管）
+- `POST /api/files`（multipart `file`）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）
+- `POST /api/tasks/{id}/attachments` `{"file_id":123,"caption":"..."}` — 把文件挂到任务
 - `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具
 - `GET /healthz`
 
@@ -126,6 +129,10 @@ scripts/deploy-local.sh
 - **心跳 `ping/pong`**：30 秒一跳；`list_workers` 显示「🔗 在线（实时连接）」为真实时状态
 
 **打回即返工**：验收打回 worker 的任务会自动回到待领取并推唤醒，worker 重新领到时任务自带过程记录（含打回理由），按理由整改后重新提交——审核-返工闭环全自动。
+
+### 文件与产物
+
+worker 领取任务时，服务端会把任务附件下发到工作目录的 `attachments/`；prompt 会明确告诉 CLI 附件位置。worker 若需要交付文件，把文件放进 `artifacts/`，提交前会自动上传为任务产物，验收人可在任务详情里看到文件 ID 与名称。
 
 ### 分层铁律：中枢调度，worker 深干
 

@@ -1,0 +1,160 @@
+package store
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// File 是 nbco 管理的文件实体。storage_path 是相对文件存储根目录的路径。
+type File struct {
+	ID           int64
+	Source       string
+	OriginalName string
+	MIMEType     string
+	SizeBytes    int64
+	SHA256       string
+	StoragePath  string
+	CreatedBy    *int64
+	CreatedAt    time.Time
+}
+
+// Artifact 是 worker 或用户提交到任务上的产物文件。
+type Artifact struct {
+	ID        int64
+	TaskID    int64
+	File      File
+	ClaimID   string
+	CreatedBy int64
+	Caption   string
+	CreatedAt time.Time
+}
+
+func scanFile(row interface{ Scan(...any) error }) (*File, error) {
+	var f File
+	if err := row.Scan(&f.ID, &f.Source, &f.OriginalName, &f.MIMEType, &f.SizeBytes,
+		&f.SHA256, &f.StoragePath, &f.CreatedBy, &f.CreatedAt); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &f, nil
+}
+
+// CreateFile 记录一个已落到文件存储里的文件。
+func (s *Store) CreateFile(ctx context.Context, f *File) (*File, error) {
+	return scanFile(s.pool.QueryRow(ctx,
+		`INSERT INTO files (source, original_name, mime_type, size_bytes, sha256, storage_path, created_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at`,
+		f.Source, f.OriginalName, f.MIMEType, f.SizeBytes, f.SHA256, f.StoragePath, f.CreatedBy))
+}
+
+// FileByID 取文件元数据。
+func (s *Store) FileByID(ctx context.Context, id int64) (*File, error) {
+	return scanFile(s.pool.QueryRow(ctx,
+		`SELECT id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at
+		 FROM files WHERE id = $1`, id))
+}
+
+// AddTaskAttachmentFile 把文件挂到任务附件上。
+func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64, caption string) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
+		 VALUES ($1, 'file', $2, $3, $4)`,
+		taskID, fmt.Sprint(fileID), caption, fileID)
+	return wrapErr(err)
+}
+
+// TaskFileAttachments 返回任务上的真实文件附件；旧 file_ref-only 附件不在这里返回。
+func (s *Store) TaskFileAttachments(ctx context.Context, taskID int64) ([]File, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT f.id, f.source, f.original_name, f.mime_type, f.size_bytes, f.sha256, f.storage_path, f.created_by, f.created_at
+		 FROM task_attachments a
+		 JOIN files f ON f.id = a.file_id
+		 WHERE a.task_id = $1
+		 ORDER BY a.id`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []File
+	for rows.Next() {
+		f, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *f)
+	}
+	return out, rows.Err()
+}
+
+// AddWorkerArtifact 仅当 worker 仍持有同一 claim 时，把文件登记为任务产物。
+func (s *Store) AddWorkerArtifact(ctx context.Context, taskID, workerID int64, claimID string, fileID int64, caption string) error {
+	tag, err := s.pool.Exec(ctx,
+		`INSERT INTO task_artifacts (task_id, file_id, claim_id, created_by, caption)
+		 SELECT id, $4, $3, $2, $5 FROM tasks
+		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3`,
+		taskID, workerID, claimID, fileID, caption)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// TaskArtifacts 返回任务产物。
+func (s *Store) TaskArtifacts(ctx context.Context, taskID int64) ([]Artifact, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT a.id, a.task_id, a.claim_id, a.created_by, a.caption, a.created_at,
+		        f.id, f.source, f.original_name, f.mime_type, f.size_bytes, f.sha256, f.storage_path, f.created_by, f.created_at
+		 FROM task_artifacts a
+		 JOIN files f ON f.id = a.file_id
+		 WHERE a.task_id = $1
+		 ORDER BY a.id`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Artifact
+	for rows.Next() {
+		var a Artifact
+		if err := rows.Scan(&a.ID, &a.TaskID, &a.ClaimID, &a.CreatedBy, &a.Caption, &a.CreatedAt,
+			&a.File.ID, &a.File.Source, &a.File.OriginalName, &a.File.MIMEType, &a.File.SizeBytes,
+			&a.File.SHA256, &a.File.StoragePath, &a.File.CreatedBy, &a.File.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// UserCanAccessFile 判断普通用户是否能下载文件。
+func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin bool, fileID int64) (bool, error) {
+	if superadmin {
+		return true, nil
+	}
+	var ok bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		    SELECT 1 FROM files WHERE id = $1 AND created_by = $2
+		    UNION ALL
+		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
+		      WHERE a.file_id = $1 AND (t.assigner_id = $2 OR t.assignee_id = $2)
+		    UNION ALL
+		    SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
+		      WHERE a.file_id = $1 AND (t.assigner_id = $2 OR t.assignee_id = $2)
+		)`, fileID, userID).Scan(&ok)
+	return ok, err
+}
+
+// WorkerCanAccessFile 判断 worker 是否能下载某个任务文件。
+func (s *Store) WorkerCanAccessFile(ctx context.Context, workerID, fileID int64) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
+		    WHERE a.file_id = $1 AND t.assignee_id = $2
+		)`, fileID, workerID).Scan(&ok)
+	return ok, err
+}

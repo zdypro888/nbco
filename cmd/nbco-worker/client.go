@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -28,12 +31,24 @@ func newClient(base, token string) *Client {
 
 // Task 从 nbco 领到的任务。
 type Task struct {
-	ID          int64  `json:"id"`
-	ClaimID     string `json:"claim_id"`
-	Title       string `json:"title"`
-	Goal        string `json:"goal"`
-	Description string `json:"description"`
-	Acceptance  string `json:"acceptance"`
+	ID          int64        `json:"id"`
+	ClaimID     string       `json:"claim_id"`
+	Title       string       `json:"title"`
+	Goal        string       `json:"goal"`
+	Description string       `json:"description"`
+	Acceptance  string       `json:"acceptance"`
+	Attachments []Attachment `json:"attachments"`
+}
+
+// Attachment 是服务端随任务下发的文件附件。
+type Attachment struct {
+	ID           int64  `json:"id"`
+	OriginalName string `json:"original_name"`
+	MIMEType     string `json:"mime_type"`
+	SizeBytes    int64  `json:"size_bytes"`
+	SHA256       string `json:"sha256"`
+	DownloadURL  string `json:"download_url"`
+	LocalPath    string `json:"-"`
 }
 
 // Next 认领下一个任务；无任务返回全 nil。knowledge 是相关历史经验，
@@ -73,6 +88,75 @@ func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, les
 	return c.post(ctx, "/api/worker/submit", map[string]any{
 		"task_id": taskID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 	})
+}
+
+// DownloadFile 下载 worker 被授权的文件到 dst。
+func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+urlPath, nil)
+	c.auth(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return c.errStatus(resp)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	tmp := dst + ".tmp"
+	out, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, resp.Body)
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(tmp)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmp)
+		return closeErr
+	}
+	return os.Rename(tmp, dst)
+}
+
+// UploadArtifact 上传 worker 产物并绑定当前任务 claim。
+func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, path string) error {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("task_id", fmt.Sprint(taskID))
+	_ = mw.WriteField("claim_id", claimID)
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	part, err := mw.CreateFormFile("file", filepath.Base(path))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return err
+	}
+	if err := mw.Close(); err != nil {
+		return err
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	c.auth(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return c.errStatus(resp)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return nil
 }
 
 func (c *Client) post(ctx context.Context, path string, payload any) error {

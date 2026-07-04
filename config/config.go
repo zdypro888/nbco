@@ -50,6 +50,7 @@ type Config struct {
 	PostgresDSN   string  `json:"postgres_dsn"`
 	Listen        string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
 	LogLevel      string  `json:"log_level"` // debug | info | warn | error，默认 info
+	FileStorePath string  `json:"file_store_path"`
 	// PublicBaseURL 保留给外部回调集成；当前中枢引擎不使用 CLI 回连。
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
@@ -110,6 +111,9 @@ func (c *Config) applyDefaults() {
 	if c.LogLevel == "" {
 		c.LogLevel = "info"
 	}
+	if c.FileStorePath == "" {
+		c.FileStorePath = "files"
+	}
 }
 
 // SlogLevel 配置的日志级别（Load 已校验合法性）。
@@ -128,10 +132,8 @@ func (c *Config) SlogLevel() slog.Level {
 
 func (c *Config) validate() error {
 	var errs []error
-	if strings.TrimSpace(c.TelegramToken) == "" {
-		errs = append(errs, errors.New("telegram_token 必填"))
-	}
-	// superadmins 可留空：全新系统里第一个发 /superadmin 的人自动成为超管。
+	// telegram_token 可留空：此时不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用。
+	// superadmins 可留空：启用 Telegram 时，全新系统里第一个发 /superadmin 的人自动成为超管。
 	if strings.TrimSpace(c.PostgresDSN) == "" {
 		errs = append(errs, errors.New("postgres_dsn 必填"))
 	}

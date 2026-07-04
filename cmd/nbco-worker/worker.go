@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -122,6 +126,10 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
 	}
+	if err := w.prepareFiles(ctx, task, dir); err != nil {
+		w.report(ctx, task.ID, task.ClaimID, "下载任务附件失败: "+err.Error())
+		return
+	}
 	prompt := buildPrompt(task, knowledge, history)
 
 	runCtx, cancel := context.WithTimeout(ctx, taskTimeout)
@@ -163,6 +171,13 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 			note = "任务执行中断（" + werr.Error() + "）"
 		}
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
+	}
+	uploaded, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
+	if uerr != nil {
+		w.report(ctx, task.ID, task.ClaimID, "⚠️ 上传产物失败: "+uerr.Error())
+	}
+	if len(uploaded) > 0 {
+		summary += "\n\n已上传产物：\n- " + strings.Join(uploaded, "\n- ")
 	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
@@ -213,6 +228,99 @@ func (w *Worker) workDir(taskID int64) (string, error) {
 	return dir, os.MkdirAll(dir, 0o755)
 }
 
+func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error {
+	if err := os.MkdirAll(filepath.Join(dir, "attachments"), 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "artifacts"), 0o755); err != nil {
+		return err
+	}
+	if len(task.Attachments) == 0 {
+		return nil
+	}
+	for i := range task.Attachments {
+		a := &task.Attachments[i]
+		name := safeFileName(a.OriginalName)
+		if name == "" {
+			name = fmt.Sprintf("file-%d", a.ID)
+		}
+		name = fmt.Sprintf("%d-%s", a.ID, name)
+		dst := filepath.Join(dir, "attachments", name)
+		if err := w.client.DownloadFile(ctx, a.DownloadURL, dst); err != nil {
+			return fmt.Errorf("%s: %w", a.OriginalName, err)
+		}
+		if a.SHA256 != "" {
+			ok, err := verifySHA256(dst, a.SHA256)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("%s sha256 不匹配", a.OriginalName)
+			}
+		}
+		a.LocalPath = filepath.ToSlash(filepath.Join("attachments", name))
+	}
+	return nil
+}
+
+func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir string) ([]string, error) {
+	var uploaded []string
+	if _, err := os.Stat(dir); errorsIsNotExist(err) {
+		return nil, nil
+	}
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(d.Name(), ".tmp") || strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+		if err := w.client.UploadArtifact(ctx, taskID, claimID, path); err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, path)
+		uploaded = append(uploaded, filepath.ToSlash(rel))
+		return nil
+	})
+	return uploaded, err
+}
+
+func errorsIsNotExist(err error) bool {
+	return err != nil && os.IsNotExist(err)
+}
+
+var unsafeFileNameRe = regexp.MustCompile(`[\x00-\x1f/\\:*?"<>|]+`)
+
+func safeFileName(name string) string {
+	name = filepath.Base(strings.TrimSpace(name))
+	name = unsafeFileNameRe.ReplaceAllString(name, "_")
+	name = strings.Trim(name, ". ")
+	if len(name) > 160 {
+		ext := filepath.Ext(name)
+		name = strings.TrimSuffix(name, ext)
+		if len(ext) > 20 {
+			ext = ""
+		}
+		if len(name) > 160-len(ext) {
+			name = name[:160-len(ext)]
+		}
+		name += ext
+	}
+	return name
+}
+
+func verifySHA256(path, want string) (bool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	sum := sha256.Sum256(data)
+	return strings.EqualFold(hex.EncodeToString(sum[:]), want), nil
+}
+
 func (w *Worker) report(ctx context.Context, taskID int64, claimID, content string) {
 	content = strings.TrimSpace(content)
 	if content == "" {
@@ -249,7 +357,18 @@ func buildPrompt(task *Task, knowledge, history []string) string {
 			fmt.Fprintf(&b, "- %s\n", k)
 		}
 	}
+	if len(task.Attachments) > 0 {
+		b.WriteString("\n任务附件已下载到当前工作目录的 attachments/：\n")
+		for _, a := range task.Attachments {
+			path := a.LocalPath
+			if path == "" {
+				path = filepath.ToSlash(filepath.Join("attachments", safeFileName(a.OriginalName)))
+			}
+			fmt.Fprintf(&b, "- %s（%s，%d bytes）\n", path, a.MIMEType, a.SizeBytes)
+		}
+	}
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。")
+	b.WriteString("如果需要交付文件，请把文件放进 artifacts/ 目录，系统会在提交前自动上传。\n")
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
 	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
 		markSummary, markLessons, markEnd)

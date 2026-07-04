@@ -887,7 +887,40 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	if len(atts) > 0 {
 		fmt.Fprintf(&b, "附件: %d 个\n", len(atts))
 	}
+	files, err := d.Store.TaskFileAttachments(ctx, t.ID)
+	if err != nil {
+		return "", err
+	}
+	if len(files) > 0 {
+		b.WriteString("文件附件:\n")
+		for _, f := range files {
+			fmt.Fprintf(&b, "  #%d %s（%s）\n", f.ID, f.OriginalName, formatBytes(f.SizeBytes))
+		}
+	}
+	arts, err := d.Store.TaskArtifacts(ctx, t.ID)
+	if err != nil {
+		return "", err
+	}
+	if len(arts) > 0 {
+		b.WriteString("交付产物:\n")
+		for _, a := range arts {
+			fmt.Fprintf(&b, "  #%d %s（%s）\n", a.File.ID, a.File.OriginalName, formatBytes(a.File.SizeBytes))
+		}
+	}
 	return b.String(), nil
+}
+
+func formatBytes(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for v := n / unit; v >= unit; v /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
 func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b *strings.Builder, tz *time.Location) error {

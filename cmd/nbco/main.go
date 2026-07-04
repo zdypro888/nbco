@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -77,23 +78,32 @@ func run(configPath string) error {
 
 	orch := chat.New(st, engine, deps, tz)
 
-	tg, err := telegram.New(cfg.TelegramToken, st, orch, cfg.Superadmins)
-	if err != nil {
-		return err
+	api := httpapi.New(st, orch, deps, cfg.FileStorePath)
+
+	// AI 催办/周报轮次挂在可用入口渠道上；没有 Telegram 时用 HTTP/API 会话。
+	schedulerChannel := httpapi.Channel
+	var tg *telegram.Gateway
+	if strings.TrimSpace(cfg.TelegramToken) != "" {
+		var err error
+		tg, err = telegram.New(cfg.TelegramToken, st, orch, cfg.Superadmins)
+		if err != nil {
+			return err
+		}
+		hub.Set(tg)
+		schedulerChannel = telegram.Provider
+	} else {
+		slog.Info("未配置 telegram_token，跳过 Telegram 网关；HTTP/API/MCP/worker 仍可用")
 	}
-	hub.Set(tg)
-
-	api := httpapi.New(st, orch, deps)
-
-	// AI 催办/周报轮次挂在 Telegram 渠道会话上（与主入口一致，上下文连续）。
-	scheduler := sched.New(st, hub, orch, telegram.Provider, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
+	scheduler := sched.New(st, hub, orch, schedulerChannel, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
 
 	slog.Info("nbco 启动", "engine", engine.Name(), "listen", cfg.Listen, "tz", tz.String())
 
 	errCh := make(chan error, 2)
 	go func() { errCh <- api.Serve(ctx, cfg.Listen) }()
 	go scheduler.Run(ctx)
-	go tg.Run(ctx)
+	if tg != nil {
+		go tg.Run(ctx)
+	}
 
 	select {
 	case <-ctx.Done():

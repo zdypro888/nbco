@@ -29,14 +29,15 @@ var indexHTML []byte
 
 // Server HTTP 入口。
 type Server struct {
-	store *store.Store
-	orch  *chat.Orchestrator
-	deps  tools.Deps
+	store         *store.Store
+	orch          *chat.Orchestrator
+	deps          tools.Deps
+	fileStorePath string
 }
 
 // New 创建 HTTP 入口。
-func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps) *Server {
-	return &Server{store: s, orch: orch, deps: deps}
+func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, fileStorePath string) *Server {
+	return &Server{store: s, orch: orch, deps: deps, fileStorePath: fileStorePath}
 }
 
 // Handler 组装路由。
@@ -56,10 +57,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
 	mux.HandleFunc("GET /api/overview", s.handleOverview)
+	mux.HandleFunc("POST /api/files", s.handleUploadFile)
+	mux.HandleFunc("GET /api/files/{id}", s.handleDownloadFile)
+	mux.HandleFunc("POST /api/tasks/{id}/attachments", s.handleAttachFile)
 	// AI 员工（worker client）接口。任务队列走 HTTP（DB 为准），WS 做实时增强。
 	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
 	mux.HandleFunc("POST /api/worker/submit", s.handleWorkerSubmit)
+	mux.HandleFunc("GET /api/worker/files/{id}", s.handleWorkerDownloadFile)
+	mux.HandleFunc("POST /api/worker/artifacts", s.handleWorkerArtifact)
 	mux.HandleFunc("GET /api/worker/ws", s.handleWorkerWS)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
 	return mux
@@ -320,11 +326,20 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 			history = append(history, pr.Content)
 		}
 	}
-	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons), "history", len(history))
+	var attachments []fileJSON
+	if fs, err := s.store.TaskFileAttachments(ctx, t.ID); err == nil {
+		for _, f := range fs {
+			attachments = append(attachments, toFileJSON(f, "/api/worker/files/"+fmt.Sprint(f.ID)))
+		}
+	} else {
+		slog.Warn("worker 附件查询失败", "worker", u.ID, "task", t.ID, "err", err)
+	}
+	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
 			"description": t.Description, "acceptance": t.Acceptance, "claim_id": t.WorkerClaimID,
+			"attachments": attachments,
 		},
 		"knowledge": lessons,
 		"history":   history,
