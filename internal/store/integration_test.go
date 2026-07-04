@@ -31,6 +31,15 @@ func openTestStore(t *testing.T) *Store {
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
+	// TRUNCATE 会清掉迁移种入的内置角色；用种子迁移幂等补种，保证每个测试
+	// 都从"新部署"状态出发。
+	seed, err := migrationsFS.ReadFile("migrations/0006_seed_roles.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, string(seed)); err != nil {
+		t.Fatal(err)
+	}
 	return s
 }
 
