@@ -93,7 +93,7 @@ func run(args []string) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	w := &Worker{cfg: cfg, client: newClient(cfg.Server, cfg.Token)}
+	w := newWorker(cfg)
 	log.Printf("nbco-worker 上线：server=%s engine=%s", cfg.Server, cfg.Engine)
 	w.Loop(ctx)
 	log.Println("已下线")

@@ -101,7 +101,20 @@ nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的一次性令牌>
 nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
-执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里粘贴任务一样输入，多行任务用 bracketed paste 投递；严禁 `claude -p` / `codex exec` 等 headless 入口。
+执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
+
+- **vt10x 屏幕仿真**：PTY 字节流喂进内存终端仿真器，一切检测读渲染后的屏幕，不在原始流上扒 ANSI
+- **两步投递**：多行任务用 bracketed paste 包住、停顿后单发回车（防 TUI 的 paste 防抖吞掉提交）
+- **忙碌感知等待**：屏幕先动后稳判定回合结束；"esc to interrupt" 可见期间永不判闲也永不判卡，长任务不设硬超时
+- **启动对话框自动应答**：Bypass Permissions 确认（选 Yes）、目录 trust 确认
+- **收尾解析防回显**：从最后一个哨兵块回溯、跳过任务原文的回显；没按格式收尾会补提醒，仍失败则以屏幕摘录提交
+- **进度即屏幕**：定期回传屏幕快照作为任务进度
+
+### 分层铁律：中枢调度，worker 深干
+
+中枢（eino 直调 API）是**调度管理层**：派活、跟进、催办、汇总，不在对话里做深度工作。要深度解决问题（写代码、审代码、深度调研）就派任务给 AI 员工，worker 驱动本机 claude/codex 完成。
+
+**审核委派**：任务提交待验收后，分配者让中枢调 `delegate_review`——服务端把任务要素、执行过程、完成汇报打包成审核简报，作为高优先级任务派给审核角色（推荐 AI 员工，实地读代码、跑测试、逐条对照验收标准），结论（「建议通过」/「建议打回：理由」）随完成汇报回流，分配者只做最终拍板。
 
 ## 主动运营（AI 主动，人被动）
 

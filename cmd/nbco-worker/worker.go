@@ -3,31 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
-
-	"github.com/creack/pty"
 )
 
 const (
-	pollInterval = 10 * time.Second // 无活时的轮询间隔
-	taskTimeout  = 30 * time.Minute // 单任务总时限
-	exitGrace    = 5 * time.Second  // 识别完成哨兵后给 CLI 自行退出的时间
-	flushBytes   = 1500             // 进度攒够这么多字节回传一次
-	ansiEscape   = "\x1b\\[[0-9;?]*[ -/]*[@-~]|\x1b\\][^\x07]*\x07|\x1b[@-Z\\-_]"
-	termCols     = 120
-	termRows     = 40
+	pollInterval     = 10 * time.Second // 无活时的轮询间隔
+	taskTimeout      = 2 * time.Hour    // 单任务总时限（卡死另有 waitOpts.Stuck 检测）
+	progressInterval = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
+	progressTail     = 25               // 每次快照回传的屏幕行数
+	maxNudges        = 2                // 未按格式收尾时的补提醒次数
 )
-
-var submitEnterDelay = 250 * time.Millisecond
-
-var ansiRe = regexp.MustCompile(ansiEscape)
 
 // 完成哨兵：prompt 要求 CLI 收尾时依次输出这三段。
 const (
@@ -40,6 +29,11 @@ const (
 type Worker struct {
 	cfg    Config
 	client *Client
+	wait   waitOpts
+}
+
+func newWorker(cfg Config) *Worker {
+	return &Worker{cfg: cfg, client: newClient(cfg.Server, cfg.Token), wait: defaultWaitOpts()}
 }
 
 // Loop 持续领活、执行，直到 ctx 取消。
@@ -70,7 +64,8 @@ func (w *Worker) sleep(ctx context.Context, d time.Duration) {
 	}
 }
 
-// execute 用 PTY 驱动 CLI 完成任务，输出实时回传，退出后提交验收。
+// execute 在 PTY 里驱动交互式 CLI 完成任务：warmup → 粘贴任务 → 等回复结束 →
+// 解析收尾（不合格就补提醒）→ 提交验收。进度以屏幕快照周期回传。
 func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 	dir, err := w.workDir(task.ID)
 	if err != nil {
@@ -81,59 +76,63 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 
 	runCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(runCtx, w.cfg.Bin, w.cliArgs()...)
-	cmd.Dir = dir
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: termCols, Rows: termRows})
+	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 	if err != nil {
 		w.report(ctx, task.ID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
 		return
 	}
-	defer func() { _ = ptmx.Close() }()
+	defer sess.Kill()
 
-	if err := writeInteractivePrompt(ptmx, prompt); err != nil {
-		w.report(ctx, task.ID, "写入任务指令失败: "+err.Error())
-		return
+	// 周期回传屏幕快照当进度（有变化才发）。
+	stopProg := make(chan struct{})
+	defer close(stopProg)
+	go w.relayProgress(ctx, task.ID, sess, stopProg)
+
+	warmup(runCtx, sess.Screen, sess.Write)
+
+	screen, werr := sess.submitAndWait(runCtx, prompt, w.wait)
+	summary, lessons, ok := parseCompletion(screen)
+	// 长任务可能触发 CLI 上下文压缩，把开头的收尾要求挤掉——用简短提醒补一轮。
+	for n := 0; !ok && werr == nil && n < maxNudges; n++ {
+		log.Printf("任务 #%d 未按格式收尾，补提醒（%d/%d）", task.ID, n+1, maxNudges)
+		screen, werr = sess.submitAndWait(runCtx, completionNudge, w.wait)
+		summary, lessons, ok = parseCompletion(screen)
 	}
 
-	// 读 PTY 输出：累积全文（供解析哨兵）+ 节流回传进度。
-	var full strings.Builder
-	pending := &strings.Builder{}
-	buf := make([]byte, 4096)
-	seenEnd := false
-	for {
-		n, readErr := ptmx.Read(buf)
-		if n > 0 {
-			clean := stripANSI(string(buf[:n]))
-			full.WriteString(clean)
-			pending.WriteString(clean)
-			if pending.Len() >= flushBytes {
-				w.report(ctx, task.ID, pending.String())
-				pending.Reset()
-			}
-			if !seenEnd && hasCompletionEnd(full.String()) {
-				seenEnd = true
-				_, _ = ptmx.Write([]byte("\n/exit\n"))
-				time.AfterFunc(exitGrace, func() { _ = cmd.Process.Kill() })
-			}
+	if !ok {
+		note := "任务执行结束（未按格式收尾）"
+		if werr != nil {
+			note = "任务执行中断（" + werr.Error() + "）"
 		}
-		if readErr != nil {
-			break // 进程退出（EOF）或读错误
-		}
-	}
-	_ = cmd.Wait()
-	if pending.Len() > 0 {
-		w.report(ctx, task.ID, pending.String())
-	}
-
-	summary, lessons := parseTail(full.String())
-	if summary == "" {
-		summary = "任务执行结束（未解析到明确结论，请查看进度）。"
+		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
 	if err := w.client.Submit(ctx, task.ID, summary, lessons); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		return
 	}
 	log.Printf("任务 #%d 已提交验收", task.ID)
+}
+
+// relayProgress 周期采样渲染屏幕，尾部内容有变化就回传一段快照。
+func (w *Worker) relayProgress(ctx context.Context, taskID int64, sess *cliSession, stop <-chan struct{}) {
+	ticker := time.NewTicker(progressInterval)
+	defer ticker.Stop()
+	var last string
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		cur := tailLines(sess.Screen(), progressTail)
+		if cur == "" || cur == last {
+			continue
+		}
+		last = cur
+		w.report(ctx, taskID, "🖥 屏幕快照：\n"+cur)
+	}
 }
 
 // cliArgs 按引擎拼交互式命令行。严禁使用 claude -p / codex exec 等非交互入口；
@@ -145,17 +144,6 @@ func (w *Worker) cliArgs() []string {
 	default: // claude
 		return []string{"--dangerously-skip-permissions"}
 	}
-}
-
-func writeInteractivePrompt(w io.Writer, prompt string) error {
-	// Bracketed paste lets interactive CLIs receive the whole multi-line task as
-	// one pasted message, instead of treating each newline as a separate submit.
-	if _, err := io.WriteString(w, "\x1b[200~"+prompt+"\x1b[201~"); err != nil {
-		return err
-	}
-	time.Sleep(submitEnterDelay)
-	_, err := io.WriteString(w, "\r")
-	return err
 }
 
 func (w *Worker) workDir(taskID int64) (string, error) {
@@ -205,43 +193,42 @@ func buildPrompt(task *Task, knowledge []string) string {
 	return b.String()
 }
 
-// parseTail 从完整输出里解析收尾的 summary / lessons 段。
-func parseTail(out string) (summary, lessons string) {
-	si := strings.LastIndex(out, markSummary)
-	if si < 0 {
-		return "", ""
+// completionNudge 收尾补提醒。刻意不写哨兵原文，避免它的回显被误认成收尾输出。
+const completionNudge = "请现在收尾：按任务开头的要求，依次单独成行输出 SUMMARY、LESSONS、END 三个尖括号标记段（一句话总结；可复用经验，无则写：无）。"
+
+// parseCompletion 从渲染屏幕上解析收尾三段。粘贴的任务原文可能被 TUI 回显
+// （其中也含哨兵与占位说明），因此从最后一个候选块往前找，跳过回显的指令块。
+func parseCompletion(out string) (summary, lessons string, ok bool) {
+	for si := strings.LastIndex(out, markSummary); si >= 0; si = strings.LastIndex(out[:si], markSummary) {
+		rest := out[si+len(markSummary):]
+		ei := strings.Index(rest, markEnd)
+		if ei < 0 {
+			continue // 块未收完（比如只回显了一半）
+		}
+		block := rest[:ei]
+		var s, l string
+		if li := strings.Index(block, markLessons); li >= 0 {
+			s = strings.TrimSpace(block[:li])
+			l = strings.TrimSpace(block[li+len(markLessons):])
+		} else {
+			s = strings.TrimSpace(block)
+		}
+		if s == "" || isPromptEcho(s) {
+			continue
+		}
+		if l == "无" || l == "None" || isPromptEcho(l) {
+			l = ""
+		}
+		// 屏幕折行会给文本掺进换行和成串的补位空格，归一成单空格。
+		return strings.Join(strings.Fields(s), " "), strings.Join(strings.Fields(l), " "), true
 	}
-	li := strings.LastIndex(out, markLessons)
-	ei := strings.LastIndex(out, markEnd)
-	if li < 0 || li < si {
-		return strings.TrimSpace(out[si+len(markSummary):]), ""
-	}
-	summary = strings.TrimSpace(out[si+len(markSummary) : li])
-	tail := out[li+len(markLessons):]
-	if ei > li {
-		tail = out[li+len(markLessons) : ei]
-	}
-	lessons = strings.TrimSpace(tail)
-	if lessons == "无" || lessons == "None" {
-		lessons = ""
-	}
-	return summary, lessons
+	return "", "", false
 }
 
-func hasCompletionEnd(out string) bool {
-	i := strings.LastIndex(out, markEnd)
-	if i < 0 {
-		return false
-	}
-	tail := out[i+len(markEnd):]
-	if strings.Contains(tail, "输出完成标记后") {
-		return strings.Count(out, markEnd) >= 2
-	}
-	return true
-}
-
-// stripANSI 去掉终端转义序列，让回传的进度可读。
-func stripANSI(s string) string {
-	s = ansiRe.ReplaceAllString(s, "")
-	return strings.ReplaceAll(s, "\r", "")
+// isPromptEcho 是否是任务指令里的占位说明（回显）。屏幕换行/空格可能把文字
+// 折断，先压掉空白再比对。
+func isPromptEcho(s string) bool {
+	flat := strings.NewReplacer("\n", "", " ", "").Replace(s)
+	return strings.Contains(flat, "一句话说明你做了什么") ||
+		strings.Contains(flat, "可复用的经验教训")
 }
