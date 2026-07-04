@@ -9,6 +9,38 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
+const testDBLockKey = 7767002
+
+func openKnowledgeTestStore(t *testing.T) (*store.Store, context.Context) {
+	t.Helper()
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	conn, err := s.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, testDBLockKey); err != nil {
+		conn.Release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, testDBLockKey)
+		conn.Release()
+	})
+	if _, err := s.Pool().Exec(ctx, `TRUNCATE users RESTART IDENTITY CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	return s, ctx
+}
+
 func TestMerge(t *testing.T) {
 	k := func(id int64) *store.Knowledge { return &store.Knowledge{ID: id} }
 	out := merge([]*store.Knowledge{k(1), k(2)}, []*store.Knowledge{k(2), k(3)}, 3)
@@ -37,19 +69,7 @@ func (b bagEmbedder) Embed(_ context.Context, texts []string) ([][]float32, erro
 }
 
 func TestSemanticSearchRanks(t *testing.T) {
-	dsn := os.Getenv("NBCO_TEST_PG_DSN")
-	if dsn == "" {
-		t.Skip("未设置 NBCO_TEST_PG_DSN")
-	}
-	ctx := context.Background()
-	s, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	if _, err := s.Pool().Exec(ctx, `TRUNCATE knowledge RESTART IDENTITY CASCADE`); err != nil {
-		t.Fatal(err)
-	}
+	s, ctx := openKnowledgeTestStore(t)
 	u, err := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "kb"})
 	if err != nil {
 		t.Fatal(err)
@@ -58,9 +78,16 @@ func TestSemanticSearchRanks(t *testing.T) {
 	emb := bagEmbedder{vocab: []string{"数据库", "备份", "前端", "样式", "部署"}}
 	svc := New(s, emb)
 	// 存三条（embed 现在异步 fire-and-forget）。
-	dbK, _ := svc.Save(ctx, "数据库备份", "每天凌晨备份数据库到对象存储", nil, u.ID)
-	_, _ = svc.Save(ctx, "前端样式规范", "统一使用设计系统的样式变量", nil, u.ID)
-	_, _ = svc.Save(ctx, "部署脚本", "一键部署到生产", nil, u.ID)
+	dbK, err := svc.Save(ctx, "数据库备份", "每天凌晨备份数据库到对象存储", nil, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Save(ctx, "前端样式规范", "统一使用设计系统的样式变量", nil, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Save(ctx, "部署脚本", "一键部署到生产", nil, u.ID); err != nil {
+		t.Fatal(err)
+	}
 	// 用 Backfill（同步）确保三条都嵌入，消除异步竞态。
 	for {
 		_, embedded, err := svc.Backfill(ctx, 10)
@@ -91,21 +118,14 @@ func (failEmbedder) Embed(context.Context, []string) ([][]float32, error) {
 }
 
 func TestBackfillStopsWhenServiceDown(t *testing.T) {
-	dsn := os.Getenv("NBCO_TEST_PG_DSN")
-	if dsn == "" {
-		t.Skip("未设置 NBCO_TEST_PG_DSN")
-	}
-	ctx := context.Background()
-	s, err := store.Open(ctx, dsn)
+	s, ctx := openKnowledgeTestStore(t)
+	u, err := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "kbfail"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
-	if _, err := s.Pool().Exec(ctx, `TRUNCATE knowledge RESTART IDENTITY CASCADE`); err != nil {
+	if _, err := s.CreateKnowledge(ctx, "标题", "正文", nil, u.ID); err != nil {
 		t.Fatal(err)
 	}
-	u, _ := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "kbfail"})
-	_, _ = s.CreateKnowledge(ctx, "标题", "正文", nil, u.ID)
 
 	// 服务失败：探测失败→返回 error、零尝试零成功（驱动据此停手，不空转）。
 	attempted, embedded, err := New(s, failEmbedder{}).Backfill(ctx, 10)

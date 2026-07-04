@@ -28,6 +28,18 @@ func openTestStore(t *testing.T) *Store {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, 7767002); err != nil {
+		conn.Release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, 7767002)
+		conn.Release()
+	})
 	if _, err := s.pool.Exec(ctx,
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
