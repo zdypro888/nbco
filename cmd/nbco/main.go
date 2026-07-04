@@ -23,6 +23,7 @@ import (
 	"github.com/zdypro888/nbco/internal/sched"
 	"github.com/zdypro888/nbco/internal/store"
 	"github.com/zdypro888/nbco/internal/tools"
+	"github.com/zdypro888/nbco/internal/workerhub"
 )
 
 func main() {
@@ -55,7 +56,7 @@ func run(configPath string) error {
 	defer st.Close()
 
 	hub := &notify.Hub{}
-	deps := tools.Deps{Store: st, Notifier: hub, TZ: tz}
+	deps := tools.Deps{Store: st, Notifier: hub, TZ: tz, Workers: workerhub.New()}
 
 	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
 	for _, srv := range cfg.MCPServers {

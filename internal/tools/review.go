@@ -83,6 +83,7 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, reviewer.ID,
 						fmt.Sprintf("🔍 %s 委派你审核「%s」（#%d）的交付，见审核任务 #%d。", u.Name, t.Title, t.ID, rt.ID))
 				}
+				wakeWorker(d, reviewer)
 				return fmt.Sprintf("已委派 %s 审核任务 #%d（审核任务 #%d，高优先级）。"+
 					"审核结论会随其完成汇报回来，届时你再对原任务验收或打回。", reviewer.Name, t.ID, rt.ID), nil
 			}),

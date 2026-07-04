@@ -226,6 +226,14 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("🔁 任务「%s」（#%d）验收未通过：%s\n请修改后重新提交。", t.Title, t.ID, args.Reason))
 				}
+				// 执行人是 worker：回到 pending 让它重新认领返工（打回理由已在
+				// 过程记录里，会随任务历史进入下一轮 prompt），并推实时唤醒。
+				if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
+					if _, serr := d.Store.UpdateTaskStatus(ctx, t.ID, store.TaskPending); serr == nil {
+						wakeWorker(d, au)
+						return "已打回；AI 员工将重新领取并按打回理由返工。", nil
+					}
+				}
 				return "已打回，任务回到进行中。", nil
 			}),
 
@@ -383,10 +391,13 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "只能拆分分配给你的任务。", nil
 				}
 				subs := make([]*store.Task, 0, len(args.Subtasks))
+				assignees := make(map[int64]*store.User, len(args.Subtasks))
 				for _, st := range args.Subtasks {
-					if _, err := mustUser(ctx, d.Store, st.AssigneeID); err != nil {
+					au, err := mustUser(ctx, d.Store, st.AssigneeID)
+					if err != nil {
 						return err.Error(), nil
 					}
+					assignees[au.ID] = au
 					deadline, derr := parseDeadline(st.Deadline, d.TZ)
 					if derr != nil {
 						return derr.Error(), nil
@@ -406,12 +417,13 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				// 权限继承：子任务执行人继承拆分者的 view_self_intro 范围（超管 → _all）。
 				inheritViewPerms(ctx, d, u, created)
-				// 通知各执行人。
+				// 通知各执行人；worker 执行人推实时唤醒。
 				for _, t := range created {
 					if t.AssigneeID != u.ID {
 						notifyQuiet(ctx, d, t.AssigneeID,
 							fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
 					}
+					wakeWorker(d, assignees[t.AssigneeID])
 				}
 				var b strings.Builder
 				fmt.Fprintf(&b, "已拆分为 %d 个子任务：\n", len(created))
@@ -488,6 +500,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if err := d.Store.DeleteTask(ctx, t.ID); err != nil {
 					return "", err
+				}
+				// 执行人是 worker 且正在干这单：推实时取消，终止执行。
+				if d.Workers != nil {
+					if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
+						d.Workers.Cancel(au.ID, t.ID)
+					}
 				}
 				return "已删除。", nil
 			}),
@@ -566,7 +584,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if pj.Status != store.ProjectActive {
 					return "项目已归档，不能再派任务。", nil
 				}
-				if _, err := mustUser(ctx, d.Store, args.AssigneeID); err != nil {
+				assignee, err := mustUser(ctx, d.Store, args.AssigneeID)
+				if err != nil {
 					return err.Error(), nil
 				}
 				if !u.IsSuperadmin && args.AssigneeID != u.ID {
@@ -595,6 +614,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
 				}
+				wakeWorker(d, assignee)
 				return fmt.Sprintf("任务「%s」已创建（#%d）并分配给用户 %d。", t.Title, t.ID, t.AssigneeID), nil
 			}),
 

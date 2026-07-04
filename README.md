@@ -110,6 +110,16 @@ nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 - **收尾解析防回显**：从最后一个哨兵块回溯、跳过任务原文的回显；没按格式收尾会补提醒，仍失败则以屏幕摘录提交
 - **进度即屏幕**：定期回传屏幕快照作为任务进度
 
+### 实时通道（WebSocket）
+
+**数据库是唯一任务队列**：派活=建任务、领活=原子认领（`FOR UPDATE SKIP LOCKED`），worker 离线不丢活、进程重启无状态可恢复。`GET /api/worker/ws`（Bearer 认证）之上只跑三类消息，是纯增强件：
+
+- **唤醒 `wake`**：派活/委派审核/打回返工时推给在线 worker，秒级领活（离线则轮询兜底，10 秒）
+- **取消 `cancel`**：分配者删除任务时，正在执行的 worker 立即终止 CLI 会话
+- **心跳 `ping/pong`**：30 秒一跳；`list_workers` 显示「🔗 在线（实时连接）」为真实时状态
+
+**打回即返工**：验收打回 worker 的任务会自动回到待领取并推唤醒，worker 重新领到时任务自带过程记录（含打回理由），按理由整改后重新提交——审核-返工闭环全自动。
+
 ### 分层铁律：中枢调度，worker 深干
 
 中枢（eino 直调 API）是**调度管理层**：派活、跟进、催办、汇总，不在对话里做深度工作。要深度解决问题（写代码、审代码、深度调研）就派任务给 AI 员工，worker 驱动本机 claude/codex 完成。
@@ -148,6 +158,23 @@ nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 **被动权限**（存在被操作者身上：谁能对我做什么）：`view_profile:<作者ID>` / `view_profile:_all`。
 
 规则：超管旁路；非超管只能转授自己拥有且范围不超过自己的权限；派任务时执行人继承分配者的 `view_self_intro` 范围。判定逻辑在 `internal/perm`（纯函数，有单测）。
+
+### 权限 → 工具矩阵（装配期裁剪）
+
+工具集在组装时就按权限裁剪（`internal/tools.toolPerm` 注册表是单一事实来源）：没有对应权限的用户**看不到**该工具，而不是调用时才被拒；handler 内仍保留目标级校验（有能力 ≠ 对任意目标都行），双层防御。
+
+| 所需权限 | 解锁的工具 |
+|----------|-----------|
+| （人人可用） | 自我视角全部：我的任务/项目/验收、清单、进度、画像自助、知识库、角色、提醒、API Token、list_workers、转授自有权限 |
+| `create_project` | `create_project` / `assign_task` / `delegate_review`（派活三件套） |
+| `generate_key` | `generate_key` |
+| `send_msg` | `send_message` |
+| `edit_info` | `update_user_info` |
+| `write_profile` | `save_infos_on_user` |
+| `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
+| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、`create_worker` / `revoke_worker` |
+
+**worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
 
 ## 测试
 

@@ -14,7 +14,9 @@ import (
 
 	"github.com/zdypro888/nbco/internal/ai"
 	"github.com/zdypro888/nbco/internal/notify"
+	"github.com/zdypro888/nbco/internal/perm"
 	"github.com/zdypro888/nbco/internal/store"
+	"github.com/zdypro888/nbco/internal/workerhub"
 )
 
 // Deps 工具依赖。
@@ -22,13 +24,26 @@ type Deps struct {
 	Store    *store.Store
 	Notifier notify.Notifier
 	TZ       *time.Location
+	// Workers worker 实时通道（可为 nil）：派活时唤醒在线 worker 秒领任务、
+	// 删任务时取消执行、展示真实在线状态。任务队列仍以数据库为准。
+	Workers *workerhub.Hub
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
 }
 
-// ForUser 组装 user 的工具集（已按身份裁剪：超管专属工具只给超管），
-// 并包上审计层。sessionID 可为 nil（HTTP API 场景）。
+// wakeWorker 若目标是 worker 且实时在线，推送唤醒（尽力而为，轮询兜底）。
+func wakeWorker(d Deps, u *store.User) {
+	if d.Workers != nil && u != nil && u.IsWorker {
+		d.Workers.Wake(u.ID)
+	}
+}
+
+// ForUser 组装 user 的工具集并包上审计层。sessionID 可为 nil（HTTP API 场景）。
+// 颗粒度分两层：
+//  1. 装配期可见性（本函数）——按 toolPerm 注册表过滤：没有对应主动权限的用户
+//     根本看不到该工具；worker 机器账号只拿白名单最小集。
+//  2. handler 内目标级校验（各工具自带）——有能力 ≠ 对任意目标都行。
 func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	var ts []ai.Tool
 	ts = append(ts, profileTools(d, u)...)
@@ -41,10 +56,91 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
+
+	var grants []store.Grant
+	if !u.IsSuperadmin && d.Store != nil {
+		var err error
+		if grants, err = d.Store.PermsOf(context.Background(), u.ID); err != nil {
+			slog.Warn("加载权限失败，按无授权裁剪工具集", "user", u.ID, "err", err)
+			grants = nil // 失败按最小权限处理（fail-closed）
+		}
+	}
+	ts = filterByPerm(ts, u, grants)
+
 	for i := range ts {
 		ts[i] = withAudit(d.Store, u.ID, sessionID, ts[i])
 	}
 	return ts
+}
+
+// reqSuper 在 toolPerm 里表示「仅超管」。
+const reqSuper = "superadmin"
+
+// toolPerm 可见性注册表：工具名 → 所需主动权限（拥有任意目标即可见）或 reqSuper。
+// 未列出的工具人人可见（自我视角/自助工具）。这是「什么权限能调用什么工具」的
+// 单一事实来源，README 的权限矩阵与之对应。
+var toolPerm = map[string]string{
+	// 派活能力
+	"create_project":  perm.ActCreateProject,
+	"assign_task":     perm.ActCreateProject,
+	"delegate_review": perm.ActCreateProject,
+	// 人事/沟通能力
+	"generate_key":       perm.ActGenerateKey,
+	"send_message":       perm.ActSendMsg,
+	"update_user_info":   perm.ActEditInfo,
+	"save_infos_on_user": perm.ActWriteProfile,
+	// 权限管理能力
+	"grant_passive_perm":  perm.ActManagePerm,
+	"revoke_passive_perm": perm.ActManagePerm,
+	"view_user_perms":     perm.ActManagePerm,
+	// 超管专属（组装函数已裁剪，这里再声明一层防御 + 让矩阵完整）
+	"company_overview":  reqSuper,
+	"add_info_field":    reqSuper,
+	"remove_info_field": reqSuper,
+	"disable_user":      reqSuper,
+	"enable_user":       reqSuper,
+	"create_role":       reqSuper,
+	"update_role":       reqSuper,
+	"delete_role":       reqSuper,
+	"create_worker":     reqSuper,
+	"revoke_worker":     reqSuper,
+}
+
+// workerAllowed 机器账号（is_worker）的工具白名单：只保留干活与沉淀知识所需。
+// worker 令牌也能访问 /api/chat 与 /mcp，最小化其能力面。
+var workerAllowed = map[string]bool{
+	"get_my_tasks":      true,
+	"get_my_all_tasks":  true,
+	"get_my_projects":   true,
+	"get_task_detail":   true,
+	"view_my_task_tree": true,
+	"update_my_task_status": true,
+	"add_progress":      true,
+	"save_checklist":    true,
+	"toggle_checklist":  true,
+	"attach_to_task":    true,
+	"save_knowledge":    true,
+	"search_knowledge":  true,
+	"get_knowledge":     true,
+	"list_recent_knowledge": true,
+}
+
+// filterByPerm 按注册表裁剪工具集（超管全通过；worker 走白名单）。
+func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
+	out := ts[:0]
+	for _, t := range ts {
+		if u.IsWorker && !workerAllowed[t.Name] {
+			continue
+		}
+		req, gated := toolPerm[t.Name]
+		if gated && !u.IsSuperadmin {
+			if req == reqSuper || !hasAnyActive(grants, req) {
+				continue
+			}
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 // withAudit 每次工具调用落一条审计记录（失败不阻断业务）。

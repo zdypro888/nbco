@@ -39,7 +39,7 @@ func TestParseCompletionMissing(t *testing.T) {
 }
 
 func TestParseCompletionSkipsPromptEcho(t *testing.T) {
-	echo := buildPrompt(&Task{Title: "测试"}, nil)
+	echo := buildPrompt(&Task{Title: "测试"}, nil, nil)
 	// 只有回显（含占位说明）：不算收尾。
 	if s, _, ok := parseCompletion(echo); ok {
 		t.Fatalf("只看到 prompt 回显不应判定完成: %q", s)
@@ -66,11 +66,17 @@ func TestBuildPrompt(t *testing.T) {
 	p := buildPrompt(
 		&Task{Title: "写登录页", Goal: "让用户能登录", Description: "实现表单", Acceptance: "能提交"},
 		[]string{"经验A：先看规范"},
+		[]string{"🔍 验收未通过：缺少错误态"},
 	)
-	for _, want := range []string{"写登录页", "让用户能登录", "实现表单", "能提交", "经验A：先看规范", markSummary, markEnd} {
+	for _, want := range []string{"写登录页", "让用户能登录", "实现表单", "能提交",
+		"经验A：先看规范", "验收未通过：缺少错误态", "此前的过程记录", markSummary, markEnd} {
 		if !strings.Contains(p, want) {
 			t.Errorf("prompt 缺 %q", want)
 		}
+	}
+	// 无历史时不渲染历史段。
+	if p2 := buildPrompt(&Task{Title: "T"}, nil, nil); strings.Contains(p2, "此前的过程记录") {
+		t.Error("无历史不应有历史段")
 	}
 }
 
@@ -267,7 +273,7 @@ sleep 60
 
 	o := waitOpts{Poll: 50 * time.Millisecond, Stable: 800 * time.Millisecond,
 		Settle: 5 * time.Second, Stuck: 10 * time.Second, Busy: busyRe}
-	screen, err := sess.submitAndWait(ctx, buildPrompt(&Task{ID: 1, Title: "建文件"}, nil), o)
+	screen, err := sess.submitAndWait(ctx, buildPrompt(&Task{ID: 1, Title: "建文件"}, nil, nil), o)
 	if err != nil {
 		t.Fatalf("waitIdle: %v\n屏幕：\n%s", err, screen)
 	}
@@ -300,7 +306,7 @@ func TestSmokeClaude(t *testing.T) {
 
 	task := &Task{ID: 999, Title: "创建问候文件",
 		Description: "在当前工作目录创建 hello.txt，内容为一行：你好nbco", Acceptance: "hello.txt 存在且内容正确"}
-	screen, err := sess.submitAndWait(ctx, buildPrompt(task, nil), defaultWaitOpts())
+	screen, err := sess.submitAndWait(ctx, buildPrompt(task, nil, nil), defaultWaitOpts())
 	if err != nil {
 		t.Fatalf("waitIdle: %v\n屏幕尾部：\n%s", err, tailLines(screen, 30))
 	}

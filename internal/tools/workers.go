@@ -33,6 +33,9 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if w.WorkerLastSeen != nil {
 					status = "最近在线 " + fmtTime(*w.WorkerLastSeen, d.TZ)
 				}
+				if d.Workers != nil && d.Workers.Online(w.ID) {
+					status = "🔗 在线（实时连接）"
+				}
 				if w.Status != store.UserActive {
 					status = "已停用"
 				}

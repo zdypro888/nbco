@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,57 +26,108 @@ const (
 	markEnd     = "<<<END>>>"
 )
 
-// Worker 轮询执行循环。
+// Worker 轮询+实时唤醒的执行循环。
 type Worker struct {
 	cfg    Config
 	client *Client
 	wait   waitOpts
+	link   *wsLink // 实时通道（增强件，nil 或断线时轮询兜底）
+
+	mu        sync.Mutex
+	curTask   int64
+	curCancel context.CancelFunc
+	curKilled bool // 当前任务被服务端取消
 }
 
 func newWorker(cfg Config) *Worker {
-	return &Worker{cfg: cfg, client: newClient(cfg.Server, cfg.Token), wait: defaultWaitOpts()}
+	return &Worker{
+		cfg:    cfg,
+		client: newClient(cfg.Server, cfg.Token),
+		wait:   defaultWaitOpts(),
+		link:   newWSLink(cfg.Server, cfg.Token),
+	}
 }
 
-// Loop 持续领活、执行，直到 ctx 取消。
+// Loop 持续领活、执行，直到 ctx 取消。实时通道并行维护：唤醒让空闲等待立即
+// 结束去认领；取消终止正在执行的任务。
 func (w *Worker) Loop(ctx context.Context) {
+	go w.link.run(ctx)
+	go w.watchCancel(ctx)
 	for {
 		if ctx.Err() != nil {
 			return
 		}
-		task, knowledge, err := w.client.Next(ctx)
+		task, knowledge, history, err := w.client.Next(ctx)
 		if err != nil {
 			log.Printf("领取任务失败: %v", err)
-			w.sleep(ctx, pollInterval)
+			w.waitForWork(ctx)
 			continue
 		}
 		if task == nil {
-			w.sleep(ctx, pollInterval)
+			w.waitForWork(ctx)
 			continue
 		}
 		log.Printf("领到任务 #%d：%s", task.ID, task.Title)
-		w.execute(ctx, task, knowledge)
+		w.execute(ctx, task, knowledge, history)
 	}
 }
 
-func (w *Worker) sleep(ctx context.Context, d time.Duration) {
+// waitForWork 空闲等待：轮询间隔到点，或实时唤醒提前结束。
+func (w *Worker) waitForWork(ctx context.Context) {
 	select {
 	case <-ctx.Done():
-	case <-time.After(d):
+	case <-time.After(pollInterval):
+	case <-w.link.wake:
+		log.Printf("收到实时唤醒，立即领取任务")
 	}
+}
+
+// watchCancel 消费实时取消：命中当前任务就终止其执行上下文。
+func (w *Worker) watchCancel(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case id := <-w.link.cancel:
+			w.mu.Lock()
+			if w.curTask == id && w.curCancel != nil {
+				w.curKilled = true
+				w.curCancel()
+				log.Printf("任务 #%d 被服务端取消，正在终止", id)
+			}
+			w.mu.Unlock()
+		}
+	}
+}
+
+func (w *Worker) registerRun(id int64, cancel context.CancelFunc) {
+	w.mu.Lock()
+	w.curTask, w.curCancel, w.curKilled = id, cancel, false
+	w.mu.Unlock()
+}
+
+func (w *Worker) unregisterRun() (killed bool) {
+	w.mu.Lock()
+	killed = w.curKilled
+	w.curTask, w.curCancel, w.curKilled = 0, nil, false
+	w.mu.Unlock()
+	return killed
 }
 
 // execute 在 PTY 里驱动交互式 CLI 完成任务：warmup → 粘贴任务 → 等回复结束 →
 // 解析收尾（不合格就补提醒）→ 提交验收。进度以屏幕快照周期回传。
-func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
+func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
 	dir, err := w.workDir(task.ID)
 	if err != nil {
 		w.report(ctx, task.ID, "创建工作目录失败: "+err.Error())
 		return
 	}
-	prompt := buildPrompt(task, knowledge)
+	prompt := buildPrompt(task, knowledge, history)
 
 	runCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
+	w.registerRun(task.ID, cancel)
+	defer w.unregisterRun() // 兜底清理；正常路径在提交前已消费（幂等）
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 	if err != nil {
 		w.report(ctx, task.ID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
@@ -99,6 +151,12 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 		summary, lessons, ok = parseCompletion(screen)
 	}
 
+	// 被服务端取消（任务已删或改派）：报告后直接退出，不提交。
+	if w.unregisterRun() {
+		w.report(ctx, task.ID, "⛔ 任务被服务端取消，已终止执行。")
+		log.Printf("任务 #%d 已按服务端指令取消", task.ID)
+		return
+	}
 	if !ok {
 		note := "任务执行结束（未按格式收尾）"
 		if werr != nil {
@@ -165,8 +223,8 @@ func (w *Worker) report(ctx context.Context, taskID int64, content string) {
 	}
 }
 
-// buildPrompt 把任务与历史经验拼成给 CLI 的指令，并要求结构化收尾。
-func buildPrompt(task *Task, knowledge []string) string {
+// buildPrompt 把任务、历史经验与过程记录拼成给 CLI 的指令，并要求结构化收尾。
+func buildPrompt(task *Task, knowledge, history []string) string {
 	var b strings.Builder
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	fmt.Fprintf(&b, "任务：%s\n", task.Title)
@@ -178,6 +236,12 @@ func buildPrompt(task *Task, knowledge []string) string {
 	}
 	if task.Acceptance != "" {
 		fmt.Fprintf(&b, "验收标准：%s\n", task.Acceptance)
+	}
+	if len(history) > 0 {
+		b.WriteString("\n此前的过程记录（若含「验收未通过」的打回理由，必须逐条对照整改）：\n")
+		for _, h := range history {
+			fmt.Fprintf(&b, "- %s\n", h)
+		}
 	}
 	if len(knowledge) > 0 {
 		b.WriteString("\n公司相关经验（供参考，可能有用）：\n")

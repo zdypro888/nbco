@@ -35,29 +35,31 @@ type Task struct {
 	Acceptance  string `json:"acceptance"`
 }
 
-// Next 认领下一个任务；无任务返回 (nil, nil, nil)。knowledge 是相关历史经验。
-func (c *Client) Next(ctx context.Context) (*Task, []string, error) {
+// Next 认领下一个任务；无任务返回全 nil。knowledge 是相关历史经验，
+// history 是该任务已有的过程记录（返工时含验收打回理由）。
+func (c *Client) Next(ctx context.Context) (*Task, []string, []string, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/api/worker/next", nil)
 	c.auth(req)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNoContent {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil, c.errStatus(resp)
+		return nil, nil, nil, c.errStatus(resp)
 	}
 	var body struct {
 		Task      Task     `json:"task"`
 		Knowledge []string `json:"knowledge"`
+		History   []string `json:"history"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return &body.Task, body.Knowledge, nil
+	return &body.Task, body.Knowledge, body.History, nil
 }
 
 // Progress 回传一段执行进度。

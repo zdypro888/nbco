@@ -56,10 +56,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
 	mux.HandleFunc("GET /api/overview", s.handleOverview)
-	// AI 员工（worker client）接口。
+	// AI 员工（worker client）接口。任务队列走 HTTP（DB 为准），WS 做实时增强。
 	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
 	mux.HandleFunc("POST /api/worker/submit", s.handleWorkerSubmit)
+	mux.HandleFunc("GET /api/worker/ws", s.handleWorkerWS)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
 	return mux
 }
@@ -265,7 +266,10 @@ func (s *Server) userNames(ctx context.Context) (map[int64]string, error) {
 
 // --- AI 员工（worker）接口 ---
 
-const workerKnowledgeHits = 3
+const (
+	workerKnowledgeHits  = 3
+	workerHistoryEntries = 10 // 领取任务时随带的最近过程记录条数（返工时含打回理由）
+)
 
 // requireWorker 认证并要求是 worker 用户。
 func (s *Server) requireWorker(w http.ResponseWriter, r *http.Request) *store.User {
@@ -306,13 +310,24 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 			lessons = append(lessons, k.Title+"："+k.Content)
 		}
 	}
-	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons))
+	// 返工闭环：带上任务已有的过程记录（含验收打回理由），worker 按它改。
+	var history []string
+	if ps, err := s.store.ProgressOf(ctx, t.ID); err == nil {
+		if len(ps) > workerHistoryEntries {
+			ps = ps[len(ps)-workerHistoryEntries:]
+		}
+		for _, pr := range ps {
+			history = append(history, pr.Content)
+		}
+	}
+	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons), "history", len(history))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
 			"description": t.Description, "acceptance": t.Acceptance,
 		},
 		"knowledge": lessons,
+		"history":   history,
 	})
 }
 
