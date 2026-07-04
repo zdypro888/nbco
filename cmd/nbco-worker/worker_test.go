@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -381,5 +382,70 @@ func TestArtifactEntriesSkipsSymlink(t *testing.T) {
 	// 不存在的目录返回空、无错。
 	if e, err := artifactEntries(filepath.Join(dir, "nope")); err != nil || len(e) != 0 {
 		t.Fatalf("缺目录应返回空: %v %v", e, err)
+	}
+}
+
+func TestOpenArtifactFileRejectsLinks(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(t.TempDir(), "token.json")
+	if err := os.WriteFile(secret, []byte("SECRET-TOKEN"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// 常规文件：放行，读到自身内容。
+	real := filepath.Join(dir, "result.txt")
+	if err := os.WriteFile(real, []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := openArtifactFile(real)
+	if err != nil {
+		t.Fatalf("常规文件应放行: %v", err)
+	}
+	b := make([]byte, 5)
+	_, _ = f.Read(b)
+	_ = f.Close()
+	if string(b) != "hello" {
+		t.Fatalf("读到内容不对: %q", b)
+	}
+
+	// 软链接指向机密：O_NOFOLLOW 应拒绝（不能读到机密）。
+	sym := filepath.Join(dir, "sym")
+	if err := os.Symlink(secret, sym); err != nil {
+		t.Skipf("符号链接不可用: %v", err)
+	}
+	if f, err := openArtifactFile(sym); err == nil {
+		_ = f.Close()
+		t.Fatal("软链接必须被拒绝（否则外泄机密）")
+	}
+
+	// 硬链接指向机密：fstat nlink>1 应拒绝。
+	hard := filepath.Join(dir, "hard")
+	if err := os.Link(secret, hard); err != nil {
+		t.Skipf("硬链接不可用: %v", err)
+	}
+	if f, err := openArtifactFile(hard); err == nil {
+		_ = f.Close()
+		t.Fatal("硬链接必须被拒绝（否则外泄机密）")
+	}
+
+	// FIFO：非常规文件应拒绝，且不阻塞。
+	fifo := filepath.Join(dir, "pipe")
+	if err := syscall.Mkfifo(fifo, 0o644); err == nil {
+		done := make(chan error, 1)
+		go func() {
+			f, e := openArtifactFile(fifo)
+			if e == nil {
+				_ = f.Close()
+			}
+			done <- e
+		}()
+		select {
+		case e := <-done:
+			if e == nil {
+				t.Fatal("FIFO 应被拒绝")
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("openArtifactFile 在 FIFO 上阻塞了（应 O_NONBLOCK 立即返回）")
+		}
 	}
 }

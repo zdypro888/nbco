@@ -774,7 +774,7 @@ func TestWorkerArtifactGating(t *testing.T) {
 		t.Fatal("空 claim 不应通过")
 	}
 
-	// 建一个文件、挂成产物：有引用时 DeleteFileIfUnreferenced 不动它。
+	// 建一个文件、挂成产物：有引用时 DeleteOrphanFileRow 不动它。
 	f, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "a.txt", SHA256: "abc", StoragePath: "ab/abc", CreatedBy: &worker.ID})
 	if err != nil {
 		t.Fatal(err)
@@ -782,27 +782,22 @@ func TestWorkerArtifactGating(t *testing.T) {
 	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, claim, f.ID, ""); err != nil {
 		t.Fatal(err)
 	}
-	if path, err := s.DeleteFileIfUnreferenced(ctx, f.ID); err != nil || path != "" {
-		t.Fatalf("有产物引用不应删除: path=%q err=%v", path, err)
+	if err := s.DeleteOrphanFileRow(ctx, f.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.FileByID(ctx, f.ID); err != nil {
+		t.Fatal("有产物引用的文件行不应被删除")
 	}
 
-	// 无引用的孤儿文件：删除并返回可删盘的 blob 路径。
+	// 无引用的孤儿文件行：删除（不碰 blob）。
 	orphan, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "o.txt", SHA256: "def", StoragePath: "de/def", CreatedBy: &worker.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, err := s.DeleteFileIfUnreferenced(ctx, orphan.ID)
-	if err != nil || path != "de/def" {
-		t.Fatalf("孤儿应删除并返回 blob 路径: path=%q err=%v", path, err)
+	if err := s.DeleteOrphanFileRow(ctx, orphan.ID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := s.FileByID(ctx, orphan.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatal("孤儿 files 行应已删除")
-	}
-
-	// 共享同一 blob 的孤儿：删行但不返回删盘路径（blob 仍被别的行引用）。
-	shareA, _ := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "s1", SHA256: "ggg", StoragePath: "gg/ggg", CreatedBy: &worker.ID})
-	_, _ = s.CreateFile(ctx, &File{Source: "worker", OriginalName: "s2", SHA256: "ggg", StoragePath: "gg/ggg", CreatedBy: &worker.ID})
-	if path, err := s.DeleteFileIfUnreferenced(ctx, shareA.ID); err != nil || path != "" {
-		t.Fatalf("blob 被共享不应删盘: path=%q err=%v", path, err)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,22 +132,17 @@ func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
 	return os.Rename(tmp, dst)
 }
 
-// UploadArtifact 上传 worker 产物并绑定当前任务 claim。
-func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, path string) error {
+// UploadArtifact 上传一个已安全打开的产物文件（r 通常是校验过的 *os.File）。
+// task_id/claim_id 走 query（而非 multipart 字段），服务端可在解析文件体之前
+// 就校验 claim、拒绝时不把大文件 spool 到临时盘。
+func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, name string, r io.Reader) error {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	_ = mw.WriteField("task_id", fmt.Sprint(taskID))
-	_ = mw.WriteField("claim_id", claimID)
-	file, err := os.Open(path)
+	part, err := mw.CreateFormFile("file", name)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	part, err := mw.CreateFormFile("file", filepath.Base(path))
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(part, file); err != nil {
+	if _, err := io.Copy(part, r); err != nil {
 		return err
 	}
 	if err := mw.Close(); err != nil {
@@ -154,7 +150,8 @@ func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, path
 	}
 	ctx, cancel := context.WithTimeout(ctx, fileTransferTimeout)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts", &buf)
+	q := url.Values{"task_id": {fmt.Sprint(taskID)}, "claim_id": {claimID}}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts?"+q.Encode(), &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	c.auth(req)
 	resp, err := c.files.Do(req)

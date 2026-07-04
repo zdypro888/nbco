@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -118,6 +119,13 @@ func (w *Worker) unregisterRun() (killed bool) {
 	return killed
 }
 
+// killed 查当前任务是否被服务端取消（只读，不清状态；清理交给 defer unregisterRun）。
+func (w *Worker) killed() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.curKilled
+}
+
 // execute 在 PTY 里驱动交互式 CLI 完成任务：warmup → 粘贴任务 → 等回复结束 →
 // 解析收尾（不合格就补提醒）→ 提交验收。进度以屏幕快照周期回传。
 func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
@@ -126,16 +134,20 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
 	}
-	if err := w.prepareFiles(ctx, task, dir); err != nil {
-		w.report(ctx, task.ID, task.ClaimID, "下载任务附件失败: "+err.Error())
-		return
-	}
 	prompt := buildPrompt(task, knowledge, history)
 
+	// registerRun 覆盖整个「下载附件 → 跑 CLI → 上传产物」生命周期，且这三段都
+	// 走 runCtx：服务端 cancel 能中断在途的大文件收发，全程受 taskTimeout 约束。
 	runCtx, cancel := context.WithTimeout(ctx, taskTimeout)
 	defer cancel()
 	w.registerRun(task.ID, cancel)
-	defer w.unregisterRun() // 兜底清理；正常路径在提交前已消费（幂等）
+	defer w.unregisterRun()
+
+	if err := w.prepareFiles(runCtx, task, dir); err != nil {
+		w.report(ctx, task.ID, task.ClaimID, "下载任务附件失败: "+err.Error())
+		return
+	}
+
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 	if err != nil {
 		w.report(ctx, task.ID, task.ClaimID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
@@ -159,8 +171,8 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		summary, lessons, ok = parseCompletion(screen)
 	}
 
-	// 被服务端取消（任务已删或改派）：报告后直接退出，不提交。
-	if w.unregisterRun() {
+	// 被服务端取消（任务已删或改派）：报告后直接退出，不上传不提交。
+	if w.killed() {
 		w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，已终止执行。")
 		log.Printf("任务 #%d 已按服务端指令取消", task.ID)
 		return
@@ -172,7 +184,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		}
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
-	uploaded, failed, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
+	uploaded, failed, rejected, uerr := w.uploadArtifacts(runCtx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
 	if uerr != nil {
 		w.report(ctx, task.ID, task.ClaimID, "⚠️ 遍历产物目录出错: "+uerr.Error())
 	}
@@ -183,6 +195,12 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		// 任务提交后 claim 失效、无法再补传产物。必须在验收报告里显式点名失败的
 		// 产物，否则「按完成提交但交付物缺失」会被静默吞掉。
 		warn := "⚠️ 以下产物上传失败，交付不完整，请打回要求重新提交：\n- " + strings.Join(failed, "\n- ")
+		w.report(ctx, task.ID, task.ClaimID, warn)
+		summary += "\n\n" + warn
+	}
+	if len(rejected) > 0 {
+		// 软链接/硬链接/非常规文件：安全策略拒绝上传，如实告知（也是异常信号）。
+		warn := "⚠️ 以下产物因安全策略被拒（软链接/硬链接/非常规文件，不上传）：\n- " + strings.Join(rejected, "\n- ")
 		w.report(ctx, task.ID, task.ClaimID, warn)
 		summary += "\n\n" + warn
 	}
@@ -270,29 +288,65 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	return nil
 }
 
-// uploadArtifacts 上传 dir 下的产物文件。单个上传失败不中断其余（避免「第 N 个
-// 失败 → 后面的全被跳过 → 静默丢交付物」），分别返回成功与失败清单。
-func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir string) (uploaded, failed []string, err error) {
+// uploadArtifacts 上传 dir 下的产物文件。单个失败不中断其余（避免「第 N 个失败
+// → 后面的全被跳过 → 静默丢交付物」），分别返回成功、失败与因安全策略被拒的清单。
+func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir string) (uploaded, failed, rejected []string, err error) {
 	entries, err := artifactEntries(dir)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for _, path := range entries {
 		rel, _ := filepath.Rel(dir, path)
 		relSlash := filepath.ToSlash(rel)
-		if upErr := w.client.UploadArtifact(ctx, taskID, claimID, path); upErr != nil {
+		// 安全打开：O_NOFOLLOW 让最终路径是软链接就直接失败（同时挡住 walk→open
+		// 的 TOCTOU 替换）；fstat 校验是常规文件且 nlink==1（挡硬链接、FIFO、设备）。
+		// 模型的 CLI 有完整 shell，可 ln/ln -s 指向 ~/.nbco-worker.json 等主机机密，
+		// 这一步保证只上传 artifacts/ 里 worker 亲手写的真实文件。
+		f, oerr := openArtifactFile(path)
+		if oerr != nil {
+			log.Printf("任务 #%d 拒绝上传产物 %s: %v", taskID, relSlash, oerr)
+			rejected = append(rejected, relSlash)
+			continue
+		}
+		upErr := w.client.UploadArtifact(ctx, taskID, claimID, filepath.Base(path), f)
+		_ = f.Close()
+		if upErr != nil {
 			log.Printf("任务 #%d 产物 %s 上传失败: %v", taskID, relSlash, upErr)
 			failed = append(failed, relSlash)
 			continue
 		}
 		uploaded = append(uploaded, relSlash)
 	}
-	return uploaded, failed, nil
+	return uploaded, failed, rejected, nil
 }
 
-// artifactEntries 收集 dir 下应作为产物上传的实体文件。
-// 安全要点：跳过软链接——否则 os.Open 会跟随软链接读到【目标】内容，模型可借
-// `ln -s ~/.nbco-worker.json artifacts/x` 把 worker token 等主机文件外泄成产物。
+// openArtifactFile 安全打开产物文件：拒绝软链接（O_NOFOLLOW）、硬链接、FIFO、
+// 设备等一切非「常规且唯一硬链接」的文件，防经它们外泄主机机密。
+// 校验作用在已打开的 fd 上（fstat），与后续读取同一对象，无 TOCTOU。
+func openArtifactFile(path string) (*os.File, error) {
+	// O_NONBLOCK 防无写端的 FIFO 让 open 永久阻塞。
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		_ = f.Close()
+		return nil, fmt.Errorf("非常规文件（%s）", fi.Mode().Type())
+	}
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok && uint64(st.Nlink) > 1 {
+		_ = f.Close()
+		return nil, fmt.Errorf("硬链接（nlink=%d），拒绝上传", st.Nlink)
+	}
+	return f, nil
+}
+
+// artifactEntries 枚举 dir 下的候选产物文件名（跳过目录、软链接、.tmp、点文件）。
+// 真正的安全校验在 openArtifactFile（打开时的 fd）上做，这里只是廉价预筛。
 func artifactEntries(dir string) ([]string, error) {
 	if _, err := os.Stat(dir); errorsIsNotExist(err) {
 		return nil, nil
@@ -306,7 +360,7 @@ func artifactEntries(dir string) ([]string, error) {
 			return nil
 		}
 		if d.Type()&fs.ModeSymlink != 0 {
-			return nil // 软链接（含指向目录的）：一律不上传
+			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".tmp") || strings.HasPrefix(d.Name(), ".") {
 			return nil

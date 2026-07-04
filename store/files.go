@@ -101,39 +101,16 @@ func (s *Store) WorkerCanSubmitArtifact(ctx context.Context, taskID, workerID in
 	return ok, err
 }
 
-// DeleteFileIfUnreferenced 删除没有任何附件/产物引用的 files 行；若删除后其内容
-// 寻址 blob（storage_path）不再被任何 files 行共享，返回该路径供调用方删盘。
-// 用于清理「落盘后 claim 恰好失效」的极窄竞态残留。有引用则不动、返回空串。
-func (s *Store) DeleteFileIfUnreferenced(ctx context.Context, fileID int64) (string, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var referenced bool
-	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
-		     OR EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)`, fileID).Scan(&referenced); err != nil {
-		return "", err
-	}
-	if referenced {
-		return "", nil
-	}
-	var path string
-	if err := tx.QueryRow(ctx, `DELETE FROM files WHERE id = $1 RETURNING storage_path`, fileID).Scan(&path); err != nil {
-		return "", wrapErr(err)
-	}
-	var shared bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM files WHERE storage_path = $1)`, path).Scan(&shared); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", err
-	}
-	if shared {
-		return "", nil // blob 仍被别的 files 行共享，不删盘
-	}
-	return path, nil
+// DeleteOrphanFileRow 删除一条没有任何附件/产物引用的 files 行（清理「落盘后 claim
+// 恰失效」的极窄竞态残留）。单条原子语句、只作用于自己的 fileID，并发安全。
+// **只删 DB 行、不碰内容寻址 blob**——同内容的其它上传可能正共享该 blob，物理回收
+// 交给离线 GC，避免删掉别人还在引用的物理文件。
+func (s *Store) DeleteOrphanFileRow(ctx context.Context, fileID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM files WHERE id = $1
+		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
+		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)`, fileID)
+	return err
 }
 
 // AddWorkerArtifact 仅当 worker 仍持有同一 claim 时，把文件登记为任务产物。
