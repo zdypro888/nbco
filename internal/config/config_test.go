@@ -41,9 +41,6 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 {
 		t.Errorf("MaxTokens/MaxTurns 默认值 = %d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns)
 	}
-	if cfg.AI.ClaudeCmd != "claude" || cfg.AI.CodexCmd != "codex" {
-		t.Errorf("CLI 命令默认值 = %q/%q", cfg.AI.ClaudeCmd, cfg.AI.CodexCmd)
-	}
 }
 
 func TestLoadDailySummaryOff(t *testing.T) {
@@ -112,16 +109,16 @@ func TestLoadEmptySuperadminsAllowed(t *testing.T) {
 	}
 }
 
-func TestLoadCLIEngineNeedsNoAPIKey(t *testing.T) {
-	for _, engine := range []string{EngineClaudeCLI, EngineCodexCLI} {
+func TestLoadRejectsCLIEngines(t *testing.T) {
+	for _, engine := range []string{"claudecli", "codexcli"} {
 		_, err := Load(writeConfig(t, `{
 			"telegram_token": "tok",
 			"superadmins": [1],
 			"postgres_dsn": "postgres://x",
 			"ai": {"engine": "`+engine+`"}
 		}`))
-		if err != nil {
-			t.Errorf("%s 引擎不应要求 api_key/model: %v", engine, err)
+		if err == nil || !strings.Contains(err.Error(), "中枢只支持 eino") {
+			t.Errorf("%s 应被拒绝，got %v", engine, err)
 		}
 	}
 }

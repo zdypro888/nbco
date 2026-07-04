@@ -63,7 +63,7 @@ AI 是每个员工的直属经理 + 老板的参谋部；IM、Web 都只是它�
 |------|------|------|
 | 实现语言 | Go 重写 | 部署简单（单二进制）、稳定、高效 |
 | 存储 | PostgreSQL（pgx + 内嵌迁移） | 任务树/权限/审计天然关系型；事务是刚需 |
-| AI 引擎 | 自有 `ai.Engine` 接口，双实现：eino 直调 API / claude CLI headless | 客户自带 key 走 eino；自用可走 CLI 订阅额度；核心不绑框架 |
+| AI 引擎 | 自有 `ai.Engine` 接口，中枢走 eino 直调 API；CLI 只用于 nbco-worker 交互式 PTY | 中枢需要稳定 API 契约；工作机自动干活走人类同款 CLI 交互 |
 | 工具抽象 | 自有 `ai.Tool`（JSON Schema + handler），eino/MCP/HTTP 各自薄适配 | 接口皆可换，中枢不可换 |
 | 交付形态 | 私有部署优先，SaaS 后置 | 数据敏感（任务/画像/评价），信任门槛；Go 单二进制交付成本低 |
 | AI 成本 | 客户自带 API key | 与私有部署配套，不承担用量风险 |

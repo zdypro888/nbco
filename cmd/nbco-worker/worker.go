@@ -21,7 +21,11 @@ const (
 	exitGrace    = 5 * time.Second  // 识别完成哨兵后给 CLI 自行退出的时间
 	flushBytes   = 1500             // 进度攒够这么多字节回传一次
 	ansiEscape   = "\x1b\\[[0-9;?]*[ -/]*[@-~]|\x1b\\][^\x07]*\x07|\x1b[@-Z\\-_]"
+	termCols     = 120
+	termRows     = 40
 )
+
+var submitEnterDelay = 250 * time.Millisecond
 
 var ansiRe = regexp.MustCompile(ansiEscape)
 
@@ -79,7 +83,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge []string) {
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, w.cfg.Bin, w.cliArgs()...)
 	cmd.Dir = dir
-	ptmx, err := pty.Start(cmd)
+	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: termCols, Rows: termRows})
 	if err != nil {
 		w.report(ctx, task.ID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
 		return
@@ -146,7 +150,11 @@ func (w *Worker) cliArgs() []string {
 func writeInteractivePrompt(w io.Writer, prompt string) error {
 	// Bracketed paste lets interactive CLIs receive the whole multi-line task as
 	// one pasted message, instead of treating each newline as a separate submit.
-	_, err := io.WriteString(w, "\x1b[200~"+prompt+"\x1b[201~\n")
+	if _, err := io.WriteString(w, "\x1b[200~"+prompt+"\x1b[201~"); err != nil {
+		return err
+	}
+	time.Sleep(submitEnterDelay)
+	_, err := io.WriteString(w, "\r")
 	return err
 }
 

@@ -1,5 +1,5 @@
 // Package mcpbridge 把 ai.Tool 集合适配成 MCP server（官方 go-sdk）。
-// 两处复用：claudecli 引擎的回连端点、HTTP API 的对外 MCP 端点。
+// 复用点：HTTP API 的对外 MCP 端点。
 package mcpbridge
 
 import (

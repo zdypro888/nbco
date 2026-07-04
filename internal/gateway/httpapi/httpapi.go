@@ -32,8 +32,6 @@ type Server struct {
 	store *store.Store
 	orch  *chat.Orchestrator
 	deps  tools.Deps
-	// CLIHandler CLI 引擎的回连 MCP handler；eino 引擎下为 nil。
-	CLIHandler http.Handler
 }
 
 // New 创建 HTTP 入口。
@@ -63,10 +61,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
 	mux.HandleFunc("POST /api/worker/submit", s.handleWorkerSubmit)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
-	if s.CLIHandler != nil {
-		// 回连 token 在路径最后一段：/mcp/cli/<token>
-		mux.Handle("/mcp/cli/", s.CLIHandler)
-	}
 	return mux
 }
 

@@ -7,16 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/zdypro888/nbco/internal/ai"
-	"github.com/zdypro888/nbco/internal/ai/agentcli"
 	"github.com/zdypro888/nbco/internal/ai/einoengine"
 	"github.com/zdypro888/nbco/internal/chat"
 	"github.com/zdypro888/nbco/internal/config"
@@ -73,7 +69,7 @@ func run(configPath string) error {
 		slog.Info("外接 MCP 工具已接入", "server", srv.Name, "tools", len(ext))
 	}
 
-	engine, cliHandler, err := buildEngine(ctx, cfg)
+	engine, err := buildEngine(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -87,7 +83,6 @@ func run(configPath string) error {
 	hub.Set(tg)
 
 	api := httpapi.New(st, orch, deps)
-	api.CLIHandler = cliHandler
 
 	// AI 催办/周报轮次挂在 Telegram 渠道会话上（与主入口一致，上下文连续）。
 	scheduler := sched.New(st, hub, orch, telegram.Provider, tz, *cfg.DailySummaryHour)
@@ -108,31 +103,11 @@ func run(configPath string) error {
 	}
 }
 
-// buildEngine 按配置构建 AI 引擎；CLI 类引擎同时返回回连 MCP handler。
-func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, http.Handler, error) {
+// buildEngine 按配置构建 AI 引擎。中枢只走 API 引擎；CLI 只允许在 worker 端用交互式 PTY。
+func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, error) {
 	if cfg.AI.Engine == config.EngineEino {
 		eng, err := einoengine.New(ctx, cfg.AI)
-		return eng, nil, err
+		return eng, err
 	}
-
-	// CLI 类引擎：同一套通用模板，换驱动即换 CLI。
-	var driver agentcli.Driver
-	switch cfg.AI.Engine {
-	case config.EngineClaudeCLI:
-		driver = &agentcli.ClaudeDriver{Cmd: cfg.AI.ClaudeCmd, Model: cfg.AI.Model}
-	case config.EngineCodexCLI:
-		driver = &agentcli.CodexDriver{Cmd: cfg.AI.CodexCmd, Model: cfg.AI.Model}
-	default:
-		return nil, nil, fmt.Errorf("不支持的 ai.engine: %q", cfg.AI.Engine)
-	}
-	base := strings.TrimRight(cfg.PublicBaseURL, "/")
-	if base == "" {
-		_, port, err := net.SplitHostPort(cfg.Listen)
-		if err != nil {
-			return nil, nil, fmt.Errorf("listen 地址 %q: %w", cfg.Listen, err)
-		}
-		base = "http://127.0.0.1:" + port
-	}
-	registry := agentcli.NewRegistry()
-	return agentcli.NewEngine(driver, registry, base+"/mcp/cli"), registry.Handler(), nil
+	return nil, fmt.Errorf("不支持的 ai.engine: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", cfg.AI.Engine)
 }

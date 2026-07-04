@@ -2,11 +2,10 @@
 //
 // 设计原则（接口皆可换，中枢不可换）：
 //   - 核心自持有 Tool 定义（名称 + JSON Schema + handler），不依赖任何框架类型；
-//     eino、claude CLI、HTTP MCP 各自做薄适配。
+//     eino、HTTP MCP 各自做薄适配。
 //   - Engine 的抽象层级是「跑完一轮对话」（含 tool 循环），而非单次补全——
-//     因为 claude CLI 引擎的 tool 循环发生在子进程内部，无法拆到补全粒度。
-//   - 会话历史由调用方（chat 编排器）落库管理；eino 引擎重放 History，
-//     claudecli 引擎用 EngineSession 恢复子进程会话，History 仅作审计。
+//     这样可保持后续替换模型框架时的边界稳定。
+//   - 会话历史由调用方（chat 编排器）落库管理；eino 引擎重放 History。
 package ai
 
 import (
@@ -67,8 +66,7 @@ type Usage struct {
 type TurnRequest struct {
 	// SessionID 是 nbco 侧会话 ID（落库主键），引擎可用它做日志关联。
 	SessionID string
-	// EngineSession 是引擎侧会话标识：claudecli 引擎用它 --resume 子进程会话；
-	// eino 引擎忽略。空表示新会话。
+	// EngineSession 是引擎侧会话标识；当前 eino 引擎忽略。空表示新会话。
 	EngineSession string
 	// System 系统提示，由 chat 编排器组装（身份、角色、当前时间等）。
 	System string
@@ -94,7 +92,7 @@ type TurnResult struct {
 	Usage Usage
 }
 
-// Engine 跑一轮带工具的对话。实现：einoengine、claudecli。
+// Engine 跑一轮带工具的对话。实现：einoengine。
 type Engine interface {
 	// RunTurn 阻塞直到本轮完成（模型给出最终文本或出错）。
 	RunTurn(ctx context.Context, req *TurnRequest) (*TurnResult, error)

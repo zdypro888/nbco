@@ -14,9 +14,7 @@ import (
 
 // AI 引擎类型。
 const (
-	EngineEino      = "eino"      // 直接调 API（eino ADK），客户自带 key 的产品路径
-	EngineClaudeCLI = "claudecli" // 驱动 claude CLI（headless + MCP 回连）
-	EngineCodexCLI  = "codexcli"  // 驱动 codex CLI（exec --json + MCP 回连）
+	EngineEino = "eino" // 直接调 API（eino ADK），客户自带 key 的产品路径
 )
 
 // eino 引擎的模型 provider。
@@ -27,7 +25,7 @@ const (
 
 // AIConfig AI 引擎配置。
 type AIConfig struct {
-	Engine      string  `json:"engine"`     // eino | claudecli
+	Engine      string  `json:"engine"`     // 仅支持 eino；CLI 自动执行走 nbco-worker 交互式 PTY
 	Provider    string  `json:"provider"`   // eino: claude | openai
 	APIKey      string  `json:"api_key"`    // eino 引擎用
 	BaseURL     string  `json:"base_url"`   // 可选，自建网关
@@ -35,9 +33,6 @@ type AIConfig struct {
 	MaxTokens   int     `json:"max_tokens"` // 默认 4096
 	Temperature float32 `json:"temperature"`
 	MaxTurns    int     `json:"max_turns"` // tool 循环上限，默认 16
-
-	ClaudeCmd string `json:"claude_cmd"` // claudecli 引擎的可执行文件，默认 "claude"
-	CodexCmd  string `json:"codex_cmd"`  // codexcli 引擎的可执行文件，默认 "codex"
 }
 
 // MCPServer 外接 MCP 工具服务（Streamable HTTP）。
@@ -55,7 +50,7 @@ type Config struct {
 	PostgresDSN   string  `json:"postgres_dsn"`
 	Listen        string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
 	LogLevel      string  `json:"log_level"` // debug | info | warn | error，默认 info
-	// PublicBaseURL claude CLI 回连 MCP 的基地址；默认由 Listen 推导为 http://127.0.0.1:<port>
+	// PublicBaseURL 保留给外部回调集成；当前中枢引擎不使用 CLI 回连。
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
 	// MCPServers 外接 MCP 工具服务列表（可选）。
@@ -105,12 +100,6 @@ func (c *Config) applyDefaults() {
 	if c.AI.MaxTurns <= 0 {
 		c.AI.MaxTurns = 16
 	}
-	if c.AI.ClaudeCmd == "" {
-		c.AI.ClaudeCmd = "claude"
-	}
-	if c.AI.CodexCmd == "" {
-		c.AI.CodexCmd = "codex"
-	}
 	if c.LogLevel == "" {
 		c.LogLevel = "info"
 	}
@@ -155,10 +144,8 @@ func (c *Config) validate() error {
 		if c.AI.Provider != ProviderClaude && c.AI.Provider != ProviderOpenAI {
 			errs = append(errs, fmt.Errorf("ai.provider 不支持: %q", c.AI.Provider))
 		}
-	case EngineClaudeCLI, EngineCodexCLI:
-		// CLI 引擎自带认证（订阅或各自的环境变量），不强制 api_key
 	default:
-		errs = append(errs, fmt.Errorf("ai.engine 不支持: %q", c.AI.Engine))
+		errs = append(errs, fmt.Errorf("ai.engine 不支持: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", c.AI.Engine))
 	}
 	for i, m := range c.MCPServers {
 		if strings.TrimSpace(m.Name) == "" || strings.TrimSpace(m.URL) == "" {

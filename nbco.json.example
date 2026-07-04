@@ -15,8 +15,6 @@
     "base_url": "",
     "model": "claude-sonnet-5",
     "max_tokens": 4096,
-    "max_turns": 16,
-    "claude_cmd": "claude",
-    "codex_cmd": "codex"
+    "max_turns": 16
   }
 }

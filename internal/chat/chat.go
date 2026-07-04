@@ -87,7 +87,7 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 			}
 		},
 	}
-	// eino 引擎需要重放历史；claudecli 用 EngineSession 自带记忆。
+	// eino 引擎需要重放历史。
 	msgs, err := o.store.MessagesOf(ctx, sess.ID, historyLimit)
 	if err != nil {
 		return "", err

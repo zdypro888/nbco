@@ -12,7 +12,7 @@ type ChatSession struct {
 	UserID    int64
 	Channel   string
 	Engine    string
-	EngineRef string // claudecli 的 CLI session id
+	EngineRef string // 引擎侧会话标识（当前保留字段）
 	Active    bool
 	CreatedAt time.Time
 }
@@ -63,7 +63,7 @@ func (s *Store) StartSession(ctx context.Context, userID int64, channel, engine 
 	return cs, tx.Commit(ctx)
 }
 
-// SetSessionEngineRef 记录引擎侧会话标识（claudecli 首轮返回）。
+// SetSessionEngineRef 记录引擎侧会话标识。
 func (s *Store) SetSessionEngineRef(ctx context.Context, sessionID int64, ref string) error {
 	return s.execOne(ctx,
 		`UPDATE chat_sessions SET engine_ref = $2, updated_at = now() WHERE id = $1`, sessionID, ref)

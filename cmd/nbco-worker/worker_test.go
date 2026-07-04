@@ -85,12 +85,16 @@ func TestCliArgs(t *testing.T) {
 }
 
 func TestWriteInteractivePromptUsesBracketedPaste(t *testing.T) {
+	oldDelay := submitEnterDelay
+	submitEnterDelay = 0
+	defer func() { submitEnterDelay = oldDelay }()
+
 	var b bytes.Buffer
 	if err := writeInteractivePrompt(&b, "第一行\n第二行"); err != nil {
 		t.Fatal(err)
 	}
 	got := b.String()
-	if !strings.HasPrefix(got, "\x1b[200~") || !strings.Contains(got, "\x1b[201~\n") {
+	if !strings.HasPrefix(got, "\x1b[200~") || !strings.HasSuffix(got, "\x1b[201~\r") {
 		t.Fatalf("未使用 bracketed paste: %q", got)
 	}
 	if !strings.Contains(got, "第一行\n第二行") {
