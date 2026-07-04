@@ -110,6 +110,7 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 
 `nbco-worker` 装在工作机上，把一台机器变成可派活的 AI 员工。worker 本质是一个特殊用户，复用任务、进度、验收、催办、画像与审计机制。
 worker 是独立工作代理，不依赖 Telegram；Telegram、Web、HTTP API、MCP 都只是给中枢创建任务和查看结果的入口。文件与产物闭环规划见 [docs/worker-roadmap.md](docs/worker-roadmap.md)。
+每个 worker 必须使用自己独立的 `create_worker` 接入令牌；服务端用 token 反查 worker 用户 ID 来区分身份。不要把同一个 token 复制给多个 worker，那会被视为同一个 AI 员工，多进程只是在抢同一身份的任务。
 
 本机 LaunchAgent 部署用统一脚本，避免 repo 内二进制/配置与实际运行路径漂移：
 
@@ -123,6 +124,8 @@ scripts/deploy-local.sh
 ~/.local/bin/nbco-worker bind http://127.0.0.1:8900 <create_worker 返回的仅显示一次的常驻接入令牌>
 ~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
+
+`bind` 会校验 token 必须属于 worker，并把 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
 
 > **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身接入令牌）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 worker 令牌、SSH 私钥等）挡在其可达范围外。
 

@@ -130,6 +130,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": u.ID, "name": u.Name, "is_superadmin": u.IsSuperadmin,
+		"is_worker": u.IsWorker, "owner_id": u.OwnerID,
 	})
 }
 

@@ -36,6 +36,34 @@ func newClient(base, token string) *Client {
 	}
 }
 
+// Identity 是当前 token 对应的 nbco 用户身份。
+type Identity struct {
+	ID           int64  `json:"id"`
+	Name         string `json:"name"`
+	IsSuperadmin bool   `json:"is_superadmin"`
+	IsWorker     bool   `json:"is_worker"`
+	OwnerID      *int64 `json:"owner_id"`
+}
+
+// Me 校验 token 并返回当前身份。
+func (c *Client) Me(ctx context.Context) (*Identity, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/api/me", nil)
+	c.auth(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.errStatus(resp)
+	}
+	var ident Identity
+	if err := json.NewDecoder(resp.Body).Decode(&ident); err != nil {
+		return nil, err
+	}
+	return &ident, nil
+}
+
 // Task 从 nbco 领到的任务。
 type Task struct {
 	ID          int64        `json:"id"`

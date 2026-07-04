@@ -20,10 +20,12 @@ import (
 
 // Config 本机配置（bind 写入，run 读取）。
 type Config struct {
-	Server string `json:"server"` // nbco 基地址，如 http://127.0.0.1:8900
-	Token  string `json:"token"`  // worker 接入令牌
-	Engine string `json:"engine"` // 引擎名：内置 claude | codex，或自定义（配 bin+args）
-	Bin    string `json:"bin"`    // CLI 可执行文件，默认同 engine
+	Server     string `json:"server"`      // nbco 基地址，如 http://127.0.0.1:8900
+	Token      string `json:"token"`       // worker 接入令牌
+	WorkerID   int64  `json:"worker_id"`   // token 对应的 worker 用户 ID（bind 时校验写入）
+	WorkerName string `json:"worker_name"` // token 对应的 worker 名字（bind 时校验写入）
+	Engine     string `json:"engine"`      // 引擎名：内置 claude | codex，或自定义（配 bin+args）
+	Bin        string `json:"bin"`         // CLI 可执行文件，默认同 engine
 	// 深执行引擎可插拔（前瞻「买管道、留业务」）：把任意交互式 harness（如
 	// swarm 编排器 ruflo/claude-flow 的交互 REPL）配成一个引擎，无需改代码。
 	// 仍守 PTY 交互铁律——只是换掉「启动哪个 CLI、怎么判完成」。
@@ -61,11 +63,20 @@ func bind(args []string) {
 		usage()
 	}
 	cfg := Config{Server: args[0], Token: args[1], Engine: "claude"}
+	ident, err := newClient(cfg.Server, cfg.Token).Me(context.Background())
+	if err != nil {
+		log.Fatalf("校验 worker token 失败: %v", err)
+	}
+	if !ident.IsWorker {
+		log.Fatalf("这个 token 属于普通用户 #%d %s，不是 worker；请使用 create_worker 返回的接入令牌", ident.ID, ident.Name)
+	}
+	cfg.WorkerID = ident.ID
+	cfg.WorkerName = ident.Name
 	data, _ := json.MarshalIndent(cfg, "", "  ")
 	if err := os.WriteFile(configPath(), data, 0o600); err != nil {
 		log.Fatalf("写配置失败: %v", err)
 	}
-	fmt.Printf("已绑定到 %s。运行 nbco-worker run 上线接活。\n", cfg.Server)
+	fmt.Printf("已绑定 worker #%d %s 到 %s。运行 nbco-worker run 上线接活。\n", cfg.WorkerID, cfg.WorkerName, cfg.Server)
 }
 
 func run(args []string) {
@@ -94,12 +105,21 @@ func run(args []string) {
 	if cfg.Bin == "" {
 		cfg.Bin = cfg.Engine
 	}
+	ident, err := newClient(cfg.Server, cfg.Token).Me(context.Background())
+	if err != nil {
+		log.Fatalf("校验 worker token 失败: %v", err)
+	}
+	if !ident.IsWorker {
+		log.Fatalf("这个 token 属于普通用户 #%d %s，不是 worker；请重新 bind worker token", ident.ID, ident.Name)
+	}
+	cfg.WorkerID = ident.ID
+	cfg.WorkerName = ident.Name
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	w := newWorker(cfg)
-	log.Printf("nbco-worker 上线：server=%s engine=%s", cfg.Server, cfg.Engine)
+	log.Printf("nbco-worker 上线：worker=#%d %s server=%s engine=%s", cfg.WorkerID, cfg.WorkerName, cfg.Server, cfg.Engine)
 	w.Loop(ctx)
 	log.Println("已下线")
 }
