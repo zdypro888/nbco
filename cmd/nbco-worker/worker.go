@@ -298,10 +298,13 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 	for _, path := range entries {
 		rel, _ := filepath.Rel(dir, path)
 		relSlash := filepath.ToSlash(rel)
-		// 安全打开：O_NOFOLLOW 让最终路径是软链接就直接失败（同时挡住 walk→open
-		// 的 TOCTOU 替换）；fstat 校验是常规文件且 nlink==1（挡硬链接、FIFO、设备）。
-		// 模型的 CLI 有完整 shell，可 ln/ln -s 指向 ~/.nbco-worker.json 等主机机密，
-		// 这一步保证只上传 artifacts/ 里 worker 亲手写的真实文件。
+		// 安全打开：O_NOFOLLOW 拒最终路径段为软链接、fstat 校验常规文件且 nlink==1
+		// （挡软链接、硬链接、FIFO、设备）。注意这是【纵深加固而非安全边界】：worker
+		// 与其模型 CLI 同为一个机器账号、CLI 带 --dangerously-skip-permissions 有完整
+		// shell，模型只要 `cp ~/.nbco-worker.json artifacts/x`（普通文件）就能外泄，
+		// 且中间目录段被换成软链接的 TOCTOU 仍可绕过（O_NOFOLLOW 只管最后一段）。
+		// 真正的边界需要把 worker CLI 沙箱化（低权限 uid / 容器）。此处只挡手滑与
+		// naive 外泄，把上传限定为 artifacts/ 里的常规文件。
 		f, oerr := openArtifactFile(path)
 		if oerr != nil {
 			log.Printf("任务 #%d 拒绝上传产物 %s: %v", taskID, relSlash, oerr)
@@ -320,9 +323,10 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 	return uploaded, failed, rejected, nil
 }
 
-// openArtifactFile 安全打开产物文件：拒绝软链接（O_NOFOLLOW）、硬链接、FIFO、
-// 设备等一切非「常规且唯一硬链接」的文件，防经它们外泄主机机密。
-// 校验作用在已打开的 fd 上（fstat），与后续读取同一对象，无 TOCTOU。
+// openArtifactFile 安全打开产物文件：拒绝软链接（O_NOFOLLOW，仅最终路径段）、
+// 硬链接、FIFO、设备等一切非「常规且唯一硬链接」的文件。校验作用在已打开的
+// fd 上（fstat），与后续读取同一 inode，故 fstat↔read 之间无 TOCTOU。
+// 局限见调用处注释：这是纵深加固，非安全边界（真正边界靠沙箱化 worker）。
 func openArtifactFile(path string) (*os.File, error) {
 	// O_NONBLOCK 防无写端的 FIFO 让 open 永久阻塞。
 	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
