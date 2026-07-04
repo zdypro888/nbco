@@ -4,30 +4,28 @@
 
 Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有运行状态（用户、权限、任务、会话、绑定 Key、定时任务、审计）落 PostgreSQL，随时可杀可重启。
 
-> Python 原型已移至 `legacy/`，仅作参考。
-
 ## 架构
 
 ```
 ┌─ 入口层（皆可换）────────────────────────────┐
 │  gateway/telegram  gateway/httpapi(Web+REST+MCP)│
 ├─ 编排层 ─────────────────────────────────────┤
-│  chat（会话落库·系统提示·引擎调度）           │
-│  sched（DB 驱动定时·截止提醒·每日汇总/日报）  │
+│  chat（会话落库·系统提示·引擎调度）       │
+│  sched（DB 驱动定时·截止提醒·每日汇总/日报）│
 ├─ AI 引擎（可换）─────────────────────────────┤
 │  ai.Engine 接口                               │
 │   └─ einoengine：eino ADK 直调 API（claude/openai）│
 ├─ 领域层 ─────────────────────────────────────┤
-│  tools（工具即权限边界·全量审计）             │
-│  perm（双维度权限纯逻辑·单测覆盖）            │
+│  tools（工具即权限边界·全量审计）         │
+│  perm（双维度权限纯逻辑·单测覆盖）        │
 ├─ 存储层 ─────────────────────────────────────┤
-│  store（pgx·内嵌迁移）→ PostgreSQL           │
+│  store（pgx·内嵌迁移）→ PostgreSQL       │
 └──────────────────────────────────────────────┘
 ```
 
 核心设计：
 
-- **自有 Tool 抽象**（`internal/ai.Tool`：名称 + JSON Schema + handler），不绑任何框架。eino、对外 MCP、HTTP API 都是同一套工具的薄适配。
+- **自有 Tool 抽象**（`ai.Tool`：名称 + JSON Schema + handler），不绑任何框架。eino、对外 MCP、HTTP API 都是同一套工具的薄适配。
 - **中枢只走 API 引擎**：`eino` 引擎直调模型 API（客户自带 key 的产品路径）。本机 CLI 只允许由 `nbco-worker` 通过交互式 PTY 驱动，严禁 `claude -p` / `codex exec` 这类 headless 入口。
 - **工具即权限边界**：每个工具 handler 内部做权限校验（超管专属工具只组装给超管），每次调用写审计日志。
 - **分渠道排版**：系统提示按会话渠道注入格式指引——Telegram 用其 HTML 子集（粗体/代码/引用）+ emoji，网关先按 HTML 发送、格式非法自动降级纯文本；Web/API 输出纯文本。
@@ -181,11 +179,11 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 
 **被动权限**（存在被操作者身上：谁能对我做什么）：`view_profile:<作者ID>` / `view_profile:_all`。
 
-规则：超管旁路；非超管只能转授自己拥有且范围不超过自己的权限；派任务时执行人继承分配者的 `view_self_intro` 范围。判定逻辑在 `internal/perm`（纯函数，有单测）。
+规则：超管旁路；非超管只能转授自己拥有且范围不超过自己的权限；派任务时执行人继承分配者的 `view_self_intro` 范围。判定逻辑在 `perm`（纯函数，有单测）。
 
 ### 权限 → 工具矩阵（装配期裁剪）
 
-工具集在组装时就按权限裁剪（`internal/tools.toolPerm` 注册表是单一事实来源）：没有对应权限的用户**看不到**该工具，而不是调用时才被拒；handler 内仍保留目标级校验（有能力 ≠ 对任意目标都行），双层防御。
+工具集在组装时就按权限裁剪（`tools.toolPerm` 注册表是单一事实来源）：没有对应权限的用户**看不到**该工具，而不是调用时才被拒；handler 内仍保留目标级校验（有能力 ≠ 对任意目标都行），双层防御。
 
 | 所需权限 | 解锁的工具 |
 |----------|-----------|
@@ -207,5 +205,5 @@ go test ./...    # 纯单测；store 集成测试默认跳过
 go vet ./...
 
 # 跑 store 集成测试（需要 PostgreSQL，CI 自动跑）：
-NBCO_TEST_PG_DSN='postgres://nbco:nbco@127.0.0.1:5432/nbco_test?sslmode=disable' go test ./internal/store/
+NBCO_TEST_PG_DSN='postgres://nbco:nbco@127.0.0.1:5432/nbco_test?sslmode=disable' go test ./store/
 ```

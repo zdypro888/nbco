@@ -3,7 +3,7 @@ package main
 // PTY 会话层：把 claude/codex 的交互式 TUI 跑在本进程的伪终端下，
 // 原始字节流喂给内存 vt10x 终端仿真器，一切检测（就绪、忙碌、完成）
 // 都读渲染后的屏幕，而不是在原始流上扒 ANSI。
-// 手法来自用户已验证的 github.com/zdypro888/aibridge（internal/agent + bridge/driver）。
+// 手法来自用户已验证的 github.com/zdypro888/aibridge（agent + bridge/driver）。
 
 import (
 	"context"

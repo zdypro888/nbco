@@ -10,7 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/zdypro888/nbco/internal/workerhub"
+	"github.com/zdypro888/nbco/workerhub"
 )
 
 func TestWSURL(t *testing.T) {
