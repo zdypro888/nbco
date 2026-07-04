@@ -376,6 +376,38 @@ func TestSuperadminBootstrap(t *testing.T) {
 	}
 }
 
+func TestAPITokenRoundtrip(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+
+	plain, err := s.IssueAPIToken(ctx, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := s.UserByAPIToken(ctx, plain)
+	if err != nil || u.ID != boss.ID {
+		t.Fatalf("token 换用户 = %+v err=%v", u, err) // 曾因 JOIN 列歧义全线失败
+	}
+	// 换发替换旧 token。
+	plain2, err := s.IssueAPIToken(ctx, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UserByAPIToken(ctx, plain); !errors.Is(err, ErrNotFound) {
+		t.Errorf("旧 token 应失效, got %v", err)
+	}
+	if _, err := s.UserByAPIToken(ctx, plain2); err != nil {
+		t.Errorf("新 token 应有效: %v", err)
+	}
+	if err := s.RevokeAPIToken(ctx, boss.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UserByAPIToken(ctx, plain2); !errors.Is(err, ErrNotFound) {
+		t.Errorf("撤销后应失效, got %v", err)
+	}
+}
+
 func TestPermsCRUD(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

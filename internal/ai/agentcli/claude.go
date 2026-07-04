@@ -3,6 +3,7 @@ package agentcli
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/zdypro888/nbco/internal/ai"
@@ -71,9 +72,28 @@ func (d *ClaudeDriver) Plan(req *ai.TurnRequest, mcpURL string) (*Plan, error) {
 					InputTokens  int64 `json:"input_tokens"`
 					OutputTokens int64 `json:"output_tokens"`
 				} `json:"usage"`
+				// init 事件：MCP 连接状态与可用工具（诊断关键）。
+				MCPServers []struct {
+					Name   string `json:"name"`
+					Status string `json:"status"`
+				} `json:"mcp_servers"`
+				Tools []string `json:"tools"`
 			}
-			if err := json.Unmarshal(line, &ev); err != nil || ev.Type != "result" {
-				return // 容忍非 JSON 行与中间事件
+			if err := json.Unmarshal(line, &ev); err != nil {
+				return // 容忍非 JSON 行
+			}
+			if ev.Type == "system" && ev.Subtype == "init" {
+				for _, srv := range ev.MCPServers {
+					if srv.Status != "connected" {
+						slog.Warn("claude CLI MCP 服务未连接", "server", srv.Name, "status", srv.Status)
+					} else {
+						slog.Debug("claude CLI MCP 已连接", "server", srv.Name, "tools_total", len(ev.Tools))
+					}
+				}
+				return
+			}
+			if ev.Type != "result" {
+				return // 忽略其余中间事件
 			}
 			if ev.IsError || (ev.Subtype != "" && ev.Subtype != "success") {
 				turnErr = fmt.Errorf("claude CLI 轮次失败(%s): %s", ev.Subtype, truncate(ev.Result, 2000))

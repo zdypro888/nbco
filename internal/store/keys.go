@@ -102,9 +102,11 @@ func (s *Store) RevokeAPIToken(ctx context.Context, userID int64) error {
 }
 
 // UserByAPIToken 按明文 token 验证并取用户（哈希索引查询）。
+// 列必须带 u. 前缀：api_tokens 也有 created_at，裸列名会歧义报错。
 func (s *Store) UserByAPIToken(ctx context.Context, plain string) (*User, error) {
 	return scanUser(s.pool.QueryRow(ctx,
-		`SELECT `+userCols+` FROM users u JOIN api_tokens t ON t.user_id = u.id
+		`SELECT u.id, u.name, u.info, u.status, u.is_superadmin, u.created_at
+		 FROM users u JOIN api_tokens t ON t.user_id = u.id
 		 WHERE t.token_hash = $1`, hashToken(plain)))
 }
 
