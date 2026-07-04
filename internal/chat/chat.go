@@ -58,7 +58,7 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 		return "", err
 	}
 
-	system, err := o.systemPrompt(ctx, u)
+	system, err := o.systemPrompt(ctx, u, channel)
 	if err != nil {
 		return "", err
 	}
@@ -156,8 +156,20 @@ func (o *Orchestrator) ensureSession(ctx context.Context, u *store.User, channel
 	return sess, nil
 }
 
-// systemPrompt 组装系统提示：身份、当前用户、时间、激活角色。
-func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User) (string, error) {
+// channelStyle 各渠道的输出格式指引。键与入口网关写入会话的 channel 值约定一致
+// （数据耦合而非包依赖：新增渠道加一行即可，不认识的渠道回退纯文本）。
+var channelStyle = map[string]string{
+	"telegram": "输出格式（Telegram HTML）：\n" +
+		"- 用 Telegram 支持的 HTML 标签排版：<b>粗体</b>、<i>斜体</i>、<u>下划线</u>、<s>删除线</s>、<code>行内代码</code>、<pre>多行代码</pre>、<blockquote>引用</blockquote>、<a href=\"URL\">链接</a>。\n" +
+		"- 除上述标签外不支持任何 HTML；也不支持 Markdown（**加粗**、# 标题、[链接]()、表格），绝不要输出这些标记。\n" +
+		"- 列表用「• 」或贴切的 emoji 开头的行；层级用缩进两个空格表达。\n" +
+		"- 正文里的 <、>、& 必须写成 &lt;、&gt;、&amp;（标签本身除外）。\n" +
+		"- 善用 emoji 让消息生动醒目：状态（✅ ⏳ 🔴 ⚠️）、板块（📋 📊 💡 🗓）、动作（📌 🚀 🎉），标题和关键行都可以配，但一行别超过两个。\n",
+	"api": "输出格式：纯文本，不要 Markdown 或 HTML 标记；列表用「• 」或 emoji 开头的行；适度使用 emoji。\n",
+}
+
+// systemPrompt 组装系统提示：身份、当前用户、时间、渠道格式、激活角色。
+func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel string) (string, error) {
 	var b strings.Builder
 	b.WriteString("你是 nbco，公司的 AI 运营中枢：既是每个员工的助理，也是管理流程的执行者。\n")
 	b.WriteString("你通过工具完成一切业务操作（用户、画像、权限、项目任务、提醒）。工具集已按当前用户的权限裁剪，权限不足时工具会返回提示，如实转告即可。\n")
@@ -167,6 +179,11 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User) (string,
 	b.WriteString("- 回复用用户的语言，简洁直接，避免罗列内部 ID 之外的技术细节。\n")
 	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动提议存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n\n")
+
+	if style, ok := channelStyle[channel]; ok {
+		b.WriteString(style)
+	}
+	b.WriteString("\n")
 
 	fmt.Fprintf(&b, "当前用户：%s（ID %d）", u.Name, u.ID)
 	if u.IsSuperadmin {

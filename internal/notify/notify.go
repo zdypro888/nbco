@@ -11,6 +11,8 @@ import (
 // Notifier 向用户主动投递消息（提醒、催办、系统通知）。
 type Notifier interface {
 	// Send 给用户发一条文本消息。用户无可达渠道时返回错误。
+	// text 可含 Telegram HTML 子集（<b> <i> <code> 等）；投递方负责在
+	// 格式非法或渠道不支持时降级为纯文本，调用方无需转义。
 	Send(ctx context.Context, userID int64, text string) error
 }
 

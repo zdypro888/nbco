@@ -33,6 +33,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 - **自有 Tool 抽象**（`internal/ai.Tool`：名称 + JSON Schema + handler），不绑任何框架。eino、claude CLI（经 MCP 回连）、对外 MCP、HTTP API 都是同一套工具的薄适配。
 - **双路引擎**：`eino` 引擎直调模型 API（客户自带 key 的产品路径）；`agentcli` 是驱动本机 agent CLI 的通用模板（订阅额度路径，已有 claude / codex 两个驱动，差异收敛在 `Driver` 接口），工具经一次性 token 的 MCP 回连暴露，天然按用户隔离。
 - **工具即权限边界**：每个工具 handler 内部做权限校验（超管专属工具只组装给超管），每次调用写审计日志。
+- **分渠道排版**：系统提示按会话渠道注入格式指引——Telegram 用其 HTML 子集（粗体/代码/引用）+ emoji，网关先按 HTML 发送、格式非法自动降级纯文本；Web/API 输出纯文本。
 
 ## 配置
 

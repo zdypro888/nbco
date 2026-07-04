@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"log/slog"
 	"regexp"
 	"strconv"
@@ -120,7 +121,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		g.reply(ctx, chatID, "🆕 已开启新会话。")
 		return
 	case "/start":
-		g.reply(ctx, chatID, fmt.Sprintf("你好，%s。直接说事就行 —— 任务、提醒、查进展都可以。/new 开新会话。", u.Name))
+		g.reply(ctx, chatID, fmt.Sprintf("👋 你好，<b>%s</b>！\n直接说事就行 —— 📋 任务、⏰ 提醒、📊 查进展都可以。\n/new 开新会话。", html.EscapeString(u.Name)))
 		return
 	case "/superadmin":
 		// 首任超管引导：已绑定但系统无超管的用户可自我晋升。
@@ -168,7 +169,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 			slog.Error("超管引导失败", "err", err)
 			g.reply(ctx, chatID, "初始化失败，请稍后再试。")
 		default:
-			g.reply(ctx, chatID, fmt.Sprintf("👑 %s，你已成为首位超级管理员（ID %d）。直接说事就行。", u.Name, u.ID))
+			g.reply(ctx, chatID, fmt.Sprintf("👑 <b>%s</b>，你已成为首位超级管理员（ID %d）。直接说事就行。", html.EscapeString(u.Name), u.ID))
 		}
 		return
 	}
@@ -180,7 +181,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 			g.reply(ctx, chatID, "初始化失败，请稍后再试。")
 			return
 		}
-		g.reply(ctx, chatID, fmt.Sprintf("👑 超级管理员 %s 已开通（ID %d）。直接说事就行。", u.Name, u.ID))
+		g.reply(ctx, chatID, fmt.Sprintf("👑 超级管理员 <b>%s</b> 已开通（ID %d）。直接说事就行。", html.EscapeString(u.Name), u.ID))
 		return
 	}
 
@@ -200,7 +201,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		g.reply(ctx, chatID, "绑定失败，请稍后再试。")
 		return
 	}
-	g.reply(ctx, chatID, fmt.Sprintf("✅ 欢迎加入，%s（ID %d）。先自我介绍一下吧，我会帮你存档。", u.Name, u.ID))
+	g.reply(ctx, chatID, fmt.Sprintf("🎉 欢迎加入，<b>%s</b>（ID %d）！\n先自我介绍一下吧，我会帮你存档。", html.EscapeString(u.Name), u.ID))
 }
 
 func (g *Gateway) userLock(tgID int64) *sync.Mutex {
@@ -228,11 +229,25 @@ func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) err
 	}
 	slog.Debug("TG 发送", "chat", chatID, "text_len", len(text))
 	for _, chunk := range splitChunks(text, chunkLimit) {
-		if _, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: chunk}); err != nil {
+		if err := g.sendOne(ctx, chatID, chunk); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// sendOne 先按 Telegram HTML 发送（AI 与系统消息均按 HTML 子集排版）；
+// 格式非法被 API 拒绝时降级纯文本重发，保证必达。
+func (g *Gateway) sendOne(ctx context.Context, chatID int64, chunk string) error {
+	_, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatID, Text: chunk, ParseMode: models.ParseModeHTML,
+	})
+	if err == nil {
+		return nil
+	}
+	slog.Debug("HTML 发送被拒，降级纯文本", "chat", chatID, "err", err)
+	_, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: chunk})
+	return err
 }
 
 func (g *Gateway) sendTyping(ctx context.Context, chatID int64) {
