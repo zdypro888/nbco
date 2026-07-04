@@ -44,12 +44,15 @@ func parseID(v string) (int64, error) {
 	return id, nil
 }
 
+// errArtifactRejected：worker 产物的 claim 预校验未通过（落盘前拦截）。
+var errArtifactRejected = errors.New("artifact rejected")
+
 func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
 	if u == nil {
 		return
 	}
-	f, err := s.saveMultipartFile(w, r, u.ID, "api")
+	f, err := s.saveMultipartFile(w, r, u.ID, "api", nil)
 	if err != nil {
 		slog.Warn("文件上传失败", "user", u.ID, "err", err)
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -138,22 +141,42 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	f, err := s.saveMultipartFile(w, r, u.ID, "worker")
+	var taskID int64
+	var claimID string
+	// 授权校验（validate）在落盘之前跑：claim 无效/过期就不写 blob、不建 files 行，
+	// 杜绝孤儿文件，也堵死「拿 worker token 反复传 200MB 撑爆磁盘」。
+	f, err := s.saveMultipartFile(w, r, u.ID, "worker", func() error {
+		var perr error
+		if taskID, perr = parseID(r.FormValue("task_id")); perr != nil {
+			return fmt.Errorf("task_id 必填")
+		}
+		if claimID = strings.TrimSpace(r.FormValue("claim_id")); claimID == "" {
+			return fmt.Errorf("claim_id 必填")
+		}
+		ok, cerr := s.store.WorkerCanSubmitArtifact(r.Context(), taskID, u.ID, claimID)
+		if cerr != nil {
+			return fmt.Errorf("校验失败")
+		}
+		if !ok {
+			return errArtifactRejected
+		}
+		return nil
+	})
 	if err != nil {
+		if errors.Is(err, errArtifactRejected) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许上传产物"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	taskID, err := parseID(r.FormValue("task_id"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
-		return
-	}
-	claimID := strings.TrimSpace(r.FormValue("claim_id"))
-	if claimID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "claim_id 必填"})
-		return
-	}
 	if err := s.store.AddWorkerArtifact(r.Context(), taskID, u.ID, claimID, f.ID, r.FormValue("caption")); err != nil {
+		// 预校验已过，此处失败=落盘期间 claim 恰好失效的极窄竞态：清理刚建的孤儿。
+		if path, derr := s.store.DeleteFileIfUnreferenced(r.Context(), f.ID); derr == nil && path != "" {
+			if fp, ferr := s.filePath(path); ferr == nil {
+				_ = os.Remove(fp)
+			}
+		}
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许上传产物"})
 			return
@@ -164,10 +187,23 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"file": toFileJSON(*f, "")})
 }
 
-func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userID int64, source string) (*store.File, error) {
+// saveMultipartFile 解析上传并落盘（内容寻址）。validate（可为 nil）在解析表单
+// 之后、落盘之前执行——授权校验放这里，不过就不写任何 blob/files 行。
+func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userID int64, source string, validate func() error) (*store.File, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
 	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
 		return nil, fmt.Errorf("解析上传失败")
+	}
+	// multipart 解析会把大文件缓冲到临时文件，请求结束务必清理。
+	defer func() {
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+	}()
+	if validate != nil {
+		if err := validate(); err != nil {
+			return nil, err
+		}
 	}
 	src, hdr, err := r.FormFile("file")
 	if err != nil {

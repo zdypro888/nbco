@@ -172,12 +172,19 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		}
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
-	uploaded, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
+	uploaded, failed, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
 	if uerr != nil {
-		w.report(ctx, task.ID, task.ClaimID, "⚠️ 上传产物失败: "+uerr.Error())
+		w.report(ctx, task.ID, task.ClaimID, "⚠️ 遍历产物目录出错: "+uerr.Error())
 	}
 	if len(uploaded) > 0 {
 		summary += "\n\n已上传产物：\n- " + strings.Join(uploaded, "\n- ")
+	}
+	if len(failed) > 0 {
+		// 任务提交后 claim 失效、无法再补传产物。必须在验收报告里显式点名失败的
+		// 产物，否则「按完成提交但交付物缺失」会被静默吞掉。
+		warn := "⚠️ 以下产物上传失败，交付不完整，请打回要求重新提交：\n- " + strings.Join(failed, "\n- ")
+		w.report(ctx, task.ID, task.ClaimID, warn)
+		summary += "\n\n" + warn
 	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
@@ -263,11 +270,34 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	return nil
 }
 
-func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir string) ([]string, error) {
-	var uploaded []string
+// uploadArtifacts 上传 dir 下的产物文件。单个上传失败不中断其余（避免「第 N 个
+// 失败 → 后面的全被跳过 → 静默丢交付物」），分别返回成功与失败清单。
+func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir string) (uploaded, failed []string, err error) {
+	entries, err := artifactEntries(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, path := range entries {
+		rel, _ := filepath.Rel(dir, path)
+		relSlash := filepath.ToSlash(rel)
+		if upErr := w.client.UploadArtifact(ctx, taskID, claimID, path); upErr != nil {
+			log.Printf("任务 #%d 产物 %s 上传失败: %v", taskID, relSlash, upErr)
+			failed = append(failed, relSlash)
+			continue
+		}
+		uploaded = append(uploaded, relSlash)
+	}
+	return uploaded, failed, nil
+}
+
+// artifactEntries 收集 dir 下应作为产物上传的实体文件。
+// 安全要点：跳过软链接——否则 os.Open 会跟随软链接读到【目标】内容，模型可借
+// `ln -s ~/.nbco-worker.json artifacts/x` 把 worker token 等主机文件外泄成产物。
+func artifactEntries(dir string) ([]string, error) {
 	if _, err := os.Stat(dir); errorsIsNotExist(err) {
 		return nil, nil
 	}
+	var out []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -275,17 +305,16 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 		if d.IsDir() {
 			return nil
 		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil // 软链接（含指向目录的）：一律不上传
+		}
 		if strings.HasSuffix(d.Name(), ".tmp") || strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
-		if err := w.client.UploadArtifact(ctx, taskID, claimID, path); err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(dir, path)
-		uploaded = append(uploaded, filepath.ToSlash(rel))
+		out = append(out, path)
 		return nil
 	})
-	return uploaded, err
+	return out, err
 }
 
 func errorsIsNotExist(err error) bool {

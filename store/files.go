@@ -87,6 +87,55 @@ func (s *Store) TaskFileAttachments(ctx context.Context, taskID int64) ([]File, 
 	return out, rows.Err()
 }
 
+// WorkerCanSubmitArtifact 预校验：任务仍是该 worker 手上、in_progress、claim 匹配时
+// 才允许上传产物。用于「落盘前」拦截过期/伪造 claim，避免写孤儿 blob。
+func (s *Store) WorkerCanSubmitArtifact(ctx context.Context, taskID, workerID int64, claimID string) (bool, error) {
+	if claimID == "" {
+		return false, nil
+	}
+	var ok bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM tasks
+		   WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3)`,
+		taskID, workerID, claimID).Scan(&ok)
+	return ok, err
+}
+
+// DeleteFileIfUnreferenced 删除没有任何附件/产物引用的 files 行；若删除后其内容
+// 寻址 blob（storage_path）不再被任何 files 行共享，返回该路径供调用方删盘。
+// 用于清理「落盘后 claim 恰好失效」的极窄竞态残留。有引用则不动、返回空串。
+func (s *Store) DeleteFileIfUnreferenced(ctx context.Context, fileID int64) (string, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var referenced bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
+		     OR EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)`, fileID).Scan(&referenced); err != nil {
+		return "", err
+	}
+	if referenced {
+		return "", nil
+	}
+	var path string
+	if err := tx.QueryRow(ctx, `DELETE FROM files WHERE id = $1 RETURNING storage_path`, fileID).Scan(&path); err != nil {
+		return "", wrapErr(err)
+	}
+	var shared bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM files WHERE storage_path = $1)`, path).Scan(&shared); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	if shared {
+		return "", nil // blob 仍被别的 files 行共享，不删盘
+	}
+	return path, nil
+}
+
 // AddWorkerArtifact 仅当 worker 仍持有同一 claim 时，把文件登记为任务产物。
 func (s *Store) AddWorkerArtifact(ctx context.Context, taskID, workerID int64, claimID string, fileID int64, caption string) error {
 	tag, err := s.pool.Exec(ctx,

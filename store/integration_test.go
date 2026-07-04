@@ -742,3 +742,67 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 		t.Fatalf("成功提交才应写完成汇报: progress=%+v err=%v", ps, err)
 	}
 }
+
+// worker 产物落盘前的 claim 预校验 + 孤儿清理。
+func TestWorkerArtifactGating(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "产物任务", nil)
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim := claimed.WorkerClaimID
+	if claim == "" {
+		t.Fatal("认领应生成 claim_id")
+	}
+
+	// 预校验：正确 claim 通过；空/错 claim、非 in_progress 拒绝。
+	if ok, _ := s.WorkerCanSubmitArtifact(ctx, tk.ID, worker.ID, claim); !ok {
+		t.Fatal("有效 claim 应通过预校验")
+	}
+	if ok, _ := s.WorkerCanSubmitArtifact(ctx, tk.ID, worker.ID, "wrong"); ok {
+		t.Fatal("错 claim 不应通过")
+	}
+	if ok, _ := s.WorkerCanSubmitArtifact(ctx, tk.ID, worker.ID, ""); ok {
+		t.Fatal("空 claim 不应通过")
+	}
+
+	// 建一个文件、挂成产物：有引用时 DeleteFileIfUnreferenced 不动它。
+	f, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "a.txt", SHA256: "abc", StoragePath: "ab/abc", CreatedBy: &worker.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, claim, f.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if path, err := s.DeleteFileIfUnreferenced(ctx, f.ID); err != nil || path != "" {
+		t.Fatalf("有产物引用不应删除: path=%q err=%v", path, err)
+	}
+
+	// 无引用的孤儿文件：删除并返回可删盘的 blob 路径。
+	orphan, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "o.txt", SHA256: "def", StoragePath: "de/def", CreatedBy: &worker.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := s.DeleteFileIfUnreferenced(ctx, orphan.ID)
+	if err != nil || path != "de/def" {
+		t.Fatalf("孤儿应删除并返回 blob 路径: path=%q err=%v", path, err)
+	}
+	if _, err := s.FileByID(ctx, orphan.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatal("孤儿 files 行应已删除")
+	}
+
+	// 共享同一 blob 的孤儿：删行但不返回删盘路径（blob 仍被别的行引用）。
+	shareA, _ := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "s1", SHA256: "ggg", StoragePath: "gg/ggg", CreatedBy: &worker.ID})
+	_, _ = s.CreateFile(ctx, &File{Source: "worker", OriginalName: "s2", SHA256: "ggg", StoragePath: "gg/ggg", CreatedBy: &worker.ID})
+	if path, err := s.DeleteFileIfUnreferenced(ctx, shareA.ID); err != nil || path != "" {
+		t.Fatalf("blob 被共享不应删盘: path=%q err=%v", path, err)
+	}
+}

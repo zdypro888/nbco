@@ -14,11 +14,16 @@ import (
 	"time"
 )
 
+// fileTransferTimeout 单次文件收发的墙钟上限（兜底，防连接挂死；大文件不该被
+// 控制面的 30s 掐断）。
+const fileTransferTimeout = 30 * time.Minute
+
 // Client 调 nbco worker 接口。
 type Client struct {
 	base  string
 	token string
-	http  *http.Client
+	http  *http.Client // 控制面小 JSON 调用：30s 整体超时
+	files *http.Client // 文件收发：无整体超时，靠 per-call ctx 限时
 }
 
 func newClient(base, token string) *Client {
@@ -26,6 +31,7 @@ func newClient(base, token string) *Client {
 		base:  strings.TrimRight(base, "/"),
 		token: token,
 		http:  &http.Client{Timeout: 30 * time.Second},
+		files: &http.Client{}, // 大文件收发不受 30s 墙钟限制
 	}
 }
 
@@ -92,9 +98,11 @@ func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, les
 
 // DownloadFile 下载 worker 被授权的文件到 dst。
 func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
+	ctx, cancel := context.WithTimeout(ctx, fileTransferTimeout)
+	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+urlPath, nil)
 	c.auth(req)
-	resp, err := c.http.Do(req)
+	resp, err := c.files.Do(req)
 	if err != nil {
 		return err
 	}
@@ -144,10 +152,12 @@ func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, path
 	if err := mw.Close(); err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, fileTransferTimeout)
+	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts", &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	c.auth(req)
-	resp, err := c.http.Do(req)
+	resp, err := c.files.Do(req)
 	if err != nil {
 		return err
 	}

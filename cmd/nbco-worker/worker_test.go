@@ -351,3 +351,35 @@ func TestSmokeClaude(t *testing.T) {
 	}
 	t.Logf("冒烟通过。summary=%q", summary)
 }
+
+func TestArtifactEntriesSkipsSymlink(t *testing.T) {
+	dir := t.TempDir()
+	// 一个真实产物文件。
+	real := filepath.Join(dir, "result.txt")
+	if err := os.WriteFile(real, []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 一个指向外部机密的软链接（普通命名，绕过 .tmp/点文件过滤）。
+	secret := filepath.Join(t.TempDir(), "token.json")
+	if err := os.WriteFile(secret, []byte("SECRET"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(secret, filepath.Join(dir, "x")); err != nil {
+		t.Skipf("符号链接不可用: %v", err)
+	}
+	// .tmp 与点文件也应跳过。
+	_ = os.WriteFile(filepath.Join(dir, "part.tmp"), []byte("t"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, ".hidden"), []byte("h"), 0o644)
+
+	entries, err := artifactEntries(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || filepath.Base(entries[0]) != "result.txt" {
+		t.Fatalf("应只上传真实文件，跳过软链接/.tmp/点文件，got %v", entries)
+	}
+	// 不存在的目录返回空、无错。
+	if e, err := artifactEntries(filepath.Join(dir, "nope")); err != nil || len(e) != 0 {
+		t.Fatalf("缺目录应返回空: %v %v", e, err)
+	}
+}
