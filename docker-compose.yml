@@ -1,0 +1,33 @@
+# 一键部署：docker compose up -d
+# 准备：复制 nbco.json.example 为 nbco.json，
+#   postgres_dsn 用 postgres://nbco:nbco@postgres:5432/nbco?sslmode=disable
+#   listen 用 0.0.0.0:8900（容器内监听）
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: nbco
+      POSTGRES_PASSWORD: nbco
+      POSTGRES_DB: nbco
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nbco"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  nbco:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./nbco.json:/etc/nbco/nbco.json:ro
+    ports:
+      - "127.0.0.1:8900:8900"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
