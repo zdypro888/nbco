@@ -29,6 +29,7 @@ func newClient(base, token string) *Client {
 // Task 从 nbco 领到的任务。
 type Task struct {
 	ID          int64  `json:"id"`
+	ClaimID     string `json:"claim_id"`
 	Title       string `json:"title"`
 	Goal        string `json:"goal"`
 	Description string `json:"description"`
@@ -63,14 +64,14 @@ func (c *Client) Next(ctx context.Context) (*Task, []string, []string, error) {
 }
 
 // Progress 回传一段执行进度。
-func (c *Client) Progress(ctx context.Context, taskID int64, content string) error {
-	return c.post(ctx, "/api/worker/progress", map[string]any{"task_id": taskID, "content": content})
+func (c *Client) Progress(ctx context.Context, taskID int64, claimID, content string) error {
+	return c.post(ctx, "/api/worker/progress", map[string]any{"task_id": taskID, "claim_id": claimID, "content": content})
 }
 
 // Submit 提交完成，进入验收流；lessons 非空则回流知识库。
-func (c *Client) Submit(ctx context.Context, taskID int64, summary, lessons string) error {
+func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string) error {
 	return c.post(ctx, "/api/worker/submit", map[string]any{
-		"task_id": taskID, "summary": summary, "lessons": lessons,
+		"task_id": taskID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 	})
 }
 

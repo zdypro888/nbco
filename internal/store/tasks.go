@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -36,21 +37,22 @@ type Project struct {
 
 // Task 任务。Goal 是"为什么做"，Description 是"做什么"，Acceptance 是验收标准。
 type Task struct {
-	ID          int64
-	ProjectID   int64
-	ParentID    *int64
-	AssignerID  int64
-	AssigneeID  int64
-	Title       string
-	Goal        string
-	Description string
-	Acceptance  string
-	Priority    string
-	Deadline    *time.Time
-	Status      string
-	NudgeCount  int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            int64
+	ProjectID     int64
+	ParentID      *int64
+	AssignerID    int64
+	AssigneeID    int64
+	Title         string
+	Goal          string
+	Description   string
+	Acceptance    string
+	Priority      string
+	Deadline      *time.Time
+	Status        string
+	NudgeCount    int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
+	WorkerClaimID string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // ChecklistItem 工作清单条目。
@@ -81,13 +83,13 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, status, nudge_count, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, status, nudge_count, worker_claim_id, created_at, updated_at`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
 		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.Priority, &t.Deadline,
-		&t.Status, &t.NudgeCount, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &t, nil
@@ -234,6 +236,7 @@ func (s *Store) UpdateTaskStatus(ctx context.Context, id int64, status string) (
 		    SET status = $2,
 		        worker_claimed_by = NULL,
 		        worker_claimed_at = NULL,
+		        worker_claim_id = '',
 		        updated_at = now()
 		  WHERE id = $1 RETURNING `+taskCols, id, status))
 }
@@ -266,6 +269,7 @@ func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error
 			   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
 			   worker_claimed_by = NULL,
 			   worker_claimed_at = NULL,
+			   worker_claim_id = '',
 			   updated_at = now()
 			 WHERE id = $1 AND status IN ('pending', 'in_progress')
 			 RETURNING `+taskCols, id))
@@ -284,7 +288,10 @@ func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error
 // SubmitWorkerTask worker 提交：仅当任务仍是该 worker 手上的 in_progress 时才提交，
 // 原子避开「分配者同时改需求把任务重置为 pending」的竞态（那时 status 已非
 // in_progress，本次提交落空返回 ErrNotFound，旧交付不会被当成完成）。
-func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64) (*Task, []*Task, error) {
+func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimID, summary string) (*Task, []*Task, error) {
+	if strings.TrimSpace(claimID) == "" {
+		return nil, nil, ErrNotFound
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -295,11 +302,19 @@ func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64) (*Task
 		   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
 		   worker_claimed_by = NULL,
 		   worker_claimed_at = NULL,
+		   worker_claim_id = '',
 		   updated_at = now()
-		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress'
-		 RETURNING `+taskCols, id, workerID))
+		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3
+		 RETURNING `+taskCols, id, workerID, claimID))
 	if err != nil {
 		return nil, nil, err
+	}
+	if summary = strings.TrimSpace(summary); summary != "" {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO task_progress (task_id, author_id, content) VALUES ($1, $2, $3)`,
+			id, workerID, "🤖 完成汇报："+summary); err != nil {
+			return nil, nil, err
+		}
 	}
 	var chain []*Task
 	if t.Status == TaskAccepted {
@@ -323,6 +338,7 @@ func (s *Store) AcceptTask(ctx context.Context, id int64) (*Task, []*Task, error
 			    SET status = 'accepted',
 			        worker_claimed_by = NULL,
 			        worker_claimed_at = NULL,
+			        worker_claim_id = '',
 			        updated_at = now()
 			 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
 	if err != nil {
@@ -348,6 +364,7 @@ func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason str
 			    SET status = 'in_progress',
 			        worker_claimed_by = NULL,
 			        worker_claimed_at = NULL,
+			        worker_claim_id = '',
 			        updated_at = now()
 			 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
 	if err != nil {
@@ -373,6 +390,7 @@ func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error)
 				   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
 				   worker_claimed_by = NULL,
 				   worker_claimed_at = NULL,
+				   worker_claim_id = '',
 				   updated_at = now()
 			 WHERE id = $1 AND status = 'split'
 			   AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_id = $1 AND c.status <> 'accepted')
@@ -529,8 +547,8 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	tag, err := tx.Exec(ctx,
-		`UPDATE tasks SET status = 'split', updated_at = now()
-		 WHERE id = $1 AND status IN ('pending', 'in_progress')`, parentID)
+		`UPDATE tasks SET status = 'split', worker_claimed_by = NULL, worker_claimed_at = NULL, worker_claim_id = '', updated_at = now()
+			 WHERE id = $1 AND status IN ('pending', 'in_progress')`, parentID)
 	if err != nil {
 		return nil, wrapErr(err)
 	}
@@ -625,6 +643,26 @@ func (s *Store) AddProgress(ctx context.Context, taskID, authorID int64, content
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO task_progress (task_id, author_id, content) VALUES ($1, $2, $3)`, taskID, authorID, content)
 	return wrapErr(err)
+}
+
+// AddWorkerProgress 仅当任务仍由该 worker 以同一 claim 持有时写进度，防止
+// 旧 worker 进程在任务被重置/重领后继续污染历史。
+func (s *Store) AddWorkerProgress(ctx context.Context, taskID, workerID int64, claimID, content string) error {
+	if strings.TrimSpace(claimID) == "" {
+		return ErrNotFound
+	}
+	tag, err := s.pool.Exec(ctx,
+		`INSERT INTO task_progress (task_id, author_id, content)
+		 SELECT id, $2, $4 FROM tasks
+		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3`,
+		taskID, workerID, claimID, content)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // ProgressOf 取任务进度记录。

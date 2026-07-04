@@ -119,7 +119,7 @@ func (w *Worker) unregisterRun() (killed bool) {
 func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
 	dir, err := w.workDir(task.ID)
 	if err != nil {
-		w.report(ctx, task.ID, "创建工作目录失败: "+err.Error())
+		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
 	}
 	prompt := buildPrompt(task, knowledge, history)
@@ -130,7 +130,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	defer w.unregisterRun() // 兜底清理；正常路径在提交前已消费（幂等）
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 	if err != nil {
-		w.report(ctx, task.ID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
+		w.report(ctx, task.ID, task.ClaimID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
 		return
 	}
 	defer sess.Kill()
@@ -138,7 +138,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	// 周期回传屏幕快照当进度（有变化才发）。
 	stopProg := make(chan struct{})
 	defer close(stopProg)
-	go w.relayProgress(ctx, task.ID, sess, stopProg)
+	go w.relayProgress(ctx, task.ID, task.ClaimID, sess, stopProg)
 
 	warmup(runCtx, sess.Screen, sess.Write)
 
@@ -153,7 +153,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 
 	// 被服务端取消（任务已删或改派）：报告后直接退出，不提交。
 	if w.unregisterRun() {
-		w.report(ctx, task.ID, "⛔ 任务被服务端取消，已终止执行。")
+		w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，已终止执行。")
 		log.Printf("任务 #%d 已按服务端指令取消", task.ID)
 		return
 	}
@@ -164,7 +164,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		}
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
-	if err := w.client.Submit(ctx, task.ID, summary, lessons); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		return
 	}
@@ -172,7 +172,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 }
 
 // relayProgress 周期采样渲染屏幕，尾部内容有变化就回传一段快照。
-func (w *Worker) relayProgress(ctx context.Context, taskID int64, sess *cliSession, stop <-chan struct{}) {
+func (w *Worker) relayProgress(ctx context.Context, taskID int64, claimID string, sess *cliSession, stop <-chan struct{}) {
 	ticker := time.NewTicker(progressInterval)
 	defer ticker.Stop()
 	var last string
@@ -189,7 +189,7 @@ func (w *Worker) relayProgress(ctx context.Context, taskID int64, sess *cliSessi
 			continue
 		}
 		last = cur
-		w.report(ctx, taskID, "🖥 屏幕快照：\n"+cur)
+		w.report(ctx, taskID, claimID, "🖥 屏幕快照：\n"+cur)
 	}
 }
 
@@ -213,12 +213,12 @@ func (w *Worker) workDir(taskID int64) (string, error) {
 	return dir, os.MkdirAll(dir, 0o755)
 }
 
-func (w *Worker) report(ctx context.Context, taskID int64, content string) {
+func (w *Worker) report(ctx context.Context, taskID int64, claimID, content string) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return
 	}
-	if err := w.client.Progress(ctx, taskID, content); err != nil {
+	if err := w.client.Progress(ctx, taskID, claimID, content); err != nil {
 		log.Printf("回传进度失败: %v", err)
 	}
 }

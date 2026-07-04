@@ -67,11 +67,16 @@ func (s *Store) WorkerHeartbeat(ctx context.Context, workerID int64) error {
 // 已被 worker 认领但超时未提交的 in_progress 任务会被回收，避免 client 崩溃后永久卡住。
 func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error) {
 	staleBefore := time.Now().Add(-workerClaimTimeout)
+	claimID, err := randomHex(16)
+	if err != nil {
+		return nil, err
+	}
 	return scanTask(s.pool.QueryRow(ctx,
 		`UPDATE tasks
 		    SET status = 'in_progress',
 		        worker_claimed_by = $1,
 		        worker_claimed_at = now(),
+		        worker_claim_id = $3,
 		        updated_at = now()
 			 WHERE id = (
 			   SELECT id FROM tasks
@@ -86,7 +91,7 @@ func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error
 			     COALESCE(deadline, 'infinity'),
 			     id
 			   LIMIT 1 FOR UPDATE SKIP LOCKED
-			 ) RETURNING `+taskCols, workerID, staleBefore))
+			 ) RETURNING `+taskCols, workerID, staleBefore, claimID))
 }
 
 // RevokeWorker 停用 worker 并撤销其 token（历史任务保留）。目标非 worker 时 ErrNotFound。

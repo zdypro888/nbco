@@ -185,6 +185,9 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	if err != nil || claimed.ID != tk.ID || claimed.Status != TaskInProgress {
 		t.Fatalf("首次认领 = %+v err=%v", claimed, err)
 	}
+	if claimed.WorkerClaimID == "" {
+		t.Fatal("首次认领应返回 claim id")
+	}
 	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("未超时不应重复认领, got %v", err)
 	}
@@ -195,6 +198,9 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
 	if err != nil || reclaimed.ID != tk.ID || reclaimed.Status != TaskInProgress {
 		t.Fatalf("超时任务应可重新认领 = %+v err=%v", reclaimed, err)
+	}
+	if reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
+		t.Fatalf("超时重领应刷新 claim id: old=%q new=%q", claimed.WorkerClaimID, reclaimed.WorkerClaimID)
 	}
 }
 
@@ -622,30 +628,51 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 	}
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "写脚本", nil)
-	if _, err := s.ClaimNextTask(ctx, worker.ID); err != nil {
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if claimed.WorkerClaimID == "" {
+		t.Fatal("认领应返回 worker claim id")
 	}
 	// 分配者此刻把任务重置为 pending（模拟改需求）。
 	if _, err := s.UpdateTaskStatus(ctx, tk.ID, TaskPending); err != nil {
 		t.Fatal(err)
 	}
 	// worker 的提交应落空（任务已非 in_progress），不把旧交付当完成。
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("重置为 pending 后提交应被拒: %v", err)
+	}
+	if ps, err := s.ProgressOf(ctx, tk.ID); err != nil || len(ps) != 0 {
+		t.Fatalf("提交失败不应写完成汇报: progress=%+v err=%v", ps, err)
 	}
 	got, _ := s.TaskByID(ctx, tk.ID)
 	if got.Status != TaskPending {
 		t.Fatalf("任务应仍为 pending 待重做, got %s", got.Status)
 	}
 	// 重新认领后提交成功。
-	if _, err := s.ClaimNextTask(ctx, worker.ID); err != nil {
+	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID); err != nil {
+	if reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
+		t.Fatalf("重新认领应换 claim id: old=%q new=%q", claimed.WorkerClaimID, reclaimed.WorkerClaimID)
+	}
+	if err := s.AddWorkerProgress(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧进度"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("旧 claim 进度应被拒: %v", err)
+	}
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("旧 claim 提交应被拒: %v", err)
+	}
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果"); err != nil {
 		t.Fatalf("正常提交应成功: %v", err)
 	}
 	got, _ = s.TaskByID(ctx, tk.ID)
 	if got.Status != TaskDone {
 		t.Fatalf("提交后应为 done 待验收, got %s", got.Status)
+	}
+	ps, err := s.ProgressOf(ctx, tk.ID)
+	if err != nil || len(ps) != 1 || !strings.Contains(ps[0].Content, "新结果") {
+		t.Fatalf("成功提交才应写完成汇报: progress=%+v err=%v", ps, err)
 	}
 }
