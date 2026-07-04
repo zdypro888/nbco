@@ -93,6 +93,7 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 ## AI 员工 / Worker
 
 `nbco-worker` 装在工作机上，把一台机器变成可派活的 AI 员工。worker 本质是一个特殊用户，复用任务、进度、验收、催办、画像与审计机制。
+worker 是独立工作代理，不依赖 Telegram；Telegram、Web、HTTP API、MCP 都只是给中枢创建任务和查看结果的入口。文件与产物闭环规划见 [docs/worker-roadmap.md](docs/worker-roadmap.md)。
 
 本机 LaunchAgent 部署用统一脚本，避免 repo 内二进制/配置与实际运行路径漂移：
 
