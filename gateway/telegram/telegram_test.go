@@ -136,3 +136,30 @@ func TestGroupChannelAndListenKey(t *testing.T) {
 		t.Errorf("listenKey = %q", listenKey(-100123))
 	}
 }
+
+func TestOnboardingMessages(t *testing.T) {
+	help := unboundHelpMessage(false)
+	for _, want := range []string{"欢迎来到", "加入方式", "绑定 Key", "查任务", "设置提醒"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("未绑定帮助缺少 %q:\n%s", want, help)
+		}
+	}
+	if strings.Contains(help, "/superadmin") {
+		t.Errorf("已有管理员时不应提示 /superadmin:\n%s", help)
+	}
+
+	bootstrap := unboundHelpMessage(true)
+	if !strings.Contains(bootstrap, "/superadmin") {
+		t.Errorf("全新系统应提示 /superadmin:\n%s", bootstrap)
+	}
+
+	success := bindSuccessMessage("PRO")
+	for _, bad := range []string{"ID ", "用户ID", "TG ID", "Telegram ID"} {
+		if strings.Contains(success, bad) {
+			t.Errorf("绑定成功文案不应暴露内部身份 %q:\n%s", bad, success)
+		}
+	}
+	if !strings.Contains(success, "欢迎加入") || !strings.Contains(success, "自我介绍") {
+		t.Errorf("绑定成功文案信息不足:\n%s", success)
+	}
+}

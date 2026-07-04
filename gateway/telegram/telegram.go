@@ -328,6 +328,36 @@ func displayName(from *models.User) string {
 	return name
 }
 
+func boundStartMessage(name string) string {
+	return fmt.Sprintf("👋 你好，<b>%s</b>！\n"+
+		"直接说事就行：📋 查任务、✅ 汇报进度、⏰ 设置提醒、📊 看项目进展都可以。\n"+
+		"也可以发送 /new 开启新会话。", html.EscapeString(name))
+}
+
+func unboundHelpMessage(canBootstrap bool) string {
+	var b strings.Builder
+	b.WriteString("👋 欢迎来到 <b>NBCO</b>。\n\n")
+	b.WriteString("我还没在公司系统里识别到你。加入后，我可以帮你查任务、汇报进度、设置提醒、沉淀个人信息和团队知识。\n\n")
+	b.WriteString("<b>加入方式</b>\n")
+	b.WriteString("1. 找管理员生成入职绑定 Key。\n")
+	b.WriteString("2. 把那串 32 位 Key 直接发给我。\n")
+	b.WriteString("3. 绑定成功后，直接说工作事项就行。\n")
+	if canBootstrap {
+		b.WriteString("\n如果这是全新部署、还没有管理员，请发送 /superadmin 初始化首位超级管理员。")
+	}
+	return b.String()
+}
+
+func bindSuccessMessage(name string) string {
+	return fmt.Sprintf("🎉 欢迎加入，<b>%s</b>！\n\n"+
+		"你已经完成绑定，可以直接和我说工作事项。\n"+
+		"可以试试：\n"+
+		"• 查看我的任务\n"+
+		"• 设置一个明天上午的提醒\n"+
+		"• 记录一下我的岗位和职责\n\n"+
+		"先自我介绍一下也可以，我会帮你整理成档案。", html.EscapeString(name))
+}
+
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	text := messageText(msg)
@@ -361,7 +391,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		g.reply(ctx, chatID, "🆕 已开启新会话。")
 		return
 	case "/start":
-		g.reply(ctx, chatID, fmt.Sprintf("👋 你好，<b>%s</b>！\n直接说事就行 —— 📋 任务、⏰ 提醒、📊 查进展都可以。\n/new 开新会话。", html.EscapeString(u.Name)))
+		g.reply(ctx, chatID, boundStartMessage(u.Name))
 		return
 	case "/superadmin":
 		// 首任超管引导：已绑定但系统无超管的用户可自我晋升。
@@ -406,7 +436,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 			slog.Error("超管引导失败", "err", err)
 			g.reply(ctx, chatID, "初始化失败，请稍后再试。")
 		default:
-			g.reply(ctx, chatID, fmt.Sprintf("👑 <b>%s</b>，你已成为首位超级管理员（ID %d）。直接说事就行。", html.EscapeString(u.Name), u.ID))
+			g.reply(ctx, chatID, fmt.Sprintf("👑 <b>%s</b>，你已成为首位超级管理员。直接说事就行。", html.EscapeString(u.Name)))
 		}
 		return
 	}
@@ -418,13 +448,18 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 			g.reply(ctx, chatID, "初始化失败，请稍后再试。")
 			return
 		}
-		g.reply(ctx, chatID, fmt.Sprintf("👑 超级管理员 <b>%s</b> 已开通（ID %d）。直接说事就行。", html.EscapeString(u.Name), u.ID))
+		g.reply(ctx, chatID, fmt.Sprintf("👑 超级管理员 <b>%s</b> 已开通。直接说事就行。", html.EscapeString(u.Name)))
 		return
 	}
 
 	key := strings.ToLower(text)
 	if !bindKeyRe.MatchString(key) {
-		g.reply(ctx, chatID, "你还未加入系统。请把管理员发给你的绑定 Key 发过来（32 位字符串）；全新系统可发送 /superadmin 成为首位管理员。")
+		hasSuperadmin, err := g.store.HasSuperadmin(ctx)
+		if err != nil {
+			slog.Warn("查询超管状态失败", "err", err)
+			hasSuperadmin = true
+		}
+		g.reply(ctx, chatID, unboundHelpMessage(!hasSuperadmin))
 		return
 	}
 	// 单事务绑定：Key 无效不会留下半开账号。
@@ -438,7 +473,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		g.reply(ctx, chatID, "绑定失败，请稍后再试。")
 		return
 	}
-	g.reply(ctx, chatID, fmt.Sprintf("🎉 欢迎加入，<b>%s</b>（ID %d）！\n先自我介绍一下吧，我会帮你存档。", html.EscapeString(u.Name), u.ID))
+	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
 }
 
 func (g *Gateway) userLock(tgID int64) *sync.Mutex {
