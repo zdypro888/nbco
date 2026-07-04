@@ -180,6 +180,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 回复用用户的语言，简洁直接。\n")
 	b.WriteString("- 你是调度管理层，不是执行者：写代码、审代码、深度调研这类深度工作不要在对话里自己做，派给 AI 员工去干（list_workers 找人、assign_task 派活）。有任务提交待验收、需要深度审查交付质量时，用 delegate_review 委派给 AI 员工审核，等其结论回来再协助分配者验收或打回；你自己只做安排、跟进、汇总的调度级输出。\n")
 	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
+	b.WriteString("- 公司的运营节奏靠你落地：当用户（尤其管理者）用自然语言表达作息、仪式、周期性动作（如上下班时间、晨会提醒、周五复盘、每天催报告），主动用 schedule_push 落成规则——通常选 mode=ai 让每次触发时现场结合真实数据（当天待办、任务进展）生成个性化内容（如带今日重点的早安问候、附当天完成情况的下班道别），目标按语义选 _all/某人/自己，工作日用 weekdays=1,2,3,4,5。节奏变了就改规则（cancel_schedule + 重设），一切以对话为准，没有硬编码。\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n\n")
 
 	if style, ok := channelStyle[channel]; ok {

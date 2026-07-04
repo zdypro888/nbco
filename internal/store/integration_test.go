@@ -480,3 +480,48 @@ func TestPermsCRUD(t *testing.T) {
 		t.Errorf("重复撤销应 ErrNotFound, got %v", err)
 	}
 }
+
+// 定向 daily 定时任务：新字段落库回读 + 到期认领时 daily 前滚 24h 不重触发。
+func TestDirectedDailySchedule(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "老板", true)
+
+	past := time.Now().UTC().Add(-time.Minute)
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: boss.ID, Kind: ScheduleDaily, Message: "给每位员工写早安问候，结合其今日待办",
+		FireAt: past, Target: ScheduleTargetAll, Mode: ScheduleModeAI,
+		DailyAt: "10:00", Weekdays: "1,2,3,4,5", CreatedBy: boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc.Target != ScheduleTargetAll || sc.Mode != ScheduleModeAI || sc.DailyAt != "10:00" ||
+		sc.Weekdays != "1,2,3,4,5" || sc.CreatedBy != boss.ID {
+		t.Fatalf("字段回读不符: %+v", sc)
+	}
+
+	due, err := s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(due) != 1 || due[0].ID != sc.ID {
+		t.Fatalf("应认领到 1 条, got %d", len(due))
+	}
+	// 前滚后不再到期（不重复触发）。
+	due2, err := s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(due2) != 0 {
+		t.Fatalf("daily 前滚后不应重复触发, got %d", len(due2))
+	}
+	// 创建者可见、创建者可取消。
+	list, err := s.SchedulesOf(ctx, boss.ID)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("创建者应看到定向任务: %v %d", err, len(list))
+	}
+	if err := s.CancelSchedule(ctx, sc.ID, boss.ID); err != nil {
+		t.Fatal(err)
+	}
+}

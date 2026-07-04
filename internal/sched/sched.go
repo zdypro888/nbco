@@ -72,7 +72,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 		slog.Error("取到期提醒失败", "err", err)
 	}
 	for _, sc := range due {
-		s.send(ctx, sc.UserID, "⏰ 提醒："+sc.Message)
+		s.fireSchedule(ctx, sc)
 	}
 	s.deadlinePass(ctx, now)
 	s.nudgePass(ctx, now)
@@ -80,6 +80,69 @@ func (s *Scheduler) tick(ctx context.Context) {
 	s.maybeWeeklyReport(ctx)
 	s.maybeProfileRefresh(ctx)
 }
+
+// fireSchedule 触发一条定时任务：展开目标 → 按模式投递（原文或 AI 轮次）。
+// daily 任务顺带把下次触发时间校正到工作日过滤后的正确时刻。
+// 这里没有任何具体运营政策：几点、对谁、说什么全部来自数据行（AI 按对话创建）。
+func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
+	if sc.Kind == store.ScheduleDaily {
+		next := store.NextDailyFire(time.Now(), sc.DailyAt, sc.Weekdays, s.tz)
+		if err := s.store.UpdateScheduleFireAt(ctx, sc.ID, next); err != nil {
+			slog.Warn("daily 定时校正失败（沿用+24h）", "schedule", sc.ID, "err", err)
+		}
+		// 今天不在工作日过滤内（比如补跑/时钟漂移落到周末）：只校正不投递。
+		if !store.WeekdayAllowed(time.Now().In(s.tz).Weekday(), sc.Weekdays) {
+			return
+		}
+	}
+	for _, u := range s.resolveTargets(ctx, sc) {
+		switch sc.Mode {
+		case store.ScheduleModeAI:
+			if s.orch == nil {
+				s.send(ctx, u.ID, "⏰ "+sc.Message)
+				continue
+			}
+			directive := fmt.Sprintf(
+				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
+					"需要事实（如其今日待办、任务状态）先用工具查询，个性化、简洁、不编造：\n%s\n"+
+					"你的回复会作为主动消息直接推送给该用户。", sc.Message)
+			reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+			if err != nil {
+				slog.Error("定时 AI 轮次失败", "schedule", sc.ID, "user", u.ID, "err", err)
+				continue
+			}
+			s.send(ctx, u.ID, reply)
+		default:
+			s.send(ctx, u.ID, "⏰ 提醒："+sc.Message)
+		}
+	}
+}
+
+// resolveTargets 展开定时任务的目标为具体用户（活跃、非 worker）。
+func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) []*store.User {
+	switch sc.Target {
+	case store.ScheduleTargetAll:
+		users, err := s.store.ListUsers(ctx)
+		if err != nil {
+			slog.Error("定时任务展开全员失败", "schedule", sc.ID, "err", err)
+			return nil
+		}
+		var out []*store.User
+		for _, u := range users {
+			if u.Status == store.UserActive && !u.IsWorker {
+				out = append(out, u)
+			}
+		}
+		return out
+	default: // self 或具体用户 ID（建表时已归一到 UserID）
+		u, err := s.store.UserByID(ctx, sc.UserID)
+		if err != nil || u.Status != store.UserActive {
+			return nil
+		}
+		return []*store.User{u}
+	}
+}
+
 
 // nudgePass AI 催办：过期且长时间无动静的任务，跑一轮 AI 让它核实状态后
 // 向执行人发出个性化催办。轮次挂在用户会话上，用户回复时 AI 记得自己问过什么。

@@ -9,8 +9,23 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/internal/ai"
+	"github.com/zdypro888/nbco/internal/perm"
 	"github.com/zdypro888/nbco/internal/store"
 )
+
+// hasActiveAll 是否拥有某主动权限的 _all 范围授权。
+func hasActiveAll(ctx context.Context, d Deps, userID int64, action string) bool {
+	grants, err := d.Store.PermsOf(ctx, userID)
+	if err != nil {
+		return false
+	}
+	for _, g := range grants {
+		if g.Kind == store.KindActive && g.Action == action && g.Target == store.TargetAll {
+			return true
+		}
+	}
+	return false
+}
 
 const minRepeatInterval = 60 // 秒
 
@@ -84,6 +99,122 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已设置循环提醒 #%d：从 %s 起每 %d 秒。", sc.ID, fmtTime(sc.FireAt, d.TZ), sc.IntervalS), nil
 			}),
 
+		tool("schedule_push",
+			"设置定向/周期性智能推送——把运营节奏落成规则：目标可以是自己、某个成员或全体（如上下班问候、例会提醒、周期检查）。"+
+				"mode=ai 时 content 写给 AI 的指令，每次触发会为每位目标现场跑一轮 AI（可结合其当天任务等实时数据）生成个性化内容推送，不是死模板；"+
+				"mode=message 则原文投递。时间二选一：daily_at（每天 HH:MM，可配 weekdays 限工作日）或 once_at（单次）。"+
+				"给他人/全体设置需要对应 send_msg 权限（超管不限）。",
+			obj(map[string]any{
+				"target":   p("string", "self（默认）| _all（全体成员）| 用户ID"),
+				"mode":     p("string", "ai（AI 现场生成个性化内容，推荐）| message（原文投递）"),
+				"content":  p("string", "mode=ai 时是给 AI 的生成指令；mode=message 时是消息原文"),
+				"daily_at": p("string", "每天触发时刻 HH:MM（公司时区），与 once_at 二选一"),
+				"weekdays": p("string", "限定星期几：如 1,2,3,4,5 表示工作日（1=周一…7=周日），空=每天；仅配合 daily_at"),
+				"once_at":  p("string", "单次触发时间 ISO8601，与 daily_at 二选一"),
+			}, "content"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Target   string `json:"target"`
+					Mode     string `json:"mode"`
+					Content  string `json:"content"`
+					DailyAt  string `json:"daily_at"`
+					Weekdays string `json:"weekdays"`
+					OnceAt   string `json:"once_at"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if strings.TrimSpace(args.Content) == "" {
+					return "content 不能为空。", nil
+				}
+				mode := args.Mode
+				if mode == "" {
+					mode = store.ScheduleModeMessage
+				}
+				if mode != store.ScheduleModeMessage && mode != store.ScheduleModeAI {
+					return "mode 必须是 ai 或 message。", nil
+				}
+
+				// 目标解析 + send_msg 权限（handler 内目标级校验）。
+				target, receiver := store.ScheduleTargetSelf, u.ID
+				switch t := strings.TrimSpace(args.Target); t {
+				case "", "self":
+				case store.TargetAll:
+					if !u.IsSuperadmin && !hasActiveAll(ctx, d, u.ID, perm.ActSendMsg) {
+						return "给全体设置推送需要 send_msg:_all 权限。", nil
+					}
+					target = store.ScheduleTargetAll
+				default:
+					_, id, _, perr := parseTarget(t)
+					if perr != nil {
+						return perr.Error(), nil
+					}
+					tu, uerr := mustUser(ctx, d.Store, id)
+					if uerr != nil {
+						return uerr.Error(), nil
+					}
+					if tu.IsWorker {
+						return "AI 员工不需要问候/提醒推送。", nil
+					}
+					if id != u.ID {
+						if !u.IsSuperadmin {
+							grants, gerr := d.Store.PermsOf(ctx, u.ID)
+							if gerr != nil {
+								return "", gerr
+							}
+							if !perm.CheckActive(grants, perm.ActSendMsg, id) {
+								return "给该成员设置推送需要对其 send_msg 权限。", nil
+							}
+						}
+						target, receiver = t, id
+					}
+				}
+
+				// 时间：daily_at 与 once_at 二选一。
+				hasDaily := strings.TrimSpace(args.DailyAt) != ""
+				hasOnce := strings.TrimSpace(args.OnceAt) != ""
+				if hasDaily == hasOnce {
+					return "daily_at 与 once_at 必须且只能提供一个。", nil
+				}
+				sc := &store.Schedule{
+					UserID: receiver, Target: target, Mode: mode,
+					Message: args.Content, CreatedBy: u.ID,
+				}
+				if hasDaily {
+					var hh, mm int
+					if _, err := fmt.Sscanf(strings.TrimSpace(args.DailyAt), "%d:%d", &hh, &mm); err != nil || hh < 0 || hh > 23 || mm < 0 || mm > 59 {
+						return "daily_at 格式应为 HH:MM，如 10:00。", nil
+					}
+					sc.Kind = store.ScheduleDaily
+					sc.DailyAt = fmt.Sprintf("%02d:%02d", hh, mm)
+					sc.Weekdays = strings.TrimSpace(args.Weekdays)
+					sc.FireAt = store.NextDailyFire(time.Now(), sc.DailyAt, sc.Weekdays, d.TZ)
+				} else {
+					at, err := parseDeadline(args.OnceAt, d.TZ)
+					if err != nil {
+						return err.Error(), nil
+					}
+					if at == nil || !at.After(time.Now()) {
+						return "once_at 必须是未来时间。", nil
+					}
+					sc.Kind = store.ScheduleOnce
+					sc.FireAt = at.UTC()
+				}
+				created, err := d.Store.CreateSchedule(ctx, sc)
+				if err != nil {
+					return "", err
+				}
+				desc := "单次 " + fmtTime(created.FireAt, d.TZ)
+				if created.Kind == store.ScheduleDaily {
+					desc = "每天 " + created.DailyAt
+					if created.Weekdays != "" {
+						desc += "（周" + created.Weekdays + "）"
+					}
+				}
+				return fmt.Sprintf("已设置推送 #%d：%s，目标 %s，模式 %s。首次触发 %s。",
+					created.ID, desc, target, mode, fmtTime(created.FireAt, d.TZ)), nil
+			}),
+
 		tool("cancel_schedule", "取消一个定时提醒。",
 			obj(map[string]any{"schedule_id": p("integer", "提醒ID")}, "schedule_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -116,6 +247,19 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					fmt.Fprintf(&b, "- #%d [%s] %s 下次 %s", sc.ID, sc.Kind, sc.Message, fmtTime(sc.FireAt, d.TZ))
 					if sc.Kind == store.ScheduleRepeat {
 						fmt.Fprintf(&b, "（每 %d 秒）", sc.IntervalS)
+					}
+					if sc.Kind == store.ScheduleDaily {
+						fmt.Fprintf(&b, "（每天 %s", sc.DailyAt)
+						if sc.Weekdays != "" {
+							fmt.Fprintf(&b, "，周%s", sc.Weekdays)
+						}
+						b.WriteString("）")
+					}
+					if sc.Target != store.ScheduleTargetSelf && sc.Target != "" {
+						fmt.Fprintf(&b, " 目标 %s", sc.Target)
+					}
+					if sc.Mode == store.ScheduleModeAI {
+						b.WriteString(" [AI生成]")
 					}
 					b.WriteString("\n")
 				}
