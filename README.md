@@ -136,7 +136,7 @@ scripts/deploy-local.sh
 
 **深执行引擎可插拔（前瞻·买管道留业务）**：worker 驱动的不限于 claude/codex——`~/.nbco-worker.json` 里配 `bin` + `args` + `busy_pattern`，就能把任意**交互式** harness（如 swarm 编排器 ruflo/claude-flow 的交互 REPL）挂成一个引擎，无需改代码。重活可交给更强的 swarm 深啃，nbco 只管派活/验收的业务闭环。仍守 PTY 交互铁律，只是换掉「启动哪个 CLI、怎么判完成」。
 
-⚠️ **`busy_pattern` 必须只匹配「工作中才出现、空闲即消失」的瞬态状态行**（内置 `esc to interrupt` 就是这种），用来在屏幕短暂静止时不误判完成。**切勿匹配提示符/横幅/状态栏等常驻文本**——那会让每个任务空转（有 `BusyStable` 兜底不至于卡到 2h，但仍浪费）。例：`{"engine":"ruflo","bin":"ruflo","args":["chat"],"busy_pattern":"(?i)esc to interrupt|thinking…"}`（按目标 harness 真正的忙碌行填）。
+⚠️ **`busy_pattern` 最好只匹配「工作中才出现、空闲即消失」的瞬态状态行**（内置 `esc to interrupt` 就是这种），用来在屏幕短暂静止时不误判完成。完成检测已对常驻误配做了兜底：`BusyStable`（默认 2min）在**去噪后**（滴答计时/心跳/token 计数/spinner 归一）屏幕连续无实质变化时判完成，所以即便 `busy_pattern` 误命中常驻横幅、屏上有动画元素，也不会卡到 taskTimeout。例：`{"engine":"ruflo","bin":"ruflo","args":["chat"],"busy_pattern":"(?i)esc to interrupt|thinking…"}`（按目标 harness 真正的忙碌行填）。
 
 ### 实时通道（WebSocket）
 

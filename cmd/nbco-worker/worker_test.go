@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -475,17 +476,49 @@ func TestNewWorkerCustomBusyPattern(t *testing.T) {
 }
 
 func TestWaitIdleBusyStableBackstop(t *testing.T) {
-	// busy 常驻命中（误配的 busy_pattern 匹配到屏幕常驻文本）但屏幕彻底冻结：
-	// BusyStable 到点应兜底判完成，而不是空转到 taskTimeout。
-	const frozen = "swarm> ready  ·  esc to interrupt" // 恒 busy 且永不变
-	got, err := waitIdle(context.Background(), waitOpts{
-		Poll: 5 * time.Millisecond, Stable: time.Second, Settle: time.Second,
-		Stuck: time.Minute, Busy: busyRe, BusyStable: 60 * time.Millisecond,
-	}, "boot", func() string { return frozen })
-	if err != nil {
-		t.Fatalf("常驻 busy 冻结屏幕应兜底判完成，got err %v", err)
+	opts := func() waitOpts {
+		return waitOpts{Poll: 5 * time.Millisecond, Stable: time.Second, Settle: time.Second,
+			Stuck: time.Minute, Busy: busyRe, BusyStable: 60 * time.Millisecond}
 	}
-	if got != frozen {
+
+	// 场景1：常驻 busy banner + 每帧跳动的心跳/计时（对抗审查复现的绕过）——
+	// 去噪后无实质变化，BusyStable 到点应兜底判完成，而不是空转到 taskTimeout。
+	n := 0
+	got, err := waitIdle(context.Background(), opts(), "boot", func() string {
+		n++
+		return fmt.Sprintf("swarm> ready  ·  hb:%d  elapsed %ds  esc to interrupt", n, n/3)
+	})
+	if err != nil {
+		t.Fatalf("常驻 busy + 纯动画应兜底判完成，got err %v", err)
+	}
+	if !strings.Contains(got, "swarm>") {
 		t.Fatalf("got %q", got)
+	}
+
+	// 场景2：真流式输出（每帧新增实质文本）——去噪后仍在变，不应被兜底误判完成，
+	// 应一直等到输出停止后按正常 Stable 收尾。
+	m := 0
+	got2, err2 := waitIdle(context.Background(), opts(), "boot", func() string {
+		m++
+		if m <= 40 { // 前 40 帧持续新增实质内容（~200ms，远超 BusyStable=60ms）
+			return "esc to interrupt 工作中\n" + strings.Repeat("真实输出行\n", m)
+		}
+		return "全部完成，最终结果如下" // 停止流式、非 busy → 正常 Stable 收尾
+	})
+	if err2 != nil {
+		t.Fatalf("流式输出不应被误判: %v", err2)
+	}
+	if !strings.Contains(got2, "最终结果") {
+		t.Fatalf("应等到流式结束再收尾，got %q", got2)
+	}
+}
+
+func TestDenoise(t *testing.T) {
+	// 纯数字/spinner 变化去噪后相等；实质文本变化去噪后不等。
+	if denoise("elapsed 12s ↑3.4k tokens ⠹") != denoise("elapsed 99s ↑9.9k tokens ⠸") {
+		t.Error("纯数字/spinner 变化去噪后应相等")
+	}
+	if denoise("写完了登录页") == denoise("写完了注册页") {
+		t.Error("实质文本变化去噪后不应相等")
 	}
 }

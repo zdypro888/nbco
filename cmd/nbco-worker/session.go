@@ -220,6 +220,10 @@ func waitIdle(ctx context.Context, o waitOpts, baseline string, screen func() st
 	var lastChange time.Time
 	lastActivity := start
 	settleDeadline := start.Add(o.Settle)
+	// busy 兜底用「去噪快照」判是否有实质进展：把滴答计时/心跳/token 计数/spinner
+	// 这类纯动画噪声归一掉，避免它们不停使整屏 cur!=last、让 BusyStable 形同虚设。
+	busyRef := ""
+	var busyRefAt time.Time
 
 	for {
 		select {
@@ -249,19 +253,22 @@ func waitIdle(ctx context.Context, o waitOpts, baseline string, screen func() st
 		}
 
 		if busy {
-			// 忙碌但屏幕在变（流式输出）：正常在干活，重置静止计时、继续等。
-			if cur != last {
-				last = cur
-				lastChange = time.Now()
+			last = cur
+			lastChange = time.Now()
+			// 去噪后仍在变=真有实质输出（流式）：重置忙碌兜底计时，继续等。
+			d := denoise(cur)
+			if busyRefAt.IsZero() || d != busyRef {
+				busyRef, busyRefAt = d, time.Now()
 				continue
 			}
-			// 忙碌但屏幕彻底冻结超过 BusyStable：几乎必是 busy_pattern 误匹配到
-			// 常驻文本（提示符/横幅），而非真在干活——兜底判完成，避免空转到超时。
-			if o.BusyStable > 0 && time.Since(lastChange) >= o.BusyStable {
+			// 去噪后连续 BusyStable 无实质变化：几乎必是 busy_pattern 误匹配到常驻
+			// 文本（提示符/横幅）叠加纯动画，而非真在干活——兜底判完成，避免空转。
+			if o.BusyStable > 0 && time.Since(busyRefAt) >= o.BusyStable {
 				return cur, nil
 			}
 			continue
 		}
+		busyRefAt = time.Time{} // 离开忙碌态：下次忙碌窗口重新计时
 		if cur != last {
 			last = cur
 			lastChange = time.Now()
@@ -271,6 +278,20 @@ func waitIdle(ctx context.Context, o waitOpts, baseline string, screen func() st
 			return cur, nil
 		}
 	}
+}
+
+// 去噪：把纯动画噪声归一，好判断「是否有实质进展」。
+//   - 数字串（滴答计时、心跳数、token/peer 计数）→ #
+//   - spinner/进度动画字形（盲文点阵 ⠀-⣿ 与常见 |/-\ ·•… 等）→ *
+var (
+	noiseDigitsRe  = regexp.MustCompile(`[0-9]+`)
+	noiseSpinnerRe = regexp.MustCompile(`[\x{2800}-\x{28FF}|/\\\-—·•…◐◓◑◒▁▂▃▄▅▆▇█]+`)
+)
+
+func denoise(s string) string {
+	s = noiseDigitsRe.ReplaceAllString(s, "#")
+	s = noiseSpinnerRe.ReplaceAllString(s, "*")
+	return s
 }
 
 // tailLines 屏幕最后 n 行有效内容（去掉空行与纯装饰行）。
