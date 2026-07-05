@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zdypro888/nbco/store"
 )
@@ -20,6 +22,8 @@ import (
 const (
 	maxUploadBytes     = 200 << 20
 	maxMultipartMemory = 8 << 20
+	fileGCEvery        = 6 * time.Hour
+	fileGCGrace        = 24 * time.Hour
 )
 
 type fileJSON struct {
@@ -293,4 +297,63 @@ func (s *Server) filePath(rel string) (string, error) {
 		return "", fmt.Errorf("bad path")
 	}
 	return full, nil
+}
+
+func (s *Server) runFileGC(ctx context.Context) {
+	s.gcFileStore(ctx)
+	t := time.NewTicker(fileGCEvery)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.gcFileStore(ctx)
+		}
+	}
+}
+
+func (s *Server) gcFileStore(ctx context.Context) {
+	if err := s.collectOrphanFiles(ctx, fileGCGrace); err != nil {
+		slog.Warn("文件存储 GC 失败", "err", err)
+	}
+}
+
+func (s *Server) collectOrphanFiles(ctx context.Context, grace time.Duration) error {
+	live, err := s.store.FileStoragePaths(ctx)
+	if err != nil {
+		return err
+	}
+	root, err := filepath.Abs(s.fileStorePath)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	cutoff := time.Now().Add(-grace)
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || ctx.Err() != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil || info.ModTime().After(cutoff) {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if strings.HasPrefix(filepath.Base(path), ".upload-") || !live[rel] {
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+		return nil
+	})
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -24,12 +25,39 @@ const (
 	maxNudges        = 2                // 未按格式收尾时的补提醒次数
 )
 
-// 完成哨兵：prompt 要求 CLI 收尾时依次输出这三段。
+// 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
+// 避免任务描述里提前注入固定标记后被 parseCompletion 误认成完成输出。
 const (
 	markSummary = "<<<SUMMARY>>>"
 	markLessons = "<<<LESSONS>>>"
 	markEnd     = "<<<END>>>"
 )
+
+type completionMarks struct {
+	Summary string
+	Lessons string
+	End     string
+}
+
+var defaultCompletionMarks = completionMarks{Summary: markSummary, Lessons: markLessons, End: markEnd}
+
+func newCompletionMarks() completionMarks {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		nonce := fmt.Sprint(time.Now().UnixNano())
+		return completionMarks{
+			Summary: "<<<SUMMARY:" + nonce + ">>>",
+			Lessons: "<<<LESSONS:" + nonce + ">>>",
+			End:     "<<<END:" + nonce + ">>>",
+		}
+	}
+	nonce := hex.EncodeToString(b[:])
+	return completionMarks{
+		Summary: "<<<SUMMARY:" + nonce + ">>>",
+		Lessons: "<<<LESSONS:" + nonce + ">>>",
+		End:     "<<<END:" + nonce + ">>>",
+	}
+}
 
 // Worker 轮询+实时唤醒的执行循环。
 type Worker struct {
@@ -142,7 +170,8 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
 	}
-	prompt := buildPrompt(task, knowledge, history)
+	marks := newCompletionMarks()
+	prompt := buildPromptWithMarks(task, knowledge, history, marks)
 
 	// registerRun 覆盖整个「下载附件 → 跑 CLI → 上传产物」生命周期，且这三段都
 	// 走 runCtx：服务端 cancel 能中断在途的大文件收发，全程受 taskTimeout 约束。
@@ -175,12 +204,12 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	warmup(runCtx, sess.Screen, sess.Write)
 
 	screen, werr := sess.submitAndWait(runCtx, prompt, w.wait)
-	summary, lessons, ok := parseCompletion(screen)
+	summary, lessons, ok := parseCompletionWithMarks(screen, marks)
 	// 长任务可能触发 CLI 上下文压缩，把开头的收尾要求挤掉——用简短提醒补一轮。
 	for n := 0; !ok && werr == nil && n < maxNudges; n++ {
 		log.Printf("任务 #%d 未按格式收尾，补提醒（%d/%d）", task.ID, n+1, maxNudges)
 		screen, werr = sess.submitAndWait(runCtx, completionNudge, w.wait)
-		summary, lessons, ok = parseCompletion(screen)
+		summary, lessons, ok = parseCompletionWithMarks(screen, marks)
 	}
 
 	// 被服务端取消（任务已删或改派）：报告后直接退出，不上传不提交。
@@ -458,6 +487,10 @@ func (w *Worker) report(ctx context.Context, taskID int64, claimID, content stri
 
 // buildPrompt 把任务、历史经验与过程记录拼成给 CLI 的指令，并要求结构化收尾。
 func buildPrompt(task *Task, knowledge, history []string) string {
+	return buildPromptWithMarks(task, knowledge, history, defaultCompletionMarks)
+}
+
+func buildPromptWithMarks(task *Task, knowledge, history []string, marks completionMarks) string {
 	var b strings.Builder
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	fmt.Fprintf(&b, "任务：%s\n", task.Title)
@@ -496,7 +529,7 @@ func buildPrompt(task *Task, knowledge, history []string) string {
 	b.WriteString("如果需要交付文件，请把文件放进 artifacts/ 目录，系统会在提交前自动上传。\n")
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
 	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
-		markSummary, markLessons, markEnd)
+		marks.Summary, marks.Lessons, marks.End)
 	b.WriteString("\n输出完成标记后不要继续解释，等待系统退出当前交互会话。")
 	return b.String()
 }
@@ -507,17 +540,21 @@ const completionNudge = "请现在收尾：按任务开头的要求，依次单�
 // parseCompletion 从渲染屏幕上解析收尾三段。粘贴的任务原文可能被 TUI 回显
 // （其中也含哨兵与占位说明），因此从最后一个候选块往前找，跳过回显的指令块。
 func parseCompletion(out string) (summary, lessons string, ok bool) {
-	for si := strings.LastIndex(out, markSummary); si >= 0; si = strings.LastIndex(out[:si], markSummary) {
-		rest := out[si+len(markSummary):]
-		ei := strings.Index(rest, markEnd)
+	return parseCompletionWithMarks(out, defaultCompletionMarks)
+}
+
+func parseCompletionWithMarks(out string, marks completionMarks) (summary, lessons string, ok bool) {
+	for si := strings.LastIndex(out, marks.Summary); si >= 0; si = strings.LastIndex(out[:si], marks.Summary) {
+		rest := out[si+len(marks.Summary):]
+		ei := strings.Index(rest, marks.End)
 		if ei < 0 {
 			continue // 块未收完（比如只回显了一半）
 		}
 		block := rest[:ei]
 		var s, l string
-		if li := strings.Index(block, markLessons); li >= 0 {
+		if li := strings.Index(block, marks.Lessons); li >= 0 {
 			s = strings.TrimSpace(block[:li])
-			l = strings.TrimSpace(block[li+len(markLessons):])
+			l = strings.TrimSpace(block[li+len(marks.Lessons):])
 		} else {
 			s = strings.TrimSpace(block)
 		}

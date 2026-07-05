@@ -55,6 +55,24 @@ func (s *Store) FileByID(ctx context.Context, id int64) (*File, error) {
 		 FROM files WHERE id = $1`, id))
 }
 
+// FileStoragePaths 返回 files 表仍引用的内容寻址相对路径，用于物理 blob GC。
+func (s *Store) FileStoragePaths(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.pool.Query(ctx, `SELECT storage_path FROM files`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	paths := map[string]bool{}
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		paths[p] = true
+	}
+	return paths, rows.Err()
+}
+
 // AddTaskAttachmentFile 把文件挂到任务附件上。
 func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64, caption string) error {
 	_, err := s.pool.Exec(ctx,

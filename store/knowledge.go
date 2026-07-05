@@ -168,7 +168,7 @@ func (s *Store) KnowledgeByIDs(ctx context.Context, ids []int64) ([]*Knowledge, 
 // KnowledgeNeedingEmbedding 取尚未按当前模型嵌入的知识（回填用）。
 func (s *Store) KnowledgeNeedingEmbedding(ctx context.Context, model string, limit int) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,
-		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 ORDER BY id LIMIT $2`, model, limit)
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 ORDER BY id DESC LIMIT $2`, model, limit)
 }
 
 // RecentKnowledge 最近的知识条目。

@@ -261,6 +261,9 @@ func (o *Orchestrator) maybeCompact(sessionID int64, uncompacted, chars int) {
 	o.mu.Unlock()
 	go func() {
 		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("会话压缩 panic 已恢复", "session", sessionID, "panic", r)
+			}
 			o.mu.Lock()
 			delete(o.compacting, sessionID)
 			o.mu.Unlock()

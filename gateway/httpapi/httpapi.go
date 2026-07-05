@@ -447,6 +447,9 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 
 // Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。
 func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) error {
+	if strings.TrimSpace(s.fileStorePath) != "" {
+		go s.runFileGC(ctx)
+	}
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           s.Handler(),

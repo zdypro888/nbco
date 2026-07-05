@@ -71,17 +71,6 @@ func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, 
 	return s.send(ctx, u.ID, prefix+reply)
 }
 
-func (s *Scheduler) runAIAndSendLimited(ctx context.Context, u *store.User, directive, prefix, label string) bool {
-	done := make(chan bool, 1)
-	s.aiPool.submit(ctx, func() { done <- s.runAIAndSend(ctx, u, directive, prefix, label) })
-	select {
-	case ok := <-done:
-		return ok
-	case <-ctx.Done():
-		return false
-	}
-}
-
 // dispatchAI 派发一轮系统触发的 AI 生成 + 推送，受 aiPool 限并发、对 tick 非阻塞。
 // prefix 前缀（如「🧭 月度人员盘点\n」），after 在推送成功后执行（可为 nil，用于催办升级）。
 func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, directive, prefix, label string, after func()) {
@@ -114,13 +103,20 @@ func (s *Scheduler) tick(ctx context.Context) {
 	}
 	for _, sc := range due {
 		sc := sc
-		s.sendPool.submit(ctx, func() { s.fireSchedule(ctx, sc) })
+		s.schedulePool(sc).submit(ctx, func() { s.fireSchedule(ctx, sc) })
 	}
 	s.deadlinePass(ctx, now)
 	s.nudgePass(ctx, now)
 	s.maybeDailySummary(ctx)
 	s.maybeWeeklyReport(ctx)
 	s.maybeProfileRefresh(ctx)
+}
+
+func (s *Scheduler) schedulePool(sc *store.Schedule) *pool {
+	if sc.Mode == store.ScheduleModeAI && s.orch != nil {
+		return s.aiPool
+	}
+	return s.sendPool
 }
 
 // fireSchedule 触发一条定时任务：展开目标 → 按模式投递（原文或 AI 轮次）。
@@ -158,7 +154,7 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
 					"需要事实（如其今日待办、任务状态）先用工具查询，个性化、简洁、不编造：\n%s\n"+
 					"你的回复会作为主动消息直接推送给该用户。", sc.Message)
-			ok = s.runAIAndSendLimited(ctx, u, directive, "", "定时推送") && ok
+			ok = s.runAIAndSend(ctx, u, directive, "", "定时推送") && ok
 		default:
 			msg := "⏰ 提醒：" + sc.Message
 			ok = s.send(ctx, u.ID, msg) && ok

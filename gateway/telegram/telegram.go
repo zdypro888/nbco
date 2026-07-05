@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -27,6 +28,7 @@ const Provider = "telegram"
 const chunkLimit = 4000
 
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
+var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|blockquote|a)(?:\s+[^>]*)?>`)
 
 // Gateway Telegram 网关。
 type Gateway struct {
@@ -585,7 +587,8 @@ func messageText(msg *models.Message) string {
 	return strings.Join(parts, "\n")
 }
 
-// splitChunks 按行优先、字符兜底分片。
+// splitChunks 按行优先、字符兜底分片；输入可能已是 Telegram HTML，
+// 因此兜底硬切也尽量避开标签与实体中间，减少分片后 HTML 解析失败。
 func splitChunks(s string, limit int) []string {
 	if len([]rune(s)) <= limit {
 		return []string{s}
@@ -602,11 +605,12 @@ func splitChunks(s string, limit int) []string {
 	}
 	for line := range strings.SplitSeq(s, "\n") {
 		runes := []rune(line)
-		// 单行超限：硬切。
+		// 单行超限：尽量在 HTML 安全边界切。
 		for len(runes) > limit {
 			flush()
-			chunks = append(chunks, string(runes[:limit]))
-			runes = runes[limit:]
+			cut := htmlSafeCut(runes, limit)
+			chunks = append(chunks, string(runes[:cut]))
+			runes = runes[cut:]
 		}
 		if curLen+len(runes)+1 > limit {
 			flush()
@@ -616,5 +620,124 @@ func splitChunks(s string, limit int) []string {
 		curLen += len(runes) + 1
 	}
 	flush()
-	return chunks
+	return balanceHTMLChunks(chunks)
+}
+
+func htmlSafeCut(runes []rune, limit int) int {
+	if len(runes) <= limit {
+		return len(runes)
+	}
+	lastSafe := 0
+	inTag := false
+	entityStart := -1
+	for i := 0; i < limit; i++ {
+		r := runes[i]
+		switch {
+		case inTag:
+			if r == '>' {
+				inTag = false
+				lastSafe = i + 1
+			}
+		case entityStart >= 0:
+			if r == ';' {
+				entityStart = -1
+				lastSafe = i + 1
+			} else if unicode.IsSpace(r) || i-entityStart > 12 {
+				entityStart = -1
+				lastSafe = i
+			}
+		case r == '<':
+			inTag = true
+			if i > 0 {
+				lastSafe = i
+			}
+		case r == '&':
+			entityStart = i
+			if i > 0 {
+				lastSafe = i
+			}
+		default:
+			lastSafe = i + 1
+		}
+	}
+	if lastSafe > 0 {
+		return lastSafe
+	}
+	return limit
+}
+
+type htmlOpenTag struct {
+	name string
+	text string
+}
+
+func balanceHTMLChunks(chunks []string) []string {
+	if len(chunks) == 0 {
+		return chunks
+	}
+	out := make([]string, 0, len(chunks))
+	var open []htmlOpenTag
+	for _, chunk := range chunks {
+		prefix := reopenHTMLTags(open)
+		nextOpen := append([]htmlOpenTag(nil), open...)
+		nextOpen = scanHTMLTags(chunk, nextOpen)
+		suffix := closeHTMLTags(nextOpen)
+		out = append(out, prefix+chunk+suffix)
+		open = nextOpen
+	}
+	return out
+}
+
+func scanHTMLTags(s string, open []htmlOpenTag) []htmlOpenTag {
+	for _, token := range htmlTagTokenRe.FindAllString(s, -1) {
+		name := htmlTagName(token)
+		if name == "" {
+			continue
+		}
+		if strings.HasPrefix(token, "</") {
+			open = popHTMLTag(open, name)
+			continue
+		}
+		open = append(open, htmlOpenTag{name: name, text: token})
+	}
+	return open
+}
+
+func htmlTagName(token string) string {
+	token = strings.TrimPrefix(token, "</")
+	token = strings.TrimPrefix(token, "<")
+	token = strings.TrimRight(token, ">")
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return ""
+	}
+	name := strings.Fields(token)[0]
+	return strings.ToLower(strings.TrimPrefix(name, "/"))
+}
+
+func popHTMLTag(open []htmlOpenTag, name string) []htmlOpenTag {
+	for i := len(open) - 1; i >= 0; i-- {
+		if open[i].name == name {
+			return append(open[:i], open[i+1:]...)
+		}
+	}
+	return open
+}
+
+func reopenHTMLTags(open []htmlOpenTag) string {
+	var b strings.Builder
+	for _, tag := range open {
+		b.WriteString(tag.text)
+	}
+	return b.String()
+}
+
+func closeHTMLTags(open []htmlOpenTag) string {
+	var b strings.Builder
+	for i := len(open) - 1; i >= 0; i-- {
+		b.WriteString("</")
+		b.WriteString(open[i].name)
+		b.WriteString(">")
+	}
+	return b.String()
 }

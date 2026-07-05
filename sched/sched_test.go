@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -66,5 +67,19 @@ func TestRenderDigestUnknownUser(t *testing.T) {
 	)
 	if !strings.Contains(out, "用户77") {
 		t.Errorf("未知用户应回退为 ID: %q", out)
+	}
+}
+
+func TestSchedulePoolRoutesAIWithoutSendPool(t *testing.T) {
+	s := &Scheduler{aiPool: newPool(1), sendPool: newPool(1), orch: &chat.Orchestrator{}}
+	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeAI}) != s.aiPool {
+		t.Fatal("AI schedule should use aiPool directly")
+	}
+	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeMessage}) != s.sendPool {
+		t.Fatal("message schedule should use sendPool")
+	}
+	s.orch = nil
+	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeAI}) != s.sendPool {
+		t.Fatal("AI schedule without orchestrator falls back to template sendPool")
 	}
 }

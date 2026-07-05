@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	termCols = 160
-	termRows = 48
+	termCols                = 160
+	termRows                = 48
+	maxStartupPromptAnswers = 4
 
 	// submitEnterDelay：prompt 写入与回车之间的停顿。TUI 对突发输入有 paste
 	// 防抖——连着回车一次性写入会被整体当成粘贴缓冲住，永远不会提交；
@@ -150,6 +151,7 @@ var (
 func warmup(ctx context.Context, screen func() string, write func([]byte) error) {
 	deadline := time.Now().Add(25 * time.Second)
 	var stableSince, lastAnswer time.Time
+	var bypassAnswers, trustAnswers int
 	answer := func(keys string) {
 		_ = write([]byte(keys))
 		lastAnswer = time.Now()
@@ -167,10 +169,18 @@ func warmup(ctx context.Context, screen func() string, write func([]byte) error)
 		}
 		switch {
 		case bypassPromptRe.MatchString(cur):
+			bypassAnswers++
+			if bypassAnswers > maxStartupPromptAnswers {
+				return
+			}
 			// 数字键直接选中确认；若只是高亮则补的 \r 完成确认（多余的空回车无害）。
 			answer("2\r")
 			continue
 		case trustPromptRe.MatchString(cur):
+			trustAnswers++
+			if trustAnswers > maxStartupPromptAnswers {
+				return
+			}
 			answer("\r")
 			continue
 		}

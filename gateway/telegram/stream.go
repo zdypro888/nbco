@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -60,7 +61,12 @@ func (g *Gateway) newStreamEditorEvery(ctx context.Context, chatID int64, editEv
 }
 
 func (ed *streamEditor) loop(ctx context.Context) {
-	defer close(ed.done)
+	defer func() {
+		if r := recover(); r != nil {
+			ed.g.logStreamPanic(ed.chatID, r)
+		}
+		close(ed.done)
+	}()
 	editTick := time.NewTicker(ed.editEvery)
 	defer editTick.Stop()
 	typingTick := time.NewTicker(ed.typingEvery)
@@ -78,13 +84,22 @@ func (ed *streamEditor) loop(ctx context.Context) {
 			select {
 			case typingInFlight <- struct{}{}:
 				go func() {
-					defer func() { <-typingInFlight }()
+					defer func() {
+						if r := recover(); r != nil {
+							ed.g.logStreamPanic(ed.chatID, r)
+						}
+						<-typingInFlight
+					}()
 					ed.g.sendTyping(ctx, ed.chatID)
 				}()
 			default:
 			}
 		}
 	}
+}
+
+func (g *Gateway) logStreamPanic(chatID int64, r any) {
+	slog.Error("Telegram 流式后台 panic 已恢复", "chat", chatID, "panic", r)
 }
 
 // onDelta 收到当前助手消息的累积快照，【替换】显示缓冲（引擎 goroutine 调，只做快

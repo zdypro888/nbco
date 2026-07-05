@@ -73,6 +73,17 @@ func TestPoolRunsAll(t *testing.T) {
 	}
 }
 
+func TestPoolRecoversPanic(t *testing.T) {
+	p := newPool(1)
+	var ran int64
+	p.submit(context.Background(), func() { panic("boom") })
+	p.submit(context.Background(), func() { atomic.AddInt64(&ran, 1) })
+	p.wait()
+	if ran != 1 {
+		t.Fatalf("panic 后后续任务未执行，ran=%d", ran)
+	}
+}
+
 // ctx 已取消时，未开始的任务不执行。
 func TestPoolRespectsCancel(t *testing.T) {
 	p := newPool(1)

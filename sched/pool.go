@@ -2,6 +2,7 @@ package sched
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 )
 
@@ -37,6 +38,11 @@ func (p *pool) submit(ctx context.Context, fn func()) {
 		if ctx.Err() != nil {
 			return
 		}
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("后台任务 panic 已恢复", "panic", r)
+			}
+		}()
 		fn()
 	}()
 }

@@ -74,6 +74,39 @@ func TestSplitChunksLongLine(t *testing.T) {
 	}
 }
 
+func TestSplitChunksAvoidsHTMLTagAndEntityCuts(t *testing.T) {
+	htmlText := strings.Repeat("甲", 8) + "<b>bold</b>" + strings.Repeat("乙", 8) + "&amp;" + strings.Repeat("丙", 8)
+	chunks := splitChunks(htmlText, 20)
+	for _, c := range chunks {
+		if strings.Count(c, "<") != strings.Count(c, ">") {
+			t.Fatalf("chunk cuts HTML tag: %#v", chunks)
+		}
+		if strings.Contains(c, "&am") && !strings.Contains(c, "&amp;") {
+			t.Fatalf("chunk cuts entity: %#v", chunks)
+		}
+	}
+	if strings.Join(chunks, "") != htmlText {
+		t.Fatalf("chunks do not rejoin original: %#v", chunks)
+	}
+}
+
+func TestSplitChunksBalancesOpenHTMLTags(t *testing.T) {
+	htmlText := "<b>" + strings.Repeat("甲", 25) + "</b>"
+	chunks := splitChunks(htmlText, 10)
+	if len(chunks) < 2 {
+		t.Fatalf("expected multiple chunks: %#v", chunks)
+	}
+	for _, c := range chunks {
+		if strings.Count(c, "<b>") != strings.Count(c, "</b>") {
+			t.Fatalf("chunk has unbalanced bold tag: %#v", chunks)
+		}
+	}
+	visible := htmlTagTokenRe.ReplaceAllString(strings.Join(chunks, ""), "")
+	if visible != strings.Repeat("甲", 25) {
+		t.Fatalf("visible text changed: %q chunks=%#v", visible, chunks)
+	}
+}
+
 func TestCommandOf(t *testing.T) {
 	const me = "nbi_jp_bot"
 	cases := map[string]string{

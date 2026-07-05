@@ -80,3 +80,19 @@ func TestReadStreamSkipsNonAssistantAndNilDelta(t *testing.T) {
 		t.Fatal(err) // onDelta=nil 不应 panic
 	}
 }
+
+func TestDropLeadingNonUser(t *testing.T) {
+	msgs := []*schema.Message{
+		schema.AssistantMessage("orphan", nil),
+		schema.UserMessage("hi"),
+		schema.AssistantMessage("ok", nil),
+	}
+	got := dropLeadingNonUser(msgs)
+	if len(got) != 2 || got[0].Role != schema.User || got[0].Content != "hi" {
+		t.Fatalf("dropLeadingNonUser = %+v", got)
+	}
+	got = dropLeadingNonUser([]*schema.Message{schema.AssistantMessage("a", nil)})
+	if len(got) != 0 {
+		t.Fatalf("all assistant history should be dropped: %+v", got)
+	}
+}

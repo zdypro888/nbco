@@ -115,12 +115,20 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 			push(schema.AssistantMessage(m.Content, nil))
 		}
 	}
+	msgs = dropLeadingNonUser(msgs)
 	push(schema.UserMessage(req.UserText))
 
 	// 开启流式：ADK 把助手消息以 StreamReader 逐块吐出，collect 逐块读、把最终
 	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
 	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning)
+}
+
+func dropLeadingNonUser(msgs []*schema.Message) []*schema.Message {
+	for len(msgs) > 0 && msgs[0].Role != schema.User {
+		msgs = msgs[1:]
+	}
+	return msgs
 }
 
 // readStream 逐块读一条流式消息，末尾用 ConcatMessages 重组成完整消息（含拼好的
