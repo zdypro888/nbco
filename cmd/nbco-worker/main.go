@@ -122,25 +122,40 @@ func run(args []string) {
 	if cfg.Bin == "" {
 		cfg.Bin = cfg.Engine
 	}
-	ctxMe, cancelMe := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancelMe()
-	ident, err := newClient(cfg.Server, cfg.Token).Me(ctxMe)
-	if err != nil {
-		log.Fatalf("校验 Worker Access Token 失败: %v", err)
-	}
-	if !ident.IsWorker {
-		log.Fatalf("这个 access token 属于真人员工 #%d %s，不是 worker；请重新 bind Worker Access Token", ident.ID, ident.Name)
-	}
-	cfg.WorkerID = ident.ID
-	cfg.WorkerName = ident.Name
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	ident := waitForWorkerIdentity(ctx, cfg)
+	cfg.WorkerID = ident.ID
+	cfg.WorkerName = ident.Name
 
 	w := newWorker(cfg)
 	log.Printf("nbco-worker 上线：worker=#%d %s config=%s server=%s engine=%s", cfg.WorkerID, cfg.WorkerName, path, cfg.Server, cfg.Engine)
 	w.Loop(ctx)
 	log.Println("已下线")
+}
+
+func waitForWorkerIdentity(ctx context.Context, cfg Config) *Identity {
+	client := newClient(cfg.Server, cfg.Token)
+	for {
+		ctxMe, cancelMe := context.WithTimeout(ctx, 30*time.Second)
+		ident, err := client.Me(ctxMe)
+		cancelMe()
+		if err == nil {
+			if !ident.IsWorker {
+				log.Fatalf("这个 access token 属于真人员工 #%d %s，不是 worker；请重新 bind Worker Access Token", ident.ID, ident.Name)
+			}
+			return ident
+		}
+		log.Printf("校验 Worker Access Token 失败，10 秒后重试: %v", err)
+		select {
+		case <-ctx.Done():
+			log.Println("启动校验已取消")
+			os.Exit(0)
+		case <-time.After(10 * time.Second):
+		}
+	}
 }
 
 func saveConfig(path string, cfg Config) error {
