@@ -47,6 +47,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.FileStorePath != "files" {
 		t.Errorf("FileStorePath 默认值 = %q", cfg.FileStorePath)
 	}
+	if cfg.WorkerDownloadPath != "downloads" {
+		t.Errorf("WorkerDownloadPath 默认值 = %q", cfg.WorkerDownloadPath)
+	}
 }
 
 func TestLoadDailySummaryOff(t *testing.T) {

@@ -67,9 +67,12 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return fmt.Sprintf("已创建 AI worker「%s」。Worker Access Token（仅显示一次，请妥善保存）：\n<code>%s</code>\n"+
-					"用途：只给 nbco-worker 客户端认证使用；不是给真人员工入职的邀请。\n"+
-					"在工作机上运行：nbco-worker bind <nbco-server-url> <上面的 Worker Access Token>，再 nbco-worker run 即可上线接活。\n"+
-					"例如：nbco-worker bind https://im.app:8443 <上面的 Worker Access Token>",
+					"用途：只给 nbco-worker 客户端认证使用；不是给真人员工入职的邀请。\n\n"+
+					"macOS Apple Silicon 一键安装示例：\n"+
+					"<pre>curl -fsSL -o nbco-worker https://im.app:8443/downloads/worker/nbco-worker-darwin-arm64\n"+
+					"chmod +x nbco-worker\n"+
+					"./nbco-worker bootstrap -install-service=true https://im.app:8443 &lt;上面的 Worker Access Token&gt;</pre>\n"+
+					"Linux/Windows 也可从 /downloads/worker/ 下载对应平台二进制；bootstrap 会绑定并安装为系统服务。",
 					w.Name, token), nil
 			}),
 

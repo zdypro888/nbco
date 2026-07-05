@@ -3,6 +3,8 @@
 // 把终端输出实时回传作为进度，完成后提交验收。
 //
 //	nbco-worker bind [-config path] <server> <token>   # 绑定，写本机配置
+//	nbco-worker bootstrap [-config path] [-engine claude|codex] [-bin /path/to/cli] <server> <token>
+//	                                                       # 绑定并安装为系统服务
 //	nbco-worker run [-config path]                      # 上线接活
 package main
 
@@ -55,15 +57,23 @@ func main() {
 	switch os.Args[1] {
 	case "bind":
 		bind(os.Args[2:])
+	case "bootstrap":
+		bootstrap(os.Args[2:])
 	case "run":
 		run(os.Args[2:])
+	case "install-service":
+		installService(os.Args[2:])
+	case "uninstall-service":
+		uninstallService(os.Args[2:])
+	case "service-status":
+		serviceStatus(os.Args[2:])
 	default:
 		usage()
 	}
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "用法：\n  nbco-worker bind [-config path] <server> <token>\n  nbco-worker run [-config path] [-engine claude|codex] [-bin /path/to/cli]\n\n也可用 NBCO_WORKER_CONFIG 指定配置文件。")
+	fmt.Fprintln(os.Stderr, "用法：\n  nbco-worker bind [-config path] <server> <token>\n  nbco-worker bootstrap [-config path] [-engine claude|codex] [-bin /path/to/cli] [-install-service=true] <server> <token>\n  nbco-worker run [-config path] [-engine claude|codex] [-bin /path/to/cli]\n  nbco-worker install-service [-config path] [-engine claude|codex] [-bin /path/to/cli] [-name name]\n  nbco-worker uninstall-service [-config path] [-name name]\n  nbco-worker service-status [-config path] [-name name]\n\n也可用 NBCO_WORKER_CONFIG 指定配置文件。")
 	os.Exit(2)
 }
 
@@ -74,7 +84,39 @@ func bind(args []string) {
 	if fs.NArg() < 2 {
 		usage()
 	}
-	cfg := Config{Server: fs.Arg(0), Token: fs.Arg(1), Engine: "claude"}
+	cfg, path := bindConfig(*cfgFile, fs.Arg(0), fs.Arg(1), Config{Engine: "claude"})
+	fmt.Printf("已绑定 worker #%d %s 到 %s，配置文件：%s。运行 nbco-worker run -config %s 上线接活。\n",
+		cfg.WorkerID, cfg.WorkerName, cfg.Server, path, path)
+}
+
+func bootstrap(args []string) {
+	fs := flag.NewFlagSet("bootstrap", flag.ExitOnError)
+	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
+	engine := fs.String("engine", "claude", "引擎：claude | codex")
+	bin := fs.String("bin", "", "CLI 可执行文件路径")
+	install := fs.Bool("install-service", true, "绑定后安装并启动系统服务")
+	name := fs.String("name", "", "服务名（同机多 worker 时建议指定）")
+	_ = fs.Parse(args)
+	if fs.NArg() < 2 {
+		usage()
+	}
+	cfg, path := bindConfig(*cfgFile, fs.Arg(0), fs.Arg(1), Config{Engine: *engine, Bin: *bin})
+	fmt.Printf("已绑定 worker #%d %s 到 %s，配置文件：%s。\n", cfg.WorkerID, cfg.WorkerName, cfg.Server, path)
+	if *install {
+		if err := installServiceForConfig(path, *engine, *bin, *name); err != nil {
+			log.Fatalf("安装系统服务失败: %v", err)
+		}
+		fmt.Println("系统服务已安装并启动。")
+	}
+}
+
+func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
+	cfg := base
+	cfg.Server = server
+	cfg.Token = token
+	if cfg.Engine == "" {
+		cfg.Engine = "claude"
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
@@ -86,12 +128,11 @@ func bind(args []string) {
 	}
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name
-	path := configPath(*cfgFile)
+	path := configPath(cfgFile)
 	if err := saveConfig(path, cfg); err != nil {
 		log.Fatalf("写配置失败: %v", err)
 	}
-	fmt.Printf("已绑定 worker #%d %s 到 %s，配置文件：%s。运行 nbco-worker run -config %s 上线接活。\n",
-		cfg.WorkerID, cfg.WorkerName, cfg.Server, path, path)
+	return cfg, path
 }
 
 func run(args []string) {

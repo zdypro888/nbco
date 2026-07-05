@@ -5,6 +5,7 @@
   "listen": "127.0.0.1:8900",
   "log_level": "info",
   "file_store_path": "files",
+  "worker_download_path": "downloads",
   "tls_cert_file": "",
   "tls_key_file": "",
   "public_base_url": "",

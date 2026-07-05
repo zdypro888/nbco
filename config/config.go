@@ -59,8 +59,10 @@ type Config struct {
 	Listen        string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
 	LogLevel      string  `json:"log_level"` // debug | info | warn | error，默认 info
 	FileStorePath string  `json:"file_store_path"`
-	TLSCertFile   string  `json:"tls_cert_file"` // 可选；配置后 HTTP 服务改用 HTTPS
-	TLSKeyFile    string  `json:"tls_key_file"`  // 可选；PEM bundle 可与 tls_cert_file 指向同一文件
+	// WorkerDownloadPath 保存 nbco-worker 多平台发行二进制；为空默认 downloads。
+	WorkerDownloadPath string `json:"worker_download_path"`
+	TLSCertFile        string `json:"tls_cert_file"` // 可选；配置后 HTTP 服务改用 HTTPS
+	TLSKeyFile         string `json:"tls_key_file"`  // 可选；PEM bundle 可与 tls_cert_file 指向同一文件
 	// PublicBaseURL 保留给外部回调集成；当前中枢引擎不使用 CLI 回连。
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
@@ -123,6 +125,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.FileStorePath == "" {
 		c.FileStorePath = "files"
+	}
+	if c.WorkerDownloadPath == "" {
+		c.WorkerDownloadPath = "downloads"
 	}
 }
 

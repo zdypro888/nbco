@@ -36,11 +36,12 @@ type Server struct {
 	orch          *chat.Orchestrator
 	deps          tools.Deps
 	fileStorePath string
+	downloadPath  string
 }
 
 // New 创建 HTTP 入口。
-func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, fileStorePath string) *Server {
-	return &Server{store: s, orch: orch, deps: deps, fileStorePath: fileStorePath}
+func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, fileStorePath, downloadPath string) *Server {
+	return &Server{store: s, orch: orch, deps: deps, fileStorePath: fileStorePath, downloadPath: downloadPath}
 }
 
 // Handler 组装路由。
@@ -54,6 +55,7 @@ func (s *Server) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("GET /downloads/worker/{name}", s.handleWorkerDownloadBinary)
 	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/me", s.handleMe)

@@ -40,8 +40,9 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `superadmins` | Telegram 用户 ID 列表（启用 Telegram 时可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |
 | `postgres_dsn` | PostgreSQL 连接串（首次启动自动建表） |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
-| `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 会记录消息与工具调用全文） |
+| `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 只记录消息长度与短哈希，不记录对话/工具明文） |
 | `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释 |
+| `worker_download_path` | `nbco-worker` 多平台发行物目录，默认 `downloads`；服务端通过 `/downloads/worker/...` 提供下载 |
 | `public_base_url` | 保留给外部回调集成，通常留空 |
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
 | `daily_summary_hour` | 每日待办推送小时（0-23），-1 关闭 |
@@ -124,29 +125,53 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 worker 是独立工作代理，不依赖 Telegram；Telegram、Web、HTTP API、MCP 都只是给中枢创建任务和查看结果的入口。文件与产物闭环规划见 [docs/worker-roadmap.md](docs/worker-roadmap.md)。
 每个 worker 必须使用自己独立的 `create_worker` Worker Access Token；服务端用 access token 反查 worker 用户 ID 来区分身份。不要把同一个 Worker Access Token 复制给多个 worker，那会被视为同一个 AI worker，多进程只是在抢同一身份的任务。
 
-本机 LaunchAgent 部署用统一脚本，避免 repo 内二进制/配置与实际运行路径漂移：
+worker 可直接从中枢下载发行二进制：
 
 ```bash
-scripts/deploy-local.sh
+curl -fsSL -o nbco-worker https://im.app:8443/downloads/worker/nbco-worker-darwin-arm64
+chmod +x nbco-worker
+./nbco-worker bootstrap -install-service=true https://im.app:8443 <create_worker 返回的 Worker Access Token>
 ```
 
-脚本会构建 `nbco` / `nbco-worker`，同步到 `~/.local/bin`，复制 `nbco.json` 到 `~/Library/Application Support/nbco/`，重启 `com.zdypro.nbco` 并检查 `/healthz`。
+可下载文件：
+
+- `nbco-worker-darwin-arm64`
+- `nbco-worker-linux-amd64`
+- `nbco-worker-linux-arm64`
+- `nbco-worker-windows-amd64.exe`
+- 对应 `.sha256` 校验文件
+
+`bootstrap` 会完成 `bind`、写配置、安装并启动系统服务。服务化支持：
+
+- macOS：LaunchAgent
+- Linux：`systemd --user`
+- Windows：任务计划（登录时启动）
+
+服务管理：
 
 ```bash
-~/.local/bin/nbco-worker bind https://im.app:8443 <create_worker 返回的 Worker Access Token>
-~/.local/bin/nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
+./nbco-worker service-status
+./nbco-worker install-service [-engine claude|codex] [-bin /path/to/cli]
+./nbco-worker uninstall-service
 ```
 
-`bind` 会校验 token 必须属于 worker，并把 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
+手动模式仍可用：
+
+```bash
+./nbco-worker bind https://im.app:8443 <create_worker 返回的 Worker Access Token>
+./nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
+```
+
+`bind/bootstrap` 会校验 token 必须属于 worker，并把 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
 
 同一台机器跑多个 worker 时，每个 worker 用独立配置文件：
 
 ```bash
-~/.local/bin/nbco-worker bind -config ~/.config/nbco/workers/frontend.json https://im.app:8443 <frontend-worker-token>
-~/.local/bin/nbco-worker bind -config ~/.config/nbco/workers/reviewer.json https://im.app:8443 <reviewer-worker-token>
+./nbco-worker bootstrap -config ~/.config/nbco/workers/frontend.json -name nbco-worker-frontend https://im.app:8443 <frontend-worker-token>
+./nbco-worker bootstrap -config ~/.config/nbco/workers/reviewer.json -name nbco-worker-reviewer https://im.app:8443 <reviewer-worker-token>
 
-~/.local/bin/nbco-worker run -config ~/.config/nbco/workers/frontend.json -engine claude
-~/.local/bin/nbco-worker run -config ~/.config/nbco/workers/reviewer.json -engine codex
+./nbco-worker run -config ~/.config/nbco/workers/frontend.json -engine claude
+./nbco-worker run -config ~/.config/nbco/workers/reviewer.json -engine codex
 ```
 
 也可以用环境变量 `NBCO_WORKER_CONFIG` 指向配置文件。

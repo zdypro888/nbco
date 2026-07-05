@@ -99,7 +99,7 @@ func run(configPath string) error {
 
 	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning)
 
-	api := httpapi.New(st, orch, deps, cfg.FileStorePath)
+	api := httpapi.New(st, orch, deps, cfg.FileStorePath, cfg.WorkerDownloadPath)
 
 	// AI 催办/周报轮次挂在可用入口渠道上；没有 Telegram 时用 HTTP/API 会话。
 	schedulerChannel := httpapi.Channel
