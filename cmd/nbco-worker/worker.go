@@ -342,6 +342,9 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	if err := os.MkdirAll(filepath.Join(dir, "attachments"), 0o755); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(dir, "previous_artifacts"), 0o755); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Join(dir, "artifacts"), 0o755); err != nil {
 		return err
 	}
@@ -351,7 +354,11 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	for i := range task.Attachments {
 		a := &task.Attachments[i]
 		name := attachmentFileName(*a)
-		dst := filepath.Join(dir, "attachments", name)
+		subdir := "attachments"
+		if a.Kind == "previous_artifact" {
+			subdir = "previous_artifacts"
+		}
+		dst := filepath.Join(dir, subdir, name)
 		if err := w.client.DownloadFile(ctx, a.DownloadURL, dst); err != nil {
 			return fmt.Errorf("%s: %w", a.OriginalName, err)
 		}
@@ -364,7 +371,7 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 				return fmt.Errorf("%s sha256 不匹配", a.OriginalName)
 			}
 		}
-		a.LocalPath = filepath.ToSlash(filepath.Join("attachments", name))
+		a.LocalPath = filepath.ToSlash(filepath.Join(subdir, name))
 	}
 	return nil
 }
@@ -516,13 +523,25 @@ func buildPromptWithMarks(task *Task, knowledge, history []string, marks complet
 		}
 	}
 	if len(task.Attachments) > 0 {
-		b.WriteString("\n任务附件已下载到当前工作目录的 attachments/：\n")
+		b.WriteString("\n任务输入文件已下载到当前工作目录：\n")
 		for _, a := range task.Attachments {
 			path := a.LocalPath
 			if path == "" {
-				path = filepath.ToSlash(filepath.Join("attachments", attachmentFileName(a)))
+				subdir := "attachments"
+				if a.Kind == "previous_artifact" {
+					subdir = "previous_artifacts"
+				}
+				path = filepath.ToSlash(filepath.Join(subdir, attachmentFileName(a)))
 			}
-			fmt.Fprintf(&b, "- %s（%s，%d bytes）\n", path, a.MIMEType, a.SizeBytes)
+			label := "任务附件"
+			if a.Kind == "previous_artifact" {
+				label = "上一轮产物（返工参考，只读输入）"
+			}
+			if a.Caption != "" {
+				fmt.Fprintf(&b, "- [%s] %s（%s，%d bytes，说明：%s）\n", label, path, a.MIMEType, a.SizeBytes, a.Caption)
+			} else {
+				fmt.Fprintf(&b, "- [%s] %s（%s，%d bytes）\n", label, path, a.MIMEType, a.SizeBytes)
+			}
 		}
 	}
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")

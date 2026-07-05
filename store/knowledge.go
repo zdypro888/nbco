@@ -64,13 +64,40 @@ func (s *Store) DeleteKnowledge(ctx context.Context, id int64) error {
 // SearchKnowledge 词法检索：把 query 切成词，任一词命中标题/正文，或整串命中 tag，
 // 按「命中词数」优先、其次新旧排序。比单串 ILIKE 更能召回多关键词查询。
 func (s *Store) SearchKnowledge(ctx context.Context, query string, limit int) ([]*Knowledge, error) {
+	return s.searchKnowledge(ctx, query, limit, "", nil)
+}
+
+// SearchKnowledgeByAuthor 按作者优先检索知识，用于 worker 个人经验。
+func (s *Store) SearchKnowledgeByAuthor(ctx context.Context, authorID int64, query string, limit int) ([]*Knowledge, error) {
+	return s.searchKnowledge(ctx, query, limit, "author_id = $%d", []any{authorID})
+}
+
+// SearchKnowledgeByTag 按标签优先检索知识，用于项目/worker 等维度经验。
+func (s *Store) SearchKnowledgeByTag(ctx context.Context, tag, query string, limit int) ([]*Knowledge, error) {
+	return s.searchKnowledge(ctx, query, limit, "$%d = ANY(tags)", []any{tag})
+}
+
+func (s *Store) searchKnowledge(ctx context.Context, query string, limit int, scopeTpl string, scopeArgs []any) ([]*Knowledge, error) {
 	terms := searchTerms(query)
 	if len(terms) == 0 {
-		return s.RecentKnowledge(ctx, limit)
+		if scopeTpl == "" {
+			return s.RecentKnowledge(ctx, limit)
+		}
+		args := append([]any{}, scopeArgs...)
+		scope := fmt.Sprintf(scopeTpl, len(args))
+		args = append(args, limit)
+		return s.queryKnowledge(ctx,
+			`SELECT `+knowledgeCols+` FROM knowledge WHERE `+scope+` ORDER BY id DESC LIMIT $`+fmt.Sprint(len(args)), args...)
 	}
 	// 为每个词构造一个 ILIKE 条件，score = 命中词数。
 	var conds []string
-	args := []any{query} // $1 = 整串（tag 精确匹配）
+	args := append([]any{}, scopeArgs...)
+	var scope string
+	if scopeTpl != "" {
+		scope = fmt.Sprintf(scopeTpl, len(args))
+	}
+	args = append(args, query) // exactArg = 整串（tag 精确匹配）
+	exactArg := fmt.Sprintf("$%d", len(args))
 	scoreParts := []string{}
 	for _, t := range terms {
 		args = append(args, "%"+escapeLike(t)+"%")
@@ -79,12 +106,16 @@ func (s *Store) SearchKnowledge(ctx context.Context, query string, limit int) ([
 		scoreParts = append(scoreParts, fmt.Sprintf("(CASE WHEN title ILIKE %s OR content ILIKE %s THEN 1 ELSE 0 END)", p, p))
 	}
 	args = append(args, limit)
+	where := fmt.Sprintf("(%s = ANY(tags) OR %s)", exactArg, strings.Join(conds, " OR "))
+	if scope != "" {
+		where = scope + " AND " + where
+	}
 	sql := fmt.Sprintf(
 		`SELECT `+knowledgeCols+` FROM knowledge
-		 WHERE $1 = ANY(tags) OR %s
-		 ORDER BY (CASE WHEN $1 = ANY(tags) THEN 100 ELSE 0 END) + %s DESC, id DESC
+		 WHERE %s
+		 ORDER BY (CASE WHEN %s = ANY(tags) THEN 100 ELSE 0 END) + %s DESC, id DESC
 		 LIMIT $%d`,
-		strings.Join(conds, " OR "), strings.Join(scoreParts, " + "), len(args))
+		where, exactArg, strings.Join(scoreParts, " + "), len(args))
 	return s.queryKnowledge(ctx, sql, args...)
 }
 

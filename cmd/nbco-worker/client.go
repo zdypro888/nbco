@@ -81,6 +81,8 @@ type Task struct {
 type Attachment struct {
 	ID           int64  `json:"id"`
 	OriginalName string `json:"original_name"`
+	Kind         string `json:"kind,omitempty"`
+	Caption      string `json:"caption,omitempty"`
 	MIMEType     string `json:"mime_type"`
 	SizeBytes    int64  `json:"size_bytes"`
 	SHA256       string `json:"sha256"`

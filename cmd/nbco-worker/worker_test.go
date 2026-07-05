@@ -116,9 +116,13 @@ func TestBuildPromptWithAttachmentsAndArtifacts(t *testing.T) {
 		Attachments: []Attachment{{
 			ID: 7, OriginalName: "report.pdf", MIMEType: "application/pdf",
 			SizeBytes: 123, LocalPath: "attachments/7-report.pdf",
+		}, {
+			ID: 8, OriginalName: "old-result.txt", Kind: "previous_artifact", Caption: "上一轮结果",
+			MIMEType: "text/plain", SizeBytes: 9, LocalPath: "previous_artifacts/8-old-result.txt",
 		}},
 	}, nil, nil)
-	for _, want := range []string{"attachments/7-report.pdf", "application/pdf", "artifacts/"} {
+	for _, want := range []string{"attachments/7-report.pdf", "previous_artifacts/8-old-result.txt",
+		"上一轮产物", "上一轮结果", "application/pdf", "artifacts/"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("prompt 缺 %q:\n%s", want, p)
 		}

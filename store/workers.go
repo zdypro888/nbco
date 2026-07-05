@@ -62,7 +62,8 @@ func (s *Store) WorkerHeartbeat(ctx context.Context, workerID int64) error {
 	return err
 }
 
-// ClaimNextTask 原子认领 worker 的下一个待办任务：取最早的 pending 置为 in_progress。
+// ClaimNextTask 原子认领 worker 的下一个待办任务：取最早的 pending 或未持有
+// claim 的返工 in_progress 置为 in_progress。
 // 无任务返回 ErrNotFound。SKIP LOCKED 防多进程重复认领。
 // 已被 worker 认领但超时未提交的 in_progress 任务会被回收，避免 client 崩溃后永久卡住。
 func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error) {
@@ -83,6 +84,7 @@ func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error
 			   WHERE assignee_id = $1
 			     AND (
 			       status = 'pending'
+			       OR (status = 'in_progress' AND worker_claimed_at IS NULL)
 			       OR (status = 'in_progress' AND worker_claimed_at IS NOT NULL AND worker_claimed_at <= $2)
 			     )
 			   ORDER BY

@@ -192,7 +192,8 @@ func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin 
 	return ok, err
 }
 
-// WorkerCanDownloadFile 判断 worker 是否能用当前 claim 下载某个任务附件。
+// WorkerCanDownloadFile 判断 worker 是否能用当前 claim 下载某个任务输入文件。
+// 输入包括原始任务附件，以及返工时上一轮提交过的产物。
 func (s *Store) WorkerCanDownloadFile(ctx context.Context, taskID, workerID int64, claimID string, fileID int64) (bool, error) {
 	if claimID == "" {
 		return false, nil
@@ -201,6 +202,10 @@ func (s *Store) WorkerCanDownloadFile(ctx context.Context, taskID, workerID int6
 	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS(
 		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
+		    WHERE a.task_id = $1 AND a.file_id = $4
+		      AND t.assignee_id = $2 AND t.status = 'in_progress' AND t.worker_claim_id = $3
+		    UNION ALL
+		    SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
 		    WHERE a.task_id = $1 AND a.file_id = $4
 		      AND t.assignee_id = $2 AND t.status = 'in_progress' AND t.worker_claim_id = $3
 		)`, taskID, workerID, claimID, fileID).Scan(&ok)

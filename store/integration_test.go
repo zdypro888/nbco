@@ -231,6 +231,36 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	}
 }
 
+func TestWorkerClaimRejectedTaskWithoutClaim(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "返工任务", nil)
+
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RejectTask(ctx, tk.ID, boss.ID, "还要补文件"); err != nil {
+		t.Fatal(err)
+	}
+	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reclaimed.ID != tk.ID || reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
+		t.Fatalf("打回任务应刷新 claim 后重新认领: first=%q second=%+v", claimed.WorkerClaimID, reclaimed)
+	}
+}
+
 func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -296,6 +326,12 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	}
 	if ok, err := s.UserCanAccessFile(ctx, boss.ID, false, out.ID); err != nil || !ok {
 		t.Fatalf("分配者应可访问产物 ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, "stale", out.ID); err != nil || ok {
+		t.Fatalf("旧 claim 不应可下载历史产物 ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, out.ID); err != nil || !ok {
+		t.Fatalf("worker 应可用当前 claim 下载历史产物 ok=%v err=%v", ok, err)
 	}
 }
 
@@ -923,6 +959,17 @@ func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
 	}
 	if !hasK2 || hasK1 {
 		t.Fatalf("待回填应含 k2 不含 k1: need=%+v", need)
+	}
+	if _, err := s.CreateKnowledge(ctx, "前端踩坑", "按钮态要覆盖 loading", []string{"project:9", "worker:7"}, author.ID); err != nil {
+		t.Fatal(err)
+	}
+	byAuthor, err := s.SearchKnowledgeByAuthor(ctx, author.ID, "按钮", 5)
+	if err != nil || len(byAuthor) == 0 || byAuthor[0].Title != "前端踩坑" {
+		t.Fatalf("按作者检索知识 = %+v err=%v", byAuthor, err)
+	}
+	byTag, err := s.SearchKnowledgeByTag(ctx, "project:9", "按钮", 5)
+	if err != nil || len(byTag) == 0 || byTag[0].Title != "前端踩坑" {
+		t.Fatalf("按项目标签检索知识 = %+v err=%v", byTag, err)
 	}
 	// KnowledgeByIDs 保序。
 	byIDs, _ := s.KnowledgeByIDs(ctx, []int64{k2.ID, k1.ID})

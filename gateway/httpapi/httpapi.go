@@ -287,9 +287,15 @@ func (s *Server) userNames(ctx context.Context) (map[int64]string, error) {
 // --- AI 员工（worker）接口 ---
 
 const (
-	workerKnowledgeHits  = 3
+	workerKnowledgeHits  = 4
 	workerHistoryEntries = 10 // 领取任务时随带的最近过程记录条数（返工时含打回理由）
 )
+
+type workerFileJSON struct {
+	fileJSON
+	Kind    string `json:"kind,omitempty"`
+	Caption string `json:"caption,omitempty"`
+}
 
 // requireWorker 认证并要求是 worker 用户。
 func (s *Server) requireWorker(w http.ResponseWriter, r *http.Request) *store.User {
@@ -323,11 +329,34 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "认领失败"})
 		return
 	}
-	// 进化：用任务标题+描述语义检索知识库，把公司相关经验交给 worker 一起干。
+	// 进化：注入服务端托管的 worker/project 记忆。每个任务仍干净启动 PTY，
+	// 长期经验由中枢检索后下发，避免本地记忆分裂、不可审计。
 	var lessons []string
 	query := t.Title
 	if strings.TrimSpace(t.Description) != "" {
 		query += " " + t.Description
+	}
+	if ps, err := s.store.ProfilesBy(ctx, u.ID, u.ID); err == nil {
+		for _, p := range ps {
+			lessons = append(lessons, "我的工作画像："+p.Content)
+		}
+	}
+	if u.OwnerID != nil {
+		if ps, err := s.store.ProfilesBy(ctx, u.ID, *u.OwnerID); err == nil {
+			for _, p := range ps {
+				lessons = append(lessons, "监护人对我的工作画像："+p.Content)
+			}
+		}
+	}
+	if ks, err := s.store.SearchKnowledgeByAuthor(ctx, u.ID, query, workerKnowledgeHits); err == nil {
+		for _, k := range ks {
+			lessons = append(lessons, "我的历史经验："+k.Title+"："+k.Content)
+		}
+	}
+	if ks, err := s.store.SearchKnowledgeByTag(ctx, fmt.Sprintf("project:%d", t.ProjectID), query, workerKnowledgeHits); err == nil {
+		for _, k := range ks {
+			lessons = append(lessons, "本项目历史经验："+k.Title+"："+k.Content)
+		}
 	}
 	var ks []*store.Knowledge
 	if s.deps.Knowledge != nil {
@@ -348,14 +377,29 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 			history = append(history, pr.Content)
 		}
 	}
-	var attachments []fileJSON
+	var attachments []workerFileJSON
 	if fs, err := s.store.TaskFileAttachments(ctx, t.ID); err == nil {
 		for _, f := range fs {
 			q := url.Values{"task_id": {fmt.Sprint(t.ID)}, "claim_id": {t.WorkerClaimID}}
-			attachments = append(attachments, toFileJSON(f, "/api/worker/files/"+fmt.Sprint(f.ID)+"?"+q.Encode()))
+			attachments = append(attachments, workerFileJSON{
+				fileJSON: toFileJSON(f, "/api/worker/files/"+fmt.Sprint(f.ID)+"?"+q.Encode()),
+				Kind:     "attachment",
+			})
 		}
 	} else {
 		slog.Warn("worker 附件查询失败", "worker", u.ID, "task", t.ID, "err", err)
+	}
+	if arts, err := s.store.TaskArtifacts(ctx, t.ID); err == nil {
+		for _, a := range arts {
+			q := url.Values{"task_id": {fmt.Sprint(t.ID)}, "claim_id": {t.WorkerClaimID}}
+			attachments = append(attachments, workerFileJSON{
+				fileJSON: toFileJSON(a.File, "/api/worker/files/"+fmt.Sprint(a.File.ID)+"?"+q.Encode()),
+				Kind:     "previous_artifact",
+				Caption:  a.Caption,
+			})
+		}
+	} else {
+		slog.Warn("worker 产物查询失败", "worker", u.ID, "task", t.ID, "err", err)
 	}
 	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -425,7 +469,8 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	// 进化：可复用经验回流知识库，供后续同类任务检索。
 	if lessons := strings.TrimSpace(req.Lessons); lessons != "" {
-		if _, err := s.store.CreateKnowledge(ctx, t.Title, lessons, []string{"worker经验"}, u.ID); err != nil {
+		tags := []string{"worker经验", fmt.Sprintf("worker:%d", u.ID), fmt.Sprintf("project:%d", t.ProjectID)}
+		if _, err := s.store.CreateKnowledge(ctx, t.Title, lessons, tags, u.ID); err != nil {
 			slog.Warn("worker 经验入库失败", "task", t.ID, "err", err)
 		}
 	}
