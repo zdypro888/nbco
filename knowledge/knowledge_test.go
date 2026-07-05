@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -89,12 +90,14 @@ func TestSemanticSearchRanks(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 用 Backfill（同步）确保三条都嵌入，消除异步竞态。
+	var cursor int64
 	for {
-		_, embedded, err := svc.Backfill(ctx, 10)
+		res, err := svc.Backfill(ctx, 10, cursor)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if embedded == 0 {
+		cursor = res.LastID
+		if !res.HasMore {
 			break
 		}
 	}
@@ -117,6 +120,64 @@ func (failEmbedder) Embed(context.Context, []string) ([][]float32, error) {
 	return nil, context.DeadlineExceeded
 }
 
+type selectiveEmbedder struct{}
+
+func (selectiveEmbedder) Model() string { return "selective" }
+func (selectiveEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	out := make([][]float32, len(texts))
+	for i, text := range texts {
+		if strings.Contains(text, "BAD") {
+			return nil, fmt.Errorf("bad content")
+		}
+		out[i] = []float32{1, float32(len(text))}
+	}
+	return out, nil
+}
+
+func TestBackfillSkipsFailedRowsWithoutStarvingLaterKnowledge(t *testing.T) {
+	s, ctx := openKnowledgeTestStore(t)
+	u, err := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "kbskip"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad, err := s.CreateKnowledge(ctx, "BAD", "不能向量化", nil, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	good, err := s.CreateKnowledge(ctx, "GOOD", "可以向量化", nil, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svc := New(s, selectiveEmbedder{})
+	res, err := svc.Backfill(ctx, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Attempted != 1 || res.Embedded != 0 || res.LastID != bad.ID || !res.HasMore {
+		t.Fatalf("bad batch = %+v, badID=%d", res, bad.ID)
+	}
+	res, err = svc.Backfill(ctx, 1, res.LastID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Attempted != 1 || res.Embedded != 1 || res.LastID != good.ID {
+		t.Fatalf("good batch = %+v, goodID=%d", res, good.ID)
+	}
+	need, err := s.KnowledgeNeedingEmbedding(ctx, "selective:2", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stillNeedsBad, stillNeedsGood bool
+	for _, k := range need {
+		stillNeedsBad = stillNeedsBad || k.ID == bad.ID
+		stillNeedsGood = stillNeedsGood || k.ID == good.ID
+	}
+	if !stillNeedsBad || stillNeedsGood {
+		t.Fatalf("失败行应保留待重试，后续成功行不应再待回填: need=%+v", need)
+	}
+}
+
 func TestBackfillStopsWhenServiceDown(t *testing.T) {
 	s, ctx := openKnowledgeTestStore(t)
 	u, err := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "kbfail"})
@@ -128,15 +189,15 @@ func TestBackfillStopsWhenServiceDown(t *testing.T) {
 	}
 
 	// 服务失败：探测失败→返回 error、零尝试零成功（驱动据此停手，不空转）。
-	attempted, embedded, err := New(s, failEmbedder{}).Backfill(ctx, 10)
+	res, err := New(s, failEmbedder{}).Backfill(ctx, 10, 0)
 	if err == nil {
 		t.Fatal("服务失败应返回 error 让驱动停手")
 	}
-	if attempted != 0 || embedded != 0 {
-		t.Fatalf("探测失败不应尝试嵌入: attempted=%d embedded=%d", attempted, embedded)
+	if res.Attempted != 0 || res.Embedded != 0 {
+		t.Fatalf("探测失败不应尝试嵌入: %+v", res)
 	}
 	// nil embedder：安全空返回。
-	if a, e, err := New(s, nil).Backfill(ctx, 10); a != 0 || e != 0 || err != nil {
-		t.Fatalf("nil embedder Backfill = %d %d %v", a, e, err)
+	if res, err := New(s, nil).Backfill(ctx, 10, 0); res.Attempted != 0 || res.Embedded != 0 || err != nil {
+		t.Fatalf("nil embedder Backfill = %+v %v", res, err)
 	}
 }

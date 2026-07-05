@@ -300,6 +300,11 @@ func (s *Server) filePath(rel string) (string, error) {
 }
 
 func (s *Server) runFileGC(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("文件存储 GC panic 已恢复", "panic", r)
+		}
+	}()
 	s.gcFileStore(ctx)
 	t := time.NewTicker(fileGCEvery)
 	defer t.Stop()

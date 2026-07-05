@@ -158,38 +158,48 @@ func merge(primary, secondary []*store.Knowledge, limit int) []*store.Knowledge 
 	return out
 }
 
+// BackfillResult 是一次回填扫描批次的结果。
+type BackfillResult struct {
+	Attempted int
+	Embedded  int
+	LastID    int64
+	HasMore   bool
+}
+
 // Backfill 给尚未按「当前模型:维度」嵌入的知识补 embedding（启动后台跑）。
-// 返回 (attempted 本批尝试数, embedded 本批成功落库数)。成功数用于让驱动循环
-// 在「零推进」时收敛退出，杜绝 embedding 服务失败时的死循环空转。
+// afterID 是本轮扫描游标。失败行不会更新 embedding，但 LastID 仍会推进到本批
+// 最后一行，避免内容级失败行挡住后面的知识。下次进程重启会重新扫描并重试。
 // 先探一次当前维度确定标签：探测失败=服务不可用，直接返回错误让驱动停手。
-func (svc *Service) Backfill(ctx context.Context, batch int) (attempted, embedded int, err error) {
+func (svc *Service) Backfill(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
 	if svc.embedder == nil {
-		return 0, 0, nil
+		return BackfillResult{}, nil
 	}
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	probe, perr := svc.embedder.Embed(ectx, []string{"nbco"})
 	cancel()
 	if perr != nil || len(probe) != 1 || len(probe[0]) == 0 {
-		return 0, 0, fmt.Errorf("embedding 服务探测失败: %w", perr)
+		return BackfillResult{}, fmt.Errorf("embedding 服务探测失败: %w", perr)
 	}
 	tag := modelTag(svc.embedder.Model(), len(probe[0]))
-	ks, err := svc.store.KnowledgeNeedingEmbedding(ctx, tag, batch)
+	ks, err := svc.store.KnowledgeNeedingEmbeddingAfter(ctx, tag, afterID, batch)
 	if err != nil {
-		return 0, 0, err
+		return BackfillResult{}, err
 	}
+	res := BackfillResult{HasMore: len(ks) == batch}
 	for _, k := range ks {
 		if ctx.Err() != nil {
 			break
 		}
+		res.LastID = k.ID
 		ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 		ok := svc.embedOne(ectx, k)
 		cancel()
-		attempted++
+		res.Attempted++
 		if ok {
-			embedded++
+			res.Embedded++
 		}
 	}
-	return attempted, embedded, nil
+	return res, nil
 }
 
 // embedText 拼向量化文本：标题权重高（重复一次），加正文。

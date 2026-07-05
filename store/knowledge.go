@@ -167,8 +167,14 @@ func (s *Store) KnowledgeByIDs(ctx context.Context, ids []int64) ([]*Knowledge, 
 
 // KnowledgeNeedingEmbedding 取尚未按当前模型嵌入的知识（回填用）。
 func (s *Store) KnowledgeNeedingEmbedding(ctx context.Context, model string, limit int) ([]*Knowledge, error) {
+	return s.KnowledgeNeedingEmbeddingAfter(ctx, model, 0, limit)
+}
+
+// KnowledgeNeedingEmbeddingAfter 从 id 游标之后取尚未按当前模型嵌入的知识。
+// 回填驱动用游标顺序扫描整库，避免某个失败行长期挡住它后面的知识。
+func (s *Store) KnowledgeNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,
-		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 ORDER BY id DESC LIMIT $2`, model, limit)
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 AND id > $2 ORDER BY id LIMIT $3`, model, afterID, limit)
 }
 
 // RecentKnowledge 最近的知识条目。

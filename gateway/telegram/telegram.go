@@ -24,8 +24,9 @@ import (
 // Provider 渠道标识（identities.provider / chat_sessions.channel）。
 const Provider = "telegram"
 
-// 消息分片上限（Telegram 上限 4096 字符，留余量）。
-const chunkLimit = 4000
+// 消息分片上限。Telegram 单条上限 4096 字符；这里留出较大余量给 HTML 分片
+// 自动补的重开/闭合标签，避免长格式消息被补标签顶过上限后降级纯文本。
+const chunkLimit = 3200
 
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|blockquote|a)(?:\s+[^>]*)?>`)

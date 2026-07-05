@@ -149,20 +149,24 @@ func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, error) {
 }
 
 // backfillKnowledge 启动后分批给存量知识补 embedding（首次启用语义检索或换模型时）。
-// 收敛与防死循环：探测/DB 出错即停；本批「零成功」即停（服务不可用，不空转重试）；
-// 拉不满一批即停（已补完）；批间小憩，不打爆本地 embedding 服务。
+// 收敛与防死循环：探测/DB 出错即停；用 id 游标扫描整库，单条内容失败只跳过
+// 本轮，不挡住后续知识；拉不满一批即停（已扫完）；批间小憩，不打爆本地服务。
 func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 	const batch = 64
 	total := 0
+	var cursor int64
 	for ctx.Err() == nil {
-		attempted, embedded, err := kb.Backfill(ctx, batch)
+		res, err := kb.Backfill(ctx, batch, cursor)
 		if err != nil {
 			slog.Warn("知识 embedding 回填中止（服务不可用，重启后再试）", "err", err)
 			break
 		}
-		total += embedded
-		if embedded == 0 || attempted < batch {
-			break // 零推进（服务失败）或已补完
+		total += res.Embedded
+		if res.LastID > cursor {
+			cursor = res.LastID
+		}
+		if res.Attempted == 0 || !res.HasMore {
+			break // 已扫完
 		}
 		select {
 		case <-ctx.Done():
