@@ -371,7 +371,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	text := messageText(msg)
 	externalID := strconv.FormatInt(msg.From.ID, 10)
 
-	slog.Debug("TG 消息", "tg_user", msg.From.ID, "chat", chatID, "text", text)
+	slog.Debug("TG 消息", "tg_user", msg.From.ID, "chat", chatID, "text_len", len(text))
 
 	u, err := g.store.UserByIdentity(ctx, Provider, externalID)
 	if errors.Is(err, store.ErrNotFound) {

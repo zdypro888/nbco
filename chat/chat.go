@@ -4,6 +4,8 @@ package chat
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -169,7 +171,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	start := time.Now()
 	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
-	slog.Debug("轮次输入", "session", sess.ID, "text", text)
+	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
 
 	toolset := tools.ForUser(o.deps, u, &sess.ID)
 	if isGroupChannel(channel) {
@@ -189,7 +191,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			case s.Kind == ai.StepToolCall:
 				slog.Info("工具调用", "session", sess.ID, "tool", s.ToolName, "result_len", len(s.Result))
 				slog.Debug("工具调用详情", "session", sess.ID, "tool", s.ToolName,
-					"args", string(s.Args), "result", truncate(s.Result, 500))
+					"args_len", len(s.Args), "args_sha", contentHash(string(s.Args)),
+					"result_len", len(s.Result), "result_sha", contentHash(s.Result))
 			case s.Kind == ai.StepText:
 				slog.Debug("模型产出", "session", sess.ID, "text_len", len(s.Result))
 			}
@@ -222,7 +225,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	slog.Info("轮次完成", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond),
 		"steps", len(res.Steps), "in_tokens", res.Usage.InputTokens, "out_tokens", res.Usage.OutputTokens,
 		"reply_len", len(res.Text))
-	slog.Debug("轮次答复", "session", sess.ID, "text", truncate(res.Text, 500))
+	slog.Debug("轮次答复", "session", sess.ID, "reply_len", len(res.Text), "reply_sha", contentHash(res.Text))
 
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
 	if err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), res.Text); err != nil {
@@ -384,11 +387,9 @@ func (o *Orchestrator) ensureGroupSession(ctx context.Context, u *store.User, ch
 	return sess, nil
 }
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
+func contentHash(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:8])
 }
 
 // ensureSession 取活跃会话；不存在或引擎不匹配时新开。
