@@ -348,13 +348,28 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if ks, err := s.store.SearchKnowledgeByAuthor(ctx, u.ID, query, workerKnowledgeHits); err == nil {
-		for _, k := range ks {
+	var personal []*store.Knowledge
+	var personalErr error
+	if s.deps.Knowledge != nil {
+		personal, personalErr = s.deps.Knowledge.SearchByAuthor(ctx, u.ID, query, workerKnowledgeHits)
+	} else {
+		personal, personalErr = s.store.SearchKnowledgeByAuthor(ctx, u.ID, query, workerKnowledgeHits)
+	}
+	if personalErr == nil {
+		for _, k := range personal {
 			lessons = append(lessons, "我的历史经验："+k.Title+"："+k.Content)
 		}
 	}
-	if ks, err := s.store.SearchKnowledgeByTag(ctx, fmt.Sprintf("project:%d", t.ProjectID), query, workerKnowledgeHits); err == nil {
-		for _, k := range ks {
+	projectTag := fmt.Sprintf("project:%d", t.ProjectID)
+	var project []*store.Knowledge
+	var projectErr error
+	if s.deps.Knowledge != nil {
+		project, projectErr = s.deps.Knowledge.SearchByTag(ctx, projectTag, query, workerKnowledgeHits)
+	} else {
+		project, projectErr = s.store.SearchKnowledgeByTag(ctx, projectTag, query, workerKnowledgeHits)
+	}
+	if projectErr == nil {
+		for _, k := range project {
 			lessons = append(lessons, "本项目历史经验："+k.Title+"："+k.Content)
 		}
 	}

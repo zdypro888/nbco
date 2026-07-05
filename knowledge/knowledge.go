@@ -87,17 +87,49 @@ func modelTag(model string, dim int) string {
 
 // Search 混合检索：有 embedder 则语义 cosine + 词法融合，否则纯词法。
 func (svc *Service) Search(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+	return svc.search(ctx, query, limit, svc.store.SearchKnowledge, svc.store.EmbeddedKnowledge)
+}
+
+// SearchByAuthor 在指定作者的知识内做混合检索，用于 worker 个人经验。
+func (svc *Service) SearchByAuthor(ctx context.Context, authorID int64, query string, limit int) ([]*store.Knowledge, error) {
+	return svc.search(ctx, query, limit,
+		func(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+			return svc.store.SearchKnowledgeByAuthor(ctx, authorID, query, limit)
+		},
+		func(ctx context.Context, model string) ([]store.KnowledgeVec, error) {
+			return svc.store.EmbeddedKnowledgeByAuthor(ctx, model, authorID)
+		})
+}
+
+// SearchByTag 在指定标签的知识内做混合检索，用于项目/worker 经验。
+func (svc *Service) SearchByTag(ctx context.Context, tag, query string, limit int) ([]*store.Knowledge, error) {
+	return svc.search(ctx, query, limit,
+		func(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+			return svc.store.SearchKnowledgeByTag(ctx, tag, query, limit)
+		},
+		func(ctx context.Context, model string) ([]store.KnowledgeVec, error) {
+			return svc.store.EmbeddedKnowledgeByTag(ctx, model, tag)
+		})
+}
+
+func (svc *Service) search(
+	ctx context.Context,
+	query string,
+	limit int,
+	lexicalSearch func(context.Context, string, int) ([]*store.Knowledge, error),
+	semanticCandidates func(context.Context, string) ([]store.KnowledgeVec, error),
+) ([]*store.Knowledge, error) {
 	if limit <= 0 {
 		limit = 5
 	}
-	lexical, err := svc.store.SearchKnowledge(ctx, query, limit)
+	lexical, err := lexicalSearch(ctx, query, limit)
 	if err != nil {
 		return nil, err
 	}
 	if svc.embedder == nil {
 		return lexical, nil
 	}
-	ranked, serr := svc.semantic(ctx, query, limit)
+	ranked, serr := svc.semantic(ctx, query, limit, semanticCandidates)
 	if serr != nil {
 		slog.Warn("语义检索失败，回退词法", "err", serr)
 		return lexical, nil
@@ -107,7 +139,7 @@ func (svc *Service) Search(ctx context.Context, query string, limit int) ([]*sto
 
 // semantic 查询向量化 → 与「同模型同维度」的已嵌入知识做 cosine → 取 topN。
 // 按 modelTag（含维度）取候选：维度变更后旧向量自动排除，绝不用零余弦污染结果。
-func (svc *Service) semantic(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+func (svc *Service) semantic(ctx context.Context, query string, limit int, candidates func(context.Context, string) ([]store.KnowledgeVec, error)) ([]*store.Knowledge, error) {
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	defer cancel()
 	qv, err := svc.embedder.Embed(ectx, []string{query})
@@ -115,7 +147,7 @@ func (svc *Service) semantic(ctx context.Context, query string, limit int) ([]*s
 		return nil, err
 	}
 	tag := modelTag(svc.embedder.Model(), len(qv[0]))
-	cands, err := svc.store.EmbeddedKnowledge(ctx, tag)
+	cands, err := candidates(ctx, tag)
 	if err != nil {
 		return nil, err
 	}

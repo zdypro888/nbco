@@ -157,8 +157,21 @@ type KnowledgeVec struct {
 // EmbeddedKnowledge 取所有已用指定模型嵌入的知识向量（供应用层 cosine 排序）。
 // nbco 规模（一家公司的知识库）下全量加载 + 暴力点积足够，无需向量索引扩展。
 func (s *Store) EmbeddedKnowledge(ctx context.Context, model string) ([]KnowledgeVec, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, embedding FROM knowledge WHERE embed_model = $1 AND embedding IS NOT NULL`, model)
+	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL`, model)
+}
+
+// EmbeddedKnowledgeByAuthor 取某作者已嵌入的知识向量。
+func (s *Store) EmbeddedKnowledgeByAuthor(ctx context.Context, model string, authorID int64) ([]KnowledgeVec, error) {
+	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND author_id = $2`, model, authorID)
+}
+
+// EmbeddedKnowledgeByTag 取带指定标签的已嵌入知识向量。
+func (s *Store) EmbeddedKnowledgeByTag(ctx context.Context, model, tag string) ([]KnowledgeVec, error) {
+	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND $2 = ANY(tags)`, model, tag)
+}
+
+func (s *Store) embeddedKnowledge(ctx context.Context, where string, args ...any) ([]KnowledgeVec, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, embedding FROM knowledge WHERE `+where, args...)
 	if err != nil {
 		return nil, err
 	}

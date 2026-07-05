@@ -943,6 +943,10 @@ func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
 	if cands[0].Embedding[2] != 0.3 {
 		t.Fatalf("向量往返值不对: %v", cands[0].Embedding)
 	}
+	authorScoped, err := s.EmbeddedKnowledgeByAuthor(ctx, "test-model", author.ID)
+	if err != nil || len(authorScoped) != 1 || authorScoped[0].ID != k1.ID {
+		t.Fatalf("按作者取向量候选 = %+v err=%v", authorScoped, err)
+	}
 	// 只 k1 嵌入了 test-model；k2 应在待回填列表里。
 	need, err := s.KnowledgeNeedingEmbedding(ctx, "test-model", 10)
 	if err != nil {
@@ -960,8 +964,16 @@ func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
 	if !hasK2 || hasK1 {
 		t.Fatalf("待回填应含 k2 不含 k1: need=%+v", need)
 	}
-	if _, err := s.CreateKnowledge(ctx, "前端踩坑", "按钮态要覆盖 loading", []string{"project:9", "worker:7"}, author.ID); err != nil {
+	k3, err := s.CreateKnowledge(ctx, "前端踩坑", "按钮态要覆盖 loading", []string{"project:9", "worker:7"}, author.ID)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if err := s.SetKnowledgeEmbedding(ctx, k3.ID, "test-model", []float32{0.9, 0.8, 0.7, 0.6}); err != nil {
+		t.Fatal(err)
+	}
+	tagScoped, err := s.EmbeddedKnowledgeByTag(ctx, "test-model", "project:9")
+	if err != nil || len(tagScoped) != 1 || tagScoped[0].ID != k3.ID {
+		t.Fatalf("按标签取向量候选 = %+v err=%v", tagScoped, err)
 	}
 	byAuthor, err := s.SearchKnowledgeByAuthor(ctx, author.ID, "按钮", 5)
 	if err != nil || len(byAuthor) == 0 || byAuthor[0].Title != "前端踩坑" {

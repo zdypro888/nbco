@@ -112,6 +112,57 @@ func TestSemanticSearchRanks(t *testing.T) {
 	}
 }
 
+type fixedEmbedder struct{}
+
+func (fixedEmbedder) Model() string { return "fixed" }
+func (fixedEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i] = []float32{1, 0}
+	}
+	return out, nil
+}
+
+func TestScopedSemanticSearch(t *testing.T) {
+	s, ctx := openKnowledgeTestStore(t)
+	worker, err := s.CreateUser(ctx, "worker", true, store.Identity{Provider: "test", ExternalID: "scoped-worker"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.CreateUser(ctx, "other", true, store.Identity{Provider: "test", ExternalID: "scoped-other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	own, err := s.CreateKnowledge(ctx, "alpha", "beta", []string{"project:7"}, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := s.CreateKnowledge(ctx, "gamma", "delta", []string{"project:8"}, other.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []*store.Knowledge{own, foreign} {
+		if err := s.SetKnowledgeEmbedding(ctx, k.ID, "fixed:2", []float32{1, 0}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc := New(s, fixedEmbedder{})
+	byAuthor, err := svc.SearchByAuthor(ctx, worker.ID, "needle", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byAuthor) != 1 || byAuthor[0].ID != own.ID {
+		t.Fatalf("作者 scoped 语义应只召回自己的经验: %+v", byAuthor)
+	}
+	byTag, err := svc.SearchByTag(ctx, "project:7", "needle", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byTag) != 1 || byTag[0].ID != own.ID {
+		t.Fatalf("项目 scoped 语义应只召回本项目经验: %+v", byTag)
+	}
+}
+
 // failEmbedder：始终失败，验证 Backfill 探测失败即停、不死循环空转。
 type failEmbedder struct{}
 
