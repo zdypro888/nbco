@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -132,6 +133,51 @@ func TestWorkDirIncludesClaimID(t *testing.T) {
 	want := filepath.Join(home, "nbco-work", "task-42", "claim-abc123")
 	if dir != want {
 		t.Fatalf("workDir = %q, want %q", dir, want)
+	}
+}
+
+func TestRunCommandPTY(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY command smoke test is Unix-only in CI")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var progress []string
+	res, err := runCommandPTY(ctx, t.TempDir(), "printf 'hello nbco\\n'", func(s string) {
+		progress = append(progress, s)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ExitCode != 0 {
+		t.Fatalf("exit code = %d output=%q", res.ExitCode, res.Output)
+	}
+	if !strings.Contains(res.Output, "hello nbco") {
+		t.Fatalf("output = %q", res.Output)
+	}
+
+	res, err = runCommandPTY(ctx, t.TempDir(), "printf 'bad\\n'; exit 7", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ExitCode != 7 {
+		t.Fatalf("exit code = %d output=%q", res.ExitCode, res.Output)
+	}
+	if !strings.Contains(res.Output, "bad") {
+		t.Fatalf("output = %q", res.Output)
+	}
+}
+
+func TestLimitedBufferKeepsTail(t *testing.T) {
+	var b limitedBuffer
+	b.Write([]byte(strings.Repeat("a", commandOutputLimit)))
+	b.Write([]byte("tail"))
+	out := b.String()
+	if !strings.HasPrefix(out, "[前序输出已截断]") {
+		t.Fatalf("missing truncation marker: %q", out[:min(len(out), 40)])
+	}
+	if !strings.HasSuffix(out, "tail") {
+		t.Fatalf("buffer should keep tail, got suffix %q", out[max(0, len(out)-20):])
 	}
 }
 

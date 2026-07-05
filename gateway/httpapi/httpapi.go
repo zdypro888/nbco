@@ -359,7 +359,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
-			"description": t.Description, "acceptance": t.Acceptance, "claim_id": t.WorkerClaimID,
+			"description": t.Description, "acceptance": t.Acceptance, "command": t.WorkerCommand, "claim_id": t.WorkerClaimID,
 			"attachments": attachments,
 		},
 		"knowledge": lessons,

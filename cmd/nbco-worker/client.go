@@ -72,6 +72,7 @@ type Task struct {
 	Goal        string       `json:"goal"`
 	Description string       `json:"description"`
 	Acceptance  string       `json:"acceptance"`
+	Command     string       `json:"command"`
 	Attachments []Attachment `json:"attachments"`
 }
 

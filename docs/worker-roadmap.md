@@ -16,6 +16,7 @@
 - WebSocket 增强：`wake` 秒级领活、`cancel` 终止当前任务、`ping/pong` 在线状态。
 - 只用交互式 PTY 驱动 CLI，禁止 `claude -p` / `codex exec`。
 - vt10x 屏幕仿真、两步投递、忙碌感知等待、屏幕快照进度、结构化收尾。
+- 显式命令任务：超管用 `run_worker_command` 派发命令，worker 在任务工作目录里用 PTY 执行系统 shell，输出回传进度并进入验收。
 - 验收打回后自动重新领取，带上历史过程和打回理由返工。
 - HTTP/API 文件上传下载、任务附件挂载、worker 附件下载到 `attachments/`、worker 产物从 `artifacts/` 上传。
 - Telegram 网关可选；未配置 `telegram_token` 时，HTTP/API/MCP/worker 仍可运行。
@@ -96,7 +97,7 @@ worker 是明示安装、明示绑定、明示运行的工作代理：
 - 不静默自更新，不从 Telegram 下发可执行文件后自动运行。
 - 不扫全盘；默认只在配置的 workspace 与当前 task 目录内工作。
 - 不绕过 nbco 审计；任务、进度、取消、产物上传都落库。
-- 不开放任意远程 shell；唯一执行入口是本机用户安装好的 `claude` / `codex` 交互式 PTY。
+- 不开放常驻任意远程 shell；执行入口是任务队列里的显式任务：`claude` / `codex` 交互式 PTY，或超管创建的 `run_worker_command` 一次性命令任务（同样走 PTY、审计、验收）。
 - 不把用户本机密钥、环境变量、任意文件主动上传；只有 worker 产物目录和显式附件参与传输。
 
 ## 实施顺序
@@ -104,7 +105,8 @@ worker 是明示安装、明示绑定、明示运行的工作代理：
 1. [x] 文件模型与本地存储：`files` 表、存储目录、sha256、权限校验、下载接口。
 2. [x] 任务附件下发：`/api/worker/next` 返回附件，worker 下载到 `attachments/`。
 3. [x] worker 产物上传：`artifacts/` 扫描、上传接口、验收通知展示。
-4. [ ] Web UI 文件入口：网页上传/下载，脱离 Telegram 完整可用。
-5. [ ] Telegram 文件适配：Bot API 下载上传文件、必要时发 artifact。
-6. [ ] worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
-7. [ ] 分发安装：release 二进制、校验和、平台安装脚本；仍由用户显式执行。
+4. [x] 显式命令任务：`run_worker_command` → `worker_command` → worker PTY shell 执行并回传。
+5. [ ] Web UI 文件入口：网页上传/下载，脱离 Telegram 完整可用。
+6. [ ] Telegram 文件适配：Bot API 下载上传文件、必要时发 artifact。
+7. [ ] worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
+8. [ ] 分发安装：release 二进制、校验和、平台安装脚本；仍由用户显式执行。

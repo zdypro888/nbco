@@ -73,6 +73,51 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					w.Name, token), nil
 			}),
 
+		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中用 PTY 执行一条 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。超管专用；这是显式命令任务，不是常驻远控。",
+			obj(map[string]any{
+				"worker_id": p("integer", "目标 worker 用户ID"),
+				"command":   p("string", "要执行的命令，如 go test ./..."),
+				"title":     p("string", "任务标题，可选"),
+			}, "worker_id", "command"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					WorkerID int64  `json:"worker_id"`
+					Command  string `json:"command"`
+					Title    string `json:"title"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				cmd := strings.TrimSpace(args.Command)
+				if cmd == "" {
+					return "command 不能为空。", nil
+				}
+				w, err := d.Store.UserByID(ctx, args.WorkerID)
+				if err != nil || !w.IsWorker || w.Status != store.UserActive {
+					return "目标 worker 不存在或不可用。", nil
+				}
+				pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				title := strings.TrimSpace(args.Title)
+				if title == "" {
+					title = "执行命令"
+				}
+				t, err := d.Store.CreateTask(ctx, &store.Task{
+					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
+					Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
+					Description:   "命令任务会在 worker 的本次任务工作目录中执行；如需回传文件，请让命令写入 artifacts/。",
+					Acceptance:    "完成汇报包含退出码和输出摘要；如生成 artifacts/ 文件，应自动上传。",
+					WorkerCommand: cmd, Priority: "high",
+				})
+				if err != nil {
+					return "", err
+				}
+				wakeWorker(d, w)
+				return fmt.Sprintf("已创建 worker 命令任务 #%d，分配给 %s。命令会在该 worker 的任务工作目录中通过 PTY 执行。", t.ID, w.Name), nil
+			}),
+
 		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker 接入 Token（历史任务保留）。超管专用。",
 			obj(map[string]any{"worker_id": p("integer", "worker 用户ID")}, "worker_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {

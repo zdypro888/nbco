@@ -24,7 +24,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"create_project", "assign_task", "delegate_review",
 		"generate_key", "send_message", "update_user_info", "save_infos_on_user",
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
-		"company_overview", "get_ai_settings", "set_ai_settings", "create_worker", "create_role", "disable_user",
+		"company_overview", "get_ai_settings", "set_ai_settings", "create_worker", "run_worker_command", "create_role", "disable_user",
 	} {
 		if names[gone] {
 			t.Errorf("无授权用户不应看到 %s", gone)
@@ -73,7 +73,7 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 			t.Errorf("worker 应保留 %s", keep)
 		}
 	}
-	for _, gone := range []string{"generate_api_token", "list_workers", "grant_active_perm", "schedule_once", "accept_task"} {
+	for _, gone := range []string{"generate_api_token", "list_workers", "run_worker_command", "grant_active_perm", "schedule_once", "accept_task"} {
 		if names[gone] {
 			t.Errorf("worker 不应有 %s", gone)
 		}
@@ -84,7 +84,7 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 func TestForUserSuperadminSeesAll(t *testing.T) {
 	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
 	names := namesOf(ForUser(Deps{}, su, nil))
-	for _, want := range []string{"assign_task", "delegate_review", "company_overview", "get_ai_settings", "set_ai_settings", "create_worker", "send_message", "grant_passive_perm"} {
+	for _, want := range []string{"assign_task", "delegate_review", "company_overview", "get_ai_settings", "set_ai_settings", "create_worker", "run_worker_command", "send_message", "grant_passive_perm"} {
 		if !names[want] {
 			t.Errorf("超管应看到 %s", want)
 		}
@@ -114,7 +114,7 @@ func TestStripGroupSensitive(t *testing.T) {
 	// 群里必须剔除的机密/高危工具。
 	for _, gone := range []string{
 		"generate_api_token", "revoke_api_token", "generate_key", "send_message",
-		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker",
+		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "schedule_push",
 	} {
 		if !full[gone] {

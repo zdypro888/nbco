@@ -155,6 +155,10 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.report(ctx, task.ID, task.ClaimID, "下载任务附件失败: "+err.Error())
 		return
 	}
+	if strings.TrimSpace(task.Command) != "" {
+		w.executeCommand(ctx, runCtx, task, dir)
+		return
+	}
 
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 	if err != nil {
@@ -192,7 +196,41 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		}
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
-	uploaded, failed, rejected, uerr := w.uploadArtifacts(runCtx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
+	summary = w.appendArtifactReport(runCtx, task, dir, summary)
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
+		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
+		return
+	}
+	log.Printf("任务 #%d 已提交验收", task.ID)
+}
+
+func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir string) {
+	command := strings.TrimSpace(task.Command)
+	if err := writeCommandScript(dir, command); err != nil {
+		w.report(ctx, task.ID, task.ClaimID, "⚠️ 保存命令记录失败: "+err.Error())
+	}
+	w.report(ctx, task.ID, task.ClaimID, "🖥 开始执行命令：\n"+command)
+	res, err := runCommandPTY(runCtx, dir, command, func(chunk string) {
+		if strings.TrimSpace(chunk) != "" {
+			w.report(ctx, task.ID, task.ClaimID, "🖥 命令输出：\n"+chunk)
+		}
+	})
+	if w.killed() {
+		w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，命令已终止。")
+		log.Printf("命令任务 #%d 已按服务端指令取消", task.ID)
+		return
+	}
+	summary := commandSummary(command, res, err)
+	summary = w.appendArtifactReport(runCtx, task, dir, summary)
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务使用 PTY 在 worker 工作目录执行；产物仍通过 artifacts/ 回传。"); err != nil {
+		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
+		return
+	}
+	log.Printf("命令任务 #%d 已提交验收（exit=%d）", task.ID, res.ExitCode)
+}
+
+func (w *Worker) appendArtifactReport(ctx context.Context, task *Task, dir, summary string) string {
+	uploaded, failed, rejected, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
 	if uerr != nil {
 		w.report(ctx, task.ID, task.ClaimID, "⚠️ 遍历产物目录出错: "+uerr.Error())
 	}
@@ -212,11 +250,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.report(ctx, task.ID, task.ClaimID, warn)
 		summary += "\n\n" + warn
 	}
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
-		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
-		return
-	}
-	log.Printf("任务 #%d 已提交验收", task.ID)
+	return summary
 }
 
 // relayProgress 周期采样渲染屏幕，尾部内容有变化就回传一段快照。

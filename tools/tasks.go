@@ -875,6 +875,9 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	if t.Acceptance != "" {
 		fmt.Fprintf(&b, "验收标准: %s\n", t.Acceptance)
 	}
+	if t.WorkerCommand != "" {
+		fmt.Fprintf(&b, "Worker 命令: %s\n", t.WorkerCommand)
+	}
 	items, err := d.Store.Checklist(ctx, t.ID)
 	if err != nil {
 		return "", err

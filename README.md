@@ -151,7 +151,7 @@ scripts/deploy-local.sh
 
 > **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身 Worker 接入 Token）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 Worker Token、SSH 私钥等）挡在其可达范围外。
 
-执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
+执行规则：worker 只能启动 `claude` / `codex` 的**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。显式命令任务走 `run_worker_command`，worker 会在本次任务工作目录里用 PTY 启动系统 shell 执行命令，输出作为进度/完成汇报回传，产物仍放 `artifacts/` 自动上传；这不是常驻远程 shell。驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
 
 - **vt10x 屏幕仿真**：PTY 字节流喂进内存终端仿真器，一切检测读渲染后的屏幕，不在原始流上扒 ANSI
 - **两步投递**：多行任务用 bracketed paste 包住、停顿后单发回车（防 TUI 的 paste 防抖吞掉提交）
@@ -247,7 +247,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 | `edit_info` | `update_user_info` |
 | `write_profile` | `save_infos_on_user` |
 | `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
-| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、`create_worker` / `revoke_worker` |
+| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、`create_worker` / `run_worker_command` / `revoke_worker` |
 
 **worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
 
