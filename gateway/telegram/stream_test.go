@@ -87,30 +87,41 @@ func streamLoopResp(result string) *http.Response {
 }
 
 func TestStreamEditorSlowTypingDoesNotStallFlush(t *testing.T) {
-	h := &streamLoopHTTP{actionWait: 3 * time.Second}
+	// 慢 typing（模拟 TG 卡顿）不能拖累 flush 节拍——typing 走独立 goroutine + 单槽守护。
+	// 注入毫秒级间隔把用例压到亚秒（机理同生产 1.5s/4s，只是加速）：若 typing 阻塞了
+	// loop，编辑间隔会被拉到 typingWait 量级；修复后应远小于它。
+	const (
+		editEvery  = 20 * time.Millisecond
+		typingIvl  = 50 * time.Millisecond
+		typingWait = 200 * time.Millisecond // 慢 typing 时长：远大于 editEvery
+	)
+	h := &streamLoopHTTP{actionWait: typingWait}
 	b, err := bot.New("TESTTOKEN", bot.WithHTTPClient(time.Second, h), bot.WithSkipGetMe())
 	if err != nil {
 		t.Fatalf("bot.New: %v", err)
 	}
-	ed := (&Gateway{bot: b}).newStreamEditor(context.Background(), 1)
+	ed := (&Gateway{bot: b}).newStreamEditorEvery(context.Background(), 1, editEvery, typingIvl)
 	if !ed.ok {
 		t.Fatal("占位消息未创建")
 	}
+	done := make(chan struct{})
 	go func() {
-		for i := 0; i < 40; i++ {
+		defer close(done)
+		for i := 0; i < 80; i++ { // 持续产出 ~800ms，让 flush 始终有新内容可编辑
 			ed.onDelta(strings.Repeat("x", i+1))
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		}
 	}()
-	time.Sleep(13 * time.Second)
+	time.Sleep(800 * time.Millisecond)
 	ed.stopLoop()
+	<-done
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.editCount < 6 {
 		t.Fatalf("编辑次数太少，flush 可能被阻塞: %d", h.editCount)
 	}
-	if h.maxEditGap >= 3*time.Second {
-		t.Fatalf("typing 请求拖慢了流式编辑，最大编辑间隔 %v", h.maxEditGap)
+	if h.maxEditGap >= typingWait {
+		t.Fatalf("typing 请求拖慢了流式编辑，最大编辑间隔 %v（≥ 慢 typing 时长 %v）", h.maxEditGap, typingWait)
 	}
 }

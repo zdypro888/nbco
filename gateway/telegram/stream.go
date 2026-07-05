@@ -26,6 +26,9 @@ type streamEditor struct {
 	msgID  int
 	ok     bool // 占位消息就绪、可编辑
 
+	editEvery   time.Duration // 渐进编辑节流间隔（默认 streamEditInterval；测试注入短值提速）
+	typingEvery time.Duration // typing 续期间隔（默认 streamTypingEvery）
+
 	mu   sync.Mutex
 	buf  string // 当前要显示的完整文本（onDelta 替换式写入）
 	sent string // 上次已编辑上去的内容，避免重复编辑报 not modified
@@ -38,7 +41,14 @@ type streamEditor struct {
 // newStreamEditor 发占位消息 + 起后台节流编辑协程。占位发送失败则 ok=false，
 // onDelta 变 no-op、finish 直接发完整答复（优雅降级为非流式）。
 func (g *Gateway) newStreamEditor(ctx context.Context, chatID int64) *streamEditor {
-	ed := &streamEditor{g: g, chatID: chatID, stop: make(chan struct{}), done: make(chan struct{})}
+	return g.newStreamEditorEvery(ctx, chatID, streamEditInterval, streamTypingEvery)
+}
+
+// newStreamEditorEvery 同 newStreamEditor，但可指定编辑/typing 节流间隔——测试注入
+// 短间隔把时间敏感的用例压到亚秒级，无需真等 1.5s/4s。生产路径用默认常量，行为不变。
+func (g *Gateway) newStreamEditorEvery(ctx context.Context, chatID int64, editEvery, typingEvery time.Duration) *streamEditor {
+	ed := &streamEditor{g: g, chatID: chatID, editEvery: editEvery, typingEvery: typingEvery,
+		stop: make(chan struct{}), done: make(chan struct{})}
 	m, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: "💭 正在处理…"})
 	if err != nil || m == nil {
 		close(ed.done)
@@ -51,9 +61,9 @@ func (g *Gateway) newStreamEditor(ctx context.Context, chatID int64) *streamEdit
 
 func (ed *streamEditor) loop(ctx context.Context) {
 	defer close(ed.done)
-	editTick := time.NewTicker(streamEditInterval)
+	editTick := time.NewTicker(ed.editEvery)
 	defer editTick.Stop()
-	typingTick := time.NewTicker(streamTypingEvery)
+	typingTick := time.NewTicker(ed.typingEvery)
 	defer typingTick.Stop()
 	typingInFlight := make(chan struct{}, 1)
 	for {
