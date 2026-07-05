@@ -130,7 +130,7 @@ func TestBindKeyFlow(t *testing.T) {
 		t.Errorf("过期 Key 应 ErrNotFound, got %v", err)
 	}
 
-	invite, err := s.CreateBindInvite(ctx, admin.ID, time.Hour, "张三", "研发入职")
+	invite, err := s.CreateBindInvite(ctx, admin.ID, time.Hour, "张三", "CEO", "研发入职")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,6 +140,9 @@ func TestBindKeyFlow(t *testing.T) {
 	}
 	if u.Name != "张三" {
 		t.Fatalf("邀请指定姓名应优先生效，got %q", u.Name)
+	}
+	if u.Info["role"] != "CEO" {
+		t.Fatalf("邀请指定角色应写入用户信息，got %#v", u.Info)
 	}
 }
 

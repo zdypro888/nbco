@@ -7,8 +7,8 @@ import (
 
 const workerClaimTimeout = 3 * time.Hour
 
-// CreateWorker 建一个 AI worker 用户并签发常驻 Worker 接入 Token（明文仅此一次返回）。
-// worker 无 IM 身份，靠 Worker 接入 Token 认证；owner 为监护人。
+// CreateWorker 建一个 AI worker 用户并签发常驻 Worker Access Token（明文仅此一次返回）。
+// worker 无 IM 身份，靠 Worker Access Token 认证；owner 为监护人。
 func (s *Store) CreateWorker(ctx context.Context, name string, ownerID int64) (*User, string, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

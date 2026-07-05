@@ -104,15 +104,17 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已更新。", nil
 			}),
 
-		tool("invite_employee", "邀请真人员工加入系统：生成一次性 Telegram 邀请链接和兜底邀请码。可指定姓名/备注/有效期；不是 worker 接入 Token。需要员工邀请权限。",
+		tool("invite_employee", "邀请真人员工加入系统：生成一次性 Telegram 邀请链接和兜底邀请码。可指定姓名/角色/备注/有效期；不是 worker access token。需要员工邀请权限。",
 			obj(map[string]any{
 				"name":      p("string", "被邀请员工姓名，可选；填写后绑定时直接作为系统姓名"),
+				"role":      p("string", "被邀请员工角色/职位，可选，如 CEO、产品经理；绑定后写入用户动态信息 role"),
 				"note":      p("string", "邀请备注，可选，仅用于审计/识别邀请用途"),
 				"ttl_hours": p("integer", "有效小时数，可选，默认24，范围1-168"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					Name     string `json:"name"`
+					Role     string `json:"role"`
 					Note     string `json:"note"`
 					TTLHours int    `json:"ttl_hours"`
 				}
@@ -135,7 +137,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					}
 					ttl = time.Duration(args.TTLHours) * time.Hour
 				}
-				bk, err := d.Store.CreateBindInvite(ctx, u.ID, ttl, args.Name, args.Note)
+				bk, err := d.Store.CreateBindInvite(ctx, u.ID, ttl, args.Name, args.Role, args.Note)
 				if err != nil {
 					return "", err
 				}
@@ -144,12 +146,15 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				if bk.InvitedName != "" {
 					fmt.Fprintf(&b, "邀请对象：%s\n", bk.InvitedName)
 				}
+				if bk.InvitedRole != "" {
+					fmt.Fprintf(&b, "角色/职位：%s\n", bk.InvitedRole)
+				}
 				if link := employeeInviteLink(ctx, d, bk.Key); link != "" {
 					fmt.Fprintf(&b, "Telegram 邀请链接：%s\n", link)
 				}
 				fmt.Fprintf(&b, "兜底邀请码：%s\n", bk.Key)
 				fmt.Fprintf(&b, "有效期至 %s，仅可使用一次。\n", fmtTime(bk.ExpiresAt, d.TZ))
-				b.WriteString("注意：这不是 worker 接入 Token，不能用于 nbco-worker bind。")
+				b.WriteString("注意：这是一次性邀请，不是 worker access token，不能用于 nbco-worker bind。")
 				return b.String(), nil
 			}),
 

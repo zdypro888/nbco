@@ -24,7 +24,7 @@ const workerConfigEnv = "NBCO_WORKER_CONFIG"
 // Config 本机配置（bind 写入，run 读取）。
 type Config struct {
 	Server     string `json:"server"`      // nbco 基地址，如 http://127.0.0.1:8900
-	Token      string `json:"token"`       // Worker 接入 Token（create_worker 返回）
+	Token      string `json:"token"`       // Worker Access Token（create_worker 返回）
 	WorkerID   int64  `json:"worker_id"`   // token 对应的 worker 用户 ID（bind 时校验写入）
 	WorkerName string `json:"worker_name"` // token 对应的 worker 名字（bind 时校验写入）
 	Engine     string `json:"engine"`      // 引擎名：内置 claude | codex，或自定义（配 bin+args）
@@ -79,10 +79,10 @@ func bind(args []string) {
 	defer cancel()
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
 	if err != nil {
-		log.Fatalf("校验 Worker 接入 Token 失败: %v", err)
+		log.Fatalf("校验 Worker Access Token 失败: %v", err)
 	}
 	if !ident.IsWorker {
-		log.Fatalf("这个 token 属于真人员工 #%d %s，不是 worker；请使用 create_worker 返回的 Worker 接入 Token", ident.ID, ident.Name)
+		log.Fatalf("这个 access token 属于真人员工 #%d %s，不是 worker；请使用 create_worker 返回的 Worker Access Token", ident.ID, ident.Name)
 	}
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name
@@ -126,10 +126,10 @@ func run(args []string) {
 	defer cancelMe()
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctxMe)
 	if err != nil {
-		log.Fatalf("校验 Worker 接入 Token 失败: %v", err)
+		log.Fatalf("校验 Worker Access Token 失败: %v", err)
 	}
 	if !ident.IsWorker {
-		log.Fatalf("这个 token 属于真人员工 #%d %s，不是 worker；请重新 bind Worker 接入 Token", ident.ID, ident.Name)
+		log.Fatalf("这个 access token 属于真人员工 #%d %s，不是 worker；请重新 bind Worker Access Token", ident.ID, ident.Name)
 	}
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name

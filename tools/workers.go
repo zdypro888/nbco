@@ -50,7 +50,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 
 	return []ai.Tool{
 		list,
-		tool("create_worker", "创建一个 AI worker 账号并签发 Worker 接入 Token（明文仅返回一次，长期用于 nbco-worker 客户端认证；不是真人员工邀请）。在工作机上运行 nbco-worker bind 绑定该 Token，它便能领取任务、用交互式 PTY 驱动 claude/codex 自动完成。超管专用。",
+		tool("create_worker", "创建一个 AI worker 账号并签发 Worker Access Token（明文仅返回一次，长期用于 nbco-worker 客户端认证；不是真人员工邀请）。在工作机上运行 nbco-worker bind 绑定该 access token，它便能领取任务、用交互式 PTY 驱动 claude/codex 自动完成。超管专用。",
 			obj(map[string]any{"name": p("string", "AI worker 名，如「小码」")}, "name"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -66,10 +66,10 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已创建 AI worker「%s」。Worker 接入 Token（仅显示一次，请妥善保存）：\n<code>%s</code>\n"+
+				return fmt.Sprintf("已创建 AI worker「%s」。Worker Access Token（仅显示一次，请妥善保存）：\n<code>%s</code>\n"+
 					"用途：只给 nbco-worker 客户端认证使用；不是给真人员工入职的邀请。\n"+
-					"在工作机上运行：nbco-worker bind <nbco-server-url> <上面的 Worker Token>，再 nbco-worker run 即可上线接活。\n"+
-					"例如：nbco-worker bind https://im.app:8443 <上面的 Worker Token>",
+					"在工作机上运行：nbco-worker bind <nbco-server-url> <上面的 Worker Access Token>，再 nbco-worker run 即可上线接活。\n"+
+					"例如：nbco-worker bind https://im.app:8443 <上面的 Worker Access Token>",
 					w.Name, token), nil
 			}),
 
@@ -124,7 +124,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已创建 worker 命令任务 #%d，分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行。", t.ID, w.Name, mode), nil
 			}),
 
-		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker 接入 Token（历史任务保留）。超管专用。",
+		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker Access Token（历史任务保留）。超管专用。",
 			obj(map[string]any{"worker_id": p("integer", "worker 用户ID")}, "worker_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {

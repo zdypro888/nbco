@@ -152,7 +152,7 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 	}
 	// task_id/claim_id 走 query：在解析（会把 200MB spool 到临时盘的）文件体【之前】
 	// 就校验 claim。未授权/过期直接 409 返回，不消费文件体——既杜绝孤儿 blob，也
-	// 堵死「拿 Worker 接入 Token 反复传 200MB 把临时盘写爆」。
+	// 堵死「拿 Worker Access Token 反复传 200MB 把临时盘写爆」。
 	taskID, perr := parseID(r.URL.Query().Get("task_id"))
 	if perr != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})

@@ -54,16 +54,16 @@ func roleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已激活角色「%s」，下轮对话生效。", args.Name), nil
 			}),
 
-		tool("generate_api_token", "生成我的 API Token（用于 HTTP API/MCP 接入），会替换旧 token。明文仅返回一次。", obj(nil),
+		tool("generate_api_token", "生成我的 Access Token（用于 HTTP API/MCP 接入），会替换旧 access token。明文仅返回一次。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				plain, err := d.Store.IssueAPIToken(ctx, u.ID)
 				if err != nil {
 					return "", err
 				}
-				return "已生成 API Token（请妥善保存，仅显示一次）：\n" + plain, nil
+				return "已生成 Access Token（请妥善保存，仅显示一次）：\n" + plain, nil
 			}),
 
-		tool("revoke_api_token", "撤销我的 API Token。", obj(nil),
+		tool("revoke_api_token", "撤销我的 Access Token。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				if err := d.Store.RevokeAPIToken(ctx, u.ID); err != nil {
 					return "", err

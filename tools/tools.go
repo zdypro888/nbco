@@ -132,7 +132,7 @@ var toolPerm = map[string]string{
 }
 
 // workerAllowed 机器账号（is_worker）的工具白名单：只保留干活与沉淀知识所需。
-// Worker 接入 Token 也能访问 /api/chat 与 /mcp，最小化其能力面。
+// Worker Access Token 也能访问 /api/chat 与 /mcp，最小化其能力面。
 var workerAllowed = map[string]bool{
 	"get_my_tasks":          true,
 	"get_my_all_tasks":      true,
