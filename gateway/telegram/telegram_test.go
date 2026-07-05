@@ -81,6 +81,7 @@ func TestCommandOf(t *testing.T) {
 		"/listen@nbi_jp_bot": "/listen",
 		"/listen@NBI_JP_BOT": "/listen", // 大小写不敏感
 		"/new@nbi_jp_bot 参数": "/new",
+		"/start abc":         "/start",
 		"/new@other_bot":     "", // 发给别的 bot，忽略
 		"/listen@other_bot":  "",
 		"  /start  ":         "/start",
@@ -96,6 +97,26 @@ func TestCommandOf(t *testing.T) {
 	// botUsername 未知时保守：只认裸命令，@后缀一律忽略。
 	if commandOf("/new", "") != "/new" || commandOf("/new@nbi_jp_bot", "") != "" {
 		t.Error("botUsername 未知时应只认裸命令")
+	}
+}
+
+func TestInviteTokenFromText(t *testing.T) {
+	key := "0123456789abcdef0123456789abcdef"
+	for _, in := range []string{
+		key,
+		strings.ToUpper(key),
+		"/start " + key,
+		"/start@nbi_jp_bot " + key,
+	} {
+		got, ok := inviteTokenFromText(in, "nbi_jp_bot")
+		if !ok || got != key {
+			t.Errorf("inviteTokenFromText(%q) = (%q,%v), want %q,true", in, got, ok, key)
+		}
+	}
+	for _, in := range []string{"/start", "/start nope", "/start@other_bot " + key, "hello " + key} {
+		if got, ok := inviteTokenFromText(in, "nbi_jp_bot"); ok {
+			t.Errorf("inviteTokenFromText(%q) = (%q,true), want false", in, got)
+		}
 	}
 }
 
@@ -139,7 +160,7 @@ func TestGroupChannelAndListenKey(t *testing.T) {
 
 func TestOnboardingMessages(t *testing.T) {
 	help := unboundHelpMessage(false)
-	for _, want := range []string{"欢迎来到", "加入方式", "真人员工入职 Key", "查任务", "设置提醒"} {
+	for _, want := range []string{"欢迎来到", "加入方式", "一次性邀请链接", "邀请码", "查任务", "设置提醒"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("未绑定帮助缺少 %q:\n%s", want, help)
 		}

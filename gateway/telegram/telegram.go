@@ -66,6 +66,11 @@ func (g *Gateway) Run(ctx context.Context) {
 		g.mu.Lock()
 		g.self = me
 		g.mu.Unlock()
+		if strings.TrimSpace(me.Username) != "" {
+			if err := g.store.SetKV(ctx, store.KVTelegramBotUsername, me.Username); err != nil {
+				slog.Warn("缓存 Telegram bot username 失败", "err", err)
+			}
+		}
 		// 群内纯文本 @提及要送达 bot 必须关闭 privacy mode（BotFather /setprivacy →
 		// Disable）。CanReadAllGroupMessages=false 表示仍开着，@提及流程会静默失效。
 		if !me.CanReadAllGroupMessages {
@@ -228,7 +233,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	if !bound {
-		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要真人员工入职 Key），之后就能在群里 @我 了。")
+		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
 		return
 	}
 	ask := strings.TrimSpace(stripMention(text, g.botUsername()))
@@ -339,8 +344,8 @@ func unboundHelpMessage(canBootstrap bool) string {
 	b.WriteString("👋 欢迎来到 <b>NBCO</b>。\n\n")
 	b.WriteString("我还没在公司系统里识别到你。加入后，我可以帮你查任务、汇报进度、设置提醒、沉淀个人信息和团队知识。\n\n")
 	b.WriteString("<b>加入方式</b>\n")
-	b.WriteString("1. 找管理员生成真人员工入职 Key。\n")
-	b.WriteString("2. 把那串 32 位 Key 直接发给我。\n")
+	b.WriteString("1. 找管理员发送一次性邀请链接。\n")
+	b.WriteString("2. 如果拿到的是邀请码，把那串 32 位码直接发给我。\n")
 	b.WriteString("3. 绑定成功后，直接说工作事项就行。\n")
 	if canBootstrap {
 		b.WriteString("\n如果这是全新部署、还没有管理员，请发送 /superadmin 初始化首位超级管理员。")
@@ -381,7 +386,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		return
 	}
 
-	switch text {
+	switch commandOf(text, g.botUsername()) {
 	case "/new":
 		if err := g.orch.NewSession(ctx, u, Provider); err != nil {
 			slog.Error("开新会话失败", "err", err)
@@ -423,7 +428,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	ed.finish(ctx, answer)
 }
 
-// onboard 未绑定用户：超管自动开通；其他人凭真人员工入职 Key。
+// onboard 未绑定用户：超管自动开通；其他人凭真人员工一次性邀请。
 func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64, externalID, text string) {
 	name := displayName(msg.From)
 	ident := store.Identity{Provider: Provider, ExternalID: externalID, ChatRef: strconv.FormatInt(chatID, 10)}
@@ -433,7 +438,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		u, err := g.store.BootstrapSuperadmin(ctx, name, ident)
 		switch {
 		case errors.Is(err, store.ErrConflict):
-			g.reply(ctx, chatID, "系统已有超级管理员。请向管理员索取真人员工入职 Key 加入。")
+			g.reply(ctx, chatID, "系统已有超级管理员。请向管理员索取员工邀请链接或邀请码加入。")
 		case err != nil:
 			slog.Error("超管引导失败", "err", err)
 			g.reply(ctx, chatID, "初始化失败，请稍后再试。")
@@ -454,8 +459,8 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		return
 	}
 
-	key := strings.ToLower(text)
-	if !bindKeyRe.MatchString(key) {
+	key, ok := inviteTokenFromText(text, g.botUsername())
+	if !ok {
 		hasSuperadmin, err := g.store.HasSuperadmin(ctx)
 		if err != nil {
 			slog.Warn("查询超管状态失败", "err", err)
@@ -468,7 +473,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 	u, err := g.store.BindUserWithKey(ctx, key, name, ident)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			g.reply(ctx, chatID, "真人员工入职 Key 无效或已过期，请向管理员重新索取。")
+			g.reply(ctx, chatID, "员工邀请链接或邀请码无效、已使用或已过期，请向管理员重新索取。")
 			return
 		}
 		slog.Error("绑定失败", "err", err)
@@ -476,6 +481,26 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		return
 	}
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
+}
+
+func inviteTokenFromText(text, botUsername string) (string, bool) {
+	text = strings.TrimSpace(text)
+	key := strings.ToLower(text)
+	if bindKeyRe.MatchString(key) {
+		return key, true
+	}
+	if commandOf(text, botUsername) != "/start" {
+		return "", false
+	}
+	fields := strings.Fields(text)
+	if len(fields) < 2 {
+		return "", false
+	}
+	key = strings.ToLower(fields[1])
+	if !bindKeyRe.MatchString(key) {
+		return "", false
+	}
+	return key, true
 }
 
 func (g *Gateway) userLock(tgID int64) *sync.Mutex {

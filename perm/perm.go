@@ -22,7 +22,7 @@ const (
 	ActWriteProfile  = "write_profile"   // 给他人写画像
 	ActViewSelfIntro = "view_self_intro" // 看他人自我介绍
 	ActManagePerm    = "manage_perm"     // 管理他人被动权限
-	ActGenerateKey   = "generate_key"    // 生成绑定 Key
+	ActGenerateKey   = "generate_key"    // 邀请真人员工
 	ActSendMsg       = "send_msg"        // 向他人发消息
 	ActCreateProject = "create_project"  // 创建项目/给他人派任务
 	ActEditInfo      = "edit_info"       // 改他人基本信息

@@ -104,26 +104,56 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已更新。", nil
 			}),
 
-		tool("generate_key", "生成真人员工入职 Key（24小时有效、一次性，用于 Telegram 首次加入；不是 worker 接入 Token）。需要 generate_key 权限。",
-			obj(nil),
-			func(ctx context.Context, _ json.RawMessage) (string, error) {
+		tool("invite_employee", "邀请真人员工加入系统：生成一次性 Telegram 邀请链接和兜底邀请码。可指定姓名/备注/有效期；不是 worker 接入 Token。需要员工邀请权限。",
+			obj(map[string]any{
+				"name":      p("string", "被邀请员工姓名，可选；填写后绑定时直接作为系统姓名"),
+				"note":      p("string", "邀请备注，可选，仅用于审计/识别邀请用途"),
+				"ttl_hours": p("integer", "有效小时数，可选，默认24，范围1-168"),
+			}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Name     string `json:"name"`
+					Note     string `json:"note"`
+					TTLHours int    `json:"ttl_hours"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
 				if !u.IsSuperadmin {
 					grants, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
 					}
 					if !hasAnyActive(grants, perm.ActGenerateKey) {
-						return "你没有 generate_key 权限。", nil
+						return "你没有邀请员工权限。", nil
 					}
 				}
-				bk, err := d.Store.CreateBindKey(ctx, u.ID, bindKeyTTL)
+				ttl := bindKeyTTL
+				if args.TTLHours > 0 {
+					if args.TTLHours > 168 {
+						args.TTLHours = 168
+					}
+					ttl = time.Duration(args.TTLHours) * time.Hour
+				}
+				bk, err := d.Store.CreateBindInvite(ctx, u.ID, ttl, args.Name, args.Note)
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("真人员工入职 Key：%s\n有效期至 %s，仅可在 Telegram 首次绑定时使用一次。\n注意：这不是 worker 接入 Token，不能用于 nbco-worker bind。", bk.Key, fmtTime(bk.ExpiresAt, d.TZ)), nil
+				var b strings.Builder
+				b.WriteString("已生成真人员工一次性邀请。\n")
+				if bk.InvitedName != "" {
+					fmt.Fprintf(&b, "邀请对象：%s\n", bk.InvitedName)
+				}
+				if link := employeeInviteLink(ctx, d, bk.Key); link != "" {
+					fmt.Fprintf(&b, "Telegram 邀请链接：%s\n", link)
+				}
+				fmt.Fprintf(&b, "兜底邀请码：%s\n", bk.Key)
+				fmt.Fprintf(&b, "有效期至 %s，仅可使用一次。\n", fmtTime(bk.ExpiresAt, d.TZ))
+				b.WriteString("注意：这不是 worker 接入 Token，不能用于 nbco-worker bind。")
+				return b.String(), nil
 			}),
 
-		tool("cancel_key", "作废我生成的全部未使用真人员工入职 Key。", obj(nil),
+		tool("cancel_invites", "作废我生成的全部未使用真人员工邀请。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				if err := d.Store.CancelBindKeys(ctx, u.ID); err != nil {
 					return "", err
@@ -463,4 +493,19 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 			}),
 	)
 	return ts
+}
+
+func employeeInviteLink(ctx context.Context, d Deps, key string) string {
+	if d.Store == nil {
+		return ""
+	}
+	username, err := d.Store.GetKV(ctx, store.KVTelegramBotUsername)
+	if err != nil {
+		return ""
+	}
+	username = strings.TrimPrefix(strings.TrimSpace(username), "@")
+	if username == "" {
+		return ""
+	}
+	return "https://t.me/" + username + "?start=" + key
 }

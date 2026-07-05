@@ -2,7 +2,7 @@
 
 让几十人规模、没有职业中层的公司，靠 AI 运转起来。AI 是每个员工的直属经理 + 老板的参谋部；IM、Web 都只是它的接口。规划见 [PLAN.md](PLAN.md)。
 
-Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有运行状态（用户、权限、任务、会话、真人员工入职 Key、Worker 接入 Token、定时任务、审计）落 PostgreSQL，随时可杀可重启。
+Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有运行状态（用户、权限、任务、会话、真人员工一次性邀请、Worker 接入 Token、定时任务、审计）落 PostgreSQL，随时可杀可重启。
 
 ## 架构
 
@@ -87,7 +87,7 @@ curl -X POST http://<listen>/api/bootstrap \
 
 | 凭证 | 给谁用 | 怎么生成 | 生命周期 | 用途 |
 | --- | --- | --- | --- | --- |
-| 真人员工入职 Key | 真人员工 | `generate_key` | 24 小时有效，只能用一次 | 员工首次在 Telegram 绑定身份 |
+| 真人员工一次性邀请 | 真人员工 | `invite_employee` | 默认 24 小时有效，只能用一次 | 员工首次在 Telegram 通过邀请链接或邀请码绑定身份 |
 | 用户 API Token | 真人员工或超管 | `generate_api_token` | 常驻，重新生成会替换旧 token | HTTP API / Web / MCP 认证 |
 | Worker 接入 Token | `nbco-worker` 客户端 | `create_worker` | 常驻，吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
 
@@ -228,7 +228,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 
 ## 权限体系
 
-**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key` / `send_msg` / `create_project` / `edit_info`，目标为用户 ID 或 `_all`。
+**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限） / `send_msg` / `create_project` / `edit_info`，目标为用户 ID 或 `_all`。
 
 **被动权限**（存在被操作者身上：谁能对我做什么）：`view_profile:<作者ID>` / `view_profile:_all`。
 
@@ -242,7 +242,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 |----------|-----------|
 | （人人可用） | 自我视角全部：我的任务/项目/验收、清单、进度、画像自助、知识库、角色、提醒、API Token、list_workers、转授自有权限 |
 | `create_project` | `create_project` / `assign_task` / `delegate_review`（派活三件套） |
-| `generate_key` | `generate_key` |
+| `generate_key` | `invite_employee` |
 | `send_msg` | `send_message` |
 | `edit_info` | `update_user_info` |
 | `write_profile` | `save_infos_on_user` |

@@ -107,7 +107,7 @@ var toolPerm = map[string]string{
 	"assign_task":     perm.ActCreateProject,
 	"delegate_review": perm.ActCreateProject,
 	// 人事/沟通能力
-	"generate_key":       perm.ActGenerateKey,
+	"invite_employee":    perm.ActGenerateKey,
 	"send_message":       perm.ActSendMsg,
 	"update_user_info":   perm.ActEditInfo,
 	"save_infos_on_user": perm.ActWriteProfile,
@@ -156,7 +156,8 @@ var workerAllowed = map[string]bool{
 var groupSensitive = map[string]bool{
 	"generate_api_token":  true,
 	"revoke_api_token":    true,
-	"generate_key":        true,
+	"invite_employee":     true,
+	"cancel_invites":      true,
 	"grant_active_perm":   true,
 	"revoke_active_perm":  true,
 	"grant_passive_perm":  true,

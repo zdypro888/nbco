@@ -129,6 +129,18 @@ func TestBindKeyFlow(t *testing.T) {
 	if _, err := s.BindUserWithKey(ctx, expired.Key, "迟到", Identity{Provider: "test", ExternalID: "late"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("过期 Key 应 ErrNotFound, got %v", err)
 	}
+
+	invite, err := s.CreateBindInvite(ctx, admin.ID, time.Hour, "张三", "研发入职")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err = s.BindUserWithKey(ctx, invite.Key, "Telegram 昵称", Identity{Provider: "test", ExternalID: "zhangsan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Name != "张三" {
+		t.Fatalf("邀请指定姓名应优先生效，got %q", u.Name)
+	}
 }
 
 func TestTaskReviewLifecycle(t *testing.T) {

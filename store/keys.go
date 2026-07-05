@@ -5,31 +5,41 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"time"
 )
 
-// BindKey 真人员工入职 Key：落库、带过期、一次性。
+// BindKey 真人员工一次性邀请：落库、带过期、一次性。
 type BindKey struct {
-	Key       string
-	CreatedBy int64
-	ExpiresAt time.Time
-	UsedBy    *int64
-	UsedAt    *time.Time
-	CreatedAt time.Time
+	Key         string
+	CreatedBy   int64
+	InvitedName string
+	Note        string
+	ExpiresAt   time.Time
+	UsedBy      *int64
+	UsedAt      *time.Time
+	CreatedAt   time.Time
 }
 
-// CreateBindKey 生成真人员工入职 Key。
+// CreateBindKey 生成真人员工入职码（兼容旧调用；新入口用 CreateBindInvite）。
 func (s *Store) CreateBindKey(ctx context.Context, createdBy int64, ttl time.Duration) (*BindKey, error) {
+	return s.CreateBindInvite(ctx, createdBy, ttl, "", "")
+}
+
+// CreateBindInvite 生成真人员工一次性邀请。
+func (s *Store) CreateBindInvite(ctx context.Context, createdBy int64, ttl time.Duration, invitedName, note string) (*BindKey, error) {
 	key, err := randomHex(16)
 	if err != nil {
 		return nil, err
 	}
+	invitedName = strings.TrimSpace(invitedName)
+	note = strings.TrimSpace(note)
 	var bk BindKey
 	err = s.pool.QueryRow(ctx,
-		`INSERT INTO bind_keys (key, created_by, expires_at) VALUES ($1, $2, $3)
-		 RETURNING key, created_by, expires_at, used_by, used_at, created_at`,
-		key, createdBy, time.Now().UTC().Add(ttl)).
-		Scan(&bk.Key, &bk.CreatedBy, &bk.ExpiresAt, &bk.UsedBy, &bk.UsedAt, &bk.CreatedAt)
+		`INSERT INTO bind_keys (key, created_by, invited_name, note, expires_at) VALUES ($1, $2, $3, $4, $5)
+		 RETURNING key, created_by, invited_name, note, expires_at, used_by, used_at, created_at`,
+		key, createdBy, invitedName, note, time.Now().UTC().Add(ttl)).
+		Scan(&bk.Key, &bk.CreatedBy, &bk.InvitedName, &bk.Note, &bk.ExpiresAt, &bk.UsedBy, &bk.UsedAt, &bk.CreatedAt)
 	return &bk, wrapErr(err)
 }
 
@@ -42,11 +52,15 @@ func (s *Store) BindUserWithKey(ctx context.Context, key, name string, ident Ide
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var createdBy int64
+	var invitedName string
 	if err := tx.QueryRow(ctx,
-		`SELECT created_by FROM bind_keys
+		`SELECT created_by, invited_name FROM bind_keys
 		 WHERE key = $1 AND used_by IS NULL AND expires_at > now() FOR UPDATE`, key).
-		Scan(&createdBy); err != nil {
+		Scan(&createdBy, &invitedName); err != nil {
 		return nil, wrapErr(err)
+	}
+	if invitedName = strings.TrimSpace(invitedName); invitedName != "" {
+		name = invitedName
 	}
 	u, err := scanUser(tx.QueryRow(ctx,
 		`INSERT INTO users (name, is_superadmin) VALUES ($1, FALSE) RETURNING `+userCols, name))

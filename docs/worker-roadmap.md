@@ -11,7 +11,7 @@
 
 ## 已有能力
 
-- `bind` 写入本机配置，Worker 接入 Token 与服务端 worker 用户绑定；它不同于真人员工入职 Key。
+- `bind` 写入本机配置，Worker 接入 Token 与服务端 worker 用户绑定；它不同于真人员工一次性邀请。
 - `run` 后通过 `/api/worker/next` 原子认领任务，数据库是唯一任务队列。
 - WebSocket 增强：`wake` 秒级领活、`cancel` 终止当前任务、`ping/pong` 在线状态。
 - 只用交互式 PTY 驱动 CLI，禁止 `claude -p` / `codex exec`。
