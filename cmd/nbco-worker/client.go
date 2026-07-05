@@ -73,6 +73,7 @@ type Task struct {
 	Description string       `json:"description"`
 	Acceptance  string       `json:"acceptance"`
 	Command     string       `json:"command"`
+	CommandPTY  bool         `json:"command_pty"`
 	Attachments []Attachment `json:"attachments"`
 }
 

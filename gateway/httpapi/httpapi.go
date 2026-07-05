@@ -359,7 +359,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
-			"description": t.Description, "acceptance": t.Acceptance, "command": t.WorkerCommand, "claim_id": t.WorkerClaimID,
+			"description": t.Description, "acceptance": t.Acceptance, "command": t.WorkerCommand, "command_pty": t.WorkerCommandPTY, "claim_id": t.WorkerClaimID,
 			"attachments": attachments,
 		},
 		"knowledge": lessons,
@@ -367,7 +367,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleWorkerProgress worker 回传执行进度（PTY 输出的节流片段）。
+// handleWorkerProgress worker 回传执行进度（CLI 屏幕或命令输出的节流片段）。
 func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 	u := s.requireWorker(w, r)
 	if u == nil {

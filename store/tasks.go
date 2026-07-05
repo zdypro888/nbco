@@ -45,23 +45,24 @@ func scanProject(row interface{ Scan(...any) error }) (*Project, error) {
 
 // Task 任务。Goal 是"为什么做"，Description 是"做什么"，Acceptance 是验收标准。
 type Task struct {
-	ID            int64
-	ProjectID     int64
-	ParentID      *int64
-	AssignerID    int64
-	AssigneeID    int64
-	Title         string
-	Goal          string
-	Description   string
-	Acceptance    string
-	WorkerCommand string
-	Priority      string
-	Deadline      *time.Time
-	Status        string
-	NudgeCount    int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
-	WorkerClaimID string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID               int64
+	ProjectID        int64
+	ParentID         *int64
+	AssignerID       int64
+	AssigneeID       int64
+	Title            string
+	Goal             string
+	Description      string
+	Acceptance       string
+	WorkerCommand    string
+	WorkerCommandPTY bool
+	Priority         string
+	Deadline         *time.Time
+	Status           string
+	NudgeCount       int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
+	WorkerClaimID    string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // ChecklistItem 工作清单条目。
@@ -92,12 +93,12 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, priority, deadline, status, nudge_count, worker_claim_id, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, created_at, updated_at`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
-		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.Priority, &t.Deadline,
+		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.WorkerCommandPTY, &t.Priority, &t.Deadline,
 		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
@@ -217,9 +218,9 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 // CreateTask 建任务。
 func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 	row := s.pool.QueryRow(ctx,
-		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, priority, deadline)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING `+taskCols,
-		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, nonEmpty(t.Priority, "normal"), t.Deadline)
+		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+taskCols,
+		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline)
 	return scanTask(row)
 }
 
@@ -610,9 +611,9 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 	created := make([]*Task, 0, len(subs))
 	for _, t := range subs {
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, priority, deadline)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING `+taskCols,
-			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, nonEmpty(t.Priority, "normal"), t.Deadline)
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+taskCols,
+			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline)
 		ct, err := scanTask(row)
 		if err != nil {
 			return nil, err

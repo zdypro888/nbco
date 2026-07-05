@@ -73,16 +73,18 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					w.Name, token), nil
 			}),
 
-		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中用 PTY 执行一条 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。超管专用；这是显式命令任务，不是常驻远控。",
+		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中执行一条 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。超管专用；这是显式命令任务，不是常驻远控。",
 			obj(map[string]any{
 				"worker_id": p("integer", "目标 worker 用户ID"),
 				"command":   p("string", "要执行的命令，如 go test ./..."),
+				"pty":       p("boolean", "可选，是否用 PTY 执行；默认 false。普通命令不需要，交互/终端检测命令才需要"),
 				"title":     p("string", "任务标题，可选"),
 			}, "worker_id", "command"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					WorkerID int64  `json:"worker_id"`
 					Command  string `json:"command"`
+					PTY      bool   `json:"pty"`
 					Title    string `json:"title"`
 				}
 				if err := decode(raw, &args); err != nil {
@@ -109,13 +111,17 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
 					Description:   "命令任务会在 worker 的本次任务工作目录中执行；如需回传文件，请让命令写入 artifacts/。",
 					Acceptance:    "完成汇报包含退出码和输出摘要；如生成 artifacts/ 文件，应自动上传。",
-					WorkerCommand: cmd, Priority: "high",
+					WorkerCommand: cmd, WorkerCommandPTY: args.PTY, Priority: "high",
 				})
 				if err != nil {
 					return "", err
 				}
 				wakeWorker(d, w)
-				return fmt.Sprintf("已创建 worker 命令任务 #%d，分配给 %s。命令会在该 worker 的任务工作目录中通过 PTY 执行。", t.ID, w.Name), nil
+				mode := "pipe"
+				if args.PTY {
+					mode = "pty"
+				}
+				return fmt.Sprintf("已创建 worker 命令任务 #%d，分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行。", t.ID, w.Name, mode), nil
 			}),
 
 		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker 接入 Token（历史任务保留）。超管专用。",

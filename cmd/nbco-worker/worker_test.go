@@ -168,6 +168,35 @@ func TestRunCommandPTY(t *testing.T) {
 	}
 }
 
+func TestRunCommandExec(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var progress []string
+	res, err := runCommandExec(ctx, t.TempDir(), "printf 'hello nbco\\n'; printf 'err nbco\\n' >&2", func(s string) {
+		progress = append(progress, s)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ExitCode != 0 {
+		t.Fatalf("exit code = %d output=%q", res.ExitCode, res.Output)
+	}
+	if !strings.Contains(res.Output, "hello nbco") || !strings.Contains(res.Output, "err nbco") {
+		t.Fatalf("output = %q", res.Output)
+	}
+
+	res, err = runCommandExec(ctx, t.TempDir(), "printf 'bad\\n'; exit 7", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ExitCode != 7 {
+		t.Fatalf("exit code = %d output=%q", res.ExitCode, res.Output)
+	}
+	if !strings.Contains(res.Output, "bad") {
+		t.Fatalf("output = %q", res.Output)
+	}
+}
+
 func TestLimitedBufferKeepsTail(t *testing.T) {
 	var b limitedBuffer
 	b.Write([]byte(strings.Repeat("a", commandOutputLimit)))

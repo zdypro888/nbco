@@ -209,8 +209,14 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 	if err := writeCommandScript(dir, command); err != nil {
 		w.report(ctx, task.ID, task.ClaimID, "⚠️ 保存命令记录失败: "+err.Error())
 	}
-	w.report(ctx, task.ID, task.ClaimID, "🖥 开始执行命令：\n"+command)
-	res, err := runCommandPTY(runCtx, dir, command, func(chunk string) {
+	mode := "pipe"
+	run := runCommandExec
+	if task.CommandPTY {
+		mode = "pty"
+		run = runCommandPTY
+	}
+	w.report(ctx, task.ID, task.ClaimID, "🖥 开始执行命令（"+mode+"）：\n"+command)
+	res, err := run(runCtx, dir, command, func(chunk string) {
 		if strings.TrimSpace(chunk) != "" {
 			w.report(ctx, task.ID, task.ClaimID, "🖥 命令输出：\n"+chunk)
 		}
@@ -220,9 +226,9 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 		log.Printf("命令任务 #%d 已按服务端指令取消", task.ID)
 		return
 	}
-	summary := commandSummary(command, res, err)
+	summary := commandSummary(command, mode, res, err)
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务使用 PTY 在 worker 工作目录执行；产物仍通过 artifacts/ 回传。"); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 artifacts/ 回传。"); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
 		return
 	}

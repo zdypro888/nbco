@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/creack/pty"
@@ -26,6 +27,25 @@ const (
 type commandResult struct {
 	Output   string
 	ExitCode int
+}
+
+func runCommandExec(ctx context.Context, dir, command string, progress func(string)) (commandResult, error) {
+	bin, args := shellCommand(command)
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Dir = dir
+	out := newCommandOutput(progress)
+	cmd.Stdout = out
+	cmd.Stderr = out
+
+	waitErr := cmd.Run()
+	res := commandResult{Output: out.String(), ExitCode: exitCode(waitErr)}
+	if ctx.Err() != nil {
+		return res, ctx.Err()
+	}
+	if waitErr != nil && res.ExitCode == -1 {
+		return res, waitErr
+	}
+	return res, nil
 }
 
 func runCommandPTY(ctx context.Context, dir, command string, progress func(string)) (commandResult, error) {
@@ -135,6 +155,38 @@ func (b *limitedBuffer) String() string {
 	return strings.TrimSpace(s)
 }
 
+type commandOutput struct {
+	mu            sync.Mutex
+	buf           limitedBuffer
+	progress      func(string)
+	lastProgress  time.Time
+	sinceProgress int
+}
+
+func newCommandOutput(progress func(string)) *commandOutput {
+	return &commandOutput{progress: progress, lastProgress: time.Now()}
+}
+
+func (o *commandOutput) Write(p []byte) (int, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.buf.Write(p)
+	o.sinceProgress += len(p)
+	since := time.Since(o.lastProgress)
+	if o.progress != nil && (since >= commandProgressEvery || (o.sinceProgress >= commandProgressMinOutput && since >= commandProgressMinEvery)) {
+		o.progress(tailText(string(p), 60))
+		o.lastProgress = time.Now()
+		o.sinceProgress = 0
+	}
+	return len(p), nil
+}
+
+func (o *commandOutput) String() string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.buf.String()
+}
+
 func tailText(s string, n int) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	if len(lines) > n {
@@ -150,9 +202,10 @@ func writeCommandScript(dir, command string) error {
 	return os.WriteFile(filepath.Join(dir, "command.txt"), []byte(command), 0o644)
 }
 
-func commandSummary(command string, res commandResult, err error) string {
+func commandSummary(command, mode string, res commandResult, err error) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "命令执行完成，退出码：%d\n", res.ExitCode)
+	fmt.Fprintf(&b, "执行模式：%s\n", mode)
 	if err != nil {
 		fmt.Fprintf(&b, "错误：%v\n", err)
 	}
