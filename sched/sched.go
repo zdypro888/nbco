@@ -1,7 +1,6 @@
 // Package sched 是 DB 驱动的调度器：定时提醒投递、任务截止提醒/过期通知、
 // AI 催办、每日待办汇总 + 超管全局日报、AI 周报。
-// 状态全在库里（schedules 表 + tasks 发送标记 + kv_state），进程随时可重启，
-// 不重发不漏发（原子认领）。
+// 状态全在库里（schedules 表 + tasks 发送标记/短租约 + kv_state），进程随时可重启。
 //
 // 两级主动性：模板消息（提醒/通知/日报，确定性）与 AI 轮次（催办/周报——
 // 调度器把系统指令注入用户会话跑一轮引擎，产出个性化内容后经 Notifier 推送）。
@@ -62,17 +61,32 @@ func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, channel str
 	}
 }
 
+// runAIAndSend 同步执行一轮系统触发的 AI 生成 + 推送，返回是否完整成功。
+func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, prefix, label string) bool {
+	reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+	if err != nil {
+		slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
+		return false
+	}
+	return s.send(ctx, u.ID, prefix+reply)
+}
+
+func (s *Scheduler) runAIAndSendLimited(ctx context.Context, u *store.User, directive, prefix, label string) bool {
+	done := make(chan bool, 1)
+	s.aiPool.submit(ctx, func() { done <- s.runAIAndSend(ctx, u, directive, prefix, label) })
+	select {
+	case ok := <-done:
+		return ok
+	case <-ctx.Done():
+		return false
+	}
+}
+
 // dispatchAI 派发一轮系统触发的 AI 生成 + 推送，受 aiPool 限并发、对 tick 非阻塞。
 // prefix 前缀（如「🧭 月度人员盘点\n」），after 在推送成功后执行（可为 nil，用于催办升级）。
 func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, directive, prefix, label string, after func()) {
 	s.aiPool.submit(ctx, func() {
-		reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
-		if err != nil {
-			slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
-			return
-		}
-		s.send(ctx, u.ID, prefix+reply)
-		if after != nil {
+		if s.runAIAndSend(ctx, u, directive, prefix, label) && after != nil {
 			after()
 		}
 	})
@@ -99,7 +113,8 @@ func (s *Scheduler) tick(ctx context.Context) {
 		slog.Error("取到期提醒失败", "err", err)
 	}
 	for _, sc := range due {
-		s.fireSchedule(ctx, sc)
+		sc := sc
+		s.sendPool.submit(ctx, func() { s.fireSchedule(ctx, sc) })
 	}
 	s.deadlinePass(ctx, now)
 	s.nudgePass(ctx, now)
@@ -112,36 +127,61 @@ func (s *Scheduler) tick(ctx context.Context) {
 // daily 任务顺带把下次触发时间校正到工作日过滤后的正确时刻。
 // 这里没有任何具体运营政策：几点、对谁、说什么全部来自数据行（AI 按对话创建）。
 func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
+	now := time.Now().UTC()
+	done := sc.Kind == store.ScheduleOnce
+	var next *time.Time
 	if sc.Kind == store.ScheduleDaily {
-		next := store.NextDailyFire(time.Now(), sc.DailyAt, sc.Weekdays, s.tz)
-		if err := s.store.UpdateScheduleFireAt(ctx, sc.ID, next); err != nil {
-			slog.Warn("daily 定时校正失败（沿用+24h）", "schedule", sc.ID, "err", err)
-		}
+		n := store.NextDailyFire(now, sc.DailyAt, sc.Weekdays, s.tz)
+		next = &n
 		// 今天不在工作日过滤内（比如补跑/时钟漂移落到周末）：只校正不投递。
 		if !store.WeekdayAllowed(time.Now().In(s.tz).Weekday(), sc.Weekdays) {
+			if err := s.store.MarkScheduleDelivered(ctx, sc.ID, now, next, false); err != nil {
+				slog.Warn("daily 定时跳过校正失败", "schedule", sc.ID, "err", err)
+			}
 			return
 		}
+	} else if sc.Kind == store.ScheduleRepeat {
+		n := nextRepeatFire(sc.FireAt, now, time.Duration(sc.IntervalS)*time.Second)
+		next = &n
 	}
-	for _, u := range s.resolveTargets(ctx, sc) {
+
+	targets := s.resolveTargets(ctx, sc)
+	ok := true
+	for _, u := range targets {
 		switch sc.Mode {
 		case store.ScheduleModeAI:
 			if s.orch == nil {
-				s.send(ctx, u.ID, "⏰ "+sc.Message)
+				ok = s.send(ctx, u.ID, "⏰ "+sc.Message) && ok
 				continue
 			}
 			directive := fmt.Sprintf(
 				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
 					"需要事实（如其今日待办、任务状态）先用工具查询，个性化、简洁、不编造：\n%s\n"+
 					"你的回复会作为主动消息直接推送给该用户。", sc.Message)
-			// 每位目标一轮 AI，受 aiPool 限并发异步跑：全员推送不会齐发打爆网关，
-			// 也不阻塞调度节拍。
-			s.dispatchAI(ctx, u, directive, "", "定时推送", nil)
+			ok = s.runAIAndSendLimited(ctx, u, directive, "", "定时推送") && ok
 		default:
 			msg := "⏰ 提醒：" + sc.Message
-			uid := u.ID
-			s.sendPool.submit(ctx, func() { s.send(ctx, uid, msg) })
+			ok = s.send(ctx, u.ID, msg) && ok
 		}
 	}
+	if ok {
+		if err := s.store.MarkScheduleDelivered(ctx, sc.ID, now, next, done); err != nil {
+			slog.Warn("定时任务 ack 失败", "schedule", sc.ID, "err", err)
+		}
+		return
+	}
+	slog.Warn("定时任务未完整投递，等待租约过期后重试", "schedule", sc.ID)
+}
+
+func nextRepeatFire(fireAt, now time.Time, interval time.Duration) time.Time {
+	if interval <= 0 {
+		return now.Add(time.Hour).UTC()
+	}
+	next := fireAt
+	for !next.After(now) {
+		next = next.Add(interval)
+	}
+	return next.UTC()
 }
 
 // resolveTargets 展开定时任务的目标为具体用户（活跃、非 worker）。
@@ -196,12 +236,16 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 				"你的回复会作为主动消息直接推送给执行人。",
 			t.ID, t.Title, s.fmtTime(*t.Deadline), int(nudgeInterval.Hours()))
 		t := t // 捕获循环变量
-		// 催办成功后升级：累计多次仍无进度 → 分配者介入（模板消息，确定性投递）。
+		// 催办成功后 ack；累计多次仍无进度 → 分配者介入（模板消息，确定性投递）。
 		escalate := func() {
-			if t.NudgeCount >= escalateAfter && t.AssignerID != t.AssigneeID {
+			if err := s.store.MarkNudgeSent(ctx, t.ID, time.Now().UTC()); err != nil {
+				slog.Warn("催办 ack 失败", "task", t.ID, "err", err)
+				return
+			}
+			if t.NudgeCount+1 >= escalateAfter && t.AssignerID != t.AssigneeID {
 				s.send(ctx, t.AssignerID,
 					fmt.Sprintf("⚠️ 你分配的任务「%s」（#%d，执行人 %s）已催办 %d 次仍无进度，请介入：调整任务、改期或改派。",
-						t.Title, t.ID, u.Name, t.NudgeCount))
+						t.Title, t.ID, u.Name, t.NudgeCount+1))
 			}
 		}
 		s.dispatchAI(ctx, u, directive, "", "催办", escalate)
@@ -293,7 +337,7 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 	}
 }
 
-// deadlinePass 任务临近截止提醒 + 过期通知。发送标记在认领时落库，不重发。
+// deadlinePass 任务临近截止提醒 + 过期通知。先 claim，投递成功后 ack；失败等租约过期重试。
 func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 	warn, err := s.store.DueDeadlineReminders(ctx, now, deadlineWarnWindow)
 	if err != nil {
@@ -302,8 +346,12 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 	for _, t := range warn {
 		t := t
 		s.sendPool.submit(ctx, func() {
-			s.send(ctx, t.AssigneeID,
-				fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+			if s.send(ctx, t.AssigneeID,
+				fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline))) {
+				if err := s.store.MarkDeadlineReminderSent(ctx, t.ID, time.Now().UTC()); err != nil {
+					slog.Warn("临近截止提醒 ack 失败", "task", t.ID, "err", err)
+				}
+			}
 		})
 	}
 
@@ -314,11 +362,16 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 	for _, t := range over {
 		t := t
 		s.sendPool.submit(ctx, func() {
-			s.send(ctx, t.AssigneeID,
+			ok := s.send(ctx, t.AssigneeID,
 				fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
 			if t.AssignerID != t.AssigneeID {
-				s.send(ctx, t.AssignerID,
-					fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline)))
+				ok = s.send(ctx, t.AssignerID,
+					fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))) && ok
+			}
+			if ok {
+				if err := s.store.MarkOverdueNoticeSent(ctx, t.ID, time.Now().UTC()); err != nil {
+					slog.Warn("过期通知 ack 失败", "task", t.ID, "err", err)
+				}
 			}
 		})
 	}
@@ -441,12 +494,13 @@ func renderDigest(stats *store.TaskStats, overdue []*store.Task, names map[int64
 	return b.String()
 }
 
-func (s *Scheduler) send(ctx context.Context, userID int64, text string) {
+func (s *Scheduler) send(ctx context.Context, userID int64, text string) bool {
 	if err := s.notifier.Send(ctx, userID, text); err != nil {
 		slog.Warn("调度消息投递失败", "user", userID, "err", err)
-		return
+		return false
 	}
 	slog.Info("调度消息已投递", "user", userID, "text_len", len(text))
+	return true
 }
 
 func (s *Scheduler) userName(ctx context.Context, id int64) string {

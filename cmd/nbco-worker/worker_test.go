@@ -121,6 +121,20 @@ func TestSafeFileName(t *testing.T) {
 	}
 }
 
+func TestWorkDirIncludesClaimID(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	w := &Worker{}
+	dir, err := w.workDir(42, "abc123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(home, "nbco-work", "task-42", "claim-abc123")
+	if dir != want {
+		t.Fatalf("workDir = %q, want %q", dir, want)
+	}
+}
+
 func TestCompletionNudgeHasNoSentinel(t *testing.T) {
 	for _, m := range []string{markSummary, markLessons, markEnd} {
 		if strings.Contains(completionNudge, m) {

@@ -23,6 +23,8 @@ const (
 	TaskDone       = "done"     // 已提交，等待分配者验收
 	TaskAccepted   = "accepted" // 验收通过（终态）
 	TaskSplit      = "split"    // 已拆分：由子任务承载执行
+
+	taskReminderClaimLease = 10 * time.Minute
 )
 
 // Project 项目。
@@ -249,11 +251,14 @@ func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, descripti
 		   goal = COALESCE($2, goal),
 		   description = COALESCE($3, description),
 		   acceptance = COALESCE($4, acceptance),
-		   deadline = COALESCE($5, deadline),
-		   deadline_reminded_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminded_at END,
-		   overdue_notified_at  = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE overdue_notified_at END,
-		   updated_at = now()
-		 WHERE id = $1 RETURNING `+taskCols, id, goal, description, acceptance, deadline))
+			   deadline = COALESCE($5, deadline),
+			   deadline_reminded_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminded_at END,
+			   overdue_notified_at  = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE overdue_notified_at END,
+			   deadline_reminder_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminder_claimed_at END,
+			   overdue_notice_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE overdue_notice_claimed_at END,
+			   nudge_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE nudge_claimed_at END,
+			   updated_at = now()
+			 WHERE id = $1 RETURNING `+taskCols, id, goal, description, acceptance, deadline))
 }
 
 // SubmitTask 执行人提交完成：自派任务（分配者=执行人）免验收直接 accepted 并向上级联；
@@ -420,36 +425,60 @@ func (s *Store) TasksAwaitingReview(ctx context.Context, assignerID int64) ([]*T
 // DueNudges 原子认领需要 AI 催办的任务：已发过期通知，且距最近一次
 // 「过期通知 / 催办 / 进度更新」超过 interval 的开放任务。
 func (s *Store) DueNudges(ctx context.Context, now time.Time, interval time.Duration) ([]*Task, error) {
+	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
-		`UPDATE tasks SET nudged_at = $1, nudge_count = nudge_count + 1 WHERE id IN (
+		`UPDATE tasks SET nudge_claimed_at = $1 WHERE id IN (
 		   SELECT t.id FROM tasks t
 		   LEFT JOIN LATERAL (
 		     SELECT max(created_at) AS at FROM task_progress p WHERE p.task_id = t.id
 		   ) prog ON TRUE
 		   WHERE t.status IN ('pending', 'in_progress')
 		     AND t.overdue_notified_at IS NOT NULL
+		     AND (t.nudge_claimed_at IS NULL OR t.nudge_claimed_at <= $3)
 		     AND GREATEST(t.overdue_notified_at,
 		                  COALESCE(t.nudged_at, t.overdue_notified_at),
 		                  COALESCE(prog.at, t.overdue_notified_at)) <= $2
-		 ) RETURNING `+taskCols, now, now.Add(-interval))
+		 ) RETURNING `+taskCols, now, now.Add(-interval), stale)
 }
 
-// DueDeadlineReminders 原子认领「临近截止」提醒：开放任务、截止落在 (now, now+window]、未提醒过。
+// DueDeadlineReminders 原子认领「临近截止」提醒：开放任务、截止落在 (now, now+window]、未成功提醒过。
 func (s *Store) DueDeadlineReminders(ctx context.Context, now time.Time, window time.Duration) ([]*Task, error) {
+	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
-		`UPDATE tasks SET deadline_reminded_at = $1
+		`UPDATE tasks SET deadline_reminder_claimed_at = $1
 		 WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
 		   AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
-		 RETURNING `+taskCols, now, now.Add(window))
+		   AND (deadline_reminder_claimed_at IS NULL OR deadline_reminder_claimed_at <= $3)
+		 RETURNING `+taskCols, now, now.Add(window), stale)
 }
 
-// DueOverdueNotices 原子认领「已过期」通知：开放任务、截止已过、未通知过。
+// DueOverdueNotices 原子认领「已过期」通知：开放任务、截止已过、未成功通知过。
 func (s *Store) DueOverdueNotices(ctx context.Context, now time.Time) ([]*Task, error) {
+	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
-		`UPDATE tasks SET overdue_notified_at = $1
+		`UPDATE tasks SET overdue_notice_claimed_at = $1
 		 WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
 		   AND overdue_notified_at IS NULL AND deadline <= $1
-		 RETURNING `+taskCols, now)
+		   AND (overdue_notice_claimed_at IS NULL OR overdue_notice_claimed_at <= $2)
+		 RETURNING `+taskCols, now, stale)
+}
+
+func (s *Store) MarkDeadlineReminderSent(ctx context.Context, id int64, sentAt time.Time) error {
+	return s.execOne(ctx,
+		`UPDATE tasks SET deadline_reminded_at = $2, deadline_reminder_claimed_at = NULL, updated_at = now()
+		 WHERE id = $1 AND deadline_reminder_claimed_at IS NOT NULL`, id, sentAt)
+}
+
+func (s *Store) MarkOverdueNoticeSent(ctx context.Context, id int64, sentAt time.Time) error {
+	return s.execOne(ctx,
+		`UPDATE tasks SET overdue_notified_at = $2, overdue_notice_claimed_at = NULL, updated_at = now()
+		 WHERE id = $1 AND overdue_notice_claimed_at IS NOT NULL`, id, sentAt)
+}
+
+func (s *Store) MarkNudgeSent(ctx context.Context, id int64, sentAt time.Time) error {
+	return s.execOne(ctx,
+		`UPDATE tasks SET nudged_at = $2, nudge_claimed_at = NULL, nudge_count = nudge_count + 1, updated_at = now()
+		 WHERE id = $1 AND nudge_claimed_at IS NOT NULL`, id, sentAt)
 }
 
 // TaskStats 全局任务统计（老板摘要用）。

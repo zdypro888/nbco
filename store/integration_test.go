@@ -376,13 +376,23 @@ func TestDeadlineClaims(t *testing.T) {
 	soon := now.Add(2 * time.Hour)
 	tk := mkTask(t, s, pj.ID, boss.ID, alice.ID, "赶工", &soon)
 
-	// 临近提醒：认领一次，重复调用为空。
+	// 临近提醒：claim 一次，租约内重复调用为空；租约过期可重试，ack 后才消失。
 	warn, err := s.DueDeadlineReminders(ctx, now, 24*time.Hour)
 	if err != nil || len(warn) != 1 || warn[0].ID != tk.ID {
 		t.Fatalf("首次认领 = %d err=%v", len(warn), err)
 	}
 	if warn, _ = s.DueDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
-		t.Fatalf("重复认领应为空, got %d", len(warn))
+		t.Fatalf("租约内重复认领应为空, got %d", len(warn))
+	}
+	mustExec(t, s, `UPDATE tasks SET deadline_reminder_claimed_at = now() - interval '20 minutes' WHERE id = $1`, tk.ID)
+	if warn, err = s.DueDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 {
+		t.Fatalf("租约过期应可重试, got %d err=%v", len(warn), err)
+	}
+	if err := s.MarkDeadlineReminderSent(ctx, tk.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	if warn, _ = s.DueDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
+		t.Fatalf("ack 后不应再认领, got %d", len(warn))
 	}
 	// 尚未过期。
 	if over, _ := s.DueOverdueNotices(ctx, now); len(over) != 0 {
@@ -398,7 +408,17 @@ func TestDeadlineClaims(t *testing.T) {
 		t.Fatalf("改期后过期通知 = %d err=%v", len(over), err)
 	}
 	if over, _ = s.DueOverdueNotices(ctx, now); len(over) != 0 {
-		t.Fatalf("过期通知重复认领应为空, got %d", len(over))
+		t.Fatalf("过期通知租约内重复认领应为空, got %d", len(over))
+	}
+	mustExec(t, s, `UPDATE tasks SET overdue_notice_claimed_at = now() - interval '20 minutes' WHERE id = $1`, tk.ID)
+	if over, err = s.DueOverdueNotices(ctx, now); err != nil || len(over) != 1 {
+		t.Fatalf("过期通知租约过期应可重试, got %d err=%v", len(over), err)
+	}
+	if err := s.MarkOverdueNoticeSent(ctx, tk.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	if over, _ = s.DueOverdueNotices(ctx, now); len(over) != 0 {
+		t.Fatalf("过期通知 ack 后不应再认领, got %d", len(over))
 	}
 }
 
@@ -433,9 +453,19 @@ func TestNudgeClaims(t *testing.T) {
 		}
 		t.Fatalf("应只催无动静任务 #%d, got %v err=%v", stale.ID, ids, err)
 	}
-	// 刚催过 → 不再催。
+	// 刚 claim → 租约内不再催；租约过期可重试；ack 后才进入冷却。
 	if due, _ = s.DueNudges(ctx, now, 48*time.Hour); len(due) != 0 {
-		t.Fatalf("催办重复认领应为空, got %d", len(due))
+		t.Fatalf("催办租约内重复认领应为空, got %d", len(due))
+	}
+	mustExec(t, s, `UPDATE tasks SET nudge_claimed_at = now() - interval '20 minutes' WHERE id = $1`, stale.ID)
+	if due, err = s.DueNudges(ctx, now, 48*time.Hour); err != nil || len(due) != 1 {
+		t.Fatalf("催办租约过期应可重试, got %d err=%v", len(due), err)
+	}
+	if err := s.MarkNudgeSent(ctx, stale.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	if due, _ = s.DueNudges(ctx, now, 48*time.Hour); len(due) != 0 {
+		t.Fatalf("催办 ack 后不应重复, got %d", len(due))
 	}
 }
 
@@ -629,13 +659,25 @@ func TestDirectedDailySchedule(t *testing.T) {
 	if len(due) != 1 || due[0].ID != sc.ID {
 		t.Fatalf("应认领到 1 条, got %d", len(due))
 	}
-	// 前滚后不再到期（不重复触发）。
+	// 租约内不再到期（不重复触发）；租约过期可重试；ack 后推进 fire_at。
 	due2, err := s.DueSchedules(ctx, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(due2) != 0 {
-		t.Fatalf("daily 前滚后不应重复触发, got %d", len(due2))
+		t.Fatalf("daily 租约内不应重复触发, got %d", len(due2))
+	}
+	mustExec(t, s, `UPDATE schedules SET delivery_claimed_at = now() - interval '20 minutes' WHERE id = $1`, sc.ID)
+	due2, err = s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due2) != 1 {
+		t.Fatalf("daily 租约过期应可重试, got %d err=%v", len(due2), err)
+	}
+	next := time.Now().UTC().Add(24 * time.Hour)
+	if err := s.MarkScheduleDelivered(ctx, sc.ID, time.Now().UTC(), &next, false); err != nil {
+		t.Fatal(err)
+	}
+	if due2, err = s.DueSchedules(ctx, time.Now().UTC()); err != nil || len(due2) != 0 {
+		t.Fatalf("daily ack 推进后不应重复触发, got %d err=%v", len(due2), err)
 	}
 	// 创建者可见、创建者可取消。
 	list, err := s.SchedulesOf(ctx, boss.ID)

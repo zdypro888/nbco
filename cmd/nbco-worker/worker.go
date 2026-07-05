@@ -137,7 +137,7 @@ func (w *Worker) killed() bool {
 // execute 在 PTY 里驱动交互式 CLI 完成任务：warmup → 粘贴任务 → 等回复结束 →
 // 解析收尾（不合格就补提醒）→ 提交验收。进度以屏幕快照周期回传。
 func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
-	dir, err := w.workDir(task.ID)
+	dir, err := w.workDir(task.ID, task.ClaimID)
 	if err != nil {
 		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
@@ -256,12 +256,16 @@ func (w *Worker) cliArgs() []string {
 	}
 }
 
-func (w *Worker) workDir(taskID int64) (string, error) {
+func (w *Worker) workDir(taskID int64, claimID string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, "nbco-work", fmt.Sprintf("task-%d", taskID))
+	claim := safeFileName(claimID)
+	if claim == "" {
+		claim = "no-claim"
+	}
+	dir := filepath.Join(home, "nbco-work", fmt.Sprintf("task-%d", taskID), "claim-"+claim)
 	return dir, os.MkdirAll(dir, 0o755)
 }
 

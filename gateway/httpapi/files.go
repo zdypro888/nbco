@@ -3,7 +3,6 @@ package httpapi
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -102,7 +101,7 @@ func (s *Server) handleAttachFile(w http.ResponseWriter, r *http.Request) {
 		FileID  int64  `json:"file_id"`
 		Caption string `json:"caption"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FileID == 0 {
+	if err := decodeJSON(w, r, &req); err != nil || req.FileID == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "file_id 必填"})
 		return
 	}

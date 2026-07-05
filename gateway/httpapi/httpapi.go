@@ -25,6 +25,8 @@ import (
 // Channel HTTP 渠道标识（Web 页与 REST 共用同一会话）。
 const Channel = "api"
 
+const maxJSONBodyBytes = 1 << 20
+
 //go:embed web/index.html
 var indexHTML []byte
 
@@ -101,6 +103,13 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
+}
+
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
 	if u == nil {
@@ -109,7 +118,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Message string `json:"message"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Message) == "" {
+	if err := decodeJSON(w, r, &req); err != nil || strings.TrimSpace(req.Message) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "message 必填"})
 		return
 	}
@@ -369,7 +378,7 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 		ClaimID string `json:"claim_id"`
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Content) == "" {
+	if err := decodeJSON(w, r, &req); err != nil || strings.TrimSpace(req.Content) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 与 content 必填"})
 		return
 	}
@@ -396,7 +405,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		Summary string `json:"summary"`
 		Lessons string `json:"lessons"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TaskID == 0 {
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
 		return
 	}
@@ -438,7 +447,14 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 
 // Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。
 func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) error {
-	srv := &http.Server{Addr: addr, Handler: s.Handler()}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           s.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      10 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		if certFile != "" && keyFile != "" {

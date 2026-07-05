@@ -24,6 +24,8 @@ const (
 	// 目标。
 	ScheduleTargetSelf = "self"
 	ScheduleTargetAll  = "_all"
+
+	scheduleDeliveryLease = 10 * time.Minute
 )
 
 // Schedule 一条定时任务。FireAt 是下次触发时间（UTC）。
@@ -95,22 +97,16 @@ func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
 		 WHERE id = $1 AND (user_id = $2 OR created_by = $2) AND status = 'active'`, id, userID)
 }
 
-// DueSchedules 取出到期任务并原子推进状态：
-// once → done；repeat → fire_at 前滚一个间隔；daily → 前滚 24 小时
-// （工作日过滤与时区校正由调度器随后用 UpdateScheduleFireAt 修正，
-// 这里的前滚只保证 fire_at > now，杜绝重复触发）。
-// 用单条 UPDATE...RETURNING 保证多次调用/多实例不重复触发。
+// DueSchedules 原子认领到期任务。这里只写短租约，不推进 fire_at/状态；
+// 调度器投递成功后调用 MarkScheduleDelivered ack。进程崩溃或发送失败时，
+// 租约过期后可重试，避免提醒被提前标记为已发送而丢失。
 func (s *Store) DueSchedules(ctx context.Context, now time.Time) ([]*Schedule, error) {
+	stale := now.Add(-scheduleDeliveryLease)
 	rows, err := s.pool.Query(ctx,
-		`UPDATE schedules SET
-		   last_fired = $1,
-		   status = CASE WHEN kind = 'once' THEN 'done' ELSE status END,
-		   fire_at = CASE
-		     WHEN kind = 'repeat' THEN fire_at + make_interval(secs => interval_s)
-		     WHEN kind = 'daily'  THEN fire_at + interval '24 hours'
-		     ELSE fire_at END
+		`UPDATE schedules SET delivery_claimed_at = $1
 		 WHERE status = 'active' AND fire_at <= $1
-		 RETURNING `+scheduleCols, now)
+		   AND (delivery_claimed_at IS NULL OR delivery_claimed_at <= $2)
+		 RETURNING `+scheduleCols, now, stale)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +120,21 @@ func (s *Store) DueSchedules(ctx context.Context, now time.Time) ([]*Schedule, e
 		scs = append(scs, sc)
 	}
 	return scs, rows.Err()
+}
+
+// MarkScheduleDelivered ack 一次成功投递并推进下一次触发时间。
+func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, firedAt time.Time, nextFireAt *time.Time, done bool) error {
+	status := ScheduleActive
+	if done {
+		status = ScheduleDone
+	}
+	return s.execOne(ctx,
+		`UPDATE schedules SET
+		   last_fired = $2,
+		   status = $3,
+		   fire_at = COALESCE($4, fire_at),
+		   delivery_claimed_at = NULL
+		 WHERE id = $1 AND delivery_claimed_at IS NOT NULL`, id, firedAt, status, nextFireAt)
 }
 
 // UpdateScheduleFireAt 修正下次触发时间（daily 的工作日跳过/时区校正）。

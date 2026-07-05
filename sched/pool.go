@@ -9,9 +9,8 @@ import (
 // 调度器 tick 的关键路径上挪走，既不阻塞 30 秒节拍（截止提醒等确定性任务照常
 // 及时触发），又用固定并发上限护住后端模型网关（避免「全员问候」几百轮齐发）。
 //
-// 正确性依赖于各 pass 的「原子认领」：待办在派发前已在库里标记（DueSchedules
-// 推进 fire_at、DueNudges 记 nudged_at、日报/周报写 kv_state），因此后续 tick
-// 不会重复选中同一件事——派发到后台异步跑是安全的，进程崩溃至多漏发不重发。
+// 正确性依赖于各 pass 的「原子短租约 + 成功 ack」：待办先 claim，投递成功后才写
+// sent 标记；进程崩溃或发送失败时租约过期后重试。
 type pool struct {
 	sem chan struct{}
 	wg  sync.WaitGroup
