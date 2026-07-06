@@ -26,6 +26,9 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
 		"company_overview", "get_ai_settings", "set_ai_settings", "create_role", "disable_user",
 		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker",
+		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
+		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
+		"set_telegram_group_listen",
 	} {
 		if names[gone] {
 			t.Errorf("无授权用户不应看到 %s", gone)
@@ -35,6 +38,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"get_my_tasks", "update_my_task_status", "accept_task", "split_my_task",
 		"save_knowledge", "search_knowledge", "list_workers", "list_roles",
 		"activate_role", "schedule_once", "get_my_profile", "grant_active_perm",
+		"list_telegram_groups", "get_telegram_group",
 	} {
 		if !names[keep] {
 			t.Errorf("无授权用户应保留 %s", keep)
@@ -140,7 +144,13 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 func TestForUserSuperadminSeesAll(t *testing.T) {
 	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
 	names := namesOf(ForUser(Deps{}, su, nil))
-	for _, want := range []string{"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings", "create_worker", "run_worker_command", "send_message", "grant_passive_perm"} {
+	for _, want := range []string{
+		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
+		"create_worker", "run_worker_command", "send_message", "grant_passive_perm",
+		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
+		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
+		"set_telegram_group_listen",
+	} {
 		if !names[want] {
 			t.Errorf("超管应看到 %s", want)
 		}
@@ -172,6 +182,9 @@ func TestStripGroupSensitive(t *testing.T) {
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "schedule_push",
+		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
+		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
+		"set_telegram_group_listen",
 	} {
 		if !full[gone] {
 			t.Fatalf("前置条件：超管私聊应有 %s", gone)
@@ -181,7 +194,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		}
 	}
 	// 日常工具保留。
-	for _, keep := range []string{"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview"} {
+	for _, keep := range []string{"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview", "list_telegram_groups", "get_telegram_group"} {
 		if !grouped[keep] {
 			t.Errorf("群里应保留 %s", keep)
 		}

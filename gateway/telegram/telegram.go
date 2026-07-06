@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"github.com/go-telegram/bot"
@@ -821,6 +822,76 @@ func (g *Gateway) sendOne(ctx context.Context, chatID int64, chunk string) error
 
 func (g *Gateway) sendTyping(ctx context.Context, chatID int64) {
 	_, _ = g.bot.SendChatAction(ctx, &bot.SendChatActionParams{ChatID: chatID, Action: models.ChatActionTyping})
+}
+
+func (g *Gateway) SendTelegramGroupMessage(ctx context.Context, chatID int64, text string, disableNotification bool) (int, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		text = "（空消息）"
+	}
+	text = toTelegramHTML(text)
+	var lastID int
+	for _, chunk := range splitChunks(text, chunkLimit) {
+		msg, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatID, Text: chunk, ParseMode: models.ParseModeHTML, DisableNotification: disableNotification,
+		})
+		if err != nil {
+			msg, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: chatID, Text: htmlTagTokenRe.ReplaceAllString(chunk, ""), DisableNotification: disableNotification,
+			})
+			if err != nil {
+				return 0, err
+			}
+		}
+		lastID = msg.ID
+	}
+	return lastID, nil
+}
+
+func (g *Gateway) EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return fmt.Errorf("消息内容不能为空")
+	}
+	_, err := g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID: chatID, MessageID: messageID, Text: toTelegramHTML(text), ParseMode: models.ParseModeHTML,
+	})
+	return err
+}
+
+func (g *Gateway) DeleteTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error {
+	_, err := g.bot.DeleteMessage(ctx, &bot.DeleteMessageParams{ChatID: chatID, MessageID: messageID})
+	return err
+}
+
+func (g *Gateway) PinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, disableNotification bool) error {
+	_, err := g.bot.PinChatMessage(ctx, &bot.PinChatMessageParams{
+		ChatID: chatID, MessageID: messageID, DisableNotification: disableNotification,
+	})
+	return err
+}
+
+func (g *Gateway) UnpinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error {
+	_, err := g.bot.UnpinChatMessage(ctx, &bot.UnpinChatMessageParams{ChatID: chatID, MessageID: messageID})
+	return err
+}
+
+func (g *Gateway) SetTelegramGroupTitle(ctx context.Context, chatID int64, title string) error {
+	_, err := g.bot.SetChatTitle(ctx, &bot.SetChatTitleParams{ChatID: chatID, Title: title})
+	if err != nil {
+		return err
+	}
+	if st, serr := g.store.TelegramGroupState(ctx, chatID); serr == nil {
+		st.Title = title
+		st.UpdatedAt = time.Now()
+		_ = g.store.SaveTelegramGroupState(ctx, *st)
+	}
+	return nil
+}
+
+func (g *Gateway) SetTelegramGroupDescription(ctx context.Context, chatID int64, description string) error {
+	_, err := g.bot.SetChatDescription(ctx, &bot.SetChatDescriptionParams{ChatID: chatID, Description: description})
+	return err
 }
 
 // messageText 把消息转成给编排器的文本：纯文本原样返回；带媒体的消息把

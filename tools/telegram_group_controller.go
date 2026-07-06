@@ -1,0 +1,97 @@
+package tools
+
+import (
+	"context"
+	"errors"
+	"sync"
+)
+
+// TelegramGroupController 是工具层对 Telegram 群的控制接口。
+// 具体实现由 gateway/telegram 注入；工具层不直接依赖 Telegram 包。
+type TelegramGroupController interface {
+	SendTelegramGroupMessage(ctx context.Context, chatID int64, text string, disableNotification bool) (messageID int, err error)
+	EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error
+	DeleteTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error
+	PinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, disableNotification bool) error
+	UnpinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error
+	SetTelegramGroupTitle(ctx context.Context, chatID int64, title string) error
+	SetTelegramGroupDescription(ctx context.Context, chatID int64, description string) error
+}
+
+// TelegramGroupHub 解决装配期循环：chat/tools 先持有 hub，Telegram 网关启动后注入实现。
+type TelegramGroupHub struct {
+	mu sync.RWMutex
+	c  TelegramGroupController
+}
+
+func (h *TelegramGroupHub) Set(c TelegramGroupController) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.c = c
+}
+
+func (h *TelegramGroupHub) controller() (TelegramGroupController, error) {
+	h.mu.RLock()
+	c := h.c
+	h.mu.RUnlock()
+	if c == nil {
+		return nil, errors.New("Telegram 群控制器尚未就绪")
+	}
+	return c, nil
+}
+
+func (h *TelegramGroupHub) SendTelegramGroupMessage(ctx context.Context, chatID int64, text string, disableNotification bool) (int, error) {
+	c, err := h.controller()
+	if err != nil {
+		return 0, err
+	}
+	return c.SendTelegramGroupMessage(ctx, chatID, text, disableNotification)
+}
+
+func (h *TelegramGroupHub) EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.EditTelegramGroupMessage(ctx, chatID, messageID, text)
+}
+
+func (h *TelegramGroupHub) DeleteTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.DeleteTelegramGroupMessage(ctx, chatID, messageID)
+}
+
+func (h *TelegramGroupHub) PinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, disableNotification bool) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.PinTelegramGroupMessage(ctx, chatID, messageID, disableNotification)
+}
+
+func (h *TelegramGroupHub) UnpinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.UnpinTelegramGroupMessage(ctx, chatID, messageID)
+}
+
+func (h *TelegramGroupHub) SetTelegramGroupTitle(ctx context.Context, chatID int64, title string) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.SetTelegramGroupTitle(ctx, chatID, title)
+}
+
+func (h *TelegramGroupHub) SetTelegramGroupDescription(ctx context.Context, chatID int64, description string) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.SetTelegramGroupDescription(ctx, chatID, description)
+}

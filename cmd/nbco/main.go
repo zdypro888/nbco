@@ -60,6 +60,7 @@ func run(configPath string) error {
 	defer st.Close()
 
 	hub := &notify.Hub{}
+	tgGroups := &tools.TelegramGroupHub{}
 
 	// 语义检索的 embedder（可选）：配了 ai.embed_model 才构建，否则知识检索回退词法。
 	embedder, err := embed.New(cfg.AI)
@@ -80,6 +81,7 @@ func run(configPath string) error {
 		Workers:                  workerhub.New(),
 		AIStreamReasoningDefault: cfg.AI.StreamReasoning,
 		PublicBaseURL:            cfg.PublicBaseURL,
+		TelegramGroups:           tgGroups,
 	}
 
 	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
@@ -121,6 +123,7 @@ func run(configPath string) error {
 			return err
 		}
 		hub.Set(tg)
+		tgGroups.Set(tg)
 	} else {
 		slog.Info("未配置 telegram_token，跳过 Telegram 网关；HTTP/API/MCP/worker 仍可用")
 	}

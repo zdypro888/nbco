@@ -38,3 +38,17 @@ func TestRenderTelegramGroupHidesChatIDLabel(t *testing.T) {
 		t.Fatalf("renderTelegramGroup should not expose chat id labels:\n%s", got)
 	}
 }
+
+func TestParseTelegramMessageRef(t *testing.T) {
+	chatID, messageID, ok := parseTelegramMessageRef("telegram:group:-100123:message:77")
+	if !ok || chatID != -100123 || messageID != 77 {
+		t.Fatalf("parseTelegramMessageRef full = %d,%d,%v", chatID, messageID, ok)
+	}
+	chatID, messageID, ok = parseTelegramMessageRef("message:88")
+	if !ok || chatID != 0 || messageID != 88 {
+		t.Fatalf("parseTelegramMessageRef short = %d,%d,%v", chatID, messageID, ok)
+	}
+	if _, _, ok := parseTelegramMessageRef("telegram:group:-100123"); ok {
+		t.Fatal("group ref should not parse as message ref")
+	}
+}

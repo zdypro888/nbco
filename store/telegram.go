@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 )
 
 const KVTelegramGroupPrefix = "telegram.group:"
 const KVTelegramGroupListenPrefix = "tg_listen:"
+const KVTelegramGroupLastMessagePrefix = "telegram.group.last_message:"
 
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
 // 这是系统事实状态，不是聊天记忆；AI 回答群接入问题时应以它为准。
@@ -28,6 +30,10 @@ func telegramGroupKey(chatID int64) string {
 
 func TelegramGroupListenKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupListenPrefix, chatID)
+}
+
+func telegramGroupLastMessageKey(chatID int64) string {
+	return fmt.Sprintf("%s%d", KVTelegramGroupLastMessagePrefix, chatID)
 }
 
 func (s *Store) SaveTelegramGroupState(ctx context.Context, st TelegramGroupState) error {
@@ -85,4 +91,26 @@ func (s *Store) ListTelegramGroupStates(ctx context.Context, limit int) ([]Teleg
 		out = out[:limit]
 	}
 	return out, nil
+}
+
+func (s *Store) SaveTelegramGroupLastMessage(ctx context.Context, chatID int64, messageID int) error {
+	if chatID == 0 || messageID <= 0 {
+		return nil
+	}
+	return s.SetKV(ctx, telegramGroupLastMessageKey(chatID), strconv.Itoa(messageID))
+}
+
+func (s *Store) TelegramGroupLastMessage(ctx context.Context, chatID int64) (int, error) {
+	raw, err := s.GetKV(ctx, telegramGroupLastMessageKey(chatID))
+	if err != nil {
+		return 0, err
+	}
+	if raw == "" {
+		return 0, ErrNotFound
+	}
+	id, err := strconv.Atoi(raw)
+	if err != nil || id <= 0 {
+		return 0, ErrNotFound
+	}
+	return id, nil
 }
