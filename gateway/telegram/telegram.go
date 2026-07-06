@@ -527,7 +527,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	if !bound {
-		if g.handleGroupAutoInvite(ctx, msg, chatID, tgID, text) {
+		if g.handleGroupAutoInvite(ctx, msg, chatID, tgID) {
 			return
 		}
 		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
@@ -547,8 +547,8 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	g.reply(ctx, chatID, answer)
 }
 
-func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message, chatID, tgID int64, text string) bool {
-	if tgID == 0 || !looksLikeJoinRequest(text) {
+func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message, chatID, tgID int64) bool {
+	if tgID == 0 {
 		return false
 	}
 	raw, err := g.store.GetKV(ctx, store.TelegramGroupAutoInviteKey(chatID))
@@ -605,16 +605,6 @@ func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message
 	}
 	g.reply(ctx, chatID, fmt.Sprintf("✅ 已为 %s 准备好一次性邀请。请他私聊我发送 /start，我会自动完成绑定；邀请码不会在群里公开。", html.EscapeString(name)))
 	return true
-}
-
-func looksLikeJoinRequest(text string) bool {
-	s := strings.ToLower(strings.TrimSpace(text))
-	for _, token := range []string{"加入", "入职", "进系统", "开通", "绑定", "注册", "join", "invite", "access", "bind"} {
-		if strings.Contains(s, token) {
-			return true
-		}
-	}
-	return false
 }
 
 func (g *Gateway) employeeInviteLink(key string) string {

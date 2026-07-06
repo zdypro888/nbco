@@ -185,7 +185,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已更新 %s：%s。", telegramGroupTitle(*g), telegramGroupListenText(*g)), nil
 			}),
 
-		tool("set_telegram_group_auto_invite", "开启或关闭 Telegram 群自动邀请。仅超管私聊可见；开启后，未加入系统的人在该群 @bot 表达加入意图时，系统生成真人员工一次性邀请，优先私发；无法私发时提示对方私聊 /start 自动领取。不会把邀请码发到群里。",
+		tool("set_telegram_group_auto_invite", "开启或关闭 Telegram 群自动邀请。仅超管私聊可见；开启后，未加入系统的人在该群 @bot 时，系统生成真人员工一次性邀请，优先私发；无法私发时提示对方私聊 /start 自动领取。不会把邀请码发到群里。",
 			obj(map[string]any{
 				"group":   p("string", "群名、群名片段或 group_ref"),
 				"enabled": p("boolean", "true 开启，false 关闭"),
@@ -210,7 +210,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				if args.Enabled {
-					return fmt.Sprintf("已开启 %s 的自动邀请。未加入系统的人在群里 @bot 申请加入时，我会生成真人员工一次性邀请并尽量私发；不会在群里公开邀请码。", telegramGroupTitle(*g)), nil
+					return fmt.Sprintf("已开启 %s 的自动邀请。未加入系统的人在群里 @bot 时，我会生成真人员工一次性邀请并尽量私发；不会在群里公开邀请码。", telegramGroupTitle(*g)), nil
 				}
 				return fmt.Sprintf("已关闭 %s 的自动邀请。", telegramGroupTitle(*g)), nil
 			}),

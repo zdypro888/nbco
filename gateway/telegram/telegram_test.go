@@ -59,17 +59,6 @@ func TestShouldDebouncePlainTextOnly(t *testing.T) {
 	}
 }
 
-func TestLooksLikeJoinRequest(t *testing.T) {
-	for _, in := range []string{"@bot 我需要加入", "请帮我开通系统", "need access", "join please"} {
-		if !looksLikeJoinRequest(in) {
-			t.Fatalf("should be join request: %q", in)
-		}
-	}
-	if looksLikeJoinRequest("@bot 测试一下") {
-		t.Fatal("generic mention should not be join request")
-	}
-}
-
 func TestSplitChunksShort(t *testing.T) {
 	chunks := splitChunks("短消息", 10)
 	if len(chunks) != 1 || chunks[0] != "短消息" {
