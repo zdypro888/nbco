@@ -41,7 +41,7 @@ func openTestStore(t *testing.T) *Store {
 		conn.Release()
 	})
 	if _, err := s.pool.Exec(ctx,
-		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields RESTART IDENTITY CASCADE`); err != nil {
+		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields, ai_usage, pending_approvals RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），

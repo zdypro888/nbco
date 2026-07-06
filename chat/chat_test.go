@@ -88,7 +88,7 @@ func TestCompactionCycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
+	t.Cleanup(s.Close) // 用 Cleanup 而非 defer：LIFO 保证先放 advisory 锁再关池，否则互等死锁
 	// 与 store/knowledge 包的集成测试共用同一把 advisory 锁：它们会 TRUNCATE 全库，
 	// 不加锁并行跑必然偶发外键崩溃（go test 各包并行）。
 	lockConn, err := s.Pool().Acquire(ctx)
