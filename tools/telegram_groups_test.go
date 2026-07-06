@@ -70,6 +70,12 @@ func TestTelegramMemberDisplayAndStatus(t *testing.T) {
 			t.Fatalf("telegramBotMemberCapabilityText missing %q: %s", want, cap)
 		}
 	}
+	rights := telegramMemberRightsText([]string{"delete_messages", "pin_messages", "invite_users"})
+	for _, want := range []string{"删除消息", "置顶消息", "邀请成员"} {
+		if !strings.Contains(rights, want) {
+			t.Fatalf("telegramMemberRightsText missing %q: %s", want, rights)
+		}
+	}
 }
 
 func TestMatchSeenTelegramMember(t *testing.T) {

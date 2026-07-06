@@ -28,6 +28,7 @@ type TelegramGroupMember struct {
 	Username string
 	Status   string
 	IsBot    bool
+	Rights   []string
 }
 
 // TelegramGroupHub 解决装配期循环：chat/tools 先持有 hub，Telegram 网关启动后注入实现。

@@ -80,6 +80,9 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					if botMember, err := c.GetTelegramGroupBotMember(ctx, g.ChatID); err == nil && botMember != nil {
 						fmt.Fprintf(&b, "- Bot 当前身份：%s。%s\n",
 							telegramMemberStatusText(botMember.Status), telegramBotMemberCapabilityText(botMember.Status))
+						if rights := telegramMemberRightsText(botMember.Rights); rights != "" {
+							fmt.Fprintf(&b, "- Bot 管理员权限：%s\n", rights)
+						}
 					}
 					if n, err := c.GetTelegramGroupMemberCount(ctx, g.ChatID); err == nil {
 						fmt.Fprintf(&b, "- 成员总数：%d\n", n)
@@ -87,7 +90,11 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					if admins, err := c.GetTelegramGroupAdministrators(ctx, g.ChatID); err == nil && len(admins) > 0 {
 						b.WriteString("- 管理员：\n")
 						for _, a := range admins {
-							fmt.Fprintf(&b, "  • %s（%s）\n", telegramMemberDisplay(a), telegramMemberStatusText(a.Status))
+							rights := telegramMemberRightsText(a.Rights)
+							if rights != "" {
+								rights = "；" + rights
+							}
+							fmt.Fprintf(&b, "  • %s（%s%s）\n", telegramMemberDisplay(a), telegramMemberStatusText(a.Status), rights)
 						}
 					}
 				} else {
@@ -600,6 +607,44 @@ func telegramBotMemberCapabilityText(status string) string {
 	default:
 		return "权限状态未知，实时查询能力可能受限。"
 	}
+}
+
+func telegramMemberRightsText(rights []string) string {
+	if len(rights) == 0 {
+		return ""
+	}
+	labels := make([]string, 0, len(rights))
+	for _, r := range rights {
+		switch r {
+		case "owner":
+			labels = append(labels, "群主")
+		case "manage_chat":
+			labels = append(labels, "管理群")
+		case "delete_messages":
+			labels = append(labels, "删除消息")
+		case "manage_video_chats":
+			labels = append(labels, "管理视频聊天")
+		case "restrict_members":
+			labels = append(labels, "限制成员")
+		case "promote_members":
+			labels = append(labels, "提升管理员")
+		case "change_info":
+			labels = append(labels, "修改群信息")
+		case "invite_users":
+			labels = append(labels, "邀请成员")
+		case "post_messages":
+			labels = append(labels, "发布消息")
+		case "edit_messages":
+			labels = append(labels, "编辑消息")
+		case "pin_messages":
+			labels = append(labels, "置顶消息")
+		case "manage_topics":
+			labels = append(labels, "管理话题")
+		default:
+			labels = append(labels, r)
+		}
+	}
+	return strings.Join(labels, "、")
 }
 
 func resolveTelegramUserForGroup(ctx context.Context, d Deps, g store.TelegramGroupState, selector string) (int64, string, string, error) {

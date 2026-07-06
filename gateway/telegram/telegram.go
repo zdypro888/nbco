@@ -940,8 +940,8 @@ func (g *Gateway) GetTelegramGroupAdministrators(ctx context.Context, chatID int
 	}
 	out := make([]tools.TelegramGroupMember, 0, len(admins))
 	for i := range admins {
-		if u := memberUser(&admins[i]); u != nil {
-			out = append(out, telegramGroupMemberFromUser(u, string(admins[i].Type)))
+		if m := telegramGroupMemberFromChatMember(&admins[i], 0); m != nil {
+			out = append(out, *m)
 		}
 	}
 	return out, nil
@@ -952,12 +952,10 @@ func (g *Gateway) GetTelegramGroupMember(ctx context.Context, chatID int64, user
 	if err != nil {
 		return nil, err
 	}
-	u := memberUser(member)
-	if u == nil {
-		return &tools.TelegramGroupMember{UserID: userID, Status: string(member.Type)}, nil
+	if m := telegramGroupMemberFromChatMember(member, userID); m != nil {
+		return m, nil
 	}
-	m := telegramGroupMemberFromUser(u, string(member.Type))
-	return &m, nil
+	return &tools.TelegramGroupMember{UserID: userID, Status: string(member.Type)}, nil
 }
 
 func (g *Gateway) GetTelegramGroupBotMember(ctx context.Context, chatID int64) (*tools.TelegramGroupMember, error) {
@@ -983,6 +981,48 @@ func telegramGroupMemberFromUser(u *models.User, status string) tools.TelegramGr
 		Status:   status,
 		IsBot:    u.IsBot,
 	}
+}
+
+func telegramGroupMemberFromChatMember(m *models.ChatMember, fallbackUserID int64) *tools.TelegramGroupMember {
+	if m == nil {
+		return nil
+	}
+	u := memberUser(m)
+	if u == nil {
+		return &tools.TelegramGroupMember{UserID: fallbackUserID, Status: string(m.Type)}
+	}
+	out := telegramGroupMemberFromUser(u, string(m.Type))
+	if m.Type == models.ChatMemberTypeOwner {
+		out.Rights = []string{"owner"}
+	}
+	if m.Type == models.ChatMemberTypeAdministrator && m.Administrator != nil {
+		out.Rights = telegramAdminRights(m.Administrator)
+	}
+	return &out
+}
+
+func telegramAdminRights(a *models.ChatMemberAdministrator) []string {
+	if a == nil {
+		return nil
+	}
+	var rights []string
+	add := func(ok bool, name string) {
+		if ok {
+			rights = append(rights, name)
+		}
+	}
+	add(a.CanManageChat, "manage_chat")
+	add(a.CanDeleteMessages, "delete_messages")
+	add(a.CanManageVideoChats, "manage_video_chats")
+	add(a.CanRestrictMembers, "restrict_members")
+	add(a.CanPromoteMembers, "promote_members")
+	add(a.CanChangeInfo, "change_info")
+	add(a.CanInviteUsers, "invite_users")
+	add(a.CanPostMessages, "post_messages")
+	add(a.CanEditMessages, "edit_messages")
+	add(a.CanPinMessages, "pin_messages")
+	add(a.CanManageTopics, "manage_topics")
+	return rights
 }
 
 func (g *Gateway) EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error {
