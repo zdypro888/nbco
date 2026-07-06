@@ -98,7 +98,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 
 	// 主动权限授予：超管任意授；普通用户按转授规则（拥有且不超范围）。
 	ts = append(ts,
-		tool("grant_active_perm", "给某人授予主动权限。action: "+strings.Join(activeActionList(), "/")+"。用户说“邀请员工权限”或“invite_employee 权限”时，action 用 invite_employee 或 generate_key 都可以。超管可任意授；普通用户只能转授自己拥有且范围不超过自己的权限。",
+		tool("grant_active_perm", "给某人授予主动权限。action: "+strings.Join(activeActionList(), "/")+"。用户说“邀请员工权限”或“invite_employee 权限”时，action 用 invite_employee 或 generate_key 都可以。超管可任意授；普通用户必须先有对被授权人的 manage_perm，且只能转授自己拥有、范围不超过自己的权限。",
 			obj(map[string]any{
 				"user_id": p("integer", "被授权的用户ID"),
 				"action":  p("string", "动作；邀请员工权限可填 invite_employee（会自动转成 generate_key）"),
@@ -117,7 +117,8 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				if !perm.ValidActiveAction(args.Action) {
 					return "action 不合法。可用: " + strings.Join(activeActionList(), ", "), nil
 				}
-				if _, err := mustUser(ctx, d.Store, args.UserID); err != nil {
+				targetUser, err := mustUser(ctx, d.Store, args.UserID)
+				if err != nil {
 					return err.Error(), nil
 				}
 				key, id, isAll, err := parseTarget(args.Target)
@@ -134,6 +135,9 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 					if err != nil {
 						return "", err
 					}
+					if msg := canManagePermTarget(u, targetUser, granter); msg != "" {
+						return msg, nil
+					}
 					if !perm.CanGrantActive(granter, args.Action, key) {
 						return "你只能转授自己拥有、且范围不超过自己的权限。", nil
 					}
@@ -149,7 +153,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				return "已授权。", nil
 			}),
 
-		tool("revoke_active_perm", "撤销某人的主动权限。邀请员工权限可填 invite_employee 或 generate_key。超管任意撤；普通用户只能撤自己授出的。",
+		tool("revoke_active_perm", "撤销某人的主动权限。邀请员工权限可填 invite_employee 或 generate_key。超管任意撤；普通用户必须先有对该用户的 manage_perm，且只能撤销自己有权转授范围内的权限。",
 			obj(map[string]any{
 				"user_id": p("integer", "用户ID"),
 				"action":  p("string", "动作；邀请员工权限可填 invite_employee（会自动转成 generate_key）"),
@@ -165,24 +169,27 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 					return err.Error(), nil
 				}
 				args.Action = normalizeActiveAction(args.Action)
+				if !perm.ValidActiveAction(args.Action) {
+					return "action 不合法。可用: " + strings.Join(activeActionList(), ", "), nil
+				}
+				targetUser, err := mustUser(ctx, d.Store, args.UserID)
+				if err != nil {
+					return err.Error(), nil
+				}
 				key, _, _, err := parseTarget(args.Target)
 				if err != nil {
 					return err.Error(), nil
 				}
 				if !u.IsSuperadmin {
-					grants, err := d.Store.PermsOf(ctx, args.UserID)
+					granter, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
 					}
-					mine := false
-					for _, g := range grants {
-						if g.Kind == store.KindActive && g.Action == args.Action && g.Target == key && g.GrantedBy == u.ID {
-							mine = true
-							break
-						}
+					if msg := canManagePermTarget(u, targetUser, granter); msg != "" {
+						return msg, nil
 					}
-					if !mine {
-						return "只能撤销你自己授出的权限。", nil
+					if !perm.CanGrantActive(granter, args.Action, key) {
+						return "你只能撤销自己有权转授范围内的权限。", nil
 					}
 				}
 				if err := d.Store.RevokePerm(ctx, store.KindActive, args.UserID, args.Action, key); err != nil {
@@ -194,7 +201,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				return "已撤销。", nil
 			}),
 
-		tool("grant_passive_perm", "给某用户添加被动权限（允许 subject 看其身上某作者的画像）。需要对该用户的 manage_perm 权限。",
+		tool("grant_passive_perm", "给某用户添加被动权限（允许 subject 看其身上某作者的画像）。普通用户需要对该用户有 manage_perm；非超管不能管理超级管理员。",
 			obj(map[string]any{
 				"user_id": p("integer", "被动权限挂在谁身上"),
 				"action":  p("string", "view_profile:<作者ID> 或 view_profile:_all"),
@@ -212,7 +219,8 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				if !perm.ValidPassiveAction(args.Action) {
 					return "action 格式不合法。", nil
 				}
-				if _, err := mustUser(ctx, d.Store, args.UserID); err != nil {
+				targetUser, err := mustUser(ctx, d.Store, args.UserID)
+				if err != nil {
 					return err.Error(), nil
 				}
 				key, _, _, err := parseTarget(args.Subject)
@@ -224,8 +232,8 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActManagePerm, args.UserID) {
-						return "你没有对该用户的 manage_perm 权限。", nil
+					if msg := canManagePermTarget(u, targetUser, grants); msg != "" {
+						return msg, nil
 					}
 				}
 				if err := d.Store.GrantPerm(ctx, store.Grant{
@@ -239,7 +247,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				return "已授权。", nil
 			}),
 
-		tool("revoke_passive_perm", "撤销某用户的被动权限。需要对该用户的 manage_perm 权限。",
+		tool("revoke_passive_perm", "撤销某用户的被动权限。普通用户需要对该用户有 manage_perm；非超管不能管理超级管理员。",
 			obj(map[string]any{
 				"user_id": p("integer", "被动权限挂在谁身上"),
 				"action":  p("string", "view_profile:<作者ID> 或 view_profile:_all"),
@@ -254,6 +262,10 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
+				targetUser, err := mustUser(ctx, d.Store, args.UserID)
+				if err != nil {
+					return err.Error(), nil
+				}
 				key, _, _, err := parseTarget(args.Subject)
 				if err != nil {
 					return err.Error(), nil
@@ -263,8 +275,8 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActManagePerm, args.UserID) {
-						return "你没有对该用户的 manage_perm 权限。", nil
+					if msg := canManagePermTarget(u, targetUser, grants); msg != "" {
+						return msg, nil
 					}
 				}
 				if err := d.Store.RevokePerm(ctx, store.KindPassive, args.UserID, args.Action, key); err != nil {
@@ -285,13 +297,17 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
+				targetUser, err := mustUser(ctx, d.Store, args.UserID)
+				if err != nil {
+					return err.Error(), nil
+				}
 				if !u.IsSuperadmin {
 					grants, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActManagePerm, args.UserID) {
-						return "你没有权限查看。", nil
+					if msg := canManagePermTarget(u, targetUser, grants); msg != "" {
+						return msg, nil
 					}
 				}
 				grants, err := d.Store.PermsOf(ctx, args.UserID)
@@ -320,6 +336,19 @@ func normalizeActiveAction(action string) string {
 	default:
 		return strings.TrimSpace(action)
 	}
+}
+
+func canManagePermTarget(actor, target *store.User, actorGrants []store.Grant) string {
+	if actor.IsSuperadmin {
+		return ""
+	}
+	if target.IsSuperadmin {
+		return "不能管理超级管理员的权限。"
+	}
+	if !perm.CheckActive(actorGrants, perm.ActManagePerm, target.ID) {
+		return "你没有对该用户的 manage_perm 权限。"
+	}
+	return ""
 }
 
 func renderGrants(grants []store.Grant, kind string) string {

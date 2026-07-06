@@ -94,6 +94,26 @@ func TestInviteEmployeeAliasNormalizesToGenerateKey(t *testing.T) {
 	}
 }
 
+func TestCanManagePermTarget(t *testing.T) {
+	actor := &store.User{ID: 10, Status: store.UserActive}
+	subordinate := &store.User{ID: 20, Status: store.UserActive}
+	peer := &store.User{ID: 30, Status: store.UserActive}
+	super := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
+	grants := []store.Grant{{Kind: store.KindActive, Action: perm.ActManagePerm, Target: "20"}}
+	if msg := canManagePermTarget(actor, subordinate, grants); msg != "" {
+		t.Fatalf("有 manage_perm:20 应可管理下属, got %q", msg)
+	}
+	if msg := canManagePermTarget(actor, peer, grants); msg == "" {
+		t.Fatal("没有 manage_perm:30 不应能管理同级")
+	}
+	if msg := canManagePermTarget(actor, super, []store.Grant{{Kind: store.KindActive, Action: perm.ActManagePerm, Target: store.TargetAll}}); msg == "" {
+		t.Fatal("非超管即使有 _all 也不应能管理超级管理员")
+	}
+	if msg := canManagePermTarget(super, actor, nil); msg != "" {
+		t.Fatalf("超管应旁路目标级校验, got %q", msg)
+	}
+}
+
 // worker 机器账号：只保留白名单最小集。
 func TestForUserWorkerMinimalSet(t *testing.T) {
 	w := &store.User{ID: 3, Name: "小码", Status: store.UserActive, IsWorker: true}
