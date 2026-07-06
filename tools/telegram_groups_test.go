@@ -64,6 +64,12 @@ func TestTelegramMemberDisplayAndStatus(t *testing.T) {
 	if got := telegramMemberStatusText(""); got != "状态未知" {
 		t.Fatalf("telegramMemberStatusText empty = %q", got)
 	}
+	cap := telegramBotMemberCapabilityText("administrator")
+	for _, want := range []string{"成员变更事件", "查询指定成员", "不能一次性拉取全体普通成员列表"} {
+		if !strings.Contains(cap, want) {
+			t.Fatalf("telegramBotMemberCapabilityText missing %q: %s", want, cap)
+		}
+	}
 }
 
 func TestMatchSeenTelegramMember(t *testing.T) {

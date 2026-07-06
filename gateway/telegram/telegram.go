@@ -960,6 +960,21 @@ func (g *Gateway) GetTelegramGroupMember(ctx context.Context, chatID int64, user
 	return &m, nil
 }
 
+func (g *Gateway) GetTelegramGroupBotMember(ctx context.Context, chatID int64) (*tools.TelegramGroupMember, error) {
+	id := g.botID()
+	if id == 0 {
+		me, err := g.bot.GetMe(ctx)
+		if err != nil {
+			return nil, err
+		}
+		g.mu.Lock()
+		g.self = me
+		g.mu.Unlock()
+		id = me.ID
+	}
+	return g.GetTelegramGroupMember(ctx, chatID, id)
+}
+
 func telegramGroupMemberFromUser(u *models.User, status string) tools.TelegramGroupMember {
 	return tools.TelegramGroupMember{
 		UserID:   u.ID,

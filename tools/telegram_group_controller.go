@@ -12,6 +12,7 @@ type TelegramGroupController interface {
 	GetTelegramGroupMemberCount(ctx context.Context, chatID int64) (int, error)
 	GetTelegramGroupAdministrators(ctx context.Context, chatID int64) ([]TelegramGroupMember, error)
 	GetTelegramGroupMember(ctx context.Context, chatID int64, userID int64) (*TelegramGroupMember, error)
+	GetTelegramGroupBotMember(ctx context.Context, chatID int64) (*TelegramGroupMember, error)
 	SendTelegramGroupMessage(ctx context.Context, chatID int64, text string, disableNotification bool) (messageID int, err error)
 	EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error
 	DeleteTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error
@@ -81,6 +82,14 @@ func (h *TelegramGroupHub) GetTelegramGroupMember(ctx context.Context, chatID in
 		return nil, err
 	}
 	return c.GetTelegramGroupMember(ctx, chatID, userID)
+}
+
+func (h *TelegramGroupHub) GetTelegramGroupBotMember(ctx context.Context, chatID int64) (*TelegramGroupMember, error) {
+	c, err := h.controller()
+	if err != nil {
+		return nil, err
+	}
+	return c.GetTelegramGroupBotMember(ctx, chatID)
 }
 
 func (h *TelegramGroupHub) EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error {

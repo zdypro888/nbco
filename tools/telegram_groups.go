@@ -77,6 +77,10 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				var b strings.Builder
 				fmt.Fprintf(&b, "Telegram 群成员可见信息：%s\n", telegramGroupTitle(*g))
 				if c, err := telegramController(d); err == nil {
+					if botMember, err := c.GetTelegramGroupBotMember(ctx, g.ChatID); err == nil && botMember != nil {
+						fmt.Fprintf(&b, "- Bot 当前身份：%s。%s\n",
+							telegramMemberStatusText(botMember.Status), telegramBotMemberCapabilityText(botMember.Status))
+					}
 					if n, err := c.GetTelegramGroupMemberCount(ctx, g.ChatID); err == nil {
 						fmt.Fprintf(&b, "- 成员总数：%d\n", n)
 					}
@@ -101,7 +105,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				} else {
 					b.WriteString("- 最近见过的发言人/加入者：暂无记录。\n")
 				}
-				b.WriteString("说明：Telegram Bot API 不提供枚举全体普通成员的接口；如果要确认某个人是否在群里，请用 get_telegram_group_member。")
+				b.WriteString("说明：即使 bot 是管理员，Telegram Bot API 也不提供一次性枚举全体普通成员的接口；如果要确认某个人是否在群里，请用 get_telegram_group_member。")
 				return b.String(), nil
 			}),
 
@@ -582,6 +586,19 @@ func telegramMemberStatusText(status string) string {
 			return "状态未知"
 		}
 		return status
+	}
+}
+
+func telegramBotMemberCapabilityText(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "creator", "owner", "administrator":
+		return "管理员状态下可以接收成员变更事件、查询指定成员、管理消息/群信息（取决于具体管理员权限），但不能一次性拉取全体普通成员列表。"
+	case "member", "restricted":
+		return "普通成员状态下只能看到群消息与服务消息，成员变化记录会不完整。"
+	case "left", "kicked", "banned":
+		return "bot 当前不在群内，无法查询或管理该群。"
+	default:
+		return "权限状态未知，实时查询能力可能受限。"
 	}
 }
 
