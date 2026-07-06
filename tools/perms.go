@@ -98,10 +98,10 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 
 	// 主动权限授予：超管任意授；普通用户按转授规则（拥有且不超范围）。
 	ts = append(ts,
-		tool("grant_active_perm", "给某人授予主动权限。action: "+strings.Join(activeActionList(), "/")+"。超管可任意授；普通用户只能转授自己拥有且范围不超过自己的权限。",
+		tool("grant_active_perm", "给某人授予主动权限。action: "+strings.Join(activeActionList(), "/")+"。用户说“邀请员工权限”或“invite_employee 权限”时，action 用 invite_employee 或 generate_key 都可以。超管可任意授；普通用户只能转授自己拥有且范围不超过自己的权限。",
 			obj(map[string]any{
 				"user_id": p("integer", "被授权的用户ID"),
-				"action":  p("string", "动作"),
+				"action":  p("string", "动作；邀请员工权限可填 invite_employee（会自动转成 generate_key）"),
 				"target":  p("string", "作用目标：用户ID 或 _all"),
 			}, "user_id", "action", "target"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -113,6 +113,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
+				args.Action = normalizeActiveAction(args.Action)
 				if !perm.ValidActiveAction(args.Action) {
 					return "action 不合法。可用: " + strings.Join(activeActionList(), ", "), nil
 				}
@@ -148,10 +149,10 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				return "已授权。", nil
 			}),
 
-		tool("revoke_active_perm", "撤销某人的主动权限。超管任意撤；普通用户只能撤自己授出的。",
+		tool("revoke_active_perm", "撤销某人的主动权限。邀请员工权限可填 invite_employee 或 generate_key。超管任意撤；普通用户只能撤自己授出的。",
 			obj(map[string]any{
 				"user_id": p("integer", "用户ID"),
-				"action":  p("string", "动作"),
+				"action":  p("string", "动作；邀请员工权限可填 invite_employee（会自动转成 generate_key）"),
 				"target":  p("string", "作用目标：用户ID 或 _all"),
 			}, "user_id", "action", "target"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -163,6 +164,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
+				args.Action = normalizeActiveAction(args.Action)
 				key, _, _, err := parseTarget(args.Target)
 				if err != nil {
 					return err.Error(), nil
@@ -306,8 +308,17 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 func activeActionList() []string {
 	return []string{
 		perm.ActWriteProfile, perm.ActViewSelfIntro, perm.ActManagePerm,
-		perm.ActGenerateKey, perm.ActSendMsg, perm.ActCreateProject, perm.ActEditInfo,
+		perm.ActGenerateKey + "(invite_employee)", perm.ActSendMsg, perm.ActCreateProject, perm.ActEditInfo,
 		perm.ActManageWorker,
+	}
+}
+
+func normalizeActiveAction(action string) string {
+	switch strings.TrimSpace(action) {
+	case "invite_employee":
+		return perm.ActGenerateKey
+	default:
+		return strings.TrimSpace(action)
 	}
 }
 

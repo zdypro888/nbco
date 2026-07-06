@@ -75,6 +75,25 @@ func TestManageWorkerGrantUnlocks(t *testing.T) {
 	}
 }
 
+func TestInviteEmployeeAliasNormalizesToGenerateKey(t *testing.T) {
+	if got := normalizeActiveAction("invite_employee"); got != perm.ActGenerateKey {
+		t.Fatalf("invite_employee alias = %q, want %q", got, perm.ActGenerateKey)
+	}
+	if got := normalizeActiveAction(" generate_key "); got != perm.ActGenerateKey {
+		t.Fatalf("generate_key trim = %q", got)
+	}
+	list := activeActionList()
+	var found bool
+	for _, item := range list {
+		if item == perm.ActGenerateKey+"(invite_employee)" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("activeActionList 应展示邀请员工别名: %+v", list)
+	}
+}
+
 // worker 机器账号：只保留白名单最小集。
 func TestForUserWorkerMinimalSet(t *testing.T) {
 	w := &store.User{ID: 3, Name: "小码", Status: store.UserActive, IsWorker: true}
