@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
+	"net"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -91,7 +94,8 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
 		},
-		MaxIterations: e.maxTurns,
+		MaxIterations:    e.maxTurns,
+		ModelRetryConfig: modelRetryConfig(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("构建 agent: %w", err)
@@ -122,6 +126,73 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
 	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning)
+}
+
+func modelRetryConfig() *adk.ModelRetryConfig {
+	return &adk.ModelRetryConfig{
+		MaxRetries: 2,
+		ShouldRetry: func(ctx context.Context, retryCtx *adk.RetryContext) *adk.RetryDecision {
+			if retryCtx == nil || retryCtx.Err == nil || !isRetryableModelErr(ctx, retryCtx.Err) {
+				return &adk.RetryDecision{Retry: false}
+			}
+			backoff := modelRetryBackoff(retryCtx.RetryAttempt)
+			slog.Warn("模型调用失败，准备重试",
+				"attempt", retryCtx.RetryAttempt,
+				"backoff", backoff,
+				"err", retryCtx.Err)
+			return &adk.RetryDecision{Retry: true, Backoff: backoff}
+		},
+	}
+}
+
+func modelRetryBackoff(attempt int) time.Duration {
+	switch attempt {
+	case 1:
+		return 2 * time.Second
+	case 2:
+		return 6 * time.Second
+	default:
+		return 10 * time.Second
+	}
+}
+
+func isRetryableModelErr(ctx context.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary()) {
+		return true
+	}
+	s := strings.ToLower(err.Error())
+	nonRetryable := []string{"401", "403", "unauthorized", "forbidden", "invalid api key"}
+	for _, marker := range nonRetryable {
+		if strings.Contains(s, marker) {
+			return false
+		}
+	}
+	retryable := []string{
+		"502", "503", "504", "bad gateway", "service unavailable", "gateway timeout",
+		"unexpected end of json input", "unexpected eof", "eof",
+		"connection reset", "connection refused", "connection closed",
+		"timeout", "deadline exceeded",
+		"temporarily unavailable", "too many requests", "rate limit",
+	}
+	for _, marker := range retryable {
+		if strings.Contains(s, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func dropLeadingNonUser(msgs []*schema.Message) []*schema.Message {

@@ -1,6 +1,8 @@
 package einoengine
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/cloudwego/eino/schema"
@@ -94,5 +96,40 @@ func TestDropLeadingNonUser(t *testing.T) {
 	got = dropLeadingNonUser([]*schema.Message{schema.AssistantMessage("a", nil)})
 	if len(got) != 0 {
 		t.Fatalf("all assistant history should be dropped: %+v", got)
+	}
+}
+
+func TestIsRetryableModelErr(t *testing.T) {
+	ctx := context.Background()
+	retryable := []error{
+		errors.New("status code: 502, status: 502 Bad Gateway, message: unexpected end of JSON input"),
+		errors.New("unexpected EOF"),
+		context.DeadlineExceeded,
+	}
+	for _, err := range retryable {
+		if !isRetryableModelErr(ctx, err) {
+			t.Fatalf("expected retryable: %v", err)
+		}
+	}
+	nonRetryable := []error{
+		errors.New("status code: 401 unauthorized"),
+		errors.New("403 forbidden"),
+		context.Canceled,
+	}
+	for _, err := range nonRetryable {
+		if isRetryableModelErr(ctx, err) {
+			t.Fatalf("expected non-retryable: %v", err)
+		}
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if isRetryableModelErr(canceled, errors.New("502 bad gateway")) {
+		t.Fatal("request cancellation should not be retried")
+	}
+}
+
+func TestModelRetryBackoff(t *testing.T) {
+	if modelRetryBackoff(1) <= 0 || modelRetryBackoff(2) <= modelRetryBackoff(1) {
+		t.Fatalf("unexpected model retry backoff sequence")
 	}
 }
