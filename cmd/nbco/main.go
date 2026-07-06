@@ -18,6 +18,7 @@ import (
 	"github.com/zdypro888/nbco/ai/embed"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/config"
+	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/gateway/httpapi"
 	"github.com/zdypro888/nbco/gateway/telegram"
 	"github.com/zdypro888/nbco/knowledge"
@@ -78,6 +79,7 @@ func run(configPath string) error {
 		Knowledge:                kb,
 		Workers:                  workerhub.New(),
 		AIStreamReasoningDefault: cfg.AI.StreamReasoning,
+		PublicBaseURL:            cfg.PublicBaseURL,
 	}
 
 	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
@@ -99,23 +101,30 @@ func run(configPath string) error {
 
 	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning)
 
-	api := httpapi.New(st, orch, deps, cfg.FileStorePath, cfg.WorkerDownloadPath)
+	// AI 催办/周报/事件轮次挂在可用入口渠道上；没有 Telegram 时用 HTTP/API 会话。
+	systemChannel := httpapi.Channel
+	if strings.TrimSpace(cfg.TelegramToken) != "" {
+		systemChannel = telegram.Provider
+	}
+	// 系统事件总线：领域事件交 AI 分析决定通知与行动（与调度器共用渠道与并发上限）。
+	bus := events.New(st, orch, hub, systemChannel, cfg.SchedAIConcurrency)
 
-	// AI 催办/周报轮次挂在可用入口渠道上；没有 Telegram 时用 HTTP/API 会话。
-	schedulerChannel := httpapi.Channel
+	// worker 内置智能体的模型管道：与中枢对话共用同一 OpenAI 兼容网关配置。
+	llm := httpapi.LLMConfig{BaseURL: cfg.AI.BaseURL, APIKey: cfg.AI.APIKey, Model: cfg.AI.Model}
+	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath)
+
 	var tg *telegram.Gateway
 	if strings.TrimSpace(cfg.TelegramToken) != "" {
 		var err error
-		tg, err = telegram.New(cfg.TelegramToken, st, orch, cfg.Superadmins)
+		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins)
 		if err != nil {
 			return err
 		}
 		hub.Set(tg)
-		schedulerChannel = telegram.Provider
 	} else {
 		slog.Info("未配置 telegram_token，跳过 Telegram 网关；HTTP/API/MCP/worker 仍可用")
 	}
-	scheduler := sched.New(st, hub, orch, schedulerChannel, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
+	scheduler := sched.New(st, hub, orch, systemChannel, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
 
 	scheme := "http"
 	if strings.TrimSpace(cfg.TLSCertFile) != "" {

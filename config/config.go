@@ -63,7 +63,8 @@ type Config struct {
 	WorkerDownloadPath string `json:"worker_download_path"`
 	TLSCertFile        string `json:"tls_cert_file"` // 可选；配置后 HTTP 服务改用 HTTPS
 	TLSKeyFile         string `json:"tls_key_file"`  // 可选；PEM bundle 可与 tls_cert_file 指向同一文件
-	// PublicBaseURL 保留给外部回调集成；当前中枢引擎不使用 CLI 回连。
+	// PublicBaseURL 对外基地址（如 https://im.app:8443）：worker 安装指引等面向
+	// 用户的文案用它拼真实地址；为空时文案用占位符。也保留给外部回调集成。
 	PublicBaseURL string   `json:"public_base_url"`
 	AI            AIConfig `json:"ai"`
 	// MCPServers 外接 MCP 工具服务列表（可选）。

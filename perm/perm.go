@@ -26,6 +26,9 @@ const (
 	ActSendMsg       = "send_msg"        // 向他人发消息
 	ActCreateProject = "create_project"  // 创建项目/给他人派任务
 	ActEditInfo      = "edit_info"       // 改他人基本信息
+	// ActManageWorker 创建/管理 AI worker（绑定码、命令、停用）。管理对象是
+	// 自己名下的 worker 而非其他用户，授予时目标通常用 _all。
+	ActManageWorker = "manage_worker"
 )
 
 // ActiveActions 合法主动动作集合。
@@ -37,6 +40,7 @@ var ActiveActions = map[string]bool{
 	ActSendMsg:       true,
 	ActCreateProject: true,
 	ActEditInfo:      true,
+	ActManageWorker:  true,
 }
 
 const viewProfilePrefix = "view_profile:"

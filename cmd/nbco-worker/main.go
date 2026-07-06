@@ -1,11 +1,16 @@
 // nbco-worker：装在工作机上的 AI 员工 client。
 // 轮询 nbco 领取分配给自己的任务，用 PTY 驱动 claude/codex 交互式执行，
 // 把终端输出实时回传作为进度，完成后提交验收。
+// 机器上没有 claude/codex 时自动回退内置智能体（engine=builtin）：中枢模型
+// 当大脑、本机 shell 当手脚，能力较弱但同样能领活干活。
 //
-//	nbco-worker bind [-config path] <server> <token>   # 绑定，写本机配置
-//	nbco-worker bootstrap [-config path] [-engine claude|codex] [-bin /path/to/cli] <server> <token>
+//	nbco-worker bind [-config path] <server> <绑定码|token>   # 绑定，写本机配置
+//	nbco-worker bootstrap [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] <server> <绑定码|token>
 //	                                                       # 绑定并安装为系统服务
 //	nbco-worker run [-config path]                      # 上线接活
+//
+// 凭据支持两种：create_worker 给出的一次性绑定码（wbc_ 前缀，兑换后写入换来的
+// access token），或已有的 Worker Access Token（兼容旧流程）。
 package main
 
 import (
@@ -15,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -26,10 +32,10 @@ const workerConfigEnv = "NBCO_WORKER_CONFIG"
 // Config 本机配置（bind 写入，run 读取）。
 type Config struct {
 	Server     string `json:"server"`      // nbco 基地址，如 http://127.0.0.1:8900
-	Token      string `json:"token"`       // Worker Access Token（create_worker 返回）
+	Token      string `json:"token"`       // Worker Access Token（bind 时用一次性绑定码兑换写入）
 	WorkerID   int64  `json:"worker_id"`   // token 对应的 worker 用户 ID（bind 时校验写入）
 	WorkerName string `json:"worker_name"` // token 对应的 worker 名字（bind 时校验写入）
-	Engine     string `json:"engine"`      // 引擎名：内置 claude | codex，或自定义（配 bin+args）
+	Engine     string `json:"engine"`      // 引擎名：claude | codex | builtin（内置智能体，无 CLI 也能干活），或自定义（配 bin+args）
 	Bin        string `json:"bin"`         // CLI 可执行文件，默认同 engine
 	// 深执行引擎可插拔（前瞻「买管道、留业务」）：把任意交互式 harness（如
 	// swarm 编排器 ruflo/claude-flow 的交互 REPL）配成一个引擎，无需改代码。
@@ -73,7 +79,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "用法：\n  nbco-worker bind [-config path] <server> <token>\n  nbco-worker bootstrap [-config path] [-engine claude|codex] [-bin /path/to/cli] [-install-service=true] <server> <token>\n  nbco-worker run [-config path] [-engine claude|codex] [-bin /path/to/cli]\n  nbco-worker install-service [-config path] [-engine claude|codex] [-bin /path/to/cli] [-name name]\n  nbco-worker uninstall-service [-config path] [-name name]\n  nbco-worker service-status [-config path] [-name name]\n\n也可用 NBCO_WORKER_CONFIG 指定配置文件。")
+	fmt.Fprintln(os.Stderr, "用法：\n  nbco-worker bind [-config path] <server> <绑定码|token>\n  nbco-worker bootstrap [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] [-install-service=true] <server> <绑定码|token>\n  nbco-worker run [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli]\n  nbco-worker install-service [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] [-name name]\n  nbco-worker uninstall-service [-config path] [-name name]\n  nbco-worker service-status [-config path] [-name name]\n\n绑定码是 create_worker 给出的一次性 wbc_ 码；也兼容直接传 Worker Access Token。\n也可用 NBCO_WORKER_CONFIG 指定配置文件。")
 	os.Exit(2)
 }
 
@@ -92,7 +98,7 @@ func bind(args []string) {
 func bootstrap(args []string) {
 	fs := flag.NewFlagSet("bootstrap", flag.ExitOnError)
 	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
-	engine := fs.String("engine", "claude", "引擎：claude | codex")
+	engine := fs.String("engine", "claude", "引擎：claude | codex | builtin（内置智能体）")
 	bin := fs.String("bin", "", "CLI 可执行文件路径")
 	install := fs.Bool("install-service", true, "绑定后安装并启动系统服务")
 	name := fs.String("name", "", "服务名（同机多 worker 时建议指定）")
@@ -119,6 +125,14 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if isBindCode(token) {
+		// 一次性绑定码：先兑换出真正的 access token 再落配置。
+		res, err := newClient(cfg.Server, "").RedeemBindCode(ctx, token)
+		if err != nil {
+			log.Fatalf("绑定码兑换失败: %v", err)
+		}
+		cfg.Token = res.Token
+	}
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
 	if err != nil {
 		log.Fatalf("校验 Worker Access Token 失败: %v", err)
@@ -138,7 +152,7 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 func run(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
-	engine := fs.String("engine", "", "覆盖引擎：claude | codex")
+	engine := fs.String("engine", "", "覆盖引擎：claude | codex | builtin（内置智能体）")
 	bin := fs.String("bin", "", "覆盖 CLI 可执行文件路径")
 	_ = fs.Parse(args)
 
@@ -162,6 +176,14 @@ func run(args []string) {
 	}
 	if cfg.Bin == "" {
 		cfg.Bin = cfg.Engine
+	}
+	// 没装 claude/codex 也要能干活：CLI 缺失时自动回退内置智能体
+	// （中枢模型当大脑、本机 shell 当手脚；能力较弱但可执行命令完成大量任务）。
+	if cfg.Engine != engineBuiltin {
+		if _, err := exec.LookPath(cfg.Bin); err != nil {
+			log.Printf("工作机上未找到 %q，回退内置智能体模式（由中枢模型驱动）；安装对应 CLI 后重启即可恢复", cfg.Bin)
+			cfg.Engine = engineBuiltin
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

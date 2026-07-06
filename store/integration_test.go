@@ -110,15 +110,18 @@ func TestBindKeyFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err := s.BindUserWithKey(ctx, bk.Key, "新人", Identity{Provider: "test", ExternalID: "newbie"})
+	u, invitedBy, err := s.BindUserWithKey(ctx, bk.Key, "新人", Identity{Provider: "test", ExternalID: "newbie"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if u.IsSuperadmin {
 		t.Error("绑定用户不应是超管")
 	}
+	if invitedBy != admin.ID {
+		t.Errorf("应返回邀请人 ID %d, got %d", admin.ID, invitedBy)
+	}
 	// Key 一次性。
-	if _, err := s.BindUserWithKey(ctx, bk.Key, "又来", Identity{Provider: "test", ExternalID: "again"}); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.BindUserWithKey(ctx, bk.Key, "又来", Identity{Provider: "test", ExternalID: "again"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("已用 Key 复用应 ErrNotFound, got %v", err)
 	}
 	// 过期 Key 无效。
@@ -126,7 +129,7 @@ func TestBindKeyFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.BindUserWithKey(ctx, expired.Key, "迟到", Identity{Provider: "test", ExternalID: "late"}); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.BindUserWithKey(ctx, expired.Key, "迟到", Identity{Provider: "test", ExternalID: "late"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("过期 Key 应 ErrNotFound, got %v", err)
 	}
 
@@ -134,7 +137,7 @@ func TestBindKeyFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err = s.BindUserWithKey(ctx, invite.Key, "Telegram 昵称", Identity{Provider: "test", ExternalID: "zhangsan"})
+	u, _, err = s.BindUserWithKey(ctx, invite.Key, "Telegram 昵称", Identity{Provider: "test", ExternalID: "zhangsan"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -987,5 +990,152 @@ func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
 	byIDs, _ := s.KnowledgeByIDs(ctx, []int64{k2.ID, k1.ID})
 	if len(byIDs) != 2 || byIDs[0].ID != k2.ID || byIDs[1].ID != k1.ID {
 		t.Fatalf("KnowledgeByIDs 未保序: %+v", byIDs)
+	}
+}
+
+func TestWorkerBindCodes(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+
+	worker, code, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(code, WorkerBindCodePrefix) {
+		t.Fatalf("create_worker 应返回绑定码而非 token: %q", code)
+	}
+	// 绑定码不是 access token，不能直接认证。
+	if _, err := s.UserByAPIToken(ctx, code); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("绑定码不应可直接认证, got %v", err)
+	}
+	// 兑换：换出真 token，可认证。
+	u, token, err := s.RedeemWorkerBindCode(ctx, code)
+	if err != nil || u.ID != worker.ID {
+		t.Fatalf("兑换 = %+v err=%v", u, err)
+	}
+	authed, err := s.UserByAPIToken(ctx, token)
+	if err != nil || authed.ID != worker.ID {
+		t.Fatalf("兑换出的 token 应可认证: %+v err=%v", authed, err)
+	}
+	// 一次一用。
+	if _, _, err := s.RedeemWorkerBindCode(ctx, code); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("绑定码应一次一用, got %v", err)
+	}
+	// 补发：旧 token 在新码兑换前仍有效；兑换后被替换。
+	code2, err := s.NewWorkerBindCode(ctx, worker.ID, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UserByAPIToken(ctx, token); err != nil {
+		t.Fatalf("补发绑定码不应立即作废旧 token: %v", err)
+	}
+	_, token2, err := s.RedeemWorkerBindCode(ctx, code2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UserByAPIToken(ctx, token); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("新码兑换后旧 token 应作废, got %v", err)
+	}
+	if _, err := s.UserByAPIToken(ctx, token2); err != nil {
+		t.Fatalf("新 token 应可认证: %v", err)
+	}
+	// 过期码不可兑换。
+	code3, err := s.NewWorkerBindCode(ctx, worker.ID, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE worker_bind_codes SET expires_at = now() - interval '1 minute'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.RedeemWorkerBindCode(ctx, code3); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("过期码应拒绝, got %v", err)
+	}
+	// 非 worker 不能补发；停用 worker 后绑定码清空。
+	if _, err := s.NewWorkerBindCode(ctx, boss.ID, boss.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("非 worker 补发应拒绝, got %v", err)
+	}
+	code4, err := s.NewWorkerBindCode(ctx, worker.ID, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RevokeWorker(ctx, worker.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.RedeemWorkerBindCode(ctx, code4); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("停用 worker 的绑定码应作废, got %v", err)
+	}
+}
+
+func TestKnowledgeRules(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+
+	fact, err := s.CreateKnowledge(ctx, "报销流程", "报销先走 OA 审批", nil, boss.ID)
+	if err != nil || fact.Kind != KnowledgeKindFact || fact.Pinned {
+		t.Fatalf("普通知识应 kind=fact 不常驻: %+v err=%v", fact, err)
+	}
+	hard, err := s.CreateRule(ctx, "凭据保密", "不得在对话中展示 token、key 等凭据",
+		[]string{"scope:global"}, boss.ID, true)
+	if err != nil || hard.Kind != KnowledgeKindPolicy || !hard.Pinned {
+		t.Fatalf("常驻规则 = %+v err=%v", hard, err)
+	}
+	soft, err := s.CreateRule(ctx, "周报格式", "周报默认用列表格式，不写长段落",
+		[]string{"scope:telegram"}, boss.ID, false)
+	if err != nil || soft.Pinned {
+		t.Fatalf("动态规则 = %+v err=%v", soft, err)
+	}
+	if hits, err := s.SearchKnowledge(ctx, "周报", 10); err != nil || len(hits) != 0 {
+		t.Fatalf("普通知识检索不应混入规则: %+v err=%v", hits, err)
+	}
+	if recent, err := s.RecentKnowledge(ctx, 10); err != nil || len(recent) != 1 || recent[0].ID != fact.ID {
+		t.Fatalf("最近知识不应混入规则: %+v err=%v", recent, err)
+	}
+
+	pinned, err := s.PinnedRules(ctx)
+	if err != nil || len(pinned) != 1 || pinned[0].ID != hard.ID {
+		t.Fatalf("PinnedRules = %+v err=%v", pinned, err)
+	}
+	all, err := s.ListRules(ctx, 10)
+	if err != nil || len(all) != 2 || all[0].ID != hard.ID {
+		t.Fatalf("ListRules 应常驻在前且不含普通知识: %+v err=%v", all, err)
+	}
+	// 词法检索：只召回非常驻规则，不混普通知识。
+	hits, err := s.SearchRules(ctx, "周报", 10)
+	if err != nil || len(hits) != 1 || hits[0].ID != soft.ID {
+		t.Fatalf("SearchRules = %+v err=%v", hits, err)
+	}
+	if hits, _ := s.SearchRules(ctx, "凭据", 10); len(hits) != 0 {
+		t.Fatalf("常驻规则不应参与动态召回: %+v", hits)
+	}
+	// 语义候选：同样只有非常驻规则。
+	if err := s.SetKnowledgeEmbedding(ctx, hard.ID, "m:2", []float32{1, 0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetKnowledgeEmbedding(ctx, soft.ID, "m:2", []float32{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetKnowledgeEmbedding(ctx, fact.ID, "m:2", []float32{1, 1}); err != nil {
+		t.Fatal(err)
+	}
+	factVecs, err := s.EmbeddedKnowledge(ctx, "m:2")
+	if err != nil || len(factVecs) != 1 || factVecs[0].ID != fact.ID {
+		t.Fatalf("普通语义候选不应混入规则: %+v err=%v", factVecs, err)
+	}
+	vecs, err := s.EmbeddedRules(ctx, "m:2")
+	if err != nil || len(vecs) != 1 || vecs[0].ID != soft.ID {
+		t.Fatalf("EmbeddedRules = %+v err=%v", vecs, err)
+	}
+	// 常驻开关。
+	if err := s.SetRulePinned(ctx, soft.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if pinned, _ := s.PinnedRules(ctx); len(pinned) != 2 {
+		t.Fatalf("置顶后 PinnedRules = %+v", pinned)
+	}
+	if err := s.SetRulePinned(ctx, fact.ID, true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("普通知识不应可置顶为规则, got %v", err)
 	}
 }

@@ -188,6 +188,10 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.executeCommand(ctx, runCtx, task, dir)
 		return
 	}
+	if w.cfg.Engine == engineBuiltin {
+		w.executeBuiltin(ctx, runCtx, task, knowledge, history, dir)
+		return
+	}
 
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 	if err != nil {
@@ -497,9 +501,10 @@ func buildPrompt(task *Task, knowledge, history []string) string {
 	return buildPromptWithMarks(task, knowledge, history, defaultCompletionMarks)
 }
 
-func buildPromptWithMarks(task *Task, knowledge, history []string, marks completionMarks) string {
+// taskBrief 任务正文（标题/目标/描述/验收/过程记录/经验/附件清单）：
+// PTY CLI 提示与内置智能体共用同一份信息组装。
+func taskBrief(task *Task, knowledge, history []string) string {
 	var b strings.Builder
-	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	fmt.Fprintf(&b, "任务：%s\n", task.Title)
 	if task.Goal != "" {
 		fmt.Fprintf(&b, "目标（为什么做）：%s\n", task.Goal)
@@ -544,6 +549,13 @@ func buildPromptWithMarks(task *Task, knowledge, history []string, marks complet
 			}
 		}
 	}
+	return b.String()
+}
+
+func buildPromptWithMarks(task *Task, knowledge, history []string, marks completionMarks) string {
+	var b strings.Builder
+	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
+	b.WriteString(taskBrief(task, knowledge, history))
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
 	b.WriteString("如果需要交付文件，请把文件放进 artifacts/ 目录，系统会在提交前自动上传。\n")
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")

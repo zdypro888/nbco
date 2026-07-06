@@ -36,6 +36,40 @@ func newClient(base, token string) *Client {
 	}
 }
 
+// bindCodePrefix 一次性绑定码前缀（与服务端 store.WorkerBindCodePrefix 约定一致；
+// 不 import store，避免把数据库依赖链进 worker 二进制）。
+const bindCodePrefix = "wbc_"
+
+// isBindCode 判断凭据是绑定码还是 access token。
+func isBindCode(cred string) bool { return strings.HasPrefix(cred, bindCodePrefix) }
+
+// BindResult 绑定码兑换结果。
+type BindResult struct {
+	Token      string `json:"token"`
+	WorkerID   int64  `json:"worker_id"`
+	WorkerName string `json:"worker_name"`
+}
+
+// RedeemBindCode 用一次性绑定码兑换 Worker Access Token（无需已有 token）。
+func (c *Client) RedeemBindCode(ctx context.Context, code string) (*BindResult, error) {
+	buf, _ := json.Marshal(map[string]string{"code": code})
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/bind", bytes.NewReader(buf))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.errStatus(resp)
+	}
+	var res BindResult
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 // Identity 是当前 token 对应的 nbco 用户身份。
 type Identity struct {
 	ID           int64  `json:"id"`
@@ -115,6 +149,49 @@ func (c *Client) Next(ctx context.Context) (*Task, []string, []string, error) {
 		return nil, nil, nil, err
 	}
 	return &body.Task, body.Knowledge, body.History, nil
+}
+
+// llmCallTimeout 单次模型调用的墙钟上限（走 files client，不受 30s 控制面超时限制）。
+const llmCallTimeout = 6 * time.Minute
+
+// LLM 经中枢管道调一次模型（OpenAI 兼容 function calling），返回首个候选消息。
+// model 由中枢钉死，worker 只发 messages + tools。
+func (c *Client) LLM(ctx context.Context, messages []chatMessage, tools []map[string]any) (chatMessage, error) {
+	ctx, cancel := context.WithTimeout(ctx, llmCallTimeout)
+	defer cancel()
+	buf, err := json.Marshal(map[string]any{"messages": messages, "tools": tools})
+	if err != nil {
+		return chatMessage{}, err
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/llm", bytes.NewReader(buf))
+	req.Header.Set("Content-Type", "application/json")
+	c.auth(req)
+	resp, err := c.files.Do(req)
+	if err != nil {
+		return chatMessage{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return chatMessage{}, c.errStatus(resp)
+	}
+	var body struct {
+		Choices []struct {
+			Message chatMessage `json:"message"`
+		} `json:"choices"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return chatMessage{}, fmt.Errorf("解析模型响应失败: %w", err)
+	}
+	if body.Error != nil {
+		return chatMessage{}, fmt.Errorf("上游模型错误: %s", body.Error.Message)
+	}
+	if len(body.Choices) == 0 {
+		return chatMessage{}, fmt.Errorf("上游模型未返回内容")
+	}
+	return body.Choices[0].Message, nil
 }
 
 // Progress 回传一段执行进度。

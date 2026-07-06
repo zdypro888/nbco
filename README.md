@@ -90,9 +90,10 @@ curl -X POST http://<listen>/api/bootstrap \
 | --- | --- | --- | --- | --- |
 | 真人员工一次性邀请 | 真人员工 | `invite_employee` | 默认 24 小时有效，只能用一次 | 员工首次在 Telegram 通过邀请链接或邀请码绑定身份 |
 | 用户 Access Token | 真人员工或超管 | `generate_api_token` | 常驻，重新生成会替换旧 token | HTTP API / Web / MCP 认证 |
-| Worker Access Token | `nbco-worker` 客户端 | `create_worker` | 常驻，吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
+| Worker 绑定码（`wbc_` 前缀） | `nbco-worker` 客户端 | `create_worker` / `issue_worker_bind_code` | 24 小时有效，只能用一次 | 工作机 `bind/bootstrap` 时兑换 Worker Access Token |
+| Worker Access Token | `nbco-worker` 客户端 | 绑定码兑换时由服务端签发 | 常驻，新绑定码被兑换或吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
 
-这三种不要混用：邀请是一次性的进门票，Access Token 是持续认证凭证。多个 worker 必须各自 `create_worker`，每个 worker 拿自己的 Worker Access Token；同一个 Worker Access Token 放到多台机器上，服务端仍把它们视为同一个 AI worker。
+这几种不要混用：邀请和绑定码是一次性的进门票，Access Token 是持续认证凭证。Worker Access Token 只在工作机兑换绑定码那一刻出现，不进入对话与会话历史。多个 worker 必须各自 `create_worker`；同一个 worker 的凭据放到多台机器上，服务端仍把它们视为同一个 AI worker（且后兑换的绑定码会替换旧 token）。
 
 邀请可以带姓名和角色，例如“生成一个给 CEO 的邀请链接”会生成一次性 Telegram deep link，并在对方绑定后把 `role=CEO` 写入用户信息。
 
@@ -123,14 +124,14 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 
 `nbco-worker` 装在工作机上，把一台机器变成可派活的 AI 员工。worker 本质是一个特殊用户，复用任务、进度、验收、催办、画像与审计机制。
 worker 是独立工作代理，不依赖 Telegram；Telegram、Web、HTTP API、MCP 都只是给中枢创建任务和查看结果的入口。文件与产物闭环规划见 [docs/worker-roadmap.md](docs/worker-roadmap.md)。
-每个 worker 必须使用自己独立的 `create_worker` Worker Access Token；服务端用 access token 反查 worker 用户 ID 来区分身份。不要把同一个 Worker Access Token 复制给多个 worker，那会被视为同一个 AI worker，多进程只是在抢同一身份的任务。
+每个 worker 必须各自 `create_worker` 拿一次性绑定码（`wbc_` 前缀），工作机 `bind/bootstrap` 时用它兑换自己的 Worker Access Token；服务端用 access token 反查 worker 用户 ID 来区分身份。不要把同一个 worker 的凭据复制给多台机器，那会被视为同一个 AI worker，多进程只是在抢同一身份的任务。绑定码过期或换机重绑用 `issue_worker_bind_code` 补发。
 
 worker 可直接从中枢下载发行二进制：
 
 ```bash
 curl -fsSL -o nbco-worker https://im.app:8443/downloads/worker/nbco-worker-darwin-arm64
 chmod +x nbco-worker
-./nbco-worker bootstrap -install-service=true https://im.app:8443 <create_worker 返回的 Worker Access Token>
+./nbco-worker bootstrap -install-service=true https://im.app:8443 <create_worker 返回的绑定码>
 ```
 
 可下载文件：
@@ -158,11 +159,15 @@ chmod +x nbco-worker
 手动模式仍可用：
 
 ```bash
-./nbco-worker bind https://im.app:8443 <create_worker 返回的 Worker Access Token>
+./nbco-worker bind https://im.app:8443 <create_worker 返回的绑定码>
 ./nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
-`bind/bootstrap` 会校验 token 必须属于 worker，并把 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
+`bind/bootstrap` 用绑定码兑换 Worker Access Token（也兼容直接传已有 token），校验其必须属于 worker，并把换来的 token 与 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
+
+### 内置智能体（没有 claude/codex 也能干活）
+
+工作机上未安装 claude/codex 时，worker 启动自动回退 **内置智能体**（也可显式 `-engine builtin`）：中枢模型当大脑、本机 shell 当手脚——worker 通过中枢的 `/api/worker/llm` 透传管道调模型（model 由服务端钉死、API key 不出中枢），在任务目录里以 `run_command` 小步执行并自我验证，完成后 `task_done` 提交。进度回传、artifacts/ 产物上传、验收流与 CLI 模式完全一致。能力弱于 claude/codex，但运维/脚本/数据/构建类任务足够用；装好 CLI 重启即自动恢复 PTY 模式。
 
 同一台机器跑多个 worker 时，每个 worker 用独立配置文件：
 
@@ -245,6 +250,10 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 - **AI 周报**：每周一同一时刻，AI 调 `company_overview` 等工具核实数据后，给每位超管写叙事周报
 - **月度人员盘点**：每月 1 号，AI 以超管身份基于任务履历更新成员画像草稿，并推送盘点摘要
 
+### 系统事件总线（事件 → AI 决策）
+
+领域事件不硬编码「通知谁、说什么」：员工通过邀请加入、AI 员工绑定上线、worker 提交任务待验收等事件统一进 `events` 总线，以事件相关人（邀请人 / 监护人 / 派活人）的身份跑一轮 AI——AI 结合该用户的会话上下文、行为规则与工具，自行决定通知措辞、要不要顺手行动（建任务/设提醒/记档案），不值得打扰就按约定词静默跳过。通知落在用户自己的会话里，接着对话就能直接处理（如「验收通过」）。AI 轮次失败时降级为事件原文推送，事件必达；新事件源只需一行 `bus.Emit(类型, 相关人, 详情)`。
+
 ## 角色 / Skill
 
 内置十一个开箱即用的工作模式（迁移种子，可改可删）：**CEO参谋、产品经理、开发工程师、测试工程师、前端工程师、运营经理、市场营销、销售顾问、财务顾问、HR招聘、UI设计师**。
@@ -254,12 +263,13 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 ## 知识与画像（越用越值钱）
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
+- **行为规则（Policy Memory）**：超管对 AI 说「以后不要…」「默认…」这类持久性要求时，AI 用 `save_rule` 存成规则（与知识同表，`kind=policy`；作用域 `scope:global/telegram/api/worker/user:<id>` 用标签表达）。少数 `pinned` 底线规则每轮常驻系统提示；其余规则每轮用当前输入做语义检索、按作用域过滤后注入「本轮相关规则」，worker 领活时同样注入适用 worker 场景的规则——规则可以无限多，系统提示不会随之膨胀。管理工具：`save_rule` / `list_rules` / `set_rule_pinned`（改正文/删除复用 `update_knowledge` / `delete_knowledge`）
 - **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`embed_base_url`/`embed_api_key` 空则回退主引擎的）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 权限体系
 
-**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限） / `send_msg` / `create_project` / `edit_info`，目标为用户 ID 或 `_all`。
+**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限） / `send_msg` / `create_project` / `edit_info` / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。
 
 **被动权限**（存在被操作者身上：谁能对我做什么）：`view_profile:<作者ID>` / `view_profile:_all`。
 
@@ -278,7 +288,8 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 | `edit_info` | `update_user_info` |
 | `write_profile` | `save_infos_on_user` |
 | `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
-| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、`create_worker` / `run_worker_command` / `revoke_worker` |
+| `manage_worker` | `create_worker` / `issue_worker_bind_code` / `run_worker_command` / `revoke_worker`（非超管仅限自己名下的 worker，创建者即监护人） |
+| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned` |
 
 **worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
 

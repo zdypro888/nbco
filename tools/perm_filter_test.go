@@ -24,7 +24,8 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"create_project", "assign_task", "delegate_review",
 		"invite_employee", "send_message", "update_user_info", "save_infos_on_user",
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
-		"company_overview", "get_ai_settings", "set_ai_settings", "create_worker", "run_worker_command", "create_role", "disable_user",
+		"company_overview", "get_ai_settings", "set_ai_settings", "create_role", "disable_user",
+		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker",
 	} {
 		if names[gone] {
 			t.Errorf("无授权用户不应看到 %s", gone)
@@ -55,6 +56,22 @@ func TestFilterByPermGrantUnlocks(t *testing.T) {
 	}
 	if names["company_overview"] {
 		t.Error("超管专属工具不因普通授权解锁")
+	}
+}
+
+// 拿到 manage_worker 授权后，AI 员工管理工具出现（目标级校验在 handler 内另做）。
+func TestManageWorkerGrantUnlocks(t *testing.T) {
+	u := &store.User{ID: 2, Status: store.UserActive}
+	ts := []ai.Tool{{Name: "create_worker"}, {Name: "issue_worker_bind_code"}, {Name: "revoke_worker"}, {Name: "company_overview"}}
+	grants := []store.Grant{{Kind: store.KindActive, UserID: 2, Action: perm.ActManageWorker, Target: store.TargetAll}}
+	names := namesOf(filterByPerm(ts, u, grants))
+	for _, want := range []string{"create_worker", "issue_worker_bind_code", "revoke_worker"} {
+		if !names[want] {
+			t.Errorf("有 manage_worker 授权应解锁 %s", want)
+		}
+	}
+	if names["company_overview"] {
+		t.Error("超管专属工具不因 manage_worker 解锁")
 	}
 }
 

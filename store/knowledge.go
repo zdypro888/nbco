@@ -9,21 +9,31 @@ import (
 
 // Knowledge 知识条目：对话与任务中沉淀的可复用结论（决策、流程、方案、约定）。
 // 全员可读写（公司共享资产）；删除限作者与超管（在工具层校验）。
+// kind=policy 的条目是行为规则（Policy Memory）：pinned 的每轮常驻系统提示，
+// 其余按语义相关度动态注入；作用域用 tags 表达（scope:global/telegram/worker/user:<id>）。
 type Knowledge struct {
 	ID        int64
 	Title     string
 	Content   string
 	Tags      []string
 	AuthorID  int64
+	Kind      string
+	Pinned    bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-const knowledgeCols = `id, title, content, tags, author_id, created_at, updated_at`
+// Knowledge.Kind 取值。
+const (
+	KnowledgeKindFact   = "fact"   // 普通知识（默认）
+	KnowledgeKindPolicy = "policy" // 行为规则
+)
+
+const knowledgeCols = `id, title, content, tags, author_id, kind, pinned, created_at, updated_at`
 
 func scanKnowledge(row interface{ Scan(...any) error }) (*Knowledge, error) {
 	var k Knowledge
-	if err := row.Scan(&k.ID, &k.Title, &k.Content, &k.Tags, &k.AuthorID, &k.CreatedAt, &k.UpdatedAt); err != nil {
+	if err := row.Scan(&k.ID, &k.Title, &k.Content, &k.Tags, &k.AuthorID, &k.Kind, &k.Pinned, &k.CreatedAt, &k.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &k, nil
@@ -37,6 +47,47 @@ func (s *Store) CreateKnowledge(ctx context.Context, title, content string, tags
 	return scanKnowledge(s.pool.QueryRow(ctx,
 		`INSERT INTO knowledge (title, content, tags, author_id) VALUES ($1, $2, $3, $4)
 		 RETURNING `+knowledgeCols, title, content, tags, authorID))
+}
+
+// CreateRule 存一条行为规则（kind=policy）。pinned 规则每轮常驻系统提示。
+func (s *Store) CreateRule(ctx context.Context, title, content string, tags []string, authorID int64, pinned bool) (*Knowledge, error) {
+	if tags == nil {
+		tags = []string{}
+	}
+	return scanKnowledge(s.pool.QueryRow(ctx,
+		`INSERT INTO knowledge (title, content, tags, author_id, kind, pinned) VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING `+knowledgeCols, title, content, tags, authorID, KnowledgeKindPolicy, pinned))
+}
+
+// PinnedRules 全部常驻规则（按创建序）。
+func (s *Store) PinnedRules(ctx context.Context) ([]*Knowledge, error) {
+	return s.queryKnowledge(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE kind = $1 AND pinned ORDER BY id`, KnowledgeKindPolicy)
+}
+
+// ListRules 全部规则，常驻在前、新的在前。
+func (s *Store) ListRules(ctx context.Context, limit int) ([]*Knowledge, error) {
+	return s.queryKnowledge(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE kind = $1 ORDER BY pinned DESC, id DESC LIMIT $2`,
+		KnowledgeKindPolicy, limit)
+}
+
+// SetRulePinned 调整规则常驻与否。目标非规则返回 ErrNotFound。
+func (s *Store) SetRulePinned(ctx context.Context, id int64, pinned bool) error {
+	return s.execOne(ctx,
+		`UPDATE knowledge SET pinned = $2, updated_at = now() WHERE id = $1 AND kind = $3`,
+		id, pinned, KnowledgeKindPolicy)
+}
+
+// SearchRules 词法检索非常驻规则（常驻的已在系统提示里，不参与动态召回）。
+func (s *Store) SearchRules(ctx context.Context, query string, limit int) ([]*Knowledge, error) {
+	return s.searchKnowledge(ctx, query, limit, "kind = $1 AND NOT pinned", []any{KnowledgeKindPolicy})
+}
+
+// EmbeddedRules 取非常驻规则的已嵌入向量（语义候选）。
+func (s *Store) EmbeddedRules(ctx context.Context, model string) ([]KnowledgeVec, error) {
+	return s.embeddedKnowledge(ctx,
+		`embed_model = $1 AND embedding IS NOT NULL AND kind = $2 AND NOT pinned`, model, KnowledgeKindPolicy)
 }
 
 // UpdateKnowledge 更新知识条目（nil 字段不动；tags 传 nil 不动，空切片清空）。
@@ -64,27 +115,26 @@ func (s *Store) DeleteKnowledge(ctx context.Context, id int64) error {
 // SearchKnowledge 词法检索：把 query 切成词，任一词命中标题/正文，或整串命中 tag，
 // 按「命中词数」优先、其次新旧排序。比单串 ILIKE 更能召回多关键词查询。
 func (s *Store) SearchKnowledge(ctx context.Context, query string, limit int) ([]*Knowledge, error) {
-	return s.searchKnowledge(ctx, query, limit, "", nil)
+	return s.searchKnowledge(ctx, query, limit, "kind = $1", []any{KnowledgeKindFact})
 }
 
 // SearchKnowledgeByAuthor 按作者优先检索知识，用于 worker 个人经验。
 func (s *Store) SearchKnowledgeByAuthor(ctx context.Context, authorID int64, query string, limit int) ([]*Knowledge, error) {
-	return s.searchKnowledge(ctx, query, limit, "author_id = $%d", []any{authorID})
+	return s.searchKnowledge(ctx, query, limit, "kind = $1 AND author_id = $2", []any{KnowledgeKindFact, authorID})
 }
 
 // SearchKnowledgeByTag 按标签优先检索知识，用于项目/worker 等维度经验。
 func (s *Store) SearchKnowledgeByTag(ctx context.Context, tag, query string, limit int) ([]*Knowledge, error) {
-	return s.searchKnowledge(ctx, query, limit, "$%d = ANY(tags)", []any{tag})
+	return s.searchKnowledge(ctx, query, limit, "kind = $1 AND $2 = ANY(tags)", []any{KnowledgeKindFact, tag})
 }
 
-func (s *Store) searchKnowledge(ctx context.Context, query string, limit int, scopeTpl string, scopeArgs []any) ([]*Knowledge, error) {
+func (s *Store) searchKnowledge(ctx context.Context, query string, limit int, scope string, scopeArgs []any) ([]*Knowledge, error) {
 	terms := searchTerms(query)
 	if len(terms) == 0 {
-		if scopeTpl == "" {
+		if scope == "" {
 			return s.RecentKnowledge(ctx, limit)
 		}
 		args := append([]any{}, scopeArgs...)
-		scope := fmt.Sprintf(scopeTpl, len(args))
 		args = append(args, limit)
 		return s.queryKnowledge(ctx,
 			`SELECT `+knowledgeCols+` FROM knowledge WHERE `+scope+` ORDER BY id DESC LIMIT $`+fmt.Sprint(len(args)), args...)
@@ -92,10 +142,6 @@ func (s *Store) searchKnowledge(ctx context.Context, query string, limit int, sc
 	// 为每个词构造一个 ILIKE 条件，score = 命中词数。
 	var conds []string
 	args := append([]any{}, scopeArgs...)
-	var scope string
-	if scopeTpl != "" {
-		scope = fmt.Sprintf(scopeTpl, len(args))
-	}
 	args = append(args, query) // exactArg = 整串（tag 精确匹配）
 	exactArg := fmt.Sprintf("$%d", len(args))
 	scoreParts := []string{}
@@ -157,17 +203,17 @@ type KnowledgeVec struct {
 // EmbeddedKnowledge 取所有已用指定模型嵌入的知识向量（供应用层 cosine 排序）。
 // nbco 规模（一家公司的知识库）下全量加载 + 暴力点积足够，无需向量索引扩展。
 func (s *Store) EmbeddedKnowledge(ctx context.Context, model string) ([]KnowledgeVec, error) {
-	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL`, model)
+	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND kind = $2`, model, KnowledgeKindFact)
 }
 
 // EmbeddedKnowledgeByAuthor 取某作者已嵌入的知识向量。
 func (s *Store) EmbeddedKnowledgeByAuthor(ctx context.Context, model string, authorID int64) ([]KnowledgeVec, error) {
-	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND author_id = $2`, model, authorID)
+	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND kind = $2 AND author_id = $3`, model, KnowledgeKindFact, authorID)
 }
 
 // EmbeddedKnowledgeByTag 取带指定标签的已嵌入知识向量。
 func (s *Store) EmbeddedKnowledgeByTag(ctx context.Context, model, tag string) ([]KnowledgeVec, error) {
-	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND $2 = ANY(tags)`, model, tag)
+	return s.embeddedKnowledge(ctx, `embed_model = $1 AND embedding IS NOT NULL AND kind = $2 AND $3 = ANY(tags)`, model, KnowledgeKindFact, tag)
 }
 
 func (s *Store) embeddedKnowledge(ctx context.Context, where string, args ...any) ([]KnowledgeVec, error) {
@@ -224,7 +270,7 @@ func (s *Store) KnowledgeNeedingEmbeddingAfter(ctx context.Context, model string
 // RecentKnowledge 最近的知识条目。
 func (s *Store) RecentKnowledge(ctx context.Context, limit int) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,
-		`SELECT `+knowledgeCols+` FROM knowledge ORDER BY id DESC LIMIT $1`, limit)
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE kind = $1 ORDER BY id DESC LIMIT $2`, KnowledgeKindFact, limit)
 }
 
 func (s *Store) queryKnowledge(ctx context.Context, sql string, args ...any) ([]*Knowledge, error) {

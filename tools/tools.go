@@ -33,6 +33,9 @@ type Deps struct {
 	Workers *workerhub.Hub
 	// AIStreamReasoningDefault 是配置文件里的流式推理展示默认值；运行时 KV 设置优先。
 	AIStreamReasoningDefault bool
+	// PublicBaseURL 对外基地址（config.public_base_url）：worker 安装指引等
+	// 面向用户的文案用它拼真实地址；为空时文案退回占位符，不硬编码任何域名。
+	PublicBaseURL string
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
@@ -75,6 +78,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, scheduleTools(d, u)...)
 	ts = append(ts, roleTools(d, u)...)
 	ts = append(ts, knowledgeTools(d, u)...)
+	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
@@ -116,19 +120,26 @@ var toolPerm = map[string]string{
 	"revoke_passive_perm": perm.ActManagePerm,
 	"view_user_perms":     perm.ActManagePerm,
 	// 超管专属（组装函数已裁剪，这里再声明一层防御 + 让矩阵完整）
-	"company_overview":   reqSuper,
-	"get_ai_settings":    reqSuper,
-	"set_ai_settings":    reqSuper,
-	"add_info_field":     reqSuper,
-	"remove_info_field":  reqSuper,
-	"disable_user":       reqSuper,
-	"enable_user":        reqSuper,
-	"create_role":        reqSuper,
-	"update_role":        reqSuper,
-	"delete_role":        reqSuper,
-	"create_worker":      reqSuper,
-	"run_worker_command": reqSuper,
-	"revoke_worker":      reqSuper,
+	"company_overview":  reqSuper,
+	"get_ai_settings":   reqSuper,
+	"set_ai_settings":   reqSuper,
+	"add_info_field":    reqSuper,
+	"remove_info_field": reqSuper,
+	"disable_user":      reqSuper,
+	"enable_user":       reqSuper,
+	"create_role":       reqSuper,
+	"update_role":       reqSuper,
+	"delete_role":       reqSuper,
+	// AI 员工管理：有 manage_worker 权限即可，handler 内限定只能操作自己名下的
+	// worker（超管不限）——和真人邀请（generate_key）一样是权限而非身份门槛
+	"create_worker":          perm.ActManageWorker,
+	"issue_worker_bind_code": perm.ActManageWorker,
+	"run_worker_command":     perm.ActManageWorker,
+	"revoke_worker":          perm.ActManageWorker,
+	// 规则（Policy Memory）影响所有人的每一轮对话，只有超管能改
+	"save_rule":       reqSuper,
+	"list_rules":      reqSuper,
+	"set_rule_pinned": reqSuper,
 }
 
 // workerAllowed 机器账号（is_worker）的工具白名单：只保留干活与沉淀知识所需。
@@ -154,24 +165,28 @@ var workerAllowed = map[string]bool{
 // 大/破坏性的操作。群历史全员可见且会被后续所有成员的轮次重放，这些必须回私聊做。
 // 防的是「机密外泄进群」与「他人发言经共享历史注入驱动高危操作」两条路径。
 var groupSensitive = map[string]bool{
-	"generate_api_token":  true,
-	"revoke_api_token":    true,
-	"invite_employee":     true,
-	"cancel_invites":      true,
-	"grant_active_perm":   true,
-	"revoke_active_perm":  true,
-	"grant_passive_perm":  true,
-	"revoke_passive_perm": true,
-	"disable_user":        true,
-	"enable_user":         true,
-	"create_worker":       true,
-	"run_worker_command":  true,
-	"revoke_worker":       true,
-	"get_ai_settings":     true,
-	"set_ai_settings":     true,
-	"remove_info_field":   true,
-	"send_message":        true, // 群里可直接说，无需借 bot 向他人/全体转发
-	"schedule_push":       true, // 定向推送涉及他人，回私聊设更稳妥
+	"generate_api_token":     true,
+	"revoke_api_token":       true,
+	"invite_employee":        true,
+	"cancel_invites":         true,
+	"grant_active_perm":      true,
+	"revoke_active_perm":     true,
+	"grant_passive_perm":     true,
+	"revoke_passive_perm":    true,
+	"disable_user":           true,
+	"enable_user":            true,
+	"create_worker":          true,
+	"issue_worker_bind_code": true,
+	"run_worker_command":     true,
+	"revoke_worker":          true,
+	"save_rule":              true, // 群历史可被注入，规则变更回私聊做
+	"list_rules":             true,
+	"set_rule_pinned":        true,
+	"get_ai_settings":        true,
+	"set_ai_settings":        true,
+	"remove_info_field":      true,
+	"send_message":           true, // 群里可直接说，无需借 bot 向他人/全体转发
+	"schedule_push":          true, // 定向推送涉及他人，回私聊设更稳妥
 }
 
 // StripGroupSensitive 从工具集剔除群不宜的高危工具（群共享会话专用）。

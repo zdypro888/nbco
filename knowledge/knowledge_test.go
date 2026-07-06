@@ -252,3 +252,77 @@ func TestBackfillStopsWhenServiceDown(t *testing.T) {
 		t.Fatalf("nil embedder Backfill = %+v %v", res, err)
 	}
 }
+
+func TestRuleApplies(t *testing.T) {
+	cases := []struct {
+		tags    []string
+		channel string
+		userID  int64
+		want    bool
+	}{
+		{nil, "telegram", 1, true},                                        // 无 scope 标签 = 全局
+		{[]string{"misc"}, "api", 1, true},                                // 非 scope 标签不参与判定
+		{[]string{"scope:global"}, "worker", 1, true},                     // 显式全局
+		{[]string{"scope:telegram"}, "telegram", 1, true},                 // 渠道精确命中
+		{[]string{"scope:telegram"}, "telegram:group:42", 1, true},        // 派生渠道命中
+		{[]string{"scope:telegram"}, "api", 1, false},                     // 渠道不匹配
+		{[]string{"scope:worker"}, "worker", 5, true},                     // worker 场景
+		{[]string{"scope:worker"}, "telegram", 5, false},                  // worker 规则不进聊天
+		{[]string{"scope:user:7"}, "api", 7, true},                        // 用户命中
+		{[]string{"scope:user:7"}, "api", 8, false},                       // 用户不匹配
+		{[]string{"scope:user:7", "scope:telegram"}, "telegram", 8, true}, // 多 scope 任一命中
+	}
+	for i, c := range cases {
+		if got := RuleApplies(c.tags, c.channel, c.userID); got != c.want {
+			t.Errorf("case %d: RuleApplies(%v, %q, %d) = %v, want %v", i, c.tags, c.channel, c.userID, got, c.want)
+		}
+	}
+}
+
+func TestRulesSemanticSearch(t *testing.T) {
+	s, ctx := openKnowledgeTestStore(t)
+	u, err := s.CreateUser(ctx, "u", true, store.Identity{Provider: "test", ExternalID: "rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	emb := bagEmbedder{vocab: []string{"凭据", "泄露", "周报", "格式", "部署"}}
+	svc := New(s, emb)
+
+	if _, err := svc.SaveRule(ctx, "凭据保密", "不得泄露凭据", []string{"scope:global"}, u.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	weekly, err := svc.SaveRule(ctx, "周报格式", "周报格式用列表", []string{"scope:telegram"}, u.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Save(ctx, "部署知识", "部署走一键脚本", nil, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	var cursor int64
+	for {
+		res, err := svc.Backfill(ctx, 10, cursor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cursor = res.LastID
+		if !res.HasMore {
+			break
+		}
+	}
+
+	// 规则检索：语义命中动态规则；常驻规则与普通知识都不出现。
+	res, err := svc.SearchRules(ctx, "这周的周报什么格式", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 || res[0].ID != weekly.ID {
+		t.Fatalf("SearchRules 应只回动态规则: %+v", res)
+	}
+	res, err = svc.SearchRules(ctx, "数据库备份策略", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 0 {
+		t.Fatalf("无关查询不应仅因 topN 注入规则: %+v", res)
+	}
+}

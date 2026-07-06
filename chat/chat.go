@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
 )
@@ -164,6 +165,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	if err != nil {
 		return "", err
 	}
+	// 规则注入（Policy Memory）：常驻规则全量 + 与本轮输入语义相关的规则。
+	system += o.ruleContext(ctx, u, channel, text)
 	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
 	if sess.Summary != "" {
 		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
@@ -408,6 +411,52 @@ func (o *Orchestrator) ensureSession(ctx context.Context, u *store.User, channel
 	return sess, nil
 }
 
+// 规则注入（Policy Memory）参数：动态召回条数上限，与本轮检索的总时间预算。
+// 预算要小于 knowledge 层的 embedTimeout——embed 服务卡住时这里先到期、
+// 检索退回词法（纯 DB 查询），规则增强绝不拖垮对话延迟。
+const (
+	ruleSearchLimit  = 5
+	ruleFetchTimeout = 5 * time.Second
+)
+
+// ruleContext 组装本轮适用的行为规则块：常驻规则全量注入，非常驻规则用本轮
+// 输入做语义检索取 top N，都再按作用域（scope: 标签 vs 渠道/用户）过滤。
+// 任何失败只降级不报错——规则是增强，不该让对话轮次失败。
+func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, text string) string {
+	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
+	defer cancel()
+	pinned, err := o.store.PinnedRules(rctx)
+	if err != nil {
+		slog.Warn("常驻规则加载失败，本轮跳过", "err", err)
+	}
+	var dyn []*store.Knowledge
+	if o.deps.Knowledge != nil {
+		dyn, err = o.deps.Knowledge.SearchRules(rctx, text, ruleSearchLimit)
+	} else {
+		dyn, err = o.store.SearchRules(rctx, text, ruleSearchLimit)
+	}
+	if err != nil {
+		slog.Warn("动态规则检索失败，本轮跳过", "err", err)
+	}
+	var b strings.Builder
+	write := func(header string, ks []*store.Knowledge) {
+		wrote := false
+		for _, k := range ks {
+			if !knowledge.RuleApplies(k.Tags, channel, u.ID) {
+				continue
+			}
+			if !wrote {
+				b.WriteString("\n" + header + "\n")
+				wrote = true
+			}
+			b.WriteString("- " + k.Title + "：" + k.Content + "\n")
+		}
+	}
+	write("[公司规则·必须遵守]", pinned)
+	write("[本轮相关规则·同样必须遵守]", dyn)
+	return b.String()
+}
+
 // channelStyle 各渠道的输出格式指引。键与入口网关写入会话的 channel 值约定一致
 // （数据耦合而非包依赖：新增渠道加一行即可，不认识的渠道回退纯文本）。
 var channelStyle = map[string]string{
@@ -444,8 +493,12 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 回复用用户的语言，简洁直接。\n")
 	b.WriteString("- 你是调度管理层，不是执行者：写代码、审代码、深度调研这类深度工作不要在对话里自己做，派给 AI 员工去干（list_workers 找人、assign_task 派活）。有任务提交待验收、需要深度审查交付质量时，用 delegate_review 委派给 AI 员工审核，等其结论回来再协助分配者验收或打回；你自己只做安排、跟进、汇总的调度级输出。\n")
 	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
+	if u.IsSuperadmin {
+		b.WriteString("- 用户对你或系统的行为提出持久性要求、禁令或默认做法（「以后不要…」「默认…」「记住以后都…」）时，用 save_rule 存成行为规则（不要只存知识库）；规则会在之后每轮自动注入并生效。系统提示里 [公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")
+	}
 	b.WriteString("- 公司的运营节奏靠你落地：当用户（尤其管理者）用自然语言表达作息、仪式、周期性动作（如上下班时间、晨会提醒、周五复盘、每天催报告），主动用 schedule_push 落成规则——通常选 mode=ai 让每次触发时现场结合真实数据（当天待办、任务进展）生成个性化内容（如带今日重点的早安问候、附当天完成情况的下班道别），目标按语义选 _all/某人/自己，工作日用 weekdays=1,2,3,4,5。节奏变了就改规则（cancel_schedule + 重设），一切以对话为准，没有硬编码。\n")
-	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n\n")
+	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n")
+	b.WriteString("- 以 [系统事件· 开头的输入来自系统事件总线：按其中指示分析事件并自行决定通知、行动或按约定词静默跳过。\n\n")
 
 	if style := styleFor(channel); style != "" {
 		b.WriteString(style)

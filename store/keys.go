@@ -47,11 +47,12 @@ func (s *Store) CreateBindInvite(ctx context.Context, createdBy int64, ttl time.
 }
 
 // BindUserWithKey 单事务完成入职：锁定并校验 Key → 建用户 → 绑身份 → 标记 Key 已用。
+// 返回新用户与邀请人 ID（事件总线据此让邀请人的 AI 决定要不要通知/安排入职）。
 // Key 无效/已用/过期返回 ErrNotFound，且不会留下任何半开账号。
-func (s *Store) BindUserWithKey(ctx context.Context, key, name string, ident Identity) (*User, error) {
+func (s *Store) BindUserWithKey(ctx context.Context, key, name string, ident Identity) (*User, int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var createdBy int64
@@ -60,7 +61,7 @@ func (s *Store) BindUserWithKey(ctx context.Context, key, name string, ident Ide
 		`SELECT created_by, invited_name, invited_role FROM bind_keys
 		 WHERE key = $1 AND used_by IS NULL AND expires_at > now() FOR UPDATE`, key).
 		Scan(&createdBy, &invitedName, &invitedRole); err != nil {
-		return nil, wrapErr(err)
+		return nil, 0, wrapErr(err)
 	}
 	if invitedName = strings.TrimSpace(invitedName); invitedName != "" {
 		name = invitedName
@@ -72,18 +73,18 @@ func (s *Store) BindUserWithKey(ctx context.Context, key, name string, ident Ide
 	u, err := scanUser(tx.QueryRow(ctx,
 		`INSERT INTO users (name, info, is_superadmin) VALUES ($1, $2::jsonb, FALSE) RETURNING `+userCols, name, info))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO identities (provider, external_id, user_id, chat_ref) VALUES ($1, $2, $3, $4)`,
 		ident.Provider, ident.ExternalID, u.ID, ident.ChatRef); err != nil {
-		return nil, wrapErr(err)
+		return nil, 0, wrapErr(err)
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE bind_keys SET used_by = $2, used_at = now() WHERE key = $1`, key, u.ID); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return u, tx.Commit(ctx)
+	return u, createdBy, tx.Commit(ctx)
 }
 
 func quoteJSONString(s string) string {

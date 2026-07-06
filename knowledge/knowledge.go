@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
@@ -16,6 +18,10 @@ import (
 
 // semanticCandidateMul 语义召回时，先取 limit×该倍数 的候选再与词法融合排序。
 const semanticCandidateMul = 3
+
+// ruleSemanticMinScore 动态规则会进入“必须遵守”上下文，宁可少召回也不能乱召回。
+// 词法命中的规则仍会保留；该阈值只过滤纯语义候选。
+const ruleSemanticMinScore float32 = 0.35
 
 // embedTimeout embed-on-save / 查询向量化的超时（本地服务通常很快；超时就回退）。
 const embedTimeout = 20 * time.Second
@@ -90,6 +96,60 @@ func (svc *Service) Search(ctx context.Context, query string, limit int) ([]*sto
 	return svc.search(ctx, query, limit, svc.store.SearchKnowledge, svc.store.EmbeddedKnowledge)
 }
 
+// SaveRule 存一条行为规则（kind=policy）并异步 embedding，路径同 Save。
+func (svc *Service) SaveRule(ctx context.Context, title, content string, tags []string, authorID int64, pinned bool) (*store.Knowledge, error) {
+	k, err := svc.store.CreateRule(ctx, title, content, tags, authorID, pinned)
+	if err != nil {
+		return nil, err
+	}
+	svc.embedAsync(k)
+	return k, nil
+}
+
+// SearchRules 在非常驻规则内做混合检索（常驻规则已在系统提示，不重复召回）。
+func (svc *Service) SearchRules(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	lexical, err := svc.store.SearchRules(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	if svc.embedder == nil {
+		return lexical, nil
+	}
+	ranked, serr := svc.semantic(ctx, query, limit, svc.store.EmbeddedRules, ruleSemanticMinScore)
+	if serr != nil {
+		slog.Warn("规则语义检索失败，回退词法", "err", serr)
+		return lexical, nil
+	}
+	return merge(ranked, lexical, limit), nil
+}
+
+// RuleApplies 判断规则（按其 tags 里的 scope: 标签）是否适用于当前场景。
+// channel 传对话渠道（telegram / telegram:group:<id> / api），worker 领活场景传 "worker"。
+// 没有任何 scope: 标签视同 scope:global。多个 scope 标签任一命中即适用。
+func RuleApplies(tags []string, channel string, userID int64) bool {
+	scoped := false
+	for _, t := range tags {
+		v, ok := strings.CutPrefix(t, "scope:")
+		if !ok {
+			continue
+		}
+		scoped = true
+		switch {
+		case v == "global":
+			return true
+		case v == channel || strings.HasPrefix(channel, v+":"):
+			// scope:telegram 覆盖 telegram 及其派生渠道（telegram:group:<id>）。
+			return true
+		case v == "user:"+strconv.FormatInt(userID, 10):
+			return true
+		}
+	}
+	return !scoped
+}
+
 // SearchByAuthor 在指定作者的知识内做混合检索，用于 worker 个人经验。
 func (svc *Service) SearchByAuthor(ctx context.Context, authorID int64, query string, limit int) ([]*store.Knowledge, error) {
 	return svc.search(ctx, query, limit,
@@ -129,7 +189,7 @@ func (svc *Service) search(
 	if svc.embedder == nil {
 		return lexical, nil
 	}
-	ranked, serr := svc.semantic(ctx, query, limit, semanticCandidates)
+	ranked, serr := svc.semantic(ctx, query, limit, semanticCandidates, 0)
 	if serr != nil {
 		slog.Warn("语义检索失败，回退词法", "err", serr)
 		return lexical, nil
@@ -139,7 +199,7 @@ func (svc *Service) search(
 
 // semantic 查询向量化 → 与「同模型同维度」的已嵌入知识做 cosine → 取 topN。
 // 按 modelTag（含维度）取候选：维度变更后旧向量自动排除，绝不用零余弦污染结果。
-func (svc *Service) semantic(ctx context.Context, query string, limit int, candidates func(context.Context, string) ([]store.KnowledgeVec, error)) ([]*store.Knowledge, error) {
+func (svc *Service) semantic(ctx context.Context, query string, limit int, candidates func(context.Context, string) ([]store.KnowledgeVec, error), minScore float32) ([]*store.Knowledge, error) {
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	defer cancel()
 	qv, err := svc.embedder.Embed(ectx, []string{query})
@@ -160,7 +220,14 @@ func (svc *Service) semantic(ctx context.Context, query string, limit int, candi
 	}
 	arr := make([]scored, 0, len(cands))
 	for _, c := range cands {
-		arr = append(arr, scored{c.ID, ai.Cosine(qv[0], c.Embedding)})
+		sim := ai.Cosine(qv[0], c.Embedding)
+		if minScore > 0 && sim < minScore {
+			continue
+		}
+		arr = append(arr, scored{c.ID, sim})
+	}
+	if len(arr) == 0 {
+		return nil, nil
 	}
 	sort.Slice(arr, func(i, j int) bool { return arr[i].sim > arr[j].sim })
 	n := limit * semanticCandidateMul

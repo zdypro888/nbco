@@ -18,6 +18,7 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"github.com/zdypro888/nbco/chat"
+	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -36,6 +37,7 @@ type Gateway struct {
 	bot         *bot.Bot
 	store       *store.Store
 	orch        *chat.Orchestrator
+	bus         *events.Bus // 系统事件总线（可为 nil）：入职等事件交 AI 分析决策
 	superadmins map[int64]bool
 
 	mu    sync.Mutex
@@ -44,10 +46,11 @@ type Gateway struct {
 }
 
 // New 创建网关。
-func New(token string, s *store.Store, orch *chat.Orchestrator, superadmins []int64) (*Gateway, error) {
+func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64) (*Gateway, error) {
 	g := &Gateway{
 		store:       s,
 		orch:        orch,
+		bus:         bus,
 		superadmins: map[int64]bool{},
 		locks:       map[int64]*sync.Mutex{},
 	}
@@ -473,7 +476,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		return
 	}
 	// 单事务绑定：Key 无效不会留下半开账号。
-	u, err := g.store.BindUserWithKey(ctx, key, name, ident)
+	u, invitedBy, err := g.store.BindUserWithKey(ctx, key, name, ident)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			g.reply(ctx, chatID, "员工邀请链接或邀请码无效、已使用或已过期，请向管理员重新索取。")
@@ -484,6 +487,9 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		return
 	}
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
+	// 入职事件交邀请人的 AI 分析：通知措辞、要不要安排入职跟进，都由 AI 定。
+	g.bus.Emit("员工加入", invitedBy,
+		fmt.Sprintf("新员工「%s」（用户 #%d）刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name, u.ID))
 }
 
 func inviteTokenFromText(text, botUsername string) (string, bool) {
