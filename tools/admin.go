@@ -250,6 +250,37 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				}
 				return strings.Join(fields, ", "), nil
 			}),
+
+		tool("list_telegram_groups", "查看 Telegram 群接入状态。用户问 bot 是否进群、是否收到入群事件、群监听是否开启时先调用它，不要凭空回答。",
+			obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				groups, err := d.Store.ListTelegramGroupStates(ctx, 20)
+				if err != nil {
+					return "", err
+				}
+				if len(groups) == 0 {
+					return "当前没有记录到 Telegram 群接入状态。", nil
+				}
+				var b strings.Builder
+				for _, g := range groups {
+					title := strings.TrimSpace(g.Title)
+					if title == "" {
+						title = "未命名群"
+					}
+					status := "已离开"
+					switch g.Status {
+					case "member", "administrator", "creator", "owner", "restricted":
+						status = "已加入"
+					}
+					listen := "监听关闭"
+					if g.Listen {
+						listen = "监听开启"
+					}
+					fmt.Fprintf(&b, "- %s：%s，%s，最近更新 %s\n",
+						title, status, listen, fmtTime(g.UpdatedAt, d.TZ))
+				}
+				return b.String(), nil
+			}),
 	}
 
 	if !u.IsSuperadmin {

@@ -210,11 +210,13 @@ func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMember
 		if err := g.store.SetKV(ctx, listenKey(chat.ID), ""); err != nil {
 			slog.Warn("关闭群监听失败", "chat", chat.ID, "err", err)
 		}
+		g.saveGroupState(ctx, chat, string(newStatus), false)
 		return
 	}
 	if err := g.store.SetKV(ctx, listenKey(chat.ID), "1"); err != nil {
 		slog.Warn("开启群监听失败", "chat", chat.ID, "err", err)
 	}
+	g.saveGroupState(ctx, chat, string(newStatus), true)
 	// bot 被加入群时不一定能把操作者映射到公司用户；先确保群会话在首次 @ 时可用。
 	g.reply(ctx, chat.ID, g.groupReadyMessage())
 }
@@ -230,6 +232,7 @@ func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Mes
 			if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), "1"); err != nil {
 				slog.Warn("开启群监听失败", "chat", msg.Chat.ID, "err", err)
 			}
+			g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), true)
 			g.reply(ctx, msg.Chat.ID, g.groupReadyMessage())
 			return true
 		}
@@ -239,9 +242,22 @@ func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Mes
 		if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), ""); err != nil {
 			slog.Warn("关闭群监听失败", "chat", msg.Chat.ID, "err", err)
 		}
+		g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeLeft), false)
 		return true
 	}
 	return false
+}
+
+func (g *Gateway) saveGroupState(ctx context.Context, chat models.Chat, status string, listen bool) {
+	if err := g.store.SaveTelegramGroupState(ctx, store.TelegramGroupState{
+		ChatID: chat.ID,
+		Title:  chat.Title,
+		Type:   string(chat.Type),
+		Status: status,
+		Listen: listen,
+	}); err != nil {
+		slog.Warn("保存 Telegram 群状态失败", "chat", chat.ID, "err", err)
+	}
 }
 
 func isActiveChatMember(status models.ChatMemberType) bool {
@@ -285,6 +301,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
 		listenOn = true
 	}
+	g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), listenOn)
 
 	switch cmd {
 	case "/listen":
@@ -297,6 +314,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 				g.reply(ctx, chatID, "操作失败，请稍后再试。")
 				return
 			}
+			g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), false)
 			g.reply(ctx, chatID, "🔇 已关闭本群监听。之后只有 @我 才会参与。")
 			return
 		}
@@ -304,6 +322,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 			g.reply(ctx, chatID, "操作失败，请稍后再试。")
 			return
 		}
+		g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), true)
 		_ = g.orch.TouchGroupSession(ctx, u, channel)
 		g.reply(ctx, chatID, "🎧 已开启本群监听：我会把群里的讨论记为上下文（不插话），@我 时能接住前文。\n"+
 			"注意：若我收不到普通群消息，请在 @BotFather 的 /setprivacy 里选择 Disable。再次 /listen 关闭。")

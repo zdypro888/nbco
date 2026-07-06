@@ -46,3 +46,31 @@ func (s *Store) SetKV(ctx context.Context, key, value string) error {
 		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, key, value)
 	return err
 }
+
+// KVPair 是 kv_state 的一行。
+type KVPair struct {
+	Key   string
+	Value string
+}
+
+// ListKVPrefix 按 key 前缀列出 kv_state。前缀必须是调用方控制的固定字符串。
+func (s *Store) ListKVPrefix(ctx context.Context, prefix string, limit int) ([]KVPair, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT key, value FROM kv_state WHERE key LIKE $1 ORDER BY key LIMIT $2`, prefix+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []KVPair{}
+	for rows.Next() {
+		var p KVPair
+		if err := rows.Scan(&p.Key, &p.Value); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}

@@ -1139,3 +1139,45 @@ func TestKnowledgeRules(t *testing.T) {
 		t.Fatalf("普通知识不应可置顶为规则, got %v", err)
 	}
 }
+
+func TestTelegramGroupState(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	old := time.Now().Add(-time.Hour).Truncate(time.Second)
+	newer := time.Now().Truncate(time.Second)
+	if err := s.SaveTelegramGroupState(ctx, TelegramGroupState{
+		ChatID:    -1001,
+		Title:     "公司群",
+		Type:      "supergroup",
+		Status:    "member",
+		Listen:    true,
+		UpdatedAt: old,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveTelegramGroupState(ctx, TelegramGroupState{
+		ChatID:    -1002,
+		Title:     "项目群",
+		Type:      "supergroup",
+		Status:    "left",
+		Listen:    false,
+		UpdatedAt: newer,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	g, err := s.TelegramGroupState(ctx, -1001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Title != "公司群" || !g.Listen || g.Status != "member" {
+		t.Fatalf("TelegramGroupState = %+v", g)
+	}
+	groups, err := s.ListTelegramGroupStates(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 2 || groups[0].ChatID != -1002 || groups[1].ChatID != -1001 {
+		t.Fatalf("ListTelegramGroupStates order = %+v", groups)
+	}
+}
