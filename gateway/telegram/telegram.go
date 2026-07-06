@@ -167,13 +167,17 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	if g.handleGroupServiceMessage(ctx, msg) {
 		return
 	}
-	if msg.From == nil || messageText(msg) == "" {
+	text := messageText(msg)
+	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
+	if text == "" {
+		return
+	}
+	if !isGroup && msg.From == nil {
 		return
 	}
 	// 逐 update 起 goroutine 并加锁串行：私聊按用户、群按 chat（群共享会话不并发）。
 	// 慢轮次不阻塞其他人/其他群。
-	lockKey := msg.From.ID
-	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
+	lockKey := userID(msg.From)
 	if isGroup {
 		lockKey = msg.Chat.ID // 群 chat ID 为负数，与用户 ID 不冲突
 	}
@@ -268,20 +272,26 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
 	text := messageText(msg)
-	u, uerr := g.store.UserByIdentity(ctx, Provider, strconv.FormatInt(msg.From.ID, 10))
-	bound := uerr == nil && u.Status == store.UserActive
+	tgID := userID(msg.From)
+	var u *store.User
+	bound := false
+	if tgID != 0 {
+		var uerr error
+		u, uerr = g.store.UserByIdentity(ctx, Provider, strconv.FormatInt(tgID, 10))
+		bound = uerr == nil && u.Status == store.UserActive
+	}
 	cmd := commandOf(text, g.botUsername())
 	listenOn := false
 	if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
 		listenOn = true
 	}
 
-	slog.Debug("TG 群消息", "tg_user", msg.From.ID, "chat", chatID, "text_len", len(text),
-		"cmd", cmd, "bound", bound, "listen", listenOn)
+	slog.Debug("TG 群消息", "tg_user", tgID, "chat", chatID, "text_len", len(text),
+		"cmd", cmd, "bound", bound, "listen", listenOn, "sender_chat", senderChatTitle(msg))
 
 	switch cmd {
 	case "/listen":
-		if !bound || !u.IsSuperadmin {
+		if !bound || u == nil || !u.IsSuperadmin {
 			g.reply(ctx, chatID, "只有超级管理员能开关群监听。")
 			return
 		}
@@ -302,7 +312,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 			"注意：若我收不到普通群消息，请在 @BotFather 的 /setprivacy 里选择 Disable。再次 /listen 关闭。")
 		return
 	case "/new":
-		if !bound || !u.IsSuperadmin {
+		if !bound || u == nil || !u.IsSuperadmin {
 			g.reply(ctx, chatID, "只有超级管理员能重置群会话。")
 			return
 		}
@@ -321,18 +331,22 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	if !mentioned {
 		// 旁听：监听开启才记录，谁说的都署名（未绑定用户用 TG 显示名）。
 		if listenOn {
-			speaker := displayName(msg.From)
+			speaker := displayNameFromMessage(msg)
 			if bound {
 				speaker = u.Name
 			}
 			g.orch.RecordGroupMessage(ctx, channel, speaker, text)
-			slog.Debug("TG 群旁听已记录", "chat", chatID, "tg_user", msg.From.ID, "bound", bound)
+			slog.Debug("TG 群旁听已记录", "chat", chatID, "tg_user", tgID, "bound", bound)
 		} else {
-			slog.Debug("TG 群消息未触发", "chat", chatID, "tg_user", msg.From.ID, "mentioned", false, "listen", false)
+			slog.Debug("TG 群消息未触发", "chat", chatID, "tg_user", tgID, "mentioned", false, "listen", false)
 		}
 		return
 	}
-	slog.Info("TG 群提及", "chat", chatID, "tg_user", msg.From.ID, "bound", bound)
+	slog.Info("TG 群提及", "chat", chatID, "tg_user", tgID, "bound", bound, "sender_chat", senderChatTitle(msg))
+	if tgID == 0 {
+		g.reply(ctx, chatID, "我收到了，但这条消息没有个人 Telegram 身份（可能是匿名管理员或频道身份发言）。请切回个人身份再 @ 我。")
+		return
+	}
 	if !bound {
 		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
 		return
@@ -437,6 +451,9 @@ func commandArgs(text string) string {
 
 // displayName TG 用户显示名（名+姓，否则用户名）。
 func displayName(from *models.User) string {
+	if from == nil {
+		return "未知成员"
+	}
 	name := strings.TrimSpace(strings.Join([]string{from.FirstName, from.LastName}, " "))
 	if name == "" {
 		name = from.Username
@@ -445,6 +462,38 @@ func displayName(from *models.User) string {
 		name = fmt.Sprintf("成员%d", from.ID)
 	}
 	return name
+}
+
+func displayNameFromMessage(msg *models.Message) string {
+	if msg == nil {
+		return "未知成员"
+	}
+	if msg.From != nil {
+		return displayName(msg.From)
+	}
+	if msg.SenderChat != nil {
+		if name := strings.TrimSpace(msg.SenderChat.Title); name != "" {
+			return name
+		}
+		if name := strings.TrimSpace(msg.SenderChat.Username); name != "" {
+			return name
+		}
+		return fmt.Sprintf("群身份%d", msg.SenderChat.ID)
+	}
+	return "匿名成员"
+}
+
+func senderChatTitle(msg *models.Message) string {
+	if msg == nil || msg.SenderChat == nil {
+		return ""
+	}
+	if title := strings.TrimSpace(msg.SenderChat.Title); title != "" {
+		return title
+	}
+	if username := strings.TrimSpace(msg.SenderChat.Username); username != "" {
+		return username
+	}
+	return fmt.Sprintf("%d", msg.SenderChat.ID)
 }
 
 func boundStartMessage(name string) string {

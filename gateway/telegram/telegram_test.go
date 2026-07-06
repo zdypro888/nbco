@@ -33,6 +33,19 @@ func TestMessageText(t *testing.T) {
 	}
 }
 
+func TestDisplayNameFromMessageWithoutFrom(t *testing.T) {
+	got := displayNameFromMessage(&models.Message{
+		Chat:       models.Chat{ID: -1, Type: models.ChatTypeSupergroup, Title: "群"},
+		SenderChat: &models.Chat{ID: -2, Type: models.ChatTypeChannel, Title: "频道身份"},
+	})
+	if got != "频道身份" {
+		t.Fatalf("displayNameFromMessage = %q", got)
+	}
+	if got := displayNameFromMessage(&models.Message{}); got != "匿名成员" {
+		t.Fatalf("missing sender display = %q", got)
+	}
+}
+
 func TestSplitChunksShort(t *testing.T) {
 	chunks := splitChunks("短消息", 10)
 	if len(chunks) != 1 || chunks[0] != "短消息" {
