@@ -268,6 +268,20 @@ func StripGroupSensitive(ts []ai.Tool) []ai.Tool {
 	return out
 }
 
+// StripApprovalRequired 剔除需要跨用户消息确认的高危工具。MCP 这类无 nbco
+// 对话轮次的入口没有可验证的「下一条用户确认消息」，暴露这些工具只会让调用方
+// 卡在无法核销的审批提示里。
+func StripApprovalRequired(ts []ai.Tool) []ai.Tool {
+	out := ts[:0]
+	for _, t := range ts {
+		if approvalRequired[t.Name] {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
 // filterByPerm 按注册表裁剪工具集（超管全通过；worker 走白名单）。
 func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 	out := ts[:0]

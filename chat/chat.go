@@ -284,7 +284,7 @@ func channelKind(channel string) string {
 	return channel
 }
 
-// Summarize 无工具、无历史的一次性补全（文件摘要等旁路用途），计一笔用量。
+// Summarize 无工具、无历史的一次性补全（旁路用途），计一笔用量。
 func (o *Orchestrator) Summarize(ctx context.Context, userID int64, kind, system, text string) (string, error) {
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
 		SessionID: kind,

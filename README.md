@@ -274,9 +274,8 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 说「以后不要…」「默认…」这类持久性要求时，AI 用 `save_rule` 存成规则（与知识同表，`kind=policy`；作用域 `scope:global/telegram/api/worker/user:<id>` 用标签表达）。少数 `pinned` 底线规则每轮常驻系统提示；其余规则每轮用当前输入做语义检索、按作用域过滤后注入「本轮相关规则」，worker 领活时同样注入适用 worker 场景的规则——规则可以无限多，系统提示不会随之膨胀。管理工具：`save_rule` / `list_rules` / `set_rule_pinned`（改正文/删除复用 `update_knowledge` / `delete_knowledge`）
 - **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」——滚动摘要丢掉的细节找得回来。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
-- **文件知识化**：文本类文件（md/txt/csv/json 等，≤128KB）上传后 AI 自动摘要入知识库（标签 `file:<id>`），合同/报告/纪要从此可被语义检索——不再是死文件
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
-- **成本计量**：每轮对话、压缩轮、worker 内置智能体、文件摘要的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
+- **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`embed_base_url`/`embed_api_key` 空则回退主引擎的）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 

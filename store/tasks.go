@@ -242,15 +242,68 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 
 // CreateTask 建任务。
 func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
-	deps := t.DependsOn
-	if deps == nil {
-		deps = []int64{}
+	deps, ok := normalizeTaskDeps(t.DependsOn)
+	if !ok {
+		return nil, ErrNotFound
 	}
-	row := s.pool.QueryRow(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if len(deps) > 0 {
+		rows, err := tx.Query(ctx,
+			`SELECT id FROM tasks WHERE project_id = $1 AND id = ANY($2) FOR SHARE`,
+			t.ProjectID, deps)
+		if err != nil {
+			return nil, err
+		}
+		seen := map[int64]bool{}
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			seen[id] = true
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+		if len(seen) != len(deps) {
+			return nil, ErrNotFound
+		}
+	}
+	row := tx.QueryRow(ctx,
 		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, depends_on)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+taskCols,
 		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, deps)
-	return scanTask(row)
+	created, err := scanTask(row)
+	if err != nil {
+		return nil, err
+	}
+	return created, tx.Commit(ctx)
+}
+
+func normalizeTaskDeps(in []int64) ([]int64, bool) {
+	if len(in) == 0 {
+		return []int64{}, true
+	}
+	seen := make(map[int64]bool, len(in))
+	out := make([]int64, 0, len(in))
+	for _, id := range in {
+		if id <= 0 {
+			return nil, false
+		}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out, true
 }
 
 // TaskByID 取任务。

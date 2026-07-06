@@ -723,7 +723,7 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 	if u == nil {
 		return nil
 	}
-	return mcpbridge.NewServer("nbco", "1", tools.ForUser(s.deps, u, nil))
+	return mcpbridge.NewServer("nbco", "1", tools.StripApprovalRequired(tools.ForUser(s.deps, u, nil)))
 }
 
 // Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。

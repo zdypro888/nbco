@@ -1334,6 +1334,30 @@ func TestTaskDependencyGating(t *testing.T) {
 	if err != nil || claimed2.ID != test.ID {
 		t.Fatalf("前置验收后应可领测试任务: %+v err=%v", claimed2, err)
 	}
+	if _, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "坏依赖", DependsOn: []int64{999999},
+	}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("不存在的前置任务应被 Store 拒绝，got %v", err)
+	}
+	other := mkProject(t, s, boss.ID)
+	foreign := mkTask(t, s, other.ID, boss.ID, worker.ID, "别的项目", nil)
+	if _, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "跨项目依赖", DependsOn: []int64{foreign.ID},
+	}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("跨项目前置任务应被 Store 拒绝，got %v", err)
+	}
+	dup, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "去重依赖", DependsOn: []int64{dev.ID, dev.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dup.DependsOn) != 1 || dup.DependsOn[0] != dev.ID {
+		t.Fatalf("重复依赖应规范化: %+v", dup.DependsOn)
+	}
 }
 
 func TestPendingApprovals(t *testing.T) {

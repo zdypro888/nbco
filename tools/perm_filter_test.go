@@ -204,3 +204,20 @@ func TestStripGroupSensitive(t *testing.T) {
 		}
 	}
 }
+
+func TestStripApprovalRequired(t *testing.T) {
+	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
+	full := namesOf(ForUser(Deps{}, su, nil))
+	stripped := namesOf(StripApprovalRequired(ForUser(Deps{}, su, nil)))
+	for gone := range approvalRequired {
+		if !full[gone] {
+			t.Fatalf("approvalRequired 注册了不存在的工具 %s", gone)
+		}
+		if stripped[gone] {
+			t.Fatalf("MCP/无确认轮次入口不应暴露高危审批工具 %s", gone)
+		}
+	}
+	if !stripped["company_overview"] {
+		t.Fatal("非审批工具不应被剔除")
+	}
+}
