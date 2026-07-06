@@ -156,7 +156,6 @@ func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 }
 
 func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update) {
-	g.logUpdate(update)
 	if update.MyChatMember != nil {
 		g.handleMyChatMember(ctx, update.MyChatMember)
 		return
@@ -195,30 +194,6 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 		}
 		g.process(ctx, msg)
 	}()
-}
-
-func (g *Gateway) logUpdate(update *models.Update) {
-	if update == nil {
-		return
-	}
-	if update.MyChatMember != nil {
-		cm := update.MyChatMember
-		slog.Debug("TG update", "id", update.ID, "type", "my_chat_member",
-			"chat", cm.Chat.ID, "chat_type", cm.Chat.Type, "title", cm.Chat.Title,
-			"from", cm.From.ID, "old", cm.OldChatMember.Type, "new", cm.NewChatMember.Type)
-		return
-	}
-	if update.Message != nil {
-		msg := update.Message
-		slog.Debug("TG update", "id", update.ID, "type", "message",
-			"chat", msg.Chat.ID, "chat_type", msg.Chat.Type, "title", msg.Chat.Title,
-			"from", userID(msg.From), "sender_chat", senderChatTitle(msg),
-			"text_len", len(msg.Text), "caption_len", len(msg.Caption), "message_text_len", len(messageText(msg)),
-			"entities", entitySummary(msg.Entities), "caption_entities", entitySummary(msg.CaptionEntities),
-			"new_members", len(msg.NewChatMembers), "left_member", msg.LeftChatMember != nil)
-		return
-	}
-	slog.Debug("TG update", "id", update.ID, "type", "unsupported")
 }
 
 func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
@@ -311,9 +286,6 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		listenOn = true
 	}
 
-	slog.Debug("TG 群消息", "tg_user", tgID, "chat", chatID, "text_len", len(text),
-		"cmd", cmd, "bound", bound, "listen", listenOn, "sender_chat", senderChatTitle(msg))
-
 	switch cmd {
 	case "/listen":
 		if !bound || u == nil || !u.IsSuperadmin {
@@ -361,9 +333,6 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 				speaker = u.Name
 			}
 			g.orch.RecordGroupMessage(ctx, channel, speaker, text)
-			slog.Debug("TG 群旁听已记录", "chat", chatID, "tg_user", tgID, "bound", bound)
-		} else {
-			slog.Debug("TG 群消息未触发", "chat", chatID, "tg_user", tgID, "mentioned", false, "listen", false)
 		}
 		return
 	}
@@ -534,17 +503,6 @@ func senderChatTitle(msg *models.Message) string {
 		return username
 	}
 	return fmt.Sprintf("%d", msg.SenderChat.ID)
-}
-
-func entitySummary(entities []models.MessageEntity) string {
-	if len(entities) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(entities))
-	for _, e := range entities {
-		parts = append(parts, fmt.Sprintf("%s@%d+%d", e.Type, e.Offset, e.Length))
-	}
-	return strings.Join(parts, ",")
 }
 
 func boundStartMessage(name string) string {
