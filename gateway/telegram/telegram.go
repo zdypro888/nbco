@@ -21,6 +21,7 @@ import (
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/tools"
 )
 
 // Provider 渠道标识（identities.provider / chat_sessions.channel）。
@@ -65,6 +66,7 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus,
 		bot.WithAllowedUpdates(bot.AllowedUpdates{
 			models.AllowedUpdateMessage,
 			models.AllowedUpdateMyChatMember,
+			models.AllowedUpdateChatMember,
 		}),
 	)
 	if err != nil {
@@ -161,6 +163,10 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 		g.handleMyChatMember(ctx, update.MyChatMember)
 		return
 	}
+	if update.ChatMember != nil {
+		g.handleChatMember(ctx, update.ChatMember)
+		return
+	}
 	msg := update.Message
 	if msg == nil {
 		return
@@ -197,6 +203,19 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	}()
 }
 
+func (g *Gateway) handleChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
+	chat := upd.Chat
+	isGroup := chat.Type == models.ChatTypeGroup || chat.Type == models.ChatTypeSupergroup
+	if !isGroup {
+		return
+	}
+	member := memberUser(&upd.NewChatMember)
+	if member == nil {
+		return
+	}
+	g.saveSeenMember(ctx, chat.ID, member, "", 0)
+}
+
 func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
 	chat := upd.Chat
 	isGroup := chat.Type == models.ChatTypeGroup || chat.Type == models.ChatTypeSupergroup
@@ -228,6 +247,7 @@ func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Mes
 		return false
 	}
 	for _, u := range msg.NewChatMembers {
+		g.saveSeenMember(ctx, msg.Chat.ID, &u, "", msg.ID)
 		if g.botID() != 0 && u.ID == g.botID() {
 			slog.Info("TG bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
 			if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), "1"); err != nil {
@@ -261,6 +281,64 @@ func (g *Gateway) saveGroupState(ctx context.Context, chat models.Chat, status s
 	}
 }
 
+func (g *Gateway) saveSeenMember(ctx context.Context, chatID int64, u *models.User, text string, messageID int) {
+	if u == nil || u.ID == 0 {
+		return
+	}
+	if err := g.store.SaveTelegramGroupSeenMember(ctx, store.TelegramGroupSeenMember{
+		ChatID:    chatID,
+		UserID:    u.ID,
+		Name:      displayName(u),
+		Username:  u.Username,
+		IsBot:     u.IsBot,
+		LastSeen:  time.Now(),
+		LastText:  text,
+		MessageID: messageID,
+	}); err != nil {
+		slog.Warn("保存 Telegram 群成员可见记录失败", "chat", chatID, "user", u.ID, "err", err)
+	}
+}
+
+func memberUser(m *models.ChatMember) *models.User {
+	if m == nil {
+		return nil
+	}
+	switch m.Type {
+	case models.ChatMemberTypeOwner:
+		if m.Owner == nil {
+			return nil
+		}
+		return m.Owner.User
+	case models.ChatMemberTypeAdministrator:
+		if m.Administrator == nil {
+			return nil
+		}
+		return &m.Administrator.User
+	case models.ChatMemberTypeMember:
+		if m.Member == nil {
+			return nil
+		}
+		return m.Member.User
+	case models.ChatMemberTypeRestricted:
+		if m.Restricted == nil {
+			return nil
+		}
+		return m.Restricted.User
+	case models.ChatMemberTypeLeft:
+		if m.Left == nil {
+			return nil
+		}
+		return m.Left.User
+	case models.ChatMemberTypeBanned:
+		if m.Banned == nil {
+			return nil
+		}
+		return m.Banned.User
+	default:
+		return nil
+	}
+}
+
 func isActiveChatMember(status models.ChatMemberType) bool {
 	return status == models.ChatMemberTypeMember ||
 		status == models.ChatMemberTypeAdministrator ||
@@ -289,6 +367,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
 	text := messageText(msg)
+	if msg.From != nil {
+		g.saveSeenMember(ctx, chatID, msg.From, text, msg.ID)
+	}
 	tgID := userID(msg.From)
 	var u *store.User
 	bound := false
@@ -846,6 +927,47 @@ func (g *Gateway) SendTelegramGroupMessage(ctx context.Context, chatID int64, te
 		lastID = msg.ID
 	}
 	return lastID, nil
+}
+
+func (g *Gateway) GetTelegramGroupMemberCount(ctx context.Context, chatID int64) (int, error) {
+	return g.bot.GetChatMemberCount(ctx, &bot.GetChatMemberCountParams{ChatID: chatID})
+}
+
+func (g *Gateway) GetTelegramGroupAdministrators(ctx context.Context, chatID int64) ([]tools.TelegramGroupMember, error) {
+	admins, err := g.bot.GetChatAdministrators(ctx, &bot.GetChatAdministratorsParams{ChatID: chatID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]tools.TelegramGroupMember, 0, len(admins))
+	for i := range admins {
+		if u := memberUser(&admins[i]); u != nil {
+			out = append(out, telegramGroupMemberFromUser(u, string(admins[i].Type)))
+		}
+	}
+	return out, nil
+}
+
+func (g *Gateway) GetTelegramGroupMember(ctx context.Context, chatID int64, userID int64) (*tools.TelegramGroupMember, error) {
+	member, err := g.bot.GetChatMember(ctx, &bot.GetChatMemberParams{ChatID: chatID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+	u := memberUser(member)
+	if u == nil {
+		return &tools.TelegramGroupMember{UserID: userID, Status: string(member.Type)}, nil
+	}
+	m := telegramGroupMemberFromUser(u, string(member.Type))
+	return &m, nil
+}
+
+func telegramGroupMemberFromUser(u *models.User, status string) tools.TelegramGroupMember {
+	return tools.TelegramGroupMember{
+		UserID:   u.ID,
+		Name:     displayName(u),
+		Username: u.Username,
+		Status:   status,
+		IsBot:    u.IsBot,
+	}
 }
 
 func (g *Gateway) EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error {

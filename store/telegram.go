@@ -12,6 +12,7 @@ import (
 const KVTelegramGroupPrefix = "telegram.group:"
 const KVTelegramGroupListenPrefix = "tg_listen:"
 const KVTelegramGroupLastMessagePrefix = "telegram.group.last_message:"
+const KVTelegramGroupSeenMemberPrefix = "telegram.group.seen_member:"
 
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
 // 这是系统事实状态，不是聊天记忆；AI 回答群接入问题时应以它为准。
@@ -24,6 +25,17 @@ type TelegramGroupState struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type TelegramGroupSeenMember struct {
+	ChatID    int64     `json:"chat_id"`
+	UserID    int64     `json:"user_id"`
+	Name      string    `json:"name"`
+	Username  string    `json:"username"`
+	IsBot     bool      `json:"is_bot"`
+	LastSeen  time.Time `json:"last_seen"`
+	LastText  string    `json:"last_text,omitempty"`
+	MessageID int       `json:"message_id,omitempty"`
+}
+
 func telegramGroupKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupPrefix, chatID)
 }
@@ -34,6 +46,10 @@ func TelegramGroupListenKey(chatID int64) string {
 
 func telegramGroupLastMessageKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupLastMessagePrefix, chatID)
+}
+
+func telegramGroupSeenMemberKey(chatID, userID int64) string {
+	return fmt.Sprintf("%s%d:%d", KVTelegramGroupSeenMemberPrefix, chatID, userID)
 }
 
 func (s *Store) SaveTelegramGroupState(ctx context.Context, st TelegramGroupState) error {
@@ -113,4 +129,46 @@ func (s *Store) TelegramGroupLastMessage(ctx context.Context, chatID int64) (int
 		return 0, ErrNotFound
 	}
 	return id, nil
+}
+
+func (s *Store) SaveTelegramGroupSeenMember(ctx context.Context, m TelegramGroupSeenMember) error {
+	if m.ChatID == 0 || m.UserID == 0 {
+		return nil
+	}
+	if m.LastSeen.IsZero() {
+		m.LastSeen = time.Now()
+	}
+	raw, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return s.SetKV(ctx, telegramGroupSeenMemberKey(m.ChatID, m.UserID), string(raw))
+}
+
+func (s *Store) ListTelegramGroupSeenMembers(ctx context.Context, chatID int64, limit int) ([]TelegramGroupSeenMember, error) {
+	fetchLimit := 1000
+	if limit > fetchLimit {
+		fetchLimit = limit
+	}
+	pairs, err := s.ListKVPrefix(ctx, fmt.Sprintf("%s%d:", KVTelegramGroupSeenMemberPrefix, chatID), fetchLimit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TelegramGroupSeenMember, 0, len(pairs))
+	for _, p := range pairs {
+		var m TelegramGroupSeenMember
+		if err := json.Unmarshal([]byte(p.Value), &m); err != nil {
+			continue
+		}
+		if m.ChatID == chatID && m.UserID != 0 {
+			out = append(out, m)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].LastSeen.After(out[j].LastSeen)
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }

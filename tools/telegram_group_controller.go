@@ -9,6 +9,9 @@ import (
 // TelegramGroupController 是工具层对 Telegram 群的控制接口。
 // 具体实现由 gateway/telegram 注入；工具层不直接依赖 Telegram 包。
 type TelegramGroupController interface {
+	GetTelegramGroupMemberCount(ctx context.Context, chatID int64) (int, error)
+	GetTelegramGroupAdministrators(ctx context.Context, chatID int64) ([]TelegramGroupMember, error)
+	GetTelegramGroupMember(ctx context.Context, chatID int64, userID int64) (*TelegramGroupMember, error)
 	SendTelegramGroupMessage(ctx context.Context, chatID int64, text string, disableNotification bool) (messageID int, err error)
 	EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error
 	DeleteTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error
@@ -16,6 +19,14 @@ type TelegramGroupController interface {
 	UnpinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error
 	SetTelegramGroupTitle(ctx context.Context, chatID int64, title string) error
 	SetTelegramGroupDescription(ctx context.Context, chatID int64, description string) error
+}
+
+type TelegramGroupMember struct {
+	UserID   int64
+	Name     string
+	Username string
+	Status   string
+	IsBot    bool
 }
 
 // TelegramGroupHub 解决装配期循环：chat/tools 先持有 hub，Telegram 网关启动后注入实现。
@@ -46,6 +57,30 @@ func (h *TelegramGroupHub) SendTelegramGroupMessage(ctx context.Context, chatID 
 		return 0, err
 	}
 	return c.SendTelegramGroupMessage(ctx, chatID, text, disableNotification)
+}
+
+func (h *TelegramGroupHub) GetTelegramGroupMemberCount(ctx context.Context, chatID int64) (int, error) {
+	c, err := h.controller()
+	if err != nil {
+		return 0, err
+	}
+	return c.GetTelegramGroupMemberCount(ctx, chatID)
+}
+
+func (h *TelegramGroupHub) GetTelegramGroupAdministrators(ctx context.Context, chatID int64) ([]TelegramGroupMember, error) {
+	c, err := h.controller()
+	if err != nil {
+		return nil, err
+	}
+	return c.GetTelegramGroupAdministrators(ctx, chatID)
+}
+
+func (h *TelegramGroupHub) GetTelegramGroupMember(ctx context.Context, chatID int64, userID int64) (*TelegramGroupMember, error) {
+	c, err := h.controller()
+	if err != nil {
+		return nil, err
+	}
+	return c.GetTelegramGroupMember(ctx, chatID, userID)
 }
 
 func (h *TelegramGroupHub) EditTelegramGroupMessage(ctx context.Context, chatID int64, messageID int, text string) error {

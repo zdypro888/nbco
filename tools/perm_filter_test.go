@@ -38,7 +38,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"get_my_tasks", "update_my_task_status", "accept_task", "split_my_task",
 		"save_knowledge", "search_knowledge", "list_workers", "list_roles",
 		"activate_role", "schedule_once", "get_my_profile", "grant_active_perm",
-		"list_telegram_groups", "get_telegram_group",
+		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "get_telegram_group_member",
 	} {
 		if !names[keep] {
 			t.Errorf("无授权用户应保留 %s", keep)
@@ -147,6 +147,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
 		"create_worker", "run_worker_command", "send_message", "grant_passive_perm",
+		"list_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen",
@@ -194,7 +195,10 @@ func TestStripGroupSensitive(t *testing.T) {
 		}
 	}
 	// 日常工具保留。
-	for _, keep := range []string{"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview", "list_telegram_groups", "get_telegram_group"} {
+	for _, keep := range []string{
+		"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview",
+		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "get_telegram_group_member",
+	} {
 		if !grouped[keep] {
 			t.Errorf("群里应保留 %s", keep)
 		}

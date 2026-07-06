@@ -52,3 +52,33 @@ func TestParseTelegramMessageRef(t *testing.T) {
 		t.Fatal("group ref should not parse as message ref")
 	}
 }
+
+func TestTelegramMemberDisplayAndStatus(t *testing.T) {
+	got := telegramMemberDisplay(TelegramGroupMember{Name: "曾 子函", Username: "zdypro", Status: "administrator"})
+	if got != "曾 子函（@zdypro）" {
+		t.Fatalf("telegramMemberDisplay = %q", got)
+	}
+	if got := telegramMemberStatusText("banned"); got != "已移出" {
+		t.Fatalf("telegramMemberStatusText banned = %q", got)
+	}
+	if got := telegramMemberStatusText(""); got != "状态未知" {
+		t.Fatalf("telegramMemberStatusText empty = %q", got)
+	}
+}
+
+func TestMatchSeenTelegramMember(t *testing.T) {
+	members := []store.TelegramGroupSeenMember{
+		{UserID: 10, Name: "黄桑", Username: "ceo"},
+		{UserID: 11, Name: "黄工", Username: "huang_dev"},
+	}
+	m, ambiguous := matchSeenTelegramMember(members, "@ceo", true)
+	if ambiguous || m == nil || m.UserID != 10 {
+		t.Fatalf("exact username match = %+v ambiguous=%v", m, ambiguous)
+	}
+	if m, ambiguous := matchSeenTelegramMember(members, "黄", false); m != nil || !ambiguous {
+		t.Fatalf("fuzzy ambiguous = %+v ambiguous=%v", m, ambiguous)
+	}
+	if m, ambiguous := matchSeenTelegramMember(members, "@", false); m != nil || ambiguous {
+		t.Fatalf("empty username should not match = %+v ambiguous=%v", m, ambiguous)
+	}
+}

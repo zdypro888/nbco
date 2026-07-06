@@ -185,6 +185,17 @@ func (s *Store) UserByIdentity(ctx context.Context, provider, externalID string)
 		 WHERE i.provider = $1 AND i.external_id = $2`, provider, externalID))
 }
 
+func (s *Store) IdentityOfUser(ctx context.Context, userID int64, provider string) (*Identity, error) {
+	var ident Identity
+	err := s.pool.QueryRow(ctx,
+		`SELECT provider, external_id, user_id, chat_ref FROM identities WHERE user_id = $1 AND provider = $2`,
+		userID, provider).Scan(&ident.Provider, &ident.ExternalID, &ident.UserID, &ident.ChatRef)
+	if err != nil {
+		return nil, wrapErr(err)
+	}
+	return &ident, nil
+}
+
 // ListUsers 列出全部用户（含停用，调用方自行过滤展示）。
 func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+userCols+` FROM users ORDER BY id`)
