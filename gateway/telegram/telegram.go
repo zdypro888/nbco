@@ -192,15 +192,22 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	text := messageText(msg)
 	u, uerr := g.store.UserByIdentity(ctx, Provider, strconv.FormatInt(msg.From.ID, 10))
 	bound := uerr == nil && u.Status == store.UserActive
+	cmd := commandOf(text, g.botUsername())
+	listenOn := false
+	if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
+		listenOn = true
+	}
 
-	switch commandOf(text, g.botUsername()) {
+	slog.Debug("TG 群消息", "tg_user", msg.From.ID, "chat", chatID, "text_len", len(text),
+		"cmd", cmd, "bound", bound, "listen", listenOn)
+
+	switch cmd {
 	case "/listen":
 		if !bound || !u.IsSuperadmin {
 			g.reply(ctx, chatID, "只有超级管理员能开关群监听。")
 			return
 		}
-		on, _ := g.store.GetKV(ctx, listenKey(chatID))
-		if on == "1" {
+		if listenOn {
 			if err := g.store.SetKV(ctx, listenKey(chatID), ""); err != nil {
 				g.reply(ctx, chatID, "操作失败，请稍后再试。")
 				return
@@ -235,15 +242,19 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	mentioned := g.mentioned(msg, text)
 	if !mentioned {
 		// 旁听：监听开启才记录，谁说的都署名（未绑定用户用 TG 显示名）。
-		if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
+		if listenOn {
 			speaker := displayName(msg.From)
 			if bound {
 				speaker = u.Name
 			}
 			g.orch.RecordGroupMessage(ctx, channel, speaker, text)
+			slog.Debug("TG 群旁听已记录", "chat", chatID, "tg_user", msg.From.ID, "bound", bound)
+		} else {
+			slog.Debug("TG 群消息未触发", "chat", chatID, "tg_user", msg.From.ID, "mentioned", false, "listen", false)
 		}
 		return
 	}
+	slog.Info("TG 群提及", "chat", chatID, "tg_user", msg.From.ID, "bound", bound)
 	if !bound {
 		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
 		return
