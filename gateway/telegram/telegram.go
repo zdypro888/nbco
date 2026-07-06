@@ -59,7 +59,13 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus,
 	for _, id := range superadmins {
 		g.superadmins[id] = true
 	}
-	b, err := bot.New(token, bot.WithDefaultHandler(g.handle))
+	b, err := bot.New(token,
+		bot.WithDefaultHandler(g.handle),
+		bot.WithAllowedUpdates(bot.AllowedUpdates{
+			models.AllowedUpdateMessage,
+			models.AllowedUpdateMyChatMember,
+		}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("初始化 Telegram bot: %w", err)
 	}
@@ -150,8 +156,18 @@ func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 }
 
 func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update) {
+	if update.MyChatMember != nil {
+		g.handleMyChatMember(ctx, update.MyChatMember)
+		return
+	}
 	msg := update.Message
-	if msg == nil || msg.From == nil || messageText(msg) == "" {
+	if msg == nil {
+		return
+	}
+	if g.handleGroupServiceMessage(ctx, msg) {
+		return
+	}
+	if msg.From == nil || messageText(msg) == "" {
 		return
 	}
 	// 逐 update 起 goroutine 并加锁串行：私聊按用户、群按 chat（群共享会话不并发）。
@@ -174,6 +190,68 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 		}
 		g.process(ctx, msg)
 	}()
+}
+
+func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
+	chat := upd.Chat
+	isGroup := chat.Type == models.ChatTypeGroup || chat.Type == models.ChatTypeSupergroup
+	if !isGroup {
+		return
+	}
+	oldStatus := upd.OldChatMember.Type
+	newStatus := upd.NewChatMember.Type
+	slog.Info("TG bot 群成员状态变化", "chat", chat.ID, "title", chat.Title,
+		"from", upd.From.ID, "old", oldStatus, "new", newStatus)
+	if !isActiveChatMember(newStatus) {
+		if err := g.store.SetKV(ctx, listenKey(chat.ID), ""); err != nil {
+			slog.Warn("关闭群监听失败", "chat", chat.ID, "err", err)
+		}
+		return
+	}
+	if err := g.store.SetKV(ctx, listenKey(chat.ID), "1"); err != nil {
+		slog.Warn("开启群监听失败", "chat", chat.ID, "err", err)
+	}
+	// bot 被加入群时不一定能把操作者映射到公司用户；先确保群会话在首次 @ 时可用。
+	g.reply(ctx, chat.ID, g.groupReadyMessage())
+}
+
+func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Message) bool {
+	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
+	if !isGroup {
+		return false
+	}
+	for _, u := range msg.NewChatMembers {
+		if g.botID() != 0 && u.ID == g.botID() {
+			slog.Info("TG bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
+			if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), "1"); err != nil {
+				slog.Warn("开启群监听失败", "chat", msg.Chat.ID, "err", err)
+			}
+			g.reply(ctx, msg.Chat.ID, g.groupReadyMessage())
+			return true
+		}
+	}
+	if msg.LeftChatMember != nil && g.botID() != 0 && msg.LeftChatMember.ID == g.botID() {
+		slog.Info("TG bot 离开群", "chat", msg.Chat.ID, "title", msg.Chat.Title)
+		if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), ""); err != nil {
+			slog.Warn("关闭群监听失败", "chat", msg.Chat.ID, "err", err)
+		}
+		return true
+	}
+	return false
+}
+
+func isActiveChatMember(status models.ChatMemberType) bool {
+	return status == models.ChatMemberTypeMember ||
+		status == models.ChatMemberTypeAdministrator ||
+		status == models.ChatMemberTypeOwner ||
+		status == models.ChatMemberTypeRestricted
+}
+
+func userID(u *models.User) int64 {
+	if u == nil {
+		return 0
+	}
+	return u.ID
 }
 
 // --- 群聊 ---
@@ -397,6 +475,17 @@ func bindSuccessMessage(name string) string {
 		"• 设置一个明天上午的提醒\n"+
 		"• 记录一下我的岗位和职责\n\n"+
 		"先自我介绍一下也可以，我会帮你整理成档案。", html.EscapeString(name))
+}
+
+func (g *Gateway) groupReadyMessage() string {
+	username := strings.TrimSpace(g.botUsername())
+	mention := "我"
+	if username != "" {
+		mention = "@" + username
+	}
+	return "👋 我已加入本群，并已开启群监听。\n" +
+		fmt.Sprintf("在群里回复我的消息，或直接 %s 叫我，我会按发言人的公司权限处理。\n", html.EscapeString(mention)) +
+		"涉及邀请、授权、Token、模型切换等高危操作，请私聊我完成。"
 }
 
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
