@@ -54,6 +54,8 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.stream_reasoning` | 是否在流式回复阶段展示模型推理内容，默认 `false`；超管可通过对话修改，运行时设置优先于配置文件默认值 |
 | `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
 | `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥（空则回退 `ai.base_url` / `ai.api_key`） |
+| `ai.stt_model` | 语音转写模型（可选，如本地 whisper）；空=TG 语音提示改用文字。指向 OpenAI 兼容 /audio/transcriptions 端点 |
+| `ai.stt_base_url` / `ai.stt_api_key` | 转写端点地址/密钥（空则回退 `ai.base_url` / `ai.api_key`） |
 
 ## 构建与运行
 
@@ -119,6 +121,9 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 - 自派任务（分配者=执行人）提交即 `accepted`，免自我验收
 - 拆分的任务：子任务**全部验收通过**时父任务自动转入待验收，逐级向上；父任务也是自派的则直达 `accepted`
 - 验收工具：`get_review_queue` / `accept_task` / `reject_task`（限分配者与超管）
+- **依赖编排（流水线）**：`assign_task` 可带 `depends_on`（只能指向已存在任务，天然无环）；前置全部 `accepted` 之前 worker 领不到该任务，验收通过时自动唤醒就绪的下游 worker 并发事件给派活人的 AI——「开发→测试→审查」接力不再人肉盯
+- **智能派工**：`assign_task` 不填 `assignee_id` 时自动派给最合适的 AI 员工（在办最少 → 在线优先 → 通过率高），回复里说明选人理由
+- **两段式审批**：破坏性工具（停用用户、吊销 worker、删项目/角色/字段）首次调用只登记待确认动作，AI 须向用户复述并获明确同意后以相同参数再次调用才执行（10 分钟时效、参数哈希匹配、全渠道生效）——防单轮冲动执行与提示注入一击即中
 
 ## AI 员工 / Worker
 
@@ -164,6 +169,10 @@ chmod +x nbco-worker
 ```
 
 `bind/bootstrap` 用绑定码兑换 Worker Access Token（也兼容直接传已有 token），校验其必须属于 worker，并把换来的 token 与 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
+
+### 沙箱化部署（推荐）
+
+worker 的模型 CLI 带完整 shell，安全边界必须在部署侧：[deploy/worker-sandbox/](deploy/worker-sandbox/) 提供容器化模板——每个 worker 独立容器、低权限用户、独立卷、一枚绑定码，宿主机密（其他 worker 的 token、SSH 私钥）不在其可达范围。数据库备份模板见 [deploy/backup/](deploy/backup/)（全部公司状态只在 PG，务必启用）。
 
 ### 内置智能体（没有 claude/codex 也能干活）
 
@@ -264,6 +273,10 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 说「以后不要…」「默认…」这类持久性要求时，AI 用 `save_rule` 存成规则（与知识同表，`kind=policy`；作用域 `scope:global/telegram/api/worker/user:<id>` 用标签表达）。少数 `pinned` 底线规则每轮常驻系统提示；其余规则每轮用当前输入做语义检索、按作用域过滤后注入「本轮相关规则」，worker 领活时同样注入适用 worker 场景的规则——规则可以无限多，系统提示不会随之膨胀。管理工具：`save_rule` / `list_rules` / `set_rule_pinned`（改正文/删除复用 `update_knowledge` / `delete_knowledge`）
+- **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」——滚动摘要丢掉的细节找得回来。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
+- **文件知识化**：文本类文件（md/txt/csv/json 等，≤128KB）上传后 AI 自动摘要入知识库（标签 `file:<id>`），合同/报告/纪要从此可被语义检索——不再是死文件
+- **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
+- **成本计量**：每轮对话、压缩轮、worker 内置智能体、文件摘要的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`embed_base_url`/`embed_api_key` 空则回退主引擎的）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
@@ -289,7 +302,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 | `write_profile` | `save_infos_on_user` |
 | `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
 | `manage_worker` | `create_worker` / `issue_worker_bind_code` / `run_worker_command` / `revoke_worker`（非超管仅限自己名下的 worker，创建者即监护人） |
-| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned` |
+| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned`、成本统计 `ai_usage_stats`、Telegram 群控制 |
 
 **worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
 
