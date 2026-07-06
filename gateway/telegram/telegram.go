@@ -280,7 +280,7 @@ func userID(u *models.User) int64 {
 func groupChannel(chatID int64) string { return fmt.Sprintf("telegram:group:%d", chatID) }
 
 // listenKey 群监听开关的 kv 键。
-func listenKey(chatID int64) string { return fmt.Sprintf("tg_listen:%d", chatID) }
+func listenKey(chatID int64) string { return store.TelegramGroupListenKey(chatID) }
 
 // processGroup 群消息：命令 → 显式处理；@提及/回复 bot → 以发言人权限跑群会话；
 // 其余消息仅在监听开启时旁听进上下文（不回复）。绝不在群里做绑定引导。

@@ -9,6 +9,7 @@ import (
 )
 
 const KVTelegramGroupPrefix = "telegram.group:"
+const KVTelegramGroupListenPrefix = "tg_listen:"
 
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
 // 这是系统事实状态，不是聊天记忆；AI 回答群接入问题时应以它为准。
@@ -23,6 +24,10 @@ type TelegramGroupState struct {
 
 func telegramGroupKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupPrefix, chatID)
+}
+
+func TelegramGroupListenKey(chatID int64) string {
+	return fmt.Sprintf("%s%d", KVTelegramGroupListenPrefix, chatID)
 }
 
 func (s *Store) SaveTelegramGroupState(ctx context.Context, st TelegramGroupState) error {

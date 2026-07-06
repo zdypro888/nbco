@@ -468,39 +468,6 @@ func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, 
 	return b.String()
 }
 
-// telegramGroupContext 给 Telegram 入口注入一小段事实状态，避免模型凭空判断
-// “是否加入了群/是否开启监听”。只写群名与状态，不暴露内部 chat ID。
-func (o *Orchestrator) telegramGroupContext(ctx context.Context, channel string) string {
-	if !strings.HasPrefix(channel, "telegram") {
-		return ""
-	}
-	groups, err := o.store.ListTelegramGroupStates(ctx, 5)
-	if err != nil || len(groups) == 0 {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("[Telegram 群接入状态]\n")
-	for _, g := range groups {
-		title := strings.TrimSpace(g.Title)
-		if title == "" {
-			title = "未命名群"
-		}
-		status := "已离开"
-		switch g.Status {
-		case "member", "administrator", "creator", "owner", "restricted":
-			status = "已加入"
-		}
-		listen := "监听关闭"
-		if g.Listen {
-			listen = "监听开启"
-		}
-		fmt.Fprintf(&b, "- %s：%s，%s，最近更新 %s\n",
-			title, status, listen, g.UpdatedAt.In(o.tz).Format("2006-01-02 15:04"))
-	}
-	b.WriteString("涉及“是否进群/是否收到入群/群监听是否开启”的问题，以这里和 list_telegram_groups 工具结果为准，不要凭空否认。\n")
-	return b.String()
-}
-
 // channelStyle 各渠道的输出格式指引。键与入口网关写入会话的 channel 值约定一致
 // （数据耦合而非包依赖：新增渠道加一行即可，不认识的渠道回退纯文本）。
 var channelStyle = map[string]string{
@@ -546,9 +513,6 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 
 	if style := styleFor(channel); style != "" {
 		b.WriteString(style)
-	}
-	if tg := o.telegramGroupContext(ctx, channel); tg != "" {
-		b.WriteString("\n" + tg)
 	}
 	if isGroupChannel(channel) {
 		b.WriteString("\n当前是群聊共享会话，务必遵守：\n" +

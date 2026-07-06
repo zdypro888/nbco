@@ -80,6 +80,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, knowledgeTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
+	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
 
@@ -136,6 +137,8 @@ var toolPerm = map[string]string{
 	"issue_worker_bind_code": perm.ActManageWorker,
 	"run_worker_command":     perm.ActManageWorker,
 	"revoke_worker":          perm.ActManageWorker,
+	// 群接入状态可读；修改监听开关限超管。群内仍可用 /listen。
+	"set_telegram_group_listen": reqSuper,
 	// 规则（Policy Memory）影响所有人的每一轮对话，只有超管能改
 	"save_rule":       reqSuper,
 	"list_rules":      reqSuper,
@@ -165,28 +168,29 @@ var workerAllowed = map[string]bool{
 // 大/破坏性的操作。群历史全员可见且会被后续所有成员的轮次重放，这些必须回私聊做。
 // 防的是「机密外泄进群」与「他人发言经共享历史注入驱动高危操作」两条路径。
 var groupSensitive = map[string]bool{
-	"generate_api_token":     true,
-	"revoke_api_token":       true,
-	"invite_employee":        true,
-	"cancel_invites":         true,
-	"grant_active_perm":      true,
-	"revoke_active_perm":     true,
-	"grant_passive_perm":     true,
-	"revoke_passive_perm":    true,
-	"disable_user":           true,
-	"enable_user":            true,
-	"create_worker":          true,
-	"issue_worker_bind_code": true,
-	"run_worker_command":     true,
-	"revoke_worker":          true,
-	"save_rule":              true, // 群历史可被注入，规则变更回私聊做
-	"list_rules":             true,
-	"set_rule_pinned":        true,
-	"get_ai_settings":        true,
-	"set_ai_settings":        true,
-	"remove_info_field":      true,
-	"send_message":           true, // 群里可直接说，无需借 bot 向他人/全体转发
-	"schedule_push":          true, // 定向推送涉及他人，回私聊设更稳妥
+	"generate_api_token":        true,
+	"revoke_api_token":          true,
+	"invite_employee":           true,
+	"cancel_invites":            true,
+	"grant_active_perm":         true,
+	"revoke_active_perm":        true,
+	"grant_passive_perm":        true,
+	"revoke_passive_perm":       true,
+	"disable_user":              true,
+	"enable_user":               true,
+	"create_worker":             true,
+	"issue_worker_bind_code":    true,
+	"run_worker_command":        true,
+	"revoke_worker":             true,
+	"save_rule":                 true, // 群历史可被注入，规则变更回私聊做
+	"list_rules":                true,
+	"set_rule_pinned":           true,
+	"get_ai_settings":           true,
+	"set_ai_settings":           true,
+	"remove_info_field":         true,
+	"send_message":              true, // 群里可直接说，无需借 bot 向他人/全体转发
+	"schedule_push":             true, // 定向推送涉及他人，回私聊设更稳妥
+	"set_telegram_group_listen": true,
 }
 
 // StripGroupSensitive 从工具集剔除群不宜的高危工具（群共享会话专用）。
