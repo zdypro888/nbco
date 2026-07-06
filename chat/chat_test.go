@@ -89,6 +89,20 @@ func TestCompactionCycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	// 与 store/knowledge 包的集成测试共用同一把 advisory 锁：它们会 TRUNCATE 全库，
+	// 不加锁并行跑必然偶发外键崩溃（go test 各包并行）。
+	lockConn, err := s.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_lock($1)`, 7767002); err != nil {
+		lockConn.Release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = lockConn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, 7767002)
+		lockConn.Release()
+	})
 	u, err := s.CreateUser(ctx, "压缩测试员",
 		false, store.Identity{Provider: "test", ExternalID: fmt.Sprintf("compact-%d", time.Now().UnixNano())})
 	if err != nil {

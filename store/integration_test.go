@@ -1218,3 +1218,120 @@ func TestTelegramPendingEmployeeInvite(t *testing.T) {
 		t.Fatalf("cleared pending invite should be ErrNotFound, got %v", err)
 	}
 }
+
+func TestEpisodicMessageSearch(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	other := mkUser(t, s, "other", false)
+
+	sess, err := s.StartSession(ctx, boss.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id1, err := s.AppendMessage(ctx, sess.ID, "user", "我们决定用 PostgreSQL 存所有状态")
+	if err != nil || id1 == 0 {
+		t.Fatalf("AppendMessage 应返回 ID: %d err=%v", id1, err)
+	}
+	osess, _ := s.StartSession(ctx, other.ID, "telegram", "eino")
+	if _, err := s.AppendMessage(ctx, osess.ID, "user", "别人的 PostgreSQL 秘密讨论"); err != nil {
+		t.Fatal(err)
+	}
+	// 词法检索只搜自己名下会话。
+	ms, err := s.SearchMessagesOfUser(ctx, boss.ID, "PostgreSQL", 10)
+	if err != nil || len(ms) != 1 || ms[0].ID != id1 {
+		t.Fatalf("应只命中自己的消息: %+v err=%v", ms, err)
+	}
+	// 向量：落库+按用户取候选，不含他人消息。
+	if err := s.SetMessageEmbedding(ctx, id1, "m:2", []float32{1, 0}); err != nil {
+		t.Fatal(err)
+	}
+	vecs, err := s.EmbeddedMessagesOfUser(ctx, "m:2", boss.ID)
+	if err != nil || len(vecs) != 1 || vecs[0].ID != id1 {
+		t.Fatalf("向量候选 = %+v err=%v", vecs, err)
+	}
+	if vecs, _ := s.EmbeddedMessagesOfUser(ctx, "m:2", other.ID); len(vecs) != 0 {
+		t.Fatalf("他人不应见到该向量: %+v", vecs)
+	}
+	// 回填游标：短消息（<8字节）不进队列。
+	if _, err := s.AppendMessage(ctx, sess.ID, "user", "在"); err != nil {
+		t.Fatal(err)
+	}
+	need, err := s.MessagesNeedingEmbeddingAfter(ctx, "m:2", 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range need {
+		if m.Content == "在" {
+			t.Fatal("寒暄短消息不应进嵌入队列")
+		}
+		if m.ID == id1 {
+			t.Fatal("已嵌入消息不应再进队列")
+		}
+	}
+}
+
+func TestAIUsageStats(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	if err := s.RecordAIUsage(ctx, AIUsage{UserID: boss.ID, Kind: "telegram", Model: "m", InputTokens: 100, OutputTokens: 50}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecordAIUsage(ctx, AIUsage{UserID: boss.ID, Kind: "worker_llm", InputTokens: 30, OutputTokens: 20}); err != nil {
+		t.Fatal(err)
+	}
+	tot, err := s.AIUsageSince(ctx, time.Now().Add(-time.Hour))
+	if err != nil || tot.Calls != 2 || tot.InputTokens != 130 || tot.OutputTokens != 70 {
+		t.Fatalf("总量 = %+v err=%v", tot, err)
+	}
+	rows, err := s.AIUsageByUserSince(ctx, time.Now().Add(-time.Hour))
+	if err != nil || len(rows) != 1 || rows[0].UserID != boss.ID || rows[0].Name != "boss" {
+		t.Fatalf("按人 = %+v err=%v", rows, err)
+	}
+}
+
+func TestTaskDependencyGating(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	dev := mkTask(t, s, pj.ID, boss.ID, worker.ID, "开发", nil)
+	test, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "测试", Description: "跑测试", DependsOn: []int64{dev.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(test.DependsOn) != 1 || test.DependsOn[0] != dev.ID {
+		t.Fatalf("依赖应落库: %+v", test.DependsOn)
+	}
+	// 前置未验收：只能领到 dev。
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != dev.ID {
+		t.Fatalf("应先领到开发任务: %+v err=%v", claimed, err)
+	}
+	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("测试任务被前置挡住，不应可领: %v", err)
+	}
+	// 提交+验收 dev 后，test 就绪。
+	if _, _, err := s.SubmitWorkerTask(ctx, dev.ID, worker.ID, claimed.WorkerClaimID, "done"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.AcceptTask(ctx, dev.ID); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := s.ReadyDependents(ctx, dev.ID)
+	if err != nil || len(ready) != 1 || ready[0].ID != test.ID {
+		t.Fatalf("ReadyDependents = %+v err=%v", ready, err)
+	}
+	claimed2, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed2.ID != test.ID {
+		t.Fatalf("前置验收后应可领测试任务: %+v err=%v", claimed2, err)
+	}
+}
