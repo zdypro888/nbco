@@ -19,7 +19,7 @@ func TestConfigPathOverrideAndEnv(t *testing.T) {
 
 func TestSaveConfigCreatesPrivateFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "workers", "front.json")
-	cfg := Config{Server: "https://im.app:8443", Token: "tok", WorkerID: 9, WorkerName: "front", Engine: "claude"}
+	cfg := Config{Server: "https://nbco.example.com", Token: "tok", WorkerID: 9, WorkerName: "front", Engine: "claude"}
 	if err := saveConfig(path, cfg); err != nil {
 		t.Fatal(err)
 	}

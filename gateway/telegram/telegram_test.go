@@ -121,19 +121,19 @@ func TestSplitChunksBalancesOpenHTMLTags(t *testing.T) {
 }
 
 func TestCommandOf(t *testing.T) {
-	const me = "nbi_jp_bot"
+	const me = "example_bot"
 	cases := map[string]string{
-		"/listen":            "/listen",
-		"/listen@nbi_jp_bot": "/listen",
-		"/listen@NBI_JP_BOT": "/listen", // 大小写不敏感
-		"/new@nbi_jp_bot 参数": "/new",
-		"/start abc":         "/start",
-		"/new@other_bot":     "", // 发给别的 bot，忽略
-		"/listen@other_bot":  "",
-		"  /start  ":         "/start",
-		"你好 /listen":         "",
-		"listen":             "",
-		"":                   "",
+		"/listen":             "/listen",
+		"/listen@example_bot": "/listen",
+		"/listen@EXAMPLE_BOT": "/listen", // 大小写不敏感
+		"/new@example_bot 参数": "/new",
+		"/start abc":          "/start",
+		"/new@other_bot":      "", // 发给别的 bot，忽略
+		"/listen@other_bot":   "",
+		"  /start  ":          "/start",
+		"你好 /listen":          "",
+		"listen":              "",
+		"":                    "",
 	}
 	for in, want := range cases {
 		if got := commandOf(in, me); got != want {
@@ -141,17 +141,17 @@ func TestCommandOf(t *testing.T) {
 		}
 	}
 	// botUsername 未知时保守：只认裸命令，@后缀一律忽略。
-	if commandOf("/new", "") != "/new" || commandOf("/new@nbi_jp_bot", "") != "" {
+	if commandOf("/new", "") != "/new" || commandOf("/new@example_bot", "") != "" {
 		t.Error("botUsername 未知时应只认裸命令")
 	}
 }
 
 func TestCommandArgs(t *testing.T) {
 	cases := map[string]string{
-		"/model mlx-community/DeepSeek-V4-Flash": "mlx-community/DeepSeek-V4-Flash",
-		"  /model@nbi_jp_bot   gpt-4.1-mini  ":   "gpt-4.1-mini",
-		"/model":                                 "",
-		"/model    ":                             "",
+		"/model mlx-community/DeepSeek-V4-Flash":          "mlx-community/DeepSeek-V4-Flash",
+		"  /model@example_bot   gpt-4.1-mini  ":           "gpt-4.1-mini",
+		"/model":                                          "",
+		"/model    ":                                      "",
 		"/model mlx-community/DeepSeek-V4-Flash trailing": "mlx-community/DeepSeek-V4-Flash trailing",
 	}
 	for in, want := range cases {
@@ -182,24 +182,24 @@ func TestInviteTokenFromText(t *testing.T) {
 		key,
 		strings.ToUpper(key),
 		"/start " + key,
-		"/start@nbi_jp_bot " + key,
+		"/start@example_bot " + key,
 	} {
-		got, ok := inviteTokenFromText(in, "nbi_jp_bot")
+		got, ok := inviteTokenFromText(in, "example_bot")
 		if !ok || got != key {
 			t.Errorf("inviteTokenFromText(%q) = (%q,%v), want %q,true", in, got, ok, key)
 		}
 	}
 	for _, in := range []string{"/start", "/start nope", "/start@other_bot " + key, "hello " + key} {
-		if got, ok := inviteTokenFromText(in, "nbi_jp_bot"); ok {
+		if got, ok := inviteTokenFromText(in, "example_bot"); ok {
 			t.Errorf("inviteTokenFromText(%q) = (%q,true), want false", in, got)
 		}
 	}
 }
 
 func TestHasMention(t *testing.T) {
-	const me = "nbi_jp_bot"
-	yes := []string{"@nbi_jp_bot 帮我看看", "查一下 @NBI_JP_BOT", "开头 @nbi_jp_bot", "尾部说完 @nbi_jp_bot"}
-	no := []string{"交给 @nbi_jp_bot_dev 跟进", "@nbi_jp_botx", "没有提及"}
+	const me = "example_bot"
+	yes := []string{"@example_bot 帮我看看", "查一下 @EXAMPLE_BOT", "开头 @example_bot", "尾部说完 @example_bot"}
+	no := []string{"交给 @example_bot_dev 跟进", "@example_botx", "没有提及"}
 	for _, s := range yes {
 		if !hasMention(s, me) {
 			t.Errorf("hasMention(%q) 应为 true", s)
@@ -225,14 +225,14 @@ func TestHasTextMention(t *testing.T) {
 }
 
 func TestStripMention(t *testing.T) {
-	const me = "nbi_jp_bot"
-	if got := stripMention("@nbi_jp_bot 帮我看看进度", me); strings.TrimSpace(got) != "帮我看看进度" {
+	const me = "example_bot"
+	if got := stripMention("@example_bot 帮我看看进度", me); strings.TrimSpace(got) != "帮我看看进度" {
 		t.Errorf("stripMention 结果 = %q", got)
 	}
-	if got := stripMention("@nbi_jp_bot 转告 @someone_bot", me); !strings.Contains(got, "@someone_bot") {
+	if got := stripMention("@example_bot 转告 @someone_bot", me); !strings.Contains(got, "@someone_bot") {
 		t.Errorf("应保留他人句柄: %q", got)
 	}
-	if got := stripMention("交给 @nbi_jp_bot_dev", me); got != "交给 @nbi_jp_bot_dev" {
+	if got := stripMention("交给 @example_bot_dev", me); got != "交给 @example_bot_dev" {
 		t.Errorf("不应剥相似前缀: %q", got)
 	}
 }

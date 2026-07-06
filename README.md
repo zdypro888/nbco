@@ -129,9 +129,9 @@ worker 是独立工作代理，不依赖 Telegram；Telegram、Web、HTTP API、
 worker 可直接从中枢下载发行二进制：
 
 ```bash
-curl -fsSL -o nbco-worker https://im.app:8443/downloads/worker/nbco-worker-darwin-arm64
+curl -fsSL -o nbco-worker <PUBLIC_BASE_URL>/downloads/worker/nbco-worker-darwin-arm64
 chmod +x nbco-worker
-./nbco-worker bootstrap -install-service=true https://im.app:8443 <create_worker 返回的绑定码>
+./nbco-worker bootstrap -install-service=true <PUBLIC_BASE_URL> <create_worker 返回的绑定码>
 ```
 
 可下载文件：
@@ -159,7 +159,7 @@ chmod +x nbco-worker
 手动模式仍可用：
 
 ```bash
-./nbco-worker bind https://im.app:8443 <create_worker 返回的绑定码>
+./nbco-worker bind <PUBLIC_BASE_URL> <create_worker 返回的绑定码>
 ./nbco-worker run [-engine claude|codex] [-bin /path/to/cli]
 ```
 
@@ -172,8 +172,8 @@ chmod +x nbco-worker
 同一台机器跑多个 worker 时，每个 worker 用独立配置文件：
 
 ```bash
-./nbco-worker bootstrap -config ~/.config/nbco/workers/frontend.json -name nbco-worker-frontend https://im.app:8443 <frontend-worker-token>
-./nbco-worker bootstrap -config ~/.config/nbco/workers/reviewer.json -name nbco-worker-reviewer https://im.app:8443 <reviewer-worker-token>
+./nbco-worker bootstrap -config ~/.config/nbco/workers/frontend.json -name nbco-worker-frontend <PUBLIC_BASE_URL> <frontend-worker-bind-code>
+./nbco-worker bootstrap -config ~/.config/nbco/workers/reviewer.json -name nbco-worker-reviewer <PUBLIC_BASE_URL> <reviewer-worker-bind-code>
 
 ./nbco-worker run -config ~/.config/nbco/workers/frontend.json -engine claude
 ./nbco-worker run -config ~/.config/nbco/workers/reviewer.json -engine codex

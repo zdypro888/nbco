@@ -15,7 +15,7 @@ func TestParseTelegramGroupRef(t *testing.T) {
 			t.Fatalf("parseTelegramGroupRef(%q) = %d,%v", in, id, ok)
 		}
 	}
-	if _, ok := parseTelegramGroupRef("日本公司成员"); ok {
+	if _, ok := parseTelegramGroupRef("示例公司群"); ok {
 		t.Fatal("group title should not parse as group ref")
 	}
 }
@@ -23,13 +23,13 @@ func TestParseTelegramGroupRef(t *testing.T) {
 func TestRenderTelegramGroupHidesChatIDLabel(t *testing.T) {
 	got := renderTelegramGroup(store.TelegramGroupState{
 		ChatID:    -100123,
-		Title:     "日本公司成员",
+		Title:     "示例公司群",
 		Type:      "supergroup",
 		Status:    "member",
 		Listen:    true,
 		UpdatedAt: time.Date(2026, 7, 6, 9, 0, 0, 0, time.UTC),
 	}, time.UTC)
-	for _, want := range []string{"日本公司成员", "已加入", "监听开启", "group_ref"} {
+	for _, want := range []string{"示例公司群", "已加入", "监听开启", "group_ref"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("renderTelegramGroup missing %q:\n%s", want, got)
 		}
