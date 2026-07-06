@@ -51,3 +51,20 @@ func TestWorkerDownloadRejectsUnknownName(t *testing.T) {
 		t.Fatalf("unknown download status = %d", rec.Code)
 	}
 }
+
+func TestLLMSemaphoreLazyInit(t *testing.T) {
+	s := &Server{}
+	sem := s.llmSemaphore()
+	if sem == nil {
+		t.Fatal("llm semaphore should be initialized lazily")
+	}
+	if sem != s.llmSemaphore() {
+		t.Fatal("llm semaphore should be reused")
+	}
+	select {
+	case sem <- struct{}{}:
+		<-sem
+	default:
+		t.Fatal("fresh llm semaphore should have capacity")
+	}
+}

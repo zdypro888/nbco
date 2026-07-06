@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // fakeHub 模拟中枢：/api/worker/llm 按脚本逐次返回消息，progress/submit 落记录。
@@ -172,5 +173,74 @@ func TestClipTailAndHead(t *testing.T) {
 	}
 	if h := clipHead(long, 10); len([]rune(h)) != 11 || !strings.HasSuffix(h, "…") {
 		t.Errorf("clipHead 应按字符截断: %q", h)
+	}
+}
+
+// 长任务对话超预算时，压缩早期工具输出、保留最近几条完整。
+func TestCompactTranscript(t *testing.T) {
+	big := strings.Repeat("x", 10<<10)
+	msgs := []chatMessage{{Role: "system", Content: "sys"}, {Role: "user", Content: "task"}}
+	for i := 0; i < 8; i++ {
+		msgs = append(msgs, chatMessage{Role: "assistant"}, chatMessage{Role: "tool", ToolCallID: "c", Content: big})
+	}
+	compactTranscript(msgs)
+	var compacted, intact int
+	for _, m := range msgs {
+		if m.Role != "tool" {
+			continue
+		}
+		if strings.Contains(m.Content, "[早期输出已压缩省略]") {
+			compacted++
+		} else if m.Content == big {
+			intact++
+		}
+	}
+	if intact != agentKeepRecentTools {
+		t.Fatalf("应保留最近 %d 条完整输出, got %d", agentKeepRecentTools, intact)
+	}
+	if compacted != 8-agentKeepRecentTools {
+		t.Fatalf("早期输出应全部压缩, got %d", compacted)
+	}
+	if msgs[0].Content != "sys" || msgs[1].Content != "task" {
+		t.Fatal("system 与任务说明不应被压缩")
+	}
+	// 预算内的小对话不动。
+	small := []chatMessage{{Role: "system", Content: "s"}, {Role: "tool", Content: "短输出"}}
+	compactTranscript(small)
+	if small[1].Content != "短输出" {
+		t.Fatal("预算内不应压缩")
+	}
+}
+
+// 模型调用瞬时失败自动重试，恢复后任务照常完成。
+func TestLLMRetryRecovers(t *testing.T) {
+	oldBackoff := agentRetryBackoff
+	agentRetryBackoff = []time.Duration{time.Millisecond, time.Millisecond}
+	defer func() { agentRetryBackoff = oldBackoff }()
+
+	fails := 2
+	hub := &fakeHub{script: []chatMessage{
+		callTool("c1", "task_done", `{"summary":"重试后完成"}`),
+	}}
+	inner := hub.handler(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/worker/llm" && fails > 0 {
+			fails--
+			http.Error(w, "upstream flake", http.StatusBadGateway)
+			return
+		}
+		inner.ServeHTTP(w, r)
+	}))
+	defer srv.Close()
+
+	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
+	task := &Task{ID: 10, ClaimID: "claim10", Title: "重试任务"}
+	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
+
+	if fails != 0 {
+		t.Fatalf("应消耗完全部注入的失败, 剩 %d", fails)
+	}
+	if hub.summary != "重试后完成" {
+		t.Fatalf("重试恢复后应正常提交, got %q", hub.summary)
 	}
 }

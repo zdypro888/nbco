@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -49,13 +50,16 @@ type Server struct {
 	deps          tools.Deps
 	bus           *events.Bus // 系统事件总线（可为 nil）：worker 上线/任务提交等交 AI 分析
 	llm           LLMConfig
+	llmMu         sync.Mutex
+	llmSem        chan struct{} // llm 管道限并发（与 sched/events 同理：护住模型网关）
 	fileStorePath string
 	downloadPath  string
 }
 
 // New 创建 HTTP 入口。
 func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.Bus, llm LLMConfig, fileStorePath, downloadPath string) *Server {
-	return &Server{store: s, orch: orch, deps: deps, bus: bus, llm: llm, fileStorePath: fileStorePath, downloadPath: downloadPath}
+	return &Server{store: s, orch: orch, deps: deps, bus: bus, llm: llm,
+		llmSem: make(chan struct{}, llmProxyConcurrency), fileStorePath: fileStorePath, downloadPath: downloadPath}
 }
 
 // Handler 组装路由。
@@ -371,6 +375,18 @@ const llmProxyTimeout = 5 * time.Minute
 // llmProxyBodyLimit 请求体上限：agent 对话记录会随步数增长，给足余量。
 const llmProxyBodyLimit = 4 << 20
 
+// llmProxyConcurrency 同时在途的上游模型调用上限（多 worker 同跑内置智能体时排队）。
+const llmProxyConcurrency = 8
+
+func (s *Server) llmSemaphore() chan struct{} {
+	s.llmMu.Lock()
+	defer s.llmMu.Unlock()
+	if s.llmSem == nil {
+		s.llmSem = make(chan struct{}, llmProxyConcurrency)
+	}
+	return s.llmSem
+}
+
 // handleWorkerLLM 内置智能体的模型管道：把 worker 发来的 OpenAI 格式请求透传
 // 到中枢配置的模型服务。中枢只做三件事：worker 认证、钉死 model、带上服务端
 // API key——内容不解析、不改写（stream 除外），业务智能全在 worker 的 agent 循环里。
@@ -381,6 +397,14 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(s.llm.BaseURL) == "" || strings.TrimSpace(s.llm.Model) == "" {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "中枢未配置 API 模型，内置智能体不可用"})
+		return
+	}
+	// 限并发排队：worker 客户端超时富余（6 分钟），排队优于打爆上游。
+	sem := s.llmSemaphore()
+	select {
+	case sem <- struct{}{}:
+		defer func() { <-sem }()
+	case <-r.Context().Done():
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, llmProxyBodyLimit)

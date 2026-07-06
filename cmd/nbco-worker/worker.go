@@ -522,7 +522,7 @@ func taskBrief(task *Task, knowledge, history []string) string {
 		}
 	}
 	if len(knowledge) > 0 {
-		b.WriteString("\n公司相关经验（供参考，可能有用）：\n")
+		b.WriteString("\n公司下发的规则与经验（标有「必须遵守」的是规则，其余供参考）：\n")
 		for _, k := range knowledge {
 			fmt.Fprintf(&b, "- %s\n", k)
 		}

@@ -22,7 +22,19 @@ const (
 	agentCmdTimeoutMax = 30 * time.Minute // run_command 可指定的最大时限
 	agentToolOutLimit  = 12 << 10         // 单条命令输出喂回模型的截断（保尾部）
 	agentThoughtLimit  = 2000             // 模型阶段性说明记进度时的截断
+
+	// agentTranscriptBudget 每轮发送给模型的对话正文字节预算：长任务的工具输出
+	// 全量累积会撑爆（本地）模型上下文，超预算时压缩早期工具输出。
+	agentTranscriptBudget = 48 << 10
+	// agentKeepRecentTools 压缩时保留完整原文的最近工具输出条数
+	//（模型决策主要依赖任务说明与近期结果，早期原文价值低）。
+	agentKeepRecentTools = 4
+	// agentLLMRetries 模型调用瞬时失败（网关抖动/上游超时）的重试次数。
+	agentLLMRetries = 2
 )
+
+// agentRetryBackoff 重试退避间隔，依次使用。
+var agentRetryBackoff = []time.Duration{3 * time.Second, 10 * time.Second}
 
 // —— OpenAI 兼容消息结构（与中枢管道对话用）——
 
@@ -97,7 +109,8 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Task, knowled
 			w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，已终止执行。")
 			return
 		}
-		msg, err := w.client.LLM(runCtx, msgs, agentTools)
+		compactTranscript(msgs)
+		msg, err := w.llmWithRetry(runCtx, msgs)
 		if err != nil {
 			if w.killed() {
 				w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，已终止执行。")
@@ -152,6 +165,63 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Task, knowled
 	}
 	w.submitAgent(ctx, runCtx, task, dir,
 		fmt.Sprintf("内置智能体达到 %d 步上限仍未收尾，请结合过程记录评估进展后验收或打回。", agentMaxSteps), "")
+}
+
+// llmWithRetry 模型调用带瞬时故障重试；任务被取消/杀死时立即放弃。
+func (w *Worker) llmWithRetry(ctx context.Context, msgs []chatMessage) (chatMessage, error) {
+	var lastErr error
+	for attempt := 0; ; attempt++ {
+		msg, err := w.client.LLM(ctx, msgs, agentTools)
+		if err == nil {
+			return msg, nil
+		}
+		lastErr = err
+		if attempt >= agentLLMRetries || ctx.Err() != nil || w.killed() {
+			return chatMessage{}, lastErr
+		}
+		backoff := agentRetryBackoff[len(agentRetryBackoff)-1]
+		if attempt < len(agentRetryBackoff) {
+			backoff = agentRetryBackoff[attempt]
+		}
+		log.Printf("模型调用失败（第 %d 次），%s 后重试: %v", attempt+1, backoff, err)
+		select {
+		case <-ctx.Done():
+			return chatMessage{}, lastErr
+		case <-time.After(backoff):
+		}
+	}
+}
+
+// compactTranscript 对话超出预算时，把早期工具输出原地压成摘要占位，
+// 保留最近 agentKeepRecentTools 条完整输出。system 与任务说明永不压缩。
+func compactTranscript(msgs []chatMessage) {
+	total := 0
+	for i := range msgs {
+		total += len(msgs[i].Content)
+	}
+	if total <= agentTranscriptBudget {
+		return
+	}
+	var toolIdx []int
+	for i := range msgs {
+		if msgs[i].Role == "tool" {
+			toolIdx = append(toolIdx, i)
+		}
+	}
+	if len(toolIdx) <= agentKeepRecentTools {
+		return
+	}
+	for _, i := range toolIdx[:len(toolIdx)-agentKeepRecentTools] {
+		if total <= agentTranscriptBudget {
+			return
+		}
+		c := msgs[i].Content
+		if len(c) <= 160 {
+			continue // 已经很短，压了也省不了多少
+		}
+		msgs[i].Content = clipHead(c, 100) + "\n[早期输出已压缩省略]"
+		total -= len(c) - len(msgs[i].Content)
+	}
 }
 
 // agentRunCommand 执行模型请求的命令并把结果整理成工具答复（同时回传进度）。
