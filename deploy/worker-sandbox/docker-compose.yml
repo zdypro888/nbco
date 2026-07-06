@@ -1,0 +1,22 @@
+# 每个 AI worker 一个容器、一份卷、一枚绑定码——互相隔离，宿主机密不可达。
+# 用法：为每个 worker 在中枢 create_worker 拿绑定码，填进环境变量后 up。
+services:
+  worker-xiaoma:
+    build:
+      context: .
+      args:
+        SERVER: https://your-nbco-host:8443
+    environment:
+      NBCO_SERVER: https://your-nbco-host:8443
+      NBCO_BIND_CODE: wbc_填入绑定码   # 兑换一次后可移除
+    volumes:
+      - worker-xiaoma-data:/home/worker
+    restart: unless-stopped
+    # 资源与安全约束：按机器情况调整
+    mem_limit: 4g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  worker-xiaoma-data:

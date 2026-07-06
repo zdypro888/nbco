@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -8,26 +9,28 @@ import (
 )
 
 func TestMessageText(t *testing.T) {
-	if got := messageText(&models.Message{Text: "  你好  "}); got != "你好" {
+	g := &Gateway{}
+	ctx := context.Background()
+	if got := g.messageText(ctx, &models.Message{Text: "  你好  "}); got != "你好" {
 		t.Errorf("纯文本 = %q", got)
 	}
-	if got := messageText(&models.Message{}); got != "" {
+	if got := g.messageText(ctx, &models.Message{}); got != "" {
 		t.Errorf("空消息 = %q", got)
 	}
-	got := messageText(&models.Message{
+	got := g.messageText(ctx, &models.Message{
 		Document: &models.Document{FileID: "doc1", FileName: "报告.pdf"},
 		Caption:  "上周的报告",
 	})
 	if !strings.Contains(got, "报告.pdf") || !strings.Contains(got, "file_id=doc1") || !strings.Contains(got, "上周的报告") {
 		t.Errorf("文件消息 = %q", got)
 	}
-	got = messageText(&models.Message{
+	got = g.messageText(ctx, &models.Message{
 		Photo: []models.PhotoSize{{FileID: "small"}, {FileID: "big"}},
 	})
 	if !strings.Contains(got, "file_id=big") || strings.Contains(got, "small") {
 		t.Errorf("图片应取最大尺寸: %q", got)
 	}
-	got = messageText(&models.Message{Voice: &models.Voice{FileID: "v1"}})
+	got = g.messageText(ctx, &models.Message{Voice: &models.Voice{FileID: "v1"}})
 	if !strings.Contains(got, "语音") {
 		t.Errorf("语音消息 = %q", got)
 	}

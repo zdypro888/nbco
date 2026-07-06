@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"log/slog"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,6 +20,7 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/zdypro888/nbco/ai/stt"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/store"
@@ -52,6 +55,7 @@ type Gateway struct {
 	store        *store.Store
 	orch         *chat.Orchestrator
 	bus          *events.Bus // 系统事件总线（可为 nil）：入职等事件交 AI 分析决策
+	stt          *stt.Client // 语音转写（可为 nil = 未启用，语音消息提示改用文字）
 	superadmins  map[int64]bool
 	defaultModel string
 
@@ -63,11 +67,12 @@ type Gateway struct {
 }
 
 // New 创建网关。
-func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel string) (*Gateway, error) {
+func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel string, sttClient *stt.Client) (*Gateway, error) {
 	g := &Gateway{
 		store:        s,
 		orch:         orch,
 		bus:          bus,
+		stt:          sttClient,
 		superadmins:  map[int64]bool{},
 		defaultModel: strings.TrimSpace(defaultModel),
 		locks:        map[int64]*sync.Mutex{},
@@ -189,7 +194,7 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	if g.handleGroupServiceMessage(ctx, msg) {
 		return
 	}
-	text := messageText(msg)
+	text := g.messageText(ctx, msg)
 	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
 	if text == "" {
 		return
@@ -450,7 +455,7 @@ func listenKey(chatID int64) string { return store.TelegramGroupListenKey(chatID
 func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
-	text := messageText(msg)
+	text := g.messageText(ctx, msg)
 	if msg.From != nil {
 		g.saveSeenMember(ctx, chatID, msg.From, text, msg.ID)
 	}
@@ -804,7 +809,7 @@ func (g *Gateway) groupReadyMessage() string {
 
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
-	text := messageText(msg)
+	text := g.messageText(ctx, msg)
 	externalID := strconv.FormatInt(msg.From.ID, 10)
 
 	slog.Debug("TG 消息", "tg_user", msg.From.ID, "chat", chatID, "text_len", len(text))
@@ -1260,7 +1265,7 @@ func (g *Gateway) SetTelegramGroupDescription(ctx context.Context, chatID int64,
 
 // messageText 把消息转成给编排器的文本：纯文本原样返回；带媒体的消息把
 // 文件引用（file_id）拼进文本，AI 据此可调用 attach_to_task 等工具处理附件。
-func messageText(msg *models.Message) string {
+func (g *Gateway) messageText(ctx context.Context, msg *models.Message) string {
 	var parts []string
 	if msg.Document != nil {
 		name := msg.Document.FileName
@@ -1277,7 +1282,13 @@ func messageText(msg *models.Message) string {
 		parts = append(parts, fmt.Sprintf("[用户发来视频，file_id=%s]", msg.Video.FileID))
 	}
 	if msg.Voice != nil {
-		parts = append(parts, fmt.Sprintf("[用户发来语音，file_id=%s（当前无法转写，请让用户改用文字）]", msg.Voice.FileID))
+		if text := g.transcribeVoice(ctx, msg.Voice.FileID); text != "" {
+			parts = append(parts, "[语音转写] "+text)
+		} else if g.stt != nil {
+			parts = append(parts, "[用户发来语音，转写失败，请让用户改用文字或稍后重试]")
+		} else {
+			parts = append(parts, fmt.Sprintf("[用户发来语音，file_id=%s（未配置转写服务，请让用户改用文字）]", msg.Voice.FileID))
+		}
 	}
 	if caption := strings.TrimSpace(msg.Caption); caption != "" {
 		parts = append(parts, caption)
@@ -1441,4 +1452,40 @@ func closeHTMLTags(open []htmlOpenTag) string {
 		b.WriteString(">")
 	}
 	return b.String()
+}
+
+// voiceDownloadLimit 语音文件下载上限（TG 语音条通常远小于此）。
+const voiceDownloadLimit = 20 << 20
+
+// transcribeVoice 下载 Telegram 语音并经 STT 服务转写。任何失败返回空串，
+// 调用方回退为占位提示——语音是增强，不该让消息处理失败。
+func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
+	if g.stt == nil {
+		return ""
+	}
+	f, err := g.bot.GetFile(ctx, &bot.GetFileParams{FileID: fileID})
+	if err != nil {
+		slog.Warn("语音文件信息获取失败", "err", err)
+		return ""
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.bot.FileDownloadLink(f), nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Warn("语音下载失败", "err", err)
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		slog.Warn("语音下载非 200", "status", resp.StatusCode)
+		return ""
+	}
+	text, err := g.stt.Transcribe(ctx, "voice.ogg", io.LimitReader(resp.Body, voiceDownloadLimit))
+	if err != nil {
+		slog.Warn("语音转写失败", "err", err)
+		return ""
+	}
+	return text
 }

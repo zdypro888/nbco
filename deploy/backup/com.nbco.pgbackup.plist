@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS launchd：每天 04:30 备份 nbco 库。
+     安装： cp com.nbco.pgbackup.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.nbco.pgbackup.plist
+     先把下面三处路径/DSN 改成你的实际值。 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.nbco.pgbackup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/nbco/deploy/backup/pg-backup.sh</string>
+    <string>postgres://youruser@127.0.0.1:5432/nbco</string>
+    <string>/path/to/backups</string>
+    <string>14</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>30</integer></dict>
+  <key>StandardErrorPath</key><string>/tmp/nbco-pgbackup.err</string>
+  <key>StandardOutPath</key><string>/tmp/nbco-pgbackup.out</string>
+</dict>
+</plist>

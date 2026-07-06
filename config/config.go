@@ -41,6 +41,12 @@ type AIConfig struct {
 	EmbedModel   string `json:"embed_model"`
 	EmbedBaseURL string `json:"embed_base_url"`
 	EmbedAPIKey  string `json:"embed_api_key"`
+	// 语音转写配置（可选，OpenAI 兼容 /audio/transcriptions，如本地 whisper）。
+	// STTModel 空=不启用，Telegram 语音消息会提示改用文字。
+	// STTBaseURL / STTAPIKey 空时回退 BaseURL / APIKey。
+	STTModel   string `json:"stt_model"`
+	STTBaseURL string `json:"stt_base_url"`
+	STTAPIKey  string `json:"stt_api_key"`
 }
 
 // MCPServer 外接 MCP 工具服务（Streamable HTTP）。

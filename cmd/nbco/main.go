@@ -16,6 +16,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/ai/einoengine"
 	"github.com/zdypro888/nbco/ai/embed"
+	"github.com/zdypro888/nbco/ai/stt"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/config"
 	"github.com/zdypro888/nbco/events"
@@ -122,7 +123,11 @@ func run(configPath string) error {
 	var tg *telegram.Gateway
 	if strings.TrimSpace(cfg.TelegramToken) != "" {
 		var err error
-		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model)
+		sttClient := stt.New(cfg.AI) // 未配置 stt_model 时为 nil，语音消息提示改用文字
+		if sttClient != nil {
+			slog.Info("语音转写已启用", "stt_model", cfg.AI.STTModel)
+		}
+		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model, sttClient)
 		if err != nil {
 			return err
 		}
