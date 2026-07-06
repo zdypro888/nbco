@@ -1335,3 +1335,38 @@ func TestTaskDependencyGating(t *testing.T) {
 		t.Fatalf("前置验收后应可领测试任务: %+v err=%v", claimed2, err)
 	}
 }
+
+func TestPendingApprovals(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+
+	id, err := s.CreatePendingApproval(ctx, boss.ID, "disable_user", "hash1")
+	if err != nil || id == 0 {
+		t.Fatalf("登记 = %d err=%v", id, err)
+	}
+	// 参数不同不核销；同参核销一次后即失效。
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash2"); ok {
+		t.Fatal("不同参数不应核销")
+	}
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID+1, "disable_user", "hash1"); ok {
+		t.Fatal("他人不应核销")
+	}
+	ok, err := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1")
+	if err != nil || !ok {
+		t.Fatalf("同参应核销: %v err=%v", ok, err)
+	}
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1"); ok {
+		t.Fatal("一次一用，二次核销应失败")
+	}
+	// 过期不核销。
+	if _, err := s.CreatePendingApproval(ctx, boss.ID, "delete_role", "h"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE pending_approvals SET expires_at = now() - interval '1 minute'`); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "delete_role", "h"); ok {
+		t.Fatal("过期不应核销")
+	}
+}

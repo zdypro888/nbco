@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/zdypro888/nbco/store"
 )
@@ -61,6 +62,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	s.maybeFileToKnowledge(f) // 文本文件异步摘要入知识库（文件知识化）
 	writeJSON(w, http.StatusOK, map[string]any{"file": toFileJSON(*f, "/api/files/"+strconv.FormatInt(f.ID, 10))})
 }
 
@@ -361,4 +363,77 @@ func (s *Server) collectOrphanFiles(ctx context.Context, grace time.Duration) er
 		}
 		return nil
 	})
+}
+
+// --- 文件知识化：文本文件上传后 AI 摘要入知识库 ---
+
+// fileKnowledgeMaxBytes 参与知识化的文件体积上限（大文件摘要质量差且烧上下文）。
+const fileKnowledgeMaxBytes = 128 << 10
+
+const fileSummarizeSystem = "你是公司资料整理员。阅读上传文件的内容，产出一条知识库条目：" +
+	"第一行是标题（一句话说清这份文件讲什么），从第二行起是不超过300字的要点摘要" +
+	"（结论、数据、约定、日期优先；不重要的排版细节丢弃）。直接输出，不要任何前后缀。"
+
+// maybeFileToKnowledge 文本类文件上传后异步 AI 摘要入知识库：合同/报告/纪要
+// 不再是死文件，之后 search_knowledge 语义检索能召回（标题+摘要已向量化）。
+// 只处理小体积 UTF-8 文本；一切失败只记日志，绝不影响上传本身。
+func (s *Server) maybeFileToKnowledge(f *store.File) {
+	if s.orch == nil || f == nil || f.CreatedBy == nil || f.SizeBytes > fileKnowledgeMaxBytes || !textLikeFile(f) {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("文件知识化 panic 已恢复", "file", f.ID, "panic", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		defer cancel()
+		path, err := s.filePath(f.StoragePath)
+		if err != nil {
+			return
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || !utf8.Valid(data) {
+			return
+		}
+		out, err := s.orch.Summarize(ctx, *f.CreatedBy, "summarize", fileSummarizeSystem,
+			fmt.Sprintf("文件名：%s\n内容：\n%s", f.OriginalName, string(data)))
+		if err != nil || strings.TrimSpace(out) == "" {
+			slog.Warn("文件摘要失败，跳过知识化", "file", f.ID, "err", err)
+			return
+		}
+		title, content, _ := strings.Cut(strings.TrimSpace(out), "\n")
+		title = strings.TrimSpace(title)
+		content = strings.TrimSpace(content)
+		if title == "" {
+			return
+		}
+		if content == "" {
+			content = title
+		}
+		tags := []string{"文件摘要", fmt.Sprintf("file:%d", f.ID)}
+		if s.deps.Knowledge != nil {
+			_, err = s.deps.Knowledge.Save(ctx, title, content, tags, *f.CreatedBy)
+		} else {
+			_, err = s.store.CreateKnowledge(ctx, title, content, tags, *f.CreatedBy)
+		}
+		if err != nil {
+			slog.Warn("文件知识入库失败", "file", f.ID, "err", err)
+			return
+		}
+		slog.Info("文件已知识化", "file", f.ID, "title", title)
+	}()
+}
+
+// textLikeFile 判断是否文本类文件（MIME 或扩展名），二进制不做知识化。
+func textLikeFile(f *store.File) bool {
+	if strings.HasPrefix(f.MIMEType, "text/") {
+		return true
+	}
+	switch strings.ToLower(filepath.Ext(f.OriginalName)) {
+	case ".md", ".txt", ".csv", ".log", ".json", ".yaml", ".yml":
+		return true
+	}
+	return false
 }

@@ -138,7 +138,8 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = filterByPerm(ts, u, grants)
 
 	for i := range ts {
-		ts[i] = withAudit(d.Store, u.ID, sessionID, ts[i])
+		// 审计包在审批外层：登记与执行两次调用都留审计记录。
+		ts[i] = withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i]))
 	}
 	return ts
 }

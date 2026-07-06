@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	pollInterval     = 30 * time.Second
-	kvDailySummary   = "daily_summary_last_day"
-	kvWeeklyReport   = "weekly_report_last_week"
-	kvProfileRefresh = "profile_refresh_last_month"
-	summaryMaxTasks  = 20
+	pollInterval       = 30 * time.Second
+	kvDailySummary     = "daily_summary_last_day"
+	kvWeeklyReport     = "weekly_report_last_week"
+	kvProfileRefresh   = "profile_refresh_last_month"
+	kvKnowledgeRefresh = "knowledge_refresh_last_month"
+	summaryMaxTasks    = 20
 	// deadlineWarnWindow 截止前多久发临近提醒。
 	deadlineWarnWindow = 24 * time.Hour
 	// nudgeInterval 过期任务多久没有动静（过期通知/催办/进度更新）就 AI 催办一次。
@@ -110,6 +111,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 	s.maybeDailySummary(ctx)
 	s.maybeWeeklyReport(ctx)
 	s.maybeProfileRefresh(ctx)
+	s.maybeKnowledgeRefresh(ctx)
 }
 
 func (s *Scheduler) schedulePool(sc *store.Schedule) *pool {
@@ -286,6 +288,50 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 			continue
 		}
 		s.dispatchAI(ctx, u, directive, "🧭 月度人员盘点\n", "画像盘点", nil)
+	}
+}
+
+// maybeKnowledgeRefresh 每月 2 号在配置小时（错开 1 号的人员盘点），让 AI 以
+// 超管身份整理知识库：合并重复、删过期、点名冲突——知识库要「越用越值钱」，
+// 必须有代谢，否则积累两年后检索全是噪声。
+func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
+	if s.dailyHour < 0 || s.orch == nil {
+		return
+	}
+	local := time.Now().In(s.tz)
+	if local.Day() != 2 || local.Hour() != s.dailyHour {
+		return
+	}
+	month := local.Format("2006-01")
+	last, err := s.store.GetKV(ctx, kvKnowledgeRefresh)
+	if err != nil {
+		slog.Error("读知识盘点状态失败", "err", err)
+		return
+	}
+	if last == month {
+		return
+	}
+	if err := s.store.SetKV(ctx, kvKnowledgeRefresh, month); err != nil {
+		slog.Error("写知识盘点状态失败", "err", err)
+		return
+	}
+	users, err := s.store.ListUsers(ctx)
+	if err != nil {
+		slog.Error("知识盘点取用户失败", "err", err)
+		return
+	}
+	directive := "[系统定时触发·月度知识盘点]（此输入来自系统调度器，不是用户本人）请整理公司知识库：" +
+		"用 list_recent_knowledge 与 search_knowledge 浏览近期与高频主题的条目，逐条判断：" +
+		"重复的用 update_knowledge 合并到一条并 delete_knowledge 掉冗余；明显过期失效的删除；" +
+		"内容互相矛盾的不要擅自定夺，在摘要里点名列出待用户裁决。" +
+		"行为规则（list_rules）只检查是否与知识冲突，不要修改规则本身。" +
+		"最后回复一份简短盘点报告：合并了什么、删了什么、发现哪些冲突；没有可整理的就说明知识库当前健康。"
+	for _, u := range users {
+		if !u.IsSuperadmin || u.Status != store.UserActive {
+			continue
+		}
+		s.dispatchAI(ctx, u, directive, "📚 月度知识盘点\n", "知识盘点", nil)
+		break // 知识库是全公司共享资产，一位超管盘一次即可，不必每位都跑
 	}
 }
 

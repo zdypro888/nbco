@@ -93,3 +93,31 @@ func TestFormatBytesHuge(t *testing.T) {
 		t.Fatal("formatBytes should not return empty string")
 	}
 }
+
+func TestCanonicalArgsHash(t *testing.T) {
+	a := canonicalArgsHash([]byte(`{"user_id": 5, "reason": "违规"}`))
+	b := canonicalArgsHash([]byte(`{ "reason":"违规","user_id":5 }`))
+	if a != b {
+		t.Error("键序/空白不同但语义相同的参数应哈希一致")
+	}
+	c := canonicalArgsHash([]byte(`{"user_id": 6, "reason": "违规"}`))
+	if a == c {
+		t.Error("参数不同应哈希不同")
+	}
+	if canonicalArgsHash(nil) == "" {
+		t.Error("空参数也应有稳定哈希")
+	}
+}
+
+func TestApprovalRequiredToolsExist(t *testing.T) {
+	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
+	names := map[string]bool{}
+	for _, tl := range ForUser(Deps{}, su, nil) {
+		names[tl.Name] = true
+	}
+	for n := range approvalRequired {
+		if !names[n] {
+			t.Errorf("approvalRequired 登记了不存在的工具 %s", n)
+		}
+	}
+}
