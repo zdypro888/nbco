@@ -91,12 +91,15 @@ func (s *Store) EmbeddedRules(ctx context.Context, model string) ([]KnowledgeVec
 }
 
 // UpdateKnowledge 更新知识条目（nil 字段不动；tags 传 nil 不动，空切片清空）。
+// 标题或正文变更时清空 embed_model：向量按「标题×2+正文」构造，只改标题也会
+// 让旧向量失真；清标签后即时 Reembed 或启动回填都会重新嵌入，不清则永不刷新。
 func (s *Store) UpdateKnowledge(ctx context.Context, id int64, title, content *string, tags []string) (*Knowledge, error) {
 	return scanKnowledge(s.pool.QueryRow(ctx,
 		`UPDATE knowledge SET
 		   title = COALESCE($2, title),
 		   content = COALESCE($3, content),
 		   tags = COALESCE($4, tags),
+		   embed_model = CASE WHEN $2 IS NOT NULL OR $3 IS NOT NULL THEN '' ELSE embed_model END,
 		   updated_at = now()
 		 WHERE id = $1 RETURNING `+knowledgeCols, id, title, content, tags))
 }

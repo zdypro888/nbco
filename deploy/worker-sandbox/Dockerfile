@@ -7,7 +7,7 @@
 FROM node:22-bookworm-slim
 
 ARG SERVER
-ARG WORKER_BIN=nbco-worker-linux-arm64
+ARG WORKER_BIN=nbco-worker-linux-amd64
 
 # 常用工具：worker 干活要 git/构建链；按需增删。
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,13 +18,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g @anthropic-ai/claude-code || true
 
 RUN useradd -m -u 10001 worker
-USER worker
-WORKDIR /home/worker
 
-RUN curl -fsSL -o /home/worker/nbco-worker "$SERVER/downloads/worker/$WORKER_BIN" \
-    && chmod +x /home/worker/nbco-worker
+RUN curl -fsSL -o /usr/local/bin/nbco-worker "$SERVER/downloads/worker/$WORKER_BIN" \
+    && chmod +x /usr/local/bin/nbco-worker
 
 # 绑定码经环境变量传入，容器首次启动时兑换（token 只存在容器卷里）。
-# docker run -e NBCO_SERVER=... -e NBCO_BIND_CODE=wbc_xxx -v worker-data:/home/worker
-COPY --chown=worker:worker entrypoint.sh /home/worker/entrypoint.sh
-ENTRYPOINT ["/home/worker/entrypoint.sh"]
+# docker run -e NBCO_SERVER=... -e NBCO_BIND_CODE=wbc_xxx -v worker-config:/home/worker/.config/nbco -v worker-work:/home/worker/nbco-work
+COPY entrypoint.sh /usr/local/bin/nbco-worker-entrypoint
+RUN chmod +x /usr/local/bin/nbco-worker-entrypoint
+
+USER worker
+WORKDIR /home/worker
+ENTRYPOINT ["/usr/local/bin/nbco-worker-entrypoint"]

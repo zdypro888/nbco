@@ -230,6 +230,8 @@ var groupSensitive = map[string]bool{
 	"revoke_passive_perm":            true,
 	"disable_user":                   true,
 	"enable_user":                    true,
+	"update_user_info":               true, // 改「他人」记录：群历史注入可驱动篡改第三方信息
+	"save_infos_on_user":             true,
 	"create_worker":                  true,
 	"issue_worker_bind_code":         true,
 	"run_worker_command":             true,

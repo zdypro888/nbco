@@ -194,9 +194,11 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	if g.handleGroupServiceMessage(ctx, msg) {
 		return
 	}
-	text := g.messageText(ctx, msg)
+	// 路由阶段只判「有没有内容」，不做媒体加工：真正的转写/文本组装在
+	// process/processGroup 里做一次（此前 handle 也调 messageText，语音被转写两次）。
+	text := strings.TrimSpace(msg.Text)
 	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
-	if text == "" {
+	if !hasMessagePayload(msg) {
 		return
 	}
 	if !isGroup && msg.From == nil {
@@ -1459,10 +1461,16 @@ const voiceDownloadLimit = 20 << 20
 
 // transcribeVoice 下载 Telegram 语音并经 STT 服务转写。任何失败返回空串，
 // 调用方回退为占位提示——语音是增强，不该让消息处理失败。
+var voiceHTTP = &http.Client{Timeout: 2 * time.Minute}
+
 func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
 	if g.stt == nil {
 		return ""
 	}
+	// 独立超时：传入的可能是 bot 长轮询的进程级 ctx，下载 stall 时若无上限，
+	// 这里会在持有 per-chat 锁的状态下永久阻塞，该用户/群的消息从此全部排队。
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
 	f, err := g.bot.GetFile(ctx, &bot.GetFileParams{FileID: fileID})
 	if err != nil {
 		slog.Warn("语音文件信息获取失败", "err", err)
@@ -1472,7 +1480,7 @@ func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
 	if err != nil {
 		return ""
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := voiceHTTP.Do(req)
 	if err != nil {
 		slog.Warn("语音下载失败", "err", err)
 		return ""
@@ -1488,4 +1496,11 @@ func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
 		return ""
 	}
 	return text
+}
+
+// hasMessagePayload 消息是否有可处理内容（文本/媒体/说明文字任一）。
+// 路由用的轻量判断，不触发语音转写等重加工。
+func hasMessagePayload(msg *models.Message) bool {
+	return strings.TrimSpace(msg.Text) != "" || strings.TrimSpace(msg.Caption) != "" ||
+		msg.Document != nil || len(msg.Photo) > 0 || msg.Video != nil || msg.Voice != nil
 }

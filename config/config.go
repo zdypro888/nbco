@@ -178,6 +178,10 @@ func (c *Config) validate() error {
 		if c.AI.Provider != ProviderClaude && c.AI.Provider != ProviderOpenAI {
 			errs = append(errs, fmt.Errorf("ai.provider 不支持: %q", c.AI.Provider))
 		}
+		if strings.TrimSpace(c.AI.STTModel) != "" &&
+			strings.TrimSpace(c.AI.STTBaseURL) == "" && strings.TrimSpace(c.AI.BaseURL) == "" {
+			errs = append(errs, errors.New("ai.stt_model 已配置时，ai.stt_base_url 或 ai.base_url 必须配置"))
+		}
 	default:
 		errs = append(errs, fmt.Errorf("ai.engine 不支持: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", c.AI.Engine))
 	}

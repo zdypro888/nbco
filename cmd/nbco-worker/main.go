@@ -125,16 +125,31 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	path := configPath(cfgFile)
+	redeemed := false
 	if isBindCode(token) {
-		// 一次性绑定码：先兑换出真正的 access token 再落配置。
+		// 一次性绑定码：先兑换出真正的 access token。兑换即销码+吊销旧 token，
+		// 所以拿到 token 后必须【立刻落盘】——若先跑校验、校验因网络抖动失败
+		// 就退出，token 只在内存里，这台机器（连同原 worker）就被彻底废掉了。
 		res, err := newClient(cfg.Server, "").RedeemBindCode(ctx, token)
 		if err != nil {
 			log.Fatalf("绑定码兑换失败: %v", err)
 		}
 		cfg.Token = res.Token
+		cfg.WorkerID = res.WorkerID
+		cfg.WorkerName = res.WorkerName
+		if err := saveConfig(path, cfg); err != nil {
+			log.Fatalf("兑换成功但写配置失败: %v\n请手动保存以下 access token 并重新 bind：%s", err, res.Token)
+		}
+		redeemed = true
 	}
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
 	if err != nil {
+		if redeemed {
+			// token 已安全落盘，校验失败只是网络问题：提示直接上线即可，绝不 Fatal 丢绑定。
+			log.Printf("警告：token 已保存到 %s，但身份校验暂时失败（%v）；网络恢复后直接运行 nbco-worker run 即可上线", path, err)
+			return cfg, path
+		}
 		log.Fatalf("校验 Worker Access Token 失败: %v", err)
 	}
 	if !ident.IsWorker {
@@ -142,7 +157,6 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 	}
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name
-	path := configPath(cfgFile)
 	if err := saveConfig(path, cfg); err != nil {
 		log.Fatalf("写配置失败: %v", err)
 	}

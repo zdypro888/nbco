@@ -93,6 +93,9 @@ func TestLoadValidation(t *testing.T) {
 		{"TLS 证书缺 key",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","tls_cert_file":"/x/cert.pem","ai":{"api_key":"k","model":"m"}}`,
 			"tls_cert_file"},
+		{"STT 缺 base_url",
+			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"api_key":"k","model":"m","stt_model":"whisper"}}`,
+			"ai.stt_base_url"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

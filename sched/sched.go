@@ -62,9 +62,16 @@ func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, channel str
 	}
 }
 
+// aiTurnTimeout 单个系统 AI 轮次的墙钟上限（与事件总线一致）。没有它，引擎
+// 一次挂起会永久占用 aiPool 槽位并锁死该用户的 userLock——4 次挂起后全部
+// AI 调度停摆、用户对话冻结。
+const aiTurnTimeout = 4 * time.Minute
+
 // runAIAndSend 同步执行一轮系统触发的 AI 生成 + 推送，返回是否完整成功。
 func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, prefix, label string) bool {
-	reply, err := s.orch.HandleMessage(ctx, u, s.channel, directive)
+	tctx, cancel := context.WithTimeout(ctx, aiTurnTimeout)
+	defer cancel()
+	reply, err := s.orch.HandleMessage(tctx, u, s.channel, directive)
 	if err != nil {
 		slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
 		return false
@@ -144,31 +151,44 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 	}
 
 	targets := s.resolveTargets(ctx, sc)
-	ok := true
+	sent, failed := 0, 0
 	for _, u := range targets {
+		var one bool
 		switch sc.Mode {
 		case store.ScheduleModeAI:
 			if s.orch == nil {
-				ok = s.send(ctx, u.ID, "⏰ "+sc.Message) && ok
-				continue
+				one = s.send(ctx, u.ID, "⏰ "+sc.Message)
+				break
 			}
 			directive := fmt.Sprintf(
 				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
 					"需要事实（如其今日待办、任务状态）先用工具查询，个性化、简洁、不编造：\n%s\n"+
 					"你的回复会作为主动消息直接推送给该用户。", sc.Message)
-			ok = s.runAIAndSend(ctx, u, directive, "", "定时推送") && ok
+			one = s.runAIAndSend(ctx, u, directive, "", "定时推送")
 		default:
-			msg := "⏰ 提醒：" + sc.Message
-			ok = s.send(ctx, u.ID, msg) && ok
+			one = s.send(ctx, u.ID, "⏰ 提醒："+sc.Message)
+		}
+		if one {
+			sent++
+		} else {
+			failed++
 		}
 	}
-	if ok {
+	// ack 语义：只要不是「全员失败」就推进。全成功才 ack 的旧语义下，多目标
+	// 任务里任一永久不可达用户（受邀未绑 TG、拉黑 bot）会让 fire_at 永不推进、
+	// 租约过期后对所有可达用户无限重发——once 变永动机，AI 模式还重复烧 token。
+	// 部分失败者本次丢失该条推送（记日志），比无限轰炸其他人代价小得多。
+	if sent > 0 || len(targets) == 0 {
+		if failed > 0 {
+			slog.Warn("定时任务部分目标投递失败（不重试，避免对已达目标重复推送）",
+				"schedule", sc.ID, "sent", sent, "failed", failed)
+		}
 		if err := s.store.MarkScheduleDelivered(ctx, sc.ID, now, next, done); err != nil {
 			slog.Warn("定时任务 ack 失败", "schedule", sc.ID, "err", err)
 		}
 		return
 	}
-	slog.Warn("定时任务未完整投递，等待租约过期后重试", "schedule", sc.ID)
+	slog.Warn("定时任务全部目标投递失败，等待租约过期后重试", "schedule", sc.ID, "targets", len(targets))
 }
 
 func nextRepeatFire(fireAt, now time.Time, interval time.Duration) time.Time {
@@ -257,7 +277,9 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		return
 	}
 	local := time.Now().In(s.tz)
-	if local.Day() != 1 || local.Hour() != s.dailyHour {
+	// 窗口放宽到 1-3 号：月度任务错过一小时的代价是整月，1 号恰逢发版/宕机
+	// 不应导致静默跳过 30 天；kv 按月判重保证窗口内只跑一次。
+	if local.Day() > 3 || local.Hour() != s.dailyHour {
 		return
 	}
 	month := local.Format("2006-01")
@@ -299,7 +321,8 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		return
 	}
 	local := time.Now().In(s.tz)
-	if local.Day() != 2 || local.Hour() != s.dailyHour {
+	// 窗口 2-4 号（错开 1 号的人员盘点），同样按月判重、错过首日不丢整月。
+	if local.Day() < 2 || local.Day() > 4 || local.Hour() != s.dailyHour {
 		return
 	}
 	month := local.Format("2006-01")
@@ -407,8 +430,12 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 			ok := s.send(ctx, t.AssigneeID,
 				fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
 			if t.AssignerID != t.AssigneeID {
-				ok = s.send(ctx, t.AssignerID,
-					fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))) && ok
+				// 分配者侧失败只记日志不阻塞 ack：否则分配者不可达（未绑 TG/拉黑）
+				// 时执行人每次租约过期都被重复轰炸同一条过期通知。
+				if !s.send(ctx, t.AssignerID,
+					fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))) {
+					slog.Warn("过期通知分配者侧投递失败（不重试）", "task", t.ID, "assigner", t.AssignerID)
+				}
 			}
 			if ok {
 				if err := s.store.MarkOverdueNoticeSent(ctx, t.ID, time.Now().UTC()); err != nil {

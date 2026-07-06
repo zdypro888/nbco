@@ -33,6 +33,10 @@ func runCommandExec(ctx context.Context, dir, command string, progress func(stri
 	bin, args := shellCommand(command)
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	// WaitDelay：sh 退出后若孙进程（nohup/后台守护）仍持有 stdout/stderr 管道，
+	// 10 秒后强制关闭——否则 Run 的内部拷贝 goroutine 永不结束，worker 主循环
+	// 被一条「启动了后台进程」的命令永久钉死，超时与服务端取消都救不回。
+	cmd.WaitDelay = 10 * time.Second
 	out := newCommandOutput(progress)
 	cmd.Stdout = out
 	cmd.Stderr = out

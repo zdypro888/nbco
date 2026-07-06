@@ -153,13 +153,19 @@ type MessageVec struct {
 	Embedding []float32
 }
 
-// EmbeddedMessagesOfUser 取某用户名下会话中已按指定模型嵌入的消息向量。
+// embeddedMessagesCap 单次语义检索加载的向量上限（最近优先）：消息随年月无限
+// 增长，全量加载迟早把单次查询拖到几百 MB；两万条 ≈ 覆盖数月对话，足够
+// 「上个月聊过什么」场景。更早的历史词法检索仍可命中。
+const embeddedMessagesCap = 20000
+
+// EmbeddedMessagesOfUser 取某用户名下会话中已按指定模型嵌入的消息向量（最近优先）。
 // 只搜自己名下的会话：情景记忆是个人视角，不跨权限泄露他人对话。
 func (s *Store) EmbeddedMessagesOfUser(ctx context.Context, model string, userID int64) ([]MessageVec, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT m.id, m.embedding FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND m.embed_model = $2 AND m.embedding IS NOT NULL`, userID, model)
+		 WHERE cs.user_id = $1 AND m.embed_model = $2 AND m.embedding IS NOT NULL
+		 ORDER BY m.id DESC LIMIT $3`, userID, model, embeddedMessagesCap)
 	if err != nil {
 		return nil, err
 	}

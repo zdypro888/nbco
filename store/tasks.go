@@ -211,9 +211,31 @@ func (s *Store) EnsureWorkerCommandProject(ctx context.Context, creatorID int64)
 	return s.CreateProject(ctx, name, "显式 worker 命令任务。", creatorID)
 }
 
-// DeleteProject 删除项目及其全部任务（外键级联）。
+// DeleteProject 删除项目及其全部任务（外键级联），并把这些任务从其他项目
+// 任务的 depends_on 里剔除（防悬挂 id 被依赖检查当作「已满足」）。
 func (s *Store) DeleteProject(ctx context.Context, id int64) error {
-	return s.execOne(ctx, `DELETE FROM projects WHERE id = $1`, id)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
+		`UPDATE tasks SET depends_on = (
+		   SELECT coalesce(array_agg(x), '{}') FROM unnest(depends_on) x
+		   WHERE x NOT IN (SELECT id FROM tasks WHERE project_id = $1))
+		 WHERE project_id <> $1
+		   AND EXISTS (SELECT 1 FROM unnest(depends_on) x JOIN tasks t ON t.id = x WHERE t.project_id = $1)`,
+		id); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM projects WHERE id = $1`, id)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 // --- 任务 ---
@@ -421,6 +443,12 @@ func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason str
 func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error) {
 	var chain []*Task
 	for parentID != nil {
+		// 先锁父行再判子状态：并发验收最后两个兄弟子任务时两个事务在此串行化，
+		// 后到者以新语句快照看到先到者已提交的 accepted。不锁的话双方都以旧快照
+		// 认为「还有兄弟未完成」，父任务永久卡在 split 且无任何报错。
+		if _, err := tx.Exec(ctx, `SELECT 1 FROM tasks WHERE id = $1 FOR UPDATE`, *parentID); err != nil {
+			return nil, err
+		}
 		p, err := scanTask(tx.QueryRow(ctx,
 			`UPDATE tasks SET
 				   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
@@ -632,7 +660,26 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 
 // DeleteTask 删除任务（子任务级联）。
 func (s *Store) DeleteTask(ctx context.Context, id int64) error {
-	return s.execOne(ctx, `DELETE FROM tasks WHERE id = $1`, id)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// 把被删任务从其他任务的 depends_on 里剔除：语义上「前置被取消 = 不再等待」，
+	// 同时防悬挂 id——依赖检查的 NOT EXISTS 对已消失的前置恒为真，下游会在前置
+	// 从未完成的情况下被 worker 领走。
+	if _, err := tx.Exec(ctx,
+		`UPDATE tasks SET depends_on = array_remove(depends_on, $1) WHERE $1 = ANY(depends_on)`, id); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM tasks WHERE id = $1`, id)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) queryTasks(ctx context.Context, sql string, args ...any) ([]*Task, error) {

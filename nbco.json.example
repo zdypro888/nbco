@@ -24,6 +24,9 @@
     "stream_reasoning": false,
     "embed_model": "",
     "embed_base_url": "",
-    "embed_api_key": ""
+    "embed_api_key": "",
+    "stt_model": "",
+    "stt_base_url": "",
+    "stt_api_key": ""
   }
 }

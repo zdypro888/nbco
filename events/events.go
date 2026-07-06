@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/notify"
@@ -42,6 +43,8 @@ func New(st *store.Store, orch *chat.Orchestrator, n notify.Notifier, channel st
 
 // Emit 异步处理一个系统事件：decider 是该事件的决策人/利益相关者（邀请人、
 // 派活人、监护人……），AI 以其身份分析并行动。触发方立即返回，不被 AI 拖慢。
+// AI 通道满载时不排队（无界排队会让积压事件几小时后才被处理，早已过时），
+// 直接降级为原文推送——事件必达优先于智能加工。
 func (b *Bus) Emit(kind string, deciderID int64, detail string) {
 	if b == nil {
 		return
@@ -52,11 +55,18 @@ func (b *Bus) Emit(kind string, deciderID int64, detail string) {
 				slog.Error("系统事件处理 panic 已恢复", "kind", kind, "user", deciderID, "panic", r)
 			}
 		}()
-		b.sem <- struct{}{}
-		defer func() { <-b.sem }()
 		ctx, cancel := context.WithTimeout(context.Background(), turnTimeout)
 		defer cancel()
-		b.handle(ctx, kind, deciderID, detail)
+		select {
+		case b.sem <- struct{}{}:
+			defer func() { <-b.sem }()
+			b.handle(ctx, kind, deciderID, detail)
+		default:
+			slog.Warn("事件 AI 通道满载，降级原文推送", "kind", kind, "user", deciderID)
+			if u, err := b.store.UserByID(ctx, deciderID); err == nil && u.Status == store.UserActive {
+				b.fallback(ctx, kind, deciderID, detail)
+			}
+		}
 	}()
 }
 
@@ -73,6 +83,11 @@ func (b *Bus) handle(ctx context.Context, kind string, deciderID int64, detail s
 	reply, err := b.orch.HandleMessage(ctx, u, b.channel, directive(kind, detail))
 	if err != nil {
 		slog.Warn("事件 AI 轮次失败，降级原文推送", "kind", kind, "user", deciderID, "err", err)
+		b.fallback(ctx, kind, deciderID, detail)
+		return
+	}
+	if strings.TrimSpace(reply) == "" {
+		// 空答复 ≠ 决定静默（可能是引擎只执行了工具没产出文本）：事件必达，降级原文。
 		b.fallback(ctx, kind, deciderID, detail)
 		return
 	}
@@ -108,15 +123,16 @@ func directive(kind, detail string) string {
 		"- 不值得打扰用户：只回复两个字「%s」，不要任何其他内容", kind, detail, skipWord)
 }
 
-// ShouldSkip 判断 AI 答复是否为「静默」决定。宽容匹配：允许引擎带少量
-// 标点/空白（弱模型偶尔加句号或表情），但不允许长文里恰好包含该词。
+// ShouldSkip 判断 AI 答复是否为「静默」决定：剥掉标点/空白/表情后必须
+// 精确等于约定词。旧的「短答复包含即算」会把否定回答（「不跳过」）误判成
+// 静默，把本该必达的事件吞掉。空答复不算静默（由调用方降级原文推送）。
 func ShouldSkip(reply string) bool {
-	r := strings.TrimSpace(reply)
-	if r == "" {
-		return true
+	var core []rune
+	for _, r := range reply {
+		// 只保留汉字与字母数字参与比对，标点/空白/emoji 全剥掉。
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			core = append(core, r)
+		}
 	}
-	if len([]rune(r)) > 8 {
-		return false
-	}
-	return strings.Contains(r, skipWord)
+	return string(core) == skipWord
 }

@@ -224,6 +224,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		slog.Warn("用户消息落库失败", "err", err)
 	} else {
 		o.embedMessage(id, text) // 情景记忆：异步嵌入，供跨会话检索
+		ctx = tools.WithApprovalTurn(ctx, sess.ID, id)
 	}
 
 	res, err := o.engine.RunTurn(ctx, req)
@@ -445,14 +446,24 @@ func (o *Orchestrator) ensureGroupSession(ctx context.Context, u *store.User, ch
 	sess, err := o.store.ActiveSessionByChannel(ctx, channel)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return o.store.StartGroupSession(ctx, u.ID, channel, o.engine.Name())
+		return o.startGroupSessionOrReuse(ctx, u, channel)
 	case err != nil:
 		return nil, err
 	}
 	if sess.Engine != o.engine.Name() {
-		return o.store.StartGroupSession(ctx, u.ID, channel, o.engine.Name())
+		return o.startGroupSessionOrReuse(ctx, u, channel)
 	}
 	return sess, nil
+}
+
+// startGroupSessionOrReuse 开群会话；撞上并发创建（群渠道 active 唯一索引）
+// 就复用对方刚建好的——两名成员同时首次 @bot 时共享同一个上下文而非分裂两个。
+func (o *Orchestrator) startGroupSessionOrReuse(ctx context.Context, u *store.User, channel string) (*store.ChatSession, error) {
+	sess, err := o.store.StartGroupSession(ctx, u.ID, channel, o.engine.Name())
+	if errors.Is(err, store.ErrConflict) {
+		return o.store.ActiveSessionByChannel(ctx, channel)
+	}
+	return sess, err
 }
 
 func contentHash(s string) string {

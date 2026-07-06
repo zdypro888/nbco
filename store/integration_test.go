@@ -1341,32 +1341,38 @@ func TestPendingApprovals(t *testing.T) {
 	ctx := context.Background()
 	boss := mkUser(t, s, "boss", true)
 
-	id, err := s.CreatePendingApproval(ctx, boss.ID, "disable_user", "hash1")
+	id, err := s.CreatePendingApproval(ctx, boss.ID, "disable_user", "hash1", 10, 100)
 	if err != nil || id == 0 {
 		t.Fatalf("登记 = %d err=%v", id, err)
 	}
-	// 参数不同不核销；同参核销一次后即失效。
-	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash2"); ok {
+	// 参数/用户/会话不同不核销；同一条用户消息内也不能核销。
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash2", 10, 101); ok {
 		t.Fatal("不同参数不应核销")
 	}
-	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID+1, "disable_user", "hash1"); ok {
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID+1, "disable_user", "hash1", 10, 101); ok {
 		t.Fatal("他人不应核销")
 	}
-	ok, err := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1")
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1", 11, 101); ok {
+		t.Fatal("不同会话不应核销")
+	}
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1", 10, 100); ok {
+		t.Fatal("同一条用户消息内不应核销")
+	}
+	ok, err := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1", 10, 101)
 	if err != nil || !ok {
 		t.Fatalf("同参应核销: %v err=%v", ok, err)
 	}
-	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1"); ok {
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "disable_user", "hash1", 10, 102); ok {
 		t.Fatal("一次一用，二次核销应失败")
 	}
 	// 过期不核销。
-	if _, err := s.CreatePendingApproval(ctx, boss.ID, "delete_role", "h"); err != nil {
+	if _, err := s.CreatePendingApproval(ctx, boss.ID, "delete_role", "h", 10, 200); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.pool.Exec(ctx, `UPDATE pending_approvals SET expires_at = now() - interval '1 minute'`); err != nil {
 		t.Fatal(err)
 	}
-	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "delete_role", "h"); ok {
+	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "delete_role", "h", 10, 201); ok {
 		t.Fatal("过期不应核销")
 	}
 }

@@ -10,7 +10,8 @@ services:
       NBCO_SERVER: https://your-nbco-host:8443
       NBCO_BIND_CODE: wbc_填入绑定码   # 兑换一次后可移除
     volumes:
-      - worker-xiaoma-data:/home/worker
+      - worker-xiaoma-config:/home/worker/.config/nbco
+      - worker-xiaoma-work:/home/worker/nbco-work
     restart: unless-stopped
     # 资源与安全约束：按机器情况调整
     mem_limit: 4g
@@ -19,4 +20,5 @@ services:
       - no-new-privileges:true
 
 volumes:
-  worker-xiaoma-data:
+  worker-xiaoma-config:
+  worker-xiaoma-work:

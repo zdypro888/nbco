@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -54,6 +55,17 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if reviewer.ID == t.AssigneeID {
 					return "审核人不能是任务执行人自己。", nil
+				}
+				// 委派审核也是派活：需要对审核人的 create_project 权限，
+				// 否则可绕过 assign_task 的逐人校验把审核任务塞给任意人。
+				if !u.IsSuperadmin && reviewer.ID != u.ID {
+					grants, err := d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+					if !perm.CheckActive(grants, perm.ActCreateProject, reviewer.ID) {
+						return fmt.Sprintf("你没有对用户 %d 的 create_project 权限，不能委派其审核。", reviewer.ID), nil
+					}
 				}
 
 				executor := fmt.Sprintf("用户%d", t.AssigneeID)

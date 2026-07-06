@@ -415,12 +415,23 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if parent.AssigneeID != u.ID {
 					return "只能拆分分配给你的任务。", nil
 				}
+				// 拆分即派活：子任务派给别人同样需要对其的 create_project 权限，
+				// 否则任何接过任务的人都能绕过派活权限把活转给任意用户/他人 worker。
+				var grants []store.Grant
+				if !u.IsSuperadmin {
+					if grants, err = d.Store.PermsOf(ctx, u.ID); err != nil {
+						return "", err
+					}
+				}
 				subs := make([]*store.Task, 0, len(args.Subtasks))
 				assignees := make(map[int64]*store.User, len(args.Subtasks))
 				for _, st := range args.Subtasks {
 					au, err := mustUser(ctx, d.Store, st.AssigneeID)
 					if err != nil {
 						return err.Error(), nil
+					}
+					if !u.IsSuperadmin && au.ID != u.ID && !perm.CheckActive(grants, perm.ActCreateProject, au.ID) {
+						return fmt.Sprintf("你没有对用户 %d 的 create_project 权限，不能把子任务派给对方（可拆给自己）。", au.ID), nil
 					}
 					assignees[au.ID] = au
 					deadline, derr := parseDeadline(st.Deadline, d.TZ)
@@ -627,10 +638,15 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if pj.Status != store.ProjectActive {
 					return "项目已归档，不能再派任务。", nil
 				}
-				// 依赖校验：只能指向已存在任务（新任务 id 恒大于依赖 → 天然无环）。
+				// 依赖校验：只能指向本项目内已存在的任务（新任务 id 恒大于依赖 →
+				// 天然无环；限同项目防跨项目耦合与任务 ID 探测）。
 				for _, dep := range args.DependsOn {
-					if _, err := d.Store.TaskByID(ctx, dep); err != nil {
+					dt, err := d.Store.TaskByID(ctx, dep)
+					if err != nil {
 						return fmt.Sprintf("前置任务 %d 不存在。", dep), nil
+					}
+					if dt.ProjectID != args.ProjectID {
+						return fmt.Sprintf("前置任务 %d 不在本项目内，依赖只能指向同项目任务。", dep), nil
 					}
 				}
 				autoPickNote := ""

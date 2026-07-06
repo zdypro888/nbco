@@ -170,6 +170,14 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					}
 				}
 
+				// mode=ai 的定向推送触发时会【以目标用户身份】跑一轮带其完整工具集的
+				// AI，content 是创建者手写的指令——非超管借此可让更高权限者执行任意
+				// 工具（权限放大+注入面）。因此非超管的 ai 模式只允许对自己；
+				// 给他人/全体仍可用 message 模式原文投递。
+				if mode == store.ScheduleModeAI && !u.IsSuperadmin && target != store.ScheduleTargetSelf {
+					return "非超管给他人/全体设置的推送只能用 mode=message（原文投递）：ai 模式会以目标身份执行指令，存在越权风险。", nil
+				}
+
 				// 时间：daily_at 与 once_at 二选一。
 				hasDaily := strings.TrimSpace(args.DailyAt) != ""
 				hasOnce := strings.TrimSpace(args.OnceAt) != ""

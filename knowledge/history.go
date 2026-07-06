@@ -11,13 +11,25 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
+// embedSem 消息嵌入的并发上限：群旁听刷屏时每条消息一个 embed 请求，不设限
+// 会瞬间上百并发打垮本地 embed 服务（连带规则检索超时降级）。满载直接丢弃，
+// 缺的向量由下次重启的回填补齐——嵌入是增强，绝不能反噬主链路。
+var embedSem = make(chan struct{}, 4)
+
 // EmbedMessageAsync 异步给一条消息补 embedding（追加消息的热路径钩子，
 // 绝不阻塞对话；失败由启动回填兜底）。短消息无记忆价值，直接跳过。
 func (svc *Service) EmbedMessageAsync(id int64, content string) {
 	if svc.embedder == nil || id == 0 || len(content) < 8 {
 		return
 	}
+	select {
+	case embedSem <- struct{}{}:
+	default:
+		slog.Debug("嵌入并发已满，消息向量留待回填", "id", id)
+		return
+	}
 	go func() {
+		defer func() { <-embedSem }()
 		ctx, cancel := context.WithTimeout(context.Background(), embedTimeout)
 		defer cancel()
 		vecs, err := svc.embedder.Embed(ctx, []string{content})

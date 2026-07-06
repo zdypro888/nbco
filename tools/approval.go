@@ -11,6 +11,27 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
+type approvalTurnKey struct{}
+
+type approvalTurn struct {
+	SessionID int64
+	MessageID int64
+}
+
+// WithApprovalTurn 标记本轮对话对应的用户消息。高危工具只能在后续用户消息
+// 明确确认之后执行，避免模型在同一个 tool loop 内登记后立刻自我核销。
+func WithApprovalTurn(ctx context.Context, sessionID, messageID int64) context.Context {
+	if sessionID <= 0 || messageID <= 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, approvalTurnKey{}, approvalTurn{SessionID: sessionID, MessageID: messageID})
+}
+
+func approvalTurnFromContext(ctx context.Context) (approvalTurn, bool) {
+	t, ok := ctx.Value(approvalTurnKey{}).(approvalTurn)
+	return t, ok && t.SessionID > 0 && t.MessageID > 0
+}
+
 // approvalRequired 两段式确认的破坏性工具清单：第一次调用只登记待确认动作，
 // AI 必须向用户复述并获得明确同意后，以完全相同参数再次调用才真正执行。
 // 防两类事故：模型单轮冲动执行、提示注入一击即中（注入者拿不到第二轮确认）。
@@ -32,21 +53,25 @@ func withApproval(s *store.Store, userID int64, t ai.Tool) ai.Tool {
 	name := t.Name
 	t.Description += "【高危：首次调用仅登记待确认动作；须向用户复述操作并获明确同意后，以完全相同参数再次调用才执行】"
 	t.Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
+		turn, ok := approvalTurnFromContext(ctx)
+		if !ok {
+			return "高危操作需要在 nbco 对话里由用户下一条消息明确确认后执行；当前入口没有可验证的用户确认轮次。", nil
+		}
 		hash := canonicalArgsHash(args)
-		ok, err := s.ConsumePendingApproval(ctx, userID, name, hash)
+		ok, err := s.ConsumePendingApproval(ctx, userID, name, hash, turn.SessionID, turn.MessageID)
 		if err != nil {
 			return "", err
 		}
 		if ok {
 			return inner(ctx, args)
 		}
-		id, err := s.CreatePendingApproval(ctx, userID, name, hash)
+		id, err := s.CreatePendingApproval(ctx, userID, name, hash, turn.SessionID, turn.MessageID)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("⚠️ 高危操作已登记为待确认动作 #%d（10 分钟内有效）。"+
-			"请向用户复述将要执行的具体操作并征得明确同意；同意后以完全相同的参数再次调用本工具即执行。"+
-			"用户不同意或未回应就不要再调用。", id), nil
+			"请向用户复述将要执行的具体操作并征得明确同意；只有收到用户下一条明确确认消息后，才能以完全相同的参数再次调用本工具执行。"+
+			"同一轮里不要再次调用；用户不同意或未回应就不要再调用。", id), nil
 	}
 	return t
 }

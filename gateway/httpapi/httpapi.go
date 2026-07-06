@@ -444,9 +444,14 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("worker llm 管道上游非 200", "worker", u.ID, "status", resp.StatusCode)
 	}
 	// 读全响应提取 usage 计量（内容仍原样回传，不改写——计量是管道层唯一多做的事）。
-	out, err := io.ReadAll(io.LimitReader(resp.Body, llmProxyBodyLimit*2))
+	out, err := io.ReadAll(io.LimitReader(resp.Body, llmProxyBodyLimit*2+1))
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "读取上游响应失败"})
+		return
+	}
+	if len(out) > llmProxyBodyLimit*2 {
+		// 静默截断会把残缺 JSON 当 200 回给 worker，重试也无济于事——明确报错。
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "上游响应超出大小上限"})
 		return
 	}
 	if resp.StatusCode == http.StatusOK {
@@ -730,9 +735,10 @@ func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) erro
 		Addr:              addr,
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      10 * time.Minute,
-		IdleTimeout:       2 * time.Minute,
+		// 不设 ReadTimeout：它覆盖「读完整个请求体」，与 200MB 上传/产物回传
+		// （可长达分钟级）直接冲突；慢速头攻击由 ReadHeaderTimeout 挡。
+		WriteTimeout: 10 * time.Minute,
+		IdleTimeout:  2 * time.Minute,
 	}
 	errCh := make(chan error, 1)
 	go func() {
