@@ -139,10 +139,13 @@ func (o *Orchestrator) RecordGroupMessage(ctx context.Context, channel, speaker,
 	if err != nil {
 		return
 	}
-	if err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), speakerLine(speaker, text)); err != nil {
+	line := speakerLine(speaker, text)
+	id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), line)
+	if err != nil {
 		slog.Warn("群旁听消息落库失败", "channel", channel, "err", err)
 		return
 	}
+	o.embedMessage(id, line)
 	// 旁听积压也要触发压缩：否则两次 @ 之间攒够 40 条时，被 @ 的那轮只重放
 	// 最新 40 条，更早的旁听内容既不在摘要也不在窗口，AI 接不住前文。
 	o.maybeCompactByCount(ctx, sess)
@@ -217,8 +220,10 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
 	// 失败轮次会留下孤立的 user 消息，einoengine 重放时做同角色合并兜底。
-	if err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), text); err != nil {
+	if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), text); err != nil {
 		slog.Warn("用户消息落库失败", "err", err)
+	} else {
+		o.embedMessage(id, text) // 情景记忆：异步嵌入，供跨会话检索
 	}
 
 	res, err := o.engine.RunTurn(ctx, req)
@@ -231,9 +236,14 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		"reply_len", len(res.Text))
 	slog.Debug("轮次答复", "session", sess.ID, "reply_len", len(res.Text), "reply_sha", contentHash(res.Text))
 
+	// 成本计量：每轮 token 用量落库（尽力而为）。
+	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
+
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
-	if err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), res.Text); err != nil {
+	if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), res.Text); err != nil {
 		slog.Warn("助手消息落库失败", "err", err)
+	} else {
+		o.embedMessage(id, res.Text)
 	}
 	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
 		if err := o.store.SetSessionEngineRef(ctx, sess.ID, res.EngineSession); err != nil {
@@ -243,6 +253,49 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(text)+len(res.Text))
 	return res.Text, nil
+}
+
+// embedMessage 情景记忆钩子：异步给落库消息补向量（未启用语义检索时为空跳过）。
+func (o *Orchestrator) embedMessage(id int64, content string) {
+	if o.deps.Knowledge != nil {
+		o.deps.Knowledge.EmbedMessageAsync(id, content)
+	}
+}
+
+// recordUsage 记一笔模型用量（零用量不记；失败只记日志）。
+func (o *Orchestrator) recordUsage(ctx context.Context, userID int64, sessionID *int64, kind, model string, u ai.Usage) {
+	if u.InputTokens == 0 && u.OutputTokens == 0 {
+		return
+	}
+	if err := o.store.RecordAIUsage(ctx, store.AIUsage{
+		UserID: userID, SessionID: sessionID, Kind: kind, Model: model,
+		InputTokens: u.InputTokens, OutputTokens: u.OutputTokens,
+	}); err != nil {
+		slog.Warn("AI 用量落库失败", "err", err)
+	}
+}
+
+// channelKind 渠道值归一成计量维度（telegram:group:<id> → telegram），防基数爆炸。
+func channelKind(channel string) string {
+	if i := strings.IndexByte(channel, ':'); i > 0 {
+		return channel[:i]
+	}
+	return channel
+}
+
+// Summarize 无工具、无历史的一次性补全（文件摘要等旁路用途），计一笔用量。
+func (o *Orchestrator) Summarize(ctx context.Context, userID int64, kind, system, text string) (string, error) {
+	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
+		SessionID: kind,
+		System:    system,
+		UserText:  text,
+		Model:     o.runtimeModel(ctx),
+	})
+	if err != nil {
+		return "", err
+	}
+	o.recordUsage(ctx, userID, nil, kind, "", res.Usage)
+	return strings.TrimSpace(res.Text), nil
 }
 
 func (o *Orchestrator) runtimeModel(ctx context.Context) string {
@@ -338,6 +391,7 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 		slog.Warn("会话压缩轮次失败", "session", sessionID, "err", err)
 		return
 	}
+	o.recordUsage(ctx, sess.UserID, &sess.ID, "compact", "", res.Usage)
 	upto := cut[len(cut)-1].ID
 	if err := o.store.UpdateSessionSummary(ctx, sessionID, strings.TrimSpace(res.Text), upto); err != nil {
 		slog.Warn("会话摘要落库失败", "session", sessionID, "err", err)
@@ -503,6 +557,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 不向用户展示内部技术细节：数字用户 ID、TG ID、会话 ID 一律不提，提到人只用名字；任务可用 #编号 引用。身份绑定系统已自动管理，绝不建议用户记录 TG ID 之类系统已知的信息。\n")
 	b.WriteString("- 回复用用户的语言，简洁直接。\n")
 	b.WriteString("- 你是调度管理层，不是执行者：写代码、审代码、深度调研这类深度工作不要在对话里自己做，派给 AI 员工去干（list_workers 找人、assign_task 派活）。有任务提交待验收、需要深度审查交付质量时，用 delegate_review 委派给 AI 员工审核，等其结论回来再协助分配者验收或打回；你自己只做安排、跟进、汇总的调度级输出。\n")
+	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入系统用 invite_employee；AI worker、工作机、机器人、UTM 这类虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n")
 	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
 	if u.IsSuperadmin {
 		b.WriteString("- 用户对你或系统的行为提出持久性要求、禁令或默认做法（「以后不要…」「默认…」「记住以后都…」）时，用 save_rule 存成行为规则（不要只存知识库）；规则会在之后每轮自动注入并生效。系统提示里 [公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")

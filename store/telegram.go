@@ -13,6 +13,8 @@ const KVTelegramGroupPrefix = "telegram.group:"
 const KVTelegramGroupListenPrefix = "tg_listen:"
 const KVTelegramGroupLastMessagePrefix = "telegram.group.last_message:"
 const KVTelegramGroupSeenMemberPrefix = "telegram.group.seen_member:"
+const KVTelegramGroupAutoInvitePrefix = "telegram.group.auto_invite:"
+const KVTelegramPendingEmployeeInvitePrefix = "telegram.pending_employee_invite:"
 
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
 // 这是系统事实状态，不是聊天记忆；AI 回答群接入问题时应以它为准。
@@ -36,12 +38,29 @@ type TelegramGroupSeenMember struct {
 	MessageID int       `json:"message_id,omitempty"`
 }
 
+type TelegramPendingEmployeeInvite struct {
+	TelegramUserID int64     `json:"telegram_user_id"`
+	GroupChatID    int64     `json:"group_chat_id"`
+	Key            string    `json:"key"`
+	Name           string    `json:"name"`
+	CreatedBy      int64     `json:"created_by"`
+	ExpiresAt      time.Time `json:"expires_at"`
+}
+
 func telegramGroupKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupPrefix, chatID)
 }
 
 func TelegramGroupListenKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupListenPrefix, chatID)
+}
+
+func TelegramGroupAutoInviteKey(chatID int64) string {
+	return fmt.Sprintf("%s%d", KVTelegramGroupAutoInvitePrefix, chatID)
+}
+
+func TelegramPendingEmployeeInviteKey(tgUserID int64) string {
+	return fmt.Sprintf("%s%d", KVTelegramPendingEmployeeInvitePrefix, tgUserID)
 }
 
 func telegramGroupLastMessageKey(chatID int64) string {
@@ -171,4 +190,38 @@ func (s *Store) ListTelegramGroupSeenMembers(ctx context.Context, chatID int64, 
 		out = out[:limit]
 	}
 	return out, nil
+}
+
+func (s *Store) SaveTelegramPendingEmployeeInvite(ctx context.Context, inv TelegramPendingEmployeeInvite) error {
+	if inv.TelegramUserID == 0 || inv.Key == "" {
+		return nil
+	}
+	raw, err := json.Marshal(inv)
+	if err != nil {
+		return err
+	}
+	return s.SetKV(ctx, TelegramPendingEmployeeInviteKey(inv.TelegramUserID), string(raw))
+}
+
+func (s *Store) TelegramPendingEmployeeInvite(ctx context.Context, tgUserID int64) (*TelegramPendingEmployeeInvite, error) {
+	raw, err := s.GetKV(ctx, TelegramPendingEmployeeInviteKey(tgUserID))
+	if err != nil || raw == "" {
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrNotFound
+	}
+	var inv TelegramPendingEmployeeInvite
+	if err := json.Unmarshal([]byte(raw), &inv); err != nil {
+		return nil, err
+	}
+	if !inv.ExpiresAt.IsZero() && time.Now().After(inv.ExpiresAt) {
+		_ = s.ClearTelegramPendingEmployeeInvite(ctx, tgUserID)
+		return nil, ErrNotFound
+	}
+	return &inv, nil
+}
+
+func (s *Store) ClearTelegramPendingEmployeeInvite(ctx context.Context, tgUserID int64) error {
+	return s.SetKV(ctx, TelegramPendingEmployeeInviteKey(tgUserID), "")
 }

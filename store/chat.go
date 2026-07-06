@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -116,11 +118,121 @@ func (s *Store) UpdateSessionSummary(ctx context.Context, sessionID int64, summa
 		 WHERE id = $1 AND summary_upto < $3`, sessionID, summary, upto)
 }
 
-// AppendMessage 追加消息。
-func (s *Store) AppendMessage(ctx context.Context, sessionID int64, role, content string) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO chat_messages (session_id, role, content) VALUES ($1, $2, $3)`, sessionID, role, content)
-	return wrapErr(err)
+// AppendMessage 追加消息，返回消息 ID（情景记忆按 ID 异步补 embedding）。
+func (s *Store) AppendMessage(ctx context.Context, sessionID int64, role, content string) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO chat_messages (session_id, role, content) VALUES ($1, $2, $3) RETURNING id`,
+		sessionID, role, content).Scan(&id)
+	return id, wrapErr(err)
+}
+
+// --- 会话情景记忆（episodic memory）：消息级语义检索 ---
+
+// minMemorableLen 短于该字节数的消息不值得嵌入（「在」「好的」之类寒暄）。
+const minMemorableLen = 8
+
+// SetMessageEmbedding 落一条消息的向量与模型标签。
+func (s *Store) SetMessageEmbedding(ctx context.Context, id int64, model string, vec []float32) error {
+	return s.execOne(ctx,
+		`UPDATE chat_messages SET embedding = $2, embed_model = $3 WHERE id = $1`, id, vec, model)
+}
+
+// MessagesNeedingEmbeddingAfter 从 id 游标后取尚未按当前模型嵌入的消息（回填用）。
+// 只嵌有记忆价值的：长度达标即可，user/assistant 都要（决定可能出现在任一侧）。
+func (s *Store) MessagesNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]ChatMessage, error) {
+	return s.queryMessages(ctx,
+		`SELECT id, session_id, role, content, created_at FROM chat_messages
+		 WHERE embed_model <> $1 AND id > $2 AND length(content) >= $3
+		 ORDER BY id LIMIT $4`, model, afterID, minMemorableLen, limit)
+}
+
+// MessageVec 一条消息的 id + 向量（语义检索候选）。
+type MessageVec struct {
+	ID        int64
+	Embedding []float32
+}
+
+// EmbeddedMessagesOfUser 取某用户名下会话中已按指定模型嵌入的消息向量。
+// 只搜自己名下的会话：情景记忆是个人视角，不跨权限泄露他人对话。
+func (s *Store) EmbeddedMessagesOfUser(ctx context.Context, model string, userID int64) ([]MessageVec, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT m.id, m.embedding FROM chat_messages m
+		 JOIN chat_sessions cs ON cs.id = m.session_id
+		 WHERE cs.user_id = $1 AND m.embed_model = $2 AND m.embedding IS NOT NULL`, userID, model)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MessageVec
+	for rows.Next() {
+		var mv MessageVec
+		if err := rows.Scan(&mv.ID, &mv.Embedding); err != nil {
+			return nil, err
+		}
+		out = append(out, mv)
+	}
+	return out, rows.Err()
+}
+
+// SearchMessagesOfUser 词法检索某用户名下会话的消息（新的在前）。
+func (s *Store) SearchMessagesOfUser(ctx context.Context, userID int64, query string, limit int) ([]ChatMessage, error) {
+	terms := searchTerms(query)
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	args := []any{userID}
+	var conds []string
+	for _, t := range terms {
+		args = append(args, "%"+escapeLike(t)+"%")
+		conds = append(conds, fmt.Sprintf("m.content ILIKE $%d", len(args)))
+	}
+	args = append(args, limit)
+	return s.queryMessages(ctx, fmt.Sprintf(
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
+		 JOIN chat_sessions cs ON cs.id = m.session_id
+		 WHERE cs.user_id = $1 AND (%s)
+		 ORDER BY m.id DESC LIMIT $%d`, strings.Join(conds, " OR "), len(args)), args...)
+}
+
+// MessagesByIDs 按 id 批量取消息，保持传入顺序（语义排序后回取详情）。
+func (s *Store) MessagesByIDs(ctx context.Context, ids []int64) ([]ChatMessage, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	ms, err := s.queryMessages(ctx,
+		`SELECT id, session_id, role, content, created_at FROM chat_messages WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]ChatMessage, len(ms))
+	for _, m := range ms {
+		byID[m.ID] = m
+	}
+	out := make([]ChatMessage, 0, len(ids))
+	for _, id := range ids {
+		if m, ok := byID[id]; ok {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) queryMessages(ctx context.Context, sql string, args ...any) ([]ChatMessage, error) {
+	rows, err := s.pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ms []ChatMessage
+	for rows.Next() {
+		var m ChatMessage
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		ms = append(ms, m)
+	}
+	return ms, rows.Err()
 }
 
 // MessagesOf 会话消息（升序），limit<=0 取全部。

@@ -170,12 +170,16 @@ func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error
 		        worker_claim_id = $3,
 		        updated_at = now()
 			 WHERE id = (
-			   SELECT id FROM tasks
-			   WHERE assignee_id = $1
+			   SELECT t.id FROM tasks t
+			   WHERE t.assignee_id = $1
 			     AND (
-			       status = 'pending'
-			       OR (status = 'in_progress' AND worker_claimed_at IS NULL)
-			       OR (status = 'in_progress' AND worker_claimed_at IS NOT NULL AND worker_claimed_at <= $2)
+			       t.status = 'pending'
+			       OR (t.status = 'in_progress' AND t.worker_claimed_at IS NULL)
+			       OR (t.status = 'in_progress' AND t.worker_claimed_at IS NOT NULL AND t.worker_claimed_at <= $2)
+			     )
+			     -- 依赖编排：前置任务未全部验收通过前不可领取
+			     AND NOT EXISTS (
+			       SELECT 1 FROM tasks d WHERE d.id = ANY(t.depends_on) AND d.status <> 'accepted'
 			     )
 			   ORDER BY
 			     (status = 'in_progress') DESC,

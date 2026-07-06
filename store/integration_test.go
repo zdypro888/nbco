@@ -770,7 +770,7 @@ func TestGroupSessionAndSummary(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		if err := s.AppendMessage(ctx, sess2.ID, "user", "m"); err != nil {
+		if _, err := s.AppendMessage(ctx, sess2.ID, "user", "m"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1179,5 +1179,42 @@ func TestTelegramGroupState(t *testing.T) {
 	}
 	if len(groups) != 2 || groups[0].ChatID != -1002 || groups[1].ChatID != -1001 {
 		t.Fatalf("ListTelegramGroupStates order = %+v", groups)
+	}
+}
+
+func TestTelegramPendingEmployeeInvite(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	inv := TelegramPendingEmployeeInvite{
+		TelegramUserID: 42,
+		GroupChatID:    -1001,
+		Key:            "abc",
+		Name:           "新人",
+		CreatedBy:      1,
+		ExpiresAt:      time.Now().Add(time.Hour),
+	}
+	if err := s.SaveTelegramPendingEmployeeInvite(ctx, inv); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.TelegramPendingEmployeeInvite(ctx, 42)
+	if err != nil || got.Key != "abc" || got.Name != "新人" {
+		t.Fatalf("TelegramPendingEmployeeInvite = %+v err=%v", got, err)
+	}
+	if err := s.SaveTelegramPendingEmployeeInvite(ctx, TelegramPendingEmployeeInvite{
+		TelegramUserID: 43,
+		Key:            "expired",
+		ExpiresAt:      time.Now().Add(-time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.TelegramPendingEmployeeInvite(ctx, 43); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expired pending invite should be ErrNotFound, got %v", err)
+	}
+	if err := s.ClearTelegramPendingEmployeeInvite(ctx, 42); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.TelegramPendingEmployeeInvite(ctx, 42); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cleared pending invite should be ErrNotFound, got %v", err)
 	}
 }

@@ -28,7 +28,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite",
 	} {
 		if names[gone] {
 			t.Errorf("无授权用户不应看到 %s", gone)
@@ -150,7 +150,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 		"list_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite",
 	} {
 		if !names[want] {
 			t.Errorf("超管应看到 %s", want)
@@ -185,7 +185,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"get_ai_settings", "set_ai_settings", "schedule_push",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite",
 	} {
 		if !full[gone] {
 			t.Fatalf("前置条件：超管私聊应有 %s", gone)

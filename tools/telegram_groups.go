@@ -31,9 +31,9 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				var b strings.Builder
 				b.WriteString("Telegram 群列表：\n")
 				for _, g := range groups {
-					fmt.Fprintf(&b, "- %s：%s，%s，最近更新 %s；group_ref=%s（内部引用，勿展示给用户）\n",
+					fmt.Fprintf(&b, "- %s：%s，%s，%s，最近更新 %s；group_ref=%s（内部引用，勿展示给用户）\n",
 						telegramGroupTitle(g), telegramGroupStatusText(g), telegramGroupListenText(g),
-						fmtTime(g.UpdatedAt, d.TZ), telegramGroupRef(g.ChatID))
+						telegramGroupAutoInviteText(ctx, d, g), fmtTime(g.UpdatedAt, d.TZ), telegramGroupRef(g.ChatID))
 				}
 				return b.String(), nil
 			}),
@@ -56,7 +56,9 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				if g == nil {
 					return msg, nil
 				}
-				return renderTelegramGroup(*g, d.TZ), nil
+				out := renderTelegramGroup(*g, d.TZ)
+				out += "\n- 自动邀请：" + telegramGroupAutoInviteText(ctx, d, *g)
+				return out, nil
 			}),
 
 		tool("list_telegram_group_members", "查看 Telegram 群成员可见信息。注意：Bot API 不能枚举所有普通成员；本工具返回成员总数、管理员列表、以及系统已见过的发言人/加入者。",
@@ -181,6 +183,36 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return fmt.Sprintf("已更新 %s：%s。", telegramGroupTitle(*g), telegramGroupListenText(*g)), nil
+			}),
+
+		tool("set_telegram_group_auto_invite", "开启或关闭 Telegram 群自动邀请。仅超管私聊可见；开启后，未加入系统的人在该群 @bot 表达加入意图时，系统生成真人员工一次性邀请，优先私发；无法私发时提示对方私聊 /start 自动领取。不会把邀请码发到群里。",
+			obj(map[string]any{
+				"group":   p("string", "群名、群名片段或 group_ref"),
+				"enabled": p("boolean", "true 开启，false 关闭"),
+			}, "group", "enabled"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Group   string `json:"group"`
+					Enabled bool   `json:"enabled"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				g, msg, err := resolveTelegramGroup(ctx, d, args.Group)
+				if err != nil || g == nil {
+					return msg, err
+				}
+				value := ""
+				if args.Enabled {
+					value = strconv.FormatInt(u.ID, 10)
+				}
+				if err := d.Store.SetKV(ctx, store.TelegramGroupAutoInviteKey(g.ChatID), value); err != nil {
+					return "", err
+				}
+				if args.Enabled {
+					return fmt.Sprintf("已开启 %s 的自动邀请。未加入系统的人在群里 @bot 申请加入时，我会生成真人员工一次性邀请并尽量私发；不会在群里公开邀请码。", telegramGroupTitle(*g)), nil
+				}
+				return fmt.Sprintf("已关闭 %s 的自动邀请。", telegramGroupTitle(*g)), nil
 			}),
 
 		tool("send_telegram_group_message", "向 Telegram 群发送消息。仅超管私聊可见；群里不要用这个工具。发送后返回 message_ref 供编辑、撤回、置顶等后续工具使用，回复用户时不要展示内部引用。",
@@ -538,6 +570,20 @@ func telegramGroupListenText(g store.TelegramGroupState) string {
 		return "监听开启"
 	}
 	return "监听关闭"
+}
+
+func telegramGroupAutoInviteText(ctx context.Context, d Deps, g store.TelegramGroupState) string {
+	if d.Store == nil {
+		return "自动邀请状态未知"
+	}
+	raw, err := d.Store.GetKV(ctx, store.TelegramGroupAutoInviteKey(g.ChatID))
+	if err != nil {
+		return "自动邀请状态未知"
+	}
+	if strings.TrimSpace(raw) == "" {
+		return "自动邀请关闭"
+	}
+	return "自动邀请开启"
 }
 
 func telegramMemberDisplay(m TelegramGroupMember) string {

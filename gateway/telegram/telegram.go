@@ -30,9 +30,21 @@ const Provider = "telegram"
 // 消息分片上限。Telegram 单条上限 4096 字符；这里留出较大余量给 HTML 分片
 // 自动补的重开/闭合标签，避免长格式消息被补标签顶过上限后降级纯文本。
 const chunkLimit = 3200
+const textDebounceWindow = 900 * time.Millisecond
 
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|blockquote|a)(?:\s+[^>]*)?>`)
+
+type pendingTextMessage struct {
+	id      int64
+	ctx     context.Context
+	msg     *models.Message
+	texts   []string
+	isGroup bool
+	lockKey int64
+	fromID  int64
+	timer   *time.Timer
+}
 
 // Gateway Telegram 网关。
 type Gateway struct {
@@ -43,9 +55,11 @@ type Gateway struct {
 	superadmins  map[int64]bool
 	defaultModel string
 
-	mu    sync.Mutex
-	locks map[int64]*sync.Mutex // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
-	self  *models.User          // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
+	mu         sync.Mutex
+	locks      map[int64]*sync.Mutex // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
+	self       *models.User          // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
+	pending    map[int64]*pendingTextMessage
+	pendingSeq int64
 }
 
 // New 创建网关。
@@ -57,6 +71,7 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus,
 		superadmins:  map[int64]bool{},
 		defaultModel: strings.TrimSpace(defaultModel),
 		locks:        map[int64]*sync.Mutex{},
+		pending:      map[int64]*pendingTextMessage{},
 	}
 	for _, id := range superadmins {
 		g.superadmins[id] = true
@@ -188,6 +203,75 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	if isGroup {
 		lockKey = msg.Chat.ID // 群 chat ID 为负数，与用户 ID 不冲突
 	}
+	if g.shouldDebounce(msg, text) {
+		g.enqueueTextMessage(ctx, lockKey, isGroup, msg, text)
+		return
+	}
+	g.dispatchMessage(ctx, lockKey, isGroup, msg)
+}
+
+func (g *Gateway) shouldDebounce(msg *models.Message, text string) bool {
+	if msg == nil || strings.TrimSpace(text) == "" {
+		return false
+	}
+	if commandOf(text, g.botUsername()) != "" {
+		return false
+	}
+	// 只合并普通文本。文件/图片/语音等消息含结构化元数据，立即处理更清晰。
+	return strings.TrimSpace(msg.Text) != ""
+}
+
+func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, text string) {
+	fromID := userID(msg.From)
+	clone := *msg
+	clone.Text = strings.TrimSpace(text)
+	clone.Caption = ""
+
+	g.mu.Lock()
+	if cur := g.pending[lockKey]; cur != nil && cur.isGroup == isGroup && cur.fromID == fromID && cur.msg.Chat.ID == msg.Chat.ID {
+		cur.texts = append(cur.texts, clone.Text)
+		cur.timer.Reset(textDebounceWindow)
+		g.mu.Unlock()
+		return
+	}
+	if cur := g.pending[lockKey]; cur != nil {
+		cur.timer.Stop()
+		delete(g.pending, lockKey)
+		go g.dispatchPendingText(cur)
+	}
+	g.pendingSeq++
+	id := g.pendingSeq
+	p := &pendingTextMessage{
+		id: id, ctx: ctx, msg: &clone, texts: []string{clone.Text},
+		isGroup: isGroup, lockKey: lockKey, fromID: fromID,
+	}
+	p.timer = time.AfterFunc(textDebounceWindow, func() { g.flushPendingText(lockKey, id) })
+	g.pending[lockKey] = p
+	g.mu.Unlock()
+}
+
+func (g *Gateway) flushPendingText(lockKey, id int64) {
+	g.mu.Lock()
+	p := g.pending[lockKey]
+	if p == nil || p.id != id {
+		g.mu.Unlock()
+		return
+	}
+	delete(g.pending, lockKey)
+	g.mu.Unlock()
+	g.dispatchPendingText(p)
+}
+
+func (g *Gateway) dispatchPendingText(p *pendingTextMessage) {
+	if p == nil || p.msg == nil {
+		return
+	}
+	merged := *p.msg
+	merged.Text = strings.Join(p.texts, "\n")
+	g.dispatchMessage(p.ctx, p.lockKey, p.isGroup, &merged)
+}
+
+func (g *Gateway) dispatchMessage(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) {
 	go func() {
 		lock := g.userLock(lockKey)
 		lock.Lock()
@@ -443,6 +527,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	if !bound {
+		if g.handleGroupAutoInvite(ctx, msg, chatID, tgID, text) {
+			return
+		}
 		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
 		return
 	}
@@ -458,6 +545,84 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	g.reply(ctx, chatID, answer)
+}
+
+func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message, chatID, tgID int64, text string) bool {
+	if tgID == 0 || !looksLikeJoinRequest(text) {
+		return false
+	}
+	raw, err := g.store.GetKV(ctx, store.TelegramGroupAutoInviteKey(chatID))
+	if err != nil {
+		slog.Warn("读取 Telegram 群自动邀请配置失败", "chat", chatID, "err", err)
+		return false
+	}
+	createdBy, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || createdBy == 0 {
+		return false
+	}
+	name := displayNameFromMessage(msg)
+	key := ""
+	expiresAt := time.Time{}
+	if inv, err := g.store.TelegramPendingEmployeeInvite(ctx, tgID); err == nil {
+		key, expiresAt = inv.Key, inv.ExpiresAt
+		if strings.TrimSpace(inv.Name) != "" {
+			name = inv.Name
+		}
+	} else if !errors.Is(err, store.ErrNotFound) {
+		slog.Error("读取群自动邀请待领取记录失败", "chat", chatID, "tg_user", tgID, "err", err)
+		g.reply(ctx, chatID, "自动邀请创建失败，请稍后再试。")
+		return true
+	} else {
+		bk, err := g.store.CreateBindInvite(ctx, createdBy, 24*time.Hour, name, "", "Telegram 群自动邀请："+msg.Chat.Title)
+		if err != nil {
+			slog.Error("创建群自动邀请失败", "chat", chatID, "tg_user", tgID, "err", err)
+			g.reply(ctx, chatID, "自动邀请创建失败，请稍后再试。")
+			return true
+		}
+		key, expiresAt = bk.Key, bk.ExpiresAt
+		if err := g.store.SaveTelegramPendingEmployeeInvite(ctx, store.TelegramPendingEmployeeInvite{
+			TelegramUserID: tgID,
+			GroupChatID:    chatID,
+			Key:            key,
+			Name:           name,
+			CreatedBy:      createdBy,
+			ExpiresAt:      expiresAt,
+		}); err != nil {
+			slog.Error("保存群自动邀请待领取记录失败", "chat", chatID, "tg_user", tgID, "err", err)
+			g.reply(ctx, chatID, "自动邀请创建失败，请稍后再试。")
+			return true
+		}
+	}
+	private := fmt.Sprintf("🎟 <b>%s</b>，这是你的公司系统一次性邀请。\n\n", html.EscapeString(name))
+	if link := g.employeeInviteLink(key); link != "" {
+		private += fmt.Sprintf("点击绑定：%s\n", html.EscapeString(link))
+	}
+	private += fmt.Sprintf("兜底邀请码：<code>%s</code>\n有效期至 %s，仅可使用一次。",
+		html.EscapeString(key), expiresAt.In(time.Local).Format("2006-01-02 15:04"))
+	if _, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: tgID, Text: private, ParseMode: models.ParseModeHTML}); err == nil {
+		g.reply(ctx, chatID, fmt.Sprintf("✅ 已把一次性邀请私发给 %s。", html.EscapeString(name)))
+		return true
+	}
+	g.reply(ctx, chatID, fmt.Sprintf("✅ 已为 %s 准备好一次性邀请。请他私聊我发送 /start，我会自动完成绑定；邀请码不会在群里公开。", html.EscapeString(name)))
+	return true
+}
+
+func looksLikeJoinRequest(text string) bool {
+	s := strings.ToLower(strings.TrimSpace(text))
+	for _, token := range []string{"加入", "入职", "进系统", "开通", "绑定", "注册", "join", "invite", "access", "bind"} {
+		if strings.Contains(s, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Gateway) employeeInviteLink(key string) string {
+	username := strings.TrimPrefix(strings.TrimSpace(g.botUsername()), "@")
+	if username == "" {
+		return ""
+	}
+	return "https://t.me/" + username + "?start=" + key
 }
 
 // mentioned 是否点名了 bot：文本里 @用户名（大小写不敏感、需词边界），
@@ -806,6 +971,10 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		return
 	}
 
+	if g.consumePendingEmployeeInvite(ctx, msg.From.ID, chatID, name, ident) {
+		return
+	}
+
 	key, ok := inviteTokenFromText(text, g.botUsername())
 	if !ok {
 		hasSuperadmin, err := g.store.HasSuperadmin(ctx)
@@ -831,6 +1000,34 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 	// 入职事件交邀请人的 AI 分析：通知措辞、要不要安排入职跟进，都由 AI 定。
 	g.bus.Emit("员工加入", invitedBy,
 		fmt.Sprintf("新员工「%s」（用户 #%d）刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name, u.ID))
+}
+
+func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, chatID int64, name string, ident store.Identity) bool {
+	inv, err := g.store.TelegramPendingEmployeeInvite(ctx, tgUserID)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			slog.Warn("读取 Telegram 待领取邀请失败", "tg_user", tgUserID, "err", err)
+		}
+		return false
+	}
+	if strings.TrimSpace(inv.Name) != "" {
+		name = inv.Name
+	}
+	u, invitedBy, err := g.store.BindUserWithKey(ctx, inv.Key, name, ident)
+	_ = g.store.ClearTelegramPendingEmployeeInvite(ctx, tgUserID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			g.reply(ctx, chatID, "这枚待领取邀请已失效，请让管理员重新授权。")
+			return true
+		}
+		slog.Error("待领取邀请绑定失败", "tg_user", tgUserID, "err", err)
+		g.reply(ctx, chatID, "绑定失败，请稍后再试。")
+		return true
+	}
+	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
+	g.bus.Emit("员工加入", invitedBy,
+		fmt.Sprintf("新员工「%s」（用户 #%d）刚通过群自动邀请完成 Telegram 绑定，正式加入公司。", u.Name, u.ID))
+	return true
 }
 
 func inviteTokenFromText(text, botUsername string) (string, bool) {

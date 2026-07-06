@@ -61,8 +61,11 @@ type Task struct {
 	Status           string
 	NudgeCount       int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
 	WorkerClaimID    string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// DependsOn 前置任务 ID：全部 accepted 之前 worker 领不到本任务。
+	// 依赖只能指向已存在的任务（新任务 id 恒大于依赖），天然无环。
+	DependsOn []int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // ChecklistItem 工作清单条目。
@@ -93,13 +96,13 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, depends_on, created_at, updated_at`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
 		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.WorkerCommandPTY, &t.Priority, &t.Deadline,
-		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.DependsOn, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &t, nil
@@ -217,10 +220,14 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 
 // CreateTask 建任务。
 func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
+	deps := t.DependsOn
+	if deps == nil {
+		deps = []int64{}
+	}
 	row := s.pool.QueryRow(ctx,
-		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+taskCols,
-		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline)
+		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, depends_on)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+taskCols,
+		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, deps)
 	return scanTask(row)
 }
 
@@ -769,4 +776,14 @@ func nonEmpty(v, def string) string {
 		return def
 	}
 	return v
+}
+
+// ReadyDependents 任务 acceptedID 验收通过后，找出因此「全部前置就绪」的下游
+// 待办任务（编排触发点：唤醒 worker / 通知分配者）。
+func (s *Store) ReadyDependents(ctx context.Context, acceptedID int64) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`SELECT `+taskCols+` FROM tasks t
+		 WHERE $1 = ANY(t.depends_on) AND t.status = 'pending'
+		   AND NOT EXISTS (SELECT 1 FROM tasks d WHERE d.id = ANY(t.depends_on) AND d.status <> 'accepted')
+		 ORDER BY t.id`, acceptedID)
 }
