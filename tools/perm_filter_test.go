@@ -24,7 +24,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"create_project", "assign_task", "delegate_review",
 		"invite_employee", "send_message", "update_user_info", "save_infos_on_user",
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
-		"company_overview", "get_ai_settings", "set_ai_settings", "create_role", "disable_user",
+		"company_overview", "get_ai_settings", "set_ai_settings", "ai_usage_stats", "create_role", "disable_user",
 		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
@@ -146,7 +146,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	names := namesOf(ForUser(Deps{}, su, nil))
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
-		"create_worker", "run_worker_command", "send_message", "grant_passive_perm",
+		"ai_usage_stats", "create_worker", "run_worker_command", "send_message", "grant_passive_perm",
 		"list_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
@@ -182,7 +182,7 @@ func TestStripGroupSensitive(t *testing.T) {
 	for _, gone := range []string{
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
-		"get_ai_settings", "set_ai_settings", "schedule_push",
+		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",

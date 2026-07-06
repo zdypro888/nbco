@@ -558,7 +558,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 回复用用户的语言，简洁直接。\n")
 	b.WriteString("- 你是调度管理层，不是执行者：写代码、审代码、深度调研这类深度工作不要在对话里自己做，派给 AI 员工去干（list_workers 找人、assign_task 派活）。有任务提交待验收、需要深度审查交付质量时，用 delegate_review 委派给 AI 员工审核，等其结论回来再协助分配者验收或打回；你自己只做安排、跟进、汇总的调度级输出。\n")
 	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入系统用 invite_employee；AI worker、工作机、机器人、UTM 这类虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n")
-	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。\n")
+	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。用户问「之前/上次聊过什么、定过什么」而上下文里没有时，先 search_history 查历史对话再回答。\n")
 	if u.IsSuperadmin {
 		b.WriteString("- 用户对你或系统的行为提出持久性要求、禁令或默认做法（「以后不要…」「默认…」「记住以后都…」）时，用 save_rule 存成行为规则（不要只存知识库）；规则会在之后每轮自动注入并生效。系统提示里 [公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")
 	}

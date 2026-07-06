@@ -61,6 +61,7 @@ func run(configPath string) error {
 
 	hub := &notify.Hub{}
 	tgGroups := &tools.TelegramGroupHub{}
+	eventHub := &tools.EventHub{} // 事件总线后注入容器（bus 依赖 orch，orch 依赖 deps）
 
 	// 语义检索的 embedder（可选）：配了 ai.embed_model 才构建，否则知识检索回退词法。
 	embedder, err := embed.New(cfg.AI)
@@ -71,6 +72,7 @@ func run(configPath string) error {
 	if embedder != nil {
 		slog.Info("语义检索已启用", "embed_model", embedder.Model())
 		go backfillKnowledge(ctx, kb)
+		go backfillMessages(ctx, kb) // 情景记忆：存量消息补向量
 	}
 
 	deps := tools.Deps{
@@ -82,6 +84,7 @@ func run(configPath string) error {
 		AIStreamReasoningDefault: cfg.AI.StreamReasoning,
 		PublicBaseURL:            cfg.PublicBaseURL,
 		TelegramGroups:           tgGroups,
+		Events:                   eventHub,
 	}
 
 	// 外接 MCP 工具：连不上只警告不阻断启动（外部服务不可用不该拖垮中枢）。
@@ -110,6 +113,7 @@ func run(configPath string) error {
 	}
 	// 系统事件总线：领域事件交 AI 分析决定通知与行动（与调度器共用渠道与并发上限）。
 	bus := events.New(st, orch, hub, systemChannel, cfg.SchedAIConcurrency)
+	eventHub.Set(bus)
 
 	// worker 内置智能体的模型管道：与中枢对话共用同一 OpenAI 兼容网关配置。
 	llm := httpapi.LLMConfig{BaseURL: cfg.AI.BaseURL, APIKey: cfg.AI.APIKey, Model: cfg.AI.Model}
@@ -188,5 +192,34 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 	}
 	if total > 0 {
 		slog.Info("知识 embedding 回填完成", "count", total)
+	}
+}
+
+// backfillMessages 给存量会话消息补 embedding（情景记忆），节奏同知识回填。
+func backfillMessages(ctx context.Context, kb *knowledge.Service) {
+	const batch = 64
+	total := 0
+	var cursor int64
+	for ctx.Err() == nil {
+		res, err := kb.BackfillMessages(ctx, batch, cursor)
+		if err != nil {
+			slog.Warn("消息 embedding 回填中止（服务不可用，重启后再试）", "err", err)
+			break
+		}
+		total += res.Embedded
+		if res.LastID > cursor {
+			cursor = res.LastID
+		}
+		if res.Attempted == 0 || !res.HasMore {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+	}
+	if total > 0 {
+		slog.Info("消息 embedding 回填完成", "count", total)
 	}
 }

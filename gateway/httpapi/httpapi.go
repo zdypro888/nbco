@@ -443,9 +443,31 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	if resp.StatusCode != http.StatusOK {
 		slog.Warn("worker llm 管道上游非 200", "worker", u.ID, "status", resp.StatusCode)
 	}
+	// 读全响应提取 usage 计量（内容仍原样回传，不改写——计量是管道层唯一多做的事）。
+	out, err := io.ReadAll(io.LimitReader(resp.Body, llmProxyBodyLimit*2))
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "读取上游响应失败"})
+		return
+	}
+	if resp.StatusCode == http.StatusOK {
+		var meta struct {
+			Usage struct {
+				PromptTokens     int64 `json:"prompt_tokens"`
+				CompletionTokens int64 `json:"completion_tokens"`
+			} `json:"usage"`
+		}
+		if json.Unmarshal(out, &meta) == nil && (meta.Usage.PromptTokens > 0 || meta.Usage.CompletionTokens > 0) {
+			if err := s.store.RecordAIUsage(r.Context(), store.AIUsage{
+				UserID: u.ID, Kind: "worker_llm", Model: model,
+				InputTokens: meta.Usage.PromptTokens, OutputTokens: meta.Usage.CompletionTokens,
+			}); err != nil {
+				slog.Warn("worker llm 用量落库失败", "worker", u.ID, "err", err)
+			}
+		}
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	_, _ = w.Write(out)
 }
 
 func (s *Server) runtimeLLMModel(ctx context.Context) string {
@@ -657,7 +679,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	// 原子提交：要求任务仍是本 worker 手上的 in_progress。若此刻分配者刚把它
 	// 改需求重置为 pending，提交落空（ErrNotFound），旧交付不会被当成完成。
-	t, _, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary)
+	t, chain, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许提交（可能已被改派或重置）"})
@@ -665,6 +687,13 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "提交失败"})
 		return
+	}
+	// 依赖编排：自派任务提交即 accepted（含级联），可能让下游任务全部前置就绪。
+	if t.Status == store.TaskAccepted {
+		tools.FireReadyDependents(ctx, s.deps, t.ID)
+		for _, c := range chain {
+			tools.FireReadyDependents(ctx, s.deps, c.ID)
+		}
 	}
 	// 进化：可复用经验回流知识库，供后续同类任务检索。
 	if lessons := strings.TrimSpace(req.Lessons); lessons != "" {

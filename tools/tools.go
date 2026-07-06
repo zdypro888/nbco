@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
@@ -39,9 +40,47 @@ type Deps struct {
 	// TelegramGroups 可选：Telegram 群控制器。未配置 Telegram 网关时为 nil/未注入，
 	// 群控制工具会返回清晰错误；读状态仍可走 Store。
 	TelegramGroups TelegramGroupController
+	// Events 系统事件总线（可为 nil）：任务编排等场景把事件交 AI 分析决策。
+	// 用接口 + 后注入容器解耦（events 包依赖 chat，chat 依赖 tools，不能反向 import）。
+	Events Eventer
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
+}
+
+// Eventer 系统事件出口（由 events.Bus 实现）。
+type Eventer interface {
+	Emit(kind string, deciderID int64, detail string)
+}
+
+// EventHub 后注入的 Eventer 容器（装配顺序：deps → orch → bus，bus 建好后 Set）。
+type EventHub struct {
+	mu sync.Mutex
+	e  Eventer
+}
+
+// Set 注入实现（启动时一次）。
+func (h *EventHub) Set(e Eventer) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.e = e
+}
+
+// Emit 实现 Eventer；未注入时静默丢弃（测试/降级场景）。
+func (h *EventHub) Emit(kind string, deciderID int64, detail string) {
+	h.mu.Lock()
+	e := h.e
+	h.mu.Unlock()
+	if e != nil {
+		e.Emit(kind, deciderID, detail)
+	}
+}
+
+// emitEvent 便捷入口：Deps.Events 可为 nil。
+func emitEvent(d Deps, kind string, deciderID int64, detail string) {
+	if d.Events != nil {
+		d.Events.Emit(kind, deciderID, detail)
+	}
 }
 
 // saveKnowledge / searchKnowledge：优先走 Knowledge 服务（含语义检索），
@@ -81,6 +120,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, scheduleTools(d, u)...)
 	ts = append(ts, roleTools(d, u)...)
 	ts = append(ts, knowledgeTools(d, u)...)
+	ts = append(ts, memoryTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
@@ -127,6 +167,7 @@ var toolPerm = map[string]string{
 	"company_overview":  reqSuper,
 	"get_ai_settings":   reqSuper,
 	"set_ai_settings":   reqSuper,
+	"ai_usage_stats":    reqSuper,
 	"add_info_field":    reqSuper,
 	"remove_info_field": reqSuper,
 	"disable_user":      reqSuper,
@@ -195,6 +236,8 @@ var groupSensitive = map[string]bool{
 	"save_rule":                      true, // 群历史可被注入，规则变更回私聊做
 	"list_rules":                     true,
 	"set_rule_pinned":                true,
+	"search_history":                 true, // 会翻出发言人的私聊历史，群里禁用
+	"ai_usage_stats":                 true,
 	"get_ai_settings":                true,
 	"set_ai_settings":                true,
 	"remove_info_field":              true,

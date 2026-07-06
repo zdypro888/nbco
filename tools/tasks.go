@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
@@ -179,6 +180,11 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 						return "任务不在待验收状态。", nil
 					}
 					return "", err
+				}
+				// 依赖编排：本次验收（含级联的父任务）可能让下游任务全部前置就绪。
+				FireReadyDependents(ctx, d, t.ID)
+				for _, c := range chain {
+					FireReadyDependents(ctx, d, c.ID)
 				}
 				if c := strings.TrimSpace(args.Comment); c != "" {
 					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 验收通过："+c); err != nil {
@@ -584,27 +590,29 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderProjects(ps), nil
 			}),
 
-		tool("assign_task", "在项目中创建任务并分配给某人。需要对该人的 create_project 权限。",
+		tool("assign_task", "在项目中创建任务并分配给某人。需要对该人的 create_project 权限。assignee_id 省略时自动派给最合适的 AI 员工（负载最低、通过率优先、在线优先，仅限自己名下）。depends_on 可指定前置任务：全部验收通过前 worker 领不到本任务，用于串流水线（如开发→测试→审查）。",
 			obj(map[string]any{
 				"project_id":  p("integer", "项目ID"),
-				"assignee_id": p("integer", "执行人用户ID"),
+				"assignee_id": p("integer", "执行人用户ID（可选；省略=自动派给最合适的 AI 员工）"),
 				"title":       p("string", "标题"),
 				"goal":        p("string", "为什么做（可选）"),
 				"description": p("string", "做什么"),
 				"acceptance":  p("string", "验收标准（可选）"),
 				"deadline":    p("string", "截止时间 ISO8601（可选）"),
 				"priority":    p("string", "low/normal/high（可选）"),
-			}, "project_id", "assignee_id", "title", "description"),
+				"depends_on":  arr("integer", "前置任务ID列表（可选；须为已存在的任务）"),
+			}, "project_id", "title", "description"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					ProjectID   int64  `json:"project_id"`
-					AssigneeID  int64  `json:"assignee_id"`
-					Title       string `json:"title"`
-					Goal        string `json:"goal"`
-					Description string `json:"description"`
-					Acceptance  string `json:"acceptance"`
-					Deadline    string `json:"deadline"`
-					Priority    string `json:"priority"`
+					ProjectID   int64   `json:"project_id"`
+					AssigneeID  int64   `json:"assignee_id"`
+					Title       string  `json:"title"`
+					Goal        string  `json:"goal"`
+					Description string  `json:"description"`
+					Acceptance  string  `json:"acceptance"`
+					Deadline    string  `json:"deadline"`
+					Priority    string  `json:"priority"`
+					DependsOn   []int64 `json:"depends_on"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
@@ -618,6 +626,20 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if pj.Status != store.ProjectActive {
 					return "项目已归档，不能再派任务。", nil
+				}
+				// 依赖校验：只能指向已存在任务（新任务 id 恒大于依赖 → 天然无环）。
+				for _, dep := range args.DependsOn {
+					if _, err := d.Store.TaskByID(ctx, dep); err != nil {
+						return fmt.Sprintf("前置任务 %d 不存在。", dep), nil
+					}
+				}
+				autoPickNote := ""
+				if args.AssigneeID == 0 {
+					picked, note, perr := pickWorkerAssignee(ctx, d, u)
+					if perr != nil {
+						return perr.Error(), nil
+					}
+					args.AssigneeID, autoPickNote = picked, note
 				}
 				assignee, err := mustUser(ctx, d.Store, args.AssigneeID)
 				if err != nil {
@@ -640,6 +662,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: args.AssigneeID,
 					Title: args.Title, Goal: args.Goal, Description: args.Description,
 					Acceptance: args.Acceptance, Priority: args.Priority, Deadline: deadline,
+					DependsOn: args.DependsOn,
 				})
 				if err != nil {
 					return "", err
@@ -649,8 +672,17 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
 				}
-				wakeWorker(d, assignee)
-				return fmt.Sprintf("任务「%s」已创建（#%d）并分配给用户 %d。", t.Title, t.ID, t.AssigneeID), nil
+				if len(t.DependsOn) == 0 {
+					wakeWorker(d, assignee) // 有前置的任务此刻还领不了，就绪时再唤醒
+				}
+				reply := fmt.Sprintf("任务「%s」已创建（#%d）并分配给用户 %d。", t.Title, t.ID, t.AssigneeID)
+				if autoPickNote != "" {
+					reply += autoPickNote
+				}
+				if len(t.DependsOn) > 0 {
+					reply += fmt.Sprintf("前置任务 %v 全部验收通过后才可开工。", t.DependsOn)
+				}
+				return reply, nil
 			}),
 
 		tool("view_project", "查看项目的完整任务树。需要是项目创建者。",
@@ -967,4 +999,75 @@ func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b
 		}
 	}
 	return nil
+}
+
+// pickWorkerAssignee 免指派自动选人：候选 = 自己名下（超管=全部）的在册 AI 员工，
+// 按「当前在办任务数最少 → 实时在线优先 → 历史验收通过数多」排序取首。
+// 这是资源调度（同 SKIP LOCKED 一类的机制层），不是业务政策：派谁的最终决定权
+// 仍在调用方——AI 想自己挑人就显式传 assignee_id。
+func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User) (int64, string, error) {
+	owner := u.ID
+	if u.IsSuperadmin {
+		owner = 0
+	}
+	ws, err := d.Store.ListWorkers(ctx, owner)
+	if err != nil {
+		return 0, "", err
+	}
+	type cand struct {
+		w        *store.User
+		open     int64
+		accepted int64
+		online   bool
+	}
+	var cands []cand
+	for _, w := range ws {
+		if w.Status != store.UserActive {
+			continue
+		}
+		st, err := d.Store.StatsOfAssignee(ctx, w.ID)
+		if err != nil {
+			return 0, "", err
+		}
+		online := d.Workers != nil && d.Workers.Online(w.ID)
+		cands = append(cands, cand{w: w, open: st.Open, accepted: st.Accepted, online: online})
+	}
+	if len(cands) == 0 {
+		return 0, "", fmt.Errorf("没有可用的 AI 员工可自动指派；请显式指定 assignee_id，或先 create_worker")
+	}
+	sort.Slice(cands, func(i, j int) bool {
+		if cands[i].open != cands[j].open {
+			return cands[i].open < cands[j].open
+		}
+		if cands[i].online != cands[j].online {
+			return cands[i].online
+		}
+		return cands[i].accepted > cands[j].accepted
+	})
+	best := cands[0]
+	note := fmt.Sprintf("（自动指派给 %s：在办 %d 个、历史通过 %d 个", best.w.Name, best.open, best.accepted)
+	if best.online {
+		note += "、当前在线"
+	}
+	note += "）"
+	return best.w.ID, note, nil
+}
+
+// FireReadyDependents 任务验收通过后触发依赖编排：找出因此全部前置就绪的下游
+// 任务，唤醒 worker 立即领取，并把事件交派活人的 AI 分析（要不要通知、推进什么）。
+// httpapi 的 worker 自派提交路径同样调用。
+func FireReadyDependents(ctx context.Context, d Deps, acceptedID int64) {
+	deps, err := d.Store.ReadyDependents(ctx, acceptedID)
+	if err != nil {
+		slog.Warn("查询就绪下游任务失败", "task", acceptedID, "err", err)
+		return
+	}
+	for _, t := range deps {
+		if assignee, err := d.Store.UserByID(ctx, t.AssigneeID); err == nil {
+			wakeWorker(d, assignee)
+		}
+		emitEvent(d, "前置任务完成",
+			t.AssignerID,
+			fmt.Sprintf("任务「%s」（#%d）的全部前置已验收通过，现在可以开工（执行人：用户 %d）。", t.Title, t.ID, t.AssigneeID))
+	}
 }
