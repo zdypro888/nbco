@@ -156,6 +156,7 @@ func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 }
 
 func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update) {
+	g.logUpdate(update)
 	if update.MyChatMember != nil {
 		g.handleMyChatMember(ctx, update.MyChatMember)
 		return
@@ -194,6 +195,30 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 		}
 		g.process(ctx, msg)
 	}()
+}
+
+func (g *Gateway) logUpdate(update *models.Update) {
+	if update == nil {
+		return
+	}
+	if update.MyChatMember != nil {
+		cm := update.MyChatMember
+		slog.Debug("TG update", "id", update.ID, "type", "my_chat_member",
+			"chat", cm.Chat.ID, "chat_type", cm.Chat.Type, "title", cm.Chat.Title,
+			"from", cm.From.ID, "old", cm.OldChatMember.Type, "new", cm.NewChatMember.Type)
+		return
+	}
+	if update.Message != nil {
+		msg := update.Message
+		slog.Debug("TG update", "id", update.ID, "type", "message",
+			"chat", msg.Chat.ID, "chat_type", msg.Chat.Type, "title", msg.Chat.Title,
+			"from", userID(msg.From), "sender_chat", senderChatTitle(msg),
+			"text_len", len(msg.Text), "caption_len", len(msg.Caption), "message_text_len", len(messageText(msg)),
+			"entities", entitySummary(msg.Entities), "caption_entities", entitySummary(msg.CaptionEntities),
+			"new_members", len(msg.NewChatMembers), "left_member", msg.LeftChatMember != nil)
+		return
+	}
+	slog.Debug("TG update", "id", update.ID, "type", "unsupported")
 }
 
 func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
@@ -371,8 +396,23 @@ func (g *Gateway) mentioned(msg *models.Message, text string) bool {
 	if un := g.botUsername(); un != "" && hasMention(text, un) {
 		return true
 	}
+	if id := g.botID(); id != 0 && hasTextMention(msg.Entities, id) {
+		return true
+	}
+	if id := g.botID(); id != 0 && hasTextMention(msg.CaptionEntities, id) {
+		return true
+	}
 	return msg.ReplyToMessage != nil && msg.ReplyToMessage.From != nil &&
 		g.botID() != 0 && msg.ReplyToMessage.From.ID == g.botID()
+}
+
+func hasTextMention(entities []models.MessageEntity, botID int64) bool {
+	for _, e := range entities {
+		if e.Type == models.MessageEntityTypeTextMention && e.User != nil && e.User.ID == botID {
+			return true
+		}
+	}
+	return false
 }
 
 // isUsernameByte Telegram 用户名字符集 [A-Za-z0-9_]（全 ASCII）。
@@ -494,6 +534,17 @@ func senderChatTitle(msg *models.Message) string {
 		return username
 	}
 	return fmt.Sprintf("%d", msg.SenderChat.ID)
+}
+
+func entitySummary(entities []models.MessageEntity) string {
+	if len(entities) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(entities))
+	for _, e := range entities {
+		parts = append(parts, fmt.Sprintf("%s@%d+%d", e.Type, e.Offset, e.Length))
+	}
+	return strings.Join(parts, ",")
 }
 
 func boundStartMessage(name string) string {

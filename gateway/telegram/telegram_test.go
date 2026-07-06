@@ -212,6 +212,18 @@ func TestHasMention(t *testing.T) {
 	}
 }
 
+func TestHasTextMention(t *testing.T) {
+	entities := []models.MessageEntity{
+		{Type: models.MessageEntityTypeTextMention, Offset: 0, Length: 2, User: &models.User{ID: 42}},
+	}
+	if !hasTextMention(entities, 42) {
+		t.Fatal("text_mention should match bot id")
+	}
+	if hasTextMention(entities, 7) {
+		t.Fatal("text_mention should not match other user")
+	}
+}
+
 func TestStripMention(t *testing.T) {
 	const me = "nbi_jp_bot"
 	if got := stripMention("@nbi_jp_bot 帮我看看进度", me); strings.TrimSpace(got) != "帮我看看进度" {
