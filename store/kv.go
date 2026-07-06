@@ -8,6 +8,8 @@ import (
 const (
 	// KVAIStreamReasoning 保存运行时 AI 流式推理展示开关；配置文件只做默认值。
 	KVAIStreamReasoning = "settings.ai.stream_reasoning"
+	// KVAIModel 保存运行时主模型覆盖；空值表示使用配置文件默认模型。
+	KVAIModel = "settings.ai.model"
 	// KVTelegramBotUsername 缓存 Telegram bot username，用于生成员工邀请 deep link。
 	KVTelegramBotUsername = "telegram.bot_username"
 )

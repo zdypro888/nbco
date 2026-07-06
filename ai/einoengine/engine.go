@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/claude"
@@ -28,8 +29,11 @@ import (
 
 // Engine 持有一个已初始化的 ChatModel；Agent 按轮次构建（工具集因用户而异）。
 type Engine struct {
-	model    einomodel.ToolCallingChatModel
-	maxTurns int
+	cfg          config.AIConfig
+	maxTurns     int
+	defaultModel string
+	mu           sync.Mutex
+	models       map[string]einomodel.ToolCallingChatModel
 }
 
 // New 按配置创建模型。
@@ -38,7 +42,13 @@ func New(ctx context.Context, cfg config.AIConfig) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{model: m, maxTurns: cfg.MaxTurns}, nil
+	model := strings.TrimSpace(cfg.Model)
+	return &Engine{
+		cfg:          cfg,
+		maxTurns:     cfg.MaxTurns,
+		defaultModel: model,
+		models:       map[string]einomodel.ToolCallingChatModel{model: m},
+	}, nil
 }
 
 func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCallingChatModel, error) {
@@ -82,6 +92,10 @@ func (e *Engine) Name() string { return config.EngineEino }
 
 // RunTurn 实现 ai.Engine：构建带用户工具集的 agent，重放历史 + 本轮输入，收集事件直到最终答复。
 func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+	model, err := e.modelFor(ctx, req.Model)
+	if err != nil {
+		return nil, err
+	}
 	tools := make([]tool.BaseTool, 0, len(req.Tools))
 	for _, t := range req.Tools {
 		tools = append(tools, &einoTool{t: t})
@@ -90,7 +104,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		Name:        "nbco",
 		Description: "nbco 公司运营中枢",
 		Instruction: req.System,
-		Model:       e.model,
+		Model:       model,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
 		},
@@ -126,6 +140,34 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
 	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning)
+}
+
+func (e *Engine) modelFor(ctx context.Context, name string) (einomodel.ToolCallingChatModel, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = e.defaultModel
+	}
+	e.mu.Lock()
+	if m, ok := e.models[name]; ok {
+		e.mu.Unlock()
+		return m, nil
+	}
+	cfg := e.cfg
+	cfg.Model = name
+	e.mu.Unlock()
+
+	m, err := newChatModel(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("构建模型 %q: %w", name, err)
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if cached, ok := e.models[name]; ok {
+		return cached, nil
+	}
+	e.models[name] = m
+	slog.Info("运行时模型已初始化", "model", name)
+	return m, nil
 }
 
 func modelRetryConfig() *adk.ModelRetryConfig {

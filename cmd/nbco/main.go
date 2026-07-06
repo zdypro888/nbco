@@ -116,7 +116,7 @@ func run(configPath string) error {
 	var tg *telegram.Gateway
 	if strings.TrimSpace(cfg.TelegramToken) != "" {
 		var err error
-		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins)
+		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model)
 		if err != nil {
 			return err
 		}

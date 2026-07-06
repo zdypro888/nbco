@@ -75,6 +75,8 @@ type TurnRequest struct {
 	History []Message
 	// UserText 本轮用户输入。
 	UserText string
+	// Model 是本轮使用的模型名覆盖；空值表示使用引擎默认配置。
+	Model string
 	// Tools 本轮可用工具集（已按用户权限裁剪）。
 	Tools []Tool
 	// OnEvent 可选回调：工具调用与文本产出实时上报（审计/流式）。

@@ -133,6 +133,36 @@ func TestCommandOf(t *testing.T) {
 	}
 }
 
+func TestCommandArgs(t *testing.T) {
+	cases := map[string]string{
+		"/model mlx-community/DeepSeek-V4-Flash": "mlx-community/DeepSeek-V4-Flash",
+		"  /model@nbi_jp_bot   gpt-4.1-mini  ":   "gpt-4.1-mini",
+		"/model":                                 "",
+		"/model    ":                             "",
+		"/model mlx-community/DeepSeek-V4-Flash trailing": "mlx-community/DeepSeek-V4-Flash trailing",
+	}
+	for in, want := range cases {
+		if got := commandArgs(in); got != want {
+			t.Errorf("commandArgs(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestValidModelName(t *testing.T) {
+	valid := []string{"mlx-community/DeepSeek-V4-Flash", "gpt-4.1-mini", "claude-sonnet-4-20250514"}
+	for _, m := range valid {
+		if !validModelName(m) {
+			t.Errorf("validModelName(%q) = false", m)
+		}
+	}
+	invalid := []string{"", "two words", strings.Repeat("x", 161), "bad<model>", "bad&model"}
+	for _, m := range invalid {
+		if validModelName(m) {
+			t.Errorf("validModelName(%q) = true", m)
+		}
+	}
+}
+
 func TestInviteTokenFromText(t *testing.T) {
 	key := "0123456789abcdef0123456789abcdef"
 	for _, in := range []string{

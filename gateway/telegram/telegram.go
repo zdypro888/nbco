@@ -34,11 +34,12 @@ var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|
 
 // Gateway Telegram 网关。
 type Gateway struct {
-	bot         *bot.Bot
-	store       *store.Store
-	orch        *chat.Orchestrator
-	bus         *events.Bus // 系统事件总线（可为 nil）：入职等事件交 AI 分析决策
-	superadmins map[int64]bool
+	bot          *bot.Bot
+	store        *store.Store
+	orch         *chat.Orchestrator
+	bus          *events.Bus // 系统事件总线（可为 nil）：入职等事件交 AI 分析决策
+	superadmins  map[int64]bool
+	defaultModel string
 
 	mu    sync.Mutex
 	locks map[int64]*sync.Mutex // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
@@ -46,13 +47,14 @@ type Gateway struct {
 }
 
 // New 创建网关。
-func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64) (*Gateway, error) {
+func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel string) (*Gateway, error) {
 	g := &Gateway{
-		store:       s,
-		orch:        orch,
-		bus:         bus,
-		superadmins: map[int64]bool{},
-		locks:       map[int64]*sync.Mutex{},
+		store:        s,
+		orch:         orch,
+		bus:          bus,
+		superadmins:  map[int64]bool{},
+		defaultModel: strings.TrimSpace(defaultModel),
+		locks:        map[int64]*sync.Mutex{},
 	}
 	for _, id := range superadmins {
 		g.superadmins[id] = true
@@ -96,6 +98,7 @@ func (g *Gateway) setupCommands(ctx context.Context) {
 	private := []models.BotCommand{
 		{Command: "start", Description: "开始使用 / 查看说明"},
 		{Command: "new", Description: "开启新会话（清空对话上下文）"},
+		{Command: "model", Description: "查看/切换模型（超管私聊）"},
 	}
 	group := []models.BotCommand{
 		{Command: "listen", Description: "开/关本群监听（记录讨论作为上下文，超管专用）"},
@@ -224,6 +227,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		}
 		g.reply(ctx, chatID, "🆕 本群会话已重置。")
 		return
+	case "/model":
+		g.reply(ctx, chatID, "模型切换属于超级管理员操作，请私聊我使用 /model。")
+		return
 	}
 
 	mentioned := g.mentioned(msg, text)
@@ -327,6 +333,19 @@ func commandOf(text, botUsername string) string {
 	return cmd
 }
 
+func commandArgs(text string) string {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) < 2 {
+		return ""
+	}
+	first := fields[0]
+	idx := strings.Index(text, first)
+	if idx < 0 {
+		return strings.Join(fields[1:], " ")
+	}
+	return strings.TrimSpace(text[idx+len(first):])
+}
+
 // displayName TG 用户显示名（名+姓，否则用户名）。
 func displayName(from *models.User) string {
 	name := strings.TrimSpace(strings.Join([]string{from.FirstName, from.LastName}, " "))
@@ -420,6 +439,9 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 			g.reply(ctx, chatID, "👑 你已成为超级管理员。")
 		}
 		return
+	case "/model":
+		g.handleModelCommand(ctx, chatID, u, commandArgs(text))
+		return
 	}
 
 	// 流式：发占位消息，把最终答复的增量渐进编辑上去（本地模型慢，不让用户干等）。
@@ -432,6 +454,66 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		return
 	}
 	ed.finish(ctx, answer)
+}
+
+func (g *Gateway) handleModelCommand(ctx context.Context, chatID int64, u *store.User, args string) {
+	if !u.IsSuperadmin {
+		g.reply(ctx, chatID, "只有超级管理员能查看或切换模型。")
+		return
+	}
+	args = strings.TrimSpace(args)
+	if args == "" {
+		g.reply(ctx, chatID, g.modelStatus(ctx))
+		return
+	}
+	if strings.EqualFold(args, "reset") || strings.EqualFold(args, "default") {
+		if err := g.store.SetKV(ctx, store.KVAIModel, ""); err != nil {
+			slog.Error("重置运行时模型失败", "err", err)
+			g.reply(ctx, chatID, "模型重置失败，请稍后再试。")
+			return
+		}
+		g.reply(ctx, chatID, fmt.Sprintf("✅ 已恢复默认模型：<code>%s</code>", html.EscapeString(g.defaultModel)))
+		return
+	}
+	if !validModelName(args) {
+		g.reply(ctx, chatID, "模型名不合法。用法：<code>/model mlx-community/DeepSeek-V4-Flash</code>；恢复默认：<code>/model reset</code>。")
+		return
+	}
+	if err := g.store.SetKV(ctx, store.KVAIModel, args); err != nil {
+		slog.Error("切换运行时模型失败", "model", args, "err", err)
+		g.reply(ctx, chatID, "模型切换失败，请稍后再试。")
+		return
+	}
+	slog.Info("超级管理员切换运行时模型", "user", u.ID, "model", args)
+	g.reply(ctx, chatID, fmt.Sprintf("✅ 已切换模型：<code>%s</code>\n后续新一轮对话和 worker 内置智能体都会使用它。", html.EscapeString(args)))
+}
+
+func (g *Gateway) modelStatus(ctx context.Context) string {
+	model, err := g.store.GetKV(ctx, store.KVAIModel)
+	if err != nil {
+		slog.Warn("读取运行时模型失败", "err", err)
+		model = ""
+	}
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return fmt.Sprintf("当前模型：<code>%s</code>\n来源：配置文件默认值\n切换：<code>/model 模型名</code>\n恢复默认：<code>/model reset</code>",
+			html.EscapeString(g.defaultModel))
+	}
+	return fmt.Sprintf("当前模型：<code>%s</code>\n来源：运行时设置\n默认模型：<code>%s</code>\n切换：<code>/model 模型名</code>\n恢复默认：<code>/model reset</code>",
+		html.EscapeString(model), html.EscapeString(g.defaultModel))
+}
+
+func validModelName(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || len(s) > 160 || len(strings.Fields(s)) != 1 {
+		return false
+	}
+	for _, r := range s {
+		if r < 0x20 || r == '<' || r == '>' || r == '&' {
+			return false
+		}
+	}
+	return true
 }
 
 // onboard 未绑定用户：超管自动开通；其他人凭真人员工一次性邀请。

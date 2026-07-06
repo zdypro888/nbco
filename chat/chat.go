@@ -185,6 +185,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		EngineSession: sess.EngineRef,
 		System:        system,
 		UserText:      text,
+		Model:         o.runtimeModel(ctx),
 		Tools:         toolset,
 		// 实时轨迹：工具调用与产出上报到日志（审计层另行落库）。
 		OnEvent: func(s ai.Step) {
@@ -242,6 +243,15 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(text)+len(res.Text))
 	return res.Text, nil
+}
+
+func (o *Orchestrator) runtimeModel(ctx context.Context) string {
+	model, err := o.store.GetKV(ctx, store.KVAIModel)
+	if err != nil {
+		slog.Warn("读取运行时 AI 模型失败，使用配置默认模型", "key", store.KVAIModel, "err", err)
+		return ""
+	}
+	return strings.TrimSpace(model)
 }
 
 func (o *Orchestrator) streamReasoningEnabled(ctx context.Context) bool {
@@ -322,6 +332,7 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 		SessionID: fmt.Sprintf("compact-%d", sessionID),
 		System:    compactSystem,
 		UserText:  buildCompactInput(sess.Summary, cut),
+		Model:     o.runtimeModel(ctx),
 	})
 	if err != nil || strings.TrimSpace(res.Text) == "" {
 		slog.Warn("会话压缩轮次失败", "session", sessionID, "err", err)

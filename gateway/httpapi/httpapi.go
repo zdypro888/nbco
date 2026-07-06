@@ -395,7 +395,8 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	if strings.TrimSpace(s.llm.BaseURL) == "" || strings.TrimSpace(s.llm.Model) == "" {
+	model := s.runtimeLLMModel(r.Context())
+	if strings.TrimSpace(s.llm.BaseURL) == "" || strings.TrimSpace(model) == "" {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "中枢未配置 API 模型，内置智能体不可用"})
 		return
 	}
@@ -413,8 +414,8 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体须是 JSON 对象"})
 		return
 	}
-	body["model"] = s.llm.Model // 服务端钉死，防 worker 指定任意模型
-	body["stream"] = false      // 管道不透传流式
+	body["model"] = model  // 服务端钉死，防 worker 指定任意模型
+	body["stream"] = false // 管道不透传流式
 	buf, err := json.Marshal(body)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体无法序列化"})
@@ -445,6 +446,21 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+func (s *Server) runtimeLLMModel(ctx context.Context) string {
+	if s.store == nil {
+		return strings.TrimSpace(s.llm.Model)
+	}
+	model, err := s.store.GetKV(ctx, store.KVAIModel)
+	if err != nil {
+		slog.Warn("读取 worker LLM 运行时模型失败，使用配置默认模型", "key", store.KVAIModel, "err", err)
+		return strings.TrimSpace(s.llm.Model)
+	}
+	if model = strings.TrimSpace(model); model != "" {
+		return model
+	}
+	return strings.TrimSpace(s.llm.Model)
 }
 
 // handleWorkerNext 认领下一个待办任务；顺带注入相关历史经验（越干越准）。
