@@ -116,8 +116,12 @@ func run(configPath string) error {
 	bus := events.New(st, orch, hub, systemChannel, cfg.SchedAIConcurrency)
 	eventHub.Set(bus)
 
-	// worker 内置智能体的模型管道：与中枢对话共用同一 OpenAI 兼容网关配置。
-	llm := httpapi.LLMConfig{BaseURL: cfg.AI.BaseURL, APIKey: cfg.AI.APIKey, Model: cfg.AI.Model}
+	// worker 内置智能体的模型管道：与中枢对话共用模型配置，HTTP 层按 provider
+	// 适配 OpenAI 或 Claude/Anthropic 兼容协议。
+	llm := httpapi.LLMConfig{
+		Provider: cfg.AI.Provider, BaseURL: cfg.AI.BaseURL, APIKey: cfg.AI.APIKey,
+		Model: cfg.AI.Model, MaxTokens: cfg.AI.MaxTokens, TimeoutMS: cfg.AI.TimeoutMS,
+	}
 	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath)
 
 	var tg *telegram.Gateway

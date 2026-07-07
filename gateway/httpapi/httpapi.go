@@ -20,6 +20,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/zdypro888/nbco/chat"
+	"github.com/zdypro888/nbco/config"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/mcpbridge"
@@ -38,9 +39,12 @@ var indexHTML []byte
 // LLMConfig worker 内置智能体的模型管道配置（/api/worker/llm 透传代理）。
 // 中枢只做管道：model 服务端钉死、API key 不出中枢、内容不解析。
 type LLMConfig struct {
-	BaseURL string // OpenAI 兼容网关地址；空 = 管道关闭（worker 内置智能体不可用）
-	APIKey  string
-	Model   string
+	Provider  string
+	BaseURL   string // OpenAI 或 Claude/Anthropic 兼容网关地址；空 = 管道关闭
+	APIKey    string
+	Model     string
+	MaxTokens int
+	TimeoutMS int
 }
 
 // Server HTTP 入口。
@@ -369,7 +373,7 @@ func (s *Server) handleWorkerBind(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "worker_id": u.ID, "worker_name": u.Name})
 }
 
-// llmProxyTimeout 单次上游模型调用的墙钟上限（agent 步长在 worker 侧另有控制）。
+// llmProxyTimeout 单次上游模型调用的默认墙钟上限（agent 步长在 worker 侧另有控制）。
 const llmProxyTimeout = 5 * time.Minute
 
 // llmProxyBodyLimit 请求体上限：agent 对话记录会随步数增长，给足余量。
@@ -387,9 +391,9 @@ func (s *Server) llmSemaphore() chan struct{} {
 	return s.llmSem
 }
 
-// handleWorkerLLM 内置智能体的模型管道：把 worker 发来的 OpenAI 格式请求透传
-// 到中枢配置的模型服务。中枢只做三件事：worker 认证、钉死 model、带上服务端
-// API key——内容不解析、不改写（stream 除外），业务智能全在 worker 的 agent 循环里。
+// handleWorkerLLM 内置智能体的模型管道：worker 固定发送 OpenAI 风格的
+// messages/tools；中枢按配置转发到 OpenAI 兼容或 Claude/Anthropic 兼容端点，并把响应
+// 统一转回 worker 认识的 OpenAI 风格。API key 只留在中枢。
 func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	u := s.requireWorker(w, r)
 	if u == nil {
@@ -416,18 +420,50 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	body["model"] = model  // 服务端钉死，防 worker 指定任意模型
 	body["stream"] = false // 管道不透传流式
-	buf, err := json.Marshal(body)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体无法序列化"})
+
+	var out []byte
+	var status int
+	var err error
+	switch s.llmProvider() {
+	case config.ProviderClaude:
+		status, out, err = s.callWorkerLLMClaude(r.Context(), model, body)
+	case config.ProviderOpenAI:
+		status, out, err = s.callWorkerLLMOpenAI(r.Context(), model, body)
+	default:
+		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "中枢未配置可用模型 provider，内置智能体不可用"})
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), llmProxyTimeout)
+	if err != nil {
+		slog.Warn("worker llm 管道上游失败", "worker", u.ID, "provider", s.llmProvider(), "err", err)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	if status != http.StatusOK {
+		slog.Warn("worker llm 管道上游非 200", "worker", u.ID, "provider", s.llmProvider(), "status", status)
+	}
+	if len(out) > llmProxyBodyLimit*2 {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "上游响应超出大小上限"})
+		return
+	}
+	if status == http.StatusOK {
+		recordWorkerLLMUsage(r.Context(), s.store, u.ID, model, out)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(out)
+}
+
+func (s *Server) callWorkerLLMOpenAI(ctx context.Context, model string, body map[string]any) (int, []byte, error) {
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return 0, nil, fmt.Errorf("请求体无法序列化")
+	}
+	ctx, cancel := context.WithTimeout(ctx, s.llmTimeout())
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		strings.TrimRight(s.llm.BaseURL, "/")+"/chat/completions", bytes.NewReader(buf))
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "构造上游请求失败"})
-		return
+		return 0, nil, fmt.Errorf("构造上游请求失败")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if s.llm.APIKey != "" {
@@ -435,44 +471,330 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		slog.Warn("worker llm 管道上游失败", "worker", u.ID, "err", err)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "上游模型服务不可达"})
-		return
+		return 0, nil, fmt.Errorf("上游模型服务不可达")
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		slog.Warn("worker llm 管道上游非 200", "worker", u.ID, "status", resp.StatusCode)
-	}
-	// 读全响应提取 usage 计量（内容仍原样回传，不改写——计量是管道层唯一多做的事）。
 	out, err := io.ReadAll(io.LimitReader(resp.Body, llmProxyBodyLimit*2+1))
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "读取上游响应失败"})
+		return 0, nil, fmt.Errorf("读取上游响应失败")
+	}
+	return resp.StatusCode, out, nil
+}
+
+func (s *Server) callWorkerLLMClaude(ctx context.Context, model string, body map[string]any) (int, []byte, error) {
+	reqBody, err := openAIWorkerBodyToClaude(body, model, s.llmMaxTokens())
+	if err != nil {
+		return 0, nil, err
+	}
+	buf, err := json.Marshal(reqBody)
+	if err != nil {
+		return 0, nil, fmt.Errorf("请求体无法序列化")
+	}
+	ctx, cancel := context.WithTimeout(ctx, s.llmTimeout())
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		strings.TrimRight(s.llm.BaseURL, "/")+"/v1/messages", bytes.NewReader(buf))
+	if err != nil {
+		return 0, nil, fmt.Errorf("构造上游请求失败")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Anthropic-Version", "2023-06-01")
+	if s.llm.APIKey != "" {
+		req.Header.Set("X-API-Key", s.llm.APIKey)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("上游模型服务不可达")
+	}
+	defer resp.Body.Close()
+	out, err := io.ReadAll(io.LimitReader(resp.Body, llmProxyBodyLimit*2+1))
+	if err != nil {
+		return 0, nil, fmt.Errorf("读取上游响应失败")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return resp.StatusCode, out, nil
+	}
+	converted, err := claudeWorkerRespToOpenAI(out)
+	if err != nil {
+		return 0, nil, err
+	}
+	return http.StatusOK, converted, nil
+}
+
+func (s *Server) llmProvider() string {
+	p := strings.TrimSpace(s.llm.Provider)
+	if p == "" {
+		return config.ProviderOpenAI
+	}
+	return p
+}
+
+func (s *Server) llmTimeout() time.Duration {
+	if s.llm.TimeoutMS <= 0 {
+		return llmProxyTimeout
+	}
+	return time.Duration(s.llm.TimeoutMS) * time.Millisecond
+}
+
+func (s *Server) llmMaxTokens() int {
+	if s.llm.MaxTokens > 0 {
+		return s.llm.MaxTokens
+	}
+	return 4096
+}
+
+func recordWorkerLLMUsage(ctx context.Context, st *store.Store, userID int64, model string, out []byte) {
+	if st == nil {
 		return
 	}
-	if len(out) > llmProxyBodyLimit*2 {
-		// 静默截断会把残缺 JSON 当 200 回给 worker，重试也无济于事——明确报错。
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "上游响应超出大小上限"})
+	var meta struct {
+		Usage struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+			InputTokens      int64 `json:"input_tokens"`
+			OutputTokens     int64 `json:"output_tokens"`
+		} `json:"usage"`
+	}
+	if json.Unmarshal(out, &meta) != nil {
 		return
 	}
-	if resp.StatusCode == http.StatusOK {
-		var meta struct {
-			Usage struct {
-				PromptTokens     int64 `json:"prompt_tokens"`
-				CompletionTokens int64 `json:"completion_tokens"`
-			} `json:"usage"`
+	in := meta.Usage.PromptTokens
+	if in == 0 {
+		in = meta.Usage.InputTokens
+	}
+	outTok := meta.Usage.CompletionTokens
+	if outTok == 0 {
+		outTok = meta.Usage.OutputTokens
+	}
+	if in == 0 && outTok == 0 {
+		return
+	}
+	if err := st.RecordAIUsage(ctx, store.AIUsage{
+		UserID: userID, Kind: "worker_llm", Model: model,
+		InputTokens: in, OutputTokens: outTok,
+	}); err != nil {
+		slog.Warn("worker llm 用量落库失败", "worker", userID, "err", err)
+	}
+}
+
+type claudeMessageReq struct {
+	Model     string            `json:"model"`
+	MaxTokens int               `json:"max_tokens"`
+	System    string            `json:"system,omitempty"`
+	Messages  []claudeMsgParam  `json:"messages"`
+	Tools     []claudeToolParam `json:"tools,omitempty"`
+}
+
+type claudeMsgParam struct {
+	Role    string          `json:"role"`
+	Content []claudeContent `json:"content"`
+}
+
+type claudeContent struct {
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   string          `json:"content,omitempty"`
+}
+
+type claudeToolParam struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
+
+func openAIWorkerBodyToClaude(body map[string]any, model string, maxTokens int) (*claudeMessageReq, error) {
+	msgVals, ok := body["messages"].([]any)
+	if !ok || len(msgVals) == 0 {
+		return nil, fmt.Errorf("worker llm 请求缺少 messages")
+	}
+	out := &claudeMessageReq{Model: model, MaxTokens: maxTokens}
+	for _, mv := range msgVals {
+		m, ok := mv.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("messages 里存在非对象元素")
 		}
-		if json.Unmarshal(out, &meta) == nil && (meta.Usage.PromptTokens > 0 || meta.Usage.CompletionTokens > 0) {
-			if err := s.store.RecordAIUsage(r.Context(), store.AIUsage{
-				UserID: u.ID, Kind: "worker_llm", Model: model,
-				InputTokens: meta.Usage.PromptTokens, OutputTokens: meta.Usage.CompletionTokens,
-			}); err != nil {
-				slog.Warn("worker llm 用量落库失败", "worker", u.ID, "err", err)
+		role := mapString(m, "role")
+		content := mapString(m, "content")
+		switch role {
+		case "system":
+			if content != "" {
+				if out.System != "" {
+					out.System += "\n\n"
+				}
+				out.System += content
 			}
+		case "user":
+			out.Messages = append(out.Messages, claudeMsgParam{Role: "user",
+				Content: []claudeContent{{Type: "text", Text: content}}})
+		case "assistant":
+			blocks := make([]claudeContent, 0, 1)
+			if content != "" {
+				blocks = append(blocks, claudeContent{Type: "text", Text: content})
+			}
+			if calls, ok := m["tool_calls"].([]any); ok {
+				for _, cv := range calls {
+					tc, err := openAIToolCallToClaude(cv)
+					if err != nil {
+						return nil, err
+					}
+					blocks = append(blocks, tc)
+				}
+			}
+			if len(blocks) == 0 {
+				blocks = append(blocks, claudeContent{Type: "text", Text: ""})
+			}
+			out.Messages = append(out.Messages, claudeMsgParam{Role: "assistant", Content: blocks})
+		case "tool":
+			id := mapString(m, "tool_call_id")
+			if id == "" {
+				return nil, fmt.Errorf("tool 消息缺少 tool_call_id")
+			}
+			out.Messages = append(out.Messages, claudeMsgParam{Role: "user",
+				Content: []claudeContent{{Type: "tool_result", ToolUseID: id, Content: content}}})
+		default:
+			return nil, fmt.Errorf("不支持的 worker llm role: %q", role)
 		}
 	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(out)
+	if tools, ok := body["tools"].([]any); ok {
+		for _, tv := range tools {
+			t, err := openAIToolToClaude(tv)
+			if err != nil {
+				return nil, err
+			}
+			out.Tools = append(out.Tools, t)
+		}
+	}
+	return out, nil
+}
+
+func openAIToolCallToClaude(v any) (claudeContent, error) {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return claudeContent{}, fmt.Errorf("tool_calls 里存在非对象元素")
+	}
+	fn, ok := m["function"].(map[string]any)
+	if !ok {
+		return claudeContent{}, fmt.Errorf("tool_call 缺少 function")
+	}
+	args := mapString(fn, "arguments")
+	if args == "" {
+		args = "{}"
+	}
+	raw := json.RawMessage(args)
+	if !json.Valid(raw) {
+		raw = json.RawMessage(`{"_raw":` + strconvQuote(args) + `}`)
+	}
+	return claudeContent{
+		Type:  "tool_use",
+		ID:    mapString(m, "id"),
+		Name:  mapString(fn, "name"),
+		Input: raw,
+	}, nil
+}
+
+func openAIToolToClaude(v any) (claudeToolParam, error) {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return claudeToolParam{}, fmt.Errorf("tools 里存在非对象元素")
+	}
+	fn, ok := m["function"].(map[string]any)
+	if !ok {
+		return claudeToolParam{}, fmt.Errorf("tool 缺少 function")
+	}
+	params := fn["parameters"]
+	if params == nil {
+		params = map[string]any{"type": "object", "properties": map[string]any{}}
+	}
+	raw, err := json.Marshal(params)
+	if err != nil {
+		return claudeToolParam{}, fmt.Errorf("tool parameters 无法序列化")
+	}
+	return claudeToolParam{
+		Name:        mapString(fn, "name"),
+		Description: mapString(fn, "description"),
+		InputSchema: raw,
+	}, nil
+}
+
+func mapString(m map[string]any, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(v))
+}
+
+func claudeWorkerRespToOpenAI(raw []byte) ([]byte, error) {
+	var in struct {
+		ID      string `json:"id"`
+		Model   string `json:"model"`
+		Content []struct {
+			Type  string          `json:"type"`
+			Text  string          `json:"text"`
+			ID    string          `json:"id"`
+			Name  string          `json:"name"`
+			Input json.RawMessage `json:"input"`
+		} `json:"content"`
+		Usage struct {
+			InputTokens  int64 `json:"input_tokens"`
+			OutputTokens int64 `json:"output_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return nil, fmt.Errorf("解析 Anthropic 响应失败: %w", err)
+	}
+	var textParts []string
+	var calls []map[string]any
+	for _, b := range in.Content {
+		switch b.Type {
+		case "text":
+			if strings.TrimSpace(b.Text) != "" {
+				textParts = append(textParts, b.Text)
+			}
+		case "tool_use":
+			args := string(b.Input)
+			if strings.TrimSpace(args) == "" {
+				args = "{}"
+			}
+			calls = append(calls, map[string]any{
+				"id":   b.ID,
+				"type": "function",
+				"function": map[string]any{
+					"name":      b.Name,
+					"arguments": args,
+				},
+			})
+		}
+	}
+	msg := map[string]any{"role": "assistant", "content": strings.Join(textParts, "\n")}
+	if len(calls) > 0 {
+		msg["tool_calls"] = calls
+	}
+	out := map[string]any{
+		"id":    in.ID,
+		"model": in.Model,
+		"choices": []map[string]any{{
+			"index":         0,
+			"message":       msg,
+			"finish_reason": "stop",
+		}},
+		"usage": map[string]any{
+			"prompt_tokens":     in.Usage.InputTokens,
+			"completion_tokens": in.Usage.OutputTokens,
+			"input_tokens":      in.Usage.InputTokens,
+			"output_tokens":     in.Usage.OutputTokens,
+		},
+	}
+	return json.Marshal(out)
+}
+
+func strconvQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 func (s *Server) runtimeLLMModel(ctx context.Context) string {
