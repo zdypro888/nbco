@@ -20,6 +20,7 @@
     "base_url": "",
     "model": "claude-sonnet-5",
     "max_tokens": 4096,
+    "timeout_ms": 300000,
     "max_turns": 16,
     "stream_reasoning": false,
     "embed_model": "",

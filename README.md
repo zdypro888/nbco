@@ -51,11 +51,12 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.engine` | 仅支持 `eino`（直调 API） |
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
 | `ai.api_key` / `ai.model` | eino 引擎必填 |
+| `ai.timeout_ms` | 单次模型 API 请求超时，默认 `300000`（5 分钟）；长上下文/慢模型可调大 |
 | `ai.stream_reasoning` | 是否在流式回复阶段展示模型推理内容，默认 `false`；超管可通过对话修改，运行时设置优先于配置文件默认值 |
 | `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
-| `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥（空则回退 `ai.base_url` / `ai.api_key`） |
+| `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥；仅 `ai.provider=openai` 时空值才回退 `ai.base_url` / `ai.api_key`，Claude/Anthropic 兼容主模型必须显式配置 |
 | `ai.stt_model` | 语音转写模型（可选，如本地 whisper）；空=TG 语音提示改用文字。指向 OpenAI 兼容 /audio/transcriptions 端点 |
-| `ai.stt_base_url` / `ai.stt_api_key` | 转写端点地址/密钥（空则回退 `ai.base_url` / `ai.api_key`） |
+| `ai.stt_base_url` / `ai.stt_api_key` | 转写端点地址/密钥；仅 `ai.provider=openai` 时空值才回退 `ai.base_url` / `ai.api_key`，Claude/Anthropic 兼容主模型必须显式配置 |
 
 ## 构建与运行
 
@@ -276,7 +277,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 - **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」——滚动摘要丢掉的细节找得回来。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
-- **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`embed_base_url`/`embed_api_key` 空则回退主引擎的）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
+- **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`ai.provider=openai` 时 `embed_base_url`/`embed_api_key` 空才回退主引擎，Claude/Anthropic 兼容主模型必须显式配置 embedding 端点）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 权限体系

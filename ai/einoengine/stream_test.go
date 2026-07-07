@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/cloudwego/eino/schema"
 )
@@ -131,5 +132,14 @@ func TestIsRetryableModelErr(t *testing.T) {
 func TestModelRetryBackoff(t *testing.T) {
 	if modelRetryBackoff(1) <= 0 || modelRetryBackoff(2) <= modelRetryBackoff(1) {
 		t.Fatalf("unexpected model retry backoff sequence")
+	}
+}
+
+func TestChatHTTPTimeoutDefault(t *testing.T) {
+	if got := chatHTTPTimeout(0); got != 5*time.Minute {
+		t.Fatalf("default timeout = %s, want 5m", got)
+	}
+	if got := chatHTTPTimeout(3000000); got != 50*time.Minute {
+		t.Fatalf("configured timeout = %s, want 50m", got)
 	}
 }

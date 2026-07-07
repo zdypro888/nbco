@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -52,12 +53,14 @@ func New(ctx context.Context, cfg config.AIConfig) (*Engine, error) {
 }
 
 func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCallingChatModel, error) {
+	timeout := chatHTTPTimeout(cfg.TimeoutMS)
 	switch cfg.Provider {
 	case config.ProviderClaude:
 		c := &claude.Config{
-			APIKey:    cfg.APIKey,
-			Model:     cfg.Model,
-			MaxTokens: cfg.MaxTokens,
+			APIKey:     cfg.APIKey,
+			Model:      cfg.Model,
+			MaxTokens:  cfg.MaxTokens,
+			HTTPClient: &http.Client{Timeout: timeout},
 		}
 		if base := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/"); base != "" {
 			c.BaseURL = &base
@@ -72,6 +75,7 @@ func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCalli
 			APIKey:  cfg.APIKey,
 			BaseURL: cfg.BaseURL,
 			Model:   cfg.Model,
+			Timeout: timeout,
 		}
 		if cfg.MaxTokens > 0 {
 			mt := cfg.MaxTokens
@@ -85,6 +89,13 @@ func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCalli
 	default:
 		return nil, fmt.Errorf("不支持的 provider: %q", cfg.Provider)
 	}
+}
+
+func chatHTTPTimeout(ms int) time.Duration {
+	if ms <= 0 {
+		ms = 300000
+	}
+	return time.Duration(ms) * time.Millisecond
 }
 
 // Name 实现 ai.Engine。

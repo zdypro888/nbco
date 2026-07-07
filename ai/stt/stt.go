@@ -28,18 +28,19 @@ type Client struct {
 }
 
 // New 按配置构建；未配置 stt_model 返回 nil（调用方按未启用处理）。
-// base_url/api_key 空时回退主引擎的（同一 OpenAI 兼容网关常同时提供 chat 与 audio）。
+// 主引擎为 OpenAI 兼容时，base_url/api_key 空可回退主引擎配置；主引擎为
+// Claude/Anthropic 兼容时必须显式配置 stt_base_url。
 func New(cfg config.AIConfig) *Client {
 	model := strings.TrimSpace(cfg.STTModel)
 	if model == "" {
 		return nil
 	}
 	base := strings.TrimSpace(cfg.STTBaseURL)
-	if base == "" {
+	if base == "" && cfg.Provider == config.ProviderOpenAI {
 		base = strings.TrimSpace(cfg.BaseURL)
 	}
 	key := strings.TrimSpace(cfg.STTAPIKey)
-	if key == "" {
+	if key == "" && cfg.Provider == config.ProviderOpenAI {
 		key = strings.TrimSpace(cfg.APIKey)
 	}
 	if base == "" {

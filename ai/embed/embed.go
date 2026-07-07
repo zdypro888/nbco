@@ -23,8 +23,9 @@ type Client struct {
 	emb   *einoembed.Embedder
 }
 
-// New 按配置建 embedder。embed_base_url / embed_api_key 为空时回退主引擎的
-// base_url / api_key（同一 OpenAI 兼容网关常同时提供 chat 与 embeddings）。
+// New 按配置建 embedder。主引擎为 OpenAI 兼容时，embed_base_url / embed_api_key
+// 为空可回退主引擎配置；主引擎为 Claude/Anthropic 兼容时必须显式配置
+// embed_base_url，避免把 /embeddings 打到 Anthropic 兼容接口。
 // model 为空返回 (nil, nil) —— 表示未启用语义检索，调用方按 nil 处理。
 func New(cfg config.AIConfig) (*Client, error) {
 	model := strings.TrimSpace(cfg.EmbedModel)
@@ -32,15 +33,15 @@ func New(cfg config.AIConfig) (*Client, error) {
 		return nil, nil
 	}
 	base := strings.TrimSpace(cfg.EmbedBaseURL)
-	if base == "" {
+	if base == "" && cfg.Provider == config.ProviderOpenAI {
 		base = cfg.BaseURL
 	}
 	base = strings.TrimRight(strings.TrimSpace(base), "/")
 	if base == "" {
-		return nil, fmt.Errorf("embed_model 已设但无 base_url：请配 ai.embed_base_url 或 ai.base_url")
+		return nil, fmt.Errorf("embed_model 已设但无 OpenAI 兼容 base_url：请配 ai.embed_base_url")
 	}
 	key := strings.TrimSpace(cfg.EmbedAPIKey)
-	if key == "" {
+	if key == "" && cfg.Provider == config.ProviderOpenAI {
 		key = cfg.APIKey
 	}
 	emb, err := einoembed.NewEmbedder(context.Background(), &einoembed.EmbeddingConfig{

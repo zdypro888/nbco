@@ -38,8 +38,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.Engine != EngineEino || cfg.AI.Provider != ProviderClaude {
 		t.Errorf("引擎默认值 = %q/%q", cfg.AI.Engine, cfg.AI.Provider)
 	}
-	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 {
-		t.Errorf("MaxTokens/MaxTurns 默认值 = %d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns)
+	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 || cfg.AI.TimeoutMS != 300000 {
+		t.Errorf("MaxTokens/MaxTurns/TimeoutMS 默认值 = %d/%d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns, cfg.AI.TimeoutMS)
 	}
 	if cfg.AI.StreamReasoning {
 		t.Error("stream_reasoning 默认不应展示推理过程")
@@ -96,6 +96,12 @@ func TestLoadValidation(t *testing.T) {
 		{"STT 缺 base_url",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"api_key":"k","model":"m","stt_model":"whisper"}}`,
 			"ai.stt_base_url"},
+		{"Claude provider 下 embed 必须显式 base_url",
+			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"claude","api_key":"k","base_url":"https://anthropic.example","model":"m","embed_model":"bge"}}`,
+			"ai.embed_base_url"},
+		{"Claude provider 下 stt 必须显式 base_url",
+			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"claude","api_key":"k","base_url":"https://anthropic.example","model":"m","stt_model":"whisper"}}`,
+			"ai.stt_base_url"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -107,6 +113,24 @@ func TestLoadValidation(t *testing.T) {
 				t.Errorf("错误 %q 应包含 %q", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestOpenAIProviderAllowsAuxiliaryBaseURLFallback(t *testing.T) {
+	if _, err := Load(writeConfig(t, `{
+		"telegram_token":"t",
+		"superadmins":[1],
+		"postgres_dsn":"d",
+		"ai":{
+			"provider":"openai",
+			"api_key":"k",
+			"base_url":"https://openai-compatible.example/v1",
+			"model":"m",
+			"embed_model":"bge",
+			"stt_model":"whisper"
+		}
+	}`)); err != nil {
+		t.Fatalf("openai 兼容主端点应允许 embed/stt 回退 ai.base_url: %v", err)
 	}
 }
 
