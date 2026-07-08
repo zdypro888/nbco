@@ -5,7 +5,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/zdypro888/nbco/gateway/httpapi.Version=${VERSION}" -o /out/nbco ./cmd/nbco
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/nbco ./cmd/nbco
 
 # 运行阶段。中枢只运行 eino API 引擎；AI 员工请把 nbco-worker 装到真实工作机。
 FROM alpine:3.22

@@ -31,6 +31,8 @@ import (
 	"github.com/zdypro888/nbco/workerhub"
 )
 
+var version = "dev"
+
 func main() {
 	configPath := flag.String("config", "nbco.json", "配置文件路径")
 	flag.Parse()
@@ -49,6 +51,7 @@ func run(configPath string) error {
 		return err
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.SlogLevel()})))
+	httpapi.Version = version
 	tz, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
 		return fmt.Errorf("时区 %q: %w", cfg.Timezone, err)

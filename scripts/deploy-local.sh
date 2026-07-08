@@ -18,7 +18,7 @@ tmp_worker="$(mktemp "${TMPDIR:-/tmp}/nbco-worker.XXXXXX")"
 rm -f "${tmp_nbco}" "${tmp_worker}"
 trap 'rm -f "${tmp_nbco}" "${tmp_worker}"' EXIT
 
-go build -ldflags="-X github.com/zdypro888/nbco/gateway/httpapi.Version=${VERSION}" -o "${tmp_nbco}" "${ROOT}/cmd/nbco"
+go build -ldflags="-X main.version=${VERSION}" -o "${tmp_nbco}" "${ROOT}/cmd/nbco"
 go build -o "${tmp_worker}" "${ROOT}/cmd/nbco-worker"
 install -m 0755 "${tmp_nbco}" "${BIN_DIR}/nbco"
 install -m 0755 "${tmp_worker}" "${BIN_DIR}/nbco-worker"

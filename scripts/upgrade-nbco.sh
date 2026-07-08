@@ -255,7 +255,7 @@ main() {
 	log "building ${stage_bin}"
 	mkdir -p "${stage_dir}"
 	trap cleanup_stage EXIT
-	go build -trimpath -ldflags="-X github.com/zdypro888/nbco/gateway/httpapi.Version=${rev}" -o "${stage_bin}" ./cmd/nbco
+	go build -trimpath -ldflags="-X main.version=${rev}" -o "${stage_bin}" ./cmd/nbco
 	chmod 0755 "${stage_bin}"
 
 	if [[ "${dry_run}" == "1" ]]; then
