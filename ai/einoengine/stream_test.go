@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino/schema"
+
+	"github.com/zdypro888/nbco/ai"
 )
 
 // readStream 逐块读、拼回完整消息，并把「本条消息累积快照」实时推给 onDelta。
@@ -142,4 +144,20 @@ func TestChatHTTPTimeoutDefault(t *testing.T) {
 	if got := chatHTTPTimeout(3000000); got != 50*time.Minute {
 		t.Fatalf("configured timeout = %s, want 50m", got)
 	}
+}
+
+func TestOutputLikelyTruncated(t *testing.T) {
+	if !outputLikelyTruncated(usage(100, 4096), "", 4096) {
+		t.Fatal("output tokens near max should be treated as likely truncated")
+	}
+	if !outputLikelyTruncated(usage(100, 20), "max_tokens", 4096) {
+		t.Fatal("max_tokens finish reason should be treated as truncated")
+	}
+	if outputLikelyTruncated(usage(100, 200), "stop", 4096) {
+		t.Fatal("normal stop well below max should not be treated as truncated")
+	}
+}
+
+func usage(in, out int64) ai.Usage {
+	return ai.Usage{InputTokens: in, OutputTokens: out}
 }

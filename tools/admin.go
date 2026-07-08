@@ -69,9 +69,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUser(other), nil
 			}),
 
-		tool("update_user_info", "修改某用户的基本信息。需要对其 edit_info 主动权限；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
+		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
 			obj(map[string]any{
-				"user_id": p("integer", "用户ID"),
+				"user_id": p("integer", "系统成员内部编号；list_users/list_workers 返回的内部编号都可作为这里的 user_id"),
 				"name":    p("string", "新名字（可选）"),
 				"fields":  infoFieldsSchema("动态字段名→值（空串/null/无清除）"),
 			}, "user_id"),
@@ -121,7 +121,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已更新。", nil
 			}),
 
-		tool("bulk_update_user_info", "批量修改多名用户的基本信息。适合花名册/JSON 批量维护；比逐个调用 update_user_info 更稳。每行需要 user_id，可选 name、fields。需要对每个目标有 edit_info 主动权限。",
+		tool("bulk_update_user_info", "批量修改多名系统成员的基本信息。适合花名册/JSON 批量维护；比逐个调用 update_user_info 更稳。每行需要 user_id，可选 name、fields。需要对每个目标有 edit_info 主动权限。",
 			obj(map[string]any{
 				"updates": map[string]any{
 					"type": "array",

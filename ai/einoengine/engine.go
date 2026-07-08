@@ -150,7 +150,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	// 开启流式：ADK 把助手消息以 StreamReader 逐块吐出，collect 逐块读、把最终
 	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
-	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning)
+	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning, e.cfg.MaxTokens)
 }
 
 func (e *Engine) modelFor(ctx context.Context, name string) (einomodel.ToolCallingChatModel, error) {
@@ -302,7 +302,7 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
@@ -340,6 +340,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			if u := msg.ResponseMeta; u != nil && u.Usage != nil {
 				res.Usage.InputTokens += int64(u.Usage.PromptTokens)
 				res.Usage.OutputTokens += int64(u.Usage.CompletionTokens)
+				if u.FinishReason != "" {
+					res.FinishReason = u.FinishReason
+				}
 			}
 			for _, tc := range msg.ToolCalls {
 				step := ai.Step{
@@ -373,10 +376,25 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 		return nil, errors.New("模型未给出最终答复（可能超出 tool 循环上限）")
 	}
 	res.Text = finalText
+	res.OutputLikelyTruncated = outputLikelyTruncated(res.Usage, res.FinishReason, maxTokens)
 	if onEvent != nil {
 		onEvent(ai.Step{Kind: ai.StepText, Result: finalText})
 	}
 	return res, nil
+}
+
+func outputLikelyTruncated(usage ai.Usage, finishReason string, maxTokens int) bool {
+	reason := strings.ToLower(strings.TrimSpace(finishReason))
+	for _, marker := range []string{"length", "max_token", "max token", "max_tokens", "max_output"} {
+		if strings.Contains(reason, marker) {
+			return true
+		}
+	}
+	if maxTokens <= 0 || usage.OutputTokens <= 0 {
+		return false
+	}
+	// 留一点余量：不同兼容网关可能在等于 max 或 max-1/max-2 时截断。
+	return usage.OutputTokens >= int64(maxTokens-8)
 }
 
 // einoTool 把 ai.Tool 适配成 eino 的 InvokableTool。

@@ -183,6 +183,36 @@ func TestEngineHealthAccounting(t *testing.T) {
 	}
 }
 
+func TestNeedsVisibleReplyRepair(t *testing.T) {
+	bad := &ai.TurnResult{
+		Text:                  "of",
+		OutputLikelyTruncated: true,
+		Usage:                 ai.Usage{OutputTokens: 4096},
+	}
+	if !needsVisibleReplyRepair(bad) {
+		t.Fatal("short visible fragment at output limit should be repaired")
+	}
+	ok := &ai.TurnResult{
+		Text:                  "已更新 worker 名称。",
+		OutputLikelyTruncated: true,
+		Usage:                 ai.Usage{OutputTokens: 4096},
+	}
+	if needsVisibleReplyRepair(ok) {
+		t.Fatal("complete non-trivial visible reply should not be repaired")
+	}
+	normal := &ai.TurnResult{Text: "of", OutputLikelyTruncated: false}
+	if needsVisibleReplyRepair(normal) {
+		t.Fatal("short reply below output limit should not be repaired")
+	}
+	compatCap := &ai.TurnResult{Text: "现在", Usage: ai.Usage{OutputTokens: 4096}}
+	if !needsVisibleReplyRepair(compatCap) {
+		t.Fatal("short reply with 4000+ output tokens should be repaired even without finish_reason")
+	}
+	if !strings.Contains(visibleReplyFallback(&ai.TurnResult{}), "截断") {
+		t.Fatal("fallback should explain truncation")
+	}
+}
+
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，
 // 普通轮次返回固定答复并记录请求。
 type fakeEngine struct {

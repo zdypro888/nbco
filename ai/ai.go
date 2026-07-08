@@ -98,6 +98,11 @@ type TurnResult struct {
 	Text string
 	// EngineSession 引擎侧会话标识；调用方应持久化以便下一轮传回。
 	EngineSession string
+	// FinishReason 是底层模型返回的结束原因（如 stop/length/max_tokens）。
+	FinishReason string
+	// OutputLikelyTruncated 表示底层模型疑似耗尽输出预算。对思考型模型来说，
+	// 这常表现为 output tokens 打满，但可见正文只有一两个词。
+	OutputLikelyTruncated bool
 	// Steps 本轮完整执行轨迹（含 tool 调用），用于审计。
 	Steps []Step
 	Usage Usage

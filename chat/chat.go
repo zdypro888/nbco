@@ -265,10 +265,27 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		o.noteEngineResult(false, err)
 		return "", fmt.Errorf("AI 引擎失败: %w", err)
 	}
-	o.noteEngineResult(true, nil)
+	engineOK := true
+	if needsVisibleReplyRepair(res) {
+		slog.Warn("模型可见答复疑似截断，准备兜底",
+			"session", sess.ID, "reply_len", len(res.Text), "out_tokens", res.Usage.OutputTokens,
+			"finish_reason", res.FinishReason, "tool_calls", countToolCalls(res.Steps))
+		repaired, rerr := o.repairDegenerateTurn(ctx, req, res, onDelta)
+		if rerr != nil {
+			slog.Warn("模型截断兜底失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
+			o.noteEngineResult(false, rerr)
+			engineOK = false
+			res.Text = visibleReplyFallback(res)
+		} else {
+			res = repaired
+		}
+	}
+	if engineOK {
+		o.noteEngineResult(true, nil)
+	}
 	slog.Info("轮次完成", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond),
 		"steps", len(res.Steps), "in_tokens", res.Usage.InputTokens, "out_tokens", res.Usage.OutputTokens,
-		"reply_len", len(res.Text))
+		"reply_len", len(res.Text), "finish_reason", res.FinishReason)
 	slog.Debug("轮次答复", "session", sess.ID, "reply_len", len(res.Text), "reply_sha", contentHash(res.Text))
 	storedReply := normalizeAssistantReply(channel, res.Text)
 
@@ -292,6 +309,81 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(text)+len(storedReply))
 	return res.Text, nil
+}
+
+func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {
+	if countToolCalls(first.Steps) > 0 {
+		return nil, errors.New("模型工具调用后最终可见答复被截断")
+	}
+	retry := *req
+	retry.OnDelta = onDelta
+	retry.StreamReasoning = false
+	retry.System = req.System + "\n\n[系统保护]\n上一轮模型输出疑似耗尽生成预算，只产生了不可用的可见答复碎片。请重新处理同一个用户请求：保持简洁；如果需要读取或修改系统状态，必须调用合适工具；最终必须给出完整可见正文。"
+	res, err := o.engine.RunTurn(ctx, &retry)
+	if err != nil {
+		return nil, err
+	}
+	res.Usage.InputTokens += first.Usage.InputTokens
+	res.Usage.OutputTokens += first.Usage.OutputTokens
+	if needsVisibleReplyRepair(res) {
+		return nil, errors.New("模型重试后仍疑似截断")
+	}
+	return res, nil
+}
+
+func needsVisibleReplyRepair(res *ai.TurnResult) bool {
+	if res == nil {
+		return false
+	}
+	text := strings.TrimSpace(res.Text)
+	if text == "" {
+		return res.OutputLikelyTruncated
+	}
+	// 兼容网关有时不返回 finish_reason，且本地配置可能高于后端真实输出上限。
+	// 极短可见正文 + 4000+ output tokens 基本就是思考型模型把预算耗尽。
+	if !res.OutputLikelyTruncated && res.Usage.OutputTokens < 4000 {
+		return false
+	}
+	runes := []rune(text)
+	if len(runes) <= 12 {
+		return true
+	}
+	// 单个短英文/符号 token 很可能是思考型模型被 max_tokens 截断后剩下的残片。
+	if len(strings.Fields(text)) <= 2 && len(runes) <= 24 && asciiMostly(text) {
+		return true
+	}
+	return false
+}
+
+func visibleReplyFallback(res *ai.TurnResult) string {
+	if countToolCalls(res.Steps) > 0 {
+		return "这轮操作已经进入工具执行链路，但模型最终答复被输出上限截断。我已拦截异常碎片，请再问一次要查看的结果。"
+	}
+	return "这轮模型输出被上限截断，只剩不可用的答复碎片。我已拦截，没有把碎片当作结果发送；请再发一次，我会重新处理。"
+}
+
+func countToolCalls(steps []ai.Step) int {
+	n := 0
+	for _, s := range steps {
+		if s.Kind == ai.StepToolCall {
+			n++
+		}
+	}
+	return n
+}
+
+func asciiMostly(s string) bool {
+	total, ascii := 0, 0
+	for _, r := range s {
+		if r == ' ' || r == '\n' || r == '\t' {
+			continue
+		}
+		total++
+		if r >= 0x20 && r <= 0x7e {
+			ascii++
+		}
+	}
+	return total > 0 && ascii*100/total >= 80
 }
 
 func normalizeAssistantReply(channel, text string) string {
@@ -1427,7 +1519,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- nbco 自升级/部署 → 优先 start_workflow: nbco_upgrade；必须使用一个 admin worker 的单个任务执行完整升级脚本，不要拆成多个并发任务。\n")
 	b.WriteString("- 需要把文件库里的文件、worker 产物或整理后的报表交付给用户 → send_file，不要只给下载地址。\n")
 	b.WriteString("- 简单问答/信息查询/规则解释 → 自己回答，不必派活。\n")
-	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入用 invite_employee；AI worker、工作机、机器人、UTM 这类虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n\n")
+	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入用 invite_employee；AI worker、工作机、机器人、具名虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n\n")
 
 	// [操作原则]
 	b.WriteString("[操作原则]\n")
