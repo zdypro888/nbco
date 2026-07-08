@@ -47,6 +47,20 @@ func TestToTelegramHTMLTable(t *testing.T) {
 	}
 }
 
+func TestToTelegramHTMLRawHTMLTable(t *testing.T) {
+	got := toTelegramHTML("名单：\n<table>\n<tr><th>ID</th><th>姓名</th><th>状态</th></tr>\n<tr><td>#3</td><td>黄桑</td><td>active</td></tr>\n</table>\n完")
+	for _, bad := range []string{"<table", "</table", "<tr", "<td", "&lt;table", "&lt;td"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("raw HTML table 不应裸露标签 %q:\n%s", bad, got)
+		}
+	}
+	for _, want := range []string{"<pre>ID  姓名  状态\n#3  黄桑  active</pre>", "名单：", "完"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("raw HTML table 转换缺 %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestToTelegramHTMLMixedHTMLAndMarkdown(t *testing.T) {
 	got := toTelegramHTML("<b>概览</b>\n\n**重点**\n| 项目 | 内容 |\n|---|---|\n| ID | 1 |\n<script>x</script>")
 	for _, want := range []string{"<b>概览</b>", "<b>重点</b>", "<pre>项目  内容\nID  1</pre>", "&lt;script&gt;x&lt;/script&gt;"} {

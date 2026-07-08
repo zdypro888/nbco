@@ -173,6 +173,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	}
 	// 规则注入（Policy Memory）：常驻规则全量 + 与本轮输入语义相关的规则。
 	system += o.ruleContext(ctx, u, channel, text)
+	// 预取检索注入：用本轮输入预取知识库 + 历史对话 top-N，主动喂进上下文（事实先到眼前）。
+	system += o.retrievalContext(ctx, u, channel, text)
 	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
 	system += o.skillContext(ctx, u, channel, text)
 	system += o.recentFileContext(ctx, u)
@@ -745,15 +747,21 @@ func (o *Orchestrator) ensureSession(ctx context.Context, u *store.User, channel
 	return sess, nil
 }
 
-// 规则注入（Policy Memory）参数：动态召回条数上限，与本轮检索的总时间预算。
+// 上下文注入（规则 / 预取检索）参数：动态召回条数上限与本轮检索的总时间预算。
 // 预算要小于 knowledge 层的 embedTimeout——embed 服务卡住时这里先到期、
-// 检索退回词法（纯 DB 查询），规则增强绝不拖垮对话延迟。
+// 检索退回词法（纯 DB 查询），增强绝不拖垮对话延迟。
 const (
 	ruleSearchLimit     = 5
 	ruleFetchTimeout    = 5 * time.Second
 	skillCandidateLimit = 8
 	skillSearchLimit    = 3
-	skillSelectTimeout  = 12 * time.Second
+
+	// 预取检索注入（retrievalContext）：每轮用本轮输入预取知识库与历史对话 top-N，
+	// 主动喂进系统提示——把"被动等模型调 search 工具"变成"事实先到眼前"。
+	retrievalKnowledgeLimit = 3
+	retrievalHistoryLimit   = 3
+	retrievalSnippetChars   = 120 // 每条内容按字符截断（rune 计，对中文友好）
+	retrievalMinTextLen     = 4   // 过短输入（"ok"/"嗯"）跳过，避免噪声
 )
 
 // ruleContext 组装本轮适用的行为规则块：常驻规则全量注入，非常驻规则用本轮
@@ -794,20 +802,116 @@ func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, 
 	return b.String()
 }
 
-const skillSelectorSystem = `你是 nbco 的 Skill 路由器。你的任务是从候选 skill 中选择本轮真正相关、应该注入上下文的 skill。
+// retrievalContext 预取注入：用本轮输入从知识库和历史对话各召回 top-N，主动注入
+// 系统提示。把"被动等模型调 search_knowledge/search_history"变成"主动喂上下文"。
+// 群共享会话下跳过历史检索（search_history 在群中被剔除，注入等价于私聊外泄）。
+// 任何失败只降级不报错——和 ruleContext 同样的 best-effort 语义。
+func (o *Orchestrator) retrievalContext(ctx context.Context, u *store.User, channel, text string) string {
+	if len(strings.TrimSpace(text)) < retrievalMinTextLen {
+		return "" // 过短输入跳过，避免噪声
+	}
+	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
+	defer cancel()
 
-只根据用户当前输入、渠道、候选的标题/触发条件/摘要判断；不要臆造候选之外的 skill。
-选择标准：
-- 用户当前请求确实符合 skill 的触发条件，或执行该请求明显需要该方法。
-- 只是词语相似但场景不同，不要选。
-- 最多选择 3 个；不相关则返回空数组。
+	// 知识库 top-N（全员共享，群聊也安全）。
+	var ks []*store.Knowledge
+	var kerr error
+	if o.deps.Knowledge != nil {
+		ks, kerr = o.deps.Knowledge.Search(rctx, text, retrievalKnowledgeLimit)
+	} else {
+		ks, kerr = o.store.SearchKnowledge(rctx, text, retrievalKnowledgeLimit)
+	}
+	if kerr != nil {
+		slog.Warn("知识预取失败，本轮跳过知识块", "err", kerr)
+		ks = nil
+	}
 
-输出严格 JSON，不要 Markdown：
-{"ids":[1,2],"reason":"一句话说明"}`
+	// 历史对话 top-N：仅非群渠道（search_history 在 groupSensitive 名单内，
+	// 群里注入等于把发言人私聊塞进全员重放的系统提示）。
+	var ms []store.ChatMessage
+	if shouldFetchHistory(channel) {
+		var herr error
+		if o.deps.Knowledge != nil {
+			ms, herr = o.deps.Knowledge.SearchHistory(rctx, u.ID, text, retrievalHistoryLimit)
+		} else {
+			ms, herr = o.store.SearchMessagesOfUser(rctx, u.ID, text, retrievalHistoryLimit)
+		}
+		if herr != nil {
+			slog.Warn("历史预取失败，本轮跳过历史块", "err", herr)
+			ms = nil
+		}
+	}
 
-// skillContext 先用语义/词法召回候选，再用轻量 AI selector 判断哪些 skill
-// 真的适合本轮。只注入触发条件与摘要，完整步骤留给 load_skill，避免新对话
-// 被长期方法库撑爆上下文。selector 失败时降级使用召回排序。
+	if len(ks) == 0 && len(ms) == 0 {
+		return ""
+	}
+	return renderRetrievalBlock(ks, ms, o.tz)
+}
+
+// shouldFetchHistory 历史预取是否允许：群共享会话禁用（隐私守护，便于单测）。
+func shouldFetchHistory(channel string) bool { return !isGroupChannel(channel) }
+
+// renderRetrievalBlock 渲染预取块（纯函数，便于单测）。知识按相关度、历史按时间，
+// 每条内容按字符截断到 retrievalSnippetChars。
+func renderRetrievalBlock(ks []*store.Knowledge, ms []store.ChatMessage, tz *time.Location) string {
+	if len(ks) == 0 && len(ms) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n[本轮相关上下文·已预取，可深挖]\n")
+	b.WriteString("以下是按本轮输入预取的 top-N 结果，作为回答起点；需要更多/不同结果时仍可调 search_knowledge / search_history。\n")
+	if len(ks) > 0 {
+		b.WriteString("知识库（按相关度，回答公司事实前以此为准）：\n")
+		for _, k := range ks {
+			fmt.Fprintf(&b, "- #%d %s：%s", k.ID, k.Title, truncateSnippet(k.Content, retrievalSnippetChars))
+			if tags := visibleTags(k.Tags); tags != "" {
+				fmt.Fprintf(&b, "（%s）", tags)
+			}
+			b.WriteByte('\n')
+		}
+	}
+	if len(ms) > 0 {
+		b.WriteString("历史对话（仅你的过往会话）：\n")
+		for _, m := range ms {
+			fmt.Fprintf(&b, "- [%s·%s] %s\n",
+				m.CreatedAt.In(tz).Format("01-02 15:04"), roleLabel(m.Role), truncateSnippet(m.Content, retrievalSnippetChars))
+		}
+	}
+	return b.String()
+}
+
+func roleLabel(role string) string {
+	if role == string(ai.RoleAssistant) {
+		return "AI"
+	}
+	return "用户"
+}
+
+// visibleTags 过滤掉 scope: 前缀的内部作用域标签，供展示。
+func visibleTags(tags []string) string {
+	var out []string
+	for _, t := range tags {
+		t = strings.TrimSpace(t)
+		if t == "" || strings.HasPrefix(t, "scope:") {
+			continue
+		}
+		out = append(out, t)
+	}
+	return strings.Join(out, ", ")
+}
+
+// truncateSnippet 按 rune 数截断（不破坏 UTF-8），超出加省略号。
+func truncateSnippet(s string, maxRunes int) string {
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	return string(r[:maxRunes]) + "…"
+}
+
+// skillContext 用语义/词法召回 top-N skill，按作用域过滤后注入摘要。完整步骤
+// 留给 load_skill，避免长期方法库撑爆上下文。不再跑前置 LLM selector——召回质量
+// 靠语义阈值（skillSemanticMinScore），模型自主决定要不要 load_skill 拉详情。
 func (o *Orchestrator) skillContext(ctx context.Context, u *store.User, channel, text string) string {
 	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
 	defer cancel()
@@ -823,19 +927,15 @@ func (o *Orchestrator) skillContext(ctx context.Context, u *store.User, channel,
 		return ""
 	}
 	skills = filterApplicableSkills(skills, channel, u.ID)
+	skills = firstSkills(skills, skillSearchLimit)
 	if len(skills) == 0 {
 		return ""
 	}
-	skills = o.selectSkillsForTurn(ctx, u, channel, text, skills, skillSearchLimit)
 	var b strings.Builder
-	wrote := false
+	b.WriteString("\n[本轮相关 Skill·只注入摘要]\n")
+	b.WriteString("以下 skill 与本轮输入语义相关；真正执行前如需步骤细节，调用 load_skill 读取完整内容。\n")
 	for _, k := range skills {
 		parts := parseSkillMemory(k.Content)
-		if !wrote {
-			b.WriteString("\n[本轮相关 Skill·只注入摘要]\n")
-			b.WriteString("以下 skill 已经过轻量 AI 路由判断可能适用；真正执行前如果需要步骤细节，调用 load_skill 读取完整内容。\n")
-			wrote = true
-		}
 		fmt.Fprintf(&b, "- #%d %s", k.ID, k.Title)
 		if parts.Trigger != "" {
 			fmt.Fprintf(&b, "；触发：%s", parts.Trigger)
@@ -856,104 +956,6 @@ func filterApplicableSkills(skills []*store.Knowledge, channel string, userID in
 		}
 		if knowledge.RuleApplies(k.Tags, channel, userID) {
 			out = append(out, k)
-		}
-	}
-	return out
-}
-
-type skillSelectorCandidate struct {
-	ID      int64    `json:"id"`
-	Title   string   `json:"title"`
-	Trigger string   `json:"trigger,omitempty"`
-	Summary string   `json:"summary,omitempty"`
-	Tags    []string `json:"tags,omitempty"`
-}
-
-type skillSelectorResult struct {
-	IDs    []int64 `json:"ids"`
-	Reason string  `json:"reason"`
-}
-
-func (o *Orchestrator) selectSkillsForTurn(ctx context.Context, u *store.User, channel, text string, candidates []*store.Knowledge, limit int) []*store.Knowledge {
-	if len(candidates) == 0 {
-		return nil
-	}
-	if limit <= 0 {
-		limit = skillSearchLimit
-	}
-	if len(candidates) == 1 {
-		return firstSkills(candidates, limit)
-	}
-	sctx, cancel := context.WithTimeout(ctx, skillSelectTimeout)
-	defer cancel()
-	input, err := buildSkillSelectorInput(u, channel, text, candidates)
-	if err != nil {
-		slog.Warn("skill selector 输入构造失败，使用召回排序", "err", err)
-		return firstSkills(candidates, limit)
-	}
-	model := o.runtimeModel(sctx)
-	res, err := o.engine.RunTurn(sctx, &ai.TurnRequest{
-		SessionID: "skill-selector",
-		System:    skillSelectorSystem,
-		UserText:  input,
-		Model:     model,
-	})
-	if err != nil {
-		slog.Warn("skill selector 失败，使用召回排序", "err", err)
-		return firstSkills(candidates, limit)
-	}
-	o.recordUsage(sctx, u.ID, nil, "skill_selector", model, res.Usage)
-	var picked skillSelectorResult
-	if err := json.Unmarshal([]byte(extractJSONObject(res.Text)), &picked); err != nil {
-		slog.Warn("skill selector JSON 解析失败，使用召回排序", "err", err, "text_sha", contentHash(res.Text))
-		return firstSkills(candidates, limit)
-	}
-	selected := selectSkillsByIDs(candidates, picked.IDs, limit)
-	if len(selected) == 0 {
-		return nil
-	}
-	return selected
-}
-
-func buildSkillSelectorInput(u *store.User, channel, text string, candidates []*store.Knowledge) (string, error) {
-	items := make([]skillSelectorCandidate, 0, len(candidates))
-	for _, k := range candidates {
-		parts := parseSkillMemory(k.Content)
-		items = append(items, skillSelectorCandidate{
-			ID:      k.ID,
-			Title:   k.Title,
-			Trigger: parts.Trigger,
-			Summary: parts.Summary,
-			Tags:    k.Tags,
-		})
-	}
-	raw, err := json.Marshal(items)
-	if err != nil {
-		return "", err
-	}
-	name := ""
-	if u != nil {
-		name = u.Name
-	}
-	return fmt.Sprintf("当前用户：%s\n渠道：%s\n用户输入：%s\n\n候选 skills JSON：\n%s", name, channel, text, raw), nil
-}
-
-func selectSkillsByIDs(candidates []*store.Knowledge, ids []int64, limit int) []*store.Knowledge {
-	if limit <= 0 || len(ids) == 0 {
-		return nil
-	}
-	allowed := map[int64]bool{}
-	for _, id := range ids {
-		allowed[id] = true
-	}
-	out := make([]*store.Knowledge, 0, limit)
-	for _, k := range candidates {
-		if k == nil || !allowed[k.ID] {
-			continue
-		}
-		out = append(out, k)
-		if len(out) >= limit {
-			break
 		}
 	}
 	return out
@@ -1037,7 +1039,7 @@ func parseSkillMemory(content string) skillMemoryParts {
 var channelStyle = map[string]string{
 	"telegram": "输出格式（Telegram HTML）：\n" +
 		"- 用 Telegram 支持的 HTML 标签排版：<b>粗体</b>、<i>斜体</i>、<u>下划线</u>、<s>删除线</s>、<code>行内代码</code>、<pre>多行代码</pre>、<blockquote>引用</blockquote>、<a href=\"URL\">链接</a>。\n" +
-		"- 除上述标签外不支持任何 HTML；也不支持 Markdown（**加粗**、# 标题、[链接]()、表格），绝不要输出这些标记。\n" +
+		"- 除上述标签外不支持任何 HTML；绝不要输出 <table>/<tr>/<td>/<th>。也不支持 Markdown（**加粗**、# 标题、[链接]()、表格），绝不要输出这些标记。\n" +
 		"- 列表用「• 」或贴切的 emoji 开头的行；层级用缩进两个空格表达。\n" +
 		"- 正文里的 <、>、& 必须写成 &lt;、&gt;、&amp;（标签本身除外）。\n" +
 		"- 善用 emoji 让消息生动醒目：状态（✅ ⏳ 🔴 ⚠️）、板块（📋 📊 💡 🗓）、动作（📌 🚀 🎉），标题和关键行都可以配，但一行别超过两个。\n",
@@ -1059,25 +1061,49 @@ func styleFor(channel string) string {
 // systemPrompt 组装系统提示：身份、当前用户、时间、渠道格式、激活角色。
 func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel string) (string, error) {
 	var b strings.Builder
+	// [身份]
 	b.WriteString("你是 nbco，公司的 AI 运营中枢：既是每个员工的助理，也是管理流程的执行者。\n")
-	b.WriteString("你通过工具完成一切业务操作（用户、画像、权限、项目任务、提醒）。工具集已按当前用户的权限裁剪，权限不足时工具会返回提示，如实转告即可。\n")
-	b.WriteString("原则：\n")
-	b.WriteString("- 优先用工具查询真实数据，不要凭空编造用户、任务或权限状态。\n")
-	b.WriteString("- 建设性操作直接执行，不要反问确认：用户给了信息就立即存档（信息字段未定义时，超管直接用 add_info_field 定义后再存；普通用户存入自我介绍），要建任务就建，要设提醒就设。只有删除项目/任务这类不可逆操作才先确认。\n")
-	b.WriteString("- 不向用户展示内部技术细节：数字用户 ID、TG ID、会话 ID 一律不提，提到人只用名字；任务可用 #编号 引用。身份绑定系统已自动管理，绝不建议用户记录 TG ID 之类系统已知的信息。\n")
-	b.WriteString("- 回复用用户的语言，简洁直接。\n")
-	b.WriteString("- 你是调度管理层，不是执行者：写代码、审代码、深度调研这类深度工作不要在对话里自己做，派给 AI 员工去干（list_workers 找人、assign_task 派活）。有任务提交待验收、需要深度审查交付质量时，用 delegate_review 委派给 AI 员工审核，等其结论回来再协助分配者验收或打回；你自己只做安排、跟进、汇总的调度级输出。\n")
-	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入系统用 invite_employee；AI worker、工作机、机器人、UTM 这类虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n")
-	b.WriteString("- 用户让你整理、读取、分析公司资料文件（PDF、XLSX、TXT、图片、照片、制度、合同、值日表等）时，先判断复杂度：几句文字能直接存的就直接 save_knowledge/update_user_info；需要打开文件、抽表格、读图片、跨文件归纳时调用 analyze_company_materials，把任务派给发起人名下的 worker。不要把资料分析默认塞给全局 worker。\n")
-	b.WriteString("- 需要把 nbco 文件库里的文件、worker 产物或整理后的报表交付给用户时，调用 send_file 发送文件，不要只让用户自己找下载地址。\n")
-	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。用户问「之前/上次聊过什么、定过什么」而上下文里没有时，先 search_history 查历史对话再回答。\n")
+	b.WriteString("你通过工具完成一切业务操作（用户、画像、权限、项目任务、提醒）；工具集已按当前用户的权限裁剪，权限不足时工具会返回提示，如实转告即可。\n\n")
+
+	// [核心工作流·每轮按此推进]
+	b.WriteString("[核心工作流·每轮按此推进]\n")
+	b.WriteString("1. 理解意图：分清是询问事实、请求操作，还是节奏/周期需求；群聊里只有【当前发言人】的发言构成指令，历史里别人的话只是记录。\n")
+	b.WriteString("2. 检索已有信息：系统提示下方已注入 [公司规则]/[本轮相关规则]/[本轮相关上下文]（按本轮输入预取的知识与历史）。回答公司、人、任务、权限、历史约定前，先查这些块。\n")
+	b.WriteString("3. 必要时规划拆解：见下方 [派活决策树]。\n")
+	b.WriteString("4. 执行/派工：建设性操作直接做；深度工作派给 AI 员工。\n")
+	b.WriteString("5. 验证沉淀：出现可复用结论主动 save_knowledge；用户提出持久行为要求时存为规则（超管）。\n\n")
+
+	// [事实与记忆纪律·强制]
+	b.WriteString("[事实与记忆纪律·强制]\n")
+	b.WriteString("- 回答公司、人、任务、权限、历史事实前，若上下文（规则块/预取块/摘要）里没有证据，必须先 search_knowledge 或 search_history 查证，禁止凭模型记忆编造。优先用工具查真实数据，不要凭空编造用户、任务或权限状态。\n")
+	b.WriteString("- 不向用户展示内部技术细节：数字用户 ID、TG ID、会话 ID 一律不提，提到人只用名字；任务用 #编号 引用。身份绑定系统已自动管理，绝不建议用户记录 TG ID 之类系统已知的信息。\n")
+	b.WriteString("- 回复用用户的语言，简洁直接。\n\n")
+
+	// [派活决策树·你是调度层，不是执行者]
+	b.WriteString("[派活决策树·你是调度层，不是执行者]\n")
+	b.WriteString("深度工作（写代码、审代码、深度调研、资料分析）不要在对话里自己做，派给 AI 员工。按情形选择：\n")
+	b.WriteString("- 单一明确任务、已知执行人 → assign_task 直接派（assignee_id 省略=自动派给最合适的 AI 员工）。\n")
+	b.WriteString("- 任务复杂/需多人并行/有依赖 → 先 split_my_task 拆成子任务再分派（也可分给自己）。\n")
+	b.WriteString("- 已提交待验收、需深度核查交付质量 → delegate_review 委派给 AI 员工审核，结论回来后再协助分配者验收或打回。\n")
+	b.WriteString("- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ analyze_company_materials 派给发起人名下 worker；几句文字能直接存的就 save_knowledge / update_user_info，不要默认塞给全局 worker。\n")
+	b.WriteString("- 需要把文件库里的文件、worker 产物或整理后的报表交付给用户 → send_file，不要只给下载地址。\n")
+	b.WriteString("- 简单问答/信息查询/规则解释 → 自己回答，不必派活。\n")
+	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入用 invite_employee；AI worker、工作机、机器人、UTM 这类虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n\n")
+
+	// [操作原则]
+	b.WriteString("[操作原则]\n")
+	b.WriteString("- 建设性操作直接执行，不反问确认：用户给了信息就立即存档（信息字段未定义时，超管先 add_info_field 定义后再存；普通用户存入自我介绍），要建任务就建，要设提醒就设。只有删除项目/任务这类不可逆操作才先确认。\n")
+	b.WriteString("- 对话中出现可复用结论（决策、方案、流程、客户约定）主动 save_knowledge。\n")
 	if u.IsSuperadmin {
-		b.WriteString("- 用户对你或系统的行为提出持久性要求、禁令或默认做法（「以后不要…」「默认…」「记住以后都…」）时，用 save_rule 存成行为规则（不要只存知识库）；规则会在之后每轮自动注入并生效。系统提示里 [公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")
-		b.WriteString("- 遇到可重复、稳定、可测试的小计算/格式化/字段转换需求时，可以用 create_script_tool + test_script_tool + enable_script_tool 把它固化成脚本工具；脚本工具只做无文件/无网络/无 shell 的纯逻辑。涉及 shell、文件、Excel/PDF、爬虫或长流程执行时派给 worker，不要塞进脚本工具。\n")
+		b.WriteString("- 用户对系统/AI 行为提出持久要求、禁令、默认做法（「以后不要…」「默认…」「记住以后都…」）→ save_rule 存成行为规则（不要只存知识库）；规则每轮自动注入并生效，[公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")
+		b.WriteString("- 可重复、稳定、可测试的纯计算/格式化/字段转换 → create_script_tool + test_script_tool + enable_script_tool 固化成脚本工具；脚本工具只做无文件/无网络/无 shell 的纯逻辑。涉及 shell、文件、Excel/PDF、爬虫或长流程执行时派给 worker，不要塞进脚本工具。\n")
 	}
-	b.WriteString("- 公司的运营节奏靠你落地：当用户（尤其管理者）用自然语言表达作息、仪式、周期性动作（如上下班时间、晨会提醒、周五复盘、每天催报告），主动用 schedule_push 落成规则——通常选 mode=ai 让每次触发时现场结合真实数据（当天待办、任务进展）生成个性化内容（如带今日重点的早安问候、附当天完成情况的下班道别），目标按语义选 _all/某人/自己，工作日用 weekdays=1,2,3,4,5。节奏变了就改规则（cancel_schedule + 重设），一切以对话为准，没有硬编码。\n")
+	b.WriteString("- 运营节奏（上下班时间、晨会提醒、周五复盘、每天催报告等自然语言表达的周期性动作）→ 用 schedule_push 落成规则；节奏变了就改规则（cancel_schedule + 重设），一切以对话为准，没有硬编码。具体参数（mode、目标、时间、工作日）见 schedule_push 工具说明。\n\n")
+
+	// [系统输入约定]
+	b.WriteString("[系统输入约定]\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n")
-	b.WriteString("- 以 [系统事件· 开头的输入来自系统事件总线：按其中指示分析事件并自行决定通知、行动或按约定词静默跳过。\n\n")
+	b.WriteString("- 以 [系统事件· 开头的输入来自事件总线：按其中指示分析事件并自行决定通知、行动或按约定词静默跳过。\n\n")
 
 	if style := styleFor(channel); style != "" {
 		b.WriteString(style)

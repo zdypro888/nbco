@@ -22,6 +22,10 @@ var (
 	bulletRe     = regexp.MustCompile(`(?m)^([ \t]*)[-*][ \t]+`)
 	linkRe       = regexp.MustCompile(`\[([^\]\n]+)\]\((https?://[^)\s]+)\)`)
 	tableSepRe   = regexp.MustCompile(`^[|\s:\-]+$`)
+	htmlTableRe  = regexp.MustCompile(`(?is)<table\b[^>]*>.*?</table>`)
+	htmlRowRe    = regexp.MustCompile(`(?is)<tr\b[^>]*>(.*?)</tr>`)
+	htmlCellRe   = regexp.MustCompile(`(?is)<t[dh]\b[^>]*>(.*?)</t[dh]>`)
+	stripTagRe   = regexp.MustCompile(`(?is)<[^>]+>`)
 )
 
 // ToHTML converts text into Telegram-compatible HTML.
@@ -45,6 +49,7 @@ func ToHTML(s string) string {
 		body := inlineCodeRe.FindStringSubmatch(m)[1]
 		return latePut("<code>" + html.EscapeString(body) + "</code>")
 	})
+	s = convertHTMLTables(s, latePut)
 
 	s = tgAllowedHTMLTagRe.ReplaceAllStringFunc(s, earlyPut)
 	esc := html.EscapeString(s)
@@ -62,6 +67,40 @@ func ToHTML(s string) string {
 		esc = strings.Replace(esc, fmt.Sprintf("\x02%d\x02", i), r, 1)
 	}
 	return esc
+}
+
+func convertHTMLTables(s string, stashPut func(string) string) string {
+	return htmlTableRe.ReplaceAllStringFunc(s, func(table string) string {
+		lines := htmlTableLines(table)
+		if len(lines) == 0 {
+			return table
+		}
+		return stashPut("<pre>" + html.EscapeString(strings.Join(lines, "\n")) + "</pre>")
+	})
+}
+
+func htmlTableLines(table string) []string {
+	var lines []string
+	for _, row := range htmlRowRe.FindAllStringSubmatch(table, -1) {
+		if len(row) < 2 {
+			continue
+		}
+		var cells []string
+		for _, cell := range htmlCellRe.FindAllStringSubmatch(row[1], -1) {
+			if len(cell) < 2 {
+				continue
+			}
+			text := html.UnescapeString(stripTagRe.ReplaceAllString(cell[1], ""))
+			text = strings.Join(strings.Fields(text), " ")
+			if text != "" {
+				cells = append(cells, text)
+			}
+		}
+		if len(cells) > 0 {
+			lines = append(lines, strings.Join(cells, "  "))
+		}
+	}
+	return lines
 }
 
 func convertTables(s string, stashPut func(string) string) string {

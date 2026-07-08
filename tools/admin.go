@@ -19,24 +19,29 @@ const bindKeyTTL = 24 * time.Hour
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{
-		tool("list_users", "列出系统内用户（ID、名字、状态）。",
+		tool("list_users", "列出系统内用户的安全目录：按真人员工与 AI worker 分组，包含姓名、状态、可见画像数量；最终回复直接用该格式，不要改成 HTML/Markdown 表格，不要展示内部 user_id。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				users, err := d.Store.ListUsers(ctx)
 				if err != nil {
 					return "", err
 				}
-				var b strings.Builder
+				viewerActive, err := d.Store.PermsOf(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				stats := make(map[int64]userDirectoryStats, len(users))
 				for _, other := range users {
 					if other.ID == u.ID {
 						continue
 					}
-					fmt.Fprintf(&b, "- #%d %s（%s）\n", other.ID, other.Name, other.Status)
+					st, err := visibleProfileStats(ctx, d, u, other, viewerActive)
+					if err != nil {
+						return "", err
+					}
+					stats[other.ID] = st
 				}
-				if b.Len() == 0 {
-					return "（没有其他用户）", nil
-				}
-				return b.String(), nil
+				return renderUserDirectory(users, u.ID, stats), nil
 			}),
 
 		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。",
@@ -59,7 +64,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				}
 				other, err := d.Store.UserByID(ctx, args.UserID)
 				if err != nil {
-					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+					return "目标用户不存在。", nil
 				}
 				return renderUser(other), nil
 			}),
@@ -81,7 +86,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				}
 				target, err := d.Store.UserByID(ctx, args.UserID)
 				if err != nil {
-					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+					return "目标用户不存在。", nil
 				}
 				if !u.IsSuperadmin {
 					if target.IsSuperadmin {
@@ -320,14 +325,14 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				}
 				other, err := d.Store.UserByID(ctx, args.UserID)
 				if err != nil {
-					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+					return "目标用户不存在。", nil
 				}
 				st, err := d.Store.StatsOfAssignee(ctx, other.ID)
 				if err != nil {
 					return "", err
 				}
 				var b strings.Builder
-				fmt.Fprintf(&b, "%s（ID %d）的任务履历：\n", other.Name, other.ID)
+				fmt.Fprintf(&b, "%s 的任务履历：\n", other.Name)
 				fmt.Fprintf(&b, "手上任务 %d（其中已过期 %d）· 待验收 %d\n", st.Open, st.OverdueNow, st.Awaiting)
 				fmt.Fprintf(&b, "累计验收通过 %d", st.Accepted)
 				if st.AcceptedWithDeadline > 0 {
@@ -598,6 +603,95 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 			}),
 	)
 	return ts
+}
+
+type userDirectoryStats struct {
+	SelfIntro  int
+	PeerReview int
+}
+
+func visibleProfileStats(ctx context.Context, d Deps, viewer, subject *store.User, viewerActive []store.Grant) (userDirectoryStats, error) {
+	all, err := d.Store.ProfilesOn(ctx, subject.ID)
+	if err != nil {
+		return userDirectoryStats{}, err
+	}
+	subjectPassive, err := d.Store.PassivePermsToward(ctx, subject.ID)
+	if err != nil {
+		return userDirectoryStats{}, err
+	}
+	var out userDirectoryStats
+	for _, pr := range all {
+		if !perm.CanViewProfile(viewer.ID, subject.ID, pr.AuthorID, viewer.IsSuperadmin, viewerActive, subjectPassive) {
+			continue
+		}
+		if pr.AuthorID == subject.ID {
+			out.SelfIntro++
+		} else {
+			out.PeerReview++
+		}
+	}
+	return out, nil
+}
+
+func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]userDirectoryStats) string {
+	var humans, workers []string
+	for _, other := range users {
+		if other == nil || other.ID == currentID {
+			continue
+		}
+		line := renderUserDirectoryLine(other, stats[other.ID])
+		if other.IsWorker {
+			workers = append(workers, line)
+		} else {
+			humans = append(humans, line)
+		}
+	}
+	if len(humans) == 0 && len(workers) == 0 {
+		return "（没有其他用户）"
+	}
+	var b strings.Builder
+	if len(humans) > 0 {
+		fmt.Fprintf(&b, "真人员工（%d 位）：\n", len(humans))
+		for _, line := range humans {
+			b.WriteString(line)
+			b.WriteByte('\n')
+		}
+	}
+	if len(workers) > 0 {
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		fmt.Fprintf(&b, "AI worker（%d 个，虚拟成员，不计入真人员工）：\n", len(workers))
+		for _, line := range workers {
+			b.WriteString(line)
+			b.WriteByte('\n')
+		}
+	}
+	if len(humans) > 0 && len(workers) > 0 {
+		fmt.Fprintf(&b, "\n统计：真人员工 %d 位，AI worker %d 个。", len(humans), len(workers))
+	}
+	return b.String()
+}
+
+func renderUserDirectoryLine(u *store.User, st userDirectoryStats) string {
+	labels := []string{renderUserStatus(u.Status)}
+	switch {
+	case u.IsWorker && u.IsSuperadmin:
+		labels = append(labels, "admin worker")
+	case u.IsWorker:
+		labels = append(labels, "AI worker")
+	case u.IsSuperadmin:
+		labels = append(labels, "超级管理员")
+	}
+	return fmt.Sprintf("- %s（%s）｜%s｜%s",
+		u.Name, strings.Join(labels, "，"), profileCountLabel("画像", st.SelfIntro), profileCountLabel("评价", st.PeerReview))
+}
+
+func profileCountLabel(name string, n int) string {
+	if n <= 0 {
+		return name + "：暂无可见"
+	}
+	return fmt.Sprintf("%s：%d 条", name, n)
 }
 
 func employeeInviteLink(ctx context.Context, d Deps, key string) string {

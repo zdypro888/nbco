@@ -24,7 +24,7 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 		tool("delegate_review",
 			"把一个待验收任务的深度审核委派出去：系统会打包任务要素、执行过程与完成汇报生成审核简报，"+
 				"在同项目建一个高优先级审核任务派给审核人（推荐 AI 员工，用 list_workers 查）。"+
-				"审核结论会出现在审核任务的完成汇报里，分配者据此验收或打回原任务。限原任务分配者或超管。",
+				"审核结论会出现在审核任务的完成汇报里，分配者据此验收或打回原任务。限原任务分配者或超管。仅用于已提交待验收任务的质量把关；新任务派发用 assign_task。",
 			obj(map[string]any{
 				"task_id":     p("integer", "待验收的任务ID"),
 				"reviewer_id": p("integer", "审核人用户ID（推荐 AI 员工）"),

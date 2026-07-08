@@ -7,6 +7,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/workerhub"
 )
 
@@ -63,6 +65,7 @@ func (s *Server) handleWorkerWS(w http.ResponseWriter, r *http.Request) {
 		hub.Detach(u.ID, conn)
 		_ = c.CloseNow()
 		slog.Info("worker 实时通道下线", "worker", u.ID)
+		s.notifyWorkerOffline(u) // 持有在办任务时向监护人推"执行中离线"事件
 	}()
 
 	for {
@@ -78,4 +81,22 @@ func (s *Server) handleWorkerWS(w http.ResponseWriter, r *http.Request) {
 			_ = conn.Send(workerhub.Msg{Type: workerhub.MsgPong})
 		}
 	}
+}
+
+// notifyWorkerOffline worker 实时通道断开时，若该 worker 仍持有在办任务，向其
+// 监护人推一个"执行中离线"事件，让 AI 决定是否通知相关人/改派——把"被动等 48h
+// 催办"前置成"掉线即感知"。无在办任务则不打扰；重复离线由事件总线去重兜底。
+func (s *Server) notifyWorkerOffline(u *store.User) {
+	if s.bus == nil || u == nil || !u.IsWorker || u.OwnerID == nil || *u.OwnerID == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tasks, err := s.store.TasksOfAssignee(ctx, u.ID, true)
+	if err != nil || len(tasks) == 0 {
+		return
+	}
+	s.bus.Emit("worker 执行中离线", *u.OwnerID,
+		fmt.Sprintf("AI 员工「%s」实时通道断开，仍有 %d 个在办任务。请核实是否需要改派或通知相关人。",
+			u.Name, len(tasks)))
 }

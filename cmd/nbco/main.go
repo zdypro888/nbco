@@ -162,7 +162,7 @@ func run(configPath string) error {
 	} else {
 		slog.Info("未配置 telegram_token，跳过 Telegram 网关；HTTP/API/MCP/worker 仍可用")
 	}
-	scheduler := sched.New(st, hub, orch, systemChannel, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
+	scheduler := sched.New(st, hub, orch, bus, systemChannel, tz, *cfg.DailySummaryHour, cfg.SchedAIConcurrency)
 
 	scheme := "http"
 	if strings.TrimSpace(cfg.TLSCertFile) != "" {

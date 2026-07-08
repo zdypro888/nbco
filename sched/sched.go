@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/chat"
+	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/store"
 )
@@ -43,6 +44,7 @@ type Scheduler struct {
 	notifier notify.Notifier
 	// orch 跑系统触发的 AI 轮次（催办/周报）；nil 时这两项能力关闭（测试或降级）。
 	orch      *chat.Orchestrator
+	bus       *events.Bus // 任务过期等事件交 AI 介入；nil 时回退模板（测试或降级）
 	channel   string // AI 轮次挂在用户哪个渠道的会话上（与主入口一致，保证上下文连续）
 	tz        *time.Location
 	dailyHour int // -1 关闭每日/每周汇总
@@ -52,12 +54,12 @@ type Scheduler struct {
 }
 
 // New 创建调度器。aiConcurrency 是同时进行的 AI 轮次上限（<=0 取默认 4）。
-func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, channel string, tz *time.Location, dailyHour, aiConcurrency int) *Scheduler {
+func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, bus *events.Bus, channel string, tz *time.Location, dailyHour, aiConcurrency int) *Scheduler {
 	if aiConcurrency <= 0 {
 		aiConcurrency = 4
 	}
 	return &Scheduler{
-		store: s, notifier: n, orch: orch, channel: channel, tz: tz, dailyHour: dailyHour,
+		store: s, notifier: n, orch: orch, bus: bus, channel: channel, tz: tz, dailyHour: dailyHour,
 		aiPool: newPool(aiConcurrency), sendPool: newPool(sendConcurrency),
 	}
 }
@@ -430,10 +432,13 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 			ok := s.send(ctx, t.AssigneeID,
 				fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
 			if t.AssignerID != t.AssigneeID {
-				// 分配者侧失败只记日志不阻塞 ack：否则分配者不可达（未绑 TG/拉黑）
-				// 时执行人每次租约过期都被重复轰炸同一条过期通知。
-				if !s.send(ctx, t.AssignerID,
-					fmt.Sprintf("🔴 你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。", t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))) {
+				// 分配者侧走事件总线：AI 结合 worker 在线/任务状态决定是否改派或额外通知，
+				// 而非死板模板。bus 未装配（测试）时回退原文模板，保证必达。
+				detail := fmt.Sprintf("你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。",
+					t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))
+				if s.bus != nil {
+					s.bus.Emit("任务过期", t.AssignerID, detail)
+				} else if !s.send(ctx, t.AssignerID, "🔴 "+detail) {
 					slog.Warn("过期通知分配者侧投递失败（不重试）", "task", t.ID, "assigner", t.AssignerID)
 				}
 			}

@@ -134,8 +134,10 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				if t2.Status == store.TaskDone {
-					notifyQuiet(ctx, d, t.AssignerID,
-						fmt.Sprintf("📥 %s 提交了任务「%s」（#%d），等你验收。", u.Name, t.Title, t.ID))
+					// 任务提交待验收交分配者的 AI 分析（与 worker HTTP 提交路径合一）：
+					// AI 结合会话上下文给出验收建议再通知，而非死板模板。
+					emitEvent(d, "任务提交待验收", t.AssignerID,
+						fmt.Sprintf("「%s」提交了任务「%s」（#%d）待你验收。", u.Name, t.Title, t.ID))
 					return "已提交，等待分配者验收。", nil
 				}
 				notifyChain(ctx, d, u, chain)
@@ -375,7 +377,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return "已附加。", nil
 			}),
 
-		tool("split_my_task", "拆分我的任务并分配给他人（也可分给自己）。原任务标记为已拆分，执行转移到子任务。",
+		tool("split_my_task", "拆分我的任务并分配给他人（也可分给自己）。原任务标记为已拆分，执行转移到子任务。用于复杂、需多人并行或有依赖的任务；单一明确任务直接 assign_task。",
 			obj(map[string]any{
 				"task_id": p("integer", "要拆分的任务ID"),
 				"subtasks": map[string]any{
@@ -601,7 +603,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderProjects(ps), nil
 			}),
 
-		tool("assign_task", "在项目中创建任务并分配给某人。需要对该人的 create_project 权限。assignee_id 省略时自动派给最合适的 AI 员工（负载最低、通过率优先、在线优先，仅限自己名下）。depends_on 可指定前置任务：全部验收通过前 worker 领不到本任务，用于串流水线（如开发→测试→审查）。",
+		tool("assign_task", "在项目中创建任务并分配给某人。需要对该人的 create_project 权限。assignee_id 省略时自动派给最合适的 AI 员工（负载最低、通过率优先、在线优先，仅限自己名下）。depends_on 可指定前置任务：全部验收通过前 worker 领不到本任务，用于串流水线（如开发→测试→审查）。用于单一明确任务；复杂或需多人并行的任务先 split_my_task 拆分，已提交待验收任务要深度审核用 delegate_review。",
 			obj(map[string]any{
 				"project_id":  p("integer", "项目ID"),
 				"assignee_id": p("integer", "执行人用户ID（可选；省略=自动派给最合适的 AI 员工）"),
@@ -840,8 +842,9 @@ func inheritViewPerms(ctx context.Context, d Deps, assigner *store.User, created
 func notifyChain(ctx context.Context, d Deps, operator *store.User, chain []*store.Task) {
 	for _, a := range chain {
 		if a.Status == store.TaskDone && a.AssignerID != operator.ID {
-			notifyQuiet(ctx, d, a.AssignerID,
-				fmt.Sprintf("📥 任务「%s」（#%d）的全部子任务已验收通过，等你验收。", a.Title, a.ID))
+			// 级联转入待验收同样交分配者的 AI 分析（与提交待验收一致）。
+			emitEvent(d, "任务提交待验收", a.AssignerID,
+				fmt.Sprintf("任务「%s」（#%d）的全部子任务已验收通过，待你验收。", a.Title, a.ID))
 		}
 	}
 }

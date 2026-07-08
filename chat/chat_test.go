@@ -48,18 +48,64 @@ func TestStyleFor(t *testing.T) {
 	}
 }
 
-func TestSelectSkillsByIDs(t *testing.T) {
+func TestFirstSkills(t *testing.T) {
 	cands := []*store.Knowledge{
 		{ID: 10, Title: "A", Kind: store.KnowledgeKindSkill},
 		{ID: 20, Title: "B", Kind: store.KnowledgeKindSkill},
 		{ID: 30, Title: "C", Kind: store.KnowledgeKindSkill},
 	}
-	got := selectSkillsByIDs(cands, []int64{30, 999, 10}, 2)
-	if len(got) != 2 || got[0].ID != 10 || got[1].ID != 30 {
-		t.Fatalf("应只选候选内 ID，并保持候选召回顺序: %+v", got)
-	}
 	if got := firstSkills(cands, 2); len(got) != 2 || got[0].ID != 10 || got[1].ID != 20 {
-		t.Fatalf("firstSkills fallback 不对: %+v", got)
+		t.Fatalf("firstSkills 取前 N 不对: %+v", got)
+	}
+	if got := firstSkills(cands, 10); len(got) != 3 {
+		t.Fatalf("limit 超过候选数应返回全部: %+v", got)
+	}
+	if got := firstSkills(cands, 0); got != nil {
+		t.Fatalf("limit<=0 应返回 nil: %+v", got)
+	}
+	if got := firstSkills(nil, 3); got != nil {
+		t.Fatalf("空候选应返回 nil: %+v", got)
+	}
+}
+
+func TestRenderRetrievalBlock(t *testing.T) {
+	tz := time.UTC
+	ks := []*store.Knowledge{
+		{ID: 12, Title: "客户A付款条件", Content: "net 60，按季度对账", Tags: []string{"scope:global", "客户", "财务"}},
+	}
+	ms := []store.ChatMessage{
+		{Role: "user", Content: "上次定的客户A付款条件", CreatedAt: time.Date(2026, 6, 21, 10, 3, 0, 0, tz)},
+		{Role: "assistant", Content: "已记录到知识库", CreatedAt: time.Date(2026, 6, 21, 10, 5, 0, 0, tz)},
+	}
+	out := renderRetrievalBlock(ks, ms, tz)
+	for _, want := range []string{"已预取", "#12", "客户A付款条件", "net 60", "客户, 财务", "用户", "AI", "06-21 10:03"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("预取块缺 %q，实际：%s", want, out)
+		}
+	}
+	if strings.Contains(out, "scope:global") {
+		t.Errorf("scope 内部标签不应展示：%s", out)
+	}
+	if renderRetrievalBlock(nil, nil, tz) != "" {
+		t.Error("空输入应返回空串")
+	}
+	// 长内容按 rune 截断。
+	long := strings.Repeat("字", 200)
+	got := renderRetrievalBlock([]*store.Knowledge{{ID: 1, Title: "T", Content: long}}, nil, tz)
+	if strings.Contains(got, strings.Repeat("字", retrievalSnippetChars+1)) {
+		t.Error("内容应被截断到 retrievalSnippetChars")
+	}
+	if !strings.Contains(got, "…") {
+		t.Error("截断后应有省略号")
+	}
+}
+
+func TestShouldFetchHistory(t *testing.T) {
+	if !shouldFetchHistory("api") || !shouldFetchHistory("telegram") {
+		t.Error("非群渠道应允许历史预取")
+	}
+	if shouldFetchHistory("telegram:group:-42") {
+		t.Error("群渠道应禁止历史预取（隐私守护）")
 	}
 }
 
