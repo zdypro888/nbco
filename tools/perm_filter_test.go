@@ -159,6 +159,16 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 	}
 }
 
+func TestForUserAdminWorkerSeesSystemTools(t *testing.T) {
+	w := &store.User{ID: 3, Name: "nbco-admin-worker", Status: store.UserActive, IsWorker: true, IsSuperadmin: true}
+	names := namesOf(ForUser(Deps{}, w, nil))
+	for _, want := range []string{"assign_task", "set_worker_admin", "analyze_company_materials", "approve_learning_candidate"} {
+		if !names[want] {
+			t.Errorf("admin worker 应看到 %s", want)
+		}
+	}
+}
+
 // 超管：全量可见（包括权限门控与超管专属）。
 func TestForUserSuperadminSeesAll(t *testing.T) {
 	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}

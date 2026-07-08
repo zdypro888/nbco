@@ -380,9 +380,11 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 		}
 		scope := normalizeMemoryScope(r.Scope)
 		if o.deps.Knowledge != nil {
-			_, _ = o.deps.Knowledge.SaveRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
+			k, _ := o.deps.Knowledge.SaveRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, []string{"scope:" + scope}, "memory_miner", k)
 		} else {
-			_, _ = o.store.CreateRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
+			k, _ := o.store.CreateRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, []string{"scope:" + scope}, "memory_miner", k)
 		}
 		slog.Info("Memory Miner 保存规则", "user", u.ID, "title", title)
 	}
@@ -399,9 +401,11 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 		content := buildMinedSkillContent(sk.Trigger, sk.Summary, sk.Procedure, sk.Constraints)
 		tags := normalizeMinedTags(sk.Tags, scope)
 		if o.deps.Knowledge != nil {
-			_, _ = o.deps.Knowledge.SaveSkill(ctx, title, content, tags, u.ID)
+			k, _ := o.deps.Knowledge.SaveSkill(ctx, title, content, tags, u.ID)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", k)
 		} else {
-			_, _ = o.store.CreateSkill(ctx, title, content, tags, u.ID)
+			k, _ := o.store.CreateSkill(ctx, title, content, tags, u.ID)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", k)
 		}
 		slog.Info("Memory Miner 保存 skill", "user", u.ID, "title", title)
 	}
@@ -414,12 +418,32 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 			continue
 		}
 		if o.deps.Knowledge != nil {
-			_, _ = o.deps.Knowledge.Save(ctx, title, content, k.Tags, u.ID)
+			saved, _ := o.deps.Knowledge.Save(ctx, title, content, k.Tags, u.ID)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", saved)
 		} else {
-			_, _ = o.store.CreateKnowledge(ctx, title, content, k.Tags, u.ID)
+			saved, _ := o.store.CreateKnowledge(ctx, title, content, k.Tags, u.ID)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", saved)
 		}
 		slog.Info("Memory Miner 保存知识", "user", u.ID, "title", title)
 	}
+}
+
+func (o *Orchestrator) recordPublishedLearningCandidate(ctx context.Context, userID int64, kind, scope, title, content string, tags []string, source string, k *store.Knowledge) {
+	if o == nil || o.store == nil || k == nil {
+		return
+	}
+	evidence, _ := json.Marshal(map[string]any{"source": source})
+	createdBy := userID
+	c, err := o.store.CreateLearningCandidate(ctx, store.LearningCandidateInput{
+		Kind: kind, Scope: scope, Title: title, Content: content, Tags: tags,
+		Evidence: evidence, Confidence: 0.8, Status: store.LearningStatusPublished,
+		SourceType: source, CreatedBy: &createdBy,
+	})
+	if err != nil {
+		slog.Warn("学习候选审计记录失败", "kind", kind, "title", title, "err", err)
+		return
+	}
+	_ = o.store.MarkLearningCandidatePublished(ctx, c.ID, userID, &k.ID)
 }
 
 func (o *Orchestrator) memoryTitleExists(ctx context.Context, kind, title string) bool {

@@ -40,7 +40,11 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if w.Status != store.UserActive {
 					status = "已停用"
 				}
-				fmt.Fprintf(&b, "- #%d %s（%s）\n", w.ID, w.Name, status)
+				admin := ""
+				if w.IsSuperadmin {
+					admin = "，admin worker"
+				}
+				fmt.Fprintf(&b, "- #%d %s（%s%s）\n", w.ID, w.Name, status, admin)
 			}
 			return b.String(), nil
 		})
@@ -174,6 +178,41 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return "已停用。", nil
+			}),
+
+		tool("set_worker_admin", "把指定 AI worker 设置/取消为 admin worker。admin worker 视同系统级执行者，可获得完整工具能力；仅用于 nbco 维护、自升级、公司资料入库等可信工作机。",
+			obj(map[string]any{
+				"worker_id": p("integer", "worker 用户ID"),
+				"admin":     p("boolean", "true=设为 admin worker；false=取消"),
+			}, "worker_id", "admin"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				if !u.IsSuperadmin {
+					return "只有超级管理员可以设置 admin worker。", nil
+				}
+				var args struct {
+					WorkerID int64 `json:"worker_id"`
+					Admin    bool  `json:"admin"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				w, msg := mustOwnWorker(ctx, d, u, args.WorkerID)
+				if msg != "" {
+					return msg, nil
+				}
+				if w.Status != store.UserActive {
+					return "目标 worker 已停用。", nil
+				}
+				if err := d.Store.SetWorkerAdmin(ctx, args.WorkerID, args.Admin); err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "该 AI worker 不存在。", nil
+					}
+					return "", err
+				}
+				if args.Admin {
+					return fmt.Sprintf("已将 %s（#%d）设置为 admin worker。它之后可执行系统级维护/资料入库任务。", w.Name, w.ID), nil
+				}
+				return fmt.Sprintf("已取消 %s（#%d）的 admin worker 权限。", w.Name, w.ID), nil
 			}),
 	}
 }

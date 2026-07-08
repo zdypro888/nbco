@@ -146,6 +146,45 @@ func (s *Store) ListWorkers(ctx context.Context, ownerID int64) ([]*User, error)
 	return ws, rows.Err()
 }
 
+// ListAdminWorkers lists active workers that are explicitly promoted to
+// system-admin workers. These are suitable for nbco maintenance and company
+// material analysis jobs that need broad context.
+func (s *Store) ListAdminWorkers(ctx context.Context) ([]*User, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+userCols+` FROM users
+		 WHERE is_worker AND is_superadmin AND status = 'active'
+		 ORDER BY COALESCE(worker_last_seen, '-infinity'::timestamptz) DESC, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ws []*User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		ws = append(ws, u)
+	}
+	return ws, rows.Err()
+}
+
+// SetWorkerAdmin promotes or demotes a worker's system-admin capability. It
+// reuses users.is_superadmin so all target-level checks keep one meaning.
+func (s *Store) SetWorkerAdmin(ctx context.Context, workerID int64, admin bool) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE users SET is_superadmin = $2, updated_at = now()
+		 WHERE id = $1 AND is_worker`,
+		workerID, admin)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // WorkerHeartbeat 刷新 worker 上线时间（每次拉任务时调）。
 func (s *Store) WorkerHeartbeat(ctx context.Context, workerID int64) error {
 	_, err := s.pool.Exec(ctx, `UPDATE users SET worker_last_seen = now() WHERE id = $1`, workerID)

@@ -288,6 +288,26 @@ Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；�
 
 脚本工具第一版只支持内嵌 **Starlark**：脚本必须定义 `run(args)`，`args` 是 JSON 对象，返回字符串、列表或字典。运行时无文件、无 shell、无网络、无数据库直连，并带执行步数和超时限制；适合值日表字段转换、报表格式化、规则计算、文本规范化这类可重复小工具。复杂 Python/Excel/PDF/爬虫/命令行工作交给 worker；Go 仍用于核心系统能力，不做主进程动态 Go 插件。
 
+## 自主学习候选（Learning Pipeline）
+
+nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把可长期复用的结论沉淀成可治理资产：
+
+- **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态与审核人
+- **对话学习**：Memory Miner 从超管对话里抽取规则、skill、知识；已发布内容也会留下 learning candidate 记录，便于之后审计
+- **worker 学习**：worker 完成资料分析任务时，可在汇报末尾输出 `NBCO_LEARNING_CANDIDATES_JSON:`，nbco 会解析为学习候选
+- **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布到正式知识库/规则/Skill，用 `reject_learning_candidate` 清理噪音
+
+这层是“智能学习”的治理面：长期规则、执行方法、公司事实可以越来越多，但每轮对话只由规则/skill/知识检索器按需加载，不靠无限拉长系统提示。
+
+## 公司资料分析与 admin worker
+
+普通 worker 默认仍是最小权限白名单，只能干活、汇报、沉淀知识。超管可以把可信工作机上的 worker 设置为 **admin worker**：
+
+- `set_worker_admin(worker_id, true)`：将指定 worker 提升为系统级 worker，工具能力等同超管；用于 nbco 自升级、资料入库、维护任务
+- `set_worker_admin(worker_id, false)`：撤销系统级能力，回到普通 worker 最小权限
+- worker 仍然绑定 `owner_id` 监护人：普通用户只能管理自己名下 worker；超管可管理全部。admin worker 的设置权只给超管
+- `analyze_company_materials`：把 `/api/files` 上传得到的系统文件 ID 派给 admin worker，创建 “Company Intelligence Inbox” 任务；worker 读取 PDF/XLSX/TXT/图片后输出结构化学习候选，nbco 解析入 `learning_candidates`
+
 ## 权限体系
 
 **主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限，对应工具 `invite_employee`；授权时也接受 `invite_employee` 作为别名） / `send_msg` / `create_project` / `edit_info` / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。

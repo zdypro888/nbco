@@ -1044,11 +1044,16 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("worker 经验入库失败", "task", t.ID, "err", err)
 		}
 	}
+	learned := s.ingestWorkerLearningCandidates(ctx, u, t, req.Summary)
 	// 提交事件交派活人的 AI 分析：AI 可先看交付摘要，通知里直接给验收建议。
 	if t.AssignerID != u.ID {
+		extra := ""
+		if learned > 0 {
+			extra = fmt.Sprintf(" 已抽取 %d 条学习候选，可用 list_learning_candidates 审核。", learned)
+		}
 		s.bus.Emit("任务提交待验收", t.AssignerID,
-			fmt.Sprintf("AI 员工「%s」提交了任务「%s」（#%d）待你验收。提交摘要：%s",
-				u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400)))
+			fmt.Sprintf("AI 员工「%s」提交了任务「%s」（#%d）待你验收。提交摘要：%s%s",
+				u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
 	}
 	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "lessons", req.Lessons != "")
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
@@ -1061,6 +1066,141 @@ func workerSkillSummary(content string) string {
 		}
 	}
 	return truncateRunes(content, 240)
+}
+
+const materialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
+
+type workerLearningPayload struct {
+	Knowledge []struct {
+		Title      string          `json:"title"`
+		Content    string          `json:"content"`
+		Tags       []string        `json:"tags"`
+		Confidence float32         `json:"confidence"`
+		Evidence   json.RawMessage `json:"evidence"`
+	} `json:"knowledge"`
+	Rules []struct {
+		Title      string          `json:"title"`
+		Content    string          `json:"content"`
+		Scope      string          `json:"scope"`
+		Tags       []string        `json:"tags"`
+		Confidence float32         `json:"confidence"`
+		Evidence   json.RawMessage `json:"evidence"`
+	} `json:"rules"`
+	Skills []struct {
+		Title       string          `json:"title"`
+		Trigger     string          `json:"trigger"`
+		Summary     string          `json:"summary"`
+		Procedure   string          `json:"procedure"`
+		Constraints string          `json:"constraints"`
+		Scope       string          `json:"scope"`
+		Tags        []string        `json:"tags"`
+		Confidence  float32         `json:"confidence"`
+		Evidence    json.RawMessage `json:"evidence"`
+	} `json:"skills"`
+	Questions []struct {
+		Title    string          `json:"title"`
+		Content  string          `json:"content"`
+		Evidence json.RawMessage `json:"evidence"`
+	} `json:"questions"`
+}
+
+func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.User, t *store.Task, summary string) int {
+	raw := afterLast(summary, materialLearningMarker)
+	if strings.TrimSpace(raw) == "" {
+		return 0
+	}
+	raw = strings.TrimSpace(raw)
+	if i := strings.LastIndex(raw, "}"); i >= 0 {
+		raw = raw[:i+1]
+	}
+	var payload workerLearningPayload
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		slog.Warn("worker 学习候选 JSON 解析失败", "worker", u.ID, "task", t.ID, "err", err)
+		return 0
+	}
+	createdBy := u.ID
+	sourceRef := fmt.Sprint(t.ID)
+	count := 0
+	save := func(in store.LearningCandidateInput) {
+		in.SourceType = "worker_task"
+		in.SourceRef = sourceRef
+		in.CreatedBy = &createdBy
+		in.Tags = append(in.Tags, fmt.Sprintf("worker:%d", u.ID), fmt.Sprintf("project:%d", t.ProjectID))
+		if _, err := s.store.CreateLearningCandidate(ctx, in); err != nil {
+			slog.Warn("保存 worker 学习候选失败", "worker", u.ID, "task", t.ID, "kind", in.Kind, "err", err)
+			return
+		}
+		count++
+	}
+	for _, k := range payload.Knowledge {
+		if strings.TrimSpace(k.Title) == "" || strings.TrimSpace(k.Content) == "" {
+			continue
+		}
+		save(store.LearningCandidateInput{
+			Kind: store.LearningKindKnowledge, Scope: "global", Title: k.Title, Content: k.Content,
+			Tags: k.Tags, Evidence: k.Evidence, Confidence: k.Confidence,
+		})
+	}
+	for _, r := range payload.Rules {
+		if strings.TrimSpace(r.Title) == "" || strings.TrimSpace(r.Content) == "" {
+			continue
+		}
+		scope := strings.TrimSpace(r.Scope)
+		if scope == "" {
+			scope = "global"
+		}
+		save(store.LearningCandidateInput{
+			Kind: store.LearningKindRule, Scope: scope, Title: r.Title, Content: r.Content,
+			Tags: r.Tags, Evidence: r.Evidence, Confidence: r.Confidence,
+		})
+	}
+	for _, sk := range payload.Skills {
+		if strings.TrimSpace(sk.Title) == "" || strings.TrimSpace(sk.Trigger) == "" ||
+			strings.TrimSpace(sk.Summary) == "" || strings.TrimSpace(sk.Procedure) == "" {
+			continue
+		}
+		scope := strings.TrimSpace(sk.Scope)
+		if scope == "" {
+			scope = "global"
+		}
+		save(store.LearningCandidateInput{
+			Kind: store.LearningKindSkill, Scope: scope, Title: sk.Title,
+			Content: buildWorkerSkillContent(sk.Trigger, sk.Summary, sk.Procedure, sk.Constraints),
+			Tags:    sk.Tags, Evidence: sk.Evidence, Confidence: sk.Confidence,
+		})
+	}
+	for _, q := range payload.Questions {
+		if strings.TrimSpace(q.Title) == "" || strings.TrimSpace(q.Content) == "" {
+			continue
+		}
+		save(store.LearningCandidateInput{
+			Kind: store.LearningKindSummary, Scope: "global", Title: "待裁决：" + q.Title, Content: q.Content,
+			Tags: []string{"待裁决"}, Evidence: q.Evidence,
+		})
+	}
+	if count > 0 {
+		slog.Info("worker 学习候选已入库", "worker", u.ID, "task", t.ID, "count", count)
+	}
+	return count
+}
+
+func afterLast(s, marker string) string {
+	i := strings.LastIndex(s, marker)
+	if i < 0 {
+		return ""
+	}
+	return s[i+len(marker):]
+}
+
+func buildWorkerSkillContent(trigger, summary, procedure, constraints string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "触发条件：%s\n", strings.TrimSpace(trigger))
+	fmt.Fprintf(&b, "摘要：%s\n", strings.TrimSpace(summary))
+	fmt.Fprintf(&b, "执行方法：\n%s\n", strings.TrimSpace(procedure))
+	if c := strings.TrimSpace(constraints); c != "" {
+		fmt.Fprintf(&b, "限制与禁忌：\n%s\n", c)
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // mcpServer 对外 MCP：按 token 换用户，暴露其权限内的工具集。

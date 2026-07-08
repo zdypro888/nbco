@@ -138,8 +138,10 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, memoryTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, skillTools(d, u)...)
+	ts = append(ts, learningTools(d, u)...)
 	ts = append(ts, scriptToolManagementTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
+	ts = append(ts, materialTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
@@ -197,10 +199,12 @@ var toolPerm = map[string]string{
 	"delete_role":       reqSuper,
 	// AI 员工管理：有 manage_worker 权限即可，handler 内限定只能操作自己名下的
 	// worker（超管不限）——和真人邀请（generate_key）一样是权限而非身份门槛
-	"create_worker":          perm.ActManageWorker,
-	"issue_worker_bind_code": perm.ActManageWorker,
-	"run_worker_command":     perm.ActManageWorker,
-	"revoke_worker":          perm.ActManageWorker,
+	"create_worker":             perm.ActManageWorker,
+	"issue_worker_bind_code":    perm.ActManageWorker,
+	"run_worker_command":        perm.ActManageWorker,
+	"revoke_worker":             perm.ActManageWorker,
+	"set_worker_admin":          reqSuper,
+	"analyze_company_materials": reqSuper,
 	// 群接入状态可读；控制类操作由可转授的 Telegram 群管理权限解锁。
 	"set_telegram_group_listen":      perm.ActManageTGGroup,
 	"set_telegram_group_auto_invite": perm.ActManageTGGroup,
@@ -211,16 +215,19 @@ var toolPerm = map[string]string{
 	"unpin_telegram_group_message":   perm.ActManageTGGroup,
 	"update_telegram_group_info":     perm.ActManageTGGroup,
 	// 规则（Policy Memory）影响所有人的每一轮对话，只有超管能改
-	"save_rule":          reqSuper,
-	"list_rules":         reqSuper,
-	"set_rule_pinned":    reqSuper,
-	"save_skill":         reqSuper,
-	"update_skill":       reqSuper,
-	"list_script_tools":  reqSuper,
-	"create_script_tool": reqSuper,
-	"update_script_tool": reqSuper,
-	"test_script_tool":   reqSuper,
-	"enable_script_tool": reqSuper,
+	"save_rule":                  reqSuper,
+	"list_rules":                 reqSuper,
+	"set_rule_pinned":            reqSuper,
+	"save_skill":                 reqSuper,
+	"update_skill":               reqSuper,
+	"list_learning_candidates":   reqSuper,
+	"approve_learning_candidate": reqSuper,
+	"reject_learning_candidate":  reqSuper,
+	"list_script_tools":          reqSuper,
+	"create_script_tool":         reqSuper,
+	"update_script_tool":         reqSuper,
+	"test_script_tool":           reqSuper,
+	"enable_script_tool":         reqSuper,
 }
 
 // workerAllowed 机器账号（is_worker）的工具白名单：只保留干活与沉淀知识所需。
@@ -262,12 +269,17 @@ var groupSensitive = map[string]bool{
 	"create_worker":                  true,
 	"issue_worker_bind_code":         true,
 	"run_worker_command":             true,
+	"set_worker_admin":               true,
 	"revoke_worker":                  true,
+	"analyze_company_materials":      true,
 	"save_rule":                      true, // 群历史可被注入，规则变更回私聊做
 	"list_rules":                     true,
 	"set_rule_pinned":                true,
 	"save_skill":                     true,
 	"update_skill":                   true,
+	"list_learning_candidates":       true,
+	"approve_learning_candidate":     true,
+	"reject_learning_candidate":      true,
 	"list_script_tools":              true,
 	"create_script_tool":             true,
 	"update_script_tool":             true,
@@ -380,7 +392,7 @@ func (s *turnBudgetState) check(name string, args json.RawMessage) string {
 func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 	out := ts[:0]
 	for _, t := range ts {
-		if u.IsWorker && !workerAllowed[t.Name] {
+		if u.IsWorker && !u.IsSuperadmin && !workerAllowed[t.Name] {
 			continue
 		}
 		req, gated := toolPerm[t.Name]

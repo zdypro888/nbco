@@ -211,6 +211,24 @@ func (s *Store) EnsureWorkerCommandProject(ctx context.Context, creatorID int64)
 	return s.CreateProject(ctx, name, "显式 worker 命令任务。", creatorID)
 }
 
+// EnsureCompanyIntelligenceProject returns the inbox project for company
+// material analysis. Uploaded documents/photos can be routed here, then an
+// admin worker extracts structured learning candidates for nbco to publish.
+func (s *Store) EnsureCompanyIntelligenceProject(ctx context.Context, creatorID int64) (*Project, error) {
+	const name = "Company Intelligence Inbox"
+	p, err := scanProject(s.pool.QueryRow(ctx,
+		`SELECT id, name, description, creator_id, status, created_at FROM projects
+		 WHERE creator_id = $1 AND name = $2 AND status = 'active'
+		 ORDER BY id LIMIT 1`, creatorID, name))
+	if err == nil {
+		return p, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	return s.CreateProject(ctx, name, "公司资料、制度、表格、照片等输入的结构化整理入口。", creatorID)
+}
+
 // DeleteProject 删除项目及其全部任务（外键级联），并把这些任务从其他项目
 // 任务的 depends_on 里剔除（防悬挂 id 被依赖检查当作「已满足」）。
 func (s *Store) DeleteProject(ctx context.Context, id int64) error {
