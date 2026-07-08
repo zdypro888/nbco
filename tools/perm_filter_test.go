@@ -181,7 +181,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
 		"ai_usage_stats", "create_worker", "run_worker_command", "analyze_company_materials", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
-		"save_skill", "update_skill", "search_skills", "load_skill",
+		"save_skill", "update_skill", "search_skills", "load_skill", "start_worker_skill",
 		"list_workflows", "start_workflow", "list_capabilities",
 		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
@@ -219,7 +219,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
-		"send_file", "start_workflow",
+		"send_file", "start_workflow", "start_worker_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",

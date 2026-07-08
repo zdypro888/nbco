@@ -147,6 +147,7 @@ var toolDomain = map[string]string{
 	"revoke_worker":             CapabilityWorkers,
 	"set_worker_admin":          CapabilityWorkers,
 	"analyze_company_materials": CapabilityWorkers,
+	"start_worker_skill":        CapabilityWorkers,
 
 	// memory
 	"save_knowledge":             CapabilityMemory,

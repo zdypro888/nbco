@@ -50,24 +50,6 @@ var workflowTemplates = []WorkflowTemplate{
 			"confirm":   "必填 true，高风险升级必须显式确认",
 		},
 	},
-	{
-		Name:        "nbco_feature_upgrade",
-		Title:       "nbco 功能开发并升级",
-		Domain:      CapabilityOps,
-		Risk:        "high",
-		Description: "超级管理员把“修改 nbco 某功能并部署”固化成一个 admin worker 的单 PTY agent 任务：改代码、跑测试、提交/推送，再调用 scripts/upgrade-nbco.sh。",
-		Args: map[string]any{
-			"instruction": "必填，要实现/修复/调整的功能要求",
-			"worker_id":   "可选，指定 admin worker；不填自动选择发起人名下 admin worker",
-			"repo_dir":    "可选，源码目录；不填使用远端 NBCO_REPO_DIR 或 $HOME/src/nbco",
-			"repo_url":    "可选，源码目录不存在时用于 clone；不填则要求 worker 明确报错，不猜仓库",
-			"ref":         "可选，部署 ref，默认 origin/main；默认要求 worker push 后部署 origin/main",
-			"title":       "可选，任务标题",
-			"push":        "可选，默认 true；是否要求提交并 push",
-			"deploy":      "可选，默认 true；是否要求最后执行升级脚本",
-			"confirm":     "必填 true，高风险功能修改与升级必须显式确认",
-		},
-	},
 }
 
 var workflowRefRe = regexp.MustCompile(`^[A-Za-z0-9._/@-]+$`)
@@ -86,9 +68,9 @@ func workflowTools(d Deps, u *store.User) []ai.Tool {
 				return renderWorkflowTemplates(args.Domain), nil
 			}),
 
-		tool("start_workflow", "启动一个标准工作流。支持 material_intake（资料分析入库）、nbco_upgrade（单 worker 升级 SOP）与 nbco_feature_upgrade（功能开发并升级）。需要 AI 员工管理权限；高风险工作流还会执行自身权限校验，且必须在 args.confirm=true 后才会创建任务。",
+		tool("start_workflow", "启动一个确定性标准工作流。支持 material_intake（资料分析入库）与 nbco_upgrade（已提交版本的安全部署）。需要 AI 员工管理权限；高风险工作流还会执行自身权限校验，且必须在 args.confirm=true 后才会创建任务。可学习、可调整的执行流程应先 search_skills/load_skill，再用 start_worker_skill 派发。",
 			obj(map[string]any{
-				"name": p("string", "工作流名：material_intake、nbco_upgrade 或 nbco_feature_upgrade"),
+				"name": p("string", "工作流名：material_intake 或 nbco_upgrade"),
 				"args": map[string]any{
 					"type":        "object",
 					"description": "工作流参数对象；先用 list_workflows 查看每个模板需要的参数。",
@@ -154,8 +136,6 @@ func StartWorkflow(ctx context.Context, d Deps, u *store.User, name string, args
 		return startMaterialWorkflow(ctx, d, u, args)
 	case "nbco_upgrade":
 		return startNBCOUpgradeWorkflow(ctx, d, u, args)
-	case "nbco_feature_upgrade":
-		return startNBCOFeatureUpgradeWorkflow(ctx, d, u, args)
 	default:
 		return "未知工作流。请先调用 list_workflows 查看可用模板。", nil
 	}
@@ -163,7 +143,7 @@ func StartWorkflow(ctx context.Context, d Deps, u *store.User, name string, args
 
 func workflowRequiresSuperadmin(name string) bool {
 	switch strings.TrimSpace(name) {
-	case "nbco_upgrade", "nbco_feature_upgrade":
+	case "nbco_upgrade":
 		return true
 	default:
 		return false
@@ -271,91 +251,6 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 	return fmt.Sprintf("已启动工作流「nbco 单 worker 升级」：创建任务（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一个 worker 任务里。", internalRef("任务", t.ID), w.Name), nil
 }
 
-func startNBCOFeatureUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw json.RawMessage) (string, error) {
-	if u == nil || !u.IsSuperadmin {
-		return "nbco_feature_upgrade 只能由超级管理员启动。", nil
-	}
-	if d.Store == nil {
-		return "nbco_feature_upgrade 工作流需要可用的存储服务；当前入口未装配 Store。", nil
-	}
-	var args struct {
-		WorkerID    int64  `json:"worker_id"`
-		Instruction string `json:"instruction"`
-		RepoDir     string `json:"repo_dir"`
-		RepoURL     string `json:"repo_url"`
-		Ref         string `json:"ref"`
-		Title       string `json:"title"`
-		Push        *bool  `json:"push"`
-		Deploy      *bool  `json:"deploy"`
-		Confirm     bool   `json:"confirm"`
-	}
-	if err := decode(raw, &args); err != nil {
-		return err.Error(), nil
-	}
-	if !args.Confirm {
-		return "nbco_feature_upgrade 会修改代码并可能重启生产服务，必须由用户明确确认。确认后再次调用 start_workflow，name=nbco_feature_upgrade，并在 args 里设置 confirm=true。", nil
-	}
-	instruction := strings.TrimSpace(args.Instruction)
-	if instruction == "" {
-		return "instruction 不能为空。", nil
-	}
-	ref := strings.TrimSpace(args.Ref)
-	if ref == "" {
-		ref = "origin/main"
-	}
-	if !workflowRefRe.MatchString(ref) {
-		return "ref 只能包含字母、数字、点、下划线、斜杠、@ 和短横线。", nil
-	}
-	if !safeWorkflowFreeText(args.RepoDir) || !safeWorkflowFreeText(args.RepoURL) {
-		return "repo_dir/repo_url 不能包含换行或控制字符。", nil
-	}
-	w, msg, err := pickAdminWorkflowWorker(ctx, d, u, args.WorkerID)
-	if err != nil {
-		return "", err
-	}
-	if msg != "" {
-		return msg, nil
-	}
-	shouldPush := true
-	if args.Push != nil {
-		shouldPush = *args.Push
-	}
-	shouldDeploy := true
-	if args.Deploy != nil {
-		shouldDeploy = *args.Deploy
-	}
-	pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
-	if err != nil {
-		return "", err
-	}
-	title := strings.TrimSpace(args.Title)
-	if title == "" {
-		title = "修改 nbco 功能并升级"
-	}
-	t, err := d.Store.CreateTask(ctx, &store.Task{
-		ProjectID:   pj.ID,
-		AssignerID:  u.ID,
-		AssigneeID:  w.ID,
-		Title:       title,
-		Goal:        "在一个 admin worker 的 PTY agent 会话中修改 nbco 代码、验证并按需部署。",
-		Description: nbcoFeatureUpgradePrompt(instruction, args.RepoDir, args.RepoURL, ref, shouldPush, shouldDeploy),
-		Acceptance:  "完成汇报必须包含变更摘要、测试/构建结果、提交与 push 状态、部署/healthz 状态；失败时说明停在哪一步、是否未部署或已回滚。",
-		Priority:    "high",
-	})
-	if err != nil {
-		return "", err
-	}
-	wakeWorker(d, w)
-	mode := "开发、测试"
-	if shouldPush {
-		mode += "、提交并 push"
-	}
-	if shouldDeploy {
-		mode += "、部署"
-	}
-	return fmt.Sprintf("已启动工作流「nbco 功能开发并升级」：创建任务（%s）并分配给 admin worker %s。流程会在一个 PTY agent 任务里完成%s。", internalRef("任务", t.ID), w.Name, mode), nil
-}
-
 func pickAdminWorkflowWorker(ctx context.Context, d Deps, u *store.User, workerID int64) (*store.User, string, error) {
 	if workerID > 0 {
 		w, msg := mustOwnWorker(ctx, d, u, workerID)
@@ -387,15 +282,6 @@ func pickAdminWorkflowWorker(ctx context.Context, d Deps, u *store.User, workerI
 	return ws[0], "", nil
 }
 
-func safeWorkflowFreeText(v string) bool {
-	for _, r := range v {
-		if r == '\n' || r == '\r' || r == 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func nbcoUpgradeCommand(repoDir, ref string) string {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -406,43 +292,6 @@ func nbcoUpgradeCommand(repoDir, ref string) string {
 		return "cd \"${NBCO_REPO_DIR:-$HOME/src/nbco}\" && scripts/upgrade-nbco.sh " + shellQuote(ref)
 	}
 	return "cd " + shellQuote(repoDir) + " && scripts/upgrade-nbco.sh " + shellQuote(ref)
-}
-
-func nbcoFeatureUpgradePrompt(instruction, repoDir, repoURL, ref string, push, deploy bool) string {
-	repoDir = strings.TrimSpace(repoDir)
-	if repoDir == "" {
-		repoDir = "${NBCO_REPO_DIR:-$HOME/src/nbco}"
-	}
-	ref = strings.TrimSpace(ref)
-	if ref == "" {
-		ref = "origin/main"
-	}
-	repoURL = strings.TrimSpace(repoURL)
-	var b strings.Builder
-	fmt.Fprintf(&b, "请在同一个交互式 PTY agent 会话中完成 nbco 代码任务。\n\n用户需求：\n%s\n\n", instruction)
-	fmt.Fprintf(&b, "源码目录：%s\n", repoDir)
-	if repoURL != "" {
-		fmt.Fprintf(&b, "如果源码目录不存在或不是 git 仓库，可从此 URL clone：%s\n", repoURL)
-	} else {
-		b.WriteString("如果源码目录不存在或不是 git 仓库，停止并汇报，不要猜仓库地址。\n")
-	}
-	b.WriteString("\n执行要求：\n")
-	b.WriteString("1. 进入源码目录，先查看 git status 与当前分支/提交；不要覆盖未理解的改动。\n")
-	b.WriteString("2. 理解现有代码与测试后再改，优先复用项目已有工具/workflow/权限机制。\n")
-	b.WriteString("3. 修改后至少运行相关测试；涉及公共行为时运行 go test ./... -count=1。\n")
-	if push {
-		b.WriteString("4. 测试通过后提交 git commit，并 push 到远端；如果 push 失败，停止并汇报原因。\n")
-	} else {
-		b.WriteString("4. 测试通过后可以提交本地 git commit；本轮不要求 push。\n")
-	}
-	if deploy {
-		fmt.Fprintf(&b, "5. 只有在代码干净且必要提交/push 已完成后，执行 scripts/upgrade-nbco.sh %s；脚本负责拉取、测试、构建、重启、healthz 检查和失败回滚。\n", ref)
-	} else {
-		b.WriteString("5. 本轮不部署；给出后续部署命令与注意事项。\n")
-	}
-	b.WriteString("6. 不要把密钥、token、数据库 DSN 或绑定码写进提交、日志或完成汇报。\n")
-	b.WriteString("7. 如需交付文件，请写入 worker 提示里的产物目录，系统会自动上传。\n")
-	return strings.TrimSpace(b.String())
 }
 
 func shellQuote(s string) string {

@@ -84,10 +84,13 @@ func (s *Server) aiSettingsPayload(ctx context.Context) map[string]any {
 		streamRaw = ""
 	}
 	loaded, loadedErr := s.loadedRuntimeModels(ctx)
+	budget, budgetField := s.llmOutputBudget()
 	out := map[string]any{
 		"default_model":           strings.TrimSpace(s.llm.Model),
 		"runtime_model":           strings.TrimSpace(runtimeModel),
 		"current_model":           s.runtimeLLMModel(ctx),
+		"output_budget_tokens":    budget,
+		"output_budget_api_field": budgetField,
 		"max_tokens":              s.llm.MaxTokens,
 		"max_completion_tokens":   s.llm.MaxCompletionTokens,
 		"reasoning_effort":        strings.TrimSpace(s.llm.ReasoningEffort),

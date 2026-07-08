@@ -114,6 +114,9 @@ func TestApplyWorkerLLMBudget(t *testing.T) {
 	if got := s.llmMaxTokens(); got != 8192 {
 		t.Fatalf("llmMaxTokens = %d", got)
 	}
+	if got, field := s.llmOutputBudget(); got != 8192 || field != "max_completion_tokens" {
+		t.Fatalf("llmOutputBudget = %d/%s", got, field)
+	}
 }
 
 func TestLoadedRuntimeModelsUsesOllamaPS(t *testing.T) {

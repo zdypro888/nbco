@@ -131,7 +131,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_workflow", "list_capabilities"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "list_capabilities"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -141,6 +141,9 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if got := byName["analyze_company_materials"].Domain; got != CapabilityWorkers {
 		t.Fatalf("analyze_company_materials domain=%q", got)
+	}
+	if got := byName["start_worker_skill"].Domain; got != CapabilityWorkers {
+		t.Fatalf("start_worker_skill domain=%q", got)
 	}
 	if got := byName["start_workflow"].RequiredAction; got != "manage_worker" {
 		t.Fatalf("start_workflow required_action=%q", got)
@@ -169,11 +172,8 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 	if _, err := workflowTemplateByName("nbco_upgrade"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := workflowTemplateByName("nbco_feature_upgrade"); err != nil {
-		t.Fatal(err)
-	}
 	rendered := renderWorkflowTemplates("")
-	for _, want := range []string{"material_intake", "nbco_upgrade", "nbco_feature_upgrade", "confirm"} {
+	for _, want := range []string{"material_intake", "nbco_upgrade", "confirm"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("工作流列表缺 %q:\n%s", want, rendered)
 		}
@@ -192,10 +192,10 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 	if fresh[0].Args["file_ids"] == "mutated" {
 		t.Fatal("ListWorkflowTemplates must deep-copy Args")
 	}
-	prompt := nbcoFeatureUpgradePrompt("修复输出截断", "", "", "origin/main", true, true)
-	for _, want := range []string{"${NBCO_REPO_DIR:-$HOME/src/nbco}", "scripts/upgrade-nbco.sh origin/main", "不要猜仓库地址"} {
+	prompt := workerSkillTaskPrompt(&store.Knowledge{Title: "通用流程", Content: "执行方法：按步骤做", Tags: []string{"scope:global"}}, "完成本次目标")
+	for _, want := range []string{"通用流程", "完成本次目标", "不要泄露密钥"} {
 		if !strings.Contains(prompt, want) {
-			t.Fatalf("功能升级 prompt 缺 %q:\n%s", want, prompt)
+			t.Fatalf("worker skill prompt 缺 %q:\n%s", want, prompt)
 		}
 	}
 }
@@ -215,13 +215,6 @@ func TestNBCOUpgradeWorkflowRequiresSuperadmin(t *testing.T) {
 	}
 	if ok || !strings.Contains(reason, "超级管理员") {
 		t.Fatalf("CanStartWorkflow nbco_upgrade = ok=%v reason=%q", ok, reason)
-	}
-	got, err = StartWorkflow(context.Background(), Deps{}, user, "nbco_feature_upgrade", json.RawMessage(`{"confirm":true,"instruction":"x"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(got, "超级管理员") {
-		t.Fatalf("nbco_feature_upgrade should reject non-super users before any side effect: %q", got)
 	}
 }
 

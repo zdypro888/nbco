@@ -223,6 +223,7 @@ var toolPerm = map[string]string{
 	"revoke_worker":             perm.ActManageWorker,
 	"set_worker_admin":          reqSuper,
 	"analyze_company_materials": perm.ActManageWorker,
+	"start_worker_skill":        perm.ActManageWorker,
 	"start_workflow":            perm.ActManageWorker,
 	// 群接入状态可读；控制类操作由可转授的 Telegram 群管理权限解锁。
 	"set_telegram_group_listen":      perm.ActManageTGGroup,
@@ -305,6 +306,7 @@ var groupSensitive = map[string]bool{
 	"set_worker_admin":               true,
 	"revoke_worker":                  true,
 	"analyze_company_materials":      true,
+	"start_worker_skill":             true,
 	"start_workflow":                 true,
 	"save_rule":                      true, // 群历史可被注入，规则变更回私聊做
 	"list_rules":                     true,

@@ -27,6 +27,7 @@ import (
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/mcpbridge"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/tools"
 )
 
@@ -179,14 +180,8 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	return dec.Decode(dst)
 }
 
-// truncateRunes 按字符截断（事件详情里带交付摘要时防超长，不切坏多字节字符）。
-func truncateRunes(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n]) + "…"
-}
+// truncateRunes 转发到 textfmt.TruncateRunes（跨包共享实现）。
+func truncateRunes(s string, n int) string { return textfmt.TruncateRunes(s, n) }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
@@ -814,13 +809,18 @@ func (s *Server) llmTimeout() time.Duration {
 }
 
 func (s *Server) llmMaxTokens() int {
+	budget, _ := s.llmOutputBudget()
+	return budget
+}
+
+func (s *Server) llmOutputBudget() (int, string) {
 	if s.llm.MaxCompletionTokens > 0 {
-		return s.llm.MaxCompletionTokens
+		return s.llm.MaxCompletionTokens, "max_completion_tokens"
 	}
 	if s.llm.MaxTokens > 0 {
-		return s.llm.MaxTokens
+		return s.llm.MaxTokens, "max_tokens"
 	}
-	return 4096
+	return 4096, "max_tokens"
 }
 
 func (s *Server) applyWorkerLLMBudget(body map[string]any) {
