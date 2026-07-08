@@ -2,6 +2,9 @@ package telegram
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -219,6 +222,46 @@ func TestValidModelName(t *testing.T) {
 	for _, m := range invalid {
 		if validModelName(m) {
 			t.Errorf("validModelName(%q) = true", m)
+		}
+	}
+}
+
+func TestLoadedModelsUsesOllamaCompatiblePS(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ollama/api/ps" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		gotAuth = r.Header.Get("Authorization")
+		fmt.Fprint(w, `{"models":[{"name":"a","model":"mlx-community/DeepSeek-V4-Flash"},{"name":"fallback"},{"model":"mlx-community/Qwen3.6-35B-A3B-8bit"},{"model":"mlx-community/DeepSeek-V4-Flash"}]}`)
+	}))
+	defer srv.Close()
+	g := &Gateway{modelBaseURL: srv.URL + "/v1", modelAPIKey: "secret"}
+	got, err := g.loadedModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Fatalf("Authorization = %q", gotAuth)
+	}
+	want := []string{"mlx-community/DeepSeek-V4-Flash", "fallback", "mlx-community/Qwen3.6-35B-A3B-8bit"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("loaded models = %#v, want %#v", got, want)
+	}
+}
+
+func TestLoadedModelsHelpAndMembership(t *testing.T) {
+	models := []string{"mlx-community/Qwen3.6-35B-A3B-8bit", "mlx-community/DeepSeek-V4-Flash"}
+	if !modelInList("mlx-community/DeepSeek-V4-Flash", models) {
+		t.Fatal("loaded model should match exactly")
+	}
+	if modelInList("mlx-community/deepseek-v4-flash", models) {
+		t.Fatal("model match should be exact")
+	}
+	help := loadedModelsHelp(models)
+	for _, want := range []string{"已加载模型", "<code>mlx-community/Qwen3.6-35B-A3B-8bit</code>", "/model"} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("help missing %q: %s", want, help)
 		}
 	}
 }
