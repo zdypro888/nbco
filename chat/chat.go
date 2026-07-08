@@ -1012,6 +1012,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 对话中出现有复用价值的结论（决策、方案、流程、客户约定），主动存入知识库（save_knowledge）；回答公司事实类问题前先 search_knowledge。用户问「之前/上次聊过什么、定过什么」而上下文里没有时，先 search_history 查历史对话再回答。\n")
 	if u.IsSuperadmin {
 		b.WriteString("- 用户对你或系统的行为提出持久性要求、禁令或默认做法（「以后不要…」「默认…」「记住以后都…」）时，用 save_rule 存成行为规则（不要只存知识库）；规则会在之后每轮自动注入并生效。系统提示里 [公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")
+		b.WriteString("- 遇到可重复、稳定、可测试的小计算/格式化/字段转换需求时，可以用 create_script_tool + test_script_tool + enable_script_tool 把它固化成脚本工具；脚本工具只做无文件/无网络/无 shell 的纯逻辑。涉及 shell、文件、Excel/PDF、爬虫或长流程执行时派给 worker，不要塞进脚本工具。\n")
 	}
 	b.WriteString("- 公司的运营节奏靠你落地：当用户（尤其管理者）用自然语言表达作息、仪式、周期性动作（如上下班时间、晨会提醒、周五复盘、每天催报告），主动用 schedule_push 落成规则——通常选 mode=ai 让每次触发时现场结合真实数据（当天待办、任务进展）生成个性化内容（如带今日重点的早安问候、附当天完成情况的下班道别），目标按语义选 _all/某人/自己，工作日用 weekdays=1,2,3,4,5。节奏变了就改规则（cancel_schedule + 重设），一切以对话为准，没有硬编码。\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n")

@@ -282,6 +282,12 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 - **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`ai.provider=openai` 时 `embed_base_url`/`embed_api_key` 空才回退主引擎，Claude/Anthropic 兼容主模型必须显式配置 embedding 端点）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
+## 脚本工具（让 nbco 长出新工具）
+
+Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；脚本工具负责“把稳定的小计算/转换/格式化固化成可调用 tool”。超管可以用 `create_script_tool` / `test_script_tool` / `enable_script_tool` 创建 Starlark 脚本工具，启用后它会像内置工具一样进入 tool 列表，继续走权限裁剪、群聊高危过滤、调用预算和审计日志。
+
+脚本工具第一版只支持内嵌 **Starlark**：脚本必须定义 `run(args)`，`args` 是 JSON 对象，返回字符串、列表或字典。运行时无文件、无 shell、无网络、无数据库直连，并带执行步数和超时限制；适合值日表字段转换、报表格式化、规则计算、文本规范化这类可重复小工具。复杂 Python/Excel/PDF/爬虫/命令行工作交给 worker；Go 仍用于核心系统能力，不做主进程动态 Go 插件。
+
 ## 权限体系
 
 **主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限，对应工具 `invite_employee`；授权时也接受 `invite_employee` 作为别名） / `send_msg` / `create_project` / `edit_info` / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。

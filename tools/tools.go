@@ -138,6 +138,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, memoryTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, skillTools(d, u)...)
+	ts = append(ts, scriptToolManagementTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
@@ -151,6 +152,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 			grants = nil // 失败按最小权限处理（fail-closed）
 		}
 	}
+	ts = append(ts, dynamicScriptTools(d, u, grants)...)
 	ts = filterByPerm(ts, u, grants)
 
 	for i := range ts {
@@ -209,11 +211,16 @@ var toolPerm = map[string]string{
 	"unpin_telegram_group_message":   perm.ActManageTGGroup,
 	"update_telegram_group_info":     perm.ActManageTGGroup,
 	// 规则（Policy Memory）影响所有人的每一轮对话，只有超管能改
-	"save_rule":       reqSuper,
-	"list_rules":      reqSuper,
-	"set_rule_pinned": reqSuper,
-	"save_skill":      reqSuper,
-	"update_skill":    reqSuper,
+	"save_rule":          reqSuper,
+	"list_rules":         reqSuper,
+	"set_rule_pinned":    reqSuper,
+	"save_skill":         reqSuper,
+	"update_skill":       reqSuper,
+	"list_script_tools":  reqSuper,
+	"create_script_tool": reqSuper,
+	"update_script_tool": reqSuper,
+	"test_script_tool":   reqSuper,
+	"enable_script_tool": reqSuper,
 }
 
 // workerAllowed 机器账号（is_worker）的工具白名单：只保留干活与沉淀知识所需。
@@ -261,6 +268,11 @@ var groupSensitive = map[string]bool{
 	"set_rule_pinned":                true,
 	"save_skill":                     true,
 	"update_skill":                   true,
+	"list_script_tools":              true,
+	"create_script_tool":             true,
+	"update_script_tool":             true,
+	"test_script_tool":               true,
+	"enable_script_tool":             true,
 	"search_history":                 true, // 会翻出发言人的私聊历史，群里禁用
 	"ai_usage_stats":                 true,
 	"get_ai_settings":                true,

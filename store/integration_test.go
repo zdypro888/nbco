@@ -1268,6 +1268,61 @@ func TestTelegramPendingEmployeeInvite(t *testing.T) {
 	}
 }
 
+func TestScriptTools(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u, err := s.CreateUser(ctx, "脚本管理员", true, Identity{Provider: "test", ExternalID: "script-admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool, err := s.CreateScriptTool(ctx, ScriptTool{
+		Name:           "format_roster",
+		Description:    "格式化值日表",
+		Runtime:        "starlark",
+		InputSchema:    []byte(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+		Source:         `def run(args): return args["name"]`,
+		RequiredAction: "create_project",
+		CreatedBy:      u.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tool.Enabled {
+		t.Fatal("新脚本工具默认应未启用")
+	}
+	if err := s.SetScriptToolEnabled(ctx, tool.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetScriptToolTestResult(ctx, tool.ID, "ok"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ScriptToolByName(ctx, "format_roster")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Enabled || got.LastTestResult != "ok" || got.RequiredAction != "create_project" {
+		t.Fatalf("ScriptToolByName = %+v", got)
+	}
+	list, err := s.ListScriptTools(ctx, true, 10)
+	if err != nil || len(list) != 1 || list[0].ID != tool.ID {
+		t.Fatalf("ListScriptTools = %+v err=%v", list, err)
+	}
+	updated, err := s.UpdateScriptTool(ctx, tool.ID, ScriptTool{
+		Name:           "format_roster_v2",
+		Description:    "格式化值日表 v2",
+		Runtime:        "starlark",
+		InputSchema:    []byte(`{"type":"object"}`),
+		Source:         `def run(args): return "ok"`,
+		RequiredAction: "",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Name != "format_roster_v2" || updated.RequiredAction != "" {
+		t.Fatalf("UpdateScriptTool = %+v", updated)
+	}
+}
+
 func TestEpisodicMessageSearch(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
