@@ -59,6 +59,9 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					return msg, nil
 				}
 				out := renderTelegramGroup(*g, d.TZ)
+				if pj, err := d.Store.TelegramGroupProject(ctx, g.ChatID); err == nil && pj != nil {
+					out += fmt.Sprintf("\n- 绑定项目：%s %s", internalRef("项目", pj.ID), pj.Name)
+				}
 				out += "\n- 自动邀请：" + telegramGroupAutoInviteText(ctx, d, *g)
 				out += "\n- 智能监控：" + telegramGroupMonitorText(ctx, d, *g)
 				return out, nil

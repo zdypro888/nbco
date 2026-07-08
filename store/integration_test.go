@@ -593,6 +593,107 @@ func TestKnowledge(t *testing.T) {
 	}
 }
 
+func TestKnowledgeVersionsRollbackAndLearningGovernance(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+
+	k, err := s.CreateKnowledge(ctx, "Token 规则", "v1", []string{"scope:worker"}, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v2 := "v2"
+	if _, err := s.UpdateKnowledge(ctx, k.ID, nil, &v2, nil); err != nil {
+		t.Fatal(err)
+	}
+	v3 := "v3"
+	if _, err := s.UpdateKnowledge(ctx, k.ID, nil, &v3, nil); err != nil {
+		t.Fatal(err)
+	}
+	versions, err := s.KnowledgeVersions(ctx, k.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(versions) != 2 || versions[0].Content != "v2" || versions[1].Content != "v1" {
+		t.Fatalf("更新应产生 v1/v2 两个历史快照: %+v", versions)
+	}
+	rolled, err := s.RollbackKnowledge(ctx, k.ID, 1, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rolled.Content != "v1" {
+		t.Fatalf("rollback content = %q", rolled.Content)
+	}
+	versions, err = s.KnowledgeVersions(ctx, k.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(versions) != 3 || versions[0].Content != "v3" {
+		t.Fatalf("rollback 应只追加当前版本快照一次，got %+v", versions)
+	}
+	rule, err := s.CreateRule(ctx, "常驻规则", "默认不展示思考过程", []string{"scope:global"}, boss.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetRulePinned(ctx, rule.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	ruleVersions, err := s.KnowledgeVersions(ctx, rule.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ruleVersions) != 1 || ruleVersions[0].Pinned {
+		t.Fatalf("set_rule_pinned 应快照修改前 pinned=false，got %+v", ruleVersions)
+	}
+
+	old, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Title: "Worker Token 不外发", Content: "不要把 worker token 发给用户。", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dupe, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Title: " worker token 不外发 ", Content: "不要把 worker token 发到群里。", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.ScoreLearningCandidates(ctx, 1); err != nil || n != 1 {
+		t.Fatalf("ScoreLearningCandidates = %d, %v", n, err)
+	}
+	got, err := s.LearningCandidateByID(ctx, dupe.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DuplicateOf == nil || *got.DuplicateOf != old.ID || got.ValueScore <= 0 {
+		t.Fatalf("应跨历史识别重复候选: %+v old=%d", got, old.ID)
+	}
+}
+
+func TestWorkerCapabilities(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertWorkerCapability(ctx, WorkerCapabilityInput{
+		WorkerID: worker.ID, Engine: "codex", CLIName: "codex", OS: "linux", Arch: "amd64",
+		Capabilities: []string{"Go", "go", " xlsx "},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	caps, err := s.WorkerCapabilities(ctx, []int64{worker.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := caps[worker.ID]
+	if got == nil || strings.Join(got.Capabilities, ",") != "go,xlsx" || got.OS != "linux" {
+		t.Fatalf("capability normalization failed: %+v", got)
+	}
+}
+
 func TestDeletePublishedKnowledgeUnlinksLearningCandidate(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

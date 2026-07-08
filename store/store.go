@@ -103,6 +103,26 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
+func (s *Store) AppliedMigrations(ctx context.Context, limit int) ([]string, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `SELECT version FROM schema_migrations ORDER BY version DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 // wrapErr 把驱动层错误翻译成哨兵错误。
 func wrapErr(err error) error {
 	if err == nil {

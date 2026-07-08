@@ -259,6 +259,18 @@ func renderLearningCandidates(items []*store.LearningCandidate) string {
 		if c.Confidence > 0 {
 			fmt.Fprintf(&b, "  confidence: %.2f\n", c.Confidence)
 		}
+		if c.ValueScore > 0 {
+			fmt.Fprintf(&b, "  value_score: %.2f\n", c.ValueScore)
+		}
+		if c.DuplicateOf != nil {
+			fmt.Fprintf(&b, "  duplicate_of: %s\n", internalRef("候选", *c.DuplicateOf))
+		}
+		if c.ConflictWith != nil {
+			fmt.Fprintf(&b, "  conflict_with: %s\n", internalRef("候选", *c.ConflictWith))
+		}
+		if strings.TrimSpace(c.ReviewNote) != "" {
+			fmt.Fprintf(&b, "  review_note: %s\n", c.ReviewNote)
+		}
 		if ev := renderLearningEvidence(c.Evidence); ev != "" {
 			fmt.Fprintf(&b, "  evidence: %s\n", ev)
 		}

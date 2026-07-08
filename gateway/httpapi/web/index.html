@@ -91,7 +91,11 @@
     <button data-tab="todo">我的待办</button>
     <button data-tab="review">待验收</button>
     <button data-tab="assigned">我分配的</button>
+    <button data-tab="decisions">决策</button>
     <button data-tab="overview" id="tabOverview" hidden>全景</button>
+    <button data-tab="workers" id="tabWorkers" hidden>AI员工</button>
+    <button data-tab="learning" id="tabLearning" hidden>学习</button>
+    <button data-tab="ops" id="tabOps" hidden>运维</button>
   </nav>
 
   <section id="view-chat" class="card">
@@ -105,7 +109,11 @@
   <section id="view-todo" class="card" hidden></section>
   <section id="view-review" class="card" hidden></section>
   <section id="view-assigned" class="card" hidden></section>
+  <section id="view-decisions" class="card" hidden></section>
   <section id="view-overview" hidden></section>
+  <section id="view-workers" class="card" hidden></section>
+  <section id="view-learning" class="card" hidden></section>
+  <section id="view-ops" class="card" hidden></section>
 </div>
 
 <script>
@@ -143,6 +151,9 @@ async function tryEnter() {
     $("#app").hidden = false;
     $("#who").textContent = me.name + (me.is_superadmin ? " · 超管" : "");
     $("#tabOverview").hidden = !me.is_superadmin;
+    $("#tabWorkers").hidden = !me.is_superadmin;
+    $("#tabLearning").hidden = !me.is_superadmin;
+    $("#tabOps").hidden = !me.is_superadmin;
   } catch (e) { /* showLogin 已处理 401；其它错误提示 */
     if (store.token) $("#loginErr").textContent = e.message;
   }
@@ -152,7 +163,7 @@ $("#token").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginB
 $("#logout").onclick = () => showLogin();
 
 /* ---------- 标签页 ---------- */
-const loaders = { todo: loadTodo, review: loadReview, assigned: loadAssigned, overview: loadOverview };
+const loaders = { todo: loadTodo, review: loadReview, assigned: loadAssigned, decisions: loadDecisions, overview: loadOverview, workers: loadWorkers, learning: loadLearning, ops: loadOps };
 $("#tabs").addEventListener("click", e => {
   const btn = e.target.closest("button"); if (!btn) return;
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b === btn));
@@ -225,6 +236,15 @@ function esc(s){ const d = document.createElement("span"); d.textContent = s ?? 
 async function loadTodo()    { renderTasks($("#view-todo"),    (await api("/api/me/tasks")).tasks,   { who:"assigner" }); }
 async function loadReview()  { renderTasks($("#view-review"),  (await api("/api/me/review")).tasks,  { who:"assignee" }); }
 async function loadAssigned(){ renderTasks($("#view-assigned"),(await api("/api/me/assigned")).tasks,{ who:"assignee" }); }
+async function loadDecisions(){
+  const el = $("#view-decisions");
+  el.innerHTML = `<div class="empty">加载中…</div>`;
+  const d = await api("/api/admin/decisions");
+  if (!d.decisions.length) { el.innerHTML = `<div class="empty">（当前没有待决策事项）</div>`; return; }
+  el.innerHTML = `<h3 style="margin-top:0">决策队列</h3>` + d.decisions.map(x =>
+    `<div class="task"><span class="tid">#${x.ID}</span><span class="title">${esc(x.Title)}</span><span class="badge b-${x.Priority === "high" ? "done" : "pending"}">${esc(x.Priority)}</span><span class="meta">${esc(x.Kind)}</span></div>`
+  ).join("");
+}
 
 /* ---------- 全景 ---------- */
 async function loadOverview() {
@@ -249,6 +269,37 @@ async function loadOverview() {
       <div id="ov-overdue"></div>
     </div>`;
   renderTasks($("#ov-overdue"), d.overdue, { who:"assignee" });
+}
+async function loadWorkers(){
+  const el = $("#view-workers");
+  el.innerHTML = `<div class="empty">加载中…</div>`;
+  const d = await api("/api/admin/workers");
+  if (!d.workers.length) { el.innerHTML = `<div class="empty">（暂无 AI 员工）</div>`; return; }
+  el.innerHTML = `<h3 style="margin-top:0">AI 员工</h3><table><thead><tr><th>名称</th><th>状态</th><th>引擎</th><th>能力</th></tr></thead><tbody>` +
+    d.workers.map(w => {
+      const c = w.capability || {};
+      return `<tr><td>#${w.id} ${esc(w.name)}</td><td>${w.online ? "在线" : esc(w.status)}</td><td>${esc(c.Engine || "")}</td><td>${esc((c.Capabilities || []).join(" / "))}</td></tr>`;
+    }).join("") + `</tbody></table>`;
+}
+async function loadLearning(){
+  const el = $("#view-learning");
+  el.innerHTML = `<div class="empty">加载中…</div>`;
+  const d = await api("/api/admin/learning");
+  if (!d.candidates.length) { el.innerHTML = `<div class="empty">（暂无待审核学习候选）</div>`; return; }
+  el.innerHTML = `<h3 style="margin-top:0">学习候选</h3><table><thead><tr><th>类型</th><th>标题</th><th>分数</th><th>提示</th></tr></thead><tbody>` +
+    d.candidates.map(c => `<tr><td>${esc(c.Kind)}</td><td>#${c.ID} ${esc(c.Title)}</td><td>${Number(c.ValueScore || 0).toFixed(2)}</td><td>${esc(c.ReviewNote || "")}</td></tr>`).join("") +
+    `</tbody></table>`;
+}
+async function loadOps(){
+  const el = $("#view-ops");
+  el.innerHTML = `<div class="empty">加载中…</div>`;
+  const d = await api("/api/admin/ops");
+  el.innerHTML = `<h3 style="margin-top:0">运维状态</h3>
+    <table><tbody>
+      <tr><th>版本</th><td>${esc(d.version)}</td></tr>
+      <tr><th>Go</th><td>${esc(d.go)}</td></tr>
+      <tr><th>最近迁移</th><td>${esc((d.migrations || []).join(", "))}</td></tr>
+    </tbody></table>`;
 }
 
 /* ---------- 启动 ---------- */

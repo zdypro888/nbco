@@ -835,8 +835,12 @@ func (g *Gateway) evaluateGroupMonitor(mon store.TelegramGroupMonitor, lines []s
 	if title == "" {
 		title = fmt.Sprintf("Telegram 群 %d", mon.ChatID)
 	}
-	input := fmt.Sprintf("群名：%s\n监控要求：%s\n\n最近群聊：\n%s",
-		title, strings.TrimSpace(mon.Instruction), strings.Join(lines, "\n"))
+	projectLine := ""
+	if pj, err := g.store.TelegramGroupProject(ctx, mon.ChatID); err == nil && pj != nil {
+		projectLine = "绑定项目：" + pj.Name + "\n"
+	}
+	input := fmt.Sprintf("群名：%s\n%s监控要求：%s\n\n最近群聊：\n%s",
+		title, projectLine, strings.TrimSpace(mon.Instruction), strings.Join(lines, "\n"))
 	out, err := g.orch.Summarize(ctx, mon.NotifyUserID, "telegram_group_monitor", groupMonitorSystem, input)
 	if err != nil {
 		slog.Warn("群监控 AI 判断失败", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)

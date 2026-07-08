@@ -72,6 +72,16 @@ func main() {
 		bootstrap(os.Args[2:])
 	case "run":
 		run(os.Args[2:])
+	case "once":
+		once(os.Args[2:])
+	case "status":
+		status(os.Args[2:])
+	case "doctor":
+		doctor(os.Args[2:])
+	case "workspace":
+		workspace(os.Args[2:])
+	case "logs":
+		logs(os.Args[2:])
 	case "install-service":
 		installService(os.Args[2:])
 	case "uninstall-service":
@@ -84,7 +94,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "用法：\n  nbco-worker bind [-config path] <server> <绑定码|token>\n  nbco-worker bootstrap [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] [-install-service=true] <server> <绑定码|token>\n  nbco-worker run [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli]\n  nbco-worker install-service [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] [-name name]\n  nbco-worker uninstall-service [-config path] [-name name]\n  nbco-worker service-status [-config path] [-name name]\n\n绑定码是 create_worker 给出的一次性 wbc_ 码；也兼容直接传 Worker Access Token。\n也可用 NBCO_WORKER_CONFIG 指定配置文件。")
+	fmt.Fprintln(os.Stderr, "用法：\n  nbco-worker bind [-config path] <server> <绑定码|token>\n  nbco-worker bootstrap [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] [-install-service=true] <server> <绑定码|token>\n  nbco-worker run [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli]\n  nbco-worker once [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli]\n  nbco-worker status [-config path]\n  nbco-worker doctor [-config path]\n  nbco-worker workspace [-config path]\n  nbco-worker logs [-config path] [-name name]\n  nbco-worker install-service [-config path] [-engine claude|codex|builtin] [-bin /path/to/cli] [-name name]\n  nbco-worker uninstall-service [-config path] [-name name]\n  nbco-worker service-status [-config path] [-name name]\n\n绑定码是 create_worker 给出的一次性 wbc_ 码；也兼容直接传 Worker Access Token。\n也可用 NBCO_WORKER_CONFIG 指定配置文件。")
 	os.Exit(2)
 }
 
@@ -175,35 +185,7 @@ func run(args []string) {
 	bin := fs.String("bin", "", "覆盖 CLI 可执行文件路径")
 	_ = fs.Parse(args)
 
-	path := configPath(*cfgFile)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatalf("未绑定（%v）。先运行 nbco-worker bind -config %s <server> <一次性worker绑定码>", err, path)
-	}
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		log.Fatalf("配置损坏: %v", err)
-	}
-	if *engine != "" {
-		cfg.Engine = *engine
-	}
-	if cfg.Engine == "" {
-		cfg.Engine = "claude"
-	}
-	if *bin != "" {
-		cfg.Bin = *bin
-	}
-	if cfg.Bin == "" {
-		cfg.Bin = cfg.Engine
-	}
-	// 没装 claude/codex 也要能干活：CLI 缺失时自动回退内置智能体
-	// （中枢模型当大脑、本机 shell 当手脚；能力较弱但可执行命令完成大量任务）。
-	if cfg.Engine != engineBuiltin {
-		if _, err := exec.LookPath(cfg.Bin); err != nil {
-			log.Printf("工作机上未找到 %q，回退内置智能体模式（由中枢模型驱动）；安装对应 CLI 后重启即可恢复", cfg.Bin)
-			cfg.Engine = engineBuiltin
-		}
-	}
+	cfg, path := loadConfigForRun(*cfgFile, *engine, *bin)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -216,6 +198,116 @@ func run(args []string) {
 	log.Printf("nbco-worker 上线：worker=#%d %s config=%s server=%s engine=%s", cfg.WorkerID, cfg.WorkerName, path, cfg.Server, cfg.Engine)
 	w.Loop(ctx)
 	log.Println("已下线")
+}
+
+func once(args []string) {
+	fs := flag.NewFlagSet("once", flag.ExitOnError)
+	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
+	engine := fs.String("engine", "", "覆盖引擎：claude | codex | builtin（内置智能体）")
+	bin := fs.String("bin", "", "覆盖 CLI 可执行文件路径")
+	_ = fs.Parse(args)
+	cfg, _ := loadConfigForRun(*cfgFile, *engine, *bin)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	ident := waitForWorkerIdentity(ctx, cfg)
+	cfg.WorkerID = ident.ID
+	cfg.WorkerName = ident.Name
+	ok, err := newWorker(cfg).RunOnce(ctx)
+	if err != nil {
+		log.Fatalf("单次执行失败: %v", err)
+	}
+	if !ok {
+		log.Println("当前没有可领取任务。")
+	}
+}
+
+func loadConfigForRun(cfgFile, engine, bin string) (Config, string) {
+	path := configPath(cfgFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("未绑定（%v）。先运行 nbco-worker bind -config %s <server> <一次性worker绑定码>", err, path)
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		log.Fatalf("配置损坏: %v", err)
+	}
+	if engine != "" {
+		cfg.Engine = engine
+	}
+	if cfg.Engine == "" {
+		cfg.Engine = "claude"
+	}
+	if bin != "" {
+		cfg.Bin = bin
+	}
+	if cfg.Bin == "" {
+		cfg.Bin = cfg.Engine
+	}
+	if cfg.Engine != engineBuiltin {
+		if _, err := exec.LookPath(cfg.Bin); err != nil {
+			log.Printf("工作机上未找到 %q，回退内置智能体模式（由中枢模型驱动）；安装对应 CLI 后重启即可恢复", cfg.Bin)
+			cfg.Engine = engineBuiltin
+		}
+	}
+	return cfg, path
+}
+
+func status(args []string) {
+	fs := flag.NewFlagSet("status", flag.ExitOnError)
+	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
+	_ = fs.Parse(args)
+	cfg, path := loadConfigForRun(*cfgFile, "", "")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
+	if err != nil {
+		log.Fatalf("服务端身份校验失败: %v", err)
+	}
+	report := collectCapabilities(cfg)
+	fmt.Printf("config=%s\nserver=%s\nworker=#%d %s\nengine=%s\nbin=%s\ncaps=%v\n", path, cfg.Server, ident.ID, ident.Name, report.Engine, report.CLIName, report.Capabilities)
+}
+
+func doctor(args []string) {
+	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
+	_ = fs.Parse(args)
+	cfg, path := loadConfigForRun(*cfgFile, "", "")
+	fmt.Printf("config: %s\n", path)
+	status([]string{"-config", path})
+	if cfg.Engine != engineBuiltin {
+		if _, err := exec.LookPath(cfg.Bin); err != nil {
+			fmt.Printf("cli: %s not found（会回退 builtin）\n", cfg.Bin)
+		} else {
+			fmt.Printf("cli: %s ok\n", cfg.Bin)
+		}
+	}
+	fmt.Println("doctor: ok")
+}
+
+func workspace(args []string) {
+	fs := flag.NewFlagSet("workspace", flag.ExitOnError)
+	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
+	_ = fs.Parse(args)
+	cfg, path := loadConfigForRun(*cfgFile, "", "")
+	home, _ := os.UserHomeDir()
+	fmt.Printf("config=%s\nbase_workspace=%s\n", path, filepath.Join(home, "nbco-work"))
+	for scope, dir := range cfg.SessionWorkspaces {
+		fmt.Printf("%s -> %s\n", scope, dir)
+	}
+}
+
+func logs(args []string) {
+	fs := flag.NewFlagSet("logs", flag.ExitOnError)
+	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
+	name := fs.String("name", "", "服务名")
+	_ = fs.Parse(args)
+	path := configPath(*cfgFile)
+	service := serviceName(path, *name)
+	out, err := platformServiceStatus(service)
+	if err != nil {
+		log.Fatalf("读取服务状态失败: %v\n%s", err, out)
+	}
+	fmt.Print(out)
 }
 
 func waitForWorkerIdentity(ctx context.Context, cfg Config) *Identity {

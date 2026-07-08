@@ -20,12 +20,14 @@
 - 验收打回后自动重新领取，带上历史过程和打回理由返工。
 - HTTP/API 文件上传下载、任务附件挂载、worker 附件下载到 `attachments/`、worker 产物从 `artifacts/` 上传。
 - Telegram 网关可选；未配置 `telegram_token` 时，HTTP/API/MCP/worker 仍可运行。
+- worker 运维命令：`status` 校验身份与能力，`doctor` 做本机配置检查，`workspace` 展示主题 workspace 映射，`once` 单次领取任务，`logs` 读取平台服务状态。
+- worker 能力上报：启动/单次执行前把 OS/Arch、引擎、CLI 版本、可用能力（code/go/python/pdf/xlsx/images 等）写回中枢，自动派工会优先匹配能力。
 
 ## 核心缺口
 
 1. Telegram 文件适配还没打通：Bot API 文件下载、自动挂任务、发回产物还待实现。
 2. Web UI 还没有文件上传/下载控件；HTTP API 已有。
-3. worker 缺少本机可观测命令：状态、当前任务、工作目录、最近日志、配置检查。
+3. worker 还缺少更细的本机可观测性：当前任务进度、最近 N 条任务日志、平台日志 tail。
 4. 安装分发还粗糙：目前依赖手工构建/复制，没有平台包、校验和、升级策略。
 5. workspace 边界还不够产品化：当前默认 `~/nbco-work/task-<id>`，需要显式配置、展示和检查。
 
@@ -108,5 +110,5 @@ worker 是明示安装、明示绑定、明示运行的工作代理：
 4. [x] 显式命令任务：`run_worker_command` → `worker_command` → worker pipe/可选 PTY 执行并回传。
 5. [ ] Web UI 文件入口：网页上传/下载，脱离 Telegram 完整可用。
 6. [ ] Telegram 文件适配：Bot API 下载上传文件、必要时发 artifact。
-7. [ ] worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
+7. [x] worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
 8. [ ] 分发安装：release 二进制、校验和、平台安装脚本；仍由用户显式执行。

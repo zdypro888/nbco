@@ -9,6 +9,7 @@ AGENT="${HOME}/Library/LaunchAgents/com.zdypro.nbco.plist"
 LABEL="com.zdypro.nbco"
 GUI_DOMAIN="gui/$(id -u)"
 LISTEN="${NBCO_LISTEN:-127.0.0.1:8900}"
+VERSION="$(git -C "${ROOT}" rev-parse --short=12 HEAD 2>/dev/null || echo dev)"
 
 mkdir -p "${BIN_DIR}" "${APP_DIR}" "${LOG_DIR}" "$(dirname "${AGENT}")"
 
@@ -17,7 +18,7 @@ tmp_worker="$(mktemp "${TMPDIR:-/tmp}/nbco-worker.XXXXXX")"
 rm -f "${tmp_nbco}" "${tmp_worker}"
 trap 'rm -f "${tmp_nbco}" "${tmp_worker}"' EXIT
 
-go build -o "${tmp_nbco}" "${ROOT}/cmd/nbco"
+go build -ldflags="-X github.com/zdypro888/nbco/gateway/httpapi.Version=${VERSION}" -o "${tmp_nbco}" "${ROOT}/cmd/nbco"
 go build -o "${tmp_worker}" "${ROOT}/cmd/nbco-worker"
 install -m 0755 "${tmp_nbco}" "${BIN_DIR}/nbco"
 install -m 0755 "${tmp_worker}" "${BIN_DIR}/nbco-worker"

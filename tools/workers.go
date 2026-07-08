@@ -28,6 +28,14 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 			if len(ws) == 0 {
 				return "（还没有 AI 员工。有 AI 员工管理权限（manage_worker）即可用 create_worker 创建。）", nil
 			}
+			ids := make([]int64, 0, len(ws))
+			for _, w := range ws {
+				ids = append(ids, w.ID)
+			}
+			caps, err := d.Store.WorkerCapabilities(ctx, ids)
+			if err != nil {
+				return "", err
+			}
 			var b strings.Builder
 			for _, w := range ws {
 				status := "离线"
@@ -44,7 +52,12 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if w.IsSuperadmin {
 					admin = "，admin worker"
 				}
-				fmt.Fprintf(&b, "- %s：%s（%s%s）\n", internalRef("worker", w.ID), w.Name, status, admin)
+				capText := ""
+				if c := caps[w.ID]; c != nil {
+					capText = fmt.Sprintf("；%s/%s %s，engine=%s，能力=%s，更新 %s",
+						c.OS, c.Arch, c.CLIName, c.Engine, strings.Join(c.Capabilities, "/"), fmtTime(c.UpdatedAt, d.TZ))
+				}
+				fmt.Fprintf(&b, "- %s：%s（%s%s%s）\n", internalRef("worker", w.ID), w.Name, status, admin, capText)
 			}
 			return b.String(), nil
 		})

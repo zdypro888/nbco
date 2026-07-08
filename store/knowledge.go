@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Knowledge 知识条目：对话与任务中沉淀的可复用结论（决策、流程、方案、约定）。
@@ -85,9 +87,24 @@ func (s *Store) ListRules(ctx context.Context, limit int) ([]*Knowledge, error) 
 
 // SetRulePinned 调整规则常驻与否。目标非规则返回 ErrNotFound。
 func (s *Store) SetRulePinned(ctx context.Context, id int64, pinned bool) error {
-	return s.execOne(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := snapshotKnowledgeRow(ctx, tx, id, nil, "before set_rule_pinned"); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx,
 		`UPDATE knowledge SET pinned = $2, updated_at = now() WHERE id = $1 AND kind = $3`,
 		id, pinned, KnowledgeKindPolicy)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 // SearchRules 词法检索非常驻规则（常驻的已在系统提示里，不参与动态召回）。
@@ -116,7 +133,32 @@ func (s *Store) EmbeddedSkills(ctx context.Context, model string) ([]KnowledgeVe
 // 标题或正文变更时清空 embed_model：向量按「标题×2+正文」构造，只改标题也会
 // 让旧向量失真；清标签后即时 Reembed 或启动回填都会重新嵌入，不清则永不刷新。
 func (s *Store) UpdateKnowledge(ctx context.Context, id int64, title, content *string, tags []string) (*Knowledge, error) {
-	return scanKnowledge(s.pool.QueryRow(ctx,
+	return s.updateKnowledge(ctx, id, title, content, tags, true)
+}
+
+func (s *Store) updateKnowledge(ctx context.Context, id int64, title, content *string, tags []string, snapshot bool) (*Knowledge, error) {
+	if !snapshot {
+		return updateKnowledgeRow(ctx, s.pool, id, title, content, tags)
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := snapshotKnowledgeRow(ctx, tx, id, nil, "before update"); err != nil {
+		return nil, err
+	}
+	k, err := updateKnowledgeRow(ctx, tx, id, title, content, tags)
+	if err != nil {
+		return nil, err
+	}
+	return k, tx.Commit(ctx)
+}
+
+func updateKnowledgeRow(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, id int64, title, content *string, tags []string) (*Knowledge, error) {
+	return scanKnowledge(q.QueryRow(ctx,
 		`UPDATE knowledge SET
 		   title = COALESCE($2, title),
 		   content = COALESCE($3, content),

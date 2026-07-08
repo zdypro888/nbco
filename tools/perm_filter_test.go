@@ -150,7 +150,7 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 			t.Errorf("worker 工具集出现白名单外的 %s", n)
 		}
 	}
-	for _, keep := range []string{"get_my_tasks", "add_progress", "save_knowledge", "search_knowledge"} {
+	for _, keep := range []string{"get_my_tasks", "add_progress", "save_knowledge", "search_knowledge", "search_skills", "load_skill"} {
 		if !names[keep] {
 			t.Errorf("worker 应保留 %s", keep)
 		}

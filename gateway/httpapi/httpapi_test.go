@@ -22,6 +22,19 @@ func TestDecodeJSONLimitsBody(t *testing.T) {
 	}
 }
 
+func TestHandleVersion(t *testing.T) {
+	prev := Version
+	Version = "test-rev"
+	t.Cleanup(func() { Version = prev })
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/version", nil)
+	rec := httptest.NewRecorder()
+	s.handleVersion(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"version":"test-rev"`) || !strings.Contains(rec.Body.String(), `"go":"`) {
+		t.Fatalf("version response = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestWorkerDownloadBinary(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "worker")

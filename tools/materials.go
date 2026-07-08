@@ -150,8 +150,9 @@ func materialAnalysisPrompt(instruction string) string {
 完成汇报末尾必须输出：
 %s
 {
-  "knowledge": [{"title":"","content":"","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
-  "rules": [{"title":"","content":"","scope":"global","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
+	  "knowledge": [{"title":"","content":"","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
+	  "entities": [{"entity_type":"customer|project|contract|policy|contact|asset|system","name":"","content":"","file_id":0,"confidence":0.8,"evidence":{"files":[],"notes":""}}],
+	  "rules": [{"title":"","content":"","scope":"global","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
   "skills": [{"title":"","trigger":"","summary":"","procedure":"","constraints":"","scope":"global","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
   "questions": [{"title":"","content":"","evidence":{"files":[],"notes":""}}]
 }

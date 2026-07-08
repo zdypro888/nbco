@@ -50,6 +50,18 @@ type BindResult struct {
 	WorkerName string `json:"worker_name"`
 }
 
+type CapabilityReport struct {
+	Engine       string         `json:"engine"`
+	CLIName      string         `json:"cli_name"`
+	CLIVersion   string         `json:"cli_version"`
+	OS           string         `json:"os"`
+	Arch         string         `json:"arch"`
+	Hostname     string         `json:"hostname"`
+	Workdir      string         `json:"workdir"`
+	Capabilities []string       `json:"capabilities"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+}
+
 // RedeemBindCode 用一次性绑定码兑换 Worker Access Token（无需已有 token）。
 func (c *Client) RedeemBindCode(ctx context.Context, code string) (*BindResult, error) {
 	buf, _ := json.Marshal(map[string]string{"code": code})
@@ -96,6 +108,10 @@ func (c *Client) Me(ctx context.Context) (*Identity, error) {
 		return nil, err
 	}
 	return &ident, nil
+}
+
+func (c *Client) RegisterCapabilities(ctx context.Context, report CapabilityReport) error {
+	return c.post(ctx, "/api/worker/capabilities", report)
 }
 
 // Task 从 nbco 领到的任务。

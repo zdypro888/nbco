@@ -75,7 +75,7 @@ docker compose up -d
 ## Web 入口与 HTTP API
 
 浏览器打开 `http://<listen>/` 即是 Web 入口（内嵌单页，无需部署前端）：粘贴 Access Token 登录，
-可对话（与 REST 同一会话）、看我的待办/待验收/我分配的任务；超管多一个全景页（统计+项目+过期点名）。
+可对话（与 REST 同一会话）、看我的待办/待验收/我分配的任务和决策队列；超管还可以看全景、AI 员工能力、学习候选治理与运维状态。
 
 认证一律 `Authorization: Bearer <token>`。全新系统且没有 Telegram 时，先调一次：
 
@@ -106,8 +106,10 @@ curl -X POST http://<listen>/api/bootstrap \
 - `GET /api/me` — 当前用户
 - `GET /api/me/tasks` / `GET /api/me/review` / `GET /api/me/assigned` — 待办 / 待我验收 / 我分配的
 - `GET /api/overview` — 全局统计+项目+过期任务（超管）
+- `GET /api/admin/workers` / `/api/admin/learning` / `/api/admin/decisions` / `/api/admin/ops` — Web 管理面数据源
 - `POST /api/files`（multipart `file`，最大 200MB）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）
 - `POST /api/tasks/{id}/attachments` `{"file_id":123,"caption":"..."}` — 把文件挂到任务
+- `GET /version` — 当前服务版本与 Go 版本（部署脚本会把 git SHA 写进版本号）
 - `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具
 - `GET /healthz`
 
@@ -158,6 +160,11 @@ chmod +x nbco-worker
 
 ```bash
 ./nbco-worker service-status
+./nbco-worker status
+./nbco-worker doctor
+./nbco-worker workspace
+./nbco-worker once
+./nbco-worker logs
 ./nbco-worker install-service [-engine claude|codex] [-bin /path/to/cli]
 ./nbco-worker uninstall-service
 ```
@@ -170,6 +177,7 @@ chmod +x nbco-worker
 ```
 
 `bind/bootstrap` 用绑定码兑换 Worker Access Token（也兼容直接传已有 token），校验其必须属于 worker，并把换来的 token 与 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
+worker 上线和单次执行前会向中枢上报能力（OS/Arch、引擎、CLI 版本、可用能力如 code/go/python/pdf/xlsx/images），`list_workers`、Web AI员工页和自动派工都会使用这些信号；任务里出现代码、PDF、Excel、图片等线索时会优先派给匹配能力的 worker，再看负载、在线状态和历史通过数。
 
 ### 沙箱化部署（推荐）
 
@@ -305,7 +313,11 @@ nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把
 - **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态与审核人
 - **对话学习**：Memory Miner 从超管对话里抽取规则、skill、知识；已发布内容也会留下 learning candidate 记录，便于之后审计
 - **worker 学习**：worker 完成资料分析任务时，可在汇报末尾输出 `NBCO_LEARNING_CANDIDATES_JSON:`，nbco 会解析为学习候选
+- **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，标记明显重复/冲突；调度器月度知识盘点和 Web 学习页会自动触发一次轻量评分
 - **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布到正式知识库/规则/Skill，用 `reject_learning_candidate` 清理噪音
+- **版本回滚**：知识/规则/Skill 更新前会写入 `knowledge_versions`；误改后用 `list_knowledge_versions` / `rollback_knowledge` 恢复
+- **资料实体库**：worker 资料分析可同时输出客户、项目、合同、制度、联系人等结构化实体，入 `material_entities`，再由 `list_material_entities` 检索
+- **对话回归用例**：`create_eval_case` / `list_eval_cases` 保存格式、隐私、工具纪律等红线用例，作为后续自动评测入口
 
 这层是“智能学习”的治理面：长期规则、执行方法、公司事实可以越来越多，但每轮对话只由规则/skill/知识检索器按需加载，不靠无限拉长系统提示。
 

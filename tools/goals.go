@@ -179,7 +179,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 					}
 					assigneeID := st.AssigneeID
 					if assigneeID == 0 {
-						wid, _, perr := pickWorkerAssignee(ctx, d, u)
+						wid, _, perr := pickWorkerAssignee(ctx, d, u, st.Title, st.Description, st.Acceptance)
 						if perr != nil {
 							return perr.Error(), nil
 						}

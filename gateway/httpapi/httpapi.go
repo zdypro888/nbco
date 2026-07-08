@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,8 @@ import (
 const Channel = "api"
 
 const maxJSONBodyBytes = 1 << 20
+
+var Version = "dev"
 
 //go:embed web/index.html
 var indexHTML []byte
@@ -77,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("GET /version", s.handleVersion)
 	mux.HandleFunc("GET /downloads/worker/{name}", s.handleWorkerDownloadBinary)
 	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
@@ -85,11 +89,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
 	mux.HandleFunc("GET /api/overview", s.handleOverview)
+	mux.HandleFunc("GET /api/admin/workers", s.handleAdminWorkers)
+	mux.HandleFunc("GET /api/admin/learning", s.handleAdminLearning)
+	mux.HandleFunc("GET /api/admin/decisions", s.handleAdminDecisions)
+	mux.HandleFunc("GET /api/admin/ops", s.handleAdminOps)
 	mux.HandleFunc("POST /api/files", s.handleUploadFile)
 	mux.HandleFunc("GET /api/files/{id}", s.handleDownloadFile)
 	mux.HandleFunc("POST /api/tasks/{id}/attachments", s.handleAttachFile)
 	// AI 员工（worker client）接口。任务队列走 HTTP（DB 为准），WS 做实时增强。
 	mux.HandleFunc("POST /api/worker/bind", s.handleWorkerBind)
+	mux.HandleFunc("POST /api/worker/capabilities", s.handleWorkerCapabilities)
 	mux.HandleFunc("POST /api/worker/llm", s.handleWorkerLLM)
 	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
@@ -175,6 +184,112 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": u.ID, "name": u.Name, "is_superadmin": u.IsSuperadmin,
 		"is_worker": u.IsWorker, "owner_id": u.OwnerID,
+	})
+}
+
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version": Version,
+		"go":      runtime.Version(),
+	})
+}
+
+func (s *Server) requireSuper(w http.ResponseWriter, r *http.Request) *store.User {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return nil
+	}
+	if !u.IsSuperadmin {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "需要超级管理员权限"})
+		return nil
+	}
+	return u
+}
+
+func (s *Server) handleAdminWorkers(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	ws, err := s.store.ListWorkers(r.Context(), 0)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 worker 失败"})
+		return
+	}
+	ids := make([]int64, 0, len(ws))
+	for _, worker := range ws {
+		ids = append(ids, worker.ID)
+	}
+	caps, err := s.store.WorkerCapabilities(r.Context(), ids)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 worker 能力失败"})
+		return
+	}
+	out := make([]map[string]any, 0, len(ws))
+	for _, worker := range ws {
+		out = append(out, map[string]any{
+			"id": worker.ID, "name": worker.Name, "status": worker.Status,
+			"owner_id": worker.OwnerID, "admin": worker.IsSuperadmin,
+			"online": dOnline(s, worker.ID), "last_seen": worker.WorkerLastSeen,
+			"capability": caps[worker.ID],
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"workers": out})
+}
+
+func dOnline(s *Server, workerID int64) bool {
+	return s.deps.Workers != nil && s.deps.Workers.Online(workerID)
+}
+
+func (s *Server) handleAdminLearning(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	if status == "" {
+		status = store.LearningStatusPending
+	}
+	_, _ = s.store.ScoreLearningCandidates(r.Context(), 200)
+	items, err := s.store.ListLearningCandidates(r.Context(), status, strings.TrimSpace(r.URL.Query().Get("kind")), 100)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取学习候选失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": items})
+}
+
+func (s *Server) handleAdminDecisions(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	_, _ = s.store.BuildDecisionQueue(r.Context(), u.ID)
+	items, err := s.store.ListDecisionItems(r.Context(), u.ID, "open", 50)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取决策队列失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"decisions": items})
+}
+
+func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	migrations, err := s.store.AppliedMigrations(r.Context(), 20)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取迁移状态失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version":    Version,
+		"go":         runtime.Version(),
+		"migrations": migrations,
+		"workers": map[string]any{
+			"hub_configured": s.deps.Workers != nil,
+		},
 	})
 }
 
@@ -379,9 +494,43 @@ func (s *Server) handleWorkerBind(w http.ResponseWriter, r *http.Request) {
 	// 上线事件交监护人的 AI 分析：要不要通知、要不要顺手派活，AI 说了算。
 	if u.OwnerID != nil {
 		s.bus.Emit("AI员工上线", *u.OwnerID,
-			fmt.Sprintf("AI 员工「%s」（worker内部编号 %d）刚在工作机完成绑定，已可领取任务。", u.Name, u.ID))
+			fmt.Sprintf("AI 员工「%s」刚在工作机完成绑定，已可领取任务。", u.Name))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "worker_id": u.ID, "worker_name": u.Name})
+}
+
+func (s *Server) handleWorkerCapabilities(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		Engine       string          `json:"engine"`
+		CLIName      string          `json:"cli_name"`
+		CLIVersion   string          `json:"cli_version"`
+		OS           string          `json:"os"`
+		Arch         string          `json:"arch"`
+		Hostname     string          `json:"hostname"`
+		Workdir      string          `json:"workdir"`
+		Capabilities []string        `json:"capabilities"`
+		Metadata     json.RawMessage `json:"metadata"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "JSON 无效"})
+		return
+	}
+	cap, err := s.store.UpsertWorkerCapability(r.Context(), store.WorkerCapabilityInput{
+		WorkerID: u.ID, Engine: req.Engine, CLIName: req.CLIName, CLIVersion: req.CLIVersion,
+		OS: req.OS, Arch: req.Arch, Hostname: req.Hostname, Workdir: req.Workdir,
+		Capabilities: req.Capabilities, Metadata: req.Metadata,
+	})
+	if err != nil {
+		slog.Warn("worker 能力上报失败", "worker", u.ID, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存能力失败"})
+		return
+	}
+	_ = s.store.WorkerHeartbeat(r.Context(), u.ID)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "updated_at": cap.UpdatedAt})
 }
 
 // llmProxyTimeout 单次上游模型调用的默认墙钟上限（agent 步长在 worker 侧另有控制）。
@@ -1187,6 +1336,14 @@ type workerLearningPayload struct {
 		Confidence float32         `json:"confidence"`
 		Evidence   json.RawMessage `json:"evidence"`
 	} `json:"knowledge"`
+	Entities []struct {
+		EntityType string          `json:"entity_type"`
+		Name       string          `json:"name"`
+		Content    string          `json:"content"`
+		FileID     int64           `json:"file_id"`
+		Confidence float32         `json:"confidence"`
+		Evidence   json.RawMessage `json:"evidence"`
+	} `json:"entities"`
 	Rules []struct {
 		Title      string          `json:"title"`
 		Content    string          `json:"content"`
@@ -1230,16 +1387,18 @@ func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.Us
 	createdBy := u.ID
 	sourceRef := fmt.Sprint(t.ID)
 	count := 0
-	save := func(in store.LearningCandidateInput) {
+	save := func(in store.LearningCandidateInput) *store.LearningCandidate {
 		in.SourceType = "worker_task"
 		in.SourceRef = sourceRef
 		in.CreatedBy = &createdBy
 		in.Tags = append(in.Tags, fmt.Sprintf("worker:%d", u.ID), fmt.Sprintf("project:%d", t.ProjectID))
-		if _, err := s.store.CreateLearningCandidate(ctx, in); err != nil {
+		c, err := s.store.CreateLearningCandidate(ctx, in)
+		if err != nil {
 			slog.Warn("保存 worker 学习候选失败", "worker", u.ID, "task", t.ID, "kind", in.Kind, "err", err)
-			return
+			return nil
 		}
 		count++
+		return c
 	}
 	for _, k := range payload.Knowledge {
 		if strings.TrimSpace(k.Title) == "" || strings.TrimSpace(k.Content) == "" {
@@ -1249,6 +1408,25 @@ func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.Us
 			Kind: store.LearningKindKnowledge, Scope: "global", Title: k.Title, Content: k.Content,
 			Tags: k.Tags, Evidence: k.Evidence, Confidence: k.Confidence,
 		})
+	}
+	for _, e := range payload.Entities {
+		if strings.TrimSpace(e.EntityType) == "" || strings.TrimSpace(e.Name) == "" {
+			continue
+		}
+		var fileID *int64
+		if e.FileID > 0 {
+			id := e.FileID
+			fileID = &id
+		}
+		if _, err := s.store.CreateMaterialEntity(ctx, store.MaterialEntity{
+			FileID: fileID, EntityType: strings.TrimSpace(e.EntityType), Name: strings.TrimSpace(e.Name),
+			Content: strings.TrimSpace(e.Content), Evidence: e.Evidence, Confidence: e.Confidence,
+			CreatedBy: &createdBy,
+		}); err != nil {
+			slog.Warn("保存材料实体失败", "worker", u.ID, "task", t.ID, "entity", e.Name, "err", err)
+		} else {
+			count++
+		}
 	}
 	for _, r := range payload.Rules {
 		if strings.TrimSpace(r.Title) == "" || strings.TrimSpace(r.Content) == "" {

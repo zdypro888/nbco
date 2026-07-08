@@ -45,6 +45,7 @@ var approvalRequired = map[string]bool{
 	"disable_user":           true, // 停用账号
 	"revoke_worker":          true, // 吊销 AI 员工 token
 	"delete_project":         true, // 连带删除项目全部任务
+	"delete_knowledge":       true, // 删除知识/规则/skill 后不可恢复
 	"delete_role":            true,
 	"remove_info_field":      true, // 连带删除全员该字段数据
 }

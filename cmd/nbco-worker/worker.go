@@ -95,6 +95,7 @@ func newWorker(cfg Config) *Worker {
 func (w *Worker) Loop(ctx context.Context) {
 	go w.link.run(ctx)
 	go w.watchCancel(ctx)
+	w.reportCapabilities(ctx)
 	for {
 		if ctx.Err() != nil {
 			return
@@ -112,6 +113,31 @@ func (w *Worker) Loop(ctx context.Context) {
 		log.Printf("领到任务 #%d：%s", task.ID, task.Title)
 		w.execute(ctx, task, knowledge, history)
 	}
+}
+
+func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
+	w.reportCapabilities(ctx)
+	task, knowledge, history, err := w.client.Next(ctx, w.cfg.Engine)
+	if err != nil {
+		return false, err
+	}
+	if task == nil {
+		return false, nil
+	}
+	log.Printf("领到任务 #%d：%s", task.ID, task.Title)
+	w.execute(ctx, task, knowledge, history)
+	return true, nil
+}
+
+func (w *Worker) reportCapabilities(ctx context.Context) {
+	ctxReport, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	report := collectCapabilities(w.cfg)
+	if err := w.client.RegisterCapabilities(ctxReport, report); err != nil {
+		log.Printf("worker 能力上报失败（不影响接活）: %v", err)
+		return
+	}
+	log.Printf("worker 能力已上报：engine=%s caps=%s", report.Engine, strings.Join(report.Capabilities, ","))
 }
 
 // waitForWork 空闲等待：轮询间隔到点，或实时唤醒提前结束。

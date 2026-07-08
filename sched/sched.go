@@ -341,6 +341,11 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		slog.Error("写知识盘点状态失败", "err", err)
 		return
 	}
+	if n, err := s.store.ScoreLearningCandidates(ctx, 500); err != nil {
+		slog.Warn("学习候选治理评分失败", "err", err)
+	} else if n > 0 {
+		slog.Info("学习候选治理评分完成", "count", n)
+	}
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		slog.Error("知识盘点取用户失败", "err", err)

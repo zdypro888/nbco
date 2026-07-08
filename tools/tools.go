@@ -145,6 +145,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, skillTools(d, u)...)
 	ts = append(ts, learningTools(d, u)...)
+	ts = append(ts, governanceTools(d, u)...)
 	ts = append(ts, scriptToolManagementTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, materialTools(d, u)...)
@@ -223,6 +224,7 @@ var toolPerm = map[string]string{
 	"pin_telegram_group_message":     perm.ActManageTGGroup,
 	"unpin_telegram_group_message":   perm.ActManageTGGroup,
 	"update_telegram_group_info":     perm.ActManageTGGroup,
+	"bind_telegram_group_project":    perm.ActManageTGGroup,
 	// 规则（Policy Memory）影响所有人的每一轮对话，只有超管能改
 	"save_rule":                  reqSuper,
 	"list_rules":                 reqSuper,
@@ -232,6 +234,15 @@ var toolPerm = map[string]string{
 	"list_learning_candidates":   reqSuper,
 	"approve_learning_candidate": reqSuper,
 	"reject_learning_candidate":  reqSuper,
+	"score_learning_candidates":  reqSuper,
+	"list_knowledge_versions":    reqSuper,
+	"rollback_knowledge":         reqSuper,
+	"list_material_entities":     reqSuper,
+	"list_org_groups":            reqSuper,
+	"create_org_group":           reqSuper,
+	"add_org_group_member":       reqSuper,
+	"list_eval_cases":            reqSuper,
+	"create_eval_case":           reqSuper,
 	"list_script_tools":          reqSuper,
 	"create_script_tool":         reqSuper,
 	"update_script_tool":         reqSuper,
@@ -256,6 +267,8 @@ var workerAllowed = map[string]bool{
 	"search_knowledge":           true,
 	"get_knowledge":              true,
 	"list_recent_knowledge":      true,
+	"search_skills":              true,
+	"load_skill":                 true,
 	"propose_learning_candidate": true,
 	"list_recent_files":          true,
 }
@@ -291,6 +304,15 @@ var groupSensitive = map[string]bool{
 	"list_learning_candidates":       true,
 	"approve_learning_candidate":     true,
 	"reject_learning_candidate":      true,
+	"score_learning_candidates":      true,
+	"list_knowledge_versions":        true,
+	"rollback_knowledge":             true,
+	"list_material_entities":         true,
+	"list_org_groups":                true,
+	"create_org_group":               true,
+	"add_org_group_member":           true,
+	"list_eval_cases":                true,
+	"create_eval_case":               true,
 	"list_script_tools":              true,
 	"create_script_tool":             true,
 	"update_script_tool":             true,
@@ -303,6 +325,8 @@ var groupSensitive = map[string]bool{
 	"remove_info_field":              true,
 	"send_message":                   true, // 群里可直接说，无需借 bot 向他人/全体转发
 	"send_file":                      true,
+	"refresh_decision_queue":         true,
+	"list_decision_queue":            true,
 	"schedule_push":                  true, // 定向推送涉及他人，回私聊设更稳妥
 	"set_telegram_group_listen":      true,
 	"set_telegram_group_auto_invite": true,
@@ -312,6 +336,7 @@ var groupSensitive = map[string]bool{
 	"pin_telegram_group_message":     true,
 	"unpin_telegram_group_message":   true,
 	"update_telegram_group_info":     true,
+	"bind_telegram_group_project":    true,
 }
 
 // StripGroupSensitive 从工具集剔除群不宜的高危工具（群共享会话专用）。

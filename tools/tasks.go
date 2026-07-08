@@ -607,7 +607,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				oldAssigneeID := t.AssigneeID
 				autoPickNote := ""
 				if args.AssigneeID == 0 {
-					picked, note, perr := pickWorkerAssignee(ctx, d, u)
+					picked, note, perr := pickWorkerAssignee(ctx, d, u, t.Title, t.Description, t.Acceptance)
 					if perr != nil {
 						return perr.Error(), nil
 					}
@@ -752,7 +752,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				autoPickNote := ""
 				if args.AssigneeID == 0 {
-					picked, note, perr := pickWorkerAssignee(ctx, d, u)
+					picked, note, perr := pickWorkerAssignee(ctx, d, u, args.Title, args.Description, args.Acceptance)
 					if perr != nil {
 						return perr.Error(), nil
 					}
@@ -1120,10 +1120,11 @@ func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b
 }
 
 // pickWorkerAssignee 免指派自动选人：候选 = 自己名下（超管=全部）的在册 AI 员工，
-// 按「当前在办任务数最少 → 实时在线优先 → 历史验收通过数多」排序取首。
+// 先按任务文字匹配 worker 上报能力，再按「当前在办任务数最少 → 实时在线优先 →
+// 历史验收通过数多」排序取首。
 // 这是资源调度（同 SKIP LOCKED 一类的机制层），不是业务政策：派谁的最终决定权
 // 仍在调用方——AI 想自己挑人就显式传 assignee_id。
-func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User) (int64, string, error) {
+func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...string) (int64, string, error) {
 	owner := u.ID
 	if u.IsSuperadmin {
 		owner = 0
@@ -1137,7 +1138,18 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User) (int64, stri
 		open     int64
 		accepted int64
 		online   bool
+		capScore int
+		cap      *store.WorkerCapability
 	}
+	ids := make([]int64, 0, len(ws))
+	for _, w := range ws {
+		ids = append(ids, w.ID)
+	}
+	caps, err := d.Store.WorkerCapabilities(ctx, ids)
+	if err != nil {
+		return 0, "", err
+	}
+	taskText := strings.ToLower(strings.Join(parts, "\n"))
 	var cands []cand
 	for _, w := range ws {
 		if w.Status != store.UserActive {
@@ -1148,12 +1160,16 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User) (int64, stri
 			return 0, "", err
 		}
 		online := d.Workers != nil && d.Workers.Online(w.ID)
-		cands = append(cands, cand{w: w, open: st.Open, accepted: st.Accepted, online: online})
+		cap := caps[w.ID]
+		cands = append(cands, cand{w: w, open: st.Open, accepted: st.Accepted, online: online, cap: cap, capScore: workerCapabilityScore(taskText, cap)})
 	}
 	if len(cands) == 0 {
 		return 0, "", fmt.Errorf("没有可用的 AI 员工可自动指派；请显式指定 assignee_id，或先 create_worker")
 	}
 	sort.Slice(cands, func(i, j int) bool {
+		if cands[i].capScore != cands[j].capScore {
+			return cands[i].capScore > cands[j].capScore
+		}
 		if cands[i].open != cands[j].open {
 			return cands[i].open < cands[j].open
 		}
@@ -1164,11 +1180,53 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User) (int64, stri
 	})
 	best := cands[0]
 	note := fmt.Sprintf("（自动指派给 %s：在办 %d 个、历史通过 %d 个", best.w.Name, best.open, best.accepted)
+	if best.capScore > 0 {
+		note += fmt.Sprintf("、能力匹配 %d", best.capScore)
+	}
 	if best.online {
 		note += "、当前在线"
 	}
+	if best.cap != nil && len(best.cap.Capabilities) > 0 {
+		note += "、" + strings.Join(best.cap.Capabilities, "/")
+	}
 	note += "）"
 	return best.w.ID, note, nil
+}
+
+func workerCapabilityScore(taskText string, cap *store.WorkerCapability) int {
+	if cap == nil {
+		return 0
+	}
+	have := map[string]bool{}
+	for _, c := range cap.Capabilities {
+		have[strings.ToLower(c)] = true
+	}
+	score := 0
+	addIf := func(need string, terms ...string) {
+		for _, term := range terms {
+			if strings.Contains(taskText, term) {
+				if have[need] {
+					score += 3
+				} else {
+					score--
+				}
+				return
+			}
+		}
+	}
+	addIf("code", "代码", "repo", "repository", "git", "go test", "部署", "commit", "push")
+	addIf("pdf", "pdf", "合同", "制度", "文档")
+	addIf("xlsx", "xlsx", "excel", "表格", "值日表")
+	addIf("images", "图片", "照片", "image", "photo")
+	addIf("python", "python", "脚本", "数据处理")
+	addIf("go", "golang", "go语言", "go ")
+	if have["interactive-pty"] {
+		score++
+	}
+	if cap.Engine == "codex" || cap.Engine == "claude" {
+		score++
+	}
+	return score
 }
 
 // FireReadyDependents 任务验收通过后触发依赖编排：找出因此全部前置就绪的下游
