@@ -193,6 +193,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 						return "", err
 					}
 				}
+				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("✅ 你的任务「%s」（%s）验收通过。", t.Title, internalRef("任务", t.ID)))
@@ -234,6 +235,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("🔁 任务「%s」（%s）验收未通过：%s\n请修改后重新提交。", t.Title, internalRef("任务", t.ID), args.Reason))
 				}
+				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
 				// 执行人是 worker：回到 pending 让它重新认领返工（打回理由已在
 				// 过程记录里，会随任务历史进入下一轮 prompt），并推实时唤醒。
 				if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
@@ -642,6 +644,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
+				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
 				if oldAu, uerr := d.Store.UserByID(ctx, oldAssigneeID); uerr == nil && oldAu.IsWorker && d.Workers != nil {
 					d.Workers.Cancel(oldAu.ID, t.ID)
 				}
@@ -1227,6 +1230,12 @@ func workerCapabilityScore(taskText string, cap *store.WorkerCapability) int {
 		score++
 	}
 	return score
+}
+
+func closeTaskDecisions(ctx context.Context, d Deps, ownerID, taskID int64) {
+	if _, err := d.Store.CloseDecisionsByRef(ctx, ownerID, "task", taskID); err != nil {
+		slog.Warn("关闭任务决策项失败", "owner", ownerID, "task", taskID, "err", err)
+	}
 }
 
 // FireReadyDependents 任务验收通过后触发依赖编排：找出因此全部前置就绪的下游

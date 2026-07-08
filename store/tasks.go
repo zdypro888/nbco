@@ -67,8 +67,8 @@ type Task struct {
 	// MilestoneID 可选：战略里程碑归因（与 ParentID 正交——拆分树是执行转移，
 	// 里程碑是战略标签）。nil = 无归因；删里程碑时 SET NULL，任务留在原项目继续。
 	MilestoneID *int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // ChecklistItem 工作清单条目。
@@ -100,6 +100,14 @@ type Attachment struct {
 }
 
 const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, depends_on, milestone_id, created_at, updated_at`
+
+func taskColsWithAlias(alias string) string {
+	cols := strings.Split(taskCols, ", ")
+	for i := range cols {
+		cols[i] = alias + "." + cols[i]
+	}
+	return strings.Join(cols, ", ")
+}
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task

@@ -200,6 +200,13 @@ func TestReassignTaskPreservesHistoryAndNotifies(t *testing.T) {
 	if err := s.AddProgress(ctx, tk.ID, alice.ID, "已调研"); err != nil {
 		t.Fatal(err)
 	}
+	refID := tk.ID
+	if _, err := s.UpsertDecisionItem(ctx, store.DecisionItem{
+		OwnerID: boss.ID, Kind: "orphaned_task", Title: "改派孤儿任务：T",
+		Detail: "执行人已停用。", RefType: "task", RefID: &refID, Priority: "high",
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	d := Deps{Store: s, TZ: time.UTC}
 	// 非 assigner 不能改派。
@@ -228,6 +235,13 @@ func TestReassignTaskPreservesHistoryAndNotifies(t *testing.T) {
 	}
 	if gotTask.Status != store.TaskPending {
 		t.Errorf("改派后 status=%s, want pending", gotTask.Status)
+	}
+	openDecisions, err := s.ListDecisionItems(ctx, boss.ID, "open", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(openDecisions) != 0 {
+		t.Fatalf("改派后应关闭该任务决策项，仍有 %#v", openDecisions)
 	}
 	prog, err := s.ProgressOf(ctx, tk.ID)
 	if err != nil {
@@ -269,6 +283,53 @@ func TestReassignTaskRejectsDoneStatus(t *testing.T) {
 	// 任务状态未变（仍 done，assignee 仍 alice）。
 	if gt, _ := s.TaskByID(ctx, tk.ID); gt.Status != store.TaskDone || gt.AssigneeID != alice.ID {
 		t.Errorf("拒绝改派后任务不应变, got status=%s assignee=%d", gt.Status, gt.AssigneeID)
+	}
+}
+
+func TestReviewDecisionClosesOnAcceptAndReject(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	boss := mkToolsUser(t, s, "boss", true)
+	alice := mkToolsUser(t, s, "alice", false)
+	pj := mkToolsProject(t, s, boss.ID)
+	d := Deps{Store: s, TZ: time.UTC}
+
+	tk, err := s.CreateTask(ctx, &store.Task{ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID, Title: "验收项"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.SubmitTask(ctx, tk.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.BuildDecisionQueue(ctx, boss.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := callToolByName(t, ForUser(d, boss, nil), "accept_task", map[string]any{
+		"task_id": tk.ID, "comment": "OK",
+	}); !strings.Contains(got, "已验收通过") {
+		t.Fatalf("accept_task = %q", got)
+	}
+	if items, err := s.ListDecisionItems(ctx, boss.ID, "open", 10); err != nil || len(items) != 0 {
+		t.Fatalf("accept 后决策项应关闭，items=%#v err=%v", items, err)
+	}
+
+	tk, err = s.CreateTask(ctx, &store.Task{ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID, Title: "打回项"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.SubmitTask(ctx, tk.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.BuildDecisionQueue(ctx, boss.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := callToolByName(t, ForUser(d, boss, nil), "reject_task", map[string]any{
+		"task_id": tk.ID, "reason": "证据不足",
+	}); !strings.Contains(got, "已打回") {
+		t.Fatalf("reject_task = %q", got)
+	}
+	if items, err := s.ListDecisionItems(ctx, boss.ID, "open", 10); err != nil || len(items) != 0 {
+		t.Fatalf("reject 后决策项应关闭，items=%#v err=%v", items, err)
 	}
 }
 

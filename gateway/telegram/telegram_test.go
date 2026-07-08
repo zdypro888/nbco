@@ -3,12 +3,14 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
 	"github.com/zdypro888/nbco/store"
@@ -167,6 +169,73 @@ func TestSplitChunksBalancesOpenHTMLTags(t *testing.T) {
 	visible := htmlTagTokenRe.ReplaceAllString(strings.Join(chunks, ""), "")
 	if visible != strings.Repeat("甲", 25) {
 		t.Fatalf("visible text changed: %q chunks=%#v", visible, chunks)
+	}
+}
+
+func TestTelegramPlainTextCleansMalformedHTML(t *testing.T) {
+	got := telegramPlainText("<b>权限管控：</b：设置谁有权修改资料。<table><tr><td>ID</td></tr></table>")
+	for _, bad := range []string{"<b>", "</b", "<table", "：："} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("纯文本兜底仍有坏格式 %q:\n%s", bad, got)
+		}
+	}
+	for _, want := range []string{"权限管控：设置", "ID"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("纯文本兜底缺 %q:\n%s", want, got)
+		}
+	}
+}
+
+type sendFallbackHTTP struct {
+	calls      int
+	texts      []string
+	parseModes []string
+}
+
+func (h *sendFallbackHTTP) Do(req *http.Request) (*http.Response, error) {
+	if !strings.HasSuffix(req.URL.Path, "/sendMessage") {
+		return streamLoopResp("true"), nil
+	}
+	h.calls++
+	if err := req.ParseMultipartForm(1 << 20); err != nil {
+		return nil, err
+	}
+	h.texts = append(h.texts, req.FormValue("text"))
+	h.parseModes = append(h.parseModes, req.FormValue("parse_mode"))
+	if h.calls == 1 {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"ok":false,"error_code":400,"description":"Bad Request: can't parse entities"}`)),
+			Header:     http.Header{},
+		}, nil
+	}
+	return streamLoopResp(`{"message_id":42,"date":0,"chat":{"id":1,"type":"private"}}`), nil
+}
+
+func TestSendOneFallbackDoesNotExposeHTMLTags(t *testing.T) {
+	h := &sendFallbackHTTP{}
+	b, err := bot.New("TESTTOKEN", bot.WithHTTPClient(time.Second, h), bot.WithSkipGetMe())
+	if err != nil {
+		t.Fatalf("bot.New: %v", err)
+	}
+	g := &Gateway{bot: b}
+	if err := g.sendOne(context.Background(), 1, "<b>权限管控：</b：设置谁有权修改资料。"); err != nil {
+		t.Fatal(err)
+	}
+	if h.calls != 2 {
+		t.Fatalf("sendMessage calls = %d, want 2", h.calls)
+	}
+	if h.parseModes[0] == "" {
+		t.Fatalf("首次发送应带 HTML parse_mode: %#v", h.parseModes)
+	}
+	if h.parseModes[1] != "" {
+		t.Fatalf("兜底发送不应带 parse_mode: %#v", h.parseModes)
+	}
+	if strings.Contains(h.texts[1], "<b>") || strings.Contains(h.texts[1], "</b") || strings.Contains(h.texts[1], "：：") {
+		t.Fatalf("兜底文本不应暴露 HTML 标签或重复冒号:\n%q", h.texts[1])
+	}
+	if !strings.Contains(h.texts[1], "权限管控：设置") {
+		t.Fatalf("兜底文本内容丢失:\n%q", h.texts[1])
 	}
 }
 

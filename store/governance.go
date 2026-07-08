@@ -369,7 +369,57 @@ func (s *Store) BuildDecisionQueue(ctx context.Context, ownerID int64) (int, err
 		}
 		count++
 	}
+	// 孤儿任务：执行人已停用（吊销/宕机），任务无人接手。提醒分配者改派。
+	orphaned, err := s.OrphanedTasks(ctx)
+	if err != nil {
+		return count, err
+	}
+	for _, t := range orphaned {
+		if t.AssignerID != ownerID {
+			continue
+		}
+		id := t.ID
+		if _, err := s.UpsertDecisionItem(ctx, DecisionItem{
+			OwnerID: ownerID, Kind: "orphaned_task", Title: "改派孤儿任务：" + t.Title,
+			Detail:  "执行人已停用，任务无人接手。建议用 reassign_task 改派给在线的 AI 员工。",
+			RefType: "task", RefID: &id, Priority: "high",
+		}); err != nil {
+			return count, err
+		}
+		count++
+	}
 	return count, nil
+}
+
+// OrphanedTasks 查「执行人已停用」的开放任务（pending/in_progress）——吊销/宕机的 worker
+// 名下无人接手的任务。按 assigner 聚合返回，供调度/决策队列提醒分配者改派。
+func (s *Store) OrphanedTasks(ctx context.Context) ([]*Task, error) {
+	return s.queryTasks(ctx,
+		`SELECT `+taskColsWithAlias("t")+` FROM tasks t
+		 JOIN users u ON u.id = t.assignee_id
+		 WHERE t.status IN ('pending', 'in_progress') AND u.status <> 'active'
+		 ORDER BY t.id`)
+}
+
+// CloseDecisionItem 关闭决策项（status='closed'）。改派/验收完成后用，避免已处理项留在队列。
+func (s *Store) CloseDecisionItem(ctx context.Context, id, ownerID int64) error {
+	return s.execOne(ctx,
+		`UPDATE decision_items SET status = 'closed', updated_at = now()
+		 WHERE id = $1 AND owner_id = $2 AND status = 'open'`, id, ownerID)
+}
+
+// CloseDecisionsByRef 关闭某 owner 名下指向指定 ref 的全部 open 决策项。
+// 改派成功后用（ref_type='task', ref_id=任务ID）——把 orphaned_task/overdue_task 等
+// 同指该任务的项一并关掉。返回关闭行数。
+func (s *Store) CloseDecisionsByRef(ctx context.Context, ownerID int64, refType string, refID int64) (int64, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE decision_items SET status = 'closed', updated_at = now()
+		 WHERE owner_id = $1 AND ref_type = $2 AND ref_id = $3 AND status = 'open'`,
+		ownerID, refType, refID)
+	if err != nil {
+		return 0, wrapErr(err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 type OrgGroup struct {

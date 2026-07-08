@@ -551,6 +551,34 @@ func TestNudgeClaims(t *testing.T) {
 	}
 }
 
+func TestOrphanedTasks(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	disabled := mkUser(t, s, "disabled-worker", false)
+	active := mkUser(t, s, "active-worker", false)
+	pj := mkProject(t, s, boss.ID)
+
+	want := mkTask(t, s, pj.ID, boss.ID, disabled.ID, "需要改派", nil)
+	done := mkTask(t, s, pj.ID, boss.ID, disabled.ID, "已完成不算", nil)
+	normal := mkTask(t, s, pj.ID, boss.ID, active.ID, "正常任务", nil)
+	if _, err := s.UpdateTaskStatus(ctx, done.ID, TaskAccepted); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateTaskStatus(ctx, normal.ID, TaskInProgress); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE users SET status = 'disabled' WHERE id = $1`, disabled.ID)
+
+	got, err := s.OrphanedTasks(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != want.ID {
+		t.Fatalf("OrphanedTasks = %#v, want only task %d", got, want.ID)
+	}
+}
+
 func TestKnowledge(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -1218,7 +1246,7 @@ func TestWorkerBindCodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RevokeWorker(ctx, worker.ID); err != nil {
+	if _, err := s.RevokeWorker(ctx, worker.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.RedeemWorkerBindCode(ctx, code4); !errors.Is(err, ErrNotFound) {

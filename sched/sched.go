@@ -25,6 +25,7 @@ const (
 	kvWeeklyReport     = "weekly_report_last_week"
 	kvProfileRefresh   = "profile_refresh_last_month"
 	kvKnowledgeRefresh = "knowledge_refresh_last_month"
+	kvOrphanNotice     = "orphan_notice_last_day"
 	summaryMaxTasks    = 20
 	// deadlineWarnWindow 截止前多久发临近提醒。
 	deadlineWarnWindow = 24 * time.Hour
@@ -34,6 +35,8 @@ const (
 	escalateAfter = 2
 	// digestOverdueLimit 日报中列出的过期任务上限。
 	digestOverdueLimit = 10
+	// orphanNoticeLimit 孤儿任务提醒中列出的明细上限。
+	orphanNoticeLimit = 10
 	// sendConcurrency 模板类推送/查询的并发上限（廉价、网络受限，可高于 AI）。
 	sendConcurrency = 16
 )
@@ -118,6 +121,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 	s.deadlinePass(ctx, now)
 	s.goalDeadlinePass(ctx, now)
 	s.nudgePass(ctx, now)
+	s.orphanTaskPass(ctx)
 	s.maybeDailySummary(ctx)
 	s.maybeWeeklyReport(ctx)
 	s.maybeProfileRefresh(ctx)
@@ -270,6 +274,58 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 			}
 		}
 		s.dispatchAI(ctx, u, directive, "", "催办", escalate)
+	}
+}
+
+// orphanTaskPass 每天把「执行人已停用但任务仍开放」的孤儿任务写入决策队列，并提醒分配者改派。
+// 这是治理提醒，不自动改派：新执行人需要负责人根据任务上下文判断。
+func (s *Scheduler) orphanTaskPass(ctx context.Context) {
+	local := time.Now().In(s.tz)
+	today := local.Format("2006-01-02")
+	last, err := s.store.GetKV(ctx, kvOrphanNotice)
+	if err != nil {
+		slog.Error("读孤儿任务提醒状态失败", "err", err)
+		return
+	}
+	if last == today {
+		return
+	}
+	orphaned, err := s.store.OrphanedTasks(ctx)
+	if err != nil {
+		slog.Error("查询孤儿任务失败", "err", err)
+		return
+	}
+	if err := s.store.SetKV(ctx, kvOrphanNotice, today); err != nil {
+		slog.Error("写孤儿任务提醒状态失败", "err", err)
+		return
+	}
+	if len(orphaned) == 0 {
+		return
+	}
+	byAssigner := map[int64][]*store.Task{}
+	for _, t := range orphaned {
+		byAssigner[t.AssignerID] = append(byAssigner[t.AssignerID], t)
+		id := t.ID
+		if _, err := s.store.UpsertDecisionItem(ctx, store.DecisionItem{
+			OwnerID: t.AssignerID, Kind: "orphaned_task", Title: "改派孤儿任务：" + t.Title,
+			Detail:  "执行人已停用，任务无人接手。建议用 reassign_task 改派给在线的 AI 员工或真人员工。",
+			RefType: "task", RefID: &id, Priority: "high",
+		}); err != nil {
+			slog.Warn("写孤儿任务决策项失败", "task", t.ID, "owner", t.AssignerID, "err", err)
+		}
+	}
+	for ownerID, tasks := range byAssigner {
+		owner, err := s.store.UserByID(ctx, ownerID)
+		if err != nil || owner.Status != store.UserActive || owner.IsWorker {
+			continue
+		}
+		names := map[int64]string{}
+		for _, t := range tasks {
+			names[t.AssigneeID] = s.userName(ctx, t.AssigneeID)
+		}
+		msg := renderOrphanNotice(tasks, names)
+		ownerID := ownerID
+		s.sendPool.submit(ctx, func() { s.send(ctx, ownerID, msg) })
 	}
 }
 
@@ -687,6 +743,24 @@ func renderDigest(stats *store.TaskStats, overdue []*store.Task, names map[int64
 			fmt.Fprintf(&b, "…等共 %d 个\n", stats.Overdue)
 		}
 	}
+	return b.String()
+}
+
+func renderOrphanNotice(tasks []*store.Task, names map[int64]string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "⚠️ 有 %d 个任务的执行人已停用，需要你改派：\n", len(tasks))
+	for i, t := range tasks {
+		if i >= orphanNoticeLimit {
+			fmt.Fprintf(&b, "…等共 %d 个\n", len(tasks))
+			break
+		}
+		name := names[t.AssigneeID]
+		if name == "" {
+			name = fmt.Sprintf("用户%d", t.AssigneeID)
+		}
+		fmt.Fprintf(&b, "- #%d %s（原执行人 %s）\n", t.ID, t.Title, name)
+	}
+	b.WriteString("请用 reassign_task 改派，进度历史会保留。")
 	return b.String()
 }
 

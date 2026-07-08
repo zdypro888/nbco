@@ -73,6 +73,20 @@ func TestToTelegramHTMLMixedHTMLAndMarkdown(t *testing.T) {
 	}
 }
 
+func TestToTelegramHTMLRepairsMalformedClosingTags(t *testing.T) {
+	got := toTelegramHTML("<b>权限管控：</b：设置谁有权修改资料。\n<b>立规矩：</b：定义行为准则。")
+	for _, bad := range []string{"</b：", "：："} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("坏闭合标签未清理 %q:\n%s", bad, got)
+		}
+	}
+	for _, want := range []string{"<b>权限管控：</b>设置", "<b>立规矩：</b>定义"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("修复结果缺 %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestToTelegramHTMLCodeBlockProtected(t *testing.T) {
 	got := toTelegramHTML("```\n**这里不是加粗** | 也不是表格 |\n```")
 	if !strings.Contains(got, "<pre>**这里不是加粗** | 也不是表格 |</pre>") {

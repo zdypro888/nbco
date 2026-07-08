@@ -184,11 +184,15 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if _, msg := mustOwnWorker(ctx, d, u, args.WorkerID); msg != "" {
 					return msg, nil
 				}
-				if err := d.Store.RevokeWorker(ctx, args.WorkerID); err != nil {
+				reset, err := d.Store.RevokeWorker(ctx, args.WorkerID)
+				if err != nil {
 					if errors.Is(err, store.ErrNotFound) {
 						return "该 AI 员工不存在。", nil
 					}
 					return "", err
+				}
+				if reset > 0 {
+					return fmt.Sprintf("已停用。其名下 %d 个未完成任务已重置为待改派，建议尽快用 reassign_task 改派。", reset), nil
 				}
 				return "已停用。", nil
 			}),

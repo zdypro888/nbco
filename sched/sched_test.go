@@ -70,6 +70,19 @@ func TestRenderDigestUnknownUser(t *testing.T) {
 	}
 }
 
+func TestRenderOrphanNotice(t *testing.T) {
+	var ts []*store.Task
+	for i := range int64(12) {
+		ts = append(ts, &store.Task{ID: i + 1, Title: "任务", AssigneeID: 99})
+	}
+	out := renderOrphanNotice(ts, map[int64]string{99: "旧 worker"})
+	for _, want := range []string{"执行人已停用", "#1", "旧 worker", "reassign_task", "…等共 12 个"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("孤儿任务提醒缺 %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestSchedulePoolRoutesAIWithoutSendPool(t *testing.T) {
 	s := &Scheduler{aiPool: newPool(1), sendPool: newPool(1), orch: &chat.Orchestrator{}}
 	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeAI}) != s.aiPool {

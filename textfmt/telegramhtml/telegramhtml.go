@@ -14,6 +14,7 @@ import (
 
 var (
 	tgAllowedHTMLTagRe = regexp.MustCompile(`(?i)(</?(b|strong|i|em|u|s|del|code|pre|blockquote)>|</a>|<a\s+href="https?://[^"<>\s]+">)`)
+	malformedCloseRe   = regexp.MustCompile(`(?i)</\s*(b|strong|i|em|u|s|del|code|pre|blockquote)\s*([:：，,。；;、])`)
 
 	fencedCodeRe = regexp.MustCompile("(?s)```[a-zA-Z0-9_+-]*\n?(.*?)```")
 	inlineCodeRe = regexp.MustCompile("`([^`\n]+)`")
@@ -30,6 +31,8 @@ var (
 
 // ToHTML converts text into Telegram-compatible HTML.
 func ToHTML(s string) string {
+	s = repairMalformedClosingTags(s)
+
 	var earlyStash []string // HTML tags restored after escaping.
 	earlyPut := func(rendered string) string {
 		earlyStash = append(earlyStash, rendered)
@@ -67,6 +70,10 @@ func ToHTML(s string) string {
 		esc = strings.Replace(esc, fmt.Sprintf("\x02%d\x02", i), r, 1)
 	}
 	return esc
+}
+
+func repairMalformedClosingTags(s string) string {
+	return malformedCloseRe.ReplaceAllString(s, "</$1>")
 }
 
 func convertHTMLTables(s string, stashPut func(string) string) string {

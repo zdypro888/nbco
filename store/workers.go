@@ -259,24 +259,39 @@ func (s *Store) ReleaseWorkerTaskClaim(ctx context.Context, taskID, workerID int
 }
 
 // RevokeWorker 停用 worker 并撤销其 token（历史任务保留）。目标非 worker 时 ErrNotFound。
-func (s *Store) RevokeWorker(ctx context.Context, workerID int64) error {
+// 同事务内把该 worker 名下「未完成」的任务（pending/in_progress）重置为 pending 并清空
+// worker claim——否则它们会永远停在已禁用的 assignee 名下无人恢复（ClaimNextTask 只认领
+// assignee_id 匹配自己的任务，nudgePass 对禁用 assignee 直接跳过）。返回重置的任务数。
+func (s *Store) RevokeWorker(ctx context.Context, workerID int64) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	tag, err := tx.Exec(ctx, `UPDATE users SET status = 'disabled' WHERE id = $1 AND is_worker`, workerID)
 	if err != nil {
-		return wrapErr(err)
+		return 0, wrapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+		return 0, ErrNotFound
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM api_tokens WHERE user_id = $1`, workerID); err != nil {
-		return err
+		return 0, err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM worker_bind_codes WHERE worker_id = $1`, workerID); err != nil {
-		return err
+		return 0, err
 	}
-	return tx.Commit(ctx)
+	// 重置未完成任务：回 pending、清 claim，让分配者可改派或其他机制接管。
+	rtag, err := tx.Exec(ctx,
+		`UPDATE tasks SET status = 'pending',
+		    worker_claimed_by = NULL, worker_claimed_at = NULL, worker_claim_id = '',
+		    updated_at = now()
+		  WHERE assignee_id = $1 AND status IN ('pending', 'in_progress')`, workerID)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return rtag.RowsAffected(), nil
 }

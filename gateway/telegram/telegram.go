@@ -59,6 +59,8 @@ const groupMonitorSystem = `你是 nbco 的 Telegram 群智能监控器。你的
 
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|blockquote|a)(?:\s+[^>]*)?>`)
+var htmlLooseTagRe = regexp.MustCompile(`(?is)<[^<>\n]*>`)
+var htmlMalformedKnownTagRe = regexp.MustCompile(`(?i)</?\s*(b|strong|i|em|u|s|del|code|pre|blockquote|a|table|tr|td|th)\s*[:：，,。；;、]?`)
 
 type pendingTextMessage struct {
 	id      int64
@@ -253,7 +255,7 @@ func (g *Gateway) SendFile(ctx context.Context, userID int64, fileID int64, capt
 			Filename: safeTelegramFilename(f.OriginalName),
 			Data:     fp,
 		},
-		Caption: htmlTagTokenRe.ReplaceAllString(caption, ""),
+		Caption: telegramPlainText(caption),
 	})
 	return err
 }
@@ -1532,7 +1534,7 @@ func (g *Gateway) sendOne(ctx context.Context, chatID int64, chunk string) error
 		return nil
 	}
 	slog.Debug("HTML 发送被拒，降级纯文本", "chat", chatID, "err", err)
-	_, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: chunk})
+	_, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: telegramPlainText(chunk)})
 	return err
 }
 
@@ -1553,7 +1555,7 @@ func (g *Gateway) SendTelegramGroupMessage(ctx context.Context, chatID int64, te
 		})
 		if err != nil {
 			msg, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chatID, Text: htmlTagTokenRe.ReplaceAllString(chunk, ""), DisableNotification: disableNotification,
+				ChatID: chatID, Text: telegramPlainText(chunk), DisableNotification: disableNotification,
 			})
 			if err != nil {
 				return 0, err
@@ -1665,8 +1667,15 @@ func (g *Gateway) EditTelegramGroupMessage(ctx context.Context, chatID int64, me
 	if text == "" {
 		return fmt.Errorf("消息内容不能为空")
 	}
+	htmlText := toTelegramHTML(text)
 	_, err := g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
-		ChatID: chatID, MessageID: messageID, Text: toTelegramHTML(text), ParseMode: models.ParseModeHTML,
+		ChatID: chatID, MessageID: messageID, Text: htmlText, ParseMode: models.ParseModeHTML,
+	})
+	if err == nil {
+		return nil
+	}
+	_, err = g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID: chatID, MessageID: messageID, Text: telegramPlainText(htmlText),
 	})
 	return err
 }
@@ -1895,6 +1904,16 @@ func closeHTMLTags(open []htmlOpenTag) string {
 		b.WriteString(">")
 	}
 	return b.String()
+}
+
+func telegramPlainText(s string) string {
+	s = htmlLooseTagRe.ReplaceAllString(s, "")
+	s = htmlMalformedKnownTagRe.ReplaceAllString(s, "")
+	s = strings.TrimSpace(html.UnescapeString(s))
+	if s == "" {
+		return "（空回复）"
+	}
+	return s
 }
 
 // voiceDownloadLimit 语音文件下载上限（TG 语音条通常远小于此）。

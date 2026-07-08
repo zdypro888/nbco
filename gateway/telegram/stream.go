@@ -207,11 +207,11 @@ func isNotModified(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "message is not modified")
 }
 
-// plainOf：HTML 编辑失败时的纯文本兜底。单片时用原始答复；多片时该片已是 HTML
-// 转换后的分片，退而用它本身（宁可带标签也别丢内容）。
+// plainOf：HTML 编辑失败时的纯文本兜底。不能退回原始答复，否则模型吐坏 HTML
+// 时会把 <b> 等标签原样展示给用户。
 func plainOf(answer, chunk string) string {
-	if strings.TrimSpace(answer) != "" && len([]rune(answer)) <= chunkLimit {
-		return answer
+	if plain := telegramPlainText(chunk); plain != "（空回复）" {
+		return plain
 	}
-	return chunk
+	return telegramPlainText(answer)
 }
