@@ -299,14 +299,15 @@ nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把
 
 这层是“智能学习”的治理面：长期规则、执行方法、公司事实可以越来越多，但每轮对话只由规则/skill/知识检索器按需加载，不靠无限拉长系统提示。
 
-## 公司资料分析与 admin worker
+## 公司资料分析与 worker 归属
 
 普通 worker 默认仍是最小权限白名单，只能干活、汇报、沉淀知识。超管可以把可信工作机上的 worker 设置为 **admin worker**：
 
 - `set_worker_admin(worker_id, true)`：将指定 worker 提升为系统级 worker，工具能力等同超管；用于 nbco 自升级、资料入库、维护任务
 - `set_worker_admin(worker_id, false)`：撤销系统级能力，回到普通 worker 最小权限
 - worker 仍然绑定 `owner_id` 监护人：普通用户只能管理自己名下 worker；超管可管理全部。admin worker 的设置权只给超管
-- `analyze_company_materials`：把 `/api/files` 上传得到的系统文件 ID 派给 admin worker，创建 “Company Intelligence Inbox” 任务；worker 读取 PDF/XLSX/TXT/图片后输出结构化学习候选，nbco 解析入 `learning_candidates`
+- `analyze_company_materials`：把 `/api/files` 上传得到的系统文件 ID 派给**发起人名下的 worker**，创建 “Company Intelligence Inbox” 任务；worker 读取 PDF/XLSX/TXT/图片后输出结构化学习候选，nbco 解析入 `learning_candidates`
+- 自动选择严格按发起人归属：谁安排资料分析，就调用谁名下 worker；超管默认也用自己名下 worker，只有显式指定 `worker_id` 时才会调别的 worker
 
 ## 权限体系
 

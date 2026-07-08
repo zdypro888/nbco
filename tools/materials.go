@@ -15,17 +15,14 @@ const materialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
 
 func materialTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("analyze_company_materials", "把已上传到 nbco 的公司资料文件交给 admin worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；nbco 会在 worker 提交后抽取候选，供入库审核/发布。",
+		tool("analyze_company_materials", "把已上传到 nbco 的公司资料文件交给发起人名下的 worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；nbco 会在 worker 提交后抽取候选，供入库审核/发布。简单文本信息直接保存，不必派 worker。",
 			obj(map[string]any{
 				"file_ids":    arr("integer", "系统文件 ID 列表（/api/files 上传或任务附件里的真实文件 ID）"),
 				"instruction": p("string", "整理目标，例如：提炼公司基本信息、制度、联系人、项目背景、风险点"),
-				"worker_id":   p("integer", "指定 admin worker，可选；不填自动选择在线/最近在线的 admin worker"),
+				"worker_id":   p("integer", "指定自己名下 worker，可选；不填自动选择自己名下在线/最近在线 worker"),
 				"title":       p("string", "任务标题，可选"),
 			}, "file_ids", "instruction"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
-				if !u.IsSuperadmin {
-					return "只有超级管理员可以发起公司资料入库分析。", nil
-				}
 				var args struct {
 					FileIDs     []int64 `json:"file_ids"`
 					Instruction string  `json:"instruction"`
@@ -42,7 +39,7 @@ func materialTools(d Deps, u *store.User) []ai.Tool {
 				if instruction == "" {
 					return "instruction 不能为空。", nil
 				}
-				worker, err := pickAdminWorker(ctx, d, args.WorkerID)
+				worker, err := pickMaterialWorker(ctx, d, u, args.WorkerID)
 				if err != nil {
 					return err.Error(), nil
 				}
@@ -80,40 +77,61 @@ func materialTools(d Deps, u *store.User) []ai.Tool {
 					}
 				}
 				wakeWorker(d, worker)
-				return fmt.Sprintf("已创建资料分析任务 #%d，分配给 admin worker %s（#%d），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", t.ID, worker.Name, worker.ID, len(args.FileIDs)), nil
+				return fmt.Sprintf("已创建资料分析任务 #%d，分配给你的 worker %s（#%d），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", t.ID, worker.Name, worker.ID, len(args.FileIDs)), nil
 			}),
 	}
 }
 
-func pickAdminWorker(ctx context.Context, d Deps, workerID int64) (*store.User, error) {
+func pickMaterialWorker(ctx context.Context, d Deps, u *store.User, workerID int64) (*store.User, error) {
 	if workerID > 0 {
 		w, err := d.Store.UserByID(ctx, workerID)
 		if err != nil || !w.IsWorker {
-			return nil, errors.New("指定的 admin worker 不存在")
+			return nil, errors.New("指定的 worker 不存在")
 		}
-		if !w.IsSuperadmin {
-			return nil, errors.New("指定 worker 还不是 admin worker，请先 set_worker_admin")
+		if !u.IsSuperadmin && (w.OwnerID == nil || *w.OwnerID != u.ID) {
+			return nil, errors.New("只能指定自己名下的 worker")
 		}
 		if w.Status != store.UserActive {
-			return nil, errors.New("指定 admin worker 已停用")
+			return nil, errors.New("指定 worker 已停用")
 		}
 		return w, nil
 	}
-	ws, err := d.Store.ListAdminWorkers(ctx)
+	// 自动选择严格按发起人 owner 维度：谁安排资料分析，就调用谁名下的
+	// worker。超管也默认用自己名下 worker；确需调别人的 worker 时显式传 worker_id。
+	ws, err := d.Store.ListWorkers(ctx, u.ID)
 	if err != nil {
 		return nil, err
 	}
 	if len(ws) == 0 {
-		return nil, errors.New("没有可用 admin worker。请先 create_worker 并 set_worker_admin")
+		return nil, errors.New("你名下没有可用 worker。请先 create_worker 并完成绑定")
+	}
+	var active []*store.User
+	for _, w := range ws {
+		if w.Status == store.UserActive {
+			active = append(active, w)
+		}
+	}
+	if len(active) == 0 {
+		return nil, errors.New("你名下 worker 都已停用")
 	}
 	if d.Workers != nil {
-		for _, w := range ws {
+		for _, w := range active {
+			if w.IsSuperadmin && d.Workers.Online(w.ID) {
+				return w, nil
+			}
+		}
+		for _, w := range active {
 			if d.Workers.Online(w.ID) {
 				return w, nil
 			}
 		}
 	}
-	return ws[0], nil
+	for _, w := range active {
+		if w.IsSuperadmin {
+			return w, nil
+		}
+	}
+	return active[0], nil
 }
 
 func materialAnalysisPrompt(instruction string) string {

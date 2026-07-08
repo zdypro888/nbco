@@ -147,13 +147,18 @@ func (s *Store) ListWorkers(ctx context.Context, ownerID int64) ([]*User, error)
 }
 
 // ListAdminWorkers lists active workers that are explicitly promoted to
-// system-admin workers. These are suitable for nbco maintenance and company
-// material analysis jobs that need broad context.
-func (s *Store) ListAdminWorkers(ctx context.Context) ([]*User, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT `+userCols+` FROM users
-		 WHERE is_worker AND is_superadmin AND status = 'active'
-		 ORDER BY COALESCE(worker_last_seen, '-infinity'::timestamptz) DESC, id`)
+// system-admin workers. Pass ownerID to restrict to one owner's workers; 0 means
+// all owners and should only be used by superadmin-level views.
+func (s *Store) ListAdminWorkers(ctx context.Context, ownerID int64) ([]*User, error) {
+	sql := `SELECT ` + userCols + ` FROM users
+		 WHERE is_worker AND is_superadmin AND status = 'active'`
+	args := []any{}
+	if ownerID != 0 {
+		sql += ` AND owner_id = $1`
+		args = append(args, ownerID)
+	}
+	sql += ` ORDER BY COALESCE(worker_last_seen, '-infinity'::timestamptz) DESC, id`
+	rows, err := s.pool.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"invite_employee", "send_message", "update_user_info", "bulk_update_user_info", "save_infos_on_user",
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
 		"company_overview", "get_ai_settings", "set_ai_settings", "ai_usage_stats", "create_role", "disable_user",
-		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker",
+		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker", "analyze_company_materials",
 		"save_skill", "update_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
@@ -68,16 +68,19 @@ func TestFilterByPermGrantUnlocks(t *testing.T) {
 // 拿到 manage_worker 授权后，AI 员工管理工具出现（目标级校验在 handler 内另做）。
 func TestManageWorkerGrantUnlocks(t *testing.T) {
 	u := &store.User{ID: 2, Status: store.UserActive}
-	ts := []ai.Tool{{Name: "create_worker"}, {Name: "issue_worker_bind_code"}, {Name: "revoke_worker"}, {Name: "company_overview"}}
+	ts := []ai.Tool{{Name: "create_worker"}, {Name: "issue_worker_bind_code"}, {Name: "revoke_worker"}, {Name: "analyze_company_materials"}, {Name: "company_overview"}, {Name: "set_worker_admin"}}
 	grants := []store.Grant{{Kind: store.KindActive, UserID: 2, Action: perm.ActManageWorker, Target: store.TargetAll}}
 	names := namesOf(filterByPerm(ts, u, grants))
-	for _, want := range []string{"create_worker", "issue_worker_bind_code", "revoke_worker"} {
+	for _, want := range []string{"create_worker", "issue_worker_bind_code", "revoke_worker", "analyze_company_materials"} {
 		if !names[want] {
 			t.Errorf("有 manage_worker 授权应解锁 %s", want)
 		}
 	}
 	if names["company_overview"] {
 		t.Error("超管专属工具不因 manage_worker 解锁")
+	}
+	if names["set_worker_admin"] {
+		t.Error("admin worker 设置权不因 manage_worker 解锁")
 	}
 }
 
@@ -175,7 +178,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	names := namesOf(ForUser(Deps{}, su, nil))
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
-		"ai_usage_stats", "create_worker", "run_worker_command", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
+		"ai_usage_stats", "create_worker", "run_worker_command", "analyze_company_materials", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
 		"save_skill", "update_skill", "search_skills", "load_skill",
 		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",

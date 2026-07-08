@@ -204,7 +204,7 @@ var toolPerm = map[string]string{
 	"run_worker_command":        perm.ActManageWorker,
 	"revoke_worker":             perm.ActManageWorker,
 	"set_worker_admin":          reqSuper,
-	"analyze_company_materials": reqSuper,
+	"analyze_company_materials": perm.ActManageWorker,
 	// 群接入状态可读；控制类操作由可转授的 Telegram 群管理权限解锁。
 	"set_telegram_group_listen":      perm.ActManageTGGroup,
 	"set_telegram_group_auto_invite": perm.ActManageTGGroup,
