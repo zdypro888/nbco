@@ -177,7 +177,7 @@ worker 的模型 CLI 带完整 shell，安全边界必须在部署侧：[deploy/
 
 ### 内置智能体（没有 claude/codex 也能干活）
 
-工作机上未安装 claude/codex 时，worker 启动自动回退 **内置智能体**（也可显式 `-engine builtin`）：中枢模型当大脑、本机 shell 当手脚——worker 通过中枢的 `/api/worker/llm` 透传管道调模型（model 由服务端钉死、API key 不出中枢），在任务目录里以 `run_command` 小步执行并自我验证，完成后 `task_done` 提交。进度回传、artifacts/ 产物上传、验收流与 CLI 模式完全一致。能力弱于 claude/codex，但运维/脚本/数据/构建类任务足够用；装好 CLI 重启即自动恢复 PTY 模式。
+工作机上未安装 claude/codex 时，worker 启动自动回退 **内置智能体**（也可显式 `-engine builtin`）：中枢模型当大脑、本机 shell 当手脚——worker 通过中枢的 `/api/worker/llm` 透传管道调模型（model 由服务端钉死、API key 不出中枢），在主题 workspace 里以 `run_command` 小步执行并自我验证，完成后 `task_done` 提交。进度回传、产物上传、验收流与 CLI 模式完全一致。能力弱于 claude/codex，但运维/脚本/数据/构建类任务足够用；装好 CLI 重启即自动恢复 PTY 模式。
 
 同一台机器跑多个 worker 时，每个 worker 用独立配置文件：
 
@@ -193,7 +193,7 @@ worker 的模型 CLI 带完整 shell，安全边界必须在部署侧：[deploy/
 
 > **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身 Worker Access Token）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 Worker Access Token、SSH 私钥等）挡在其可达范围外。
 
-执行规则：worker 启动 `claude` / `codex` 时必须走**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。显式命令任务走 `run_worker_command`，默认用 stdout/stderr pipe 执行系统 shell 命令；只有命令确实需要终端行为时才显式 `pty=true`。输出作为进度/完成汇报回传，产物仍放 `artifacts/` 自动上传；这不是常驻远程 shell。AI CLI 驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
+执行规则：worker 启动 `claude` / `codex` 时必须走**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。显式命令任务走 `run_worker_command`，默认用 stdout/stderr pipe 执行系统 shell 命令；只有命令确实需要终端行为时才显式 `pty=true`。输出作为进度/完成汇报回传，产物放到任务提示给出的本轮产物目录自动上传；这不是常驻远程 shell。AI CLI 驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
 
 - **vt10x 屏幕仿真**：PTY 字节流喂进内存终端仿真器，一切检测读渲染后的屏幕，不在原始流上扒 ANSI
 - **两步投递**：多行任务用 bracketed paste 包住、停顿后单发回车（防 TUI 的 paste 防抖吞掉提交）
@@ -218,11 +218,21 @@ worker 的模型 CLI 带完整 shell，安全边界必须在部署侧：[deploy/
 
 ### 文件与产物
 
-worker 领取任务时，服务端会把任务附件下发到工作目录的 `attachments/`；prompt 会明确告诉 CLI 附件位置。worker 若需要交付文件，把文件放进 `artifacts/`，提交前会自动上传为任务产物，验收人可在任务详情里看到文件 ID 与名称。
+worker 领取任务时，服务端会把任务附件下载到主题 workspace 下的 `.nbco-task/current/attachments/`；返工历史产物进入 `.nbco-task/current/previous_artifacts/`。prompt 会明确告诉 CLI 每个文件的相对路径。worker 若需要交付文件，把文件放进 `.nbco-task/current/artifacts/`，提交前会自动上传为任务产物，验收人可在任务详情里看到文件 ID 与名称。
 
-返工时会保持工作连续性：上一轮已经上传的产物会作为只读输入重新下发到 `previous_artifacts/`，同时最近过程记录会包含验收打回理由。worker 需要对照打回理由和上一轮产物继续修改，而不是从零重做。
+返工时会保持工作连续性：上一轮已经上传的产物会作为只读输入重新下发到 `.nbco-task/current/previous_artifacts/`，同时最近过程记录会包含验收打回理由。worker 需要对照打回理由和上一轮产物继续修改，而不是从零重做。
 
-worker 不复用跨任务的 Claude/Codex 长会话；每个任务都是新的 PTY 会话，避免上下文污染、窗口衰减和隐私串任务。长期记忆由中枢托管并在领活时注入：worker 自我画像、监护人画像、该 worker 自己沉淀的经验、当前项目经验和全局相关知识。worker 本地配置只保存认证与引擎参数，不维护独立记忆文件。
+worker 不把所有任务塞进同一个 Claude/Codex 长会话；每个任务仍是新的 PTY 进程，避免窗口衰减和隐私串任务。但 nbco 会在任务之上维护 **worker 主题会话**：按 `worker + engine + scope` 复用 workspace 与会话摘要。比如 nbco 代码/部署任务命中 `repo:nbco`，公司资料整理命中 `materials:company-intelligence`，普通项目任务命中 `project:<id>`。如果工作机配置了 `session_workspaces`，可把某个 scope 固定到真实目录：
+
+```json
+{
+  "session_workspaces": {
+    "repo:nbco": "/root/src/nbco"
+  }
+}
+```
+
+长期记忆由中枢托管并在领活时注入：worker 自我画像、监护人画像、该 worker 自己沉淀的经验、当前项目经验、主题会话摘要和全局相关知识。worker 本地配置只保存认证、引擎参数与可选 workspace 映射，不维护不可审计的独立记忆文件。
 
 生产升级这类高风险连续流程要反过来保证“一次尝试一个执行上下文”：不要把同一次 nbco 升级拆给多个 worker、多个 agent 或多条零散 worker 任务。优先用一个 command task 跑完整升级入口；如果需要 AI CLI 介入，也必须在一个 worker 任务的一次交互式 PTY session 里完成更新、测试、部署、健康检查与回滚判断。升级结束后该 session 仍按任务边界销毁，不跨任务保留。
 

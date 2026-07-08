@@ -144,8 +144,8 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				t, err := d.Store.CreateTask(ctx, &store.Task{
 					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
 					Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
-					Description:   "命令任务会在 worker 的本次任务工作目录中执行；如需回传文件，请让命令写入 artifacts/。",
-					Acceptance:    "完成汇报包含退出码和输出摘要；如生成 artifacts/ 文件，应自动上传。",
+					Description:   "命令任务会在 worker 的主题工作目录中执行；如需回传文件，请按 worker 任务提示写入本轮产物目录。",
+					Acceptance:    "完成汇报包含退出码和输出摘要；如生成产物文件，应自动上传。",
 					WorkerCommand: cmd, WorkerCommandPTY: args.PTY, Priority: "high",
 				})
 				if err != nil {

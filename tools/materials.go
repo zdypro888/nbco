@@ -141,7 +141,7 @@ func materialAnalysisPrompt(instruction string) string {
 %s
 
 工作要求：
-1. 下载并阅读 attachments/ 下的全部文件；PDF、XLSX、TXT、图片都要尽力提取事实。
+1. 下载并阅读 worker 任务提示中列出的全部附件路径；PDF、XLSX、TXT、图片都要尽力提取事实。
 2. 输出一份简洁摘要：资料讲了什么、确认了哪些公司事实、有哪些疑问或冲突。
 3. 只提取有长期价值的信息，不要把一次性状态、寒暄、无证据猜测写成学习候选。
 4. 对每条候选保留 evidence，写明来自哪个文件/工作表/页码/图片观察；不确定时降低 confidence。

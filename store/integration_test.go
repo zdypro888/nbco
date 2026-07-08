@@ -1069,6 +1069,43 @@ func TestWorkerBindCodes(t *testing.T) {
 	}
 }
 
+func TestWorkerSessionClaimAndUpdate(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := mkProject(t, s, boss.ID)
+	task := mkTask(t, s, p.ID, boss.ID, worker.ID, "nbco 功能开发", nil)
+
+	ws, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ws.ID == 0 || ws.ScopeKey != "repo:nbco" || ws.UseCount != 1 {
+		t.Fatalf("unexpected session: %+v", ws)
+	}
+	ws2, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ws2.ID != ws.ID || ws2.UseCount != 2 {
+		t.Fatalf("session should be reused and counted: first=%+v second=%+v", ws, ws2)
+	}
+	if err := s.UpdateWorkerSession(ctx, ws.ID, worker.ID, task.ID, "完成了路由", "native-ref", "/root/src/nbco"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Summary != "完成了路由" || got.EngineSessionRef != "native-ref" || got.Workdir != "/root/src/nbco" {
+		t.Fatalf("session update not persisted: %+v", got)
+	}
+}
+
 func TestKnowledgeRules(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

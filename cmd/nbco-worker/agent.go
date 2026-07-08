@@ -61,7 +61,7 @@ type toolCallFunc struct {
 var agentTools = []map[string]any{
 	{"type": "function", "function": map[string]any{
 		"name":        "run_command",
-		"description": "在任务工作目录执行一条 shell/cmd 命令并返回退出码与输出（超长输出截断保尾部）。一次一条、小步执行，看输出确认后再走下一步。",
+		"description": "在当前主题 workspace 执行一条 shell/cmd 命令并返回退出码与输出（超长输出截断保尾部）。一次一条、小步执行，看输出确认后再走下一步。",
 		"parameters": map[string]any{"type": "object", "properties": map[string]any{
 			"command":     map[string]any{"type": "string", "description": "要执行的命令"},
 			"timeout_sec": map[string]any{"type": "integer", "description": "可选超时秒数，默认600，最大1800"},
@@ -69,7 +69,7 @@ var agentTools = []map[string]any{
 	}},
 	{"type": "function", "function": map[string]any{
 		"name":        "task_done",
-		"description": "任务全部完成且自我验证通过后调用：提交验收总结。交付文件必须已放入 artifacts/ 目录（系统自动上传）。",
+		"description": "任务全部完成且自我验证通过后调用：提交验收总结。交付文件必须已放入 " + taskArtifactRelDir() + "/ 目录（系统自动上传）。",
 		"parameters": map[string]any{"type": "object", "properties": map[string]any{
 			"summary": map[string]any{"type": "string", "description": "一句话说明做了什么、结果如何"},
 			"lessons": map[string]any{"type": "string", "description": "可复用的经验教训，没有就留空"},
@@ -78,13 +78,13 @@ var agentTools = []map[string]any{
 }
 
 func agentSystemPrompt(name string) string {
-	return fmt.Sprintf("你是公司的 AI 员工「%s」，在一台工作机的任务目录中独立完成任务。\n"+
+	return fmt.Sprintf("你是公司的 AI 员工「%s」，在一台工作机的主题 workspace 中独立完成任务。\n"+
 		"你唯一的操作手段是 run_command 工具（无浏览器、无图形界面、不能反问用户）。\n"+
 		"工作原则：\n"+
 		"- 小步执行：一次一条命令，根据真实输出决定下一步，绝不臆造结果\n"+
 		"- 先看后动：不熟悉的环境先用 ls/cat/--version 等命令摸清情况\n"+
 		"- 自我验证：完成后用命令实际检查验收标准是否达成\n"+
-		"- 交付文件放进 artifacts/ 目录（提交时自动上传）\n"+
+		"- 交付文件放进 "+taskArtifactRelDir()+"/ 目录（提交时自动上传）\n"+
 		"- 验证通过后调用 task_done 提交，不要空谈计划不动手", name)
 }
 
@@ -264,7 +264,7 @@ func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Task, dir, r
 // submitAgent 收尾：上传产物、拼报告、提交验收（与 CLI 路径同一套约定）。
 func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Task, dir, summary, lessons string) {
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		return
 	}

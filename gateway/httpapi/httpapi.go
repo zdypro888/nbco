@@ -330,6 +330,17 @@ type workerFileJSON struct {
 	Caption string `json:"caption,omitempty"`
 }
 
+type workerSessionJSON struct {
+	ID               int64  `json:"id"`
+	Engine           string `json:"engine"`
+	ScopeType        string `json:"scope_type"`
+	ScopeKey         string `json:"scope_key"`
+	Title            string `json:"title"`
+	Workdir          string `json:"workdir,omitempty"`
+	EngineSessionRef string `json:"engine_session_ref,omitempty"`
+	Summary          string `json:"summary,omitempty"`
+}
+
 // requireWorker 认证并要求是 worker 用户。
 func (s *Server) requireWorker(w http.ResponseWriter, r *http.Request) *store.User {
 	u := s.requireUser(w, r)
@@ -831,6 +842,14 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "认领失败"})
 		return
 	}
+	engine := strings.TrimSpace(r.URL.Query().Get("engine"))
+	scopeType, scopeKey, scopeTitle := s.workerSessionScope(ctx, t)
+	ws, err := s.store.ClaimWorkerSession(ctx, u.ID, engine, scopeType, scopeKey, scopeTitle, t.ID)
+	if err != nil {
+		slog.Error("worker 会话认领失败", "worker", u.ID, "task", t.ID, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "会话认领失败"})
+		return
+	}
 	// 进化：注入服务端托管的 worker/project 记忆。每个任务仍干净启动 PTY，
 	// 长期经验由中枢检索后下发，避免本地记忆分裂、不可审计。
 	var lessons []string
@@ -964,16 +983,61 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	} else {
 		slog.Warn("worker 产物查询失败", "worker", u.ID, "task", t.ID, "err", err)
 	}
-	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
+	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "session", ws.ID, "scope", ws.ScopeKey, "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
 	writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
 			"description": t.Description, "acceptance": t.Acceptance, "command": t.WorkerCommand, "command_pty": t.WorkerCommandPTY, "claim_id": t.WorkerClaimID,
 			"attachments": attachments,
+			"session": workerSessionJSON{
+				ID: ws.ID, Engine: ws.Engine, ScopeType: ws.ScopeType, ScopeKey: ws.ScopeKey,
+				Title: ws.Title, Workdir: ws.Workdir, EngineSessionRef: ws.EngineSessionRef,
+				Summary: ws.Summary,
+			},
 		},
 		"knowledge": lessons,
 		"history":   history,
 	})
+}
+
+func (s *Server) workerSessionScope(ctx context.Context, t *store.Task) (scopeType, scopeKey, title string) {
+	projectName := ""
+	if pj, err := s.store.ProjectByID(ctx, t.ProjectID); err == nil {
+		projectName = pj.Name
+	}
+	text := strings.ToLower(strings.Join([]string{projectName, t.Title, t.Goal, t.Description, t.WorkerCommand}, "\n"))
+	if looksLikeNBCOCodeTask(text) {
+		return "repo", "repo:nbco", "NBCO codebase / deployment"
+	}
+	switch strings.ToLower(strings.TrimSpace(projectName)) {
+	case "company intelligence inbox":
+		return "materials", "materials:company-intelligence", "Company material analysis"
+	case "worker commands":
+		return "ops", "ops:worker-commands", "Worker command tasks"
+	}
+	if t.ProjectID > 0 {
+		name := strings.TrimSpace(projectName)
+		if name == "" {
+			name = fmt.Sprintf("Project %d", t.ProjectID)
+		}
+		return "project", fmt.Sprintf("project:%d", t.ProjectID), name
+	}
+	return "task", fmt.Sprintf("task:%d", t.ID), "One-off task"
+}
+
+func looksLikeNBCOCodeTask(text string) bool {
+	if !strings.Contains(text, "nbco") {
+		return false
+	}
+	for _, kw := range []string{
+		"代码", "功能", "修复", "bug", "部署", "升级", "commit", "push", "测试", "go test",
+		"codex", "claude", "repo", "repository", "代码库", "im.app", "worker",
+	} {
+		if strings.Contains(text, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // handleWorkerProgress worker 回传执行进度（CLI 屏幕或命令输出的节流片段）。
@@ -1009,10 +1073,14 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		TaskID  int64  `json:"task_id"`
-		ClaimID string `json:"claim_id"`
-		Summary string `json:"summary"`
-		Lessons string `json:"lessons"`
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		Summary          string `json:"summary"`
+		Lessons          string `json:"lessons"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		SessionSummary   string `json:"session_summary"`
+		EngineSessionRef string `json:"engine_session_ref"`
+		Workdir          string `json:"workdir"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
@@ -1042,6 +1110,15 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		tags := []string{"worker经验", fmt.Sprintf("worker:%d", u.ID), fmt.Sprintf("project:%d", t.ProjectID)}
 		if _, err := s.store.CreateKnowledge(ctx, t.Title, lessons, tags, u.ID); err != nil {
 			slog.Warn("worker 经验入库失败", "task", t.ID, "err", err)
+		}
+	}
+	if req.WorkerSessionID > 0 {
+		sessionSummary := strings.TrimSpace(req.SessionSummary)
+		if sessionSummary == "" {
+			sessionSummary = truncateRunes(req.Summary, 1200)
+		}
+		if err := s.store.UpdateWorkerSession(ctx, req.WorkerSessionID, u.ID, t.ID, sessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
+			slog.Warn("worker 会话更新失败", "worker", u.ID, "task", t.ID, "session", req.WorkerSessionID, "err", err)
 		}
 	}
 	learned := s.ingestWorkerLearningCandidates(ctx, u, t, req.Summary)

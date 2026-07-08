@@ -23,6 +23,7 @@ const (
 	progressInterval = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
 	progressTail     = 25               // 每次快照回传的屏幕行数
 	maxNudges        = 2                // 未按格式收尾时的补提醒次数
+	taskIORelDir     = ".nbco-task/current"
 )
 
 // 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
@@ -98,7 +99,7 @@ func (w *Worker) Loop(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		task, knowledge, history, err := w.client.Next(ctx)
+		task, knowledge, history, err := w.client.Next(ctx, w.cfg.Engine)
 		if err != nil {
 			log.Printf("领取任务失败: %v", err)
 			w.waitForWork(ctx)
@@ -165,7 +166,7 @@ func (w *Worker) killed() bool {
 // execute 在 PTY 里驱动交互式 CLI 完成任务：warmup → 粘贴任务 → 等回复结束 →
 // 解析收尾（不合格就补提醒）→ 提交验收。进度以屏幕快照周期回传。
 func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
-	dir, err := w.workDir(task.ID, task.ClaimID)
+	dir, err := w.workDir(task)
 	if err != nil {
 		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
@@ -230,7 +231,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		return
 	}
@@ -261,7 +262,7 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 	}
 	summary := commandSummary(command, mode, res, err)
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 artifacts/ 回传。"); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
 		return
 	}
@@ -269,7 +270,7 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 }
 
 func (w *Worker) appendArtifactReport(ctx context.Context, task *Task, dir, summary string) string {
-	uploaded, failed, rejected, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, "artifacts"))
+	uploaded, failed, rejected, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, taskArtifactRelDir()))
 	if uerr != nil {
 		w.report(ctx, task.ID, task.ClaimID, "⚠️ 遍历产物目录出错: "+uerr.Error())
 	}
@@ -329,10 +330,26 @@ func (w *Worker) cliArgs() []string {
 	}
 }
 
-func (w *Worker) workDir(taskID int64, claimID string) (string, error) {
+func (w *Worker) workDir(task *Task) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
+	}
+	if task != nil && strings.TrimSpace(task.Session.ScopeKey) != "" {
+		if dir := w.configuredWorkspace(task.Session); dir != "" {
+			return dir, os.MkdirAll(dir, 0o755)
+		}
+		if dir := strings.TrimSpace(task.Session.Workdir); dir != "" {
+			return dir, os.MkdirAll(dir, 0o755)
+		}
+		dir := filepath.Join(home, "nbco-work", "sessions", safeScopePath(task.Session.Engine), safeScopePath(task.Session.ScopeKey))
+		return dir, os.MkdirAll(dir, 0o755)
+	}
+	taskID := int64(0)
+	claimID := ""
+	if task != nil {
+		taskID = task.ID
+		claimID = task.ClaimID
 	}
 	claim := safeFileName(claimID)
 	if claim == "" {
@@ -342,14 +359,51 @@ func (w *Worker) workDir(taskID int64, claimID string) (string, error) {
 	return dir, os.MkdirAll(dir, 0o755)
 }
 
+func (w *Worker) configuredWorkspace(session SessionInfo) string {
+	if len(w.cfg.SessionWorkspaces) == 0 {
+		return ""
+	}
+	for _, key := range []string{session.ScopeKey, session.ScopeType, session.Title} {
+		if dir := strings.TrimSpace(w.cfg.SessionWorkspaces[key]); dir != "" {
+			return dir
+		}
+	}
+	return ""
+}
+
+func safeScopePath(v string) string {
+	v = strings.TrimSpace(v)
+	v = strings.NewReplacer(":", "-", "/", "-", "\\", "-", " ", "-").Replace(v)
+	v = safeFileName(v)
+	if v == "" {
+		return "default"
+	}
+	return v
+}
+
+func taskAttachmentRelDir(kind string) string {
+	if kind == "previous_artifact" {
+		return filepath.ToSlash(filepath.Join(taskIORelDir, "previous_artifacts"))
+	}
+	return filepath.ToSlash(filepath.Join(taskIORelDir, "attachments"))
+}
+
+func taskArtifactRelDir() string {
+	return filepath.ToSlash(filepath.Join(taskIORelDir, "artifacts"))
+}
+
 func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error {
-	if err := os.MkdirAll(filepath.Join(dir, "attachments"), 0o755); err != nil {
+	ioDir := filepath.Join(dir, taskIORelDir)
+	if err := os.RemoveAll(ioDir); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "previous_artifacts"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, taskAttachmentRelDir("attachment")), 0o755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "artifacts"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, taskAttachmentRelDir("previous_artifact")), 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(dir, taskArtifactRelDir()), 0o755); err != nil {
 		return err
 	}
 	if len(task.Attachments) == 0 {
@@ -358,10 +412,7 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	for i := range task.Attachments {
 		a := &task.Attachments[i]
 		name := attachmentFileName(*a)
-		subdir := "attachments"
-		if a.Kind == "previous_artifact" {
-			subdir = "previous_artifacts"
-		}
+		subdir := taskAttachmentRelDir(a.Kind)
 		dst := filepath.Join(dir, subdir, name)
 		if err := w.client.DownloadFile(ctx, a.DownloadURL, dst); err != nil {
 			return fmt.Errorf("%s: %w", a.OriginalName, err)
@@ -401,10 +452,10 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 		// 安全打开：O_NOFOLLOW 拒最终路径段为软链接、fstat 校验常规文件且 nlink==1
 		// （挡软链接、硬链接、FIFO、设备）。注意这是【纵深加固而非安全边界】：worker
 		// 与其模型 CLI 同为一个机器账号、CLI 带 --dangerously-skip-permissions 有完整
-		// shell，模型只要 `cp ~/.nbco-worker.json artifacts/x`（普通文件）就能外泄，
+		// shell，模型只要 `cp ~/.nbco-worker.json .nbco-task/current/artifacts/x`（普通文件）就能外泄，
 		// 且中间目录段被换成软链接的 TOCTOU 仍可绕过（O_NOFOLLOW 只管最后一段）。
 		// 真正的边界需要把 worker CLI 沙箱化（低权限 uid / 容器）。此处只挡手滑与
-		// naive 外泄，把上传限定为 artifacts/ 里的常规文件。
+		// naive 外泄，把上传限定为本轮 artifacts 里的常规文件。
 		f, oerr := openArtifactFile(path)
 		if oerr != nil {
 			log.Printf("任务 #%d 拒绝上传产物 %s: %v", taskID, relSlash, oerr)
@@ -505,6 +556,19 @@ func buildPrompt(task *Task, knowledge, history []string) string {
 // PTY CLI 提示与内置智能体共用同一份信息组装。
 func taskBrief(task *Task, knowledge, history []string) string {
 	var b strings.Builder
+	if task.Session.ScopeKey != "" {
+		title := strings.TrimSpace(task.Session.Title)
+		if title == "" {
+			title = task.Session.ScopeKey
+		}
+		fmt.Fprintf(&b, "Worker 主题会话：%s（%s，%s）\n", title, task.Session.ScopeType, task.Session.ScopeKey)
+		b.WriteString("当前工作目录是这个主题会话的持久 workspace；同一主题的后续任务会复用这里的代码、资料和上下文痕迹。\n")
+		b.WriteString("每轮任务输入/输出只使用 .nbco-task/current/，不要删除或污染其他主题无关内容。\n")
+		if strings.TrimSpace(task.Session.Summary) != "" {
+			fmt.Fprintf(&b, "上次会话摘要：%s\n", task.Session.Summary)
+		}
+		b.WriteByte('\n')
+	}
 	fmt.Fprintf(&b, "任务：%s\n", task.Title)
 	if task.Goal != "" {
 		fmt.Fprintf(&b, "目标（为什么做）：%s\n", task.Goal)
@@ -532,11 +596,7 @@ func taskBrief(task *Task, knowledge, history []string) string {
 		for _, a := range task.Attachments {
 			path := a.LocalPath
 			if path == "" {
-				subdir := "attachments"
-				if a.Kind == "previous_artifact" {
-					subdir = "previous_artifacts"
-				}
-				path = filepath.ToSlash(filepath.Join(subdir, attachmentFileName(a)))
+				path = filepath.ToSlash(filepath.Join(taskAttachmentRelDir(a.Kind), attachmentFileName(a)))
 			}
 			label := "任务附件"
 			if a.Kind == "previous_artifact" {
@@ -557,7 +617,7 @@ func buildPromptWithMarks(task *Task, knowledge, history []string, marks complet
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	b.WriteString(taskBrief(task, knowledge, history))
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
-	b.WriteString("如果需要交付文件，请把文件放进 artifacts/ 目录，系统会在提交前自动上传。\n")
+	fmt.Fprintf(&b, "如果需要交付文件，请把文件放进 %s/ 目录，系统会在提交前自动上传。\n", taskArtifactRelDir())
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
 	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
 		marks.Summary, marks.Lessons, marks.End)

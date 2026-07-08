@@ -42,6 +42,11 @@ type Config struct {
 	// 仍守 PTY 交互铁律——只是换掉「启动哪个 CLI、怎么判完成」。
 	Args        []string `json:"args"`         // 自定义启动参数（非空则覆盖内置 claude/codex 默认参数）
 	BusyPattern string   `json:"busy_pattern"` // 自定义「工作中」状态行正则（完成检测用；空=默认 "esc to interrupt"）
+	// SessionWorkspaces pins topic scopes to real directories. Example:
+	// {"repo:nbco":"/root/src/nbco"} lets code/deploy tasks resume the nbco
+	// codebase workspace while unrelated document-analysis tasks use their own
+	// nbco-work session directory.
+	SessionWorkspaces map[string]string `json:"session_workspaces,omitempty"`
 }
 
 func configPath(override string) string {

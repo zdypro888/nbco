@@ -53,6 +53,15 @@ func TestWorkerDownloadRejectsUnknownName(t *testing.T) {
 	}
 }
 
+func TestLooksLikeNBCOCodeTask(t *testing.T) {
+	if !looksLikeNBCOCodeTask("nbco 需要增加功能并部署到 im.app") {
+		t.Fatal("nbco code/deploy task should map to repo scope")
+	}
+	if looksLikeNBCOCodeTask("整理 nbco 公司资料表格") {
+		t.Fatal("plain material task mentioning nbco should not automatically map to repo scope")
+	}
+}
+
 func TestLLMSemaphoreLazyInit(t *testing.T) {
 	s := &Server{}
 	sem := s.llmSemaphore()

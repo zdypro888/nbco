@@ -115,14 +115,14 @@ func TestBuildPromptWithAttachmentsAndArtifacts(t *testing.T) {
 		Title: "处理报告",
 		Attachments: []Attachment{{
 			ID: 7, OriginalName: "report.pdf", MIMEType: "application/pdf",
-			SizeBytes: 123, LocalPath: "attachments/7-report.pdf",
+			SizeBytes: 123, LocalPath: ".nbco-task/current/attachments/7-report.pdf",
 		}, {
 			ID: 8, OriginalName: "old-result.txt", Kind: "previous_artifact", Caption: "上一轮结果",
-			MIMEType: "text/plain", SizeBytes: 9, LocalPath: "previous_artifacts/8-old-result.txt",
+			MIMEType: "text/plain", SizeBytes: 9, LocalPath: ".nbco-task/current/previous_artifacts/8-old-result.txt",
 		}},
 	}, nil, nil)
-	for _, want := range []string{"attachments/7-report.pdf", "previous_artifacts/8-old-result.txt",
-		"上一轮产物", "上一轮结果", "application/pdf", "artifacts/"} {
+	for _, want := range []string{".nbco-task/current/attachments/7-report.pdf", ".nbco-task/current/previous_artifacts/8-old-result.txt",
+		"上一轮产物", "上一轮结果", "application/pdf", ".nbco-task/current/artifacts/"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("prompt 缺 %q:\n%s", want, p)
 		}
@@ -136,7 +136,7 @@ func TestBuildPromptAttachmentFallbackMatchesDownloadedName(t *testing.T) {
 			ID: 12, OriginalName: "../合同?.pdf", MIMEType: "application/pdf", SizeBytes: 5,
 		}},
 	}, nil, nil)
-	if !strings.Contains(p, "attachments/12-合同_.pdf") {
+	if !strings.Contains(p, ".nbco-task/current/attachments/12-合同_.pdf") {
 		t.Fatalf("prompt 应提示真实下载文件名:\n%s", p)
 	}
 }
@@ -158,13 +158,52 @@ func TestWorkDirIncludesClaimID(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	w := &Worker{}
-	dir, err := w.workDir(42, "abc123")
+	dir, err := w.workDir(&Task{ID: 42, ClaimID: "abc123"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := filepath.Join(home, "nbco-work", "task-42", "claim-abc123")
 	if dir != want {
 		t.Fatalf("workDir = %q, want %q", dir, want)
+	}
+}
+
+func TestWorkDirUsesSessionScope(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	w := &Worker{}
+	dir, err := w.workDir(&Task{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(home, "nbco-work", "sessions", "codex", "repo-nbco")
+	if dir != want {
+		t.Fatalf("session workDir = %q, want %q", dir, want)
+	}
+}
+
+func TestWorkDirUsesConfiguredWorkspace(t *testing.T) {
+	root := t.TempDir()
+	w := &Worker{cfg: Config{SessionWorkspaces: map[string]string{"repo:nbco": root}}}
+	remembered := filepath.Join(t.TempDir(), "remembered")
+	dir, err := w.workDir(&Task{ID: 42, Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco", Workdir: remembered}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dir != root {
+		t.Fatalf("configured workspace = %q, want %q", dir, root)
+	}
+}
+
+func TestWorkDirUsesRememberedWorkspace(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "remembered")
+	w := &Worker{}
+	dir, err := w.workDir(&Task{ID: 42, Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco", Workdir: root}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dir != root {
+		t.Fatalf("remembered workspace = %q, want %q", dir, root)
 	}
 }
 

@@ -109,6 +109,19 @@ type Task struct {
 	Command     string       `json:"command"`
 	CommandPTY  bool         `json:"command_pty"`
 	Attachments []Attachment `json:"attachments"`
+	Session     SessionInfo  `json:"session"`
+}
+
+// SessionInfo is the server-owned topic context this task belongs to.
+type SessionInfo struct {
+	ID               int64  `json:"id"`
+	Engine           string `json:"engine"`
+	ScopeType        string `json:"scope_type"`
+	ScopeKey         string `json:"scope_key"`
+	Title            string `json:"title"`
+	Workdir          string `json:"workdir,omitempty"`
+	EngineSessionRef string `json:"engine_session_ref,omitempty"`
+	Summary          string `json:"summary,omitempty"`
 }
 
 // Attachment 是服务端随任务下发的文件附件。
@@ -126,8 +139,12 @@ type Attachment struct {
 
 // Next 认领下一个任务；无任务返回全 nil。knowledge 是相关历史经验，
 // history 是该任务已有的过程记录（返工时含验收打回理由）。
-func (c *Client) Next(ctx context.Context) (*Task, []string, []string, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/api/worker/next", nil)
+func (c *Client) Next(ctx context.Context, engine string) (*Task, []string, []string, error) {
+	u := c.base + "/api/worker/next"
+	if strings.TrimSpace(engine) != "" {
+		u += "?engine=" + url.QueryEscape(strings.TrimSpace(engine))
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	c.auth(req)
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -200,10 +217,27 @@ func (c *Client) Progress(ctx context.Context, taskID int64, claimID, content st
 }
 
 // Submit 提交完成，进入验收流；lessons 非空则回流知识库。
-func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string) error {
+func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string) error {
 	return c.post(ctx, "/api/worker/submit", map[string]any{
 		"task_id": taskID, "claim_id": claimID, "summary": summary, "lessons": lessons,
+		"worker_session_id": session.ID, "session_summary": sessionSummary(summary, lessons),
+		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
 	})
+}
+
+func sessionSummary(summary, lessons string) string {
+	summary = strings.TrimSpace(summary)
+	lessons = strings.TrimSpace(lessons)
+	switch {
+	case summary != "" && lessons != "":
+		return clipHead("最近完成："+summary+"\n可复用经验："+lessons, 1200)
+	case summary != "":
+		return clipHead("最近完成："+summary, 1200)
+	case lessons != "":
+		return clipHead("可复用经验："+lessons, 1200)
+	default:
+		return ""
+	}
 }
 
 // DownloadFile 下载 worker 被授权的文件到 dst。
