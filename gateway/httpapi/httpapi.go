@@ -76,7 +76,20 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		// 探活 DB：死 200 会让流量继续打到一个 DB 已断的实例。短超时避免 healthz 自身拖垮。
+		if s.store == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		if err := s.store.Ping(ctx); err != nil {
+			slog.Warn("healthz DB 探活失败", "err", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("db unavailable"))
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
@@ -290,7 +303,21 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		"workers": map[string]any{
 			"hub_configured": s.deps.Workers != nil,
 		},
+		"engine": s.engineHealth(),
 	})
+}
+
+// engineHealth 返回引擎连续失败数与最近错误，供超管在 /api/admin/ops 看引擎是否挂了。
+func (s *Server) engineHealth() map[string]any {
+	if s.orch == nil {
+		return map[string]any{"configured": false}
+	}
+	fails, lastErr := s.orch.EngineHealth()
+	return map[string]any{
+		"configured":      true,
+		"consecutive_fails": fails,
+		"last_error":       lastErr,
+	}
 }
 
 func (s *Server) handleMyTasks(w http.ResponseWriter, r *http.Request) {

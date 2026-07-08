@@ -444,6 +444,11 @@ func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 }
 
 // withAudit 每次工具调用落一条审计记录（失败不阻断业务）。
+// toolOutputLimit 工具返回送入对话历史的上限（rune）。对齐 script_tools 的 12000：
+// 一个超大返回（500 任务的 view_project、worker 终端快照）能顶爆模型上下文窗口，
+// 用户只得到「出错了请重试」且无截断兜底。这里在所有工具的统一包装层兜底截断。
+const toolOutputLimit = 12000
+
 func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Tool {
 	inner := t.Handler
 	name := t.Name
@@ -453,12 +458,27 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 		if err != nil {
 			result = err.Error()
 		}
-		if aerr := s.Audit(ctx, userID, sessionID, name, args, truncate(result, 2000), ok); aerr != nil {
-			slog.Warn("审计写入失败", "tool", name, "err", aerr)
+		if s != nil {
+			if aerr := s.Audit(ctx, userID, sessionID, name, args, truncate(result, 2000), ok); aerr != nil {
+				slog.Warn("审计写入失败", "tool", name, "err", aerr)
+			}
+		}
+		// 成功输出超限统一截断（script_tools 已自带截断，重复截断无害）。
+		if err == nil {
+			out = truncateToolOutput(out)
 		}
 		return out, err
 	}
 	return t
+}
+
+// truncateToolOutput 超过 toolOutputLimit rune 时截断并附分页提示，防顶爆上下文。
+func truncateToolOutput(s string) string {
+	r := []rune(s)
+	if len(r) <= toolOutputLimit {
+		return s
+	}
+	return string(r[:toolOutputLimit]) + "\n\n…（输出已截断，结果过大；如需完整内容用带分页/筛选参数的工具分批查看）"
 }
 
 // --- schema 构建助手 ---

@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
@@ -53,7 +55,22 @@ type Orchestrator struct {
 	locks      map[int64]*sync.Mutex  // 同一用户的轮次串行：用户消息与系统触发轮次（催办/周报）不互踩会话
 	groupLocks map[string]*sync.Mutex // 群共享会话按渠道串行
 	compacting map[int64]bool         // 正在后台压缩的会话，防并发压缩
+
+	// 引擎健康：连续失败计数 + 最近错误。超阈值给超管推告警，避免引擎挂了只能等用户投诉。
+	// 主动行为（催办/周报/画像）全靠引擎，挂了会静默停摆。
+	engineFails atomic.Int64
+	engineMu    sync.Mutex
+	engineLast  string    // 最近一次失败的错误描述
+	engineAlert time.Time // 上次告警时间（30 分钟去重）
 }
+
+const (
+	engineAlertThreshold = 5                // 连续失败该次数后告警
+	engineAlertInterval  = 30 * time.Minute // 同一拨故障的最小告警间隔
+	engineAlertTimeout   = 20 * time.Second // 告警投递上限：不能反向卡住用户轮次
+)
+
+var engineSecretRe = regexp.MustCompile(`(?i)(bearer\s+[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{12,}|[0-9]{8,}:[a-z0-9_-]{20,}|(?:api[_-]?key|token)[=:]\S+)`)
 
 // New 创建编排器。
 func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, streamReasoning bool) *Orchestrator {
@@ -245,8 +262,10 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	res, err := o.engine.RunTurn(ctx, req)
 	if err != nil {
 		slog.Warn("轮次失败", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond), "err", err)
+		o.noteEngineResult(false, err)
 		return "", fmt.Errorf("AI 引擎失败: %w", err)
 	}
+	o.noteEngineResult(true, nil)
 	slog.Info("轮次完成", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond),
 		"steps", len(res.Steps), "in_tokens", res.Usage.InputTokens, "out_tokens", res.Usage.OutputTokens,
 		"reply_len", len(res.Text))
@@ -644,6 +663,94 @@ func (o *Orchestrator) recordUsage(ctx context.Context, userID int64, sessionID 
 	}); err != nil {
 		slog.Warn("AI 用量落库失败", "err", err)
 	}
+}
+
+// noteEngineResult 记录引擎调用成败：成功归零，失败累加并在超阈值时给超管告警。
+// 引擎挂掉会让催办/周报/画像等主动行为静默停摆，operator 通常只能等用户投诉才知道——
+// 这里把「连续失败」变成可见信号。
+func (o *Orchestrator) noteEngineResult(success bool, err error) {
+	if success {
+		o.engineMu.Lock()
+		o.engineFails.Store(0)
+		o.engineLast = ""
+		o.engineMu.Unlock()
+		return
+	}
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+	msg := sanitizeEngineError(err)
+	o.engineMu.Lock()
+	fails := o.engineFails.Add(1)
+	o.engineLast = msg
+	alert := fails >= int64(engineAlertThreshold) && time.Since(o.engineAlert) >= engineAlertInterval
+	if alert {
+		o.engineAlert = time.Now()
+	}
+	last := o.engineLast
+	o.engineMu.Unlock()
+	if !alert {
+		return
+	}
+	// 给所有活跃超管推一条告警（尽力而为，失败不阻断）。
+	text := fmt.Sprintf("🚨 AI 引擎已连续失败 %d 次，主动行为（催办/周报/画像）可能停摆。最近错误：%s", fails, last)
+	o.dispatchEngineAlert(text)
+}
+
+func sanitizeEngineError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := engineSecretRe.ReplaceAllString(err.Error(), "[redacted]")
+	r := []rune(msg)
+	if len(r) > 800 {
+		msg = string(r[:800]) + "…"
+	}
+	return msg
+}
+
+func (o *Orchestrator) dispatchEngineAlert(text string) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("引擎告警后台 panic 已恢复", "panic", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), engineAlertTimeout)
+		defer cancel()
+		o.alertSuperadmins(ctx, text)
+	}()
+}
+
+// alertSuperadmins 给所有活跃超管推一条消息（引擎告警等运维信号）。
+func (o *Orchestrator) alertSuperadmins(ctx context.Context, text string) {
+	if o.deps.Notifier == nil {
+		slog.Error("引擎连续失败但未装配通知通道，无法告警超管", "msg", text)
+		return
+	}
+	if o.store == nil {
+		slog.Error("引擎连续失败但未装配存储，无法枚举超管告警", "msg", text)
+		return
+	}
+	users, err := o.store.ListUsers(ctx)
+	if err != nil {
+		slog.Warn("引擎告警取超管失败", "err", err)
+		return
+	}
+	for _, u := range users {
+		if u.IsSuperadmin && u.Status == store.UserActive {
+			if err := o.deps.Notifier.Send(ctx, u.ID, text); err != nil {
+				slog.Warn("引擎告警推送失败", "superadmin", u.ID, "err", err)
+			}
+		}
+	}
+}
+
+// EngineHealth 返回当前引擎健康状态（连续失败数 + 最近错误），供 /api/admin/ops 暴露。
+func (o *Orchestrator) EngineHealth() (fails int64, lastErr string) {
+	o.engineMu.Lock()
+	defer o.engineMu.Unlock()
+	return o.engineFails.Load(), o.engineLast
 }
 
 // channelKind 渠道值归一成计量维度（telegram:group:<id> → telegram），防基数爆炸。

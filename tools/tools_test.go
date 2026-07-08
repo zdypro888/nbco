@@ -83,6 +83,44 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
+func TestTruncateToolOutput(t *testing.T) {
+	// 短输出不截断。
+	short := strings.Repeat("a", 100)
+	if got := truncateToolOutput(short); got != short {
+		t.Errorf("短输出不应截断, got len=%d", len(got))
+	}
+	// 超限截断 + 附分页提示。
+	big := strings.Repeat("a", toolOutputLimit+5000)
+	got := truncateToolOutput(big)
+	if !strings.HasPrefix(got, strings.Repeat("a", toolOutputLimit)) {
+		t.Errorf("应截断到 %d rune", toolOutputLimit)
+	}
+	if !strings.Contains(got, "已截断") {
+		t.Errorf("截断应附分页提示, got 末尾: %q", got[len(got)-40:])
+	}
+	// 多字节安全：中文不切坏。
+	cn := strings.Repeat("你", toolOutputLimit+100)
+	if got := truncateToolOutput(cn); !utf8.ValidString(got) {
+		t.Errorf("截断中文不能切坏 UTF-8")
+	}
+}
+
+func TestWithAuditWithoutStore(t *testing.T) {
+	tl := withAudit(nil, 1, nil, ai.Tool{
+		Name: "big",
+		Handler: func(context.Context, json.RawMessage) (string, error) {
+			return strings.Repeat("x", toolOutputLimit+1), nil
+		},
+	})
+	got, err := tl.Handler(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "已截断") {
+		t.Fatalf("无 Store 审计路径仍应执行并截断输出: len=%d", len([]rune(got)))
+	}
+}
+
 func TestWithTurnBudget(t *testing.T) {
 	calls := 0
 	ts := WithTurnBudget([]ai.Tool{{

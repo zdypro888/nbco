@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
 )
@@ -140,6 +142,44 @@ func TestShouldFetchHistory(t *testing.T) {
 	}
 	if shouldFetchHistory("telegram:group:-42") {
 		t.Error("群渠道应禁止历史预取（隐私守护）")
+	}
+}
+
+func TestEngineHealthAccounting(t *testing.T) {
+	o := &Orchestrator{}
+	o.noteEngineResult(false, context.Canceled)
+	if fails, last := o.EngineHealth(); fails != 0 || last != "" {
+		t.Fatalf("取消请求不应计引擎故障，fails=%d last=%q", fails, last)
+	}
+
+	bearer := "sk-" + strings.Repeat("x", 20)
+	apiKey := strings.Repeat("a", 12)
+	err := errors.New("upstream failed: Authorization: Bearer " + bearer + " api_key=" + apiKey)
+	o.noteEngineResult(false, err)
+	fails, last := o.EngineHealth()
+	if fails != 1 {
+		t.Fatalf("失败计数 = %d, want 1", fails)
+	}
+	for _, leak := range []string{bearer, apiKey} {
+		if strings.Contains(last, leak) {
+			t.Fatalf("引擎错误不应泄漏敏感信息 %q: %s", leak, last)
+		}
+	}
+	if !strings.Contains(last, "[redacted]") {
+		t.Fatalf("脱敏后应保留可诊断标记: %s", last)
+	}
+
+	o.noteEngineResult(true, nil)
+	if fails, last := o.EngineHealth(); fails != 0 || last != "" {
+		t.Fatalf("成功后应清空健康错误，fails=%d last=%q", fails, last)
+	}
+
+	o.deps.Notifier = notify.Func(func(context.Context, int64, string) error { return nil })
+	for range engineAlertThreshold {
+		o.noteEngineResult(false, errors.New("still down"))
+	}
+	if fails, _ := o.EngineHealth(); fails != int64(engineAlertThreshold) {
+		t.Fatalf("无 Store 告警路径不应影响失败计数，fails=%d", fails)
 	}
 }
 

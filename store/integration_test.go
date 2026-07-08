@@ -235,6 +235,102 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	}
 }
 
+// TestRevokeWorkerResetsOpenTasks 吊销 worker 时应重置其未完成任务（回 pending、清 claim），
+// 否则任务永远停在已禁用的 assignee 名下无人恢复。
+func TestRevokeWorkerResetsOpenTasks(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "跑测试", nil)
+	// worker 认领 → in_progress + claim。
+	if _, err := s.ClaimNextTask(ctx, worker.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	reset, err := s.RevokeWorker(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reset != 1 {
+		t.Errorf("RevokeWorker 返回重置任务数 = %d, want 1", reset)
+	}
+	got, err := s.TaskByID(ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != TaskPending {
+		t.Errorf("吊销后任务状态 = %s, want pending", got.Status)
+	}
+	if got.WorkerClaimID != "" {
+		t.Errorf("吊销后 worker_claim_id 应清空, got %q", got.WorkerClaimID)
+	}
+	// worker 已禁用。
+	w, _ := s.UserByID(ctx, worker.ID)
+	if w.Status != "disabled" {
+		t.Errorf("worker 状态 = %s, want disabled", w.Status)
+	}
+}
+
+func TestOrphanedTasksAndDecisionQueue(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "孤儿任务", nil)
+
+	// 吊销前：无孤儿（worker 活跃）。
+	if orphaned, _ := s.OrphanedTasks(ctx); len(orphaned) != 0 {
+		t.Fatalf("吊销前应有 0 孤儿, got %d", len(orphaned))
+	}
+	// 吊销后：任务变孤儿。
+	if _, err := s.RevokeWorker(ctx, worker.ID); err != nil {
+		t.Fatal(err)
+	}
+	orphaned, err := s.OrphanedTasks(ctx)
+	if err != nil || len(orphaned) != 1 || orphaned[0].ID != tk.ID {
+		t.Fatalf("吊销后应有 1 孤儿, got %+v err=%v", orphaned, err)
+	}
+	// BuildDecisionQueue 应给 assigner(boss) 生成 orphaned_task decision。
+	count, err := s.BuildDecisionQueue(ctx, boss.ID)
+	if err != nil || count == 0 {
+		t.Fatalf("BuildDecisionQueue 应含孤儿项, count=%d err=%v", count, err)
+	}
+	items, err := s.ListDecisionItems(ctx, boss.ID, "open", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, d := range items {
+		if d.Kind == "orphaned_task" && d.RefID != nil && *d.RefID == tk.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("决策队列应含 orphaned_task 指向任务 %d", tk.ID)
+	}
+	// CloseDecisionsByRef：改派后关闭指向该任务的决策项。
+	n, err := s.CloseDecisionsByRef(ctx, boss.ID, "task", tk.ID)
+	if err != nil || n == 0 {
+		t.Fatalf("CloseDecisionsByRef 应关闭孤儿项, n=%d err=%v", n, err)
+	}
+	items, _ = s.ListDecisionItems(ctx, boss.ID, "open", 30)
+	for _, d := range items {
+		if d.Kind == "orphaned_task" {
+			t.Errorf("关闭后不应还有 open 的 orphaned_task, got %+v", d)
+		}
+	}
+}
+
 func TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

@@ -56,6 +56,13 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 // Close 释放连接池。
 func (s *Store) Close() { s.pool.Close() }
 
+// Ping 探活数据库连接（SELECT 1）。/healthz 用它区分存活/不存活，让负载均衡器/部署
+// 能据实判断——死 200 会让流量继续打到一个 DB 已断的实例。
+func (s *Store) Ping(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `SELECT 1`)
+	return err
+}
+
 func (s *Store) migrate(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx,
 		`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`); err != nil {

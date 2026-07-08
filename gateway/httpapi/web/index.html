@@ -63,6 +63,7 @@
   .stat .n{font-size:24px;font-weight:700}
   .stat .l{color:var(--muted);font-size:12px}
   .stat.warn .n{color:var(--red)}
+  .ops-bad{color:var(--red);font-weight:600}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:500;font-size:12px}
@@ -220,10 +221,12 @@ function renderTasks(el, tasks, opts = {}) {
     const row = document.createElement("div");
     row.className = "task";
     const overdue = t.deadline && new Date(t.deadline) < new Date() && (t.status === "pending" || t.status === "in_progress");
+    const statusClass = cssToken(t.status || "unknown");
+    const statusText = Object.prototype.hasOwnProperty.call(STATUS, t.status) ? STATUS[t.status] : (t.status || "");
     row.innerHTML =
       `<span class="tid">#${t.id}</span>` +
       `<span class="title">${esc(t.title)}</span>` +
-      `<span class="badge b-${t.status}">${STATUS[t.status] || t.status}</span>` +
+      `<span class="badge b-${statusClass}">${esc(statusText)}</span>` +
       (opts.who === "assignee" ? `<span class="meta">${esc(t.assignee_name || "")}</span>` :
        opts.who === "assigner" ? `<span class="meta">来自 ${esc(t.assigner_name || "")}</span>` : "") +
       (t.deadline ? `<span class="meta ${overdue ? "overdue" : ""}">截止 ${fmtTime(t.deadline)}</span>` : "") +
@@ -232,6 +235,7 @@ function renderTasks(el, tasks, opts = {}) {
   }
 }
 function esc(s){ const d = document.createElement("span"); d.textContent = s ?? ""; return d.innerHTML; }
+function cssToken(s){ return String(s ?? "").replace(/[^a-zA-Z0-9_-]/g, "_"); }
 
 async function loadTodo()    { renderTasks($("#view-todo"),    (await api("/api/me/tasks")).tasks,   { who:"assigner" }); }
 async function loadReview()  { renderTasks($("#view-review"),  (await api("/api/me/review")).tasks,  { who:"assignee" }); }
@@ -294,11 +298,16 @@ async function loadOps(){
   const el = $("#view-ops");
   el.innerHTML = `<div class="empty">加载中…</div>`;
   const d = await api("/api/admin/ops");
+  const engine = d.engine || {};
+  const engineFails = Number(engine.consecutive_fails || 0);
+  const engineText = !engine.configured ? "未配置" : (engineFails > 0 ? `异常：连续失败 ${engineFails} 次` : "正常");
   el.innerHTML = `<h3 style="margin-top:0">运维状态</h3>
     <table><tbody>
       <tr><th>版本</th><td>${esc(d.version)}</td></tr>
       <tr><th>Go</th><td>${esc(d.go)}</td></tr>
       <tr><th>最近迁移</th><td>${esc((d.migrations || []).join(", "))}</td></tr>
+      <tr><th>AI 引擎</th><td class="${engineFails > 0 ? "ops-bad" : ""}">${esc(engineText)}</td></tr>
+      ${engine.last_error ? `<tr><th>最近错误</th><td>${esc(engine.last_error)}</td></tr>` : ""}
     </tbody></table>`;
 }
 
