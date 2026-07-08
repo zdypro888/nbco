@@ -31,6 +31,7 @@ import (
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/tools"
 )
 
@@ -2089,19 +2090,8 @@ func nonMediaText(msg *models.Message) string {
 	return strings.Join(parts, "\n")
 }
 
-func formatTelegramBytes(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	div, exp := int64(unit), 0
-	units := "KMGTPE"
-	for v := n / unit; v >= unit && exp < len(units)-1; v /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), units[exp])
-}
+// formatTelegramBytes 转发到 textfmt.FormatBytes（跨包共享实现）。
+func formatTelegramBytes(n int64) string { return textfmt.FormatBytes(n) }
 
 // transcribeVoice 下载 Telegram 语音并经 STT 服务转写。任何失败返回空串，
 // 调用方回退为占位提示——语音是增强，不该让消息处理失败。

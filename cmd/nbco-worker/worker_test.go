@@ -302,6 +302,97 @@ func TestCliArgs(t *testing.T) {
 	}
 }
 
+func TestCliInvocationResumesKnownEngines(t *testing.T) {
+	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
+	codex := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref})
+	if len(codex.Args) < 3 || codex.Args[0] != "resume" || codex.Args[len(codex.Args)-1] != ref || codex.ResumeRef != ref {
+		t.Fatalf("codex resume args = %+v", codex)
+	}
+	if strings.Contains(strings.Join(codex.Args, " "), " exec ") {
+		t.Fatalf("codex resume 仍必须是交互模式，不得用 exec: %v", codex.Args)
+	}
+
+	claude := (&Worker{cfg: Config{Engine: "claude"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref})
+	if !containsAllInOrder(claude.Args, "--resume", ref) || claude.ResumeRef != ref {
+		t.Fatalf("claude resume args = %+v", claude)
+	}
+	for _, arg := range claude.Args {
+		if arg == "-p" || arg == "--print" {
+			t.Fatalf("claude resume 仍必须是交互模式，不得用 print: %v", claude.Args)
+		}
+	}
+
+	bad := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: "--last"})
+	if bad.ResumeRef != "" || len(bad.Args) > 0 && bad.Args[0] == "resume" {
+		t.Fatalf("不安全 session ref 不应进入命令参数: %+v", bad)
+	}
+
+	custom := (&Worker{cfg: Config{Engine: "codex", Args: []string{"chat", "--swarm"}}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref})
+	if custom.ResumeRef != "" || strings.Join(custom.Args, " ") != "chat --swarm" {
+		t.Fatalf("自定义 Args 不应被硬塞 resume: %+v", custom)
+	}
+}
+
+func TestLatestEngineSessionRefCodex(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := t.TempDir()
+	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
+	root := filepath.Join(home, ".codex", "sessions", "2026", "07", "08")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"timestamp":%q,"type":"session_meta","payload":{"session_id":%q,"id":%q,"cwd":%q}}`+"\n",
+		time.Now().Format(time.RFC3339Nano), ref, ref, dir)
+	if err := os.WriteFile(filepath.Join(root, "rollout-"+ref+".jsonl"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := latestEngineSessionRef("codex", dir, time.Now().Add(-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != ref {
+		t.Fatalf("codex session ref = %q, want %q", got, ref)
+	}
+}
+
+func TestLatestEngineSessionRefClaude(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := t.TempDir()
+	ref := "b7111683-2bf1-4f01-9646-7a443b93239a"
+	root := filepath.Join(home, ".claude", "projects", "-tmp-nbco")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	other := `{"sessionId":"11111111-1111-1111-1111-111111111111","cwd":"/tmp/other","timestamp":"2026-07-08T00:00:00Z"}` + "\n"
+	if err := os.WriteFile(filepath.Join(root, "11111111-1111-1111-1111-111111111111.jsonl"), []byte(other), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"sessionId":%q,"timestamp":%q}`+"\n", ref, time.Now().Format(time.RFC3339Nano)) +
+		fmt.Sprintf(`{"sessionId":%q,"cwd":%q,"timestamp":%q}`+"\n", ref, dir, time.Now().Format(time.RFC3339Nano))
+	if err := os.WriteFile(filepath.Join(root, ref+".jsonl"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := latestEngineSessionRef("claude", dir, time.Now().Add(-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != ref {
+		t.Fatalf("claude session ref = %q, want %q", got, ref)
+	}
+}
+
+func containsAllInOrder(xs []string, wants ...string) bool {
+	pos := 0
+	for _, x := range xs {
+		if pos < len(wants) && x == wants[pos] {
+			pos++
+		}
+	}
+	return pos == len(wants)
+}
+
 // recordWriter 记录每次 Write 的内容。
 type recordWriter struct {
 	mu     sync.Mutex

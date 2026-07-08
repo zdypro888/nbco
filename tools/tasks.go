@@ -13,6 +13,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 // taskTools 项目与任务（用户视角 + 管理视角）。
@@ -1090,19 +1091,8 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	return b.String(), nil
 }
 
-func formatBytes(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	div, exp := int64(unit), 0
-	units := "KMGTPE"
-	for v := n / unit; v >= unit && exp < len(units)-1; v /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), units[exp])
-}
+// formatBytes 转发到 textfmt.FormatBytes（跨包共享实现）。
+func formatBytes(n int64) string { return textfmt.FormatBytes(n) }
 
 func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b *strings.Builder, tz *time.Location) error {
 	if depth > 32 {

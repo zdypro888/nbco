@@ -10,6 +10,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const skillSearchLimit = 8
@@ -337,25 +338,9 @@ func validateSkillScope(scope string) string {
 	return "scope 必须是 global/telegram/api/worker 或 user:<数字用户ID>。"
 }
 
+// normalizeSkillTags 转发到 textfmt.NormalizeScopeTags（跨包共享实现）。
 func normalizeSkillTags(tags []string, scope string) []string {
-	out := make([]string, 0, len(tags)+1)
-	seen := map[string]bool{}
-	add := func(tag string) {
-		tag = strings.TrimSpace(tag)
-		if tag == "" || seen[tag] {
-			return
-		}
-		seen[tag] = true
-		out = append(out, tag)
-	}
-	add("scope:" + scope)
-	for _, tag := range tags {
-		if strings.HasPrefix(tag, "scope:") {
-			continue
-		}
-		add(tag)
-	}
-	return out
+	return textfmt.NormalizeScopeTags(tags, scope)
 }
 
 func chooseSkillTags(argsTags, oldTags []string, scope string) []string {

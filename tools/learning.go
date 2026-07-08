@@ -9,6 +9,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 func learningTools(d Deps, u *store.User) []ai.Tool {
@@ -176,20 +177,7 @@ func normalizeLearningScope(scope string) string {
 }
 
 func normalizeLearningTags(tags []string, scope string) []string {
-	if scope == "" {
-		scope = "global"
-	}
-	out := []string{"scope:" + scope}
-	seen := map[string]bool{out[0]: true}
-	for _, tag := range tags {
-		tag = strings.TrimSpace(tag)
-		if tag == "" || seen[tag] || strings.HasPrefix(tag, "scope:") {
-			continue
-		}
-		seen[tag] = true
-		out = append(out, tag)
-	}
-	return out
+	return textfmt.NormalizeScopeTags(tags, scope)
 }
 
 func publishLearningCandidate(ctx context.Context, d Deps, u *store.User, c *store.LearningCandidate) (*int64, string, error) {

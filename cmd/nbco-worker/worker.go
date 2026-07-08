@@ -220,10 +220,27 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		return
 	}
 
-	sess, err := startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
+	sessionStartedAt := time.Now()
+	invocation := w.cliInvocationFor(task.Session)
+	if invocation.ResumeRef != "" {
+		log.Printf("worker 会话 #%d scope=%s 恢复 %s 原生会话 %s", task.Session.ID, task.Session.ScopeKey, w.cfg.Engine, invocation.ResumeRef)
+	}
+	sess, err := startSession(runCtx, dir, w.cfg.Bin, invocation.Args...)
 	if err != nil {
 		w.report(ctx, task.ID, task.ClaimID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
 		return
+	}
+	warmup(runCtx, sess.Screen, sess.Write)
+	if invocation.ResumeRef != "" && !sess.Alive() {
+		log.Printf("恢复 %s 原生会话 %s 失败，改用新交互会话", w.cfg.Engine, invocation.ResumeRef)
+		sess.Kill()
+		sessionStartedAt = time.Now()
+		sess, err = startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
+		if err != nil {
+			w.report(ctx, task.ID, task.ClaimID, "恢复会话失败，重新启动 "+w.cfg.Bin+" 也失败: "+err.Error())
+			return
+		}
+		warmup(runCtx, sess.Screen, sess.Write)
 	}
 	defer sess.Kill()
 
@@ -231,8 +248,6 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	stopProg := make(chan struct{})
 	defer close(stopProg)
 	go w.relayProgress(ctx, task.ID, task.ClaimID, sess, stopProg)
-
-	warmup(runCtx, sess.Screen, sess.Write)
 
 	screen, werr := sess.submitAndWait(runCtx, prompt, w.wait)
 	summary, lessons, ok := parseCompletionWithMarks(screen, marks)
@@ -257,7 +272,11 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir); err != nil {
+	submitSession := task.Session
+	if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
+		submitSession.EngineSessionRef = ref
+	}
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		return
 	}
