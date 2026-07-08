@@ -103,7 +103,7 @@ func publishLearningCandidate(ctx context.Context, d Deps, u *store.User, c *sto
 		if err != nil {
 			return nil, "", err
 		}
-		return &k.ID, fmt.Sprintf("已发布为知识 #%d。", k.ID), nil
+		return &k.ID, fmt.Sprintf("已发布为知识（%s）。", internalRef("知识", k.ID)), nil
 	case store.LearningKindRule:
 		scope := strings.TrimSpace(c.Scope)
 		if scope == "" {
@@ -117,13 +117,13 @@ func publishLearningCandidate(ctx context.Context, d Deps, u *store.User, c *sto
 		if d.Knowledge != nil {
 			d.Knowledge.Reembed(ctx, k)
 		}
-		return &k.ID, fmt.Sprintf("已发布为行为规则 #%d。", k.ID), nil
+		return &k.ID, fmt.Sprintf("已发布为行为规则（%s）。", internalRef("规则", k.ID)), nil
 	case store.LearningKindSkill:
 		k, err := d.saveSkill(ctx, title, content, tags, u.ID)
 		if err != nil {
 			return nil, "", err
 		}
-		return &k.ID, fmt.Sprintf("已发布为 skill #%d。", k.ID), nil
+		return &k.ID, fmt.Sprintf("已发布为 skill（%s）。", internalRef("skill", k.ID)), nil
 	default:
 		return nil, "已标记为已发布；该类型需要通过对应专用工具继续落地。", nil
 	}
@@ -144,7 +144,7 @@ func renderLearningCandidates(items []*store.LearningCandidate) string {
 	}
 	var b strings.Builder
 	for _, c := range items {
-		fmt.Fprintf(&b, "#%d [%s/%s] %s\n", c.ID, c.Kind, c.Status, c.Title)
+		fmt.Fprintf(&b, "%s [%s/%s] %s\n", internalRef("候选", c.ID), c.Kind, c.Status, c.Title)
 		if c.Scope != "" {
 			fmt.Fprintf(&b, "  scope: %s\n", c.Scope)
 		}

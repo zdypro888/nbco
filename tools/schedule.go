@@ -61,7 +61,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已设置提醒 #%d：%s 提醒你「%s」。", sc.ID, fmtTime(sc.FireAt, d.TZ), args.Message), nil
+				return fmt.Sprintf("已设置提醒（%s）：%s 提醒你「%s」。", internalRef("提醒", sc.ID), fmtTime(sc.FireAt, d.TZ), args.Message), nil
 			}),
 
 		tool("schedule_repeating", "设置循环定时提醒。最小间隔 60 秒。",
@@ -96,7 +96,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已设置循环提醒 #%d：从 %s 起每 %d 秒。", sc.ID, fmtTime(sc.FireAt, d.TZ), sc.IntervalS), nil
+				return fmt.Sprintf("已设置循环提醒（%s）：从 %s 起每 %d 秒。", internalRef("提醒", sc.ID), fmtTime(sc.FireAt, d.TZ), sc.IntervalS), nil
 			}),
 
 		tool("schedule_push",
@@ -219,8 +219,8 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 						desc += "（周" + created.Weekdays + "）"
 					}
 				}
-				return fmt.Sprintf("已设置推送 #%d：%s，目标 %s，模式 %s。首次触发 %s。",
-					created.ID, desc, target, mode, fmtTime(created.FireAt, d.TZ)), nil
+				return fmt.Sprintf("已设置推送（%s）：%s，目标 %s，模式 %s。首次触发 %s。",
+					internalRef("提醒", created.ID), desc, target, mode, fmtTime(created.FireAt, d.TZ)), nil
 			}),
 
 		tool("cancel_schedule", "取消一个定时提醒。",
@@ -252,7 +252,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				}
 				var b strings.Builder
 				for _, sc := range scs {
-					fmt.Fprintf(&b, "- #%d [%s] %s 下次 %s", sc.ID, sc.Kind, sc.Message, fmtTime(sc.FireAt, d.TZ))
+					fmt.Fprintf(&b, "- %s [%s] %s 下次 %s", internalRef("提醒", sc.ID), sc.Kind, sc.Message, fmtTime(sc.FireAt, d.TZ))
 					if sc.Kind == store.ScheduleRepeat {
 						fmt.Fprintf(&b, "（每 %d 秒）", sc.IntervalS)
 					}

@@ -231,7 +231,31 @@ func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error
 			     COALESCE(deadline, 'infinity'),
 			     id
 			   LIMIT 1 FOR UPDATE SKIP LOCKED
-			 ) RETURNING `+taskCols, workerID, staleBefore, claimID))
+				 ) RETURNING `+taskCols, workerID, staleBefore, claimID))
+}
+
+// ReleaseWorkerTaskClaim 清掉一次已领取但尚未交付给 worker 的 claim，使任务立即可重领。
+// 不改 status：返工任务本来就是 in_progress，pending 任务领取时也已进入 in_progress；
+// 关键是清空 claim 字段，避免交付失败后等 3 小时租约超时。
+func (s *Store) ReleaseWorkerTaskClaim(ctx context.Context, taskID, workerID int64, claimID string) error {
+	if strings.TrimSpace(claimID) == "" {
+		return ErrNotFound
+	}
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE tasks
+		    SET worker_claimed_by = NULL,
+		        worker_claimed_at = NULL,
+		        worker_claim_id = '',
+		        updated_at = now()
+		  WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3`,
+		taskID, workerID, claimID)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // RevokeWorker 停用 worker 并撤销其 token（历史任务保留）。目标非 worker 时 ErrNotFound。

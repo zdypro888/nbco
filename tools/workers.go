@@ -44,7 +44,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if w.IsSuperadmin {
 					admin = "，admin worker"
 				}
-				fmt.Fprintf(&b, "- #%d %s（%s%s）\n", w.ID, w.Name, status, admin)
+				fmt.Fprintf(&b, "- %s：%s（%s%s）\n", internalRef("worker", w.ID), w.Name, status, admin)
 			}
 			return b.String(), nil
 		})
@@ -71,7 +71,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if base == "" {
 					base = "<服务器地址>"
 				}
-				return fmt.Sprintf("已创建 AI worker「%s」（#%d）。一次性绑定码（24小时内有效，兑换即失效）：\n<code>%s</code>\n"+
+				return fmt.Sprintf("已创建 AI worker「%s」（%s）。一次性绑定码（24小时内有效，兑换即失效）：\n<code>%s</code>\n"+
 					"工作机绑定时会自动用它兑换 Worker Access Token；token 不会在对话里出现。\n\n"+
 					"macOS Apple Silicon 一键安装示例：\n"+
 					"<pre>curl -fsSL -o nbco-worker %s/downloads/worker/nbco-worker-darwin-arm64\n"+
@@ -79,7 +79,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					"./nbco-worker bootstrap -install-service=true %s %s</pre>\n"+
 					"Linux/Windows 也可从 /downloads/worker/ 下载对应平台二进制；bootstrap 会绑定并安装为系统服务。\n"+
 					"绑定码过期或遗失时用 issue_worker_bind_code 补发。",
-					w.Name, w.ID, code, base, base, code), nil
+					w.Name, internalRef("worker", w.ID), code, base, base, code), nil
 			}),
 
 		tool("issue_worker_bind_code", "给已有 AI worker 补发一次性绑定码（旧码作废；已绑定机器的 token 在新码被兑换前仍有效）。用于绑定码过期、遗失或换机重绑。非超管只能给自己名下的 worker 补发。",
@@ -156,7 +156,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if args.PTY {
 					mode = "pty"
 				}
-				return fmt.Sprintf("已创建 worker 命令任务 #%d，分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行。", t.ID, w.Name, mode), nil
+				return fmt.Sprintf("已创建 worker 命令任务（%s），分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行。", internalRef("任务", t.ID), w.Name, mode), nil
 			}),
 
 		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker Access Token（历史任务保留）。非超管只能停用自己名下的 worker。",
@@ -210,9 +210,9 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				if args.Admin {
-					return fmt.Sprintf("已将 %s（#%d）设置为 admin worker。它之后可执行系统级维护/资料入库任务。", w.Name, w.ID), nil
+					return fmt.Sprintf("已将 %s（%s）设置为 admin worker。它之后可执行系统级维护/资料入库任务。", w.Name, internalRef("worker", w.ID)), nil
 				}
-				return fmt.Sprintf("已取消 %s（#%d）的 admin worker 权限。", w.Name, w.ID), nil
+				return fmt.Sprintf("已取消 %s（%s）的 admin worker 权限。", w.Name, internalRef("worker", w.ID)), nil
 			}),
 	}
 }

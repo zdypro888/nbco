@@ -17,7 +17,7 @@ func TestBuildReviewBrief(t *testing.T) {
 	}
 	brief := buildReviewBrief(task, "小码", progress, "重点看安全", time.UTC)
 	for _, want := range []string{
-		"#12", "写登录页", "让用户能登录", "实现表单", "能提交且有错误态",
+		"任务内部编号 12", "写登录页", "让用户能登录", "实现表单", "能提交且有错误态",
 		"小码", "重点看安全", "完成汇报：做完了", "nbco-work/task-12",
 		"建议通过", "建议打回", "不要轻信汇报文字",
 	} {

@@ -235,6 +235,33 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	}
 }
 
+func TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "跑测试", nil)
+
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != tk.ID || claimed.WorkerClaimID == "" {
+		t.Fatalf("认领 = %+v err=%v", claimed, err)
+	}
+	if err := s.ReleaseWorkerTaskClaim(ctx, claimed.ID, worker.ID, claimed.WorkerClaimID); err != nil {
+		t.Fatal(err)
+	}
+	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || reclaimed.ID != tk.ID {
+		t.Fatalf("释放后应立即重领 = %+v err=%v", reclaimed, err)
+	}
+	if reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
+		t.Fatalf("重领应刷新 claim id: old=%q new=%q", claimed.WorkerClaimID, reclaimed.WorkerClaimID)
+	}
+}
+
 func TestWorkerClaimRejectedTaskWithoutClaim(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -563,6 +590,35 @@ func TestKnowledge(t *testing.T) {
 	}
 	if _, err := s.KnowledgeByID(ctx, k1.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("删除后应 ErrNotFound, got %v", err)
+	}
+}
+
+func TestDeletePublishedKnowledgeUnlinksLearningCandidate(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	k, err := s.CreateKnowledge(ctx, "资料规则", "先审核再入库", nil, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindKnowledge, Title: "资料规则", Content: "先审核再入库", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkLearningCandidatePublished(ctx, c.ID, boss.ID, &k.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteKnowledge(ctx, k.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.LearningCandidateByID(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.PublishedKnowledgeID != nil {
+		t.Fatalf("删除知识后候选引用应清空: %+v", got.PublishedKnowledgeID)
 	}
 }
 

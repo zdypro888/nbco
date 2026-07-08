@@ -137,7 +137,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					// 任务提交待验收交分配者的 AI 分析（与 worker HTTP 提交路径合一）：
 					// AI 结合会话上下文给出验收建议再通知，而非死板模板。
 					emitEvent(d, "任务提交待验收", t.AssignerID,
-						fmt.Sprintf("「%s」提交了任务「%s」（#%d）待你验收。", u.Name, t.Title, t.ID))
+						fmt.Sprintf("「%s」提交了任务「%s」（%s）待你验收。", u.Name, t.Title, internalRef("任务", t.ID)))
 					return "已提交，等待分配者验收。", nil
 				}
 				notifyChain(ctx, d, u, chain)
@@ -195,7 +195,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
-						fmt.Sprintf("✅ 你的任务「%s」（#%d）验收通过。", t.Title, t.ID))
+						fmt.Sprintf("✅ 你的任务「%s」（%s）验收通过。", t.Title, internalRef("任务", t.ID)))
 				}
 				notifyChain(ctx, d, u, chain)
 				return "已验收通过。", nil
@@ -232,7 +232,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
-						fmt.Sprintf("🔁 任务「%s」（#%d）验收未通过：%s\n请修改后重新提交。", t.Title, t.ID, args.Reason))
+						fmt.Sprintf("🔁 任务「%s」（%s）验收未通过：%s\n请修改后重新提交。", t.Title, internalRef("任务", t.ID), args.Reason))
 				}
 				// 执行人是 worker：回到 pending 让它重新认领返工（打回理由已在
 				// 过程记录里，会随任务历史进入下一轮 prompt），并推实时唤醒。
@@ -433,7 +433,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 						return err.Error(), nil
 					}
 					if !u.IsSuperadmin && au.ID != u.ID && !perm.CheckActive(grants, perm.ActCreateProject, au.ID) {
-						return fmt.Sprintf("你没有对用户 %d 的 create_project 权限，不能把子任务派给对方（可拆给自己）。", au.ID), nil
+						return fmt.Sprintf("你没有对 %s 的 create_project 权限，不能把子任务派给对方（可拆给自己）。", au.Name), nil
 					}
 					assignees[au.ID] = au
 					deadline, derr := parseDeadline(st.Deadline, d.TZ)
@@ -459,14 +459,18 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				for _, t := range created {
 					if t.AssigneeID != u.ID {
 						notifyQuiet(ctx, d, t.AssigneeID,
-							fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
+							fmt.Sprintf("📌 %s 给你分配了任务「%s」（%s）\n%s", u.Name, t.Title, internalRef("任务", t.ID), t.Description))
 					}
 					wakeWorker(d, assignees[t.AssigneeID])
 				}
 				var b strings.Builder
 				fmt.Fprintf(&b, "已拆分为 %d 个子任务：\n", len(created))
 				for _, t := range created {
-					fmt.Fprintf(&b, "- #%d %s → 用户%d\n", t.ID, t.Title, t.AssigneeID)
+					name := userName(ctx, d.Store, t.AssigneeID)
+					if au := assignees[t.AssigneeID]; au != nil {
+						name = au.Name
+					}
+					fmt.Fprintf(&b, "- %s：%s → %s\n", internalRef("任务", t.ID), t.Title, name)
 				}
 				return b.String(), nil
 			}),
@@ -531,7 +535,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
-						fmt.Sprintf("✏️ 任务「%s」（#%d）的要求被 %s 更新了，请查看详情。", t.Title, t.ID, u.Name))
+						fmt.Sprintf("✏️ 任务「%s」（%s）的要求被 %s 更新了，请查看详情。", t.Title, internalRef("任务", t.ID), u.Name))
 				}
 				return "已更新。", nil
 			}),
@@ -591,7 +595,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("项目「%s」已创建（ID %d）。", pj.Name, pj.ID), nil
+				return fmt.Sprintf("项目「%s」已创建（%s）。", pj.Name, internalRef("项目", pj.ID)), nil
 			}),
 
 		tool("list_my_projects", "查看我创建的项目。", obj(nil),
@@ -688,12 +692,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				inheritViewPerms(ctx, d, u, []*store.Task{t})
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
-						fmt.Sprintf("📌 %s 给你分配了任务「%s」（#%d）\n%s", u.Name, t.Title, t.ID, t.Description))
+						fmt.Sprintf("📌 %s 给你分配了任务「%s」（%s）\n%s", u.Name, t.Title, internalRef("任务", t.ID), t.Description))
 				}
 				if len(t.DependsOn) == 0 {
 					wakeWorker(d, assignee) // 有前置的任务此刻还领不了，就绪时再唤醒
 				}
-				reply := fmt.Sprintf("任务「%s」已创建（#%d）并分配给用户 %d。", t.Title, t.ID, t.AssigneeID)
+				reply := fmt.Sprintf("任务「%s」已创建（%s）并分配给 %s。", t.Title, internalRef("任务", t.ID), assignee.Name)
 				if autoPickNote != "" {
 					reply += autoPickNote
 				}
@@ -844,7 +848,7 @@ func notifyChain(ctx context.Context, d Deps, operator *store.User, chain []*sto
 		if a.Status == store.TaskDone && a.AssignerID != operator.ID {
 			// 级联转入待验收同样交分配者的 AI 分析（与提交待验收一致）。
 			emitEvent(d, "任务提交待验收", a.AssignerID,
-				fmt.Sprintf("任务「%s」（#%d）的全部子任务已验收通过，待你验收。", a.Title, a.ID))
+				fmt.Sprintf("任务「%s」（%s）的全部子任务已验收通过，待你验收。", a.Title, internalRef("任务", a.ID)))
 		}
 	}
 }
@@ -885,7 +889,7 @@ func renderProjects(ps []store.Project) string {
 	}
 	var b strings.Builder
 	for _, pj := range ps {
-		fmt.Fprintf(&b, "- #%d %s（%s）%s\n", pj.ID, pj.Name, pj.Status, pj.Description)
+		fmt.Fprintf(&b, "- %s：%s（%s）%s\n", internalRef("项目", pj.ID), pj.Name, pj.Status, pj.Description)
 	}
 	return b.String()
 }
@@ -903,7 +907,7 @@ func renderTasks(ts []*store.Task, tz *time.Location) string {
 }
 
 func taskLine(t *store.Task, tz *time.Location) string {
-	line := fmt.Sprintf("#%d [%s] %s（执行人 %d，分配者 %d）", t.ID, t.Status, t.Title, t.AssigneeID, t.AssignerID)
+	line := fmt.Sprintf("%s [%s] %s", internalRef("任务", t.ID), t.Status, t.Title)
 	if t.Deadline != nil {
 		line += " 截止 " + fmtTime(*t.Deadline, tz)
 	}
@@ -971,7 +975,7 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	if len(files) > 0 {
 		b.WriteString("文件附件:\n")
 		for _, f := range files {
-			fmt.Fprintf(&b, "  #%d %s（%s）\n", f.ID, f.OriginalName, formatBytes(f.SizeBytes))
+			fmt.Fprintf(&b, "  %s：%s（%s）\n", internalRef("文件", f.ID), f.OriginalName, formatBytes(f.SizeBytes))
 		}
 	}
 	arts, err := d.Store.TaskArtifacts(ctx, t.ID)
@@ -981,7 +985,7 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	if len(arts) > 0 {
 		b.WriteString("交付产物:\n")
 		for _, a := range arts {
-			fmt.Fprintf(&b, "  #%d %s（%s）\n", a.File.ID, a.File.OriginalName, formatBytes(a.File.SizeBytes))
+			fmt.Fprintf(&b, "  %s：%s（%s）\n", internalRef("文件", a.File.ID), a.File.OriginalName, formatBytes(a.File.SizeBytes))
 		}
 	}
 	return b.String(), nil
@@ -1082,11 +1086,12 @@ func FireReadyDependents(ctx context.Context, d Deps, acceptedID int64) {
 		return
 	}
 	for _, t := range deps {
+		assigneeName := userName(ctx, d.Store, t.AssigneeID)
 		if assignee, err := d.Store.UserByID(ctx, t.AssigneeID); err == nil {
 			wakeWorker(d, assignee)
 		}
 		emitEvent(d, "前置任务完成",
 			t.AssignerID,
-			fmt.Sprintf("任务「%s」（#%d）的全部前置已验收通过，现在可以开工（执行人：用户 %d）。", t.Title, t.ID, t.AssigneeID))
+			fmt.Sprintf("任务「%s」（%s）的全部前置已验收通过，现在可以开工（执行人：%s）。", t.Title, internalRef("任务", t.ID), assigneeName))
 	}
 }

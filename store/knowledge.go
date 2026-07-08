@@ -134,7 +134,23 @@ func (s *Store) KnowledgeByID(ctx context.Context, id int64) (*Knowledge, error)
 
 // DeleteKnowledge 删除知识条目。
 func (s *Store) DeleteKnowledge(ctx context.Context, id int64) error {
-	return s.execOne(ctx, `DELETE FROM knowledge WHERE id = $1`, id)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
+		`UPDATE learning_candidates SET published_knowledge_id = NULL WHERE published_knowledge_id = $1`, id); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM knowledge WHERE id = $1`, id)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 // SearchKnowledge 词法检索：把 query 切成词，任一词命中标题/正文，或整串命中 tag，

@@ -76,7 +76,7 @@ func scriptToolManagementTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				return fmt.Sprintf("已创建脚本工具 #%d %s（当前 disabled）。请先 test_script_tool，确认通过后再 enable_script_tool。", st.ID, st.Name), nil
+				return fmt.Sprintf("已创建脚本工具（%s）%s（当前 disabled）。请先 test_script_tool，确认通过后再 enable_script_tool。", internalRef("脚本工具", st.ID), st.Name), nil
 			}),
 
 		tool("update_script_tool", "更新脚本工具。空字段不改；required_action 传 none 可清空。更新后会自动 disabled，必须重新测试后启用。",
@@ -132,7 +132,7 @@ func scriptToolManagementTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				_ = d.Store.SetScriptToolEnabled(ctx, args.ID, false)
-				return fmt.Sprintf("已更新脚本工具 #%d %s，并已自动 disabled。请重新测试后启用。", updated.ID, updated.Name), nil
+				return fmt.Sprintf("已更新脚本工具（%s）%s，并已自动 disabled。请重新测试后启用。", internalRef("脚本工具", updated.ID), updated.Name), nil
 			}),
 
 		tool("test_script_tool", "测试脚本工具。传入 JSON args，返回脚本输出；测试结果会记录到脚本工具上。",
@@ -437,8 +437,8 @@ func renderScriptToolList(items []*store.ScriptTool) string {
 		if strings.TrimSpace(req) == "" {
 			req = "无"
 		}
-		fmt.Fprintf(&b, "- #%d %s（%s，runtime=%s，required_action=%s）：%s\n",
-			st.ID, st.Name, state, st.Runtime, req, st.Description)
+		fmt.Fprintf(&b, "- %s：%s（%s，runtime=%s，required_action=%s）：%s\n",
+			internalRef("脚本工具", st.ID), st.Name, state, st.Runtime, req, st.Description)
 		if strings.TrimSpace(st.LastTestResult) != "" {
 			fmt.Fprintf(&b, "  最近测试：%s\n", truncate(st.LastTestResult, 300))
 		}

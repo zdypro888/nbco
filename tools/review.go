@@ -64,11 +64,11 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 						return "", err
 					}
 					if !perm.CheckActive(grants, perm.ActCreateProject, reviewer.ID) {
-						return fmt.Sprintf("你没有对用户 %d 的 create_project 权限，不能委派其审核。", reviewer.ID), nil
+						return fmt.Sprintf("你没有对 %s 的 create_project 权限，不能委派其审核。", reviewer.Name), nil
 					}
 				}
 
-				executor := fmt.Sprintf("用户%d", t.AssigneeID)
+				executor := "未知成员"
 				if eu, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil {
 					executor = eu.Name
 				}
@@ -82,7 +82,7 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 					ProjectID:   t.ProjectID,
 					AssignerID:  u.ID,
 					AssigneeID:  reviewer.ID,
-					Title:       fmt.Sprintf("审核任务 #%d：%s", t.ID, t.Title),
+					Title:       fmt.Sprintf("审核任务 %d：%s", t.ID, t.Title),
 					Goal:        "把关交付质量：核实交付是否真正满足验收标准，给出可执行的验收结论。",
 					Description: brief,
 					Acceptance:  "完成汇报第一句必须是「建议通过」或「建议打回：<理由>」，并附核查依据。",
@@ -93,11 +93,11 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if reviewer.ID != u.ID {
 					notifyQuiet(ctx, d, reviewer.ID,
-						fmt.Sprintf("🔍 %s 委派你审核「%s」（#%d）的交付，见审核任务 #%d。", u.Name, t.Title, t.ID, rt.ID))
+						fmt.Sprintf("🔍 %s 委派你审核「%s」（%s）的交付，见审核任务（%s）。", u.Name, t.Title, internalRef("任务", t.ID), internalRef("任务", rt.ID)))
 				}
 				wakeWorker(d, reviewer)
-				return fmt.Sprintf("已委派 %s 审核任务 #%d（审核任务 #%d，高优先级）。"+
-					"审核结论会随其完成汇报回来，届时你再对原任务验收或打回。", reviewer.Name, t.ID, rt.ID), nil
+				return fmt.Sprintf("已委派 %s 审核任务（原任务 %s，审核任务 %s，高优先级）。"+
+					"审核结论会随其完成汇报回来，届时你再对原任务验收或打回。", reviewer.Name, internalRef("任务", t.ID), internalRef("任务", rt.ID)), nil
 			}),
 	}
 }
@@ -107,7 +107,7 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 func buildReviewBrief(t *store.Task, executor string, progress []store.Progress, note string, tz *time.Location) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "【审核委派】请以质量审核员的身份，深度核查下面这个已提交待验收的任务交付，给出验收结论。\n\n")
-	fmt.Fprintf(&b, "■ 被审核任务 #%d：%s\n", t.ID, t.Title)
+	fmt.Fprintf(&b, "■ 被审核任务（%s）：%s\n", internalRef("任务", t.ID), t.Title)
 	if t.Goal != "" {
 		fmt.Fprintf(&b, "- 目标：%s\n", t.Goal)
 	}

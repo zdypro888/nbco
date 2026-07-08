@@ -123,10 +123,10 @@ func (s *Server) requireUser(w http.ResponseWriter, r *http.Request) *store.User
 	return u
 }
 
-func writeJSON(w http.ResponseWriter, code int, v any) {
+func writeJSON(w http.ResponseWriter, code int, v any) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
+	return json.NewEncoder(w).Encode(v)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
@@ -379,7 +379,7 @@ func (s *Server) handleWorkerBind(w http.ResponseWriter, r *http.Request) {
 	// 上线事件交监护人的 AI 分析：要不要通知、要不要顺手派活，AI 说了算。
 	if u.OwnerID != nil {
 		s.bus.Emit("AI员工上线", *u.OwnerID,
-			fmt.Sprintf("AI 员工「%s」（#%d）刚在工作机完成绑定，已可领取任务。", u.Name, u.ID))
+			fmt.Sprintf("AI 员工「%s」（worker内部编号 %d）刚在工作机完成绑定，已可领取任务。", u.Name, u.ID))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "worker_id": u.ID, "worker_name": u.Name})
 }
@@ -842,6 +842,17 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "认领失败"})
 		return
 	}
+	delivered := false
+	defer func() {
+		if delivered {
+			return
+		}
+		releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if rerr := s.store.ReleaseWorkerTaskClaim(releaseCtx, t.ID, u.ID, t.WorkerClaimID); rerr != nil && !errors.Is(rerr, store.ErrNotFound) {
+			slog.Error("worker 领取任务后交付失败，释放 claim 失败", "worker", u.ID, "task", t.ID, "claim", t.WorkerClaimID, "err", rerr)
+		}
+	}()
 	engine := strings.TrimSpace(r.URL.Query().Get("engine"))
 	scopeType, scopeKey, scopeTitle := s.workerSessionScope(ctx, t)
 	ws, err := s.store.ClaimWorkerSession(ctx, u.ID, engine, scopeType, scopeKey, scopeTitle, t.ID)
@@ -984,7 +995,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("worker 产物查询失败", "worker", u.ID, "task", t.ID, "err", err)
 	}
 	slog.Info("worker 领取任务", "worker", u.ID, "task", t.ID, "session", ws.ID, "scope", ws.ScopeKey, "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
-	writeJSON(w, http.StatusOK, map[string]any{
+	if err := writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
 			"description": t.Description, "acceptance": t.Acceptance, "command": t.WorkerCommand, "command_pty": t.WorkerCommandPTY, "claim_id": t.WorkerClaimID,
@@ -997,7 +1008,11 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		},
 		"knowledge": lessons,
 		"history":   history,
-	})
+	}); err != nil {
+		slog.Warn("worker 任务响应写回失败，将释放 claim", "worker", u.ID, "task", t.ID, "claim", t.WorkerClaimID, "err", err)
+		return
+	}
+	delivered = true
 }
 
 func (s *Server) workerSessionScope(ctx context.Context, t *store.Task) (scopeType, scopeKey, title string) {
@@ -1129,7 +1144,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 			extra = fmt.Sprintf(" 已抽取 %d 条学习候选，可用 list_learning_candidates 审核。", learned)
 		}
 		s.bus.Emit("任务提交待验收", t.AssignerID,
-			fmt.Sprintf("AI 员工「%s」提交了任务「%s」（#%d）待你验收。提交摘要：%s%s",
+			fmt.Sprintf("AI 员工「%s」提交了任务「%s」（任务内部编号 %d）待你验收。提交摘要：%s%s",
 				u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
 	}
 	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "lessons", req.Lessons != "")

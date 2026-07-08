@@ -181,6 +181,27 @@ func TestFormatBytesHuge(t *testing.T) {
 	}
 }
 
+func TestObjectRenderersUseInternalRefsInsteadOfHashIDs(t *testing.T) {
+	now := time.Date(2026, 7, 8, 9, 0, 0, 0, time.UTC)
+	got := strings.Join([]string{
+		renderProjects([]store.Project{{ID: 1, Name: "视频项目", Status: store.ProjectActive}}),
+		renderTasks([]*store.Task{{ID: 2, Status: store.TaskPending, Title: "整理资料"}}, time.UTC),
+		renderKnowledgeList([]*store.Knowledge{{ID: 3, Title: "部署流程"}}),
+		renderFileList([]store.File{{ID: 4, OriginalName: "roster.xlsx", MIMEType: "application/vnd.ms-excel", SizeBytes: 128, CreatedAt: now}}, time.UTC),
+		renderSkillList([]*store.Knowledge{{ID: 5, Title: "升级 SOP", Content: "摘要：稳定升级"}}),
+	}, "\n")
+	for _, bad := range []string{"#1", "#2", "#3", "#4", "#5", "用户1", "用户2", "ID 1", "ID: 1"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("渲染不应使用裸内部编号 %q:\n%s", bad, got)
+		}
+	}
+	for _, want := range []string{"项目内部编号 1", "任务内部编号 2", "知识内部编号 3", "文件内部编号 4", "skill内部编号 5"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("渲染缺 %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestCanonicalArgsHash(t *testing.T) {
 	a := canonicalArgsHash([]byte(`{"user_id": 5, "reason": "违规"}`))
 	b := canonicalArgsHash([]byte(`{ "reason":"违规","user_id":5 }`))

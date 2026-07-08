@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.starlark.net/starlark"
+	"go.starlark.net/syntax"
 )
 
 const (
@@ -61,7 +62,7 @@ func Run(ctx context.Context, name, source string, args json.RawMessage, opts Ru
 	}()
 	defer close(done)
 
-	globals, err := starlark.ExecFile(thread, name+".star", source, predeclared(opts.Predeclared))
+	globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, name+".star", source, predeclared(opts.Predeclared))
 	if err != nil {
 		return "", err
 	}
@@ -103,7 +104,7 @@ func Validate(ctx context.Context, name, source string, opts RunOptions) error {
 		}
 	}()
 	defer close(done)
-	globals, err := starlark.ExecFile(thread, name+".star", source, predeclared(opts.Predeclared))
+	globals, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, name+".star", source, predeclared(opts.Predeclared))
 	if err != nil {
 		return err
 	}

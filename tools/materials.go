@@ -49,7 +49,7 @@ func materialTools(d Deps, u *store.User) []ai.Tool {
 						return "", err
 					}
 					if !ok {
-						return fmt.Sprintf("你无权访问文件 #%d。", id), nil
+						return fmt.Sprintf("你无权访问%s。", internalRef("文件", id)), nil
 					}
 				}
 				pj, err := d.Store.EnsureCompanyIntelligenceProject(ctx, u.ID)
@@ -77,7 +77,7 @@ func materialTools(d Deps, u *store.User) []ai.Tool {
 					}
 				}
 				wakeWorker(d, worker)
-				return fmt.Sprintf("已创建资料分析任务 #%d，分配给你的 worker %s（#%d），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", t.ID, worker.Name, worker.ID, len(args.FileIDs)), nil
+				return fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs)), nil
 			}),
 	}
 }

@@ -346,7 +346,7 @@ func canManagePermTarget(actor, target *store.User, actorGrants []store.Grant) s
 		return "不能管理超级管理员的权限。"
 	}
 	if !perm.CheckActive(actorGrants, perm.ActManagePerm, target.ID) {
-		return "你没有对该用户的 manage_perm 权限。"
+		return fmt.Sprintf("你没有对 %s 的 manage_perm 权限。", target.Name)
 	}
 	return ""
 }
@@ -357,10 +357,20 @@ func renderGrants(grants []store.Grant, kind string) string {
 		if g.Kind != kind {
 			continue
 		}
-		fmt.Fprintf(&b, "- %s → %s（授予者 %s）\n", g.Action, g.Target, strconv.FormatInt(g.GrantedBy, 10))
+		fmt.Fprintf(&b, "- %s → %s（授予者内部编号 %s）\n", g.Action, renderPermTarget(g.Target), strconv.FormatInt(g.GrantedBy, 10))
 	}
 	if b.Len() == 0 {
 		return "（无）"
 	}
 	return b.String()
+}
+
+func renderPermTarget(target string) string {
+	if target == store.TargetAll {
+		return "全体成员"
+	}
+	if _, err := strconv.ParseInt(target, 10, 64); err == nil {
+		return "用户内部编号 " + target
+	}
+	return target
 }

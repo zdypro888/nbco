@@ -69,7 +69,7 @@ func ruleTools(d Deps, u *store.User) []ai.Tool {
 				if args.Pinned {
 					mode = "常驻每轮系统提示"
 				}
-				return fmt.Sprintf("已保存规则 #%d（作用域 %s，%s），即刻生效。", k.ID, scope, mode), nil
+				return fmt.Sprintf("已保存规则（%s，作用域 %s，%s），即刻生效。", internalRef("规则", k.ID), scope, mode), nil
 			}),
 
 		tool("list_rules", "查看全部行为规则（常驻在前）。改正文用 update_knowledge，删除用 delete_knowledge，调整常驻用 set_rule_pinned。",
@@ -88,7 +88,7 @@ func ruleTools(d Deps, u *store.User) []ai.Tool {
 					if k.Pinned {
 						marker = "📌"
 					}
-					fmt.Fprintf(&b, "%s #%d %s", marker, k.ID, k.Title)
+					fmt.Fprintf(&b, "%s %s：%s", marker, internalRef("规则", k.ID), k.Title)
 					if scope := ruleScopeOf(k.Tags); scope != "global" {
 						fmt.Fprintf(&b, "（%s）", scope)
 					}

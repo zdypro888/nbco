@@ -74,9 +74,9 @@ func withApproval(s *store.Store, userID int64, t ai.Tool) ai.Tool {
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("⚠️ 高危操作已登记为待确认动作 #%d（10 分钟内有效）。"+
+		return fmt.Sprintf("⚠️ 高危操作已登记为待确认动作（%s，10 分钟内有效）。"+
 			"请向用户复述将要执行的具体操作并征得明确同意；只有收到用户下一条明确确认消息后，才能以完全相同的参数再次调用本工具执行。"+
-			"同一轮里不要再次调用；用户不同意或未回应就不要再调用。", id), nil
+			"同一轮里不要再次调用；用户不同意或未回应就不要再调用。", internalRef("确认动作", id)), nil
 	}
 	return t
 }

@@ -100,7 +100,7 @@ func renderFileList(fs []store.File, tz *time.Location) string {
 	}
 	var b strings.Builder
 	for _, f := range fs {
-		fmt.Fprintf(&b, "- #%d %s（%s，%s，%s）\n", f.ID, f.OriginalName, formatBytes(f.SizeBytes), f.MIMEType, fmtTime(f.CreatedAt, tz))
+		fmt.Fprintf(&b, "- %s：%s（%s，%s，%s）\n", internalRef("文件", f.ID), f.OriginalName, formatBytes(f.SizeBytes), f.MIMEType, fmtTime(f.CreatedAt, tz))
 	}
 	return strings.TrimSpace(b.String())
 }

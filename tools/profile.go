@@ -93,7 +93,7 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 				}
 				subject, err := d.Store.UserByID(ctx, args.UserID)
 				if err != nil {
-					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+					return "目标用户不存在。", nil
 				}
 				all, err := d.Store.ProfilesOn(ctx, subject.ID)
 				if err != nil {

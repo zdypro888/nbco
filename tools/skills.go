@@ -58,7 +58,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 					return "该条目不是 skill。", nil
 				}
 				var b strings.Builder
-				fmt.Fprintf(&b, "Skill #%d %s\n", k.ID, k.Title)
+				fmt.Fprintf(&b, "%s：%s\n", internalRef("skill", k.ID), k.Title)
 				if len(k.Tags) > 0 {
 					fmt.Fprintf(&b, "标签: %s\n", strings.Join(k.Tags, ", "))
 				}
@@ -92,7 +92,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已保存 skill #%d。之后相关对话会自动召回摘要，必要时可 load_skill 读取完整步骤。", k.ID), nil
+				return fmt.Sprintf("已保存 skill（%s）。之后相关对话会自动召回摘要，必要时可 load_skill 读取完整步骤。", internalRef("skill", k.ID)), nil
 			}),
 
 		tool("update_skill", "更新一条 skill（空字段不改）。用于修正旧执行方法、补充禁忌或更新触发条件。仅超管可用。",
@@ -305,7 +305,7 @@ func renderSkillList(ks []*store.Knowledge) string {
 	var b strings.Builder
 	for _, k := range ks {
 		parts := parseSkillContent(k.Content)
-		fmt.Fprintf(&b, "- #%d %s", k.ID, k.Title)
+		fmt.Fprintf(&b, "- %s：%s", internalRef("skill", k.ID), k.Title)
 		if scope := skillScopeOf(k.Tags); scope != "global" {
 			fmt.Fprintf(&b, "（%s）", scope)
 		}

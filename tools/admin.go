@@ -397,8 +397,8 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					b.WriteString("项目：\n")
 					for _, pj := range projects {
 						c := counts[pj.ID]
-						fmt.Fprintf(&b, "- #%d %s（%s）：进行中 %d · 待验收 %d · 已完成 %d\n",
-							pj.ID, pj.Name, pj.Status, c.Open, c.Awaiting, c.Accepted)
+						fmt.Fprintf(&b, "- %s：%s（%s）：进行中 %d · 待验收 %d · 已完成 %d\n",
+							internalRef("项目", pj.ID), pj.Name, pj.Status, c.Open, c.Awaiting, c.Accepted)
 					}
 				}
 				if len(overdue) > 0 {
@@ -406,9 +406,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					for _, t := range overdue {
 						name := names[t.AssigneeID]
 						if name == "" {
-							name = fmt.Sprintf("用户%d", t.AssigneeID)
+							name = "未知成员"
 						}
-						fmt.Fprintf(&b, "- #%d %s（执行人 %s，截止 %s）\n", t.ID, t.Title, name, fmtTime(*t.Deadline, d.TZ))
+						fmt.Fprintf(&b, "- %s：%s（执行人 %s，截止 %s）\n", internalRef("任务", t.ID), t.Title, name, fmtTime(*t.Deadline, d.TZ))
 					}
 				}
 				return b.String(), nil

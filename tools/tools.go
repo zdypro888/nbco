@@ -6,6 +6,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -489,12 +490,27 @@ func parseTarget(v string) (key string, id int64, isAll bool, err error) {
 func mustUser(ctx context.Context, s *store.Store, id int64) (*store.User, error) {
 	u, err := s.UserByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("用户 %d 不存在", id)
+		return nil, errors.New("目标用户不存在")
 	}
 	if u.Status != store.UserActive {
-		return nil, fmt.Errorf("用户 %d 已停用", id)
+		return nil, errors.New("目标用户已停用")
 	}
 	return u, nil
+}
+
+func userName(ctx context.Context, s *store.Store, id int64) string {
+	if s == nil {
+		return "未知成员"
+	}
+	u, err := s.UserByID(ctx, id)
+	if err != nil || strings.TrimSpace(u.Name) == "" {
+		return "未知成员"
+	}
+	return u.Name
+}
+
+func internalRef(kind string, id int64) string {
+	return fmt.Sprintf("%s内部编号 %d", kind, id)
 }
 
 func truncate(s string, n int) string {

@@ -197,7 +197,7 @@ func (g *Gateway) botID() int64 {
 func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 	ref, err := g.store.ChatRef(ctx, userID, Provider)
 	if err != nil {
-		return fmt.Errorf("用户 %d 无 Telegram 渠道: %w", userID, err)
+		return fmt.Errorf("telegram 渠道不可用: %w", err)
 	}
 	chatID, err := strconv.ParseInt(ref, 10, 64)
 	if err != nil {
@@ -209,7 +209,7 @@ func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 func (g *Gateway) SendFile(ctx context.Context, userID int64, fileID int64, caption string) error {
 	ref, err := g.store.ChatRef(ctx, userID, Provider)
 	if err != nil {
-		return fmt.Errorf("用户 %d 无 Telegram 渠道: %w", userID, err)
+		return fmt.Errorf("telegram 渠道不可用: %w", err)
 	}
 	chatID, err := strconv.ParseInt(ref, 10, 64)
 	if err != nil {
@@ -881,7 +881,7 @@ func (g *Gateway) privateTelegramChatID(ctx context.Context, userID int64) (int6
 	}
 	chatID, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || chatID == 0 {
-		return 0, fmt.Errorf("Telegram 私聊地址不可用")
+		return 0, fmt.Errorf("telegram 私聊地址不可用")
 	}
 	return chatID, nil
 }
@@ -901,7 +901,7 @@ func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message
 	}
 	name := displayNameFromMessage(msg)
 	key := ""
-	expiresAt := time.Time{}
+	var expiresAt time.Time
 	if inv, err := g.store.TelegramPendingEmployeeInvite(ctx, tgID); err == nil {
 		key, expiresAt = inv.Key, inv.ExpiresAt
 		if strings.TrimSpace(inv.Name) != "" {
@@ -1286,9 +1286,7 @@ func (g *Gateway) loadedModels(ctx context.Context) ([]string, error) {
 	if base == "" {
 		return nil, errors.New("ai base_url 未配置")
 	}
-	if strings.HasSuffix(base, "/v1") {
-		base = strings.TrimSuffix(base, "/v1")
-	}
+	base = strings.TrimSuffix(base, "/v1")
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 8*time.Second)
@@ -1435,7 +1433,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
 	// 入职事件交邀请人的 AI 分析：通知措辞、要不要安排入职跟进，都由 AI 定。
 	g.bus.Emit("员工加入", invitedBy,
-		fmt.Sprintf("新员工「%s」（用户 #%d）刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name, u.ID))
+		fmt.Sprintf("新员工「%s」刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name))
 }
 
 func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, chatID int64, name string, ident store.Identity) bool {
@@ -1462,7 +1460,7 @@ func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, ch
 	}
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
 	g.bus.Emit("员工加入", invitedBy,
-		fmt.Sprintf("新员工「%s」（用户 #%d）刚通过群自动邀请完成 Telegram 绑定，正式加入公司。", u.Name, u.ID))
+		fmt.Sprintf("新员工「%s」刚通过群自动邀请完成 Telegram 绑定，正式加入公司。", u.Name))
 	return true
 }
 

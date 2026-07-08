@@ -38,7 +38,7 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已存入知识库（#%d）。", k.ID), nil
+				return fmt.Sprintf("已存入知识库（%s）。", internalRef("知识", k.ID)), nil
 			}),
 
 		tool("search_knowledge", "检索公司知识库（语义+关键词混合召回，按相关度排序）。回答公司事实类问题、决策/方案/流程前先查这里。",
@@ -78,11 +78,11 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				var b strings.Builder
-				fmt.Fprintf(&b, "#%d %s\n", k.ID, k.Title)
+				fmt.Fprintf(&b, "%s：%s\n", internalRef("知识", k.ID), k.Title)
 				if len(k.Tags) > 0 {
 					fmt.Fprintf(&b, "标签: %s\n", strings.Join(k.Tags, ", "))
 				}
-				fmt.Fprintf(&b, "作者: 用户%d · 更新于 %s\n\n%s", k.AuthorID, fmtTime(k.UpdatedAt, d.TZ), k.Content)
+				fmt.Fprintf(&b, "作者: %s · 更新于 %s\n\n%s", userName(ctx, d.Store, k.AuthorID), fmtTime(k.UpdatedAt, d.TZ), k.Content)
 				return b.String(), nil
 			}),
 
@@ -173,12 +173,12 @@ func renderKnowledgeList(ks []*store.Knowledge) string {
 	}
 	var b strings.Builder
 	for _, k := range ks {
-		fmt.Fprintf(&b, "- #%d %s", k.ID, k.Title)
+		fmt.Fprintf(&b, "- %s：%s", internalRef("知识", k.ID), k.Title)
 		if len(k.Tags) > 0 {
 			fmt.Fprintf(&b, "（%s）", strings.Join(k.Tags, ", "))
 		}
 		b.WriteByte('\n')
 	}
-	b.WriteString("用 get_knowledge 查看完整内容。")
+	b.WriteString("用 get_knowledge 搭配知识内部编号查看完整内容；内部编号只用于后续工具调用。")
 	return b.String()
 }

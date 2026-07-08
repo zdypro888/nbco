@@ -48,7 +48,7 @@ func (h *TelegramGroupHub) controller() (TelegramGroupController, error) {
 	c := h.c
 	h.mu.RUnlock()
 	if c == nil {
-		return nil, errors.New("Telegram 群控制器尚未就绪")
+		return nil, errors.New("telegram 群控制器尚未就绪")
 	}
 	return c, nil
 }
