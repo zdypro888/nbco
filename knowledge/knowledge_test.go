@@ -285,7 +285,7 @@ func TestRulesSemanticSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	emb := bagEmbedder{vocab: []string{"凭据", "泄露", "周报", "格式", "部署"}}
+	emb := bagEmbedder{vocab: []string{"凭据", "泄露", "周报", "格式", "部署", "群", "邀请", "员工"}}
 	svc := New(s, emb)
 
 	if _, err := svc.SaveRule(ctx, "凭据保密", "不得泄露凭据", []string{"scope:global"}, u.ID, true); err != nil {
@@ -296,6 +296,10 @@ func TestRulesSemanticSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := svc.Save(ctx, "部署知识", "部署走一键脚本", nil, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	groupSkill, err := svc.SaveSkill(ctx, "群邀请流程", "触发条件：群里有人要加入\n摘要：先识别身份再邀请员工\n执行方法：查群成员，确认真人员工后生成邀请", []string{"scope:telegram"}, u.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
 	var cursor int64
@@ -324,5 +328,12 @@ func TestRulesSemanticSearch(t *testing.T) {
 	}
 	if len(res) != 0 {
 		t.Fatalf("无关查询不应仅因 topN 注入规则: %+v", res)
+	}
+	skills, err := svc.SearchSkills(ctx, "群里有人说要邀请员工", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || skills[0].ID != groupSkill.ID {
+		t.Fatalf("SearchSkills 应召回 skill 且不混规则/知识: %+v", skills)
 	}
 }

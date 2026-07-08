@@ -17,7 +17,7 @@ import (
 func installService(args []string) {
 	fs := flag.NewFlagSet("install-service", flag.ExitOnError)
 	cfgFile := fs.String("config", "", "配置文件路径（也可用 NBCO_WORKER_CONFIG）")
-	engine := fs.String("engine", "", "覆盖引擎：claude | codex")
+	engine := fs.String("engine", "", "覆盖引擎：claude | codex | builtin")
 	bin := fs.String("bin", "", "覆盖 CLI 可执行文件路径")
 	name := fs.String("name", "", "服务名（同机多 worker 时建议指定）")
 	_ = fs.Parse(args)
@@ -148,6 +148,9 @@ func installPlatformService(name, exe, cfgPath string) error {
 	case "darwin":
 		return installLaunchAgent(name, exe, cfgPath)
 	case "linux":
+		if os.Geteuid() == 0 {
+			return installSystemdSystem(name, exe, cfgPath)
+		}
 		return installSystemdUser(name, exe, cfgPath)
 	case "windows":
 		return installWindowsTask(name, exe, cfgPath)
@@ -161,6 +164,9 @@ func uninstallPlatformService(name string) error {
 	case "darwin":
 		return uninstallLaunchAgent(name)
 	case "linux":
+		if os.Geteuid() == 0 {
+			return uninstallSystemdSystem(name)
+		}
 		return uninstallSystemdUser(name)
 	case "windows":
 		return uninstallWindowsTask(name)
@@ -174,6 +180,9 @@ func platformServiceStatus(name string) (string, error) {
 	case "darwin":
 		return runOutput("launchctl", "print", "gui/"+strconv.Itoa(os.Getuid())+"/"+launchLabel(name))
 	case "linux":
+		if os.Geteuid() == 0 {
+			return runOutput("systemctl", "status", "--no-pager", systemdUnit(name))
+		}
 		return runOutput("systemctl", "--user", "status", "--no-pager", systemdUnit(name))
 	case "windows":
 		return runOutput("schtasks", "/Query", "/TN", windowsTaskName(name), "/V", "/FO", "LIST")
@@ -283,7 +292,7 @@ Environment=PATH=%s/.local/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=default.target
-`, name, systemdQuote(exe), systemdQuote(cfgPath), systemdQuote(home), systemdQuote(home), home)
+`, name, systemdQuote(exe), systemdQuote(cfgPath), systemdPath(home), systemdQuote(home), home)
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return err
 	}
@@ -310,11 +319,65 @@ func uninstallSystemdUser(name string) error {
 
 func systemdUnit(name string) string { return cleanServiceName(name) + ".service" }
 
+func installSystemdSystem(name, exe, cfgPath string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	if home == "" {
+		home = "/root"
+	}
+	unit := systemdUnit(name)
+	path := filepath.Join("/etc/systemd/system", unit)
+	body := fmt.Sprintf(`[Unit]
+Description=NBCO worker %s
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%s run -config %s
+Restart=always
+RestartSec=10
+WorkingDirectory=%s
+Environment=HOME=%s
+Environment=PATH=%s/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bin:/snap/bin
+
+[Install]
+WantedBy=multi-user.target
+`, name, systemdQuote(exe), systemdQuote(cfgPath), systemdPath(home), systemdQuote(home), home)
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		return err
+	}
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl daemon-reload: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if out, err := exec.Command("systemctl", "enable", "--now", unit).CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl enable --now: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func uninstallSystemdSystem(name string) error {
+	unit := systemdUnit(name)
+	_, _ = exec.Command("systemctl", "disable", "--now", unit).CombinedOutput()
+	_ = os.Remove(filepath.Join("/etc/systemd/system", unit))
+	_, _ = exec.Command("systemctl", "daemon-reload").CombinedOutput()
+	return nil
+}
+
 func systemdQuote(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
 	s = strings.ReplaceAll(s, `%`, `%%`)
 	return `"` + s + `"`
+}
+
+func systemdPath(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `%%`)
+	s = strings.ReplaceAll(s, " ", `\x20`)
+	return s
 }
 
 func installWindowsTask(name, exe, cfgPath string) error {

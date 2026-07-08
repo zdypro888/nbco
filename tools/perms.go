@@ -325,7 +325,7 @@ func activeActionList() []string {
 	return []string{
 		perm.ActWriteProfile, perm.ActViewSelfIntro, perm.ActManagePerm,
 		perm.ActGenerateKey + "(invite_employee)", perm.ActSendMsg, perm.ActCreateProject, perm.ActEditInfo,
-		perm.ActManageWorker,
+		perm.ActManageTGGroup, perm.ActManageWorker,
 	}
 }
 

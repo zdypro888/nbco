@@ -24,15 +24,15 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 				return renderUser(me), nil
 			}),
 
-		tool("update_my_profile", "更新自己的基本信息。传字段名到值的映射；值为空串表示清除该字段。",
+		tool("update_my_profile", "更新自己的基本信息。传字段名到值的映射；值为空串/null/无表示清除该字段；常见别名会自动归一。",
 			obj(map[string]any{
 				"name":   p("string", "新名字（可选）"),
-				"fields": map[string]any{"type": "object", "description": "动态字段名→值", "additionalProperties": map[string]any{"type": "string"}},
+				"fields": infoFieldsSchema("动态字段名→值"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					Name   string            `json:"name"`
-					Fields map[string]string `json:"fields"`
+					Name   string             `json:"name"`
+					Fields map[string]*string `json:"fields"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
@@ -41,22 +41,17 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				allowed := map[string]bool{}
-				for _, f := range defined {
-					allowed[f] = true
-				}
-				for k := range args.Fields {
-					if !allowed[k] {
-						return fmt.Sprintf("字段 %q 未定义。可用字段: %s", k, strings.Join(defined, ", ")), nil
-					}
+				fields, msg := normalizeInfoFieldsPtr(args.Fields, defined)
+				if msg != "" {
+					return msg, nil
 				}
 				if args.Name != "" {
 					if err := d.Store.UpdateUserName(ctx, u.ID, args.Name); err != nil {
 						return "", err
 					}
 				}
-				if len(args.Fields) > 0 {
-					if err := d.Store.UpdateUserInfo(ctx, u.ID, args.Fields); err != nil {
+				if len(fields) > 0 {
+					if err := d.Store.UpdateUserInfo(ctx, u.ID, fields); err != nil {
 						return "", err
 					}
 				}
@@ -210,6 +205,147 @@ func renderUserStatus(status string) string {
 		return "已停用"
 	default:
 		return status
+	}
+}
+
+type infoFieldLookup struct {
+	exact map[string]string
+	lower map[string]string
+	alias map[string]string
+}
+
+func newInfoFieldLookup(defined []string) infoFieldLookup {
+	l := infoFieldLookup{
+		exact: map[string]string{},
+		lower: map[string]string{},
+		alias: map[string]string{},
+	}
+	for _, f := range defined {
+		name := strings.TrimSpace(f)
+		if name == "" {
+			continue
+		}
+		l.exact[name] = name
+		l.lower[strings.ToLower(name)] = name
+	}
+	for alias, canonical := range map[string]string{
+		"外号":       "昵称",
+		"昵称":       "昵称",
+		"nick":     "昵称",
+		"nickname": "昵称",
+		"岗位":       "职位",
+		"职务":       "职位",
+		"职位":       "职位",
+		"position": "职位",
+		"title":    "职位",
+		"角色":       "role",
+		"role":     "role",
+		"邮箱":       "邮箱",
+		"email":    "邮箱",
+		"mail":     "邮箱",
+		"手机":       "手机",
+		"手机号":      "手机",
+		"电话":       "手机",
+		"phone":    "手机",
+		"真实姓名":     "真实姓名",
+		"真名":       "真实姓名",
+		"姓名":       "真实姓名",
+	} {
+		if canon, ok := l.exact[canonical]; ok {
+			l.alias[strings.ToLower(alias)] = canon
+		}
+	}
+	return l
+}
+
+func (l infoFieldLookup) canonical(name string) (string, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", false
+	}
+	if v, ok := l.exact[name]; ok {
+		return v, true
+	}
+	if v, ok := l.lower[strings.ToLower(name)]; ok {
+		return v, true
+	}
+	if v, ok := l.alias[strings.ToLower(name)]; ok {
+		return v, true
+	}
+	return "", false
+}
+
+func normalizeInfoFields(fields map[string]string, defined []string) (map[string]string, string) {
+	if len(fields) == 0 {
+		return nil, ""
+	}
+	lookup := newInfoFieldLookup(defined)
+	keys := make([]string, 0, len(fields))
+	for k := range fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := map[string]string{}
+	for _, rawKey := range keys {
+		field, ok := lookup.canonical(rawKey)
+		if !ok {
+			return nil, fmt.Sprintf("字段 %q 未定义。可用字段: %s", rawKey, strings.Join(defined, ", "))
+		}
+		value := normalizeInfoValue(field, fields[rawKey], lookup)
+		out[field] = value
+	}
+	return out, ""
+}
+
+func infoFieldsSchema(description string) map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"description":          description,
+		"additionalProperties": map[string]any{"type": "string", "description": "字段值；传空串、null、无、删除等表示清除"},
+	}
+}
+
+func normalizeInfoFieldsPtr(fields map[string]*string, defined []string) (map[string]string, string) {
+	plain := make(map[string]string, len(fields))
+	for k, v := range fields {
+		if v == nil {
+			plain[k] = ""
+			continue
+		}
+		plain[k] = *v
+	}
+	return normalizeInfoFields(plain, defined)
+}
+
+func normalizeInfoValue(field, value string, lookup infoFieldLookup) string {
+	value = strings.TrimSpace(value)
+	if prefix, rest, ok := splitInfoFieldPrefix(value); ok {
+		if canonical, found := lookup.canonical(prefix); found && canonical == field {
+			value = strings.TrimSpace(rest)
+		}
+	}
+	if isNullishInfoValue(value) {
+		return ""
+	}
+	return value
+}
+
+func splitInfoFieldPrefix(value string) (string, string, bool) {
+	for _, sep := range []string{"：", ":"} {
+		if i := strings.Index(value, sep); i > 0 {
+			return strings.TrimSpace(value[:i]), strings.TrimSpace(value[i+len(sep):]), true
+		}
+	}
+	return "", "", false
+}
+
+func isNullishInfoValue(value string) bool {
+	v := strings.Trim(strings.ToLower(strings.TrimSpace(value)), `"'`)
+	switch v {
+	case "", "null", "nil", "none", "n/a", "na", "无", "没有", "清空", "删除", "-":
+		return true
+	default:
+		return false
 	}
 }
 

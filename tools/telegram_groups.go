@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -31,9 +32,10 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				var b strings.Builder
 				b.WriteString("Telegram 群列表：\n")
 				for _, g := range groups {
-					fmt.Fprintf(&b, "- %s：%s，%s，%s，最近更新 %s；group_ref=%s（内部引用，勿展示给用户）\n",
+					fmt.Fprintf(&b, "- %s：%s，%s，%s，%s，最近更新 %s；group_ref=%s（内部引用，勿展示给用户）\n",
 						telegramGroupTitle(g), telegramGroupStatusText(g), telegramGroupListenText(g),
-						telegramGroupAutoInviteText(ctx, d, g), fmtTime(g.UpdatedAt, d.TZ), telegramGroupRef(g.ChatID))
+						telegramGroupAutoInviteText(ctx, d, g), telegramGroupMonitorText(ctx, d, g),
+						fmtTime(g.UpdatedAt, d.TZ), telegramGroupRef(g.ChatID))
 				}
 				return b.String(), nil
 			}),
@@ -58,6 +60,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				}
 				out := renderTelegramGroup(*g, d.TZ)
 				out += "\n- 自动邀请：" + telegramGroupAutoInviteText(ctx, d, *g)
+				out += "\n- 智能监控：" + telegramGroupMonitorText(ctx, d, *g)
 				return out, nil
 			}),
 
@@ -118,6 +121,24 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
+		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与 nbco 系统员工。用户问群里有谁、谁已加入系统、成员是不是 AI worker/真人时优先调用本工具；内部用 Telegram ID 精确绑定，但回复用户不要展示 Telegram ID。",
+			obj(map[string]any{
+				"group": p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
+			}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Group string `json:"group"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				g, msg, err := resolveTelegramGroup(ctx, d, args.Group)
+				if err != nil || g == nil {
+					return msg, err
+				}
+				return renderTelegramGroupMemberBindings(ctx, d, *g)
+			}),
+
 		tool("get_telegram_group_member", "查询某个人是否在 Telegram 群里。user 可填公司用户姓名、系统用户ID、或最近见过的 Telegram 显示名；需要该用户已绑定 Telegram 或曾在群里发言/加入。",
 			obj(map[string]any{
 				"group": p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
@@ -150,7 +171,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("%s 在 %s 的状态：%s。", telegramMemberDisplay(*member), telegramGroupTitle(*g), telegramMemberStatusText(member.Status)), nil
 			}),
 
-		tool("set_telegram_group_listen", "开启或关闭 Telegram 群监听。仅超管可见；group 可填群名、群名片段或 group_ref。开启后普通群消息会进入群共享上下文但不主动插话。",
+		tool("set_telegram_group_listen", "开启或关闭 Telegram 群监听。需要 manage_telegram_group 权限；group 可填群名、群名片段或 group_ref。开启后普通群消息会进入群共享上下文但不主动插话。",
 			obj(map[string]any{
 				"group":  p("string", "群名、群名片段或 group_ref"),
 				"listen": p("boolean", "true 开启监听，false 关闭监听"),
@@ -185,7 +206,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已更新 %s：%s。", telegramGroupTitle(*g), telegramGroupListenText(*g)), nil
 			}),
 
-		tool("set_telegram_group_auto_invite", "开启或关闭 Telegram 群自动邀请。仅超管私聊可见；开启后，未加入系统的人在该群 @bot 时，系统生成真人员工一次性邀请，优先私发；无法私发时提示对方私聊 /start 自动领取。不会把邀请码发到群里。",
+		tool("set_telegram_group_auto_invite", "开启或关闭 Telegram 群自动邀请。需要 manage_telegram_group 权限；开启后，未加入系统的人在该群 @bot 时，系统生成真人员工一次性邀请，优先私发；无法私发时提示对方私聊 /start 自动领取。不会把邀请码发到群里。",
 			obj(map[string]any{
 				"group":   p("string", "群名、群名片段或 group_ref"),
 				"enabled": p("boolean", "true 开启，false 关闭"),
@@ -215,7 +236,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已关闭 %s 的自动邀请。", telegramGroupTitle(*g)), nil
 			}),
 
-		tool("send_telegram_group_message", "向 Telegram 群发送消息。仅超管私聊可见；群里不要用这个工具。发送后返回 message_ref 供编辑、撤回、置顶等后续工具使用，回复用户时不要展示内部引用。",
+		tool("send_telegram_group_message", "向 Telegram 群发送消息。需要 manage_telegram_group 权限；群里不要用这个工具。发送后返回 message_ref 供编辑、撤回、置顶等后续工具使用，回复用户时不要展示内部引用。",
 			obj(map[string]any{
 				"group":                p("string", "群名、群名片段或 group_ref"),
 				"text":                 p("string", "要发送到群里的内容，可用 Telegram HTML/普通文本"),
@@ -385,7 +406,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已取消置顶 %s 的群消息。", telegramGroupTitle(*g)), nil
 			}),
 
-		tool("update_telegram_group_info", "修改 Telegram 群标题或描述。仅超管私聊可见；要求 bot 是群管理员且有修改群信息权限。",
+		tool("update_telegram_group_info", "修改 Telegram 群标题或描述。需要 manage_telegram_group 权限；要求 bot 是群管理员且有修改群信息权限。",
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
 				"title":       p("string", "新群标题，可选"),
@@ -586,6 +607,21 @@ func telegramGroupAutoInviteText(ctx context.Context, d Deps, g store.TelegramGr
 	return "自动邀请开启"
 }
 
+func telegramGroupMonitorText(ctx context.Context, d Deps, g store.TelegramGroupState) string {
+	if d.Store == nil {
+		return "智能监控状态未知"
+	}
+	mon, err := d.Store.TelegramGroupMonitor(ctx, g.ChatID)
+	if err != nil || mon == nil || !mon.Enabled {
+		return "智能监控关闭"
+	}
+	target := "发起人"
+	if u, err := d.Store.UserByID(ctx, mon.NotifyUserID); err == nil && u != nil {
+		target = u.Name
+	}
+	return fmt.Sprintf("智能监控开启，提醒 %s", target)
+}
+
 func telegramMemberDisplay(m TelegramGroupMember) string {
 	name := strings.TrimSpace(m.Name)
 	if name == "" {
@@ -618,6 +654,125 @@ func telegramSeenMemberDisplay(m store.TelegramGroupSeenMember) string {
 		name += "（bot）"
 	}
 	return name
+}
+
+func renderTelegramGroupMemberBindings(ctx context.Context, d Deps, g store.TelegramGroupState) (string, error) {
+	seen, err := d.Store.ListTelegramGroupSeenMembers(ctx, g.ChatID, 100)
+	if err != nil {
+		return "", err
+	}
+	var admins []TelegramGroupMember
+	if c, err := telegramController(d); err == nil {
+		admins, _ = c.GetTelegramGroupAdministrators(ctx, g.ChatID)
+	}
+	seenByTG := map[int64]store.TelegramGroupSeenMember{}
+	for _, m := range seen {
+		if m.UserID == 0 {
+			continue
+		}
+		seenByTG[m.UserID] = m
+	}
+	for _, a := range admins {
+		if a.UserID == 0 {
+			continue
+		}
+		if _, ok := seenByTG[a.UserID]; !ok {
+			seenByTG[a.UserID] = store.TelegramGroupSeenMember{
+				ChatID:   g.ChatID,
+				UserID:   a.UserID,
+				Name:     a.Name,
+				Username: a.Username,
+				IsBot:    a.IsBot,
+			}
+		}
+	}
+	if len(seenByTG) == 0 {
+		return fmt.Sprintf("%s 目前没有可对照的成员记录。Telegram Bot API 不能一次性枚举全体普通成员；需要成员发言、加入事件或管理员列表出现后才能识别。", telegramGroupTitle(g)), nil
+	}
+
+	users, err := d.Store.ListUsers(ctx)
+	if err != nil {
+		return "", err
+	}
+	boundByTG := map[int64]*store.User{}
+	for _, u := range users {
+		if u == nil || u.Status != store.UserActive {
+			continue
+		}
+		ident, err := d.Store.IdentityOfUser(ctx, u.ID, "telegram")
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				continue
+			}
+			return "", err
+		}
+		tgUserID, err := strconv.ParseInt(strings.TrimSpace(ident.ExternalID), 10, 64)
+		if err == nil && tgUserID != 0 {
+			boundByTG[tgUserID] = u
+		}
+	}
+
+	members := make([]store.TelegramGroupSeenMember, 0, len(seenByTG))
+	for _, m := range seenByTG {
+		members = append(members, m)
+	}
+	sort.Slice(members, func(i, j int) bool {
+		return strings.ToLower(telegramSeenMemberDisplay(members[i])) < strings.ToLower(telegramSeenMemberDisplay(members[j]))
+	})
+
+	var exact, suspected, unmatched int
+	var b strings.Builder
+	fmt.Fprintf(&b, "Telegram 群成员身份对照：%s\n", telegramGroupTitle(g))
+	for _, m := range members {
+		label := telegramSeenMemberDisplay(m)
+		if u := boundByTG[m.UserID]; u != nil {
+			exact++
+			fmt.Fprintf(&b, "- %s → %s（已绑定，%s）\n", label, telegramCompanyUserLabel(u), "精确匹配")
+			continue
+		}
+		if u, ambiguous := matchCompanyUserForSeen(users, m); ambiguous {
+			suspected++
+			fmt.Fprintf(&b, "- %s → 多个同名系统员工，需人工确认绑定\n", label)
+		} else if u != nil {
+			suspected++
+			fmt.Fprintf(&b, "- %s → 疑似 %s（名称相同但未绑定）\n", label, telegramCompanyUserLabel(u))
+		} else {
+			unmatched++
+			fmt.Fprintf(&b, "- %s → 未绑定系统员工\n", label)
+		}
+	}
+	fmt.Fprintf(&b, "汇总：已绑定 %d，疑似 %d，未绑定 %d。说明：Telegram ID 仅用于内部精确匹配，回复用户不要展示。", exact, suspected, unmatched)
+	return b.String(), nil
+}
+
+func matchCompanyUserForSeen(users []*store.User, m store.TelegramGroupSeenMember) (*store.User, bool) {
+	candidates := []string{
+		strings.TrimSpace(m.Name),
+		strings.TrimSpace(strings.TrimPrefix(m.Username, "@")),
+	}
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if u, ambiguous := matchCompanyUser(users, candidate, true); u != nil || ambiguous {
+			return u, ambiguous
+		}
+	}
+	return nil, false
+}
+
+func telegramCompanyUserLabel(u *store.User) string {
+	if u == nil {
+		return "未知员工"
+	}
+	switch {
+	case u.IsWorker:
+		return u.Name + "（AI worker）"
+	case u.IsSuperadmin:
+		return u.Name + "（超级管理员）"
+	default:
+		return u.Name + "（真人员工）"
+	}
 }
 
 func telegramMemberStatusText(status string) string {
@@ -765,7 +920,7 @@ func matchCompanyUser(users []*store.User, selector string, exact bool) (*store.
 	}
 	var matches []*store.User
 	for _, u := range users {
-		if u == nil || u.Status != store.UserActive || u.IsWorker {
+		if u == nil || u.Status != store.UserActive {
 			continue
 		}
 		name := normalizeTelegramLookup(u.Name)

@@ -915,6 +915,21 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	lessons = append(ruleLines, lessons...)
+	// Skill 注入：只给摘要与 ID，避免把长流程塞满 worker prompt；worker 如需细节
+	// 可通过对话/MCP 的 load_skill 读取完整方法。
+	var skillLines []string
+	var skills []*store.Knowledge
+	if s.deps.Knowledge != nil {
+		skills, _ = s.deps.Knowledge.SearchSkills(ctx, query, workerKnowledgeHits)
+	} else {
+		skills, _ = s.store.SearchSkills(ctx, query, workerKnowledgeHits)
+	}
+	for _, k := range skills {
+		if knowledge.RuleApplies(k.Tags, "worker", u.ID) {
+			skillLines = append(skillLines, "相关 skill 摘要："+k.Title+"："+workerSkillSummary(k.Content))
+		}
+	}
+	lessons = append(skillLines, lessons...)
 	// 返工闭环：带上任务已有的过程记录（含验收打回理由），worker 按它改。
 	var history []string
 	if ps, err := s.store.ProgressOf(ctx, t.ID); err == nil {
@@ -1037,6 +1052,15 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "lessons", req.Lessons != "")
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+}
+
+func workerSkillSummary(content string) string {
+	for _, line := range strings.Split(content, "\n") {
+		if v, ok := strings.CutPrefix(line, "摘要："); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return truncateRunes(content, 240)
 }
 
 // mcpServer 对外 MCP：按 token 换用户，暴露其权限内的工具集。

@@ -6,9 +6,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt/telegramhtml"
 	"github.com/zdypro888/nbco/tools"
 )
 
@@ -170,6 +173,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	}
 	// 规则注入（Policy Memory）：常驻规则全量 + 与本轮输入语义相关的规则。
 	system += o.ruleContext(ctx, u, channel, text)
+	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
+	system += o.skillContext(ctx, u, channel, text)
 	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
 	if sess.Summary != "" {
 		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
@@ -183,6 +188,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	if isGroupChannel(channel) {
 		toolset = tools.StripGroupSensitive(toolset) // 群里剔除机密/高危工具
 	}
+	toolset = tools.WithTurnBudget(toolset, tools.TurnBudget{
+		MaxCalls:       18,
+		MaxPerTool:     8,
+		MaxExactRepeat: 2,
+	})
 	req := &ai.TurnRequest{
 		SessionID:     fmt.Sprintf("%d", sess.ID),
 		EngineSession: sess.EngineRef,
@@ -236,24 +246,246 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		"steps", len(res.Steps), "in_tokens", res.Usage.InputTokens, "out_tokens", res.Usage.OutputTokens,
 		"reply_len", len(res.Text))
 	slog.Debug("轮次答复", "session", sess.ID, "reply_len", len(res.Text), "reply_sha", contentHash(res.Text))
+	storedReply := normalizeAssistantReply(channel, res.Text)
 
 	// 成本计量：每轮 token 用量落库（尽力而为）。
 	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
 
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
-	if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), res.Text); err != nil {
+	if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), storedReply); err != nil {
 		slog.Warn("助手消息落库失败", "err", err)
 	} else {
-		o.embedMessage(id, res.Text)
+		o.embedMessage(id, storedReply)
 	}
+	o.maybeMineMemory(u, channel, text, storedReply)
 	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
 		if err := o.store.SetSessionEngineRef(ctx, sess.ID, res.EngineSession); err != nil {
 			slog.Warn("引擎会话标识落库失败", "err", err)
 		}
 	}
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
-	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(text)+len(res.Text))
+	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(text)+len(storedReply))
 	return res.Text, nil
+}
+
+func normalizeAssistantReply(channel, text string) string {
+	if strings.HasPrefix(channel, "telegram") {
+		return telegramhtml.ToHTML(text)
+	}
+	return text
+}
+
+const memoryMinerSystem = `你是 nbco 的长期记忆整理器。只从本轮对话中提取明确、可长期复用的信息。
+
+输出严格 JSON 对象，不要 Markdown，不要代码块：
+{
+  "rules": [{"title":"","content":"","scope":"global","pinned":false}],
+  "skills": [{"title":"","trigger":"","summary":"","procedure":"","constraints":"","scope":"global","tags":[]}],
+  "knowledge": [{"title":"","content":"","tags":[]}]
+}
+
+分类标准：
+- rules：用户对系统/AI 的持久行为要求、禁令、默认做法，例如“以后不要…/默认…/记住以后…”。必须可执行、自包含。
+- skills：用户教给系统的可复用执行方法，包含触发条件、步骤、工具使用、判断分支、禁忌。
+- knowledge：公司事实、项目背景、决策、约定。
+
+约束：
+- 没有明确新增长期价值时返回空数组。
+- 不要保存普通寒暄、一次性任务、临时状态。
+- 不要臆造用户没说过的规则或步骤。
+- scope 只能是 global、telegram、api、worker 或 user:<数字用户ID>；不确定用 global。`
+
+type minedMemory struct {
+	Rules []struct {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+		Scope   string `json:"scope"`
+		Pinned  bool   `json:"pinned"`
+	} `json:"rules"`
+	Skills []struct {
+		Title       string   `json:"title"`
+		Trigger     string   `json:"trigger"`
+		Summary     string   `json:"summary"`
+		Procedure   string   `json:"procedure"`
+		Constraints string   `json:"constraints"`
+		Scope       string   `json:"scope"`
+		Tags        []string `json:"tags"`
+	} `json:"skills"`
+	Knowledge []struct {
+		Title   string   `json:"title"`
+		Content string   `json:"content"`
+		Tags    []string `json:"tags"`
+	} `json:"knowledge"`
+}
+
+func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assistantText string) {
+	if u == nil || !u.IsSuperadmin || strings.HasPrefix(userText, "[系统") {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Memory Miner panic 已恢复", "user", u.ID, "panic", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		o.mineMemory(ctx, u, channel, userText, assistantText)
+	}()
+}
+
+func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, channel, userText, assistantText string) {
+	input := fmt.Sprintf("当前用户：%s\n渠道：%s\n\n【用户】\n%s\n\n【助手】\n%s", u.Name, channel, userText, assistantText)
+	model := o.runtimeModel(ctx)
+	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
+		SessionID: "memory-miner",
+		System:    memoryMinerSystem,
+		UserText:  input,
+		Model:     model,
+	})
+	if err != nil {
+		slog.Warn("Memory Miner 失败", "user", u.ID, "err", err)
+		return
+	}
+	o.recordUsage(ctx, u.ID, nil, "memory_miner", model, res.Usage)
+	var mined minedMemory
+	if err := json.Unmarshal([]byte(extractJSONObject(res.Text)), &mined); err != nil {
+		slog.Warn("Memory Miner JSON 解析失败", "user", u.ID, "err", err, "text_sha", contentHash(res.Text))
+		return
+	}
+	o.persistMinedMemory(ctx, u, mined)
+}
+
+func extractJSONObject(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
+		return s
+	}
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start >= 0 && end > start {
+		return s[start : end+1]
+	}
+	return s
+}
+
+func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mined minedMemory) {
+	for i, r := range mined.Rules {
+		if i >= 3 {
+			break
+		}
+		title, content := strings.TrimSpace(r.Title), strings.TrimSpace(r.Content)
+		if title == "" || content == "" || o.memoryTitleExists(ctx, store.KnowledgeKindPolicy, title) {
+			continue
+		}
+		scope := normalizeMemoryScope(r.Scope)
+		if o.deps.Knowledge != nil {
+			_, _ = o.deps.Knowledge.SaveRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
+		} else {
+			_, _ = o.store.CreateRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
+		}
+		slog.Info("Memory Miner 保存规则", "user", u.ID, "title", title)
+	}
+	for i, sk := range mined.Skills {
+		if i >= 3 {
+			break
+		}
+		title := strings.TrimSpace(sk.Title)
+		if title == "" || strings.TrimSpace(sk.Trigger) == "" || strings.TrimSpace(sk.Summary) == "" ||
+			strings.TrimSpace(sk.Procedure) == "" || o.memoryTitleExists(ctx, store.KnowledgeKindSkill, title) {
+			continue
+		}
+		scope := normalizeMemoryScope(sk.Scope)
+		content := buildMinedSkillContent(sk.Trigger, sk.Summary, sk.Procedure, sk.Constraints)
+		tags := normalizeMinedTags(sk.Tags, scope)
+		if o.deps.Knowledge != nil {
+			_, _ = o.deps.Knowledge.SaveSkill(ctx, title, content, tags, u.ID)
+		} else {
+			_, _ = o.store.CreateSkill(ctx, title, content, tags, u.ID)
+		}
+		slog.Info("Memory Miner 保存 skill", "user", u.ID, "title", title)
+	}
+	for i, k := range mined.Knowledge {
+		if i >= 3 {
+			break
+		}
+		title, content := strings.TrimSpace(k.Title), strings.TrimSpace(k.Content)
+		if title == "" || content == "" || o.memoryTitleExists(ctx, store.KnowledgeKindFact, title) {
+			continue
+		}
+		if o.deps.Knowledge != nil {
+			_, _ = o.deps.Knowledge.Save(ctx, title, content, k.Tags, u.ID)
+		} else {
+			_, _ = o.store.CreateKnowledge(ctx, title, content, k.Tags, u.ID)
+		}
+		slog.Info("Memory Miner 保存知识", "user", u.ID, "title", title)
+	}
+}
+
+func (o *Orchestrator) memoryTitleExists(ctx context.Context, kind, title string) bool {
+	var hits []*store.Knowledge
+	var err error
+	switch kind {
+	case store.KnowledgeKindPolicy:
+		hits, err = o.store.ListRules(ctx, 100)
+	case store.KnowledgeKindSkill:
+		hits, err = o.store.SearchSkills(ctx, title, 5)
+	default:
+		hits, err = o.store.SearchKnowledge(ctx, title, 5)
+	}
+	if err != nil {
+		return false
+	}
+	for _, h := range hits {
+		if strings.EqualFold(strings.TrimSpace(h.Title), strings.TrimSpace(title)) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeMemoryScope(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return "global"
+	}
+	switch {
+	case scope == "global" || scope == "telegram" || scope == "api" || scope == "worker":
+		return scope
+	case strings.HasPrefix(scope, "user:"):
+		id, ok := strings.CutPrefix(scope, "user:")
+		if _, err := strconv.ParseInt(id, 10, 64); ok && err == nil {
+			return scope
+		}
+		return "global"
+	default:
+		return "global"
+	}
+}
+
+func buildMinedSkillContent(trigger, summary, procedure, constraints string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "触发条件：%s\n", strings.TrimSpace(trigger))
+	fmt.Fprintf(&b, "摘要：%s\n", strings.TrimSpace(summary))
+	fmt.Fprintf(&b, "执行方法：\n%s\n", strings.TrimSpace(procedure))
+	if c := strings.TrimSpace(constraints); c != "" {
+		fmt.Fprintf(&b, "限制与禁忌：\n%s\n", c)
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func normalizeMinedTags(tags []string, scope string) []string {
+	out := []string{"scope:" + scope}
+	seen := map[string]bool{out[0]: true}
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" || strings.HasPrefix(tag, "scope:") || seen[tag] {
+			continue
+		}
+		seen[tag] = true
+		out = append(out, tag)
+	}
+	return out
 }
 
 // embedMessage 情景记忆钩子：异步给落库消息补向量（未启用语义检索时为空跳过）。
@@ -286,16 +518,17 @@ func channelKind(channel string) string {
 
 // Summarize 无工具、无历史的一次性补全（旁路用途），计一笔用量。
 func (o *Orchestrator) Summarize(ctx context.Context, userID int64, kind, system, text string) (string, error) {
+	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
 		SessionID: kind,
 		System:    system,
 		UserText:  text,
-		Model:     o.runtimeModel(ctx),
+		Model:     model,
 	})
 	if err != nil {
 		return "", err
 	}
-	o.recordUsage(ctx, userID, nil, kind, "", res.Usage)
+	o.recordUsage(ctx, userID, nil, kind, model, res.Usage)
 	return strings.TrimSpace(res.Text), nil
 }
 
@@ -491,8 +724,11 @@ func (o *Orchestrator) ensureSession(ctx context.Context, u *store.User, channel
 // 预算要小于 knowledge 层的 embedTimeout——embed 服务卡住时这里先到期、
 // 检索退回词法（纯 DB 查询），规则增强绝不拖垮对话延迟。
 const (
-	ruleSearchLimit  = 5
-	ruleFetchTimeout = 5 * time.Second
+	ruleSearchLimit     = 5
+	ruleFetchTimeout    = 5 * time.Second
+	skillCandidateLimit = 8
+	skillSearchLimit    = 3
+	skillSelectTimeout  = 12 * time.Second
 )
 
 // ruleContext 组装本轮适用的行为规则块：常驻规则全量注入，非常驻规则用本轮
@@ -531,6 +767,210 @@ func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, 
 	write("[公司规则·必须遵守]", pinned)
 	write("[本轮相关规则·同样必须遵守]", dyn)
 	return b.String()
+}
+
+const skillSelectorSystem = `你是 nbco 的 Skill 路由器。你的任务是从候选 skill 中选择本轮真正相关、应该注入上下文的 skill。
+
+只根据用户当前输入、渠道、候选的标题/触发条件/摘要判断；不要臆造候选之外的 skill。
+选择标准：
+- 用户当前请求确实符合 skill 的触发条件，或执行该请求明显需要该方法。
+- 只是词语相似但场景不同，不要选。
+- 最多选择 3 个；不相关则返回空数组。
+
+输出严格 JSON，不要 Markdown：
+{"ids":[1,2],"reason":"一句话说明"}`
+
+// skillContext 先用语义/词法召回候选，再用轻量 AI selector 判断哪些 skill
+// 真的适合本轮。只注入触发条件与摘要，完整步骤留给 load_skill，避免新对话
+// 被长期方法库撑爆上下文。selector 失败时降级使用召回排序。
+func (o *Orchestrator) skillContext(ctx context.Context, u *store.User, channel, text string) string {
+	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
+	defer cancel()
+	var skills []*store.Knowledge
+	var err error
+	if o.deps.Knowledge != nil {
+		skills, err = o.deps.Knowledge.SearchSkills(rctx, text, skillCandidateLimit)
+	} else {
+		skills, err = o.store.SearchSkills(rctx, text, skillCandidateLimit)
+	}
+	if err != nil {
+		slog.Warn("skill 检索失败，本轮跳过", "err", err)
+		return ""
+	}
+	skills = filterApplicableSkills(skills, channel, u.ID)
+	if len(skills) == 0 {
+		return ""
+	}
+	skills = o.selectSkillsForTurn(ctx, u, channel, text, skills, skillSearchLimit)
+	var b strings.Builder
+	wrote := false
+	for _, k := range skills {
+		parts := parseSkillMemory(k.Content)
+		if !wrote {
+			b.WriteString("\n[本轮相关 Skill·只注入摘要]\n")
+			b.WriteString("以下 skill 已经过轻量 AI 路由判断可能适用；真正执行前如果需要步骤细节，调用 load_skill 读取完整内容。\n")
+			wrote = true
+		}
+		fmt.Fprintf(&b, "- #%d %s", k.ID, k.Title)
+		if parts.Trigger != "" {
+			fmt.Fprintf(&b, "；触发：%s", parts.Trigger)
+		}
+		if parts.Summary != "" {
+			fmt.Fprintf(&b, "；摘要：%s", parts.Summary)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+func filterApplicableSkills(skills []*store.Knowledge, channel string, userID int64) []*store.Knowledge {
+	out := make([]*store.Knowledge, 0, len(skills))
+	for _, k := range skills {
+		if k == nil || k.Kind != store.KnowledgeKindSkill {
+			continue
+		}
+		if knowledge.RuleApplies(k.Tags, channel, userID) {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+type skillSelectorCandidate struct {
+	ID      int64    `json:"id"`
+	Title   string   `json:"title"`
+	Trigger string   `json:"trigger,omitempty"`
+	Summary string   `json:"summary,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+}
+
+type skillSelectorResult struct {
+	IDs    []int64 `json:"ids"`
+	Reason string  `json:"reason"`
+}
+
+func (o *Orchestrator) selectSkillsForTurn(ctx context.Context, u *store.User, channel, text string, candidates []*store.Knowledge, limit int) []*store.Knowledge {
+	if len(candidates) == 0 {
+		return nil
+	}
+	if limit <= 0 {
+		limit = skillSearchLimit
+	}
+	if len(candidates) == 1 {
+		return firstSkills(candidates, limit)
+	}
+	sctx, cancel := context.WithTimeout(ctx, skillSelectTimeout)
+	defer cancel()
+	input, err := buildSkillSelectorInput(u, channel, text, candidates)
+	if err != nil {
+		slog.Warn("skill selector 输入构造失败，使用召回排序", "err", err)
+		return firstSkills(candidates, limit)
+	}
+	model := o.runtimeModel(sctx)
+	res, err := o.engine.RunTurn(sctx, &ai.TurnRequest{
+		SessionID: "skill-selector",
+		System:    skillSelectorSystem,
+		UserText:  input,
+		Model:     model,
+	})
+	if err != nil {
+		slog.Warn("skill selector 失败，使用召回排序", "err", err)
+		return firstSkills(candidates, limit)
+	}
+	o.recordUsage(sctx, u.ID, nil, "skill_selector", model, res.Usage)
+	var picked skillSelectorResult
+	if err := json.Unmarshal([]byte(extractJSONObject(res.Text)), &picked); err != nil {
+		slog.Warn("skill selector JSON 解析失败，使用召回排序", "err", err, "text_sha", contentHash(res.Text))
+		return firstSkills(candidates, limit)
+	}
+	selected := selectSkillsByIDs(candidates, picked.IDs, limit)
+	if len(selected) == 0 {
+		return nil
+	}
+	return selected
+}
+
+func buildSkillSelectorInput(u *store.User, channel, text string, candidates []*store.Knowledge) (string, error) {
+	items := make([]skillSelectorCandidate, 0, len(candidates))
+	for _, k := range candidates {
+		parts := parseSkillMemory(k.Content)
+		items = append(items, skillSelectorCandidate{
+			ID:      k.ID,
+			Title:   k.Title,
+			Trigger: parts.Trigger,
+			Summary: parts.Summary,
+			Tags:    k.Tags,
+		})
+	}
+	raw, err := json.Marshal(items)
+	if err != nil {
+		return "", err
+	}
+	name := ""
+	if u != nil {
+		name = u.Name
+	}
+	return fmt.Sprintf("当前用户：%s\n渠道：%s\n用户输入：%s\n\n候选 skills JSON：\n%s", name, channel, text, raw), nil
+}
+
+func selectSkillsByIDs(candidates []*store.Knowledge, ids []int64, limit int) []*store.Knowledge {
+	if limit <= 0 || len(ids) == 0 {
+		return nil
+	}
+	allowed := map[int64]bool{}
+	for _, id := range ids {
+		allowed[id] = true
+	}
+	out := make([]*store.Knowledge, 0, limit)
+	for _, k := range candidates {
+		if k == nil || !allowed[k.ID] {
+			continue
+		}
+		out = append(out, k)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func firstSkills(candidates []*store.Knowledge, limit int) []*store.Knowledge {
+	if limit <= 0 || len(candidates) == 0 {
+		return nil
+	}
+	if len(candidates) > limit {
+		return candidates[:limit]
+	}
+	return candidates
+}
+
+type skillMemoryParts struct {
+	Trigger   string
+	Summary   string
+	Procedure string
+}
+
+func parseSkillMemory(content string) skillMemoryParts {
+	var p skillMemoryParts
+	var inProcedure bool
+	for _, line := range strings.Split(content, "\n") {
+		switch {
+		case strings.HasPrefix(line, "触发条件："):
+			p.Trigger = strings.TrimSpace(strings.TrimPrefix(line, "触发条件："))
+			inProcedure = false
+		case strings.HasPrefix(line, "摘要："):
+			p.Summary = strings.TrimSpace(strings.TrimPrefix(line, "摘要："))
+			inProcedure = false
+		case strings.HasPrefix(line, "执行方法："):
+			inProcedure = true
+		case strings.HasPrefix(line, "限制与禁忌："):
+			inProcedure = false
+		case inProcedure:
+			p.Procedure += line + "\n"
+		}
+	}
+	p.Procedure = strings.TrimSpace(p.Procedure)
+	return p
 }
 
 // channelStyle 各渠道的输出格式指引。键与入口网关写入会话的 channel 值约定一致
@@ -590,7 +1030,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	}
 	b.WriteString("\n")
 
-	fmt.Fprintf(&b, "当前用户：%s（ID %d）", u.Name, u.ID)
+	fmt.Fprintf(&b, "当前用户：%s", u.Name)
 	if u.IsSuperadmin {
 		b.WriteString("，超级管理员")
 	}

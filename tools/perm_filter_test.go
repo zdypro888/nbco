@@ -22,10 +22,11 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 	names := namesOf(ForUser(Deps{}, u, nil))
 	for _, gone := range []string{
 		"create_project", "assign_task", "delegate_review",
-		"invite_employee", "send_message", "update_user_info", "save_infos_on_user",
+		"invite_employee", "send_message", "update_user_info", "bulk_update_user_info", "save_infos_on_user",
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
 		"company_overview", "get_ai_settings", "set_ai_settings", "ai_usage_stats", "create_role", "disable_user",
 		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker",
+		"save_skill", "update_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",
@@ -38,7 +39,8 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"get_my_tasks", "update_my_task_status", "accept_task", "split_my_task",
 		"save_knowledge", "search_knowledge", "list_workers", "list_roles",
 		"activate_role", "schedule_once", "get_my_profile", "grant_active_perm",
-		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "get_telegram_group_member",
+		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
+		"search_skills", "load_skill",
 	} {
 		if !names[keep] {
 			t.Errorf("无授权用户应保留 %s", keep)
@@ -87,14 +89,31 @@ func TestInviteEmployeeAliasNormalizesToGenerateKey(t *testing.T) {
 		t.Fatalf("generate_key trim = %q", got)
 	}
 	list := activeActionList()
-	var found bool
+	var found, foundGroup bool
 	for _, item := range list {
 		if item == perm.ActGenerateKey+"(invite_employee)" {
 			found = true
 		}
+		if item == perm.ActManageTGGroup {
+			foundGroup = true
+		}
 	}
 	if !found {
 		t.Fatalf("activeActionList 应展示邀请员工别名: %+v", list)
+	}
+	if !foundGroup {
+		t.Fatalf("activeActionList 应展示 Telegram 群管理权限: %+v", list)
+	}
+}
+
+func TestManageTelegramGroupGrantUnlocks(t *testing.T) {
+	u := &store.User{ID: 2, Status: store.UserActive}
+	grants := []store.Grant{{Kind: store.KindActive, UserID: 2, Action: perm.ActManageTGGroup, Target: store.TargetAll}}
+	got := namesOf(filterByPerm(telegramGroupTools(Deps{}, u), u, grants))
+	for _, name := range []string{"set_telegram_group_listen", "send_telegram_group_message", "update_telegram_group_info"} {
+		if !got[name] {
+			t.Fatalf("manage_telegram_group 应解锁 %s", name)
+		}
 	}
 }
 
@@ -146,8 +165,9 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	names := namesOf(ForUser(Deps{}, su, nil))
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
-		"ai_usage_stats", "create_worker", "run_worker_command", "send_message", "grant_passive_perm",
-		"list_telegram_group_members", "get_telegram_group_member",
+		"ai_usage_stats", "create_worker", "run_worker_command", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
+		"save_skill", "update_skill", "search_skills", "load_skill",
+		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",
@@ -182,7 +202,7 @@ func TestStripGroupSensitive(t *testing.T) {
 	for _, gone := range []string{
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
-		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push",
+		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",
@@ -197,7 +217,8 @@ func TestStripGroupSensitive(t *testing.T) {
 	// 日常工具保留。
 	for _, keep := range []string{
 		"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview",
-		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "get_telegram_group_member",
+		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
+		"search_skills", "load_skill",
 	} {
 		if !grouped[keep] {
 			t.Errorf("群里应保留 %s", keep)

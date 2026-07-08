@@ -9,6 +9,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"strings"
@@ -1077,6 +1078,10 @@ func TestKnowledgeRules(t *testing.T) {
 	if err != nil || fact.Kind != KnowledgeKindFact || fact.Pinned {
 		t.Fatalf("普通知识应 kind=fact 不常驻: %+v err=%v", fact, err)
 	}
+	skill, err := s.CreateSkill(ctx, "群入职处理", "触发条件：群里有人要求加入\n摘要：先判断真人还是 worker\n执行方法：先查群身份再邀请", []string{"scope:telegram"}, boss.ID)
+	if err != nil || skill.Kind != KnowledgeKindSkill {
+		t.Fatalf("skill 应 kind=skill: %+v err=%v", skill, err)
+	}
 	hard, err := s.CreateRule(ctx, "凭据保密", "不得在对话中展示 token、key 等凭据",
 		[]string{"scope:global"}, boss.ID, true)
 	if err != nil || hard.Kind != KnowledgeKindPolicy || !hard.Pinned {
@@ -1090,8 +1095,11 @@ func TestKnowledgeRules(t *testing.T) {
 	if hits, err := s.SearchKnowledge(ctx, "周报", 10); err != nil || len(hits) != 0 {
 		t.Fatalf("普通知识检索不应混入规则: %+v err=%v", hits, err)
 	}
+	if hits, err := s.SearchSkills(ctx, "加入", 10); err != nil || len(hits) != 1 || hits[0].ID != skill.ID {
+		t.Fatalf("SearchSkills 应只召回 skill: %+v err=%v", hits, err)
+	}
 	if recent, err := s.RecentKnowledge(ctx, 10); err != nil || len(recent) != 1 || recent[0].ID != fact.ID {
-		t.Fatalf("最近知识不应混入规则: %+v err=%v", recent, err)
+		t.Fatalf("最近知识不应混入规则/skill: %+v err=%v", recent, err)
 	}
 
 	pinned, err := s.PinnedRules(ctx)
@@ -1120,6 +1128,9 @@ func TestKnowledgeRules(t *testing.T) {
 	if err := s.SetKnowledgeEmbedding(ctx, fact.ID, "m:2", []float32{1, 1}); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.SetKnowledgeEmbedding(ctx, skill.ID, "m:2", []float32{1, -1}); err != nil {
+		t.Fatal(err)
+	}
 	factVecs, err := s.EmbeddedKnowledge(ctx, "m:2")
 	if err != nil || len(factVecs) != 1 || factVecs[0].ID != fact.ID {
 		t.Fatalf("普通语义候选不应混入规则: %+v err=%v", factVecs, err)
@@ -1127,6 +1138,10 @@ func TestKnowledgeRules(t *testing.T) {
 	vecs, err := s.EmbeddedRules(ctx, "m:2")
 	if err != nil || len(vecs) != 1 || vecs[0].ID != soft.ID {
 		t.Fatalf("EmbeddedRules = %+v err=%v", vecs, err)
+	}
+	skillVecs, err := s.EmbeddedSkills(ctx, "m:2")
+	if err != nil || len(skillVecs) != 1 || skillVecs[0].ID != skill.ID {
+		t.Fatalf("EmbeddedSkills = %+v err=%v", skillVecs, err)
 	}
 	// 常驻开关。
 	if err := s.SetRulePinned(ctx, soft.ID, true); err != nil {
@@ -1179,6 +1194,40 @@ func TestTelegramGroupState(t *testing.T) {
 	}
 	if len(groups) != 2 || groups[0].ChatID != -1002 || groups[1].ChatID != -1001 {
 		t.Fatalf("ListTelegramGroupStates order = %+v", groups)
+	}
+}
+
+func TestTelegramGroupMonitor(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	mon := TelegramGroupMonitor{
+		ChatID:       -1001,
+		Enabled:      true,
+		GroupTitle:   "视频项目群",
+		Instruction:  "遇到问题总结给我",
+		NotifyUserID: 1,
+		CreatedBy:    1,
+		PendingCount: 40,
+	}
+	for i := 0; i < 35; i++ {
+		mon.Buffer = append(mon.Buffer, fmt.Sprintf("第 %d 条讨论", i))
+	}
+	if err := s.SaveTelegramGroupMonitor(ctx, mon); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.TelegramGroupMonitor(ctx, -1001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Enabled || got.GroupTitle != "视频项目群" || got.NotifyUserID != 1 {
+		t.Fatalf("TelegramGroupMonitor = %+v", got)
+	}
+	if len(got.Buffer) != 30 || got.Buffer[0] != "第 5 条讨论" {
+		t.Fatalf("TelegramGroupMonitor buffer cap = %+v", got.Buffer)
+	}
+	if _, err := s.TelegramGroupMonitor(ctx, -404); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing monitor err = %v", err)
 	}
 }
 

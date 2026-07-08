@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/knowledge"
@@ -99,6 +100,20 @@ func (d Deps) searchKnowledge(ctx context.Context, query string, limit int) ([]*
 	return d.Store.SearchKnowledge(ctx, query, limit)
 }
 
+func (d Deps) saveSkill(ctx context.Context, title, content string, tags []string, authorID int64) (*store.Knowledge, error) {
+	if d.Knowledge != nil {
+		return d.Knowledge.SaveSkill(ctx, title, content, tags, authorID)
+	}
+	return d.Store.CreateSkill(ctx, title, content, tags, authorID)
+}
+
+func (d Deps) searchSkills(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+	if d.Knowledge != nil {
+		return d.Knowledge.SearchSkills(ctx, query, limit)
+	}
+	return d.Store.SearchSkills(ctx, query, limit)
+}
+
 // wakeWorker 若目标是 worker 且实时在线，推送唤醒（尽力而为，轮询兜底）。
 func wakeWorker(d Deps, u *store.User) {
 	if d.Workers != nil && u != nil && u.IsWorker {
@@ -122,6 +137,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, knowledgeTools(d, u)...)
 	ts = append(ts, memoryTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
+	ts = append(ts, skillTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
@@ -156,10 +172,11 @@ var toolPerm = map[string]string{
 	"assign_task":     perm.ActCreateProject,
 	"delegate_review": perm.ActCreateProject,
 	// 人事/沟通能力
-	"invite_employee":    perm.ActGenerateKey,
-	"send_message":       perm.ActSendMsg,
-	"update_user_info":   perm.ActEditInfo,
-	"save_infos_on_user": perm.ActWriteProfile,
+	"invite_employee":       perm.ActGenerateKey,
+	"send_message":          perm.ActSendMsg,
+	"update_user_info":      perm.ActEditInfo,
+	"bulk_update_user_info": perm.ActEditInfo,
+	"save_infos_on_user":    perm.ActWriteProfile,
 	// 权限管理能力
 	"grant_passive_perm":  perm.ActManagePerm,
 	"revoke_passive_perm": perm.ActManagePerm,
@@ -182,19 +199,21 @@ var toolPerm = map[string]string{
 	"issue_worker_bind_code": perm.ActManageWorker,
 	"run_worker_command":     perm.ActManageWorker,
 	"revoke_worker":          perm.ActManageWorker,
-	// 群接入状态可读；控制类操作限超管。群内仍可用 /listen。
-	"set_telegram_group_listen":      reqSuper,
-	"set_telegram_group_auto_invite": reqSuper,
-	"send_telegram_group_message":    reqSuper,
-	"edit_telegram_group_message":    reqSuper,
-	"delete_telegram_group_message":  reqSuper,
-	"pin_telegram_group_message":     reqSuper,
-	"unpin_telegram_group_message":   reqSuper,
-	"update_telegram_group_info":     reqSuper,
+	// 群接入状态可读；控制类操作由可转授的 Telegram 群管理权限解锁。
+	"set_telegram_group_listen":      perm.ActManageTGGroup,
+	"set_telegram_group_auto_invite": perm.ActManageTGGroup,
+	"send_telegram_group_message":    perm.ActManageTGGroup,
+	"edit_telegram_group_message":    perm.ActManageTGGroup,
+	"delete_telegram_group_message":  perm.ActManageTGGroup,
+	"pin_telegram_group_message":     perm.ActManageTGGroup,
+	"unpin_telegram_group_message":   perm.ActManageTGGroup,
+	"update_telegram_group_info":     perm.ActManageTGGroup,
 	// 规则（Policy Memory）影响所有人的每一轮对话，只有超管能改
 	"save_rule":       reqSuper,
 	"list_rules":      reqSuper,
 	"set_rule_pinned": reqSuper,
+	"save_skill":      reqSuper,
+	"update_skill":    reqSuper,
 }
 
 // workerAllowed 机器账号（is_worker）的工具白名单：只保留干活与沉淀知识所需。
@@ -231,6 +250,7 @@ var groupSensitive = map[string]bool{
 	"disable_user":                   true,
 	"enable_user":                    true,
 	"update_user_info":               true, // 改「他人」记录：群历史注入可驱动篡改第三方信息
+	"bulk_update_user_info":          true,
 	"save_infos_on_user":             true,
 	"create_worker":                  true,
 	"issue_worker_bind_code":         true,
@@ -239,6 +259,8 @@ var groupSensitive = map[string]bool{
 	"save_rule":                      true, // 群历史可被注入，规则变更回私聊做
 	"list_rules":                     true,
 	"set_rule_pinned":                true,
+	"save_skill":                     true,
+	"update_skill":                   true,
 	"search_history":                 true, // 会翻出发言人的私聊历史，群里禁用
 	"ai_usage_stats":                 true,
 	"get_ai_settings":                true,
@@ -280,6 +302,66 @@ func StripApprovalRequired(ts []ai.Tool) []ai.Tool {
 		out = append(out, t)
 	}
 	return out
+}
+
+// TurnBudget bounds one model turn's tool use. It is intentionally a soft
+// guard: once limits are hit, the tool returns an instruction-like result so
+// the model can finish from already fetched facts instead of spinning.
+type TurnBudget struct {
+	MaxCalls       int
+	MaxPerTool     int
+	MaxExactRepeat int
+}
+
+func WithTurnBudget(ts []ai.Tool, budget TurnBudget) []ai.Tool {
+	if budget.MaxCalls <= 0 && budget.MaxPerTool <= 0 && budget.MaxExactRepeat <= 0 {
+		return ts
+	}
+	out := make([]ai.Tool, len(ts))
+	copy(out, ts)
+	state := &turnBudgetState{
+		budget: budget,
+		tools:  map[string]int{},
+		exact:  map[string]int{},
+	}
+	for i := range out {
+		inner := out[i].Handler
+		name := out[i].Name
+		out[i].Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
+			if msg := state.check(name, args); msg != "" {
+				return msg, nil
+			}
+			return inner(ctx, args)
+		}
+	}
+	return out
+}
+
+type turnBudgetState struct {
+	mu     sync.Mutex
+	budget TurnBudget
+	total  int
+	tools  map[string]int
+	exact  map[string]int
+}
+
+func (s *turnBudgetState) check(name string, args json.RawMessage) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.budget.MaxCalls > 0 && s.total >= s.budget.MaxCalls {
+		return "本轮工具调用已达到上限。请基于已经取得的结果给用户一个简洁结论；如果仍缺关键信息，请说明需要用户下一轮继续。"
+	}
+	if s.budget.MaxPerTool > 0 && s.tools[name] >= s.budget.MaxPerTool {
+		return fmt.Sprintf("%s 本轮调用次数过多。请停止重复查询，基于已有结果回答。", name)
+	}
+	exactKey := name + "\x00" + canonicalArgsHash(args)
+	if s.budget.MaxExactRepeat > 0 && s.exact[exactKey] >= s.budget.MaxExactRepeat {
+		return fmt.Sprintf("%s 对相同参数已经重复调用。请不要继续重复查询，直接整理已有结果回答。", name)
+	}
+	s.total++
+	s.tools[name]++
+	s.exact[exactKey]++
+	return ""
 }
 
 // filterByPerm 按注册表裁剪工具集（超管全通过；worker 走白名单）。
@@ -388,6 +470,12 @@ func mustUser(ctx context.Context, s *store.Store, id int64) (*store.User, error
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
+	}
+	if n <= 0 {
+		return "…"
+	}
+	for n > 0 && !utf8.ValidString(s[:n]) {
+		n--
 	}
 	return s[:n] + "…"
 }

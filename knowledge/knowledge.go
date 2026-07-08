@@ -23,6 +23,10 @@ const semanticCandidateMul = 3
 // 词法命中的规则仍会保留；该阈值只过滤纯语义候选。
 const ruleSemanticMinScore float32 = 0.35
 
+// skillSemanticMinScore 比规则稍宽松：skill 只是候选执行方法，系统提示里只注入摘要，
+// 需要完整步骤时还会显式 load_skill。
+const skillSemanticMinScore float32 = 0.28
+
 // embedTimeout embed-on-save / 查询向量化的超时（本地服务通常很快；超时就回退）。
 const embedTimeout = 20 * time.Second
 
@@ -106,6 +110,16 @@ func (svc *Service) SaveRule(ctx context.Context, title, content string, tags []
 	return k, nil
 }
 
+// SaveSkill 存一条执行方法并异步 embedding。
+func (svc *Service) SaveSkill(ctx context.Context, title, content string, tags []string, authorID int64) (*store.Knowledge, error) {
+	k, err := svc.store.CreateSkill(ctx, title, content, tags, authorID)
+	if err != nil {
+		return nil, err
+	}
+	svc.embedAsync(k)
+	return k, nil
+}
+
 // SearchRules 在非常驻规则内做混合检索（常驻规则已在系统提示，不重复召回）。
 func (svc *Service) SearchRules(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
 	if limit <= 0 {
@@ -121,6 +135,26 @@ func (svc *Service) SearchRules(ctx context.Context, query string, limit int) ([
 	ranked, serr := svc.semantic(ctx, query, limit, svc.store.EmbeddedRules, ruleSemanticMinScore)
 	if serr != nil {
 		slog.Warn("规则语义检索失败，回退词法", "err", serr)
+		return lexical, nil
+	}
+	return merge(ranked, lexical, limit), nil
+}
+
+// SearchSkills 在执行方法库里做混合检索。
+func (svc *Service) SearchSkills(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	lexical, err := svc.store.SearchSkills(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	if svc.embedder == nil {
+		return lexical, nil
+	}
+	ranked, serr := svc.semantic(ctx, query, limit, svc.store.EmbeddedSkills, skillSemanticMinScore)
+	if serr != nil {
+		slog.Warn("skill 语义检索失败，回退词法", "err", serr)
 		return lexical, nil
 	}
 	return merge(ranked, lexical, limit), nil

@@ -37,11 +37,16 @@ func approvalTurnFromContext(ctx context.Context) (approvalTurn, bool) {
 // 防两类事故：模型单轮冲动执行、提示注入一击即中（注入者拿不到第二轮确认）。
 // 可逆或有目标级权限校验兜底的操作不进清单——确认步骤有对话成本，只留给不可逆的。
 var approvalRequired = map[string]bool{
-	"disable_user":      true, // 停用账号
-	"revoke_worker":     true, // 吊销 AI 员工 token
-	"delete_project":    true, // 连带删除项目全部任务
-	"delete_role":       true,
-	"remove_info_field": true, // 连带删除全员该字段数据
+	"generate_api_token":     true, // 签发并展示长期凭据，且会替换旧 token
+	"revoke_api_token":       true, // 撤销长期凭据
+	"create_worker":          true, // 创建机器账号并展示一次性绑定码
+	"issue_worker_bind_code": true, // 补发一次性 worker 绑定码
+	"run_worker_command":     true, // 让真实工作机执行命令
+	"disable_user":           true, // 停用账号
+	"revoke_worker":          true, // 吊销 AI 员工 token
+	"delete_project":         true, // 连带删除项目全部任务
+	"delete_role":            true,
+	"remove_info_field":      true, // 连带删除全员该字段数据
 }
 
 // withApproval 给破坏性工具包上两段式确认（在审计层内侧，两次调用都留审计）。

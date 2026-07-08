@@ -139,7 +139,7 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 		cfg.WorkerID = res.WorkerID
 		cfg.WorkerName = res.WorkerName
 		if err := saveConfig(path, cfg); err != nil {
-			log.Fatalf("兑换成功但写配置失败: %v\n请手动保存以下 access token 并重新 bind：%s", err, res.Token)
+			log.Fatalf("绑定码已兑换，但写配置失败: %v\n为避免泄露，Worker Access Token 不会打印到终端；请在 nbco 里给该 worker 补发一次性绑定码后重新绑定。", err)
 		}
 		redeemed = true
 	}
@@ -153,7 +153,7 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 		log.Fatalf("校验 Worker Access Token 失败: %v", err)
 	}
 	if !ident.IsWorker {
-		log.Fatalf("这个 access token 属于真人员工 #%d %s，不是 worker；请使用 create_worker 返回的 Worker Access Token", ident.ID, ident.Name)
+		log.Fatalf("这个凭据属于真人员工 #%d %s，不是 worker；请使用 create_worker/issue_worker_bind_code 生成的一次性 worker 绑定码", ident.ID, ident.Name)
 	}
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name
@@ -173,7 +173,7 @@ func run(args []string) {
 	path := configPath(*cfgFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Fatalf("未绑定（%v）。先运行 nbco-worker bind -config %s <server> <Worker接入Token>", err, path)
+		log.Fatalf("未绑定（%v）。先运行 nbco-worker bind -config %s <server> <一次性worker绑定码>", err, path)
 	}
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {

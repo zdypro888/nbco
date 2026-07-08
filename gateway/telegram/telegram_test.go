@@ -4,8 +4,11 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-telegram/bot/models"
+
+	"github.com/zdypro888/nbco/store"
 )
 
 func TestMessageText(t *testing.T) {
@@ -46,6 +49,34 @@ func TestDisplayNameFromMessageWithoutFrom(t *testing.T) {
 	}
 	if got := displayNameFromMessage(&models.Message{}); got != "匿名成员" {
 		t.Fatalf("missing sender display = %q", got)
+	}
+}
+
+func TestGroupMonitorIntent(t *testing.T) {
+	if got := groupMonitorIntent("这个群是视频项目群，你来监控下群里之后讨论的问题，如果遇到问题总结给我"); got != "on" {
+		t.Fatalf("groupMonitorIntent on = %q", got)
+	}
+	if got := groupMonitorIntent("关闭本群监控"); got != "off" {
+		t.Fatalf("groupMonitorIntent off = %q", got)
+	}
+	if got := groupMonitorIntent("测试一下"); got != "" {
+		t.Fatalf("groupMonitorIntent unrelated = %q", got)
+	}
+}
+
+func TestShouldCheckGroupMonitor(t *testing.T) {
+	mon := store.TelegramGroupMonitor{Enabled: true, PendingCount: 1}
+	if !shouldCheckGroupMonitor(mon, "这里报错了，项目卡住") {
+		t.Fatal("问题信号应触发检查")
+	}
+	mon.LastCheckedAt = time.Now()
+	if shouldCheckGroupMonitor(mon, "这里报错了") {
+		t.Fatal("冷却期内不应重复触发")
+	}
+	mon.LastCheckedAt = time.Now().Add(-10 * time.Minute)
+	mon.PendingCount = groupMonitorCheckEvery
+	if !shouldCheckGroupMonitor(mon, "普通讨论") {
+		t.Fatal("累计消息达到阈值应触发检查")
 	}
 }
 

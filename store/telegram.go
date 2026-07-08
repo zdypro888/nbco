@@ -14,6 +14,7 @@ const KVTelegramGroupListenPrefix = "tg_listen:"
 const KVTelegramGroupLastMessagePrefix = "telegram.group.last_message:"
 const KVTelegramGroupSeenMemberPrefix = "telegram.group.seen_member:"
 const KVTelegramGroupAutoInvitePrefix = "telegram.group.auto_invite:"
+const KVTelegramGroupMonitorPrefix = "telegram.group_monitor:"
 const KVTelegramPendingEmployeeInvitePrefix = "telegram.pending_employee_invite:"
 
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
@@ -47,6 +48,23 @@ type TelegramPendingEmployeeInvite struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
+// TelegramGroupMonitor 是群智能监控配置与小缓冲。
+// 普通旁听消息仍进群共享会话；这里的 Buffer 只用于“是否值得私聊提醒”的短窗判断。
+type TelegramGroupMonitor struct {
+	ChatID         int64     `json:"chat_id"`
+	Enabled        bool      `json:"enabled"`
+	GroupTitle     string    `json:"group_title,omitempty"`
+	Instruction    string    `json:"instruction,omitempty"`
+	NotifyUserID   int64     `json:"notify_user_id"`
+	CreatedBy      int64     `json:"created_by"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	LastCheckedAt  time.Time `json:"last_checked_at,omitempty"`
+	LastNotifiedAt time.Time `json:"last_notified_at,omitempty"`
+	PendingCount   int       `json:"pending_count,omitempty"`
+	Buffer         []string  `json:"buffer,omitempty"`
+}
+
 func telegramGroupKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupPrefix, chatID)
 }
@@ -57,6 +75,10 @@ func TelegramGroupListenKey(chatID int64) string {
 
 func TelegramGroupAutoInviteKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupAutoInvitePrefix, chatID)
+}
+
+func TelegramGroupMonitorKey(chatID int64) string {
+	return fmt.Sprintf("%s%d", KVTelegramGroupMonitorPrefix, chatID)
 }
 
 func TelegramPendingEmployeeInviteKey(tgUserID int64) string {
@@ -224,4 +246,49 @@ func (s *Store) TelegramPendingEmployeeInvite(ctx context.Context, tgUserID int6
 
 func (s *Store) ClearTelegramPendingEmployeeInvite(ctx context.Context, tgUserID int64) error {
 	return s.SetKV(ctx, TelegramPendingEmployeeInviteKey(tgUserID), "")
+}
+
+func (s *Store) SaveTelegramGroupMonitor(ctx context.Context, mon TelegramGroupMonitor) error {
+	if mon.ChatID == 0 {
+		return nil
+	}
+	now := time.Now()
+	if mon.CreatedAt.IsZero() {
+		mon.CreatedAt = now
+	}
+	if mon.UpdatedAt.IsZero() {
+		mon.UpdatedAt = now
+	}
+	if len(mon.Buffer) > 30 {
+		mon.Buffer = mon.Buffer[len(mon.Buffer)-30:]
+	}
+	for i, line := range mon.Buffer {
+		runes := []rune(line)
+		if len(runes) > 240 {
+			mon.Buffer[i] = string(runes[:240])
+		}
+	}
+	raw, err := json.Marshal(mon)
+	if err != nil {
+		return err
+	}
+	return s.SetKV(ctx, TelegramGroupMonitorKey(mon.ChatID), string(raw))
+}
+
+func (s *Store) TelegramGroupMonitor(ctx context.Context, chatID int64) (*TelegramGroupMonitor, error) {
+	raw, err := s.GetKV(ctx, TelegramGroupMonitorKey(chatID))
+	if err != nil || raw == "" {
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrNotFound
+	}
+	var mon TelegramGroupMonitor
+	if err := json.Unmarshal([]byte(raw), &mon); err != nil {
+		return nil, err
+	}
+	if mon.ChatID == 0 {
+		return nil, ErrNotFound
+	}
+	return &mon, nil
 }

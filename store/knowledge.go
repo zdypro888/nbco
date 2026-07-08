@@ -9,8 +9,8 @@ import (
 
 // Knowledge 知识条目：对话与任务中沉淀的可复用结论（决策、流程、方案、约定）。
 // 全员可读写（公司共享资产）；删除限作者与超管（在工具层校验）。
-// kind=policy 的条目是行为规则（Policy Memory）：pinned 的每轮常驻系统提示，
-// 其余按语义相关度动态注入；作用域用 tags 表达（scope:global/telegram/worker/user:<id>）。
+// kind=policy 的条目是行为规则（Policy Memory）；kind=skill 的条目是可复用
+// 执行方法（Skill Memory）。作用域用 tags 表达（scope:global/telegram/worker/user:<id>）。
 type Knowledge struct {
 	ID        int64
 	Title     string
@@ -27,6 +27,7 @@ type Knowledge struct {
 const (
 	KnowledgeKindFact   = "fact"   // 普通知识（默认）
 	KnowledgeKindPolicy = "policy" // 行为规则
+	KnowledgeKindSkill  = "skill"  // 可复用执行方法
 )
 
 const knowledgeCols = `id, title, content, tags, author_id, kind, pinned, created_at, updated_at`
@@ -59,6 +60,16 @@ func (s *Store) CreateRule(ctx context.Context, title, content string, tags []st
 		 RETURNING `+knowledgeCols, title, content, tags, authorID, KnowledgeKindPolicy, pinned))
 }
 
+// CreateSkill 存一条执行方法（kind=skill）。content 使用工具层约定的结构化文本。
+func (s *Store) CreateSkill(ctx context.Context, title, content string, tags []string, authorID int64) (*Knowledge, error) {
+	if tags == nil {
+		tags = []string{}
+	}
+	return scanKnowledge(s.pool.QueryRow(ctx,
+		`INSERT INTO knowledge (title, content, tags, author_id, kind) VALUES ($1, $2, $3, $4, $5)
+		 RETURNING `+knowledgeCols, title, content, tags, authorID, KnowledgeKindSkill))
+}
+
 // PinnedRules 全部常驻规则（按创建序）。
 func (s *Store) PinnedRules(ctx context.Context) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,
@@ -84,10 +95,21 @@ func (s *Store) SearchRules(ctx context.Context, query string, limit int) ([]*Kn
 	return s.searchKnowledge(ctx, query, limit, "kind = $1 AND NOT pinned", []any{KnowledgeKindPolicy})
 }
 
+// SearchSkills 检索执行方法。
+func (s *Store) SearchSkills(ctx context.Context, query string, limit int) ([]*Knowledge, error) {
+	return s.searchKnowledge(ctx, query, limit, "kind = $1", []any{KnowledgeKindSkill})
+}
+
 // EmbeddedRules 取非常驻规则的已嵌入向量（语义候选）。
 func (s *Store) EmbeddedRules(ctx context.Context, model string) ([]KnowledgeVec, error) {
 	return s.embeddedKnowledge(ctx,
 		`embed_model = $1 AND embedding IS NOT NULL AND kind = $2 AND NOT pinned`, model, KnowledgeKindPolicy)
+}
+
+// EmbeddedSkills 取已嵌入 skill 向量（语义候选）。
+func (s *Store) EmbeddedSkills(ctx context.Context, model string) ([]KnowledgeVec, error) {
+	return s.embeddedKnowledge(ctx,
+		`embed_model = $1 AND embedding IS NOT NULL AND kind = $2`, model, KnowledgeKindSkill)
 }
 
 // UpdateKnowledge 更新知识条目（nil 字段不动；tags 传 nil 不动，空切片清空）。

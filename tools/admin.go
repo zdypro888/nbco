@@ -64,22 +64,29 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUser(other), nil
 			}),
 
-		tool("update_user_info", "修改某用户的基本信息。需要对其 edit_info 主动权限。",
+		tool("update_user_info", "修改某用户的基本信息。需要对其 edit_info 主动权限；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
 			obj(map[string]any{
 				"user_id": p("integer", "用户ID"),
 				"name":    p("string", "新名字（可选）"),
-				"fields":  map[string]any{"type": "object", "description": "动态字段名→值（空串清除）", "additionalProperties": map[string]any{"type": "string"}},
+				"fields":  infoFieldsSchema("动态字段名→值（空串/null/无清除）"),
 			}, "user_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					UserID int64             `json:"user_id"`
-					Name   string            `json:"name"`
-					Fields map[string]string `json:"fields"`
+					UserID int64              `json:"user_id"`
+					Name   string             `json:"name"`
+					Fields map[string]*string `json:"fields"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
+				target, err := d.Store.UserByID(ctx, args.UserID)
+				if err != nil {
+					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+				}
 				if !u.IsSuperadmin {
+					if target.IsSuperadmin {
+						return "不能修改超级管理员的信息。", nil
+					}
 					grants, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
@@ -88,20 +95,113 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 						return "你没有对该用户的 edit_info 权限。", nil
 					}
 				}
-				if _, err := d.Store.UserByID(ctx, args.UserID); err != nil {
-					return fmt.Sprintf("用户 %d 不存在", args.UserID), nil
+				defined, err := d.Store.ListInfoFields(ctx)
+				if err != nil {
+					return "", err
+				}
+				fields, msg := normalizeInfoFieldsPtr(args.Fields, defined)
+				if msg != "" {
+					return msg, nil
 				}
 				if args.Name != "" {
 					if err := d.Store.UpdateUserName(ctx, args.UserID, args.Name); err != nil {
 						return "", err
 					}
 				}
-				if len(args.Fields) > 0 {
-					if err := d.Store.UpdateUserInfo(ctx, args.UserID, args.Fields); err != nil {
+				if len(fields) > 0 {
+					if err := d.Store.UpdateUserInfo(ctx, args.UserID, fields); err != nil {
 						return "", err
 					}
 				}
 				return "已更新。", nil
+			}),
+
+		tool("bulk_update_user_info", "批量修改多名用户的基本信息。适合花名册/JSON 批量维护；比逐个调用 update_user_info 更稳。每行需要 user_id，可选 name、fields。需要对每个目标有 edit_info 主动权限。",
+			obj(map[string]any{
+				"updates": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"user_id": p("integer", "用户ID"),
+							"name":    p("string", "新名字（可选）"),
+							"fields":  infoFieldsSchema("动态字段名→值（空串/null/无清除）"),
+						},
+						"required": []string{"user_id"},
+					},
+				},
+			}, "updates"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Updates []struct {
+						UserID int64              `json:"user_id"`
+						Name   string             `json:"name"`
+						Fields map[string]*string `json:"fields"`
+					} `json:"updates"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if len(args.Updates) == 0 {
+					return "没有需要更新的记录。", nil
+				}
+				if len(args.Updates) > 100 {
+					return "单次最多批量更新 100 条。", nil
+				}
+				defined, err := d.Store.ListInfoFields(ctx)
+				if err != nil {
+					return "", err
+				}
+				var grants []store.Grant
+				if !u.IsSuperadmin {
+					grants, err = d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+				}
+				var ok, skipped int
+				var b strings.Builder
+				for i, row := range args.Updates {
+					target, err := d.Store.UserByID(ctx, row.UserID)
+					if err != nil {
+						skipped++
+						fmt.Fprintf(&b, "- 第 %d 条：目标不存在，已跳过。\n", i+1)
+						continue
+					}
+					if !u.IsSuperadmin {
+						switch {
+						case target.IsSuperadmin:
+							skipped++
+							fmt.Fprintf(&b, "- %s：不能修改超级管理员，已跳过。\n", target.Name)
+							continue
+						case !perm.CheckActive(grants, perm.ActEditInfo, row.UserID):
+							skipped++
+							fmt.Fprintf(&b, "- %s：没有 edit_info 权限，已跳过。\n", target.Name)
+							continue
+						}
+					}
+					fields, msg := normalizeInfoFieldsPtr(row.Fields, defined)
+					if msg != "" {
+						skipped++
+						fmt.Fprintf(&b, "- %s：%s，已跳过。\n", target.Name, msg)
+						continue
+					}
+					if strings.TrimSpace(row.Name) != "" {
+						if err := d.Store.UpdateUserName(ctx, row.UserID, row.Name); err != nil {
+							return "", err
+						}
+					}
+					if len(fields) > 0 {
+						if err := d.Store.UpdateUserInfo(ctx, row.UserID, fields); err != nil {
+							return "", err
+						}
+					}
+					ok++
+				}
+				if b.Len() == 0 {
+					return fmt.Sprintf("批量更新完成：成功 %d 条，跳过 0 条。", ok), nil
+				}
+				return fmt.Sprintf("批量更新完成：成功 %d 条，跳过 %d 条。\n%s", ok, skipped, b.String()), nil
 			}),
 
 		tool("invite_employee", "邀请真人员工加入系统：生成一次性 Telegram 邀请链接和兜底邀请码。可指定姓名/角色/备注/有效期；不是 worker access token。需要员工邀请权限。",

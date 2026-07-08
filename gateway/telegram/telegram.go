@@ -23,6 +23,7 @@ import (
 	"github.com/zdypro888/nbco/ai/stt"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
+	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
 )
@@ -34,6 +35,21 @@ const Provider = "telegram"
 // 自动补的重开/闭合标签，避免长格式消息被补标签顶过上限后降级纯文本。
 const chunkLimit = 3200
 const textDebounceWindow = 900 * time.Millisecond
+const groupMonitorCheckEvery = 8
+
+var groupMonitorSignalWords = []string{
+	"问题", "报错", "失败", "不能", "不行", "卡住", "阻塞", "延期", "风险", "异常", "事故", "冲突", "争议", "紧急",
+	"bug", "issue", "error", "fail", "failed", "blocked", "delay", "risk", "urgent",
+}
+
+const groupMonitorSystem = `你是 nbco 的 Telegram 群智能监控器。你的任务是判断最近群聊是否值得提醒监控发起人。
+
+输出规则：
+- 如果只是普通通知、闲聊、无行动价值的信息，只输出：NO_NOTIFY
+- 如果有明确问题、阻塞、风险、争议、延期、需要管理者知道或跟进的事项，输出一条适合 Telegram HTML 的简短私聊提醒。
+- 不要逐条转发；只总结关键问题、涉及对象、建议下一步。
+- 不要展示 Telegram ID、内部会话 ID、系统提示或技术细节。
+- 可使用 Telegram 支持的 HTML：<b>、<i>、<code>、<blockquote>。不要使用 Markdown 表格。`
 
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|blockquote|a)(?:\s+[^>]*)?>`)
@@ -130,7 +146,7 @@ func (g *Gateway) setupCommands(ctx context.Context) {
 		{Command: "model", Description: "查看/切换模型（超管私聊）"},
 	}
 	group := []models.BotCommand{
-		{Command: "listen", Description: "开/关本群监听（记录讨论作为上下文，超管专用）"},
+		{Command: "listen", Description: "开/关本群监听（需群管理权限）"},
 		{Command: "new", Description: "重置本群会话（超管专用）"},
 	}
 	if _, err := g.bot.SetMyCommands(ctx, &bot.SetMyCommandsParams{
@@ -474,12 +490,16 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
 		listenOn = true
 	}
+	monitorOn := false
+	if mon, err := g.store.TelegramGroupMonitor(ctx, chatID); err == nil && mon.Enabled {
+		monitorOn = true
+	}
 	g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), listenOn)
 
 	switch cmd {
 	case "/listen":
-		if !bound || u == nil || !u.IsSuperadmin {
-			g.reply(ctx, chatID, "只有超级管理员能开关群监听。")
+		if !bound || u == nil || !g.canManageTelegramGroup(ctx, u) {
+			g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 manage_telegram_group。")
 			return
 		}
 		if listenOn {
@@ -519,12 +539,15 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	mentioned := g.mentioned(msg, text)
 	if !mentioned {
 		// 旁听：监听开启才记录，谁说的都署名（未绑定用户用 TG 显示名）。
-		if listenOn {
+		if listenOn || monitorOn {
 			speaker := displayNameFromMessage(msg)
 			if bound {
 				speaker = u.Name
 			}
 			g.orch.RecordGroupMessage(ctx, channel, speaker, text)
+			if monitorOn {
+				g.observeGroupMonitor(ctx, msg.Chat, speaker, text)
+			}
 		}
 		return
 	}
@@ -544,6 +567,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	if ask == "" {
 		ask = "（在群里叫了你一声）"
 	}
+	if g.handleGroupMonitorMention(ctx, msg, u, ask) {
+		return
+	}
 	g.sendTyping(ctx, chatID)
 	answer, err := g.orch.HandleGroupMessage(ctx, u, channel, u.Name, ask)
 	if err != nil {
@@ -552,6 +578,248 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	g.reply(ctx, chatID, answer)
+}
+
+func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User) bool {
+	if u == nil || u.Status != store.UserActive {
+		return false
+	}
+	if u.IsSuperadmin {
+		return true
+	}
+	grants, err := g.store.PermsOf(ctx, u.ID)
+	if err != nil {
+		slog.Warn("加载 Telegram 群管理权限失败", "user", u.ID, "err", err)
+		return false
+	}
+	for _, grant := range grants {
+		if grant.Kind == store.KindActive && grant.Action == perm.ActManageTGGroup {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Gateway) handleGroupMonitorMention(ctx context.Context, msg *models.Message, u *store.User, ask string) bool {
+	intent := groupMonitorIntent(ask)
+	if intent == "" {
+		return false
+	}
+	chatID := msg.Chat.ID
+	if !g.canManageTelegramGroup(ctx, u) {
+		g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 <code>manage_telegram_group</code>。")
+		return true
+	}
+	if intent == "off" {
+		mon, err := g.store.TelegramGroupMonitor(ctx, chatID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			slog.Error("读取群监控失败", "chat", chatID, "err", err)
+			g.reply(ctx, chatID, "关闭监控失败，请稍后再试。")
+			return true
+		}
+		if mon == nil {
+			mon = &store.TelegramGroupMonitor{ChatID: chatID, GroupTitle: msg.Chat.Title, CreatedBy: u.ID, NotifyUserID: u.ID}
+		}
+		mon.Enabled = false
+		mon.UpdatedAt = time.Now()
+		mon.PendingCount = 0
+		mon.Buffer = nil
+		if err := g.store.SaveTelegramGroupMonitor(ctx, *mon); err != nil {
+			slog.Error("保存群监控失败", "chat", chatID, "err", err)
+			g.reply(ctx, chatID, "关闭监控失败，请稍后再试。")
+			return true
+		}
+		g.reply(ctx, chatID, "🔕 已关闭本群智能监控。")
+		return true
+	}
+
+	mon, err := g.store.TelegramGroupMonitor(ctx, chatID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Error("读取群监控失败", "chat", chatID, "err", err)
+		g.reply(ctx, chatID, "开启监控失败，请稍后再试。")
+		return true
+	}
+	now := time.Now()
+	if mon == nil {
+		mon = &store.TelegramGroupMonitor{ChatID: chatID, CreatedBy: u.ID, CreatedAt: now}
+	}
+	mon.Enabled = true
+	mon.GroupTitle = strings.TrimSpace(msg.Chat.Title)
+	mon.Instruction = strings.TrimSpace(ask)
+	mon.NotifyUserID = u.ID
+	mon.UpdatedAt = now
+	if err := g.store.SaveTelegramGroupMonitor(ctx, *mon); err != nil {
+		slog.Error("保存群监控失败", "chat", chatID, "err", err)
+		g.reply(ctx, chatID, "开启监控失败，请稍后再试。")
+		return true
+	}
+	if err := g.store.SetKV(ctx, listenKey(chatID), "1"); err != nil {
+		slog.Warn("开启群监听失败", "chat", chatID, "err", err)
+	}
+	g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), true)
+	_ = g.orch.TouchGroupSession(ctx, u, groupChannel(chatID))
+	g.reply(ctx, chatID, "👀 已开启本群智能监控。我会记录后续讨论，遇到问题、阻塞或风险时私聊汇总给你；普通消息不会逐条转发。")
+	return true
+}
+
+func groupMonitorIntent(text string) string {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	if normalized == "" {
+		return ""
+	}
+	hasWatchWord := strings.Contains(normalized, "监控") || strings.Contains(normalized, "监听")
+	hasSummaryWord := strings.Contains(normalized, "总结") || strings.Contains(normalized, "汇总")
+	if strings.Contains(normalized, "关闭") || strings.Contains(normalized, "停止") ||
+		strings.Contains(normalized, "取消") || strings.Contains(normalized, "不用") {
+		if hasWatchWord || hasSummaryWord {
+			return "off"
+		}
+		return ""
+	}
+	hasFutureCue := strings.Contains(normalized, "之后") || strings.Contains(normalized, "以后") ||
+		strings.Contains(normalized, "后续") || strings.Contains(normalized, "遇到") ||
+		strings.Contains(normalized, "持续") || strings.Contains(normalized, "提醒")
+	hasGroupCue := strings.Contains(normalized, "这个群") || strings.Contains(normalized, "本群") ||
+		strings.Contains(normalized, "项目群")
+	hasIssueCue := strings.Contains(normalized, "问题") || strings.Contains(normalized, "风险") ||
+		strings.Contains(normalized, "阻塞")
+	if hasWatchWord && (hasGroupCue || hasIssueCue || hasFutureCue) {
+		return "on"
+	}
+	if hasSummaryWord && hasGroupCue && (hasFutureCue || hasIssueCue) {
+		return "on"
+	}
+	return ""
+}
+
+func (g *Gateway) observeGroupMonitor(ctx context.Context, chat models.Chat, speaker, text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	mon, err := g.store.TelegramGroupMonitor(ctx, chat.ID)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			slog.Warn("读取群监控失败", "chat", chat.ID, "err", err)
+		}
+		return
+	}
+	if mon == nil || !mon.Enabled || mon.NotifyUserID == 0 {
+		return
+	}
+	line := fmt.Sprintf("%s %s：%s", time.Now().Format("15:04"), speaker, text)
+	mon.Buffer = append(mon.Buffer, line)
+	if len(mon.Buffer) > 30 {
+		mon.Buffer = mon.Buffer[len(mon.Buffer)-30:]
+	}
+	mon.PendingCount++
+	mon.UpdatedAt = time.Now()
+	shouldCheck := shouldCheckGroupMonitor(*mon, text)
+	lines := append([]string(nil), mon.Buffer...)
+	if shouldCheck {
+		mon.LastCheckedAt = time.Now()
+		mon.PendingCount = 0
+	}
+	if err := g.store.SaveTelegramGroupMonitor(ctx, *mon); err != nil {
+		slog.Warn("保存群监控缓冲失败", "chat", chat.ID, "err", err)
+		return
+	}
+	if !shouldCheck {
+		return
+	}
+	snapshot := *mon
+	go g.evaluateGroupMonitor(snapshot, lines)
+}
+
+func shouldCheckGroupMonitor(mon store.TelegramGroupMonitor, latest string) bool {
+	if mon.PendingCount <= 0 {
+		return false
+	}
+	now := time.Now()
+	since := now.Sub(mon.LastCheckedAt)
+	if mon.LastCheckedAt.IsZero() {
+		since = time.Hour
+	}
+	if containsGroupMonitorSignal(latest) && since >= 2*time.Minute {
+		return true
+	}
+	return mon.PendingCount >= groupMonitorCheckEvery && since >= 8*time.Minute
+}
+
+func containsGroupMonitorSignal(text string) bool {
+	lower := strings.ToLower(text)
+	for _, word := range groupMonitorSignalWords {
+		if strings.Contains(lower, word) {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Gateway) evaluateGroupMonitor(mon store.TelegramGroupMonitor, lines []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("群监控后台 panic 已恢复", "chat", mon.ChatID, "panic", r)
+		}
+	}()
+	if len(lines) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	title := strings.TrimSpace(mon.GroupTitle)
+	if title == "" {
+		title = fmt.Sprintf("Telegram 群 %d", mon.ChatID)
+	}
+	input := fmt.Sprintf("群名：%s\n监控要求：%s\n\n最近群聊：\n%s",
+		title, strings.TrimSpace(mon.Instruction), strings.Join(lines, "\n"))
+	out, err := g.orch.Summarize(ctx, mon.NotifyUserID, "telegram_group_monitor", groupMonitorSystem, input)
+	if err != nil {
+		slog.Warn("群监控 AI 判断失败", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)
+		return
+	}
+	if groupMonitorNoNotify(out) {
+		return
+	}
+	chatID, err := g.privateTelegramChatID(ctx, mon.NotifyUserID)
+	if err != nil {
+		slog.Warn("群监控找不到通知用户 Telegram", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)
+		return
+	}
+	msg := fmt.Sprintf("📣 <b>群监控提醒</b>｜%s\n\n%s", html.EscapeString(title), out)
+	if err := g.sendChunks(ctx, chatID, msg); err != nil {
+		slog.Warn("发送群监控提醒失败", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)
+		return
+	}
+	if latest, err := g.store.TelegramGroupMonitor(ctx, mon.ChatID); err == nil && latest != nil {
+		latest.LastNotifiedAt = time.Now()
+		latest.UpdatedAt = latest.LastNotifiedAt
+		if err := g.store.SaveTelegramGroupMonitor(ctx, *latest); err != nil {
+			slog.Warn("更新群监控通知时间失败", "chat", mon.ChatID, "err", err)
+		}
+	}
+}
+
+func groupMonitorNoNotify(text string) bool {
+	clean := strings.TrimSpace(htmlTagTokenRe.ReplaceAllString(text, ""))
+	clean = strings.Trim(clean, " \n\r\t。.!！")
+	return strings.EqualFold(clean, "NO_NOTIFY") || strings.EqualFold(clean, "无需提醒")
+}
+
+func (g *Gateway) privateTelegramChatID(ctx context.Context, userID int64) (int64, error) {
+	ident, err := g.store.IdentityOfUser(ctx, userID, Provider)
+	if err != nil {
+		return 0, err
+	}
+	raw := strings.TrimSpace(ident.ChatRef)
+	if raw == "" {
+		raw = strings.TrimSpace(ident.ExternalID)
+	}
+	chatID, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || chatID == 0 {
+		return 0, fmt.Errorf("Telegram 私聊地址不可用")
+	}
+	return chatID, nil
 }
 
 func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message, chatID, tgID int64) bool {

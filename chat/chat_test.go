@@ -48,6 +48,21 @@ func TestStyleFor(t *testing.T) {
 	}
 }
 
+func TestSelectSkillsByIDs(t *testing.T) {
+	cands := []*store.Knowledge{
+		{ID: 10, Title: "A", Kind: store.KnowledgeKindSkill},
+		{ID: 20, Title: "B", Kind: store.KnowledgeKindSkill},
+		{ID: 30, Title: "C", Kind: store.KnowledgeKindSkill},
+	}
+	got := selectSkillsByIDs(cands, []int64{30, 999, 10}, 2)
+	if len(got) != 2 || got[0].ID != 10 || got[1].ID != 30 {
+		t.Fatalf("应只选候选内 ID，并保持候选召回顺序: %+v", got)
+	}
+	if got := firstSkills(cands, 2); len(got) != 2 || got[0].ID != 10 || got[1].ID != 20 {
+		t.Fatalf("firstSkills fallback 不对: %+v", got)
+	}
+}
+
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，
 // 普通轮次返回固定答复并记录请求。
 type fakeEngine struct {
