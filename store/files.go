@@ -55,6 +55,32 @@ func (s *Store) FileByID(ctx context.Context, id int64) (*File, error) {
 		 FROM files WHERE id = $1`, id))
 }
 
+// RecentFilesByUser returns recently uploaded files for a user. It is the input
+// buffer for "I just uploaded two files, now do X" style workflows.
+func (s *Store) RecentFilesByUser(ctx context.Context, userID int64, limit int, since time.Time) ([]File, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at
+		 FROM files
+		 WHERE created_by = $1 AND created_at >= $2
+		 ORDER BY id DESC LIMIT $3`, userID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []File
+	for rows.Next() {
+		f, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *f)
+	}
+	return out, rows.Err()
+}
+
 // FileStoragePaths 返回 files 表仍引用的内容寻址相对路径，用于物理 blob GC。
 func (s *Store) FileStoragePaths(ctx context.Context) (map[string]bool, error) {
 	rows, err := s.pool.Query(ctx, `SELECT storage_path FROM files`)

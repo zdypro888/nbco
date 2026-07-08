@@ -309,6 +309,16 @@ nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把
 - `analyze_company_materials`：把 `/api/files` 上传得到的系统文件 ID 派给**发起人名下的 worker**，创建 “Company Intelligence Inbox” 任务；worker 读取 PDF/XLSX/TXT/图片后输出结构化学习候选，nbco 解析入 `learning_candidates`
 - 自动选择严格按发起人归属：谁安排资料分析，就调用谁名下 worker；超管默认也用自己名下 worker，只有显式指定 `worker_id` 时才会调别的 worker
 
+### 文件输入缓冲
+
+Telegram 私聊收到 PDF/XLSX/TXT/图片/视频等文件时，nbco 会先下载到统一文件库，生成系统 `file_id`：
+
+- 纯文件消息没有文字说明时，只暂存文件并等待用户下一步指令，不主动分析
+- 文件消息带说明文字时，本轮上下文会包含刚上传的系统 `file_id`
+- 后续用户说“这几个文件/刚才那两个附件”时，每轮系统提示会注入最近 24 小时的上传文件摘要；AI 也可用 `list_recent_files` 精确查看队列
+- 需要读取文件内容、抽表格、识别图片或跨文件归纳时，AI 再调用 `analyze_company_materials`，由发起人名下 worker 下载任务附件并处理
+- 简单文字事实不派 worker，直接走 `save_knowledge` / 信息字段 / 任务工具
+
 ## 权限体系
 
 **主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限，对应工具 `invite_employee`；授权时也接受 `invite_employee` 作为别名） / `send_msg` / `create_project` / `edit_info` / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。

@@ -175,6 +175,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	system += o.ruleContext(ctx, u, channel, text)
 	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
 	system += o.skillContext(ctx, u, channel, text)
+	system += o.recentFileContext(ctx, u)
 	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
 	if sess.Summary != "" {
 		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
@@ -966,6 +967,40 @@ func firstSkills(candidates []*store.Knowledge, limit int) []*store.Knowledge {
 		return candidates[:limit]
 	}
 	return candidates
+}
+
+func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User) string {
+	if o == nil || o.store == nil || u == nil {
+		return ""
+	}
+	fs, err := o.store.RecentFilesByUser(ctx, u.ID, 8, time.Now().Add(-24*time.Hour))
+	if err != nil || len(fs) == 0 {
+		if err != nil {
+			slog.Warn("最近上传文件加载失败，本轮跳过", "user", u.ID, "err", err)
+		}
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n[最近上传文件·待用户指令]\n")
+	b.WriteString("这些文件已进入 nbco 文件队列；用户若说“这几个/刚才的文件/附件”，通常指这里。不要凭文件名臆测内容；需要读取/解析文件时调用 analyze_company_materials 派给发起人名下 worker。\n")
+	for _, f := range fs {
+		fmt.Fprintf(&b, "- #%d %s（%s，%s，%s）\n", f.ID, f.OriginalName, formatBytesForPrompt(f.SizeBytes), f.MIMEType, f.CreatedAt.In(o.tz).Format("01-02 15:04"))
+	}
+	return b.String()
+}
+
+func formatBytesForPrompt(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	units := "KMGTPE"
+	for v := n / unit; v >= unit && exp < len(units)-1; v /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), units[exp])
 }
 
 type skillMemoryParts struct {

@@ -136,6 +136,7 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, roleTools(d, u)...)
 	ts = append(ts, knowledgeTools(d, u)...)
 	ts = append(ts, memoryTools(d, u)...)
+	ts = append(ts, fileTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, skillTools(d, u)...)
 	ts = append(ts, learningTools(d, u)...)
@@ -247,6 +248,7 @@ var workerAllowed = map[string]bool{
 	"search_knowledge":      true,
 	"get_knowledge":         true,
 	"list_recent_knowledge": true,
+	"list_recent_files":     true,
 }
 
 // groupSensitive 群共享会话里必须剔除的工具：结果含机密（Token）、或影响面

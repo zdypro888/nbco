@@ -131,7 +131,7 @@ func run(configPath string) error {
 		if sttClient != nil {
 			slog.Info("语音转写已启用", "stt_model", cfg.AI.STTModel)
 		}
-		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model, sttClient)
+		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model, sttClient, cfg.FileStorePath)
 		if err != nil {
 			return err
 		}
