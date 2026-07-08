@@ -20,6 +20,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/textfmt/telegramhtml"
 	"github.com/zdypro888/nbco/tools"
 )
@@ -464,8 +465,8 @@ func (s memorySource) evidence(source string) json.RawMessage {
 		"session_id":           s.SessionID,
 		"user_message_id":      s.UserMessageID,
 		"assistant_message_id": s.AssistantMessageID,
-		"user_text":            truncateSnippet(s.UserText, 600),
-		"assistant_text":       truncateSnippet(s.AssistantText, 600),
+		"user_text":            textfmt.TruncateRunes(s.UserText, 600),
+		"assistant_text":       textfmt.TruncateRunes(s.AssistantText, 600),
 	})
 	return ev
 }
@@ -1185,7 +1186,7 @@ func renderRetrievalBlock(ks []*store.Knowledge, ms []store.ChatMessage, tz *tim
 	if len(ks) > 0 {
 		b.WriteString("知识库（按相关度，回答公司事实前以此为准）：\n")
 		for _, k := range ks {
-			fmt.Fprintf(&b, "- #%d %s：%s", k.ID, k.Title, truncateSnippet(k.Content, retrievalSnippetChars))
+			fmt.Fprintf(&b, "- #%d %s：%s", k.ID, k.Title, textfmt.TruncateRunes(k.Content, retrievalSnippetChars))
 			if tags := visibleTags(k.Tags); tags != "" {
 				fmt.Fprintf(&b, "（%s）", tags)
 			}
@@ -1196,7 +1197,7 @@ func renderRetrievalBlock(ks []*store.Knowledge, ms []store.ChatMessage, tz *tim
 		b.WriteString("历史对话（仅你的过往会话）：\n")
 		for _, m := range ms {
 			fmt.Fprintf(&b, "- [%s·%s] %s\n",
-				m.CreatedAt.In(tz).Format("01-02 15:04"), roleLabel(m.Role), truncateSnippet(m.Content, retrievalSnippetChars))
+				m.CreatedAt.In(tz).Format("01-02 15:04"), roleLabel(m.Role), textfmt.TruncateRunes(m.Content, retrievalSnippetChars))
 		}
 	}
 	return b.String()
@@ -1220,15 +1221,6 @@ func visibleTags(tags []string) string {
 		out = append(out, t)
 	}
 	return strings.Join(out, ", ")
-}
-
-// truncateSnippet 按 rune 数截断（不破坏 UTF-8），超出加省略号。
-func truncateSnippet(s string, maxRunes int) string {
-	r := []rune(s)
-	if len(r) <= maxRunes {
-		return s
-	}
-	return string(r[:maxRunes]) + "…"
 }
 
 // skillContext 用语义/词法召回候选 skill，按作用域过滤；候选过多时再用轻量
