@@ -55,7 +55,8 @@ func memoryTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("ai_usage_stats", "查看 AI 用量统计（今天/7天/30天 token 总量与调用次数，7天内按人排行）。评估 AI 成本用。",
+		tool("ai_usage_stats", "查看 AI 用量统计：今天/7天/30天 token 总量与调用次数，7天内按人排行，以及按战略目标的执行成本。"+
+			"注意：目标维度只反映 AI 员工执行成本（worker 调用模型），不含对话/催办/周报等系统轮次，也未归因的目标为空——评估目标 ROI 时以 worker 执行成本为准。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				now := time.Now()
@@ -82,6 +83,16 @@ func memoryTools(d Deps, u *store.User) []ai.Tool {
 					b.WriteString("\n近7天按人（含 AI 员工）：\n")
 					for _, r := range rows {
 						fmt.Fprintf(&b, "- %s：%d 次，输入 %d / 输出 %d\n", r.Name, r.Calls, r.InputTokens, r.OutputTokens)
+					}
+				}
+				goals, err := d.Store.AIUsageByGoalSince(ctx, now.AddDate(0, 0, -30))
+				if err != nil {
+					return "", err
+				}
+				if len(goals) > 0 {
+					b.WriteString("\n近30天按战略目标（仅 worker 执行成本）：\n")
+					for _, g := range goals {
+						fmt.Fprintf(&b, "- %s（%s）：%d 次，输入 %d / 输出 %d\n", g.Title, internalRef("目标", g.GoalID), g.Calls, g.InputTokens, g.OutputTokens)
 					}
 				}
 				return b.String(), nil

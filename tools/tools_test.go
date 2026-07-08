@@ -164,6 +164,27 @@ func TestBuildSkillContent(t *testing.T) {
 	}
 }
 
+func TestRenderLearningCandidatesIncludesEvidence(t *testing.T) {
+	got := renderLearningCandidates([]*store.LearningCandidate{{
+		ID:         7,
+		Kind:       store.LearningKindRule,
+		Status:     store.LearningStatusPending,
+		Scope:      "telegram",
+		Title:      "Token 不外发",
+		Content:    "不要把 worker token 发给用户。",
+		Tags:       []string{"scope:telegram"},
+		SourceType: "memory_miner",
+		SourceRef:  "session:1/message:2",
+		Confidence: 0.62,
+		Evidence:   json.RawMessage(`{"user_text":"以后不要把 worker token 发出来"}`),
+	}})
+	for _, want := range []string{"候选内部编号 7", "source: memory_miner session:1/message:2", "confidence: 0.62", "以后不要把 worker token 发出来"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("候选渲染缺 %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestFmtTime(t *testing.T) {
 	tz, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {

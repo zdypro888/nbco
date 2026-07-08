@@ -443,7 +443,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					subs = append(subs, &store.Task{
 						ProjectID: parent.ProjectID, AssignerID: u.ID, AssigneeID: st.AssigneeID,
 						Title: st.Title, Goal: st.Goal, Description: st.Description,
-						Acceptance: st.Acceptance, Deadline: deadline,
+						Acceptance: st.Acceptance, Deadline: deadline, MilestoneID: parent.MilestoneID,
 					})
 				}
 				created, err := d.Store.SplitTask(ctx, parent.ID, subs)
@@ -566,6 +566,101 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					}
 				}
 				return "已删除。", nil
+			}),
+
+		tool("reassign_task", "把任务改派给另一个人（保留任务ID、进度历史、依赖与拆分关系）。"+
+			"用于换执行人而非重开一单：旧执行人若正在跑会被实时终止；任务回到 pending，新执行人可立即领取。"+
+			"assignee_id 省略时自动派给最合适的 AI 员工。只有分配者能改派；改派给某人需对该人的 create_project 权限。"+
+			"若因原执行人不胜任/离线，优先用此工具而非 delete+assign——后者会销毁进度历史。",
+			obj(map[string]any{
+				"task_id":     p("integer", "任务ID"),
+				"assignee_id": p("integer", "新执行人用户ID（可选；省略=自动派给最合适的 AI 员工）"),
+				"reason":      p("string", "改派原因（可选，会记入进度记录供新执行人了解背景）"),
+			}, "task_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID     int64  `json:"task_id"`
+					AssigneeID int64  `json:"assignee_id"`
+					Reason     string `json:"reason"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				t, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				if t.AssignerID != u.ID && !u.IsSuperadmin {
+					return "只有分配者能改派任务。", nil
+				}
+				// 已终态（accepted）的任务改派意义不大——它已完成。split 父任务的工作由子任务承载。
+				// done（已提交待验收）在验收队列里，改派会丢失验收记录——要换人应先 reject_task 打回。
+				if t.Status == store.TaskAccepted {
+					return "任务已验收通过，无需改派；如需重做请新建任务。", nil
+				}
+				if t.Status == store.TaskSplit {
+					return "该任务已拆分，请改派其子任务。", nil
+				}
+				if t.Status == store.TaskDone {
+					return "任务已提交待验收，改派会丢失验收记录；如要换人请先 reject_task 打回。", nil
+				}
+				oldAssigneeID := t.AssigneeID
+				autoPickNote := ""
+				if args.AssigneeID == 0 {
+					picked, note, perr := pickWorkerAssignee(ctx, d, u)
+					if perr != nil {
+						return perr.Error(), nil
+					}
+					args.AssigneeID, autoPickNote = picked, note
+				}
+				if args.AssigneeID == oldAssigneeID {
+					return "新执行人与当前相同，无需改派。", nil
+				}
+				newAssignee, err := mustUser(ctx, d.Store, args.AssigneeID)
+				if err != nil {
+					return err.Error(), nil
+				}
+				if !u.IsSuperadmin && args.AssigneeID != u.ID {
+					grants, err := d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+					if !perm.CheckActive(grants, perm.ActCreateProject, args.AssigneeID) {
+						return "你没有对该用户的 create_project 权限。", nil
+					}
+				}
+				// 记改派背景入进度历史，供新执行人了解来龙去脉。
+				note := fmt.Sprintf("🔁 %s 将任务改派给 %s。", u.Name, newAssignee.Name)
+				if r := strings.TrimSpace(args.Reason); r != "" {
+					note += " 原因：" + r
+				}
+				_ = d.Store.AddProgress(ctx, t.ID, u.ID, note)
+				// 先清 claim + 换人（ReassignTask 把 worker_claim_id 置空、状态回 pending）：
+				// 旧执行人的 submit/add_progress 是 claim 守卫的，claim 一空就写不进，杜绝竞态。
+				// 再 Cancel 只是让在跑的进程停手——顺序与 update_assigned_task 一致。
+				t, err = d.Store.ReassignTask(ctx, t.ID, args.AssigneeID)
+				if err != nil {
+					return "", err
+				}
+				if oldAu, uerr := d.Store.UserByID(ctx, oldAssigneeID); uerr == nil && oldAu.IsWorker && d.Workers != nil {
+					d.Workers.Cancel(oldAu.ID, t.ID)
+				}
+				// 通知新旧双方，唤醒新执行人。
+				notifyQuiet(ctx, d, oldAssigneeID,
+					fmt.Sprintf("🔁 任务「%s」（%s）已由 %s 改派给 %s。", t.Title, internalRef("任务", t.ID), u.Name, newAssignee.Name))
+				notifyQuiet(ctx, d, args.AssigneeID,
+					fmt.Sprintf("📌 %s 把任务「%s」（%s）改派给你\n%s", u.Name, t.Title, internalRef("任务", t.ID), t.Description))
+				if len(t.DependsOn) == 0 {
+					wakeWorker(d, newAssignee)
+				}
+				reply := fmt.Sprintf("任务「%s」（%s）已改派给 %s，进度历史保留。", t.Title, internalRef("任务", t.ID), newAssignee.Name)
+				if autoPickNote != "" {
+					reply += autoPickNote
+				}
+				if len(t.DependsOn) > 0 {
+					reply += fmt.Sprintf("前置任务 %v 全部验收通过后才可开工。", t.DependsOn)
+				}
+				return reply, nil
 			}),
 
 		// --- 管理视角 ---

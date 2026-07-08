@@ -457,7 +457,10 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if status == http.StatusOK {
-		recordWorkerLLMUsage(r.Context(), s.store, u.ID, model, out)
+		// 用量落库含两次目标归因查询，异步执行：不阻塞 worker 拿响应（热路径），
+		// 失败不阻断业务。用独立 context，响应已返回后仍能完成。
+		outCopy := out
+		go recordWorkerLLMUsage(context.Background(), s.store, u.ID, model, outCopy)
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -580,9 +583,23 @@ func recordWorkerLLMUsage(ctx context.Context, st *store.Store, userID int64, mo
 	if in == 0 && outTok == 0 {
 		return
 	}
+	// 目标归因（尽力）：经 worker 最近活跃会话的 last_task_id → 任务里程碑 → 目标 解析。
+	// worker 可能在非任务上下文下调用模型，或任务未挂里程碑，此时 goal_id 为 nil（记为未归因）。
+	// ErrNotFound（无会话/任务已删）属正常的未归因，静默；其他错误记日志便于排查归因缺口。
+	var goalID *int64
+	if taskID, terr := st.LatestWorkerTaskID(ctx, userID); terr == nil && taskID != nil {
+		gid, gerr := st.GoalIDOfTask(ctx, *taskID)
+		if gerr == nil {
+			goalID = gid
+		} else if !errors.Is(gerr, store.ErrNotFound) {
+			slog.Warn("worker llm 目标归因失败", "worker", userID, "task", *taskID, "err", gerr)
+		}
+	} else if terr != nil && !errors.Is(terr, store.ErrNotFound) {
+		slog.Warn("worker llm 取最近任务失败", "worker", userID, "err", terr)
+	}
 	if err := st.RecordAIUsage(ctx, store.AIUsage{
 		UserID: userID, Kind: "worker_llm", Model: model,
-		InputTokens: in, OutputTokens: outTok,
+		InputTokens: in, OutputTokens: outTok, GoalID: goalID,
 	}); err != nil {
 		slog.Warn("worker llm 用量落库失败", "worker", userID, "err", err)
 	}

@@ -233,9 +233,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
 	// 失败轮次会留下孤立的 user 消息，einoengine 重放时做同角色合并兜底。
+	var userMsgID int64
 	if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), text); err != nil {
 		slog.Warn("用户消息落库失败", "err", err)
 	} else {
+		userMsgID = id
 		o.embedMessage(id, text) // 情景记忆：异步嵌入，供跨会话检索
 		ctx = tools.WithApprovalTurn(ctx, sess.ID, id)
 	}
@@ -255,12 +257,14 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
 
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
+	var assistantMsgID int64
 	if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), storedReply); err != nil {
 		slog.Warn("助手消息落库失败", "err", err)
 	} else {
+		assistantMsgID = id
 		o.embedMessage(id, storedReply)
 	}
-	o.maybeMineMemory(u, channel, text, storedReply)
+	o.maybeMineMemory(u, channel, text, storedReply, sess.ID, userMsgID, assistantMsgID)
 	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
 		if err := o.store.SetSessionEngineRef(ctx, sess.ID, res.EngineSession); err != nil {
 			slog.Warn("引擎会话标识落库失败", "err", err)
@@ -296,6 +300,8 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。只从本轮�
 - 没有明确新增长期价值时返回空数组。
 - 不要保存普通寒暄、一次性任务、临时状态。
 - 不要臆造用户没说过的规则或步骤。
+- 不要把助手单方面提出的建议当成已生效规则；只有用户明确要求、认可或给出事实时才提取。
+- skill 应该是可复用的类级流程，不要为一次对话里的单个临时问题生成微型 skill。
 - scope 只能是 global、telegram、api、worker 或 user:<数字用户ID>；不确定用 global。`
 
 type minedMemory struct {
@@ -321,9 +327,48 @@ type minedMemory struct {
 	} `json:"knowledge"`
 }
 
-func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assistantText string) {
-	if u == nil || !u.IsSuperadmin || strings.HasPrefix(userText, "[系统") {
+type memorySource struct {
+	Channel            string `json:"channel"`
+	SessionID          int64  `json:"session_id,omitempty"`
+	UserMessageID      int64  `json:"user_message_id,omitempty"`
+	AssistantMessageID int64  `json:"assistant_message_id,omitempty"`
+	UserText           string `json:"user_text,omitempty"`
+	AssistantText      string `json:"assistant_text,omitempty"`
+}
+
+func (s memorySource) ref() string {
+	if s.SessionID <= 0 {
+		return ""
+	}
+	if s.UserMessageID > 0 {
+		return fmt.Sprintf("session:%d/message:%d", s.SessionID, s.UserMessageID)
+	}
+	return fmt.Sprintf("session:%d", s.SessionID)
+}
+
+func (s memorySource) evidence(source string) json.RawMessage {
+	ev, _ := json.Marshal(map[string]any{
+		"source":               source,
+		"channel":              s.Channel,
+		"session_id":           s.SessionID,
+		"user_message_id":      s.UserMessageID,
+		"assistant_message_id": s.AssistantMessageID,
+		"user_text":            truncateSnippet(s.UserText, 600),
+		"assistant_text":       truncateSnippet(s.AssistantText, 600),
+	})
+	return ev
+}
+
+func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assistantText string, sessionID, userMsgID, assistantMsgID int64) {
+	if u == nil || strings.HasPrefix(userText, "[系统") {
 		return
+	}
+	if !shouldMineMemory(userText, assistantText) {
+		return
+	}
+	src := memorySource{
+		Channel: channel, SessionID: sessionID, UserMessageID: userMsgID, AssistantMessageID: assistantMsgID,
+		UserText: userText, AssistantText: assistantText,
 	}
 	go func() {
 		defer func() {
@@ -333,12 +378,30 @@ func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assista
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		o.mineMemory(ctx, u, channel, userText, assistantText)
+		o.mineMemory(ctx, u, src)
 	}()
 }
 
-func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, channel, userText, assistantText string) {
-	input := fmt.Sprintf("当前用户：%s\n渠道：%s\n\n【用户】\n%s\n\n【助手】\n%s", u.Name, channel, userText, assistantText)
+func shouldMineMemory(userText, assistantText string) bool {
+	text := strings.ToLower(userText + "\n" + assistantText)
+	if len([]rune(strings.TrimSpace(text))) < 12 {
+		return false
+	}
+	triggers := []string{
+		"以后", "默认", "记住", "永远", "不要", "必须", "规则", "流程", "sop", "skill",
+		"经验", "教训", "复盘", "总结", "结论", "约定", "决定", "公司", "项目", "资料",
+		"文件", "合同", "制度", "员工", "客户", "worker", "部署", "升级", "知识库", "已保存",
+	}
+	for _, trigger := range triggers {
+		if strings.Contains(text, trigger) {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, src memorySource) {
+	input := fmt.Sprintf("当前用户：%s\n渠道：%s\n\n【用户】\n%s\n\n【助手】\n%s", u.Name, src.Channel, src.UserText, src.AssistantText)
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
 		SessionID: "memory-miner",
@@ -356,7 +419,7 @@ func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, channel, u
 		slog.Warn("Memory Miner JSON 解析失败", "user", u.ID, "err", err, "text_sha", contentHash(res.Text))
 		return
 	}
-	o.persistMinedMemory(ctx, u, mined)
+	o.persistMinedMemory(ctx, u, mined, src)
 }
 
 func extractJSONObject(s string) string {
@@ -372,22 +435,26 @@ func extractJSONObject(s string) string {
 	return s
 }
 
-func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mined minedMemory) {
+func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mined minedMemory, src memorySource) {
+	autoPublish := u.IsSuperadmin
 	for i, r := range mined.Rules {
 		if i >= 3 {
 			break
 		}
 		title, content := strings.TrimSpace(r.Title), strings.TrimSpace(r.Content)
-		if title == "" || content == "" || o.memoryTitleExists(ctx, store.KnowledgeKindPolicy, title) {
+		if title == "" || content == "" || o.memoryAlreadyKnown(ctx, store.KnowledgeKindPolicy, title) {
 			continue
 		}
 		scope := normalizeMemoryScope(r.Scope)
-		if o.deps.Knowledge != nil {
-			k, _ := o.deps.Knowledge.SaveRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
-			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, []string{"scope:" + scope}, "memory_miner", k)
+		tags := []string{"scope:" + scope}
+		if !autoPublish {
+			o.recordPendingLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, tags, "memory_miner", src, 0.62)
+		} else if o.deps.Knowledge != nil {
+			k, _ := o.deps.Knowledge.SaveRule(ctx, title, content, tags, u.ID, r.Pinned)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, tags, "memory_miner", src, k)
 		} else {
-			k, _ := o.store.CreateRule(ctx, title, content, []string{"scope:" + scope}, u.ID, r.Pinned)
-			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, []string{"scope:" + scope}, "memory_miner", k)
+			k, _ := o.store.CreateRule(ctx, title, content, tags, u.ID, r.Pinned)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindRule, scope, title, content, tags, "memory_miner", src, k)
 		}
 		slog.Info("Memory Miner 保存规则", "user", u.ID, "title", title)
 	}
@@ -397,18 +464,20 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 		}
 		title := strings.TrimSpace(sk.Title)
 		if title == "" || strings.TrimSpace(sk.Trigger) == "" || strings.TrimSpace(sk.Summary) == "" ||
-			strings.TrimSpace(sk.Procedure) == "" || o.memoryTitleExists(ctx, store.KnowledgeKindSkill, title) {
+			strings.TrimSpace(sk.Procedure) == "" || o.memoryAlreadyKnown(ctx, store.KnowledgeKindSkill, title) {
 			continue
 		}
 		scope := normalizeMemoryScope(sk.Scope)
 		content := buildMinedSkillContent(sk.Trigger, sk.Summary, sk.Procedure, sk.Constraints)
 		tags := normalizeMinedTags(sk.Tags, scope)
-		if o.deps.Knowledge != nil {
+		if !autoPublish {
+			o.recordPendingLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", src, 0.6)
+		} else if o.deps.Knowledge != nil {
 			k, _ := o.deps.Knowledge.SaveSkill(ctx, title, content, tags, u.ID)
-			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", k)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", src, k)
 		} else {
 			k, _ := o.store.CreateSkill(ctx, title, content, tags, u.ID)
-			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", k)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindSkill, scope, title, content, tags, "memory_miner", src, k)
 		}
 		slog.Info("Memory Miner 保存 skill", "user", u.ID, "title", title)
 	}
@@ -417,36 +486,75 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 			break
 		}
 		title, content := strings.TrimSpace(k.Title), strings.TrimSpace(k.Content)
-		if title == "" || content == "" || o.memoryTitleExists(ctx, store.KnowledgeKindFact, title) {
+		if title == "" || content == "" || o.memoryAlreadyKnown(ctx, store.KnowledgeKindFact, title) {
 			continue
 		}
-		if o.deps.Knowledge != nil {
+		if !autoPublish {
+			o.recordPendingLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", src, 0.58)
+		} else if o.deps.Knowledge != nil {
 			saved, _ := o.deps.Knowledge.Save(ctx, title, content, k.Tags, u.ID)
-			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", saved)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", src, saved)
 		} else {
 			saved, _ := o.store.CreateKnowledge(ctx, title, content, k.Tags, u.ID)
-			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", saved)
+			o.recordPublishedLearningCandidate(ctx, u.ID, store.LearningKindKnowledge, "global", title, content, k.Tags, "memory_miner", src, saved)
 		}
 		slog.Info("Memory Miner 保存知识", "user", u.ID, "title", title)
 	}
 }
 
-func (o *Orchestrator) recordPublishedLearningCandidate(ctx context.Context, userID int64, kind, scope, title, content string, tags []string, source string, k *store.Knowledge) {
+func (o *Orchestrator) recordPendingLearningCandidate(ctx context.Context, userID int64, kind, scope, title, content string, tags []string, source string, src memorySource, confidence float32) {
+	if o == nil || o.store == nil {
+		return
+	}
+	if ok, err := o.store.LearningCandidateExists(ctx, kind, title, store.LearningStatusPending, store.LearningStatusPublished); err != nil {
+		slog.Warn("学习候选去重失败", "kind", kind, "title", title, "err", err)
+	} else if ok {
+		return
+	}
+	createdBy := userID
+	if _, err := o.store.CreateLearningCandidate(ctx, store.LearningCandidateInput{
+		Kind: kind, Scope: scope, Title: title, Content: content, Tags: tags,
+		Evidence: src.evidence(source), Confidence: confidence, Status: store.LearningStatusPending,
+		SourceType: source, SourceRef: src.ref(), CreatedBy: &createdBy,
+	}); err != nil {
+		slog.Warn("学习候选记录失败", "kind", kind, "title", title, "err", err)
+	}
+}
+
+func (o *Orchestrator) recordPublishedLearningCandidate(ctx context.Context, userID int64, kind, scope, title, content string, tags []string, source string, src memorySource, k *store.Knowledge) {
 	if o == nil || o.store == nil || k == nil {
 		return
 	}
-	evidence, _ := json.Marshal(map[string]any{"source": source})
 	createdBy := userID
 	c, err := o.store.CreateLearningCandidate(ctx, store.LearningCandidateInput{
 		Kind: kind, Scope: scope, Title: title, Content: content, Tags: tags,
-		Evidence: evidence, Confidence: 0.8, Status: store.LearningStatusPublished,
-		SourceType: source, CreatedBy: &createdBy,
+		Evidence: src.evidence(source), Confidence: 0.8, Status: store.LearningStatusPublished,
+		SourceType: source, SourceRef: src.ref(), CreatedBy: &createdBy,
 	})
 	if err != nil {
 		slog.Warn("学习候选审计记录失败", "kind", kind, "title", title, "err", err)
 		return
 	}
 	_ = o.store.MarkLearningCandidatePublished(ctx, c.ID, userID, &k.ID)
+}
+
+func (o *Orchestrator) memoryAlreadyKnown(ctx context.Context, knowledgeKind, title string) bool {
+	if o.memoryTitleExists(ctx, knowledgeKind, title) {
+		return true
+	}
+	learningKind := store.LearningKindKnowledge
+	switch knowledgeKind {
+	case store.KnowledgeKindPolicy:
+		learningKind = store.LearningKindRule
+	case store.KnowledgeKindSkill:
+		learningKind = store.LearningKindSkill
+	}
+	ok, err := o.store.LearningCandidateExists(ctx, learningKind, title, store.LearningStatusPending, store.LearningStatusPublished)
+	if err != nil {
+		slog.Warn("学习候选查重失败", "kind", learningKind, "title", title, "err", err)
+		return false
+	}
+	return ok
 }
 
 func (o *Orchestrator) memoryTitleExists(ctx context.Context, kind, title string) bool {
@@ -524,6 +632,9 @@ func (o *Orchestrator) embedMessage(id int64, content string) {
 
 // recordUsage 记一笔模型用量（零用量不记；失败只记日志）。
 func (o *Orchestrator) recordUsage(ctx context.Context, userID int64, sessionID *int64, kind, model string, u ai.Usage) {
+	if o == nil || o.store == nil {
+		return
+	}
 	if u.InputTokens == 0 && u.OutputTokens == 0 {
 		return
 	}
@@ -755,6 +866,7 @@ const (
 	ruleFetchTimeout    = 5 * time.Second
 	skillCandidateLimit = 8
 	skillSearchLimit    = 3
+	skillSelectTimeout  = 12 * time.Second
 
 	// 预取检索注入（retrievalContext）：每轮用本轮输入预取知识库与历史对话 top-N，
 	// 主动喂进系统提示——把"被动等模型调 search 工具"变成"事实先到眼前"。
@@ -763,6 +875,17 @@ const (
 	retrievalSnippetChars   = 120 // 每条内容按字符截断（rune 计，对中文友好）
 	retrievalMinTextLen     = 4   // 过短输入（"ok"/"嗯"）跳过，避免噪声
 )
+
+const skillRouterSystem = `你是 nbco 的 Skill Router。你的任务是从候选 skill 里挑出本轮真正需要加载的执行方法。
+
+只输出严格 JSON 对象，不要 Markdown，不要解释：
+{"ids":[1,2,3],"reason":"一句内部理由"}
+
+选择规则：
+- 最多选择 3 条；没有明显帮助就返回 {"ids":[]}。
+- 只选择与当前用户输入存在明确触发关系的 skill，不要因为标题看起来相近就选。
+- 用户只是寒暄、确认、很短反馈、普通事实查询时，通常不需要 skill。
+- 群聊/私聊/worker 的作用域已经在候选阶段过滤过；你只判断相关性和必要性。`
 
 // ruleContext 组装本轮适用的行为规则块：常驻规则全量注入，非常驻规则用本轮
 // 输入做语义检索取 top N，都再按作用域（scope: 标签 vs 渠道/用户）过滤。
@@ -909,10 +1032,12 @@ func truncateSnippet(s string, maxRunes int) string {
 	return string(r[:maxRunes]) + "…"
 }
 
-// skillContext 用语义/词法召回 top-N skill，按作用域过滤后注入摘要。完整步骤
-// 留给 load_skill，避免长期方法库撑爆上下文。不再跑前置 LLM selector——召回质量
-// 靠语义阈值（skillSemanticMinScore），模型自主决定要不要 load_skill 拉详情。
+// skillContext 用语义/词法召回候选 skill，按作用域过滤；候选过多时再用轻量
+// Skill Router 二次选择。这里只注入摘要，完整步骤留给 load_skill。
 func (o *Orchestrator) skillContext(ctx context.Context, u *store.User, channel, text string) string {
+	if len(strings.TrimSpace(text)) < retrievalMinTextLen {
+		return ""
+	}
 	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
 	defer cancel()
 	var skills []*store.Knowledge
@@ -927,7 +1052,7 @@ func (o *Orchestrator) skillContext(ctx context.Context, u *store.User, channel,
 		return ""
 	}
 	skills = filterApplicableSkills(skills, channel, u.ID)
-	skills = firstSkills(skills, skillSearchLimit)
+	skills = o.routeSkills(ctx, u, channel, text, skills)
 	if len(skills) == 0 {
 		return ""
 	}
@@ -946,6 +1071,102 @@ func (o *Orchestrator) skillContext(ctx context.Context, u *store.User, channel,
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+func (o *Orchestrator) routeSkills(ctx context.Context, u *store.User, channel, text string, candidates []*store.Knowledge) []*store.Knowledge {
+	if len(candidates) <= skillSearchLimit || o == nil || o.engine == nil {
+		return firstSkills(candidates, skillSearchLimit)
+	}
+	sctx, cancel := context.WithTimeout(ctx, skillSelectTimeout)
+	defer cancel()
+	model := o.runtimeModel(ctx)
+	res, err := o.engine.RunTurn(sctx, &ai.TurnRequest{
+		SessionID: "skill-router",
+		System:    skillRouterSystem,
+		UserText:  renderSkillRouterInput(u, channel, text, candidates),
+		Model:     model,
+	})
+	if err != nil {
+		slog.Warn("skill router 失败，回退语义排序", "err", err)
+		return firstSkills(candidates, skillSearchLimit)
+	}
+	o.recordUsage(ctx, u.ID, nil, "skill_router", model, res.Usage)
+	selected, ok := parseSkillRouterSelection(res.Text, candidates, skillSearchLimit)
+	if !ok {
+		slog.Warn("skill router 输出不可解析，回退语义排序", "text_sha", contentHash(res.Text))
+		return firstSkills(candidates, skillSearchLimit)
+	}
+	return selected
+}
+
+func renderSkillRouterInput(u *store.User, channel, text string, candidates []*store.Knowledge) string {
+	var b strings.Builder
+	name := ""
+	if u != nil {
+		name = u.Name
+	}
+	fmt.Fprintf(&b, "当前用户：%s\n渠道：%s\n用户输入：%s\n\n候选 skill：\n", name, channel, text)
+	for _, k := range candidates {
+		if k == nil {
+			continue
+		}
+		parts := parseSkillMemory(k.Content)
+		fmt.Fprintf(&b, "- id=%d title=%q", k.ID, k.Title)
+		if parts.Trigger != "" {
+			fmt.Fprintf(&b, " trigger=%q", parts.Trigger)
+		}
+		if parts.Summary != "" {
+			fmt.Fprintf(&b, " summary=%q", parts.Summary)
+		}
+		if len(k.Tags) > 0 {
+			fmt.Fprintf(&b, " tags=%q", strings.Join(k.Tags, ","))
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+func parseSkillRouterSelection(text string, candidates []*store.Knowledge, limit int) ([]*store.Knowledge, bool) {
+	var payload struct {
+		IDs      []int64 `json:"ids"`
+		SkillIDs []int64 `json:"skill_ids"`
+	}
+	if err := json.Unmarshal([]byte(extractJSONObject(text)), &payload); err != nil {
+		return nil, false
+	}
+	ids := payload.IDs
+	if len(ids) == 0 && len(payload.SkillIDs) > 0 {
+		ids = payload.SkillIDs
+	}
+	if len(ids) == 0 {
+		return nil, true
+	}
+	byID := map[int64]*store.Knowledge{}
+	for _, k := range candidates {
+		if k != nil {
+			byID[k.ID] = k
+		}
+	}
+	seen := map[int64]bool{}
+	out := make([]*store.Knowledge, 0, limit)
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		k := byID[id]
+		if k == nil {
+			continue
+		}
+		seen[id] = true
+		out = append(out, k)
+		if len(out) >= limit {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil, false
+	}
+	return out, true
 }
 
 func filterApplicableSkills(skills []*store.Knowledge, channel string, userID int64) []*store.Knowledge {
@@ -1079,12 +1300,22 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 不向用户展示内部技术细节：数字用户 ID、TG ID、会话 ID 一律不提，提到人只用名字；任务用 #编号 引用。身份绑定系统已自动管理，绝不建议用户记录 TG ID 之类系统已知的信息。\n")
 	b.WriteString("- 回复用用户的语言，简洁直接。\n\n")
 
+	// [学习闭环]
+	b.WriteString("[学习闭环·让系统越用越懂]\n")
+	b.WriteString("- 长期记忆分层：knowledge=公司事实/项目背景，rule=系统行为约束，skill=可复用执行流程，profile=人的画像偏好；不要混用。\n")
+	b.WriteString("- 本轮相关 rule/skill/knowledge 已按需预取到系统提示；需要完整执行步骤时再 load_skill，不要把所有 skill 都塞进回复。\n")
+	b.WriteString("- 普通员工或 worker 提到可复用经验、资料结论、流程改进时，用 propose_learning_candidate 进入待审核队列；不要直接把它变成全局规则。\n")
+	b.WriteString("- 超管明确提出“以后/默认/记住/永远不要”等持久要求时，可直接 save_rule；可复用流程用 save_skill；普通事实用 save_knowledge。\n")
+	b.WriteString("- 发现已有 skill/rule 过时或不完整时，超管上下文下优先 update_skill / update_knowledge 修正旧条目，避免制造同义重复。\n\n")
+
 	// [派活决策树·你是调度层，不是执行者]
 	b.WriteString("[派活决策树·你是调度层，不是执行者]\n")
 	b.WriteString("深度工作（写代码、审代码、深度调研、资料分析）不要在对话里自己做，派给 AI 员工。按情形选择：\n")
+	b.WriteString("- 长期/战略性目标（「提升…」「下季度…」这类方向，而非单个动作）→ create_goal 建目标 → add_milestone 拆成可验收的关键里程碑 → decompose_milestone 把里程碑落成具体任务（任务仍归项目执行）；用 view_goals / get_goal_detail 跟踪进度，周报自动汇总目标达成。单一明确的执行项仍直接 assign_task。\n")
 	b.WriteString("- 单一明确任务、已知执行人 → assign_task 直接派（assignee_id 省略=自动派给最合适的 AI 员工）。\n")
 	b.WriteString("- 任务复杂/需多人并行/有依赖 → 先 split_my_task 拆成子任务再分派（也可分给自己）。\n")
 	b.WriteString("- 已提交待验收、需深度核查交付质量 → delegate_review 委派给 AI 员工审核，结论回来后再协助分配者验收或打回。\n")
+	b.WriteString("- 执行人离线/不胜任/需换人 → reassign_task 改派（保留任务ID与进度历史，自动终止旧执行人、唤醒新执行人）；不要用 delete+assign，那会销毁进度记录。\n")
 	b.WriteString("- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ analyze_company_materials 派给发起人名下 worker；几句文字能直接存的就 save_knowledge / update_user_info，不要默认塞给全局 worker。\n")
 	b.WriteString("- 需要把文件库里的文件、worker 产物或整理后的报表交付给用户 → send_file，不要只给下载地址。\n")
 	b.WriteString("- 简单问答/信息查询/规则解释 → 自己回答，不必派活。\n")

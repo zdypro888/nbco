@@ -68,6 +68,40 @@ func TestFirstSkills(t *testing.T) {
 	}
 }
 
+func TestParseSkillRouterSelection(t *testing.T) {
+	cands := []*store.Knowledge{
+		{ID: 10, Title: "A", Kind: store.KnowledgeKindSkill},
+		{ID: 20, Title: "B", Kind: store.KnowledgeKindSkill},
+		{ID: 30, Title: "C", Kind: store.KnowledgeKindSkill},
+	}
+	got, ok := parseSkillRouterSelection(`{"ids":[30,999,10,30]}`, cands, 2)
+	if !ok || len(got) != 2 || got[0].ID != 30 || got[1].ID != 10 {
+		t.Fatalf("selector 应按模型选择顺序去重并忽略未知 ID: ok=%v got=%+v", ok, got)
+	}
+	got, ok = parseSkillRouterSelection(`{"ids":[]}`, cands, 2)
+	if !ok || got != nil {
+		t.Fatalf("空选择应有效且返回 nil: ok=%v got=%+v", ok, got)
+	}
+	if _, ok := parseSkillRouterSelection(`not json`, cands, 2); ok {
+		t.Fatal("坏 JSON 不应视为有效选择")
+	}
+	if _, ok := parseSkillRouterSelection(`{"ids":[999]}`, cands, 2); ok {
+		t.Fatal("只返回未知 ID 应回退原始排序")
+	}
+}
+
+func TestShouldMineMemory(t *testing.T) {
+	if shouldMineMemory("嗯", "收到") {
+		t.Fatal("短寒暄不应触发后台学习")
+	}
+	if !shouldMineMemory("以后不要把 worker token 发出来", "记住了") {
+		t.Fatal("明确持久要求应触发后台学习")
+	}
+	if !shouldMineMemory("这两个文件是公司员工资料，整理成人事信息", "我会分析资料") {
+		t.Fatal("资料/公司类长期信息应触发后台学习")
+	}
+}
+
 func TestRenderRetrievalBlock(t *testing.T) {
 	tz := time.UTC
 	ks := []*store.Knowledge{
@@ -119,6 +153,12 @@ type fakeEngine struct {
 func (f *fakeEngine) Name() string { return "eino" }
 
 func (f *fakeEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+	if req.SessionID == "memory-miner" {
+		return &ai.TurnResult{Text: `{"rules":[],"skills":[],"knowledge":[]}`}, nil
+	}
+	if req.SessionID == "skill-router" {
+		return &ai.TurnResult{Text: `{"ids":[]}`}, nil
+	}
 	f.mu.Lock()
 	f.reqs = append(f.reqs, req)
 	f.mu.Unlock()

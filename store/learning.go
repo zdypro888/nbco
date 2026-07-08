@@ -76,6 +76,9 @@ func (s *Store) CreateLearningCandidate(ctx context.Context, in LearningCandidat
 	if in.Scope == "" {
 		in.Scope = "global"
 	}
+	if len(in.Tags) == 0 { // tags 列 NOT NULL：nil/空 → 空数组，避免插入 NULL 违反约束
+		in.Tags = []string{}
+	}
 	if in.Status == "" {
 		in.Status = LearningStatusPending
 	}
@@ -123,6 +126,24 @@ func (s *Store) ListLearningCandidates(ctx context.Context, status, kind string,
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) LearningCandidateExists(ctx context.Context, kind, title string, statuses ...string) (bool, error) {
+	if kind == "" || title == "" {
+		return false, nil
+	}
+	sql := `SELECT EXISTS(SELECT 1 FROM learning_candidates WHERE kind = $1 AND lower(trim(title)) = lower(trim($2))`
+	args := []any{kind, title}
+	if len(statuses) > 0 {
+		args = append(args, statuses)
+		sql += ` AND status = ANY($3)`
+	}
+	sql += `)`
+	var ok bool
+	if err := s.pool.QueryRow(ctx, sql, args...).Scan(&ok); err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 func (s *Store) MarkLearningCandidatePublished(ctx context.Context, id, reviewerID int64, knowledgeID *int64) error {

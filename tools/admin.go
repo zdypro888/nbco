@@ -401,6 +401,25 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 							internalRef("项目", pj.ID), pj.Name, pj.Status, c.Open, c.Awaiting, c.Accepted)
 					}
 				}
+				goals, err := d.Store.ListGoals(ctx, true)
+				if err != nil {
+					return "", err
+				}
+				if len(goals) > 0 {
+					gIDs := make([]int64, len(goals))
+					for i, g := range goals {
+						gIDs[i] = g.ID
+					}
+					gmc, err := d.Store.GoalMilestoneCounts(ctx, gIDs)
+					if err != nil {
+						return "", err
+					}
+					b.WriteString("战略目标：\n")
+					for _, g := range goals {
+						fmt.Fprintf(&b, "- %s：%s（%s）：里程碑 %d/%d 达成\n",
+							internalRef("目标", g.ID), g.Title, g.Status, gmc[g.ID].Achieved, gmc[g.ID].Total)
+					}
+				}
 				if len(overdue) > 0 {
 					b.WriteString("过期任务：\n")
 					for _, t := range overdue {

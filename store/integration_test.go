@@ -42,7 +42,7 @@ func openTestStore(t *testing.T) *Store {
 		conn.Release()
 	})
 	if _, err := s.pool.Exec(ctx,
-		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields, ai_usage, pending_approvals RESTART IDENTITY CASCADE`); err != nil {
+		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields, ai_usage, pending_approvals, goals RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
@@ -1245,6 +1245,32 @@ func TestKnowledgeRules(t *testing.T) {
 	}
 	if err := s.SetRulePinned(ctx, fact.ID, true); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("普通知识不应可置顶为规则, got %v", err)
+	}
+}
+
+func TestLearningCandidateExists(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	createdBy := boss.ID
+	if _, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindSkill, Scope: "telegram", Title: "群邀请流程",
+		Content: "先判断真人还是 worker", Status: LearningStatusPending,
+		CreatedBy: &createdBy,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ok, err := s.LearningCandidateExists(ctx, LearningKindSkill, " 群邀请流程 ", LearningStatusPending)
+	if err != nil || !ok {
+		t.Fatalf("pending 候选应可查重: ok=%v err=%v", ok, err)
+	}
+	ok, err = s.LearningCandidateExists(ctx, LearningKindSkill, "群邀请流程", LearningStatusPublished)
+	if err != nil || ok {
+		t.Fatalf("限定 published 不应命中 pending: ok=%v err=%v", ok, err)
+	}
+	ok, err = s.LearningCandidateExists(ctx, LearningKindRule, "群邀请流程", LearningStatusPending)
+	if err != nil || ok {
+		t.Fatalf("kind 不同不应命中: ok=%v err=%v", ok, err)
 	}
 }
 

@@ -83,3 +83,17 @@ func normalizeWorkerSessionPart(v, def string) string {
 	}
 	return v
 }
+
+// LatestWorkerTaskID 返回该 worker 最近活跃会话挂的任务ID（无则 nil）。
+// 用于 worker LLM 用量的目标归因：尽力而为，worker 可能在非任务上下文下调用模型。
+func (s *Store) LatestWorkerTaskID(ctx context.Context, workerID int64) (*int64, error) {
+	var taskID *int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT last_task_id FROM worker_sessions
+		 WHERE worker_id = $1 AND last_task_id IS NOT NULL
+		 ORDER BY updated_at DESC LIMIT 1`, workerID).Scan(&taskID)
+	if err != nil {
+		return nil, wrapErr(err) // ErrNotFound 当无任何带任务的会话
+	}
+	return taskID, nil
+}

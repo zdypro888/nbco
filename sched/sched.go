@@ -45,7 +45,7 @@ type Scheduler struct {
 	// orch 跑系统触发的 AI 轮次（催办/周报）；nil 时这两项能力关闭（测试或降级）。
 	orch      *chat.Orchestrator
 	bus       *events.Bus // 任务过期等事件交 AI 介入；nil 时回退模板（测试或降级）
-	channel   string // AI 轮次挂在用户哪个渠道的会话上（与主入口一致，保证上下文连续）
+	channel   string      // AI 轮次挂在用户哪个渠道的会话上（与主入口一致，保证上下文连续）
 	tz        *time.Location
 	dailyHour int // -1 关闭每日/每周汇总
 
@@ -116,6 +116,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 		s.schedulePool(sc).submit(ctx, func() { s.fireSchedule(ctx, sc) })
 	}
 	s.deadlinePass(ctx, now)
+	s.goalDeadlinePass(ctx, now)
 	s.nudgePass(ctx, now)
 	s.maybeDailySummary(ctx)
 	s.maybeWeeklyReport(ctx)
@@ -392,8 +393,8 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 	}
 	directive := fmt.Sprintf(
 		"[系统定时触发·每周汇总]（此输入来自系统调度器，不是用户本人）今天是 %s 周一，请给老板写一份公司周报。"+
-			"先用 company_overview 核实全局数据，需要细节时再用 view_project、get_user_stats 等工具追查；一切以工具返回为准，不得编造。"+
-			"结构：一、整体进展；二、上周完成亮点；三、风险与过期任务（点名到人、给出建议动作）；四、本周建议关注。"+
+			"先用 company_overview 核实全局数据（含战略目标进度），需要细节时再用 view_goals、view_project、get_user_stats 等工具追查；一切以工具返回为准，不得编造。"+
+			"结构：一、整体进展（含各战略目标的里程碑达成情况、本周卡点的里程碑）；二、上周完成亮点；三、风险与过期任务（点名到人、给出建议动作）；四、本周建议关注。"+
 			"语言简洁，直接给结论。你的回复会作为周报直接推送给老板。",
 		local.Format("2006-01-02"))
 	for _, u := range users {
@@ -449,6 +450,122 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 			}
 		})
 	}
+}
+
+// goalDeadlinePass 战略目标临近截止提醒 + 过期通知。镜像 deadlinePass 的「先 claim，投递成功后 ack」，
+// 但语义区别对待：目标快到期发模板提醒 owner（战略方向该定期看一眼）；目标过期走事件总线，
+// 让 AI 自决是否点名相关人员、是否建议调整——目标是公司战略级，过期比单个任务更值得 AI 介入。
+func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
+	warn, err := s.store.DueGoalDeadlineReminders(ctx, now, deadlineWarnWindow)
+	if err != nil {
+		slog.Error("取临近截止目标失败", "err", err)
+	}
+	for i := range warn {
+		g := warn[i]
+		if g.Deadline == nil {
+			continue
+		}
+		s.sendPool.submit(ctx, func() {
+			if s.send(ctx, g.OwnerID,
+				fmt.Sprintf("⏳ 战略目标「%s」将于 %s 到期，请确认里程碑进度是否需要调整。", g.Title, s.fmtTime(*g.Deadline))) {
+				if err := s.store.MarkGoalDeadlineReminderSent(ctx, g.ID, time.Now().UTC()); err != nil {
+					slog.Warn("目标临近截止提醒 ack 失败", "goal", g.ID, "err", err)
+				}
+			}
+		})
+	}
+
+	over, err := s.store.DueGoalOverdueNotices(ctx, now)
+	if err != nil {
+		slog.Error("取过期目标失败", "err", err)
+	}
+	for i := range over {
+		g := over[i]
+		if g.Deadline == nil {
+			continue
+		}
+		s.sendPool.submit(ctx, func() {
+			// 与任务过期同构：owner 先同步收到模板（ack 基准=必达），bus 是额外的 AI 介入
+			// （结合里程碑停滞决定是否点名/升级）——bus 是 fire-and-forget，可能去重/丢弃，
+			// 故不能用它来决定 ack，否则事件丢了却永不重试（违背「事件必达」）。
+			detail := fmt.Sprintf("战略目标「%s」已过截止时间（%s）。请用 view_goals 核实里程碑进度，判断是否需要点名相关负责人、调整期限或重新拆解。",
+				g.Title, s.fmtTime(*g.Deadline))
+			ok := s.send(ctx, g.OwnerID, "🔴 "+detail)
+			if s.bus != nil {
+				s.bus.Emit("目标过期", g.OwnerID, detail)
+			}
+			if ok {
+				if err := s.store.MarkGoalOverdueNoticeSent(ctx, g.ID, time.Now().UTC()); err != nil {
+					slog.Warn("目标过期通知 ack 失败", "goal", g.ID, "err", err)
+				}
+			} else {
+				slog.Warn("目标过期通知投递失败", "goal", g.ID, "owner", g.OwnerID)
+			}
+		})
+	}
+
+	// 里程碑截止提醒：里程碑无独立 owner，投给所属 goal 的 owner。
+	// 里程碑卡住会连带阻塞整个目标的下游任务，比单个任务过期更值得点名。
+	mwarn, err := s.store.DueMilestoneDeadlineReminders(ctx, now, deadlineWarnWindow)
+	if err != nil {
+		slog.Error("取临近截止里程碑失败", "err", err)
+	}
+	for i := range mwarn {
+		m := mwarn[i]
+		if m.Deadline == nil {
+			continue
+		}
+		s.sendPool.submit(ctx, func() {
+			ownerID, gTitle := s.milestoneOwner(ctx, m.GoalID)
+			if ownerID == 0 {
+				return // 目标已删，跳过
+			}
+			if s.send(ctx, ownerID,
+				fmt.Sprintf("⏳ 里程碑「%s」（属目标「%s」）将于 %s 到期。", m.Title, gTitle, s.fmtTime(*m.Deadline))) {
+				if err := s.store.MarkMilestoneDeadlineReminderSent(ctx, m.ID, time.Now().UTC()); err != nil {
+					slog.Warn("里程碑临近截止提醒 ack 失败", "milestone", m.ID, "err", err)
+				}
+			}
+		})
+	}
+
+	mover, err := s.store.DueMilestoneOverdueNotices(ctx, now)
+	if err != nil {
+		slog.Error("取过期里程碑失败", "err", err)
+	}
+	for i := range mover {
+		m := mover[i]
+		if m.Deadline == nil {
+			continue
+		}
+		s.sendPool.submit(ctx, func() {
+			ownerID, gTitle := s.milestoneOwner(ctx, m.GoalID)
+			if ownerID == 0 {
+				return
+			}
+			// 与目标/任务过期同构：owner 先同步收模板（ack 基准=必达），bus 是额外的 AI 介入。
+			detail := fmt.Sprintf("里程碑「%s」（属目标「%s」）已过截止时间（%s）。请用 get_milestone_detail 核实任务进度，点名停滞任务的执行人或重新拆解。",
+				m.Title, gTitle, s.fmtTime(*m.Deadline))
+			ok := s.send(ctx, ownerID, "🔴 "+detail)
+			if s.bus != nil {
+				s.bus.Emit("里程碑过期", ownerID, detail)
+			}
+			if ok {
+				if err := s.store.MarkMilestoneOverdueNoticeSent(ctx, m.ID, time.Now().UTC()); err != nil {
+					slog.Warn("里程碑过期通知 ack 失败", "milestone", m.ID, "err", err)
+				}
+			}
+		})
+	}
+}
+
+// milestoneOwner 解析里程碑所属 goal 的 owner 与标题。目标已删返回 (0, "")。
+func (s *Scheduler) milestoneOwner(ctx context.Context, goalID int64) (int64, string) {
+	g, err := s.store.GoalByID(ctx, goalID)
+	if err != nil {
+		return 0, ""
+	}
+	return g.OwnerID, g.Title
 }
 
 // maybeDailySummary 每天在配置小时给每个有待办的用户推送任务清单；

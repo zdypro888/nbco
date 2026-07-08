@@ -64,6 +64,9 @@ type Task struct {
 	// DependsOn 前置任务 ID：全部 accepted 之前 worker 领不到本任务。
 	// 依赖只能指向已存在的任务（新任务 id 恒大于依赖），天然无环。
 	DependsOn []int64
+	// MilestoneID 可选：战略里程碑归因（与 ParentID 正交——拆分树是执行转移，
+	// 里程碑是战略标签）。nil = 无归因；删里程碑时 SET NULL，任务留在原项目继续。
+	MilestoneID *int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -96,13 +99,13 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, depends_on, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, depends_on, milestone_id, created_at, updated_at`
 
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
 		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.WorkerCommandPTY, &t.Priority, &t.Deadline,
-		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.DependsOn, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.DependsOn, &t.MilestoneID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &t, nil
@@ -295,9 +298,9 @@ func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 		}
 	}
 	row := tx.QueryRow(ctx,
-		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, depends_on)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+taskCols,
-		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, deps)
+		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, depends_on, milestone_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING `+taskCols,
+		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
 	created, err := scanTask(row)
 	if err != nil {
 		return nil, err
@@ -365,6 +368,31 @@ func (s *Store) UpdateTaskStatus(ctx context.Context, id int64, status string) (
 		        worker_claim_id = '',
 		        updated_at = now()
 		  WHERE id = $1 RETURNING `+taskCols, id, status))
+}
+
+// ReassignTask 改派：保留 task 行（连带 task_progress/checklist/attachments 历史），换执行人，
+// 状态回到 pending 让新执行人重新领取，清空 worker claim（旧执行人无法再写进度/提交），
+// 并重置截止提醒/过期通知标记（新执行人按自己的节奏重新获得提醒）。
+// 不动 parent_id/depends_on——改派只换人，不动依赖结构与拆分树。
+// 仅允许 pending/in_progress（未提交的任务）：done 已在验收队列、accepted/split 是终态，
+// 改派它们会丢失验收记录或破坏拆分树。状态不符返 ErrNotFound（store 层防线，工具层也校验）。
+func (s *Store) ReassignTask(ctx context.Context, id, newAssigneeID int64) (*Task, error) {
+	return scanTask(s.pool.QueryRow(ctx,
+		`UPDATE tasks SET
+		   assignee_id = $2,
+		   status = 'pending',
+		   worker_claimed_by = NULL,
+		   worker_claimed_at = NULL,
+		   worker_claim_id = '',
+		   nudge_count = 0,
+		   deadline_reminded_at = NULL,
+		   overdue_notified_at = NULL,
+		   nudged_at = NULL,
+		   deadline_reminder_claimed_at = NULL,
+		   overdue_notice_claimed_at = NULL,
+		   nudge_claimed_at = NULL,
+		   updated_at = now()
+		 WHERE id = $1 AND status IN ('pending', 'in_progress') RETURNING `+taskCols, id, newAssigneeID))
 }
 
 // UpdateTaskContent 分配者修改任务要素（nil 字段不动）。
@@ -717,9 +745,9 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 	created := make([]*Task, 0, len(subs))
 	for _, t := range subs {
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+taskCols,
-			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline)
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, milestone_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+taskCols,
+			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, t.MilestoneID)
 		ct, err := scanTask(row)
 		if err != nil {
 			return nil, err
