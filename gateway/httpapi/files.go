@@ -32,13 +32,15 @@ type fileJSON struct {
 	MIMEType     string `json:"mime_type"`
 	SizeBytes    int64  `json:"size_bytes"`
 	SHA256       string `json:"sha256"`
+	CreatedAt    string `json:"created_at,omitempty"`
 	DownloadURL  string `json:"download_url,omitempty"`
 }
 
 func toFileJSON(f store.File, downloadURL string) fileJSON {
 	return fileJSON{
 		ID: f.ID, OriginalName: f.OriginalName, MIMEType: f.MIMEType,
-		SizeBytes: f.SizeBytes, SHA256: f.SHA256, DownloadURL: downloadURL,
+		SizeBytes: f.SizeBytes, SHA256: f.SHA256, CreatedAt: f.CreatedAt.Format(time.RFC3339),
+		DownloadURL: downloadURL,
 	}
 }
 
@@ -48,6 +50,47 @@ func parseID(v string) (int64, error) {
 		return 0, fmt.Errorf("非法 ID")
 	}
 	return id, nil
+}
+
+func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	limit := 20
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "limit 必须是正整数"})
+			return
+		}
+		if n > 200 {
+			n = 200
+		}
+		limit = n
+	}
+	sinceHours := 24 * 7
+	if raw := strings.TrimSpace(r.URL.Query().Get("since_hours")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "since_hours 必须是正整数"})
+			return
+		}
+		if n > 24*90 {
+			n = 24 * 90
+		}
+		sinceHours = n
+	}
+	files, err := s.store.RecentFilesByUser(r.Context(), u.ID, limit, time.Now().Add(-time.Duration(sinceHours)*time.Hour))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取文件失败"})
+		return
+	}
+	out := make([]fileJSON, 0, len(files))
+	for _, f := range files {
+		out = append(out, toFileJSON(f, "/api/files/"+strconv.FormatInt(f.ID, 10)))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"files": out})
 }
 
 func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {

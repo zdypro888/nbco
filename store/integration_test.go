@@ -331,6 +331,37 @@ func TestOrphanedTasksAndDecisionQueue(t *testing.T) {
 	}
 }
 
+// TestUpsertDecisionItemDoesNotReopenClosed 已关闭的决策项不应被后续 Upsert 重开。
+// 旧实现 ON CONFLICT 无条件 SET status='open'，导致改派/验收后关掉的项被下次 refresh 重开，永远清不掉。
+func TestUpsertDecisionItemDoesNotReopenClosed(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	taskID := int64(42)
+	d, err := s.UpsertDecisionItem(ctx, DecisionItem{
+		OwnerID: boss.ID, Kind: "orphaned_task", Title: "改派孤儿",
+		RefType: "task", RefID: &taskID, Priority: "high",
+	})
+	if err != nil || d.Status != "open" {
+		t.Fatalf("首次 upsert 应 open: %+v err=%v", d, err)
+	}
+	// 关闭它（模拟改派完成）。
+	if n, err := s.CloseDecisionsByRef(ctx, boss.ID, "task", taskID); err != nil || n != 1 {
+		t.Fatalf("关闭应影响 1 行, n=%d err=%v", n, err)
+	}
+	// 再次 upsert 同 ref（模拟下次 BuildDecisionQueue/orphanTaskPass 重跑）：不应重开。
+	d2, err := s.UpsertDecisionItem(ctx, DecisionItem{
+		OwnerID: boss.ID, Kind: "orphaned_task", Title: "改派孤儿",
+		RefType: "task", RefID: &taskID, Priority: "high",
+	})
+	if err != nil {
+		t.Fatalf("重开 upsert 不应报错: %v", err)
+	}
+	if d2.Status != "closed" {
+		t.Errorf("已关闭的决策项不应被重开: got status=%s, want closed", d2.Status)
+	}
+}
+
 func TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

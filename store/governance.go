@@ -304,7 +304,7 @@ func (s *Store) UpsertDecisionItem(ctx context.Context, d DecisionItem) (*Decisi
 		   title = EXCLUDED.title,
 		   detail = EXCLUDED.detail,
 		   priority = EXCLUDED.priority,
-		   status = 'open',
+		   status = CASE WHEN decision_items.status = 'open' THEN 'open' ELSE decision_items.status END,
 		   updated_at = now()
 		 RETURNING `+decisionItemCols,
 		d.OwnerID, d.Kind, d.Title, d.Detail, d.RefType, d.RefID, d.Priority, d.Status))
@@ -416,6 +416,18 @@ func (s *Store) CloseDecisionsByRef(ctx context.Context, ownerID int64, refType 
 		`UPDATE decision_items SET status = 'closed', updated_at = now()
 		 WHERE owner_id = $1 AND ref_type = $2 AND ref_id = $3 AND status = 'open'`,
 		ownerID, refType, refID)
+	if err != nil {
+		return 0, wrapErr(err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// CloseDecisionsByKindRef 只关指定 kind 的决策项（改派用：只关 orphaned_task，保留仍有效的 overdue_task）。
+func (s *Store) CloseDecisionsByKindRef(ctx context.Context, ownerID int64, kind, refType string, refID int64) (int64, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE decision_items SET status = 'closed', updated_at = now()
+		 WHERE owner_id = $1 AND kind = $2 AND ref_type = $3 AND ref_id = $4 AND status = 'open'`,
+		ownerID, kind, refType, refID)
 	if err != nil {
 		return 0, wrapErr(err)
 	}

@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -89,6 +91,44 @@ func TestLLMSemaphoreLazyInit(t *testing.T) {
 		<-sem
 	default:
 		t.Fatal("fresh llm semaphore should have capacity")
+	}
+}
+
+func TestLoadedRuntimeModelsUsesOllamaPS(t *testing.T) {
+	var gotPath, gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"models":[{"model":"mlx-community/DeepSeek-V4-Flash"},{"name":"glm-5.2"},{"model":"bad model"},{"model":"glm-5.2"}]}`))
+	}))
+	defer srv.Close()
+	s := &Server{llm: LLMConfig{BaseURL: srv.URL + "/v1", APIKey: "test-key"}}
+	got, err := s.loadedRuntimeModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"mlx-community/DeepSeek-V4-Flash", "glm-5.2"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("loaded models = %#v, want %#v", got, want)
+	}
+	if gotPath != "/ollama/api/ps" {
+		t.Fatalf("loadedRuntimeModels should query runtime loaded-model endpoint, got %s", gotPath)
+	}
+	if gotAuth != "Bearer test-key" {
+		t.Fatalf("Authorization header = %q", gotAuth)
+	}
+}
+
+func TestValidRuntimeModelName(t *testing.T) {
+	for _, name := range []string{"mlx-community/DeepSeek-V4-Flash", "glm-5.2", "repo/model:tag"} {
+		if !validRuntimeModelName(name) {
+			t.Fatalf("model name should be valid: %q", name)
+		}
+	}
+	for _, name := range []string{"", "bad model", "bad<model>", strings.Repeat("x", 161)} {
+		if validRuntimeModelName(name) {
+			t.Fatalf("model name should be invalid: %q", name)
+		}
 	}
 }
 

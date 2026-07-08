@@ -13,6 +13,13 @@ import (
 
 const materialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
 
+type materialAnalysisArgs struct {
+	FileIDs     []int64 `json:"file_ids"`
+	Instruction string  `json:"instruction"`
+	WorkerID    int64   `json:"worker_id"`
+	Title       string  `json:"title"`
+}
+
 func materialTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
 		tool("analyze_company_materials", "把已上传到 nbco 的公司资料文件交给发起人名下的 worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；nbco 会在 worker 提交后抽取候选，供入库审核/发布。简单文本信息直接保存，不必派 worker。",
@@ -23,63 +30,65 @@ func materialTools(d Deps, u *store.User) []ai.Tool {
 				"title":       p("string", "任务标题，可选"),
 			}, "file_ids", "instruction"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var args struct {
-					FileIDs     []int64 `json:"file_ids"`
-					Instruction string  `json:"instruction"`
-					WorkerID    int64   `json:"worker_id"`
-					Title       string  `json:"title"`
-				}
+				var args materialAnalysisArgs
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				if len(args.FileIDs) == 0 {
-					return "file_ids 不能为空。请先通过 /api/files 上传文件，或使用已有系统文件 ID。", nil
-				}
-				instruction := strings.TrimSpace(args.Instruction)
-				if instruction == "" {
-					return "instruction 不能为空。", nil
-				}
-				worker, err := pickMaterialWorker(ctx, d, u, args.WorkerID)
-				if err != nil {
-					return err.Error(), nil
-				}
-				for _, id := range args.FileIDs {
-					ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, id)
-					if err != nil {
-						return "", err
-					}
-					if !ok {
-						return fmt.Sprintf("你无权访问%s。", internalRef("文件", id)), nil
-					}
-				}
-				pj, err := d.Store.EnsureCompanyIntelligenceProject(ctx, u.ID)
-				if err != nil {
-					return "", err
-				}
-				title := strings.TrimSpace(args.Title)
-				if title == "" {
-					title = "整理公司资料"
-				}
-				t, err := d.Store.CreateTask(ctx, &store.Task{
-					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
-					Title:       title,
-					Goal:        "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
-					Description: materialAnalysisPrompt(instruction),
-					Acceptance:  "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
-					Priority:    "high",
-				})
-				if err != nil {
-					return "", err
-				}
-				for _, id := range args.FileIDs {
-					if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, id, "公司资料分析输入"); err != nil {
-						return "", err
-					}
-				}
-				wakeWorker(d, worker)
-				return fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs)), nil
+				return startMaterialAnalysis(ctx, d, u, args)
 			}),
 	}
+}
+
+func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args materialAnalysisArgs) (string, error) {
+	if d.Store == nil {
+		return "资料分析工作流需要可用的存储服务；当前入口未装配 Store。", nil
+	}
+	if len(args.FileIDs) == 0 {
+		return "file_ids 不能为空。请先通过 /api/files 上传文件，或使用已有系统文件 ID。", nil
+	}
+	instruction := strings.TrimSpace(args.Instruction)
+	if instruction == "" {
+		return "instruction 不能为空。", nil
+	}
+	worker, err := pickMaterialWorker(ctx, d, u, args.WorkerID)
+	if err != nil {
+		return err.Error(), nil
+	}
+	for _, id := range args.FileIDs {
+		ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, id)
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			return fmt.Sprintf("你无权访问%s。", internalRef("文件", id)), nil
+		}
+	}
+	pj, err := d.Store.EnsureCompanyIntelligenceProject(ctx, u.ID)
+	if err != nil {
+		return "", err
+	}
+	title := strings.TrimSpace(args.Title)
+	if title == "" {
+		title = "整理公司资料"
+	}
+	t, err := d.Store.CreateTask(ctx, &store.Task{
+		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
+		Title:       title,
+		Goal:        "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
+		Description: materialAnalysisPrompt(instruction),
+		Acceptance:  "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
+		Priority:    "high",
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, id := range args.FileIDs {
+		if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, id, "公司资料分析输入"); err != nil {
+			return "", err
+		}
+	}
+	wakeWorker(d, worker)
+	return fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs)), nil
 }
 
 func pickMaterialWorker(ctx context.Context, d Deps, u *store.User, workerID int64) (*store.User, error) {

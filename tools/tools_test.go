@@ -121,6 +121,94 @@ func TestWithAuditWithoutStore(t *testing.T) {
 	}
 }
 
+func TestCapabilityRegistryMetadata(t *testing.T) {
+	super := &store.User{ID: 1, Name: "boss", Status: store.UserActive, IsSuperadmin: true}
+	caps, err := CapabilityRegistry(context.Background(), Deps{}, super, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]Capability{}
+	for _, c := range caps {
+		byName[c.Name] = c
+	}
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_workflow", "list_capabilities"} {
+		if _, ok := byName[name]; !ok {
+			t.Fatalf("能力目录缺 %s", name)
+		}
+	}
+	if got := byName["assign_task"].Domain; got != CapabilityWork {
+		t.Fatalf("assign_task domain=%q", got)
+	}
+	if got := byName["analyze_company_materials"].Domain; got != CapabilityWorkers {
+		t.Fatalf("analyze_company_materials domain=%q", got)
+	}
+	if got := byName["start_workflow"].RequiredAction; got != "manage_worker" {
+		t.Fatalf("start_workflow required_action=%q", got)
+	}
+	if !byName["delete_project"].ApprovalRequired {
+		t.Fatalf("delete_project 应标记为审批工具")
+	}
+	if byName["start_workflow"].GroupAllowed {
+		t.Fatalf("start_workflow 不应在群共享会话可用")
+	}
+}
+
+func TestStaticToolDomainsRegistered(t *testing.T) {
+	super := &store.User{ID: 1, Name: "boss", Status: store.UserActive, IsSuperadmin: true}
+	for _, tl := range baseStaticTools(Deps{}, super) {
+		if got := capabilityDomain(tl.Name); got == CapabilityExtension {
+			t.Errorf("内建工具 %s 缺少明确业务域", tl.Name)
+		}
+	}
+}
+
+func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
+	if _, err := workflowTemplateByName("material_intake"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := workflowTemplateByName("nbco_upgrade"); err != nil {
+		t.Fatal(err)
+	}
+	rendered := renderWorkflowTemplates("")
+	for _, want := range []string{"material_intake", "nbco_upgrade", "confirm"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("工作流列表缺 %q:\n%s", want, rendered)
+		}
+	}
+	cmd := nbcoUpgradeCommand("/root/src/nbco", "origin/main")
+	if !strings.Contains(cmd, "cd '/root/src/nbco'") || !strings.Contains(cmd, "scripts/upgrade-nbco.sh 'origin/main'") {
+		t.Fatalf("升级命令不对: %s", cmd)
+	}
+	defaultCmd := nbcoUpgradeCommand("", "")
+	if !strings.Contains(defaultCmd, `NBCO_REPO_DIR`) || !strings.Contains(defaultCmd, "origin/main") {
+		t.Fatalf("默认升级命令应走环境变量兜底: %s", defaultCmd)
+	}
+	templates := ListWorkflowTemplates()
+	templates[0].Args["file_ids"] = "mutated"
+	fresh := ListWorkflowTemplates()
+	if fresh[0].Args["file_ids"] == "mutated" {
+		t.Fatal("ListWorkflowTemplates must deep-copy Args")
+	}
+}
+
+func TestNBCOUpgradeWorkflowRequiresSuperadmin(t *testing.T) {
+	user := &store.User{ID: 2, Name: "manager", Status: store.UserActive}
+	got, err := StartWorkflow(context.Background(), Deps{}, user, "nbco_upgrade", json.RawMessage(`{"confirm":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "超级管理员") {
+		t.Fatalf("nbco_upgrade should reject non-super users before any side effect: %q", got)
+	}
+	ok, reason, err := CanStartWorkflow(context.Background(), Deps{}, user, "nbco_upgrade")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok || !strings.Contains(reason, "超级管理员") {
+		t.Fatalf("CanStartWorkflow nbco_upgrade = ok=%v reason=%q", ok, reason)
+	}
+}
+
 func TestWithTurnBudget(t *testing.T) {
 	calls := 0
 	ts := WithTurnBudget([]ai.Tool{{

@@ -644,7 +644,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
+				// 只关 orphaned_task 决策（改派解决的正是孤儿状态）；overdue_task 可能仍有效，保留。
+				closeTaskDecisionsByKind(ctx, d, t.AssignerID, t.ID, "orphaned_task")
 				if oldAu, uerr := d.Store.UserByID(ctx, oldAssigneeID); uerr == nil && oldAu.IsWorker && d.Workers != nil {
 					d.Workers.Cancel(oldAu.ID, t.ID)
 				}
@@ -1235,6 +1236,14 @@ func workerCapabilityScore(taskText string, cap *store.WorkerCapability) int {
 func closeTaskDecisions(ctx context.Context, d Deps, ownerID, taskID int64) {
 	if _, err := d.Store.CloseDecisionsByRef(ctx, ownerID, "task", taskID); err != nil {
 		slog.Warn("关闭任务决策项失败", "owner", ownerID, "task", taskID, "err", err)
+	}
+}
+
+// closeTaskDecisionsByKind 只关指定 kind 的决策项。改派用：只关 orphaned_task（改派解决的
+// 就是孤儿状态），不关 overdue_task——任务改派后可能仍过期，该决策仍有效。
+func closeTaskDecisionsByKind(ctx context.Context, d Deps, ownerID, taskID int64, kind string) {
+	if _, err := d.Store.CloseDecisionsByKindRef(ctx, ownerID, kind, "task", taskID); err != nil {
+		slog.Warn("关闭任务决策项失败", "owner", ownerID, "task", taskID, "kind", kind, "err", err)
 	}
 }
 

@@ -146,25 +146,18 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if w.Status != store.UserActive {
 					return "目标 worker 已停用。", nil
 				}
-				pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
-				if err != nil {
-					return "", err
-				}
 				title := strings.TrimSpace(args.Title)
 				if title == "" {
 					title = "执行命令"
 				}
-				t, err := d.Store.CreateTask(ctx, &store.Task{
-					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
-					Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
-					Description:   "命令任务会在 worker 的主题工作目录中执行；如需回传文件，请按 worker 任务提示写入本轮产物目录。",
-					Acceptance:    "完成汇报包含退出码和输出摘要；如生成产物文件，应自动上传。",
-					WorkerCommand: cmd, WorkerCommandPTY: args.PTY, Priority: "high",
+				t, err := createWorkerCommandTask(ctx, d, u, w, workerCommandTaskArgs{
+					Title: title, Command: cmd, PTY: args.PTY,
+					Description: "命令任务会在 worker 的主题工作目录中执行；如需回传文件，请按 worker 任务提示写入本轮产物目录。",
+					Acceptance:  "完成汇报包含退出码和输出摘要；如生成产物文件，应自动上传。",
 				})
 				if err != nil {
 					return "", err
 				}
-				wakeWorker(d, w)
 				mode := "pipe"
 				if args.PTY {
 					mode = "pty"
@@ -232,6 +225,49 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已取消 %s（%s）的 admin worker 权限。", w.Name, internalRef("worker", w.ID)), nil
 			}),
 	}
+}
+
+type workerCommandTaskArgs struct {
+	Title       string
+	Command     string
+	PTY         bool
+	Description string
+	Acceptance  string
+	Priority    string
+}
+
+func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args workerCommandTaskArgs) (*store.Task, error) {
+	pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	title := strings.TrimSpace(args.Title)
+	if title == "" {
+		title = "执行命令"
+	}
+	description := strings.TrimSpace(args.Description)
+	if description == "" {
+		description = "命令任务会在 worker 的主题工作目录中执行；如需回传文件，请按 worker 任务提示写入本轮产物目录。"
+	}
+	acceptance := strings.TrimSpace(args.Acceptance)
+	if acceptance == "" {
+		acceptance = "完成汇报包含退出码和输出摘要；如生成产物文件，应自动上传。"
+	}
+	priority := strings.TrimSpace(args.Priority)
+	if priority == "" {
+		priority = "high"
+	}
+	t, err := d.Store.CreateTask(ctx, &store.Task{
+		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
+		Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
+		Description: description, Acceptance: acceptance, Priority: priority,
+		WorkerCommand: strings.TrimSpace(args.Command), WorkerCommandPTY: args.PTY,
+	})
+	if err != nil {
+		return nil, err
+	}
+	wakeWorker(d, w)
+	return t, nil
 }
 
 // mustOwnWorker 目标级校验：目标必须是 worker，且非超管只能操作自己名下

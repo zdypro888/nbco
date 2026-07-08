@@ -173,7 +173,9 @@ func (s *Store) RejectLearningCandidate(ctx context.Context, id, reviewerID int6
 // score and links obvious duplicates/conflicts. It is deliberately conservative:
 // AI can add nuance in review_note, but the store pass must be stable and cheap.
 func (s *Store) ScoreLearningCandidates(ctx context.Context, limit int) (int, error) {
-	if limit <= 0 || limit > 500 {
+	// 上限 200：冲突检测对每个候选最多再扫 200 条同类（learningConflictID），
+	// 外层候选数也限 200，把单次评分的最坏比较次数钳在 200×200=4万，而非无界。
+	if limit <= 0 || limit > 200 {
 		limit = 200
 	}
 	rows, err := s.pool.Query(ctx,

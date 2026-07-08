@@ -5,11 +5,12 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -38,6 +39,9 @@ var Version = "dev"
 
 //go:embed web/index.html
 var indexHTML []byte
+
+//go:embed web/app.css web/app.js
+var webAssets embed.FS
 
 // LLMConfig worker 内置智能体的模型管道配置（/api/worker/llm 透传代理）。
 // 中枢只做管道：model 服务端钉死、API key 不出中枢、内容不解析。
@@ -76,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})
+	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(mustWebAssetFS()))))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		// 探活 DB：死 200 会让流量继续打到一个 DB 已断的实例。短超时避免 healthz 自身拖垮。
 		if s.store == nil {
@@ -106,6 +111,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/learning", s.handleAdminLearning)
 	mux.HandleFunc("GET /api/admin/decisions", s.handleAdminDecisions)
 	mux.HandleFunc("GET /api/admin/ops", s.handleAdminOps)
+	mux.HandleFunc("GET /api/admin/capabilities", s.handleAdminCapabilities)
+	mux.HandleFunc("GET /api/admin/workflows", s.handleAdminWorkflows)
+	mux.HandleFunc("POST /api/admin/workflows/start", s.handleAdminStartWorkflow)
+	mux.HandleFunc("GET /api/admin/ai-settings", s.handleAdminAISettings)
+	mux.HandleFunc("POST /api/admin/ai-settings", s.handleAdminSetAISettings)
+	mux.HandleFunc("GET /api/files", s.handleListFiles)
 	mux.HandleFunc("POST /api/files", s.handleUploadFile)
 	mux.HandleFunc("GET /api/files/{id}", s.handleDownloadFile)
 	mux.HandleFunc("POST /api/tasks/{id}/attachments", s.handleAttachFile)
@@ -121,6 +132,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/worker/ws", s.handleWorkerWS)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
 	return mux
+}
+
+func mustWebAssetFS() fs.FS {
+	sub, err := fs.Sub(webAssets, "web")
+	if err != nil {
+		panic(err)
+	}
+	return sub
 }
 
 // authenticate 解析 Bearer token 并返回启用状态的用户。
@@ -220,11 +239,15 @@ func (s *Server) requireSuper(w http.ResponseWriter, r *http.Request) *store.Use
 }
 
 func (s *Server) handleAdminWorkers(w http.ResponseWriter, r *http.Request) {
-	u := s.requireSuper(w, r)
+	u := s.requireUser(w, r)
 	if u == nil {
 		return
 	}
-	ws, err := s.store.ListWorkers(r.Context(), 0)
+	ownerID := u.ID
+	if u.IsSuperadmin {
+		ownerID = 0
+	}
+	ws, err := s.store.ListWorkers(r.Context(), ownerID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 worker 失败"})
 		return
@@ -307,6 +330,67 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleAdminCapabilities(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	deps := s.deps
+	if deps.Store == nil {
+		deps.Store = s.store
+	}
+	caps, err := tools.CapabilityRegistry(r.Context(), deps, u, u.IsSuperadmin)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取能力目录失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"capabilities": caps})
+}
+
+func (s *Server) handleAdminWorkflows(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"workflows": tools.ListWorkflowTemplates()})
+}
+
+func (s *Server) handleAdminStartWorkflow(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		Name string          `json:"name"`
+		Args json.RawMessage `json:"args"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil || strings.TrimSpace(req.Name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name 必填"})
+		return
+	}
+	deps := s.deps
+	if deps.Store == nil {
+		deps.Store = s.store
+	}
+	ok, reason, err := tools.CanStartWorkflow(r.Context(), deps, u, req.Name)
+	if err != nil {
+		slog.Error("校验工作流权限失败", "user", u.ID, "workflow", req.Name, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "校验权限失败"})
+		return
+	}
+	if !ok {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": reason})
+		return
+	}
+	out, err := tools.StartWorkflow(r.Context(), deps, u, req.Name, req.Args)
+	if err != nil {
+		slog.Error("启动工作流失败", "user", u.ID, "workflow", req.Name, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "启动工作流失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"result": out})
+}
+
 // engineHealth 返回引擎连续失败数与最近错误，供超管在 /api/admin/ops 看引擎是否挂了。
 func (s *Server) engineHealth() map[string]any {
 	if s.orch == nil {
@@ -314,9 +398,9 @@ func (s *Server) engineHealth() map[string]any {
 	}
 	fails, lastErr := s.orch.EngineHealth()
 	return map[string]any{
-		"configured":      true,
+		"configured":        true,
 		"consecutive_fails": fails,
-		"last_error":       lastErr,
+		"last_error":        lastErr,
 	}
 }
 

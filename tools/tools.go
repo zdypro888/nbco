@@ -131,6 +131,28 @@ func wakeWorker(d Deps, u *store.User) {
 //     根本看不到该工具；worker 机器账号只拿白名单最小集。
 //  2. handler 内目标级校验（各工具自带）——有能力 ≠ 对任意目标都行。
 func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
+	ts := baseStaticTools(d, u)
+	var grants []store.Grant
+	if !u.IsSuperadmin && d.Store != nil {
+		var err error
+		if grants, err = d.Store.PermsOf(context.Background(), u.ID); err != nil {
+			slog.Warn("加载权限失败，按无授权裁剪工具集", "user", u.ID, "err", err)
+			grants = nil // 失败按最小权限处理（fail-closed）
+		}
+	}
+	ts = append(ts, dynamicScriptTools(d, u, grants)...)
+	ts = filterByPerm(ts, u, grants)
+
+	for i := range ts {
+		// 审计包在审批外层：登记与执行两次调用都留审计记录。
+		ts[i] = withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i]))
+	}
+	return ts
+}
+
+// baseStaticTools 是内建工具的唯一装配入口。ForUser 在此基础上追加动态脚本工具、
+// 权限裁剪、审批与审计；能力注册中心也从这里读取真实工具集，避免维护第二份清单。
+func baseStaticTools(d Deps, u *store.User) []ai.Tool {
 	var ts []ai.Tool
 	ts = append(ts, profileTools(d, u)...)
 	ts = append(ts, permTools(d, u)...)
@@ -149,25 +171,11 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts = append(ts, scriptToolManagementTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, materialTools(d, u)...)
+	ts = append(ts, workflowTools(d, u)...)
+	ts = append(ts, capabilityTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
-
-	var grants []store.Grant
-	if !u.IsSuperadmin && d.Store != nil {
-		var err error
-		if grants, err = d.Store.PermsOf(context.Background(), u.ID); err != nil {
-			slog.Warn("加载权限失败，按无授权裁剪工具集", "user", u.ID, "err", err)
-			grants = nil // 失败按最小权限处理（fail-closed）
-		}
-	}
-	ts = append(ts, dynamicScriptTools(d, u, grants)...)
-	ts = filterByPerm(ts, u, grants)
-
-	for i := range ts {
-		// 审计包在审批外层：登记与执行两次调用都留审计记录。
-		ts[i] = withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i]))
-	}
 	return ts
 }
 
@@ -215,6 +223,7 @@ var toolPerm = map[string]string{
 	"revoke_worker":             perm.ActManageWorker,
 	"set_worker_admin":          reqSuper,
 	"analyze_company_materials": perm.ActManageWorker,
+	"start_workflow":            perm.ActManageWorker,
 	// 群接入状态可读；控制类操作由可转授的 Telegram 群管理权限解锁。
 	"set_telegram_group_listen":      perm.ActManageTGGroup,
 	"set_telegram_group_auto_invite": perm.ActManageTGGroup,
@@ -296,6 +305,7 @@ var groupSensitive = map[string]bool{
 	"set_worker_admin":               true,
 	"revoke_worker":                  true,
 	"analyze_company_materials":      true,
+	"start_workflow":                 true,
 	"save_rule":                      true, // 群历史可被注入，规则变更回私聊做
 	"list_rules":                     true,
 	"set_rule_pinned":                true,
@@ -473,7 +483,12 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 }
 
 // truncateToolOutput 超过 toolOutputLimit rune 时截断并附分页提示，防顶爆上下文。
+// 先用字节长度廉价预检（UTF-8 字节数 >= rune 数，故字节长度 ≤ limit 时 rune 数必然不超），
+// 避免每次工具调用都做 O(n) 的 rune 转换——绝大多数工具输出很短，直接返回。
 func truncateToolOutput(s string) string {
+	if len(s) <= toolOutputLimit {
+		return s
+	}
 	r := []rune(s)
 	if len(r) <= toolOutputLimit {
 		return s

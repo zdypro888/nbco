@@ -26,6 +26,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
 		"company_overview", "get_ai_settings", "set_ai_settings", "ai_usage_stats", "create_role", "disable_user",
 		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker", "analyze_company_materials",
+		"start_workflow",
 		"save_skill", "update_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
@@ -41,6 +42,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"activate_role", "schedule_once", "get_my_profile", "grant_active_perm",
 		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"search_skills", "load_skill",
+		"list_workflows", "list_capabilities",
 	} {
 		if !names[keep] {
 			t.Errorf("无授权用户应保留 %s", keep)
@@ -68,10 +70,10 @@ func TestFilterByPermGrantUnlocks(t *testing.T) {
 // 拿到 manage_worker 授权后，AI 员工管理工具出现（目标级校验在 handler 内另做）。
 func TestManageWorkerGrantUnlocks(t *testing.T) {
 	u := &store.User{ID: 2, Status: store.UserActive}
-	ts := []ai.Tool{{Name: "create_worker"}, {Name: "issue_worker_bind_code"}, {Name: "revoke_worker"}, {Name: "analyze_company_materials"}, {Name: "company_overview"}, {Name: "set_worker_admin"}}
+	ts := []ai.Tool{{Name: "create_worker"}, {Name: "issue_worker_bind_code"}, {Name: "revoke_worker"}, {Name: "analyze_company_materials"}, {Name: "start_workflow"}, {Name: "company_overview"}, {Name: "set_worker_admin"}}
 	grants := []store.Grant{{Kind: store.KindActive, UserID: 2, Action: perm.ActManageWorker, Target: store.TargetAll}}
 	names := namesOf(filterByPerm(ts, u, grants))
-	for _, want := range []string{"create_worker", "issue_worker_bind_code", "revoke_worker", "analyze_company_materials"} {
+	for _, want := range []string{"create_worker", "issue_worker_bind_code", "revoke_worker", "analyze_company_materials", "start_workflow"} {
 		if !names[want] {
 			t.Errorf("有 manage_worker 授权应解锁 %s", want)
 		}
@@ -180,6 +182,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
 		"ai_usage_stats", "create_worker", "run_worker_command", "analyze_company_materials", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
 		"save_skill", "update_skill", "search_skills", "load_skill",
+		"list_workflows", "start_workflow", "list_capabilities",
 		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
@@ -216,7 +219,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
-		"send_file",
+		"send_file", "start_workflow",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",
