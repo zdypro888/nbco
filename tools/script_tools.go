@@ -12,6 +12,7 @@ import (
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/scripttool"
 	"github.com/zdypro888/nbco/store"
+	"go.starlark.net/starlark"
 )
 
 const scriptToolListLimit = 50
@@ -232,7 +233,9 @@ func dynamicScriptTools(d Deps, u *store.User, grants []store.Grant) []ai.Tool {
 		}
 		script := *st
 		out = append(out, tool(script.Name, script.Description, schema, func(ctx context.Context, raw json.RawMessage) (string, error) {
-			out, err := scripttool.Run(ctx, script.Name, script.Source, raw, scripttool.RunOptions{})
+			out, err := scripttool.Run(ctx, script.Name, script.Source, raw, scripttool.RunOptions{
+				Predeclared: scriptBuiltins(ctx, d, u, grants, script.Name),
+			})
 			if err != nil {
 				return "脚本工具执行失败：" + err.Error(), nil
 			}
@@ -254,6 +257,81 @@ func scriptToolAllowed(u *store.User, grants []store.Grant, required string) boo
 		return true
 	}
 	return hasAnyActive(grants, required)
+}
+
+func scriptValidationBuiltins() starlark.StringDict {
+	return starlark.StringDict{
+		"nbco_tool": starlark.NewBuiltin("nbco_tool", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var name string
+			var input starlark.Value = starlark.NewDict(0)
+			if err := starlark.UnpackArgs("nbco_tool", args, kwargs, "name", &name, "args?", &input); err != nil {
+				return nil, err
+			}
+			return starlark.String("{}"), nil
+		}),
+		"nbco_ai": starlark.NewBuiltin("nbco_ai", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var prompt string
+			if err := starlark.UnpackArgs("nbco_ai", args, kwargs, "prompt", &prompt); err != nil {
+				return nil, err
+			}
+			return starlark.String(""), nil
+		}),
+	}
+}
+
+func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.Grant, selfName string) starlark.StringDict {
+	return starlark.StringDict{
+		"nbco_tool": starlark.NewBuiltin("nbco_tool", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var name string
+			var input starlark.Value = starlark.NewDict(0)
+			if err := starlark.UnpackArgs("nbco_tool", args, kwargs, "name", &name, "args?", &input); err != nil {
+				return nil, err
+			}
+			name = strings.TrimSpace(name)
+			if name == "" {
+				return nil, fmt.Errorf("tool name 不能为空")
+			}
+			if name == selfName {
+				return nil, fmt.Errorf("脚本不能递归调用自己")
+			}
+			goVal, err := scripttool.FromStarlark(input)
+			if err != nil {
+				return nil, err
+			}
+			raw, err := json.Marshal(goVal)
+			if err != nil {
+				return nil, err
+			}
+			for _, t := range filterByPerm(staticToolsForScript(d, u), u, grants) {
+				if t.Name != name {
+					continue
+				}
+				if d.Store != nil {
+					t = withAudit(d.Store, u.ID, nil, withApproval(d.Store, u.ID, t))
+				}
+				out, err := t.Handler(ctx, raw)
+				if err != nil {
+					return nil, err
+				}
+				return starlark.String(out), nil
+			}
+			return nil, fmt.Errorf("当前用户不可调用工具 %s", name)
+		}),
+		"nbco_ai": starlark.NewBuiltin("nbco_ai", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var prompt string
+			if err := starlark.UnpackArgs("nbco_ai", args, kwargs, "prompt", &prompt); err != nil {
+				return nil, err
+			}
+			if d.ScriptAI == nil {
+				return nil, fmt.Errorf("脚本 AI 能力未配置")
+			}
+			out, err := d.ScriptAI(ctx, u, prompt)
+			if err != nil {
+				return nil, err
+			}
+			return starlark.String(out), nil
+		}),
+	}
 }
 
 func normalizeScriptToolSchema(schema map[string]any) ([]byte, string) {
@@ -293,13 +371,21 @@ func validateScriptToolSpec(ctx context.Context, d Deps, u *store.User, name, de
 	if requiredAction != "" && !perm.ValidActiveAction(requiredAction) {
 		return "required_action 不是合法主动权限。"
 	}
-	if err := scripttool.Validate(ctx, name, source, scripttool.RunOptions{}); err != nil {
+	if err := scripttool.Validate(ctx, name, source, scripttool.RunOptions{Predeclared: scriptValidationBuiltins()}); err != nil {
 		return "脚本自检失败：" + err.Error()
 	}
 	return ""
 }
 
 func staticToolNames(d Deps, u *store.User) map[string]bool {
+	out := map[string]bool{}
+	for _, t := range staticToolsForScript(d, u) {
+		out[t.Name] = true
+	}
+	return out
+}
+
+func staticToolsForScript(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{}
 	ts = append(ts, profileTools(d, u)...)
 	ts = append(ts, permTools(d, u)...)
@@ -309,18 +395,17 @@ func staticToolNames(d Deps, u *store.User) map[string]bool {
 	ts = append(ts, roleTools(d, u)...)
 	ts = append(ts, knowledgeTools(d, u)...)
 	ts = append(ts, memoryTools(d, u)...)
+	ts = append(ts, fileTools(d, u)...)
 	ts = append(ts, ruleTools(d, u)...)
 	ts = append(ts, skillTools(d, u)...)
+	ts = append(ts, learningTools(d, u)...)
 	ts = append(ts, scriptToolManagementTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
+	ts = append(ts, materialTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
-	out := map[string]bool{}
-	for _, t := range ts {
-		out[t.Name] = true
-	}
-	return out
+	return ts
 }
 
 func runStoredScriptTool(ctx context.Context, st *store.ScriptTool, args map[string]any) (string, error) {

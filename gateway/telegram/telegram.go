@@ -201,6 +201,58 @@ func (g *Gateway) Send(ctx context.Context, userID int64, text string) error {
 	return g.sendChunks(ctx, chatID, text)
 }
 
+func (g *Gateway) SendFile(ctx context.Context, userID int64, fileID int64, caption string) error {
+	ref, err := g.store.ChatRef(ctx, userID, Provider)
+	if err != nil {
+		return fmt.Errorf("用户 %d 无 Telegram 渠道: %w", userID, err)
+	}
+	chatID, err := strconv.ParseInt(ref, 10, 64)
+	if err != nil {
+		return fmt.Errorf("chat_ref 非法: %q", ref)
+	}
+	f, err := g.store.FileByID(ctx, fileID)
+	if err != nil {
+		return fmt.Errorf("文件不存在: %w", err)
+	}
+	path, err := g.filePath(f.StoragePath)
+	if err != nil {
+		return err
+	}
+	fp, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	caption = toTelegramHTML(caption)
+	if len([]rune(caption)) > 1024 {
+		caption = string([]rune(caption)[:1024])
+	}
+	_, err = g.bot.SendDocument(ctx, &bot.SendDocumentParams{
+		ChatID: chatID,
+		Document: &models.InputFileUpload{
+			Filename: safeTelegramFilename(f.OriginalName),
+			Data:     fp,
+		},
+		Caption:   caption,
+		ParseMode: models.ParseModeHTML,
+	})
+	if err == nil {
+		return nil
+	}
+	if _, seekErr := fp.Seek(0, io.SeekStart); seekErr != nil {
+		return err
+	}
+	_, err = g.bot.SendDocument(ctx, &bot.SendDocumentParams{
+		ChatID: chatID,
+		Document: &models.InputFileUpload{
+			Filename: safeTelegramFilename(f.OriginalName),
+			Data:     fp,
+		},
+		Caption: htmlTagTokenRe.ReplaceAllString(caption, ""),
+	})
+	return err
+}
+
 func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update) {
 	if update.MyChatMember != nil {
 		g.handleMyChatMember(ctx, update.MyChatMember)
@@ -1862,6 +1914,33 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 		Source: "telegram", OriginalName: name, MIMEType: mimeType,
 		SizeBytes: n, SHA256: sum, StoragePath: rel, CreatedBy: &uid,
 	})
+}
+
+func (g *Gateway) filePath(rel string) (string, error) {
+	clean := filepath.Clean(rel)
+	if filepath.IsAbs(clean) || clean == "." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("文件路径非法")
+	}
+	root, err := filepath.Abs(g.fileStorePath)
+	if err != nil {
+		return "", err
+	}
+	full, err := filepath.Abs(filepath.Join(root, clean))
+	if err != nil {
+		return "", err
+	}
+	if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
+		return "", fmt.Errorf("文件路径非法")
+	}
+	return full, nil
+}
+
+func safeTelegramFilename(name string) string {
+	name = filepath.Base(strings.TrimSpace(name))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		return "nbco-file"
+	}
+	return name
 }
 
 func savedFilesPrompt(files []store.File) string {

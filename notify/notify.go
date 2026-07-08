@@ -16,6 +16,13 @@ type Notifier interface {
 	Send(ctx context.Context, userID int64, text string) error
 }
 
+// FileNotifier is implemented by channels that can deliver a stored nbco file
+// to a user. Tools should prefer this optional capability over leaking raw
+// filesystem paths or asking users to fetch internal URLs.
+type FileNotifier interface {
+	SendFile(ctx context.Context, userID int64, fileID int64, caption string) error
+}
+
 // Func 便捷适配器。
 type Func func(ctx context.Context, userID int64, text string) error
 
@@ -45,4 +52,18 @@ func (h *Hub) Send(ctx context.Context, userID int64, text string) error {
 		return errors.New("通知通道尚未就绪")
 	}
 	return n.Send(ctx, userID, text)
+}
+
+func (h *Hub) SendFile(ctx context.Context, userID int64, fileID int64, caption string) error {
+	h.mu.RLock()
+	n := h.n
+	h.mu.RUnlock()
+	if n == nil {
+		return errors.New("通知通道尚未就绪")
+	}
+	fn, ok := n.(FileNotifier)
+	if !ok {
+		return errors.New("当前通知通道不支持发送文件")
+	}
+	return fn.SendFile(ctx, userID, fileID, caption)
 }

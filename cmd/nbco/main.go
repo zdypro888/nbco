@@ -104,6 +104,28 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
+	deps.ScriptAI = func(ctx context.Context, u *store.User, prompt string) (string, error) {
+		actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		name := ""
+		if u != nil {
+			name = u.Name
+		}
+		model := strings.TrimSpace(cfg.AI.Model)
+		if runtimeModel, err := st.GetKV(actx, store.KVAIModel); err == nil && strings.TrimSpace(runtimeModel) != "" {
+			model = strings.TrimSpace(runtimeModel)
+		}
+		res, err := engine.RunTurn(actx, &ai.TurnRequest{
+			SessionID: "script-ai",
+			System:    "你是 nbco 脚本工具的受控 AI 子调用。只回答本次脚本请求需要的结果，不调用工具，不输出无关解释。",
+			UserText:  fmt.Sprintf("调用者：%s\n\n%s", name, prompt),
+			Model:     model,
+		})
+		if err != nil {
+			return "", err
+		}
+		return res.Text, nil
+	}
 
 	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning)
 

@@ -216,6 +216,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
+		"send_file",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",

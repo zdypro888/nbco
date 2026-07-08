@@ -47,6 +47,9 @@ type Deps struct {
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
+	// ScriptAI is the constrained AI subcall exposed to script tools. The caller
+	// user is passed through so usage and permissions stay attributable.
+	ScriptAI func(ctx context.Context, u *store.User, prompt string) (string, error)
 }
 
 // Eventer 系统事件出口（由 events.Bus 实现）。
@@ -293,6 +296,7 @@ var groupSensitive = map[string]bool{
 	"set_ai_settings":                true,
 	"remove_info_field":              true,
 	"send_message":                   true, // 群里可直接说，无需借 bot 向他人/全体转发
+	"send_file":                      true,
 	"schedule_push":                  true, // 定向推送涉及他人，回私聊设更稳妥
 	"set_telegram_group_listen":      true,
 	"set_telegram_group_auto_invite": true,

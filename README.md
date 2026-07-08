@@ -318,6 +318,16 @@ Telegram 私聊收到 PDF/XLSX/TXT/图片/视频等文件时，nbco 会先下载
 - 后续用户说“这几个文件/刚才那两个附件”时，每轮系统提示会注入最近 24 小时的上传文件摘要；AI 也可用 `list_recent_files` 精确查看队列
 - 需要读取文件内容、抽表格、识别图片或跨文件归纳时，AI 再调用 `analyze_company_materials`，由发起人名下 worker 下载任务附件并处理
 - 简单文字事实不派 worker，直接走 `save_knowledge` / 信息字段 / 任务工具
+- `send_file` 可把 nbco 文件库里的文件发送回 Telegram 用户；发给自己只需能访问该文件，发给别人需要 `send_msg` 权限。worker 产物、整理后的 XLSX/PDF/TXT 可通过这个工具交付给用户
+
+## 脚本 SDK
+
+Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两个受控 builtin 使用 nbco 能力：
+
+- `nbco_tool(name, args={...})`：调用当前用户有权使用的 nbco tool，所有权限裁剪、目标校验、审计记录照常生效；脚本不能递归调用自己
+- `nbco_ai(prompt)`：发起一个无工具、短时限的 AI 子调用，适合模糊分类、轻量总结、字段判断；复杂执行仍应调用 worker 或正式工具
+
+权限继承调用者：谁调用脚本，脚本里的 `nbco_tool` / `nbco_ai` 就以谁的身份运行。脚本没有数据库、文件系统、网络、shell 直通能力；要访问系统状态必须走 tool。
 
 ## 权限体系
 

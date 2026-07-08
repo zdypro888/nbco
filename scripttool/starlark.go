@@ -21,8 +21,9 @@ const (
 )
 
 type RunOptions struct {
-	Timeout  time.Duration
-	MaxSteps uint64
+	Timeout     time.Duration
+	MaxSteps    uint64
+	Predeclared starlark.StringDict
 }
 
 func Run(ctx context.Context, name, source string, args json.RawMessage, opts RunOptions) (string, error) {
@@ -60,7 +61,7 @@ func Run(ctx context.Context, name, source string, args json.RawMessage, opts Ru
 	}()
 	defer close(done)
 
-	globals, err := starlark.ExecFile(thread, name+".star", source, predeclared())
+	globals, err := starlark.ExecFile(thread, name+".star", source, predeclared(opts.Predeclared))
 	if err != nil {
 		return "", err
 	}
@@ -102,7 +103,7 @@ func Validate(ctx context.Context, name, source string, opts RunOptions) error {
 		}
 	}()
 	defer close(done)
-	globals, err := starlark.ExecFile(thread, name+".star", source, predeclared())
+	globals, err := starlark.ExecFile(thread, name+".star", source, predeclared(opts.Predeclared))
 	if err != nil {
 		return err
 	}
@@ -116,8 +117,8 @@ func Validate(ctx context.Context, name, source string, opts RunOptions) error {
 	return nil
 }
 
-func predeclared() starlark.StringDict {
-	return starlark.StringDict{
+func predeclared(extra starlark.StringDict) starlark.StringDict {
+	out := starlark.StringDict{
 		"json_encode": starlark.NewBuiltin("json_encode", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var v starlark.Value
 			if err := starlark.UnpackArgs("json_encode", args, kwargs, "value", &v); err != nil {
@@ -134,6 +135,18 @@ func predeclared() starlark.StringDict {
 			return starlark.String(raw), nil
 		}),
 	}
+	for k, v := range extra {
+		out[k] = v
+	}
+	return out
+}
+
+func FromStarlark(v starlark.Value) (any, error) {
+	return fromStarlark(v)
+}
+
+func ToStarlark(v any) (starlark.Value, error) {
+	return toStarlark(v)
 }
 
 func toStarlark(v any) (starlark.Value, error) {
