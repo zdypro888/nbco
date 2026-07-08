@@ -2,33 +2,36 @@
 
 ## Trigger
 
-Use this when a superadmin asks to upgrade, deploy, publish, restart, or self-update the production nbco service on `im.app`.
+Use this when a superadmin asks to upgrade, deploy, publish, restart, or self-update an nbco service.
 
 ## Summary
 
-Production upgrades must go through the fixed upgrade script instead of ad hoc shell commands. The script tests, builds, backs up the old binary, restarts `nbco`, checks `/healthz`, and rolls back automatically if the new service does not become healthy.
+Production upgrades must go through the deployment's configured upgrade entrypoint instead of ad hoc shell commands. The script tests, builds, backs up the old binary, restarts `nbco`, checks `/healthz`, and rolls back automatically if the new service does not become healthy.
 
 ## Procedure
 
 1. Confirm the requested target ref. If the user did not specify one, use `origin/main`.
-2. Use the im.app root worker, not a local worker.
-3. Run the fixed production script:
+2. Run the upgrade entrypoint configured for that deployment. If no host-local wrapper exists, run the repository script with explicit environment variables:
 
    ```bash
-   cd /root/src/nbco
-   /root/nbco/bin/upgrade-nbco origin/main
+   cd "$NBCO_REPO_DIR"
+   NBCO_APP_DIR="$NBCO_APP_DIR" \
+   NBCO_CONFIG="$NBCO_CONFIG" \
+   NBCO_HEALTH_URL="$NBCO_HEALTH_URL" \
+   scripts/upgrade-nbco.sh origin/main
    ```
 
-4. Do not hand-write the deploy sequence unless the script itself is broken.
-5. Treat a successful run only as one that ends with the service healthy at `https://im.app:8443/healthz`.
-6. If the script reports rollback succeeded, tell the user the upgrade failed but production was restored to the previous binary.
-7. If both upgrade and rollback health checks fail, report that production needs manual intervention and include the last `journalctl -u nbco` errors.
+3. Do not hand-write the deploy sequence unless the script itself is broken.
+4. Treat a successful run only as one that ends with the service healthy at the deployment's configured health URL.
+5. If the script reports rollback succeeded, tell the user the upgrade failed but production was restored to the previous binary.
+6. If both upgrade and rollback health checks fail, report that production needs manual intervention and include the last `journalctl -u nbco` errors.
 
 ## Constraints
 
 - Do not skip tests unless the superadmin explicitly asks for an emergency deploy.
 - Do not deploy from a dirty production repo.
-- `/root/nbco/bin/upgrade-nbco` is the stable production entrypoint. The repository source is `scripts/upgrade-nbco.sh`.
+- Deployment-specific paths, domains, ports, and service names must come from environment variables or a host-local wrapper. Do not commit those facts into the generic script or skill.
+- `scripts/upgrade-nbco.sh` is the repository source for the upgrade logic.
 - Do not restart `nbco-worker` as part of an nbco upgrade unless the worker binary itself changed.
 - Do not expose tokens, config secrets, or environment dumps in the progress report.
 - During `systemctl restart nbco`, Telegram/HTTP may be unavailable for a few seconds. This is expected. The worker service is separate and continues running.
