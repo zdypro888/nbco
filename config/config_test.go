@@ -41,6 +41,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 || cfg.AI.TimeoutMS != 300000 {
 		t.Errorf("MaxTokens/MaxTurns/TimeoutMS 默认值 = %d/%d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns, cfg.AI.TimeoutMS)
 	}
+	if cfg.AI.MaxCompletionTokens != 0 || cfg.AI.ReasoningEffort != "" {
+		t.Errorf("reasoning 默认配置 = max_completion_tokens:%d reasoning_effort:%q", cfg.AI.MaxCompletionTokens, cfg.AI.ReasoningEffort)
+	}
 	if cfg.AI.StreamReasoning {
 		t.Error("stream_reasoning 默认不应展示推理过程")
 	}
@@ -68,6 +71,21 @@ func TestLoadDailySummaryOff(t *testing.T) {
 	}
 }
 
+func TestLoadReasoningConfig(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{
+		"telegram_token": "tok",
+		"superadmins": [1],
+		"postgres_dsn": "postgres://x",
+		"ai": {"provider":"openai","api_key": "k", "model": "m", "max_completion_tokens": 8192, "reasoning_effort": "LOW"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AI.MaxCompletionTokens != 8192 || cfg.AI.ReasoningEffort != "low" {
+		t.Fatalf("reasoning config = max_completion_tokens:%d reasoning_effort:%q", cfg.AI.MaxCompletionTokens, cfg.AI.ReasoningEffort)
+	}
+}
+
 func TestLoadValidation(t *testing.T) {
 	cases := []struct {
 		name, body, wantErr string
@@ -87,6 +105,9 @@ func TestLoadValidation(t *testing.T) {
 		{"未知 provider",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"gemini","api_key":"k","model":"m"}}`,
 			"ai.provider 不支持"},
+		{"未知 reasoning_effort",
+			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","model":"m","reasoning_effort":"max"}}`,
+			"ai.reasoning_effort"},
 		{"mcp server 缺 url",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","mcp_servers":[{"name":"x"}],"ai":{"api_key":"k","model":"m"}}`,
 			"mcp_servers[0]"},

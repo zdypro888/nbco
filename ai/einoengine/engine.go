@@ -77,9 +77,15 @@ func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCalli
 			Model:   cfg.Model,
 			Timeout: timeout,
 		}
-		if cfg.MaxTokens > 0 {
+		if cfg.MaxCompletionTokens > 0 {
+			mt := cfg.MaxCompletionTokens
+			c.MaxCompletionTokens = &mt
+		} else if cfg.MaxTokens > 0 {
 			mt := cfg.MaxTokens
 			c.MaxTokens = &mt
+		}
+		if effort := strings.TrimSpace(cfg.ReasoningEffort); effort != "" {
+			c.ReasoningEffort = openai.ReasoningEffortLevel(effort)
 		}
 		if cfg.Temperature > 0 {
 			t := cfg.Temperature
@@ -150,7 +156,14 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	// 开启流式：ADK 把助手消息以 StreamReader 逐块吐出，collect 逐块读、把最终
 	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
 	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
-	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning, e.cfg.MaxTokens)
+	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning, e.outputTokenLimit())
+}
+
+func (e *Engine) outputTokenLimit() int {
+	if e.cfg.Provider == config.ProviderOpenAI && e.cfg.MaxCompletionTokens > 0 {
+		return e.cfg.MaxCompletionTokens
+	}
+	return e.cfg.MaxTokens
 }
 
 func (e *Engine) modelFor(ctx context.Context, name string) (einomodel.ToolCallingChatModel, error) {

@@ -169,8 +169,11 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 	if _, err := workflowTemplateByName("nbco_upgrade"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := workflowTemplateByName("nbco_feature_upgrade"); err != nil {
+		t.Fatal(err)
+	}
 	rendered := renderWorkflowTemplates("")
-	for _, want := range []string{"material_intake", "nbco_upgrade", "confirm"} {
+	for _, want := range []string{"material_intake", "nbco_upgrade", "nbco_feature_upgrade", "confirm"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("工作流列表缺 %q:\n%s", want, rendered)
 		}
@@ -189,6 +192,12 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 	if fresh[0].Args["file_ids"] == "mutated" {
 		t.Fatal("ListWorkflowTemplates must deep-copy Args")
 	}
+	prompt := nbcoFeatureUpgradePrompt("修复输出截断", "", "", "origin/main", true, true)
+	for _, want := range []string{"${NBCO_REPO_DIR:-$HOME/src/nbco}", "scripts/upgrade-nbco.sh origin/main", "不要猜仓库地址"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("功能升级 prompt 缺 %q:\n%s", want, prompt)
+		}
+	}
 }
 
 func TestNBCOUpgradeWorkflowRequiresSuperadmin(t *testing.T) {
@@ -206,6 +215,13 @@ func TestNBCOUpgradeWorkflowRequiresSuperadmin(t *testing.T) {
 	}
 	if ok || !strings.Contains(reason, "超级管理员") {
 		t.Fatalf("CanStartWorkflow nbco_upgrade = ok=%v reason=%q", ok, reason)
+	}
+	got, err = StartWorkflow(context.Background(), Deps{}, user, "nbco_feature_upgrade", json.RawMessage(`{"confirm":true,"instruction":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "超级管理员") {
+		t.Fatalf("nbco_feature_upgrade should reject non-super users before any side effect: %q", got)
 	}
 }
 

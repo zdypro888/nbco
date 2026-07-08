@@ -145,7 +145,9 @@ func run(configPath string) error {
 	// 适配 OpenAI 或 Claude/Anthropic 兼容协议。
 	llm := httpapi.LLMConfig{
 		Provider: cfg.AI.Provider, BaseURL: cfg.AI.BaseURL, APIKey: cfg.AI.APIKey,
-		Model: cfg.AI.Model, MaxTokens: cfg.AI.MaxTokens, TimeoutMS: cfg.AI.TimeoutMS,
+		Model: cfg.AI.Model, MaxTokens: cfg.AI.MaxTokens,
+		MaxCompletionTokens: cfg.AI.MaxCompletionTokens, ReasoningEffort: cfg.AI.ReasoningEffort,
+		TimeoutMS: cfg.AI.TimeoutMS,
 	}
 	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath)
 

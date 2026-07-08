@@ -94,6 +94,28 @@ func TestLLMSemaphoreLazyInit(t *testing.T) {
 	}
 }
 
+func TestApplyWorkerLLMBudget(t *testing.T) {
+	s := &Server{llm: LLMConfig{MaxTokens: 4096}}
+	body := map[string]any{}
+	s.applyWorkerLLMBudget(body)
+	if body["max_tokens"] != 4096 {
+		t.Fatalf("max_tokens not applied: %#v", body)
+	}
+
+	s = &Server{llm: LLMConfig{MaxTokens: 4096, MaxCompletionTokens: 8192, ReasoningEffort: "low"}}
+	body = map[string]any{"max_tokens": 123}
+	s.applyWorkerLLMBudget(body)
+	if _, ok := body["max_tokens"]; ok {
+		t.Fatalf("max_tokens should be removed when max_completion_tokens is configured: %#v", body)
+	}
+	if body["max_completion_tokens"] != 8192 || body["reasoning_effort"] != "low" {
+		t.Fatalf("reasoning budget not applied: %#v", body)
+	}
+	if got := s.llmMaxTokens(); got != 8192 {
+		t.Fatalf("llmMaxTokens = %d", got)
+	}
+}
+
 func TestLoadedRuntimeModelsUsesOllamaPS(t *testing.T) {
 	var gotPath, gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

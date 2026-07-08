@@ -46,12 +46,14 @@ var webAssets embed.FS
 // LLMConfig worker 内置智能体的模型管道配置（/api/worker/llm 透传代理）。
 // 中枢只做管道：model 服务端钉死、API key 不出中枢、内容不解析。
 type LLMConfig struct {
-	Provider  string
-	BaseURL   string // OpenAI 或 Claude/Anthropic 兼容网关地址；空 = 管道关闭
-	APIKey    string
-	Model     string
-	MaxTokens int
-	TimeoutMS int
+	Provider            string
+	BaseURL             string // OpenAI 或 Claude/Anthropic 兼容网关地址；空 = 管道关闭
+	APIKey              string
+	Model               string
+	MaxTokens           int
+	MaxCompletionTokens int
+	ReasoningEffort     string
+	TimeoutMS           int
 }
 
 // Server HTTP 入口。
@@ -691,6 +693,7 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	body["model"] = model  // 服务端钉死，防 worker 指定任意模型
 	body["stream"] = false // 管道不透传流式
+	s.applyWorkerLLMBudget(body)
 
 	var out []byte
 	var status int
@@ -811,10 +814,28 @@ func (s *Server) llmTimeout() time.Duration {
 }
 
 func (s *Server) llmMaxTokens() int {
+	if s.llm.MaxCompletionTokens > 0 {
+		return s.llm.MaxCompletionTokens
+	}
 	if s.llm.MaxTokens > 0 {
 		return s.llm.MaxTokens
 	}
 	return 4096
+}
+
+func (s *Server) applyWorkerLLMBudget(body map[string]any) {
+	if body == nil {
+		return
+	}
+	if s.llm.MaxCompletionTokens > 0 {
+		body["max_completion_tokens"] = s.llm.MaxCompletionTokens
+		delete(body, "max_tokens")
+	} else if s.llm.MaxTokens > 0 {
+		body["max_tokens"] = s.llm.MaxTokens
+	}
+	if effort := strings.TrimSpace(s.llm.ReasoningEffort); effort != "" {
+		body["reasoning_effort"] = effort
+	}
 }
 
 func recordWorkerLLMUsage(ctx context.Context, st *store.Store, userID int64, model string, out []byte) {
@@ -1437,7 +1458,8 @@ func workerSkillSummary(content string) string {
 	return truncateRunes(content, 240)
 }
 
-const materialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
+// materialLearningMarker 引用 tools 包的单一来源，防双方漂移导致学习候选静默丢失。
+const materialLearningMarker = tools.MaterialLearningMarker
 
 type workerLearningPayload struct {
 	Knowledge []struct {

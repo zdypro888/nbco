@@ -25,15 +25,19 @@ const (
 
 // AIConfig AI 引擎配置。
 type AIConfig struct {
-	Engine      string  `json:"engine"`     // 仅支持 eino；CLI 自动执行走 nbco-worker 交互式 PTY
-	Provider    string  `json:"provider"`   // eino: claude | openai
-	APIKey      string  `json:"api_key"`    // eino 引擎用
-	BaseURL     string  `json:"base_url"`   // 可选，自建网关
-	Model       string  `json:"model"`      // 模型名，必填（eino）
-	MaxTokens   int     `json:"max_tokens"` // 默认 4096
-	Temperature float32 `json:"temperature"`
-	TimeoutMS   int     `json:"timeout_ms"` // 单次模型 API 请求超时，默认 300000ms
-	MaxTurns    int     `json:"max_turns"`  // tool 循环上限，默认 16
+	Engine    string `json:"engine"`     // 仅支持 eino；CLI 自动执行走 nbco-worker 交互式 PTY
+	Provider  string `json:"provider"`   // eino: claude | openai
+	APIKey    string `json:"api_key"`    // eino 引擎用
+	BaseURL   string `json:"base_url"`   // 可选，自建网关
+	Model     string `json:"model"`      // 模型名，必填（eino）
+	MaxTokens int    `json:"max_tokens"` // 默认 4096
+	// MaxCompletionTokens 是 OpenAI 兼容 reasoning 模型的原生输出预算，包含可见正文
+	// 与推理 token。为空时保留 max_tokens 行为，避免破坏只兼容 max_tokens 的网关。
+	MaxCompletionTokens int     `json:"max_completion_tokens"`
+	ReasoningEffort     string  `json:"reasoning_effort"` // openai reasoning_effort: low | medium | high
+	Temperature         float32 `json:"temperature"`
+	TimeoutMS           int     `json:"timeout_ms"` // 单次模型 API 请求超时，默认 300000ms
+	MaxTurns            int     `json:"max_turns"`  // tool 循环上限，默认 16
 	// StreamReasoning 控制流式阶段是否把模型推理内容展示给用户；默认 false。
 	StreamReasoning bool `json:"stream_reasoning"`
 	// 语义检索的 embedding 配置（可选）。EmbedModel 空=不启用，知识检索回退词法。
@@ -181,6 +185,12 @@ func (c *Config) validate() error {
 		}
 		if c.AI.Provider != ProviderClaude && c.AI.Provider != ProviderOpenAI {
 			errs = append(errs, fmt.Errorf("ai.provider 不支持: %q", c.AI.Provider))
+		}
+		switch strings.ToLower(strings.TrimSpace(c.AI.ReasoningEffort)) {
+		case "", "low", "medium", "high":
+			c.AI.ReasoningEffort = strings.ToLower(strings.TrimSpace(c.AI.ReasoningEffort))
+		default:
+			errs = append(errs, fmt.Errorf("ai.reasoning_effort 不支持: %q", c.AI.ReasoningEffort))
 		}
 		if strings.TrimSpace(c.AI.EmbedModel) != "" &&
 			strings.TrimSpace(c.AI.EmbedBaseURL) == "" &&

@@ -11,7 +11,11 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
-const materialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
+// MaterialLearningMarker 是材料分析工具与 httpapi 之间的约定协议串：worker 汇报里
+// 出现该标记后接严格 JSON，httpapi 据此抽取学习候选。双方必须引用同一常量，漂移会让
+// 学习候选静默丢失。
+const MaterialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
+const materialLearningMarker = MaterialLearningMarker // 内部旧引用兼容
 
 type materialAnalysisArgs struct {
 	FileIDs     []int64 `json:"file_ids"`

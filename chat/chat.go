@@ -1516,7 +1516,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 已提交待验收、需深度核查交付质量 → delegate_review 委派给 AI 员工审核，结论回来后再协助分配者验收或打回。\n")
 	b.WriteString("- 执行人离线/不胜任/需换人 → reassign_task 改派（保留任务ID与进度历史，自动终止旧执行人、唤醒新执行人）；不要用 delete+assign，那会销毁进度记录。\n")
 	b.WriteString("- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ 优先 start_workflow: material_intake；旧路径可用 analyze_company_materials。几句文字能直接存的就 save_knowledge / update_user_info，不要默认塞给全局 worker。\n")
-	b.WriteString("- nbco 自升级/部署 → 优先 start_workflow: nbco_upgrade；必须使用一个 admin worker 的单个任务执行完整升级脚本，不要拆成多个并发任务。\n")
+	b.WriteString("- nbco 自升级/部署 → 已有代码要上线时用 start_workflow: nbco_upgrade；用户要求“改某个 nbco 功能并升级/部署”时用 start_workflow: nbco_feature_upgrade；都必须使用一个 admin worker 的单个任务，不要拆成多个并发任务。\n")
 	b.WriteString("- 需要把文件库里的文件、worker 产物或整理后的报表交付给用户 → send_file，不要只给下载地址。\n")
 	b.WriteString("- 简单问答/信息查询/规则解释 → 自己回答，不必派活。\n")
 	b.WriteString("- 严格区分真人员工与 AI worker/机器人：真人加入用 invite_employee；AI worker、工作机、机器人、具名虚拟成员用 list_workers/create_worker/issue_worker_bind_code/run_worker_command 等 worker 工具。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n\n")
