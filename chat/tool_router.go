@@ -125,7 +125,7 @@ func keepRoutedToolsUnderSoftLimit(in []ai.Tool, include map[string]bool) []ai.T
 		"invite_employee", "analyze_company_materials", "start_worker_skill", "start_workflow", "run_worker_command",
 		"list_telegram_groups", "set_telegram_group_listen", "set_telegram_group_monitor", "send_telegram_group_message", "delete_telegram_group_message",
 		"save_rule", "save_skill",
-		"company_overview",
+		"company_overview", "low_level_db_query", "low_level_db_exec",
 	} {
 		if include[name] {
 			pinned[name] = true
@@ -277,6 +277,7 @@ var memoryToolNames = []string{
 var opsToolNames = []string{
 	"list_capabilities", "list_action_turns", "get_ai_settings", "set_ai_settings", "ai_usage_stats",
 	"list_eval_cases", "create_eval_case", "get_api_token_status", "generate_api_token", "revoke_api_token",
+	"low_level_db_query", "low_level_db_exec",
 }
 
 var scriptToolNames = []string{
@@ -371,6 +372,7 @@ var opsRouteKeywords = []string{
 	"日志", "执行日志", "动作记录", "刚才做了吗", "有没有调用", "为什么没执行", "发出去没",
 	"用量", "tokens", "评测", "回归测试", "控制中心", "管理中心", "状态", "health",
 	"im.app", "生产", "运行数据", "聊天记录",
+	"底层", "最底层", "兜底", "强制", "数据库", "查库", "写库", "sql", "SQL", "final fallback",
 }
 
 var scriptRouteKeywords = []string{

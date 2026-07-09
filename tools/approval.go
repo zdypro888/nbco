@@ -48,6 +48,7 @@ var approvalRequired = map[string]bool{
 	"delete_knowledge":       true, // 删除知识/规则/skill 后不可恢复
 	"delete_role":            true,
 	"remove_info_field":      true, // 连带删除全员该字段数据
+	"low_level_db_exec":      true, // 最终兜底写库，必须跨轮确认
 }
 
 // withApproval 给破坏性工具包上两段式确认（在审计层内侧，两次调用都留审计）。

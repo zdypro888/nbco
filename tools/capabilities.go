@@ -224,11 +224,13 @@ var toolDomain = map[string]string{
 	"enable_script_tool": CapabilityAutomation,
 
 	// ops
-	"list_capabilities": CapabilityOps,
-	"list_action_turns": CapabilityOps,
-	"get_ai_settings":   CapabilityOps,
-	"set_ai_settings":   CapabilityOps,
-	"ai_usage_stats":    CapabilityOps,
+	"list_capabilities":  CapabilityOps,
+	"list_action_turns":  CapabilityOps,
+	"get_ai_settings":    CapabilityOps,
+	"set_ai_settings":    CapabilityOps,
+	"ai_usage_stats":     CapabilityOps,
+	"low_level_db_query": CapabilityOps,
+	"low_level_db_exec":  CapabilityOps,
 }
 
 var toolEffect = map[string]string{
@@ -321,6 +323,8 @@ var toolEffect = map[string]string{
 	"list_users":                      ToolEffectRead,
 	"list_workers":                    ToolEffectRead,
 	"list_workflows":                  ToolEffectRead,
+	"low_level_db_exec":               ToolEffectWrite,
+	"low_level_db_query":              ToolEffectRead,
 	"load_skill":                      ToolEffectRead,
 	"pin_telegram_group_message":      ToolEffectWrite,
 	"propose_learning_candidate":      ToolEffectWrite,

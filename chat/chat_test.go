@@ -434,6 +434,8 @@ func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
 		{Name: "set_telegram_group_monitor"},
 		{Name: "list_telegram_groups"},
 		{Name: "save_rule"},
+		{Name: "low_level_db_query"},
+		{Name: "low_level_db_exec"},
 	}
 	cases := []struct {
 		name string
@@ -464,6 +466,11 @@ func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
 			name: "delete",
 			text: "无成人陪伴这个删除掉吧。没用了",
 			want: []string{"delete_assigned_task", "delete_project"},
+		},
+		{
+			name: "low-level",
+			text: "领域工具不行的话，用底层 SQL 兜底修一下这条任务状态",
+			want: []string{"low_level_db_query", "low_level_db_exec"},
 		},
 	}
 	for _, tc := range cases {

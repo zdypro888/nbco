@@ -100,6 +100,25 @@ func TestRouteTurnToolsAddsActionToolsForBareDeleteRequest(t *testing.T) {
 	}
 }
 
+func TestRouteTurnToolsAddsLowLevelOpsOnlyForExplicitFallback(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "实在不行用底层 SQL 查一下 tasks 里这个任务的状态", testRouteTools())
+	names := routeToolNameSet(routed)
+	for _, want := range []string{"low_level_db_query", "low_level_db_exec", "list_action_turns"} {
+		if !names[want] {
+			t.Fatalf("底层兜底场景缺 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
+		}
+	}
+	if !route.Has("ops") {
+		t.Fatalf("底层兜底场景应带 ops route，route=%s", route.Summary())
+	}
+
+	routed, route = routeTurnTools("telegram", "无成人陪伴这个删除掉吧。没用了", testRouteTools())
+	names = routeToolNameSet(routed)
+	if names["low_level_db_exec"] {
+		t.Fatalf("普通删除不应默认暴露底层写库工具，tools=%v route=%s", routedToolNames(routed), route.Summary())
+	}
+}
+
 func TestRouteTurnToolsAddsTelegramGroupTools(t *testing.T) {
 	routed, route := routeTurnTools("telegram:group:-100", "@bot 监听这个群并能撤回自己发错的消息", testRouteTools())
 	names := routeToolNameSet(routed)

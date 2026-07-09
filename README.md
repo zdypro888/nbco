@@ -126,7 +126,7 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 - 验收工具：`get_review_queue` / `accept_task` / `reject_task`（限分配者与超管）
 - **依赖编排（流水线）**：`assign_task` 可带 `depends_on`（只能指向已存在任务，天然无环）；前置全部 `accepted` 之前 worker 领不到该任务，验收通过时自动唤醒就绪的下游 worker 并发事件给派活人的 AI——「开发→测试→审查」接力不再人肉盯
 - **智能派工**：`assign_task` 不填 `assignee_id` 时自动派给最合适的 AI 员工（在办最少 → 在线优先 → 通过率高），回复里说明选人理由
-- **两段式审批**：破坏性工具（停用用户、吊销 worker、删项目/角色/字段）首次调用只登记待确认动作，AI 须向用户复述并获明确同意后以相同参数再次调用才执行（10 分钟时效、参数哈希匹配、全渠道生效）——防单轮冲动执行与提示注入一击即中
+- **两段式审批**：破坏性工具（停用用户、吊销 worker、删项目/角色/字段、底层写库兜底）首次调用只登记待确认动作，AI 须向用户复述并获明确同意后以相同参数再次调用才执行（10 分钟时效、参数哈希匹配、全渠道生效）——防单轮冲动执行与提示注入一击即中
 
 ## AI 员工 / Worker
 
@@ -373,7 +373,7 @@ Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两�
 | `write_profile` | `save_infos_on_user` |
 | `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
 | `manage_worker` | `create_worker` / `issue_worker_bind_code` / `run_worker_command` / `revoke_worker`（非超管仅限自己名下的 worker，创建者即监护人） |
-| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned`、成本统计 `ai_usage_stats`、Telegram 群控制 |
+| 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned`、成本统计 `ai_usage_stats`、底层兜底 `low_level_db_query` / `low_level_db_exec`、Telegram 群控制 |
 
 **worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
 

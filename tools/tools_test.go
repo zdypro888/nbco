@@ -156,7 +156,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_capabilities", "list_action_turns"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_capabilities", "list_action_turns", "low_level_db_query", "low_level_db_exec"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -178,6 +178,18 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if got := byName["list_action_turns"].Effect; got != ToolEffectRead {
 		t.Fatalf("list_action_turns effect=%q", got)
+	}
+	if got := byName["low_level_db_query"].Domain; got != CapabilityOps {
+		t.Fatalf("low_level_db_query domain=%q", got)
+	}
+	if got := byName["low_level_db_query"].Effect; got != ToolEffectRead {
+		t.Fatalf("low_level_db_query effect=%q", got)
+	}
+	if got := byName["low_level_db_exec"].Effect; got != ToolEffectWrite {
+		t.Fatalf("low_level_db_exec effect=%q", got)
+	}
+	if !byName["low_level_db_exec"].ApprovalRequired || byName["low_level_db_exec"].GroupAllowed {
+		t.Fatalf("low_level_db_exec 应需要确认且禁止群聊: %+v", byName["low_level_db_exec"])
 	}
 	if got := byName["send_message"].Effect; got != ToolEffectWrite {
 		t.Fatalf("send_message effect=%q", got)

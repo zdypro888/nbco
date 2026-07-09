@@ -294,6 +294,11 @@ func inferActionToolsForText(text string, available map[string]bool, limit int) 
 			"create_worker", "issue_worker_bind_code", "set_worker_admin", "revoke_worker",
 		))
 	}
+	if routeHasAny(s, []string{"底层", "最底层", "兜底", "强制", "数据库", "查库", "写库", "sql", "final fallback"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"low_level_db_query", "low_level_db_exec",
+		))
+	}
 	var out []string
 	for _, group := range groups {
 		out = mergeToolLists(out, group, limit)

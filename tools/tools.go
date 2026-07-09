@@ -176,6 +176,7 @@ func baseStaticTools(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, workflowTools(d, u)...)
 	ts = append(ts, capabilityTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
+	ts = append(ts, lowLevelTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
 	return ts
@@ -208,17 +209,19 @@ var toolPerm = map[string]string{
 	"revoke_passive_perm": perm.ActManagePerm,
 	"view_user_perms":     perm.ActManagePerm,
 	// 超管专属（组装函数已裁剪，这里再声明一层防御 + 让矩阵完整）
-	"company_overview":  reqSuper,
-	"get_ai_settings":   reqSuper,
-	"set_ai_settings":   reqSuper,
-	"ai_usage_stats":    reqSuper,
-	"add_info_field":    reqSuper,
-	"remove_info_field": reqSuper,
-	"disable_user":      reqSuper,
-	"enable_user":       reqSuper,
-	"create_role":       reqSuper,
-	"update_role":       reqSuper,
-	"delete_role":       reqSuper,
+	"company_overview":   reqSuper,
+	"get_ai_settings":    reqSuper,
+	"set_ai_settings":    reqSuper,
+	"ai_usage_stats":     reqSuper,
+	"low_level_db_query": reqSuper,
+	"low_level_db_exec":  reqSuper,
+	"add_info_field":     reqSuper,
+	"remove_info_field":  reqSuper,
+	"disable_user":       reqSuper,
+	"enable_user":        reqSuper,
+	"create_role":        reqSuper,
+	"update_role":        reqSuper,
+	"delete_role":        reqSuper,
 	// AI 员工管理：有 manage_worker 权限即可，handler 内限定只能操作自己名下的
 	// worker（超管不限）——和真人邀请（generate_key）一样是权限而非身份门槛
 	"create_worker":             perm.ActManageWorker,
@@ -341,6 +344,8 @@ var groupSensitive = map[string]bool{
 	"ai_usage_stats":                  true,
 	"get_ai_settings":                 true,
 	"set_ai_settings":                 true,
+	"low_level_db_query":              true,
+	"low_level_db_exec":               true,
 	"remove_info_field":               true,
 	"send_message":                    true, // 群里可直接说，无需借 bot 向他人/全体转发
 	"send_file":                       true,
