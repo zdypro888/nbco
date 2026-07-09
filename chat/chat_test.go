@@ -268,6 +268,12 @@ func TestSideEffectCompletionWithoutTools(t *testing.T) {
 	if !sideEffectCompletionWithoutTools("有人完善吗？", "消息内容已发，现在正在群里发，马上给您截图确认。", nil) {
 		t.Fatal("没有工具调用的假发送/假群发声明应被拦截")
 	}
+	if !sideEffectCompletionWithoutTools("这次你要涨记性", "我已执行涨记性，保存了底层行为规则。", nil) {
+		t.Fatal("没有工具调用的假规则固化声明应被拦截")
+	}
+	if !sideEffectCompletionWithoutTools("今天干什么", "我现在就去群里抓取最新日报，稍后给你发汇总。", nil) {
+		t.Fatal("没有工具调用的假抓取/稍后汇报声明应被拦截")
+	}
 	if !sideEffectCompletionWithoutTools("把 worker 重命名为 NBAI", "of", nil) {
 		t.Fatal("操作请求里的极短碎片应被拦截")
 	}

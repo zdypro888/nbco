@@ -19,7 +19,7 @@ const bindKeyTTL = 24 * time.Hour
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{
-		tool("list_users", "列出系统内用户的安全目录：按真人员工与 AI worker 分组，包含姓名、状态、可见画像数量；最终回复直接用该格式，不要改成 HTML/Markdown 表格，不要展示内部 user_id。",
+		tool("list_users", "列出系统内用户的安全目录：按真人员工与 AI worker 分组，包含姓名、状态、可见画像数量；最终回复直接用该格式，不要改成 HTML/Markdown 表格，不要展示内部 user_id。注意：隐藏内部编号不影响操作，send_message/update_user_info/get_user_info/get_user_stats 可直接传唯一姓名到 user/user_name。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				users, err := d.Store.ListUsers(ctx)
@@ -287,11 +287,12 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已作废。", nil
 			}),
 
-		tool("send_message", "向指定用户发送消息。需要对其 send_msg 主动权限（超管不限）。优先传 user_id；不知道内部编号时传 user/user_name（唯一姓名）。",
+		tool("send_message", "向指定用户或全体真人员工发送消息。需要 send_msg 主动权限（超管不限）。单人：优先传 user_id，不知道内部编号时传 user/user_name（唯一姓名）。全体真人员工：target=\"_all\"；不要手动逐个发。",
 			obj(map[string]any{
 				"user_id":   p("integer", "用户内部编号（可选）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
+				"target":    p("string", "self | _all | 用户ID或唯一姓名（可选；_all=全体真人员工，不含 AI worker，不含发起人自己）"),
 				"text":      p("string", "消息内容"),
 			}, "text"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -299,12 +300,23 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					UserID   int64  `json:"user_id"`
 					User     string `json:"user"`
 					UserName string `json:"user_name"`
+					Target   string `json:"target"`
 					Text     string `json:"text"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				if d.Notifier == nil {
+					return "当前入口不支持发送消息。", nil
+				}
+				selector := messageTargetSelector(args.Target, args.User, args.UserName)
+				if strings.TrimSpace(selector) == store.TargetAll {
+					return sendMessageToAll(ctx, d, u, args.Text)
+				}
+				if strings.EqualFold(strings.TrimSpace(selector), "self") {
+					args.UserID = u.ID
+				}
+				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.Target, args.User, args.UserName)
 				if err != nil {
 					return "", err
 				}
@@ -320,13 +332,10 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 						return "你没有对该用户的 send_msg 权限。", nil
 					}
 				}
-				if d.Notifier == nil {
-					return "当前入口不支持发送消息。", nil
-				}
 				if err := d.Notifier.Send(ctx, target.ID, fmt.Sprintf("💬 来自 %s：\n%s", u.Name, args.Text)); err != nil {
 					return "发送失败：" + err.Error(), nil
 				}
-				return "已发送。", nil
+				return fmt.Sprintf("已发送给 %s。", target.Name), nil
 			}),
 
 		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个；不知道内部编号时传 user/user_name。",
@@ -683,6 +692,54 @@ func visibleProfileStats(ctx context.Context, d Deps, viewer, subject *store.Use
 		}
 	}
 	return out, nil
+}
+
+func sendMessageToAll(ctx context.Context, d Deps, sender *store.User, text string) (string, error) {
+	if sender == nil {
+		return "当前用户不可用。", nil
+	}
+	if d.Notifier == nil {
+		return "当前入口不支持发送消息。", nil
+	}
+	if !sender.IsSuperadmin && !hasActiveAll(ctx, d, sender.ID, perm.ActSendMsg) {
+		return "给全体发送消息需要 send_msg:_all 权限。", nil
+	}
+	users, err := d.Store.ListUsers(ctx)
+	if err != nil {
+		return "", err
+	}
+	sent, failed := 0, 0
+	var failedNames []string
+	body := fmt.Sprintf("💬 来自 %s：\n%s", sender.Name, text)
+	for _, target := range users {
+		if target == nil || target.Status != store.UserActive || target.IsWorker || target.ID == sender.ID {
+			continue
+		}
+		if err := d.Notifier.Send(ctx, target.ID, body); err != nil {
+			failed++
+			if len(failedNames) < 5 {
+				failedNames = append(failedNames, target.Name)
+			}
+			continue
+		}
+		sent++
+	}
+	if sent == 0 && failed == 0 {
+		return "没有可发送的真人员工。", nil
+	}
+	if failed == 0 {
+		return fmt.Sprintf("已发送给全体真人员工：成功 %d 人。", sent), nil
+	}
+	return fmt.Sprintf("全体真人员工发送完成：成功 %d 人，失败 %d 人（失败示例：%s）。", sent, failed, strings.Join(failedNames, "、")), nil
+}
+
+func messageTargetSelector(values ...string) string {
+	for _, v := range values {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]userDirectoryStats) string {
