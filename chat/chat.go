@@ -322,27 +322,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = mergeRepairResult(res, repaired)
 		}
 	}
-	if actionRequiresToolRecovery(actionPlan, res.Text, res.Steps) {
-		slog.Warn("拦截缺少成功证据的动作轮次",
-			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
-			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
-		repaired, rerr := o.repairActionEvidenceTurn(ctx, req, res, actionPlan, onDelta)
-		if rerr != nil {
-			slog.Warn("操作证据重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
-			o.noteEngineResult(false, rerr)
-			engineOK = false
-			res.Text = actionEvidenceFallbackForTurn(text, res.Steps)
-			res.FinishReason = "blocked_action_evidence"
-		} else if actionRequiresToolRecovery(actionPlan, repaired.Text, repaired.Steps) {
-			slog.Warn("动作证据重跑后仍无成功证据或缺参说明，改用系统兜底答复",
-				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
-			res = mergeRepairResult(res, repaired)
-			res.Text = actionEvidenceFallbackForTurn(text, res.Steps)
-			res.FinishReason = "blocked_action_evidence"
-		} else {
-			res = mergeRepairResult(res, repaired)
-		}
-	} else if sideEffectCompletionWithoutTools(text, res.Text, res.Steps) {
+	if sideEffectCompletionWithoutTools(text, res.Text, res.Steps) {
 		slog.Warn("拦截无工具完成声明",
 			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
 			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
@@ -646,7 +626,7 @@ func containsDoneVerb(reply string) bool {
 		"下发", "推送", "同步", "拆解", "拆分", "写入", "落实", "固化", "学习",
 		"沉淀", "抓取", "拉取", "分析", "监控", "跟进",
 	}
-	doneMarks := []string{"已", "已经", "成功", "完成", "正在", "立刻", "马上", "我会", "将会"}
+	doneMarks := []string{"已", "已经", "成功", "完成", "正在", "立刻", "马上", "我会", "我来", "将会"}
 	for _, mark := range doneMarks {
 		if !strings.Contains(reply, mark) {
 			continue

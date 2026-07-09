@@ -662,18 +662,31 @@ func TestActionRequiresToolRecovery(t *testing.T) {
 	if actionRequiresToolRecovery(plan, "我没有权限向全体发送消息，需要授权。", failed) {
 		t.Fatal("工具失败后如实说明不应继续重跑")
 	}
+	if actionRequiresToolRecovery(plan, "已发送。", failed) {
+		t.Fatal("有工具调用的轮次交给工具结果和审计账本，不再由动作完成门二次裁判")
+	}
 	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "已发送给 3 人。"}}
 	if actionRequiresToolRecovery(plan, "已发送。", ok) {
 		t.Fatal("成功工具证据应放行")
 	}
 	fallback := &actionPlan{RequiresAction: true}
 	readOnly := []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_telegram_groups", Result: "Telegram 群列表：日本公司成员，智能监控关闭。"}}
-	if !actionRequiresToolRecovery(fallback, "已为您设置自动消息汇总机制。", readOnly) {
-		t.Fatal("无 expected_tools 时，读取类工具成功不能证明已设置监控")
+	if actionRequiresToolRecovery(fallback, "已为您设置自动消息汇总机制。", readOnly) {
+		t.Fatal("有工具调用的轮次不应被动作完成门重写；是否完成交给工具证据账本记录")
 	}
 	monitorOK := []ai.Step{{Kind: ai.StepToolCall, ToolName: "set_telegram_group_monitor", Result: "已开启 日本公司成员 的智能监控。"}}
 	if actionRequiresToolRecovery(fallback, "已开启智能监控。", monitorOK) {
 		t.Fatal("真实状态变更工具成功应能证明完成")
+	}
+}
+
+func TestSuccessfulActionEvidenceAllowsAnyWriteOrExecuteTool(t *testing.T) {
+	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"start_workflow"}}
+	if !hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "run_worker_command", Result: "已创建 worker 命令任务（任务内部编号 9）。"}}) {
+		t.Fatal("planner 候选工具猜错时，真实执行类工具成功仍应作为动作证据")
+	}
+	if hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_workers", Result: "worker 列表：NBAI 在线。"}}) {
+		t.Fatal("读取类工具成功不能证明动作完成")
 	}
 }
 

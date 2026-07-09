@@ -396,9 +396,9 @@ func renderActionPlanContext(plan *actionPlan) string {
 		b.WriteString("意图：" + plan.Intent + "\n")
 	}
 	if len(plan.ExpectedTools) > 0 {
-		b.WriteString("预计工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
+		b.WriteString("候选工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
 	} else {
-		b.WriteString("预计工具：规划器未能确定具体工具；你需要自行选择当前可见的合适工具，或说明缺少权限/参数。\n")
+		b.WriteString("候选工具：规划器未能确定具体工具；你需要自行选择当前可见的合适工具，或说明缺少权限/参数。\n")
 	}
 	if len(plan.SuccessEvidence) > 0 {
 		b.WriteString("完成证据：\n")
@@ -412,7 +412,7 @@ func renderActionPlanContext(plan *actionPlan) string {
 			b.WriteString("- " + item + "\n")
 		}
 	}
-	b.WriteString("完成口径：先看工具结果；工具成功就确认完成，工具没跑、失败、缺参数或无权限，就说明未完成以及下一步。\n")
+	b.WriteString("执行口径：候选工具只是提示，不是限制；以真实工具返回为准。写入/执行工具成功才能确认完成；工具没跑、失败、待确认、缺参数或无权限，就说明当前状态和下一步。\n")
 	return b.String()
 }
 
@@ -480,11 +480,8 @@ func actionRequiresToolRecovery(plan *actionPlan, reply string, steps []ai.Step)
 	if plan == nil || !plan.RequiresAction {
 		return false
 	}
-	if hasSuccessfulActionEvidence(plan, steps) {
-		return false
-	}
 	if countToolCalls(steps) > 0 {
-		return actionCompletionWithoutEvidence(plan, reply, steps)
+		return false
 	}
 	trimmed := strings.TrimSpace(reply)
 	if isDegenerateVisibleReply(trimmed) {
@@ -493,7 +490,7 @@ func actionRequiresToolRecovery(plan *actionPlan, reply string, steps []ai.Step)
 	if actionReplyExplainsBlockedOrMissing(plan, trimmed) {
 		return false
 	}
-	return true
+	return claimsSideEffectDone(trimmed)
 }
 
 func actionReplyExplainsBlockedOrMissing(plan *actionPlan, reply string) bool {
@@ -531,14 +528,13 @@ func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
 		if st.Kind != ai.StepToolCall {
 			continue
 		}
-		if len(expected) > 0 {
-			if !expected[st.ToolName] {
-				continue
-			}
-		} else if !nbtools.ToolCanProveAction(st.ToolName) {
+		if st.Err != "" || toolResultLooksFailed(st.Result) {
 			continue
 		}
-		if st.Err == "" && !toolResultLooksFailed(st.Result) {
+		if expected[st.ToolName] {
+			return true
+		}
+		if nbtools.ToolCanProveAction(st.ToolName) {
 			return true
 		}
 	}
