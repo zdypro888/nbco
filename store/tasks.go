@@ -361,6 +361,42 @@ func (s *Store) TasksOfProject(ctx context.Context, projectID int64) ([]*Task, e
 	return s.queryTasks(ctx, `SELECT `+taskCols+` FROM tasks WHERE project_id = $1 ORDER BY id`, projectID)
 }
 
+// TaskQueue 返回全局任务队列。scope:
+//   - queue/open: pending + in_progress + done（未终态，含待验收）
+//   - all: 全部
+//   - 具体状态：pending/in_progress/done/accepted/split
+func (s *Store) TaskQueue(ctx context.Context, scope string, limit int) ([]*Task, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	where := "status IN ('pending','in_progress','done')"
+	switch strings.TrimSpace(scope) {
+	case "", "queue", "open":
+	case "all":
+		where = "true"
+	case TaskPending, TaskInProgress, TaskDone, TaskAccepted, TaskSplit:
+		where = "status = $2"
+	default:
+		where = "status IN ('pending','in_progress','done')"
+	}
+	sql := `SELECT ` + taskCols + ` FROM tasks WHERE ` + where + `
+		ORDER BY
+		  CASE status
+		    WHEN 'done' THEN 0
+		    WHEN 'in_progress' THEN 1
+		    WHEN 'pending' THEN 2
+		    WHEN 'accepted' THEN 3
+		    ELSE 4
+		  END,
+		  COALESCE(deadline, 'infinity'::timestamptz),
+		  updated_at DESC
+		LIMIT $1`
+	if strings.Contains(where, "$2") {
+		return s.queryTasks(ctx, sql, limit, strings.TrimSpace(scope))
+	}
+	return s.queryTasks(ctx, sql, limit)
+}
+
 // SubTasks 直接子任务。
 func (s *Store) SubTasks(ctx context.Context, parentID int64) ([]*Task, error) {
 	return s.queryTasks(ctx, `SELECT `+taskCols+` FROM tasks WHERE parent_id = $1 ORDER BY id`, parentID)

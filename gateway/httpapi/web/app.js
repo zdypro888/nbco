@@ -10,6 +10,8 @@ const state = {
   files: [],
   selectedFileIDs: new Set(),
   tasks: { todo: [], assigned: [], review: [] },
+  taskQueue: [],
+  schedules: [],
   workers: [],
   workflows: [],
   capabilities: [],
@@ -71,6 +73,11 @@ function parseIDs(value) {
     .split(/[,\s，、]+/)
     .map(x => Number(x.trim()))
     .filter(x => Number.isInteger(x) && x > 0);
+}
+
+function truncate(value, max) {
+  const s = String(value || "");
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
 
 function icon(name) {
@@ -246,8 +253,9 @@ function renderContent() {
 
 function renderCommandRoute() {
   const pendingFiles = state.files.length;
-  const allTasks = mergedTasks();
-  const running = allTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
+  const allTasks = taskQueueSource();
+  const queuedTasks = allTasks.filter(t => ["pending", "in_progress", "done"].includes(t.status));
+  const activeSchedules = (state.schedules || []).filter(s => s.status === "active");
   const approvals = state.approvals || [];
   const riskCount = state.me?.is_superadmin ? approvals.length : 0;
   const decisions = state.decisions.length;
@@ -263,13 +271,16 @@ function renderCommandRoute() {
   return `
     <div class="metrics">
       ${metric("folder-up", "待处理材料", pendingFiles, `${selectedFileList().length} 个已选`)}
-      ${metric("player-play", "运行中任务", running, `${allTasks.length} 个可见任务`)}
+      ${metric("player-play", "任务队列", queuedTasks.length, `${allTasks.length} 个可见任务`)}
       ${metric("robot", "Worker 可用", activeWorkers, `总数 ${state.workers.length}`)}
-      ${metric("bulb", "规则候选", state.capabilities.filter(c => c.domain === "memory").length, "能力域 memory")}
+      ${metric("calendar-time", "定时自动化", activeSchedules.length, `${state.schedules.length} 条可见规则`)}
       ${metric("alert-triangle", "需要确认", riskCount + decisions, `${decisions} 个决策项`)}
     </div>
     ${queueSection("待处理材料", pendingFiles, renderMaterialRows(), materialActions)}
-    ${queueSection("运行中任务", running, renderTaskRows(), `
+    ${queueSection("任务队列", queuedTasks.length, renderTaskRows(queuedTasks.slice(0, 12)), `
+      <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
+    `)}
+    ${queueSection("定时自动化", activeSchedules.length, renderScheduleRows(activeSchedules.slice(0, 8)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
     ${queueSection("待确认高风险操作", riskCount, renderRiskRows(approvals), riskActions)}
@@ -321,8 +332,7 @@ function renderMaterialRows() {
     </table>`;
 }
 
-function renderTaskRows() {
-  const tasks = mergedTasks().filter(t => t.status !== "accepted").slice(0, 10);
+function renderTaskRows(tasks = taskQueueSource().filter(t => t.status !== "accepted").slice(0, 10)) {
   if (!tasks.length) return `<div class="empty">当前没有运行中任务。</div>`;
   return `
     <table class="data-table">
@@ -336,12 +346,30 @@ function renderTaskRows() {
           <td class="td-title"><div class="title-strong">${esc(t.title)}</div><div class="subline">优先级 ${esc(t.priority || "normal")}</div></td>
           <td>${esc(t.assignee_name || "")}</td>
           <td>${esc(t.assigner_name || "")}</td>
-          <td>${fmtTime(t.deadline) || "未设定"}</td>
+          <td>${fmtTime(t.created_at) || "未知"}</td>
           <td><div class="progress"><span style="width:${progress}%"></span></div></td>
           <td>${statusPill(t.status)}</td>
           <td>${t.deadline ? fmtTime(t.deadline) : "待评估"}</td>
         </tr>`;
       }).join("")}</tbody>
+    </table>`;
+}
+
+function renderScheduleRows(items = state.schedules || []) {
+  if (!items.length) return `<div class="empty">暂无定时自动化。</div>`;
+  return `
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>规则</th><th>目标</th><th>创建人</th><th>模式</th><th>状态</th><th>下次触发</th><th>上次触发</th></tr></thead>
+      <tbody>${items.map(s => `<tr class="selectable" data-select-kind="schedule" data-id="${s.id}">
+        <td>SCH-${s.id}</td>
+        <td class="td-title"><div class="title-strong">${esc(scheduleTitle(s))}</div><div class="subline">${esc(truncate(s.message, 72))}</div></td>
+        <td>${esc(scheduleTarget(s))}</td>
+        <td>${esc(s.creator_name || "")}</td>
+        <td>${esc(s.mode || "message")}</td>
+        <td>${statusPill(s.status)}</td>
+        <td>${fmtTime(s.fire_at) || ""}</td>
+        <td>${fmtTime(s.last_fired) || "未触发"}</td>
+      </tr>`).join("")}</tbody>
     </table>`;
 }
 
@@ -379,7 +407,16 @@ function renderFilesRoute() {
 }
 
 function renderTasksRoute() {
+  const global = state.me?.is_superadmin
+    ? `${queueSection("全局任务队列", state.taskQueue.length, taskTable(state.taskQueue), `
+        <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
+      `)}
+      ${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), `
+        <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
+      `)}`
+    : `${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), "")}`;
   return `
+    ${global}
     ${queueSection("我的待办", state.tasks.todo.length, taskTable(state.tasks.todo), "")}
     ${queueSection("待验收", state.tasks.review.length, taskTable(state.tasks.review), "")}
     ${queueSection("我分配的", state.tasks.assigned.length, taskTable(state.tasks.assigned), "")}`;
@@ -490,6 +527,10 @@ function renderInspector() {
     el.innerHTML = inspectorFrame("任务详情", "checkbox", taskInspector(selected.item));
     return;
   }
+  if (selected.kind === "schedule") {
+    el.innerHTML = inspectorFrame("定时自动化", "calendar-time", scheduleInspector(selected.item));
+    return;
+  }
   if (selected.kind === "worker") {
     el.innerHTML = inspectorFrame("Worker 详情", "robot", workerInspector(selected.item));
     return;
@@ -560,9 +601,28 @@ function taskInspector(task) {
       <dt>执行人</dt><dd>${esc(task.assignee_name || "")}</dd>
       <dt>发起人</dt><dd>${esc(task.assigner_name || "")}</dd>
       <dt>优先级</dt><dd>${esc(task.priority || "normal")}</dd>
+      <dt>创建</dt><dd>${fmtTime(task.created_at) || ""}</dd>
+      <dt>更新</dt><dd>${fmtTime(task.updated_at) || ""}</dd>
       <dt>截止</dt><dd>${fmtTime(task.deadline) || "未设定"}</dd>
+      <dt>催办次数</dt><dd>${esc(task.nudge_count || 0)}</dd>
     </dl>
     <div class="result">任务验收、打回、拆分等深层动作仍建议在 Telegram/对话中通过工具执行；控制台先负责总览和入口。</div>`;
+}
+
+function scheduleInspector(s) {
+  return `
+    <dl class="kv">
+      <dt>规则</dt><dd>#${s.id} ${esc(scheduleTitle(s))}</dd>
+      <dt>状态</dt><dd>${statusPill(s.status)}</dd>
+      <dt>目标</dt><dd>${esc(scheduleTarget(s))}</dd>
+      <dt>创建人</dt><dd>${esc(s.creator_name || "")}</dd>
+      <dt>类型</dt><dd>${esc(s.kind)}</dd>
+      <dt>模式</dt><dd>${esc(s.mode || "message")}</dd>
+      <dt>下次触发</dt><dd>${fmtTime(s.fire_at) || ""}</dd>
+      <dt>上次触发</dt><dd>${fmtTime(s.last_fired) || "未触发"}</dd>
+      <dt>创建时间</dt><dd>${fmtTime(s.created_at) || ""}</dd>
+    </dl>
+    <div class="result">${esc(s.message || "")}</div>`;
 }
 
 function workerInspector(worker) {
@@ -672,7 +732,8 @@ function selectedItem() {
   const selected = state.selected;
   if (!selected) return null;
   if (selected.kind === "file") return { ...selected, item: state.files.find(f => Number(f.id) === Number(selected.id)) };
-  if (selected.kind === "task") return { ...selected, item: mergedTasks().find(t => Number(t.id) === Number(selected.id)) };
+  if (selected.kind === "task") return { ...selected, item: taskQueueSource().find(t => Number(t.id) === Number(selected.id)) };
+  if (selected.kind === "schedule") return { ...selected, item: state.schedules.find(s => Number(s.id) === Number(selected.id)) };
   if (selected.kind === "worker") return { ...selected, item: state.workers.find(w => Number(w.id) === Number(selected.id)) };
   if (selected.kind === "risk") return selected;
   return null;
@@ -689,6 +750,26 @@ function mergedTasks() {
     }
   }
   return out.sort((a, b) => Number(b.id) - Number(a.id));
+}
+
+function taskQueueSource() {
+  if (state.me?.is_superadmin && state.taskQueue.length) return state.taskQueue;
+  return mergedTasks();
+}
+
+function scheduleTitle(s) {
+  if (s.kind === "daily") {
+    const days = s.weekdays ? ` 周${s.weekdays}` : " 每天";
+    return `${s.daily_at || fmtTime(s.fire_at)}${days}`;
+  }
+  if (s.kind === "repeat") return `每 ${s.interval_s || 0} 秒`;
+  return `单次 ${fmtTime(s.fire_at)}`;
+}
+
+function scheduleTarget(s) {
+  if (s.target === "_all") return "全体成员";
+  if (s.target === "self") return s.receiver_name || "自己";
+  return s.receiver_name || s.target || "";
 }
 
 function selectedFileList() {
@@ -721,6 +802,8 @@ function priorityPill(value) {
 
 function statusPill(status) {
   const map = {
+    active: ["green", "活跃"],
+    cancelled: ["amber", "已取消"],
     pending: ["amber", "待处理"],
     in_progress: ["blue", "运行中"],
     done: ["teal", "待验收"],
@@ -774,7 +857,7 @@ async function loadRoute(route) {
       return;
     }
     if (route === "files") await Promise.allSettled([loadFiles(), loadAdminData(["workers", "capabilities"])]);
-    else if (route === "tasks") await loadTasks();
+    else if (route === "tasks") await Promise.allSettled([loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue"])]);
     else if (route === "workers") await loadAdminData(["workers"]);
     else if (route === "model") await loadAdminData(["ai", "capabilities"]);
     else if (route === "ops") await loadAdminData(["ops", "ai", "workers"]);
@@ -790,7 +873,7 @@ async function loadRoute(route) {
 }
 
 async function loadCommandData() {
-  await Promise.allSettled([loadFiles(), loadTasks(), loadAdminData(["workers", "workflows", "capabilities", "decisions", "approvals", "ops", "ai"])]);
+  await Promise.allSettled([loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workers", "workflows", "capabilities", "decisions", "approvals", "ops", "ai"])]);
 }
 
 async function loadFiles() {
@@ -809,8 +892,14 @@ async function loadTasks() {
   state.tasks.assigned = assigned.tasks || [];
 }
 
+async function loadSchedules(status = "active") {
+  const data = await api(`/api/schedules?status=${encodeURIComponent(status)}`);
+  state.schedules = data.schedules || [];
+}
+
 async function loadAdminData(parts) {
   const jobs = [];
+  if (state.me?.is_superadmin && parts.includes("taskQueue")) jobs.push(api("/api/admin/task-queue?scope=all").then(d => { state.taskQueue = d.tasks || []; }));
   if (parts.includes("workers")) jobs.push(api("/api/admin/workers").then(d => { state.workers = d.workers || []; }));
   if (parts.includes("workflows")) jobs.push(api("/api/admin/workflows").then(d => { state.workflows = d.workflows || []; }));
   if (parts.includes("capabilities")) jobs.push(api("/api/admin/capabilities").then(d => { state.capabilities = d.capabilities || []; }));
@@ -833,8 +922,10 @@ function ensureSelection() {
   if (selected?.item || selected?.kind === "risk") return;
   if (state.files.length) {
     state.selected = { kind: "file", id: state.files[0].id };
-  } else if (mergedTasks().length) {
-    state.selected = { kind: "task", id: mergedTasks()[0].id };
+  } else if (taskQueueSource().length) {
+    state.selected = { kind: "task", id: taskQueueSource()[0].id };
+  } else if (state.schedules.length) {
+    state.selected = { kind: "schedule", id: state.schedules[0].id };
   } else if (state.me?.is_superadmin) {
     state.selected = { kind: "risk", id: "model" };
   } else {

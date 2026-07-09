@@ -109,8 +109,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/tasks", s.handleMyTasks)
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
+	mux.HandleFunc("GET /api/schedules", s.handleSchedules)
 	mux.HandleFunc("GET /api/overview", s.handleOverview)
 	mux.HandleFunc("GET /api/admin/workers", s.handleAdminWorkers)
+	mux.HandleFunc("GET /api/admin/task-queue", s.handleAdminTaskQueue)
 	mux.HandleFunc("GET /api/admin/learning", s.handleAdminLearning)
 	mux.HandleFunc("GET /api/admin/decisions", s.handleAdminDecisions)
 	mux.HandleFunc("GET /api/admin/approvals", s.handleAdminApprovals)
@@ -276,6 +278,24 @@ func dOnline(s *Server, workerID int64) bool {
 	return s.deps.Workers != nil && s.deps.Workers.Online(workerID)
 }
 
+func (s *Server) handleAdminTaskQueue(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	ts, err := s.store.TaskQueue(r.Context(), strings.TrimSpace(r.URL.Query().Get("scope")), 200)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取任务队列失败"})
+		return
+	}
+	names, err := s.userNames(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "查询失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tasks": tasksJSON(ts, names)})
+}
+
 func (s *Server) handleAdminLearning(w http.ResponseWriter, r *http.Request) {
 	u := s.requireSuper(w, r)
 	if u == nil {
@@ -434,6 +454,19 @@ func (s *Server) handleAssigned(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleSchedules(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	items, err := s.store.SchedulesVisible(r.Context(), u.ID, u.IsSuperadmin, strings.TrimSpace(r.URL.Query().Get("status")), 200)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取定时任务失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"schedules": schedulesJSON(items)})
+}
+
 func (s *Server) taskList(w http.ResponseWriter, r *http.Request,
 	fetch func(context.Context, *store.User) ([]*store.Task, error)) {
 	u := s.requireUser(w, r)
@@ -522,11 +555,14 @@ type taskJSON struct {
 	Status       string     `json:"status"`
 	Priority     string     `json:"priority"`
 	Deadline     *time.Time `json:"deadline,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 	AssignerID   int64      `json:"assigner_id"`
 	AssignerName string     `json:"assigner_name"`
 	AssigneeID   int64      `json:"assignee_id"`
 	AssigneeName string     `json:"assignee_name"`
 	NudgeCount   int64      `json:"nudge_count,omitempty"`
+	WorkerClaim  string     `json:"worker_claim_id,omitempty"`
 }
 
 func tasksJSON(ts []*store.Task, names map[int64]string) []taskJSON {
@@ -534,10 +570,43 @@ func tasksJSON(ts []*store.Task, names map[int64]string) []taskJSON {
 	for _, t := range ts {
 		out = append(out, taskJSON{
 			ID: t.ID, ProjectID: t.ProjectID, Title: t.Title, Status: t.Status,
-			Priority: t.Priority, Deadline: t.Deadline,
+			Priority: t.Priority, Deadline: t.Deadline, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 			AssignerID: t.AssignerID, AssignerName: names[t.AssignerID],
 			AssigneeID: t.AssigneeID, AssigneeName: names[t.AssigneeID],
-			NudgeCount: t.NudgeCount,
+			NudgeCount: t.NudgeCount, WorkerClaim: t.WorkerClaimID,
+		})
+	}
+	return out
+}
+
+type scheduleJSON struct {
+	ID           int64      `json:"id"`
+	UserID       int64      `json:"user_id"`
+	ReceiverName string     `json:"receiver_name"`
+	CreatedBy    int64      `json:"created_by"`
+	CreatorName  string     `json:"creator_name"`
+	Target       string     `json:"target"`
+	Mode         string     `json:"mode"`
+	Kind         string     `json:"kind"`
+	Message      string     `json:"message"`
+	FireAt       time.Time  `json:"fire_at"`
+	DailyAt      string     `json:"daily_at,omitempty"`
+	Weekdays     string     `json:"weekdays,omitempty"`
+	IntervalS    int64      `json:"interval_s,omitempty"`
+	Status       string     `json:"status"`
+	LastFired    *time.Time `json:"last_fired,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+func schedulesJSON(items []store.ScheduleView) []scheduleJSON {
+	out := make([]scheduleJSON, 0, len(items))
+	for _, sc := range items {
+		out = append(out, scheduleJSON{
+			ID: sc.ID, UserID: sc.UserID, ReceiverName: sc.ReceiverName,
+			CreatedBy: sc.CreatedBy, CreatorName: sc.CreatorName, Target: sc.Target,
+			Mode: sc.Mode, Kind: sc.Kind, Message: sc.Message, FireAt: sc.FireAt,
+			DailyAt: sc.DailyAt, Weekdays: sc.Weekdays, IntervalS: sc.IntervalS,
+			Status: sc.Status, LastFired: sc.LastFired, CreatedAt: sc.CreatedAt,
 		})
 	}
 	return out

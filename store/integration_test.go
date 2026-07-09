@@ -201,6 +201,44 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	}
 }
 
+func TestTaskQueue(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	pj := mkProject(t, s, boss.ID)
+	pending := mkTask(t, s, pj.ID, boss.ID, alice.ID, "待处理", nil)
+	done := mkTask(t, s, pj.ID, boss.ID, alice.ID, "待验收", nil)
+	if _, _, err := s.SubmitTask(ctx, done.ID); err != nil {
+		t.Fatal(err)
+	}
+	accepted := mkTask(t, s, pj.ID, boss.ID, boss.ID, "已完成", nil)
+	if _, _, err := s.SubmitTask(ctx, accepted.ID); err != nil {
+		t.Fatal(err)
+	}
+	queue, err := s.TaskQueue(ctx, "queue", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[int64]string{}
+	for _, task := range queue {
+		got[task.ID] = task.Status
+	}
+	if got[pending.ID] != TaskPending || got[done.ID] != TaskDone {
+		t.Fatalf("queue 应包含 pending/done: %+v", got)
+	}
+	if _, ok := got[accepted.ID]; ok {
+		t.Fatalf("queue 不应包含 accepted: %+v", got)
+	}
+	all, err := s.TaskQueue(ctx, "all", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) < 3 {
+		t.Fatalf("all 应包含终态任务, got %d", len(all))
+	}
+}
+
 func TestTaskOutcomeStats(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -1144,8 +1182,23 @@ func TestDirectedDailySchedule(t *testing.T) {
 	if err != nil || len(list) != 1 {
 		t.Fatalf("创建者应看到定向任务: %v %d", err, len(list))
 	}
+	visible, err := s.SchedulesVisible(ctx, boss.ID, true, "all", 50)
+	if err != nil || len(visible) != 1 || visible[0].CreatorName != "老板" {
+		t.Fatalf("超管应看到全局定时任务及创建人: %+v err=%v", visible, err)
+	}
 	if err := s.CancelSchedule(ctx, sc.ID, boss.ID); err != nil {
 		t.Fatal(err)
+	}
+	active, err := s.SchedulesVisible(ctx, boss.ID, true, ScheduleActive, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 0 {
+		t.Fatalf("已取消任务不应出现在 active 列表: %+v", active)
+	}
+	all, err := s.SchedulesVisible(ctx, boss.ID, true, "all", 50)
+	if err != nil || len(all) != 1 || all[0].Status != ScheduleCancelled {
+		t.Fatalf("all 应看到已取消任务: %+v err=%v", all, err)
 	}
 }
 

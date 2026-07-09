@@ -48,6 +48,12 @@ type Schedule struct {
 	CreatedBy int64
 }
 
+type ScheduleView struct {
+	Schedule
+	ReceiverName string
+	CreatorName  string
+}
+
 const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
@@ -88,6 +94,65 @@ func (s *Store) SchedulesOf(ctx context.Context, userID int64) ([]*Schedule, err
 		scs = append(scs, sc)
 	}
 	return scs, rows.Err()
+}
+
+// SchedulesVisible 返回定时/自动化队列。superadmin 可看全局；普通用户只能看
+// “发给我/我创建”的条目。status=active 默认只看活跃，all 包含 cancelled/done。
+func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin bool, status string, limit int) ([]ScheduleView, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	status = strings.TrimSpace(status)
+	where := []string{"true"}
+	args := []any{limit}
+	if !superadmin {
+		args = append(args, userID)
+		where = append(where, fmt.Sprintf("(s.user_id = $%d OR s.created_by = $%d)", len(args), len(args)))
+	}
+	switch status {
+	case "", ScheduleActive:
+		args = append(args, ScheduleActive)
+		where = append(where, fmt.Sprintf("s.status = $%d", len(args)))
+	case "all":
+	default:
+		args = append(args, status)
+		where = append(where, fmt.Sprintf("s.status = $%d", len(args)))
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+scheduleColsWithAlias("s")+`, coalesce(u.name, ''), coalesce(cu.name, '')
+		   FROM schedules s
+		   LEFT JOIN users u ON u.id = s.user_id
+		   LEFT JOIN users cu ON cu.id = s.created_by
+		  WHERE `+strings.Join(where, " AND ")+`
+		  ORDER BY
+		    CASE s.status WHEN 'active' THEN 0 WHEN 'done' THEN 1 ELSE 2 END,
+		    s.fire_at ASC,
+		    s.id DESC
+		  LIMIT $1`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ScheduleView{}
+	for rows.Next() {
+		var v ScheduleView
+		if err := rows.Scan(&v.ID, &v.UserID, &v.Kind, &v.Message, &v.FireAt,
+			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
+			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy,
+			&v.ReceiverName, &v.CreatorName); err != nil {
+			return nil, wrapErr(err)
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func scheduleColsWithAlias(alias string) string {
+	cols := strings.Split(scheduleCols, ", ")
+	for i := range cols {
+		cols[i] = alias + "." + cols[i]
+	}
+	return strings.Join(cols, ", ")
 }
 
 // CancelSchedule 取消（接收者或创建者都可取消）。
