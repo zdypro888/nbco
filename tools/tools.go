@@ -570,9 +570,11 @@ func mustUser(ctx context.Context, s *store.Store, id int64) (*store.User, error
 	return u, nil
 }
 
-// resolveUserArg resolves either an internal user_id or a visible unique name.
+// resolveUserArg resolves an internal user_id, a visible unique name, or a
+// Telegram identity selector such as "tg:123456" / "telegram:123456".
 // User-facing directory tools intentionally hide internal IDs, so action tools
-// must not require the model to recover an ID before it can operate.
+// must not require the model to recover an ID before it can operate. Telegram ID
+// support is exact and internal: final replies should still use names.
 func resolveUserArg(ctx context.Context, s *store.Store, id int64, names ...string) (*store.User, string, error) {
 	if s == nil {
 		return nil, "用户存储不可用。", nil
@@ -591,14 +593,26 @@ func resolveUserArg(ctx context.Context, s *store.Store, id int64, names ...stri
 		}
 	}
 	if selector == "" {
-		return nil, "请提供 user_id 或 user/user_name。", nil
+		return nil, "请提供 user_id、user/user_name，或 tg:<Telegram ID>。", nil
+	}
+	if tgID, ok := parseTelegramUserSelector(selector); ok {
+		return userByTelegramID(ctx, s, tgID)
 	}
 	if parsed, err := strconv.ParseInt(selector, 10, 64); err == nil && parsed > 0 {
-		u, err := mustUser(ctx, s, parsed)
-		if err != nil {
-			return nil, err.Error(), nil
+		u, err := s.UserByID(ctx, parsed)
+		if err == nil {
+			if u.Status != store.UserActive {
+				return nil, "目标用户已停用。", nil
+			}
+			return u, "", nil
 		}
-		return u, "", nil
+		if !errors.Is(err, store.ErrNotFound) {
+			return nil, "", err
+		}
+		if u, msg, err := userByTelegramID(ctx, s, selector); err != nil || u != nil || msg != "" {
+			return u, msg, err
+		}
+		return nil, fmt.Sprintf("没有找到内部编号或 Telegram ID 为「%s」的用户。", selector), nil
 	}
 	users, err := s.ListUsers(ctx)
 	if err != nil {
@@ -615,6 +629,46 @@ func resolveUserArg(ctx context.Context, s *store.Store, id int64, names ...stri
 		return u, "", nil
 	}
 	return nil, fmt.Sprintf("没有找到名为「%s」的用户。", selector), nil
+}
+
+func parseTelegramUserSelector(selector string) (string, bool) {
+	s := strings.TrimSpace(selector)
+	lower := strings.ToLower(s)
+	for _, prefix := range []string{"tg:", "tgid:", "tg_id:", "telegram:", "telegram_id:"} {
+		if strings.HasPrefix(lower, prefix) {
+			id := strings.TrimSpace(s[len(prefix):])
+			return id, id != ""
+		}
+	}
+	return "", false
+}
+
+func userByTelegramID(ctx context.Context, s *store.Store, tgID string) (*store.User, string, error) {
+	tgID = strings.TrimSpace(tgID)
+	if tgID == "" {
+		return nil, "Telegram ID 不能为空。", nil
+	}
+	if _, err := strconv.ParseInt(tgID, 10, 64); err != nil {
+		return nil, fmt.Sprintf("Telegram ID 必须是数字，收到「%s」。", tgID), nil
+	}
+	u, err := s.UserByIdentity(ctx, "telegram", tgID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Sprintf("没有找到 Telegram ID 为「%s」的已绑定用户。", tgID), nil
+		}
+		return nil, "", err
+	}
+	if u.Status != store.UserActive {
+		return nil, "目标用户已停用。", nil
+	}
+	return u, "", nil
+}
+
+func telegramUserSelector(tgID string) string {
+	if strings.TrimSpace(tgID) == "" {
+		return ""
+	}
+	return "tg:" + strings.TrimSpace(tgID)
 }
 
 func userName(ctx context.Context, s *store.Store, id int64) string {

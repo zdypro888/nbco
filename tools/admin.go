@@ -44,22 +44,26 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUserDirectory(users, u.ID, stats), nil
 			}),
 
-		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。优先传 user_id；不知道内部编号时传 user/user_name（唯一姓名）。",
+		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。优先传 user_id 或 tg_id；不知道内部编号时传 user/user_name（唯一姓名）。",
 			obj(map[string]any{
 				"user_id":   p("integer", "用户内部编号（可选）"),
+				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
+				"target":    p("string", "用户ID | 唯一姓名 | tg:<Telegram ID>（可选）"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					UserID   int64  `json:"user_id"`
+					TGID     string `json:"tg_id"`
 					User     string `json:"user"`
 					UserName string `json:"user_name"`
+					Target   string `json:"target"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				other, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				other, msg, err := resolveUserArg(ctx, d.Store, args.UserID, telegramUserSelector(args.TGID), args.Target, args.User, args.UserName)
 				if err != nil {
 					return "", err
 				}
@@ -78,26 +82,30 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUser(other), nil
 			}),
 
-		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；优先传 user_id，不知道内部编号时传 user/user_name（唯一姓名）；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
+		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；优先传 user_id 或 tg_id；不知道内部编号时传 user/user_name（唯一姓名）；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
 			obj(map[string]any{
 				"user_id":   p("integer", "系统成员内部编号（可选）"),
+				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
+				"target":    p("string", "用户ID | 唯一姓名 | tg:<Telegram ID>（可选）"),
 				"name":      p("string", "新名字（可选）"),
 				"fields":    infoFieldsSchema("动态字段名→值（空串/null/无清除）"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					UserID   int64              `json:"user_id"`
+					TGID     string             `json:"tg_id"`
 					User     string             `json:"user"`
 					UserName string             `json:"user_name"`
+					Target   string             `json:"target"`
 					Name     string             `json:"name"`
 					Fields   map[string]*string `json:"fields"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, telegramUserSelector(args.TGID), args.Target, args.User, args.UserName)
 				if err != nil {
 					return "", err
 				}
@@ -287,17 +295,19 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已作废。", nil
 			}),
 
-		tool("send_message", "向指定用户或全体真人员工发送消息。需要 send_msg 主动权限（超管不限）。单人：优先传 user_id，不知道内部编号时传 user/user_name（唯一姓名）。全体真人员工：target=\"_all\"；不要手动逐个发。",
+		tool("send_message", "向指定用户或全体真人员工发送消息。需要 send_msg 主动权限（超管不限）。单人：优先传 user_id 或 tg_id；不知道内部编号时传 user/user_name（唯一姓名）。全体真人员工：target=\"_all\"；不要手动逐个发。",
 			obj(map[string]any{
 				"user_id":   p("integer", "用户内部编号（可选）"),
+				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份；也可在 target 里写 tg:<ID>）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
-				"target":    p("string", "self | _all | 用户ID或唯一姓名（可选；_all=全体真人员工，不含 AI worker，不含发起人自己）"),
+				"target":    p("string", "self | _all | 用户ID | 唯一姓名 | tg:<Telegram ID>（可选；_all=全体真人员工，不含 AI worker，不含发起人自己）"),
 				"text":      p("string", "消息内容"),
 			}, "text"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					UserID   int64  `json:"user_id"`
+					TGID     string `json:"tg_id"`
 					User     string `json:"user"`
 					UserName string `json:"user_name"`
 					Target   string `json:"target"`
@@ -316,7 +326,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				if strings.EqualFold(strings.TrimSpace(selector), "self") {
 					args.UserID = u.ID
 				}
-				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.Target, args.User, args.UserName)
+				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, telegramUserSelector(args.TGID), args.Target, args.User, args.UserName)
 				if err != nil {
 					return "", err
 				}
@@ -338,22 +348,26 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已发送给 %s。", target.Name), nil
 			}),
 
-		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个；不知道内部编号时传 user/user_name。",
+		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个；优先传 user_id 或 tg_id，不知道内部编号时传 user/user_name。",
 			obj(map[string]any{
 				"user_id":   p("integer", "用户内部编号（可选）"),
+				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
+				"target":    p("string", "用户ID | 唯一姓名 | tg:<Telegram ID>（可选）"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					UserID   int64  `json:"user_id"`
+					TGID     string `json:"tg_id"`
 					User     string `json:"user"`
 					UserName string `json:"user_name"`
+					Target   string `json:"target"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				other, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				other, msg, err := resolveUserArg(ctx, d.Store, args.UserID, telegramUserSelector(args.TGID), args.Target, args.User, args.UserName)
 				if err != nil {
 					return "", err
 				}

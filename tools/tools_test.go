@@ -399,6 +399,21 @@ func TestCanonicalArgsHash(t *testing.T) {
 	}
 }
 
+func TestTelegramUserSelectorParsing(t *testing.T) {
+	for _, in := range []string{"tg:6103874246", "tgid:6103874246", "tg_id:6103874246", "telegram:6103874246", "telegram_id:6103874246"} {
+		got, ok := parseTelegramUserSelector(in)
+		if !ok || got != "6103874246" {
+			t.Fatalf("parseTelegramUserSelector(%q) = %q,%v", in, got, ok)
+		}
+	}
+	if _, ok := parseTelegramUserSelector("6103874246"); ok {
+		t.Fatal("裸数字不是显式 Telegram selector，应由 resolveUserArg 先按内部ID再 fallback")
+	}
+	if got := telegramUserSelector(" 6103874246 "); got != "tg:6103874246" {
+		t.Fatalf("telegramUserSelector trim = %q", got)
+	}
+}
+
 func TestApprovalRequiredToolsExist(t *testing.T) {
 	su := &store.User{ID: 1, Status: store.UserActive, IsSuperadmin: true}
 	names := map[string]bool{}
