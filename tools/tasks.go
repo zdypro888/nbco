@@ -29,7 +29,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderProjects(ps), nil
 			}),
 
-		tool("get_my_tasks", "查看我的待办任务（待处理+进行中）。", obj(nil),
+		tool("get_my_tasks", "查看当前用户自己的待办任务（待处理+进行中）。只代表“我作为执行人”的范围，不能据此判断全公司/系统/项目是否空闲。",
+			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, true)
 				if err != nil {
@@ -38,7 +39,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderTasks(ts, d.TZ), nil
 			}),
 
-		tool("get_my_all_tasks", "查看我的所有任务（含已完成和已拆分）。", obj(nil),
+		tool("get_my_all_tasks", "查看当前用户自己的所有任务（含已完成和已拆分）。只代表“我作为执行人”的范围。",
+			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, false)
 				if err != nil {
@@ -154,7 +156,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return "已完成（自派任务免验收）。", nil
 			}),
 
-		tool("get_review_queue", "查看我分配出去、已提交待我验收的任务。", obj(nil),
+		tool("get_review_queue", "查看我分配出去、已提交待我验收的任务。只代表“需要我验收”的范围。",
+			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksAwaitingReview(ctx, u.ID)
 				if err != nil {
@@ -497,7 +500,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("get_assigned_tasks", "查看我分配出去的任务及其进度。", obj(nil),
+		tool("get_assigned_tasks", "查看我分配出去的任务及其进度。只代表“由我分配”的范围，不能据此判断全公司/系统/项目是否空闲。",
+			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssigner(ctx, u.ID)
 				if err != nil {

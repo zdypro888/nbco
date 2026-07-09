@@ -56,6 +56,14 @@ func TestRouteTurnToolsAddsWorkerAndFiles(t *testing.T) {
 	}
 }
 
+func TestRouteTurnToolsKeepsCompanyOverviewForSystemTaskStatus(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "系统级别任务现在有哪些？全公司是不是空闲？", testRouteTools())
+	names := routeToolNameSet(routed)
+	if !names["company_overview"] || !names["get_my_tasks"] {
+		t.Fatalf("系统级任务查询应暴露公司全景和个人任务工具，tools=%v route=%s", routedToolNames(routed), route.Summary())
+	}
+}
+
 func TestRouteTurnToolsAddsTelegramGroupTools(t *testing.T) {
 	routed, route := routeTurnTools("telegram:group:-100", "@bot 监听这个群并能撤回自己发错的消息", testRouteTools())
 	names := routeToolNameSet(routed)

@@ -122,6 +122,7 @@ func keepRoutedToolsUnderSoftLimit(in []ai.Tool, include map[string]bool) []ai.T
 		"send_message", "schedule_push", "assign_task", "update_user_info",
 		"invite_employee", "start_worker_skill", "start_workflow", "run_worker_command",
 		"list_telegram_groups", "send_telegram_group_message", "save_rule", "save_skill",
+		"company_overview",
 	} {
 		if include[name] {
 			pinned[name] = true
