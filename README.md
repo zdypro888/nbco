@@ -92,7 +92,7 @@ curl -X POST http://<listen>/api/bootstrap \
 | 凭证 | 给谁用 | 怎么生成 | 生命周期 | 用途 |
 | --- | --- | --- | --- | --- |
 | 真人员工一次性邀请 | 真人员工 | `invite_employee` | 默认 24 小时有效，只能用一次 | 员工首次在 Telegram 通过邀请链接或邀请码绑定身份 |
-| 用户 Access Token | 真人员工或超管 | `generate_api_token` | 常驻，重新生成会替换旧 token | HTTP API / Web / MCP 认证 |
+| 用户 Access Token | 真人员工或超管 | Telegram 私聊 `/token new` → `/token confirm`，或 AI 工具 `generate_api_token` | 常驻，重新生成会替换旧 token | HTTP API / Web / MCP / 控制中心认证 |
 | Worker 绑定码（`wbc_` 前缀） | `nbco-worker` 客户端 | `create_worker` / `issue_worker_bind_code` | 24 小时有效，只能用一次 | 工作机 `bind/bootstrap` 时兑换 Worker Access Token |
 | Worker Access Token | `nbco-worker` 客户端 | 绑定码兑换时由服务端签发 | 常驻，新绑定码被兑换或吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
 

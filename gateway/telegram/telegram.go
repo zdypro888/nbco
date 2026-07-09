@@ -159,6 +159,7 @@ func (g *Gateway) setupCommands(ctx context.Context) {
 		{Command: "start", Description: "开始使用 / 查看说明"},
 		{Command: "new", Description: "开启新会话（清空对话上下文）"},
 		{Command: "model", Description: "查看/切换模型（超管私聊）"},
+		{Command: "token", Description: "查看/换发 Access Token"},
 	}
 	group := []models.BotCommand{
 		{Command: "listen", Description: "开/关本群监听（需群管理权限）"},
@@ -1210,6 +1211,9 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	case "/model":
 		g.handleModelCommand(ctx, chatID, u, commandArgs(text))
 		return
+	case "/token":
+		g.handleTokenCommand(ctx, chatID, u, commandArgs(text))
+		return
 	}
 
 	// 流式：发占位消息，把最终答复的增量渐进编辑上去（本地模型慢，不让用户干等）。
@@ -1264,6 +1268,87 @@ func (g *Gateway) handleModelCommand(ctx context.Context, chatID int64, u *store
 	}
 	slog.Info("超级管理员切换运行时模型", "user", u.ID, "model", args)
 	g.reply(ctx, chatID, fmt.Sprintf("✅ 已切换模型：<code>%s</code>\n后续新一轮对话和 worker 内置智能体都会使用它。", html.EscapeString(args)))
+}
+
+const apiTokenConfirmTTL = 10 * time.Minute
+
+func apiTokenConfirmKey(userID int64) string {
+	return fmt.Sprintf("telegram.pending_api_token:%d", userID)
+}
+
+func (g *Gateway) handleTokenCommand(ctx context.Context, chatID int64, u *store.User, args string) {
+	args = strings.ToLower(strings.TrimSpace(args))
+	switch args {
+	case "":
+		g.reply(ctx, chatID, g.apiTokenStatusMessage(ctx, u))
+	case "new", "rotate", "regen", "regenerate":
+		expiresAt := time.Now().UTC().Add(apiTokenConfirmTTL)
+		if err := g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), strconv.FormatInt(expiresAt.Unix(), 10)); err != nil {
+			slog.Error("登记 Access Token 换发确认失败", "user", u.ID, "err", err)
+			g.reply(ctx, chatID, "登记确认失败，请稍后再试。")
+			return
+		}
+		g.reply(ctx, chatID,
+			"⚠️ <b>Access Token 换发确认</b>\n\n"+
+				"这会立即作废你当前的控制中心/API Access Token，并生成一个新的 token。\n"+
+				"旧 token 明文无法查询；新 token 只会显示一次。\n\n"+
+				"确认换发请在 10 分钟内发送：<code>/token confirm</code>\n"+
+				"取消请发送：<code>/token cancel</code>")
+	case "confirm":
+		raw, err := g.store.GetKV(ctx, apiTokenConfirmKey(u.ID))
+		if err != nil {
+			slog.Error("读取 Access Token 换发确认失败", "user", u.ID, "err", err)
+			g.reply(ctx, chatID, "读取确认状态失败，请稍后再试。")
+			return
+		}
+		expiresUnix, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if expiresUnix <= time.Now().UTC().Unix() {
+			_ = g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), "")
+			g.reply(ctx, chatID, "没有有效的换发确认。请先发送 <code>/token new</code>，再发送 <code>/token confirm</code>。")
+			return
+		}
+		plain, err := g.store.IssueAPIToken(ctx, u.ID)
+		if err != nil {
+			slog.Error("Access Token 换发失败", "user", u.ID, "err", err)
+			g.reply(ctx, chatID, "Access Token 换发失败，请稍后再试。")
+			return
+		}
+		_ = g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), "")
+		g.reply(ctx, chatID,
+			"✅ <b>新的 Access Token 已生成</b>\n\n"+
+				"<code>"+html.EscapeString(plain)+"</code>\n\n"+
+				"请现在保存；系统只保存哈希，之后无法查询明文。")
+	case "cancel":
+		_ = g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), "")
+		g.reply(ctx, chatID, "已取消 Access Token 换发。")
+	default:
+		g.reply(ctx, chatID,
+			"用法：\n"+
+				"• <code>/token</code> 查看是否已有 token\n"+
+				"• <code>/token new</code> 申请换发\n"+
+				"• <code>/token confirm</code> 确认换发并显示新 token\n"+
+				"• <code>/token cancel</code> 取消")
+	}
+}
+
+func (g *Gateway) apiTokenStatusMessage(ctx context.Context, u *store.User) string {
+	st, err := g.store.APITokenStatus(ctx, u.ID)
+	if err != nil {
+		slog.Error("读取 Access Token 状态失败", "user", u.ID, "err", err)
+		return "读取 Access Token 状态失败，请稍后再试。"
+	}
+	if st == nil || !st.Exists {
+		return "当前没有控制中心/API Access Token。\n\n获取新的：<code>/token new</code>"
+	}
+	return fmt.Sprintf("当前已有控制中心/API Access Token。\n创建时间：<code>%s</code>\n\n明文无法查询；忘记了只能换发：<code>/token new</code>",
+		html.EscapeString(fmtTime(st.CreatedAt)))
+}
+
+func fmtTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Local().Format("2006-01-02 15:04:05")
 }
 
 func (g *Gateway) modelStatus(ctx context.Context) string {
