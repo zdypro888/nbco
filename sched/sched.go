@@ -17,6 +17,7 @@ import (
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const (
@@ -266,12 +267,7 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 			continue
 		}
 		slog.Info("AI 催办启动", "task", t.ID, "user", u.ID, "nudge_count", t.NudgeCount)
-		directive := fmt.Sprintf(
-			"[系统定时触发·催办]（此输入来自系统调度器，不是用户本人）任务 #%d「%s」已过截止时间（%s），且超过 %d 小时没有进度更新。"+
-				"请先用工具核实该任务的最新状态、进度与清单，然后直接向执行人（当前用户）发出催办："+
-				"语气友善但明确，询问具体卡点，提醒截止影响；若对方确有困难，建议其联系分配者调整任务或期限。"+
-				"你的回复会作为主动消息直接推送给执行人。",
-			t.ID, t.Title, s.fmtTime(*t.Deadline), int(nudgeInterval.Hours()))
+		directive := s.nudgeDirective(ctx, t, u)
 		t := t // 捕获循环变量
 		// 催办成功后 ack；累计多次仍无进度 → 分配者介入（模板消息，确定性投递）。
 		escalate := func() {
@@ -464,18 +460,58 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 		slog.Error("周报取用户失败", "err", err)
 		return
 	}
-	directive := fmt.Sprintf(
-		"[系统定时触发·每周汇总]（此输入来自系统调度器，不是用户本人）今天是 %s 周一，请给老板写一份公司周报。"+
-			"先用 company_overview 核实全局数据（含战略目标进度），需要细节时再用 view_goals、view_project、get_user_stats 等工具追查；一切以工具返回为准，不得编造。"+
-			"结构：一、整体进展（含各战略目标的里程碑达成情况、本周卡点的里程碑）；二、上周完成亮点；三、风险与过期任务（点名到人、给出建议动作）；四、本周建议关注。"+
-			"语言简洁，直接给结论。你的回复会作为周报直接推送给老板。",
-		local.Format("2006-01-02"))
 	for _, u := range users {
 		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
-		s.dispatchAI(ctx, u, directive, "📈 每周汇总\n", "周报", nil)
+		s.dispatchAI(ctx, u, s.weeklyReportDirective(local, u), "📈 每周汇总\n", "周报", nil)
 	}
+}
+
+func (s *Scheduler) nudgeDirective(ctx context.Context, t *store.Task, u *store.User) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "[系统定时触发·催办]（此输入来自系统调度器，不是用户本人）任务 #%d「%s」已过截止时间（%s），且超过 %d 小时没有进度更新。\n",
+		t.ID, t.Title, s.fmtTime(*t.Deadline), int(nudgeInterval.Hours()))
+	b.WriteString("请先用工具核实该任务最新状态、进度、清单与分配关系；最终回复会作为主动消息直接推送给执行人（当前用户）。\n")
+	b.WriteString("根据下面的情境自行决定语气、长度和结构：如果对方可能卡住，问清具体卡点；如果多次催办仍无进展，提醒影响并建议联系分配者调整任务、期限或资源。不要套固定模板。\n")
+	fmt.Fprintf(&b, "任务类型：%s；累计催办：%d 次。\n", store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand), t.NudgeCount)
+	if st, err := s.store.StatsOfAssignee(ctx, u.ID); err == nil {
+		fmt.Fprintf(&b, "执行人近期履历：在办 %d，当前过期 %d，待验收 %d，累计通过 %d", st.Open, st.OverdueNow, st.Awaiting, st.Accepted)
+		if st.AcceptedWithDeadline > 0 {
+			fmt.Fprintf(&b, "，按时 %d/%d", st.AcceptedOnTime, st.AcceptedWithDeadline)
+		}
+		b.WriteByte('\n')
+	}
+	kind := store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand)
+	if out, err := s.store.TaskOutcomeStatsFor(ctx, u.ID, kind); err == nil && out.Total() > 0 {
+		fmt.Fprintf(&b, "同类任务验收结果：通过 %d / 总计 %d。\n", out.Accepted, out.Total())
+	}
+	if ps, err := s.store.ProgressOf(ctx, t.ID); err == nil && len(ps) > 0 {
+		b.WriteString("最近进度：\n")
+		start := max(0, len(ps)-3)
+		for _, p := range ps[start:] {
+			fmt.Fprintf(&b, "- %s：%s\n", s.fmtTime(p.CreatedAt), textfmt.TruncateRunes(p.Content, 140))
+		}
+	}
+	if profiles, err := s.store.ProfilesBy(ctx, u.ID, u.ID); err == nil && len(profiles) > 0 {
+		b.WriteString("执行人自我画像：\n")
+		for i, p := range profiles {
+			if i >= 3 {
+				break
+			}
+			fmt.Fprintf(&b, "- %s\n", textfmt.TruncateRunes(strings.TrimSpace(p.Content), 120))
+		}
+	}
+	return b.String()
+}
+
+func (s *Scheduler) weeklyReportDirective(local time.Time, u *store.User) string {
+	return fmt.Sprintf(
+		"[系统定时触发·每周汇总]（此输入来自系统调度器，不是用户本人）今天是 %s 周一，请给老板写一份公司周报。"+
+			"先用 company_overview 核实全局数据（含战略目标进度），需要细节时再用 view_goals、view_project、get_user_stats 等工具追查；一切以工具返回为准，不得编造。"+
+			"根据老板画像和本周真实数据决定结构与详略；如果画像没有格式偏好，就用适合 Telegram 阅读的短分组呈现：进展、风险、建议动作。"+
+			"避免模板腔，点名和建议必须能从工具数据或本轮上下文找到依据。你的回复会作为周报直接推送给 %s。",
+		local.Format("2006-01-02"), u.Name)
 }
 
 // deadlinePass 任务临近截止提醒 + 过期通知。先 claim，投递成功后 ack；失败等租约过期重试。

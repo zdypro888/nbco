@@ -201,6 +201,36 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	}
 }
 
+func TestTaskOutcomeStats(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, alice.ID, "整理员工 xlsx 资料", nil)
+
+	if err := s.RecordTaskOutcome(ctx, TaskOutcomeInput{
+		TaskID: tk.ID, AssigneeID: alice.ID, ReviewerID: boss.ID,
+		Outcome: TaskOutcomeAccepted, TaskKind: InferTaskKind(tk.Title), Reason: "结构清晰",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecordTaskOutcome(ctx, TaskOutcomeInput{
+		TaskID: tk.ID, AssigneeID: alice.ID, ReviewerID: boss.ID,
+		Outcome: TaskOutcomeRejected, TaskKind: "engineering", Reason: "代码任务不相关",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	materials, err := s.TaskOutcomeStatsFor(ctx, alice.ID, "materials")
+	if err != nil || materials.Accepted != 1 || materials.Rejected != 0 {
+		t.Fatalf("materials outcome stats = %+v err=%v", materials, err)
+	}
+	all, err := s.TaskOutcomeStatsFor(ctx, alice.ID, "")
+	if err != nil || all.Accepted != 1 || all.Rejected != 1 {
+		t.Fatalf("all outcome stats = %+v err=%v", all, err)
+	}
+}
+
 func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

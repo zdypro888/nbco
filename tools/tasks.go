@@ -205,6 +205,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err := d.Store.AddProgress(ctx, t.ID, u.ID, msg); err != nil {
 					return "", err
 				}
+				recordTaskOutcome(ctx, d, t, u.ID, store.TaskOutcomeAccepted, args.Comment)
 				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
@@ -243,6 +244,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
+				recordTaskOutcome(ctx, d, t, u.ID, store.TaskOutcomeRejected, args.Reason)
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("🔁 任务「%s」（%s）验收未通过：%s\n请修改后重新提交。", t.Title, internalRef("任务", t.ID), args.Reason))
@@ -979,6 +981,23 @@ func notifyQuiet(ctx context.Context, d Deps, userID int64, text string) {
 	}
 }
 
+func recordTaskOutcome(ctx context.Context, d Deps, t *store.Task, reviewerID int64, outcome, reason string) {
+	if d.Store == nil || t == nil {
+		return
+	}
+	kind := store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand)
+	if err := d.Store.RecordTaskOutcome(ctx, store.TaskOutcomeInput{
+		TaskID:     t.ID,
+		AssigneeID: t.AssigneeID,
+		ReviewerID: reviewerID,
+		Outcome:    outcome,
+		TaskKind:   kind,
+		Reason:     reason,
+	}); err != nil {
+		slog.Warn("任务结果学习账本写入失败", "task", t.ID, "assignee", t.AssigneeID, "kind", kind, "outcome", outcome, "err", err)
+	}
+}
+
 // parseDeadline 解析 ISO8601；不带时区时按配置时区解释。
 func parseDeadline(s string, tz *time.Location) (*time.Time, error) {
 	s = strings.TrimSpace(s)
@@ -1131,10 +1150,21 @@ func renderTree(ctx context.Context, s *store.Store, t *store.Task, depth int, b
 }
 
 // pickWorkerAssignee 免指派自动选人：候选 = 自己名下（超管=全部）的在册 AI 员工，
-// 先按任务文字匹配 worker 上报能力，再按「当前在办任务数最少 → 实时在线优先 →
-// 历史验收通过数多」排序取首。
+// 综合 worker 上报能力、同类任务验收结果、当前负载与在线状态排序取首。
 // 这是资源调度（同 SKIP LOCKED 一类的机制层），不是业务政策：派谁的最终决定权
 // 仍在调用方——AI 想自己挑人就显式传 assignee_id。
+type workerCandidate struct {
+	w        *store.User
+	open     int64
+	accepted int64
+	online   bool
+	capScore int
+	cap      *store.WorkerCapability
+	kind     string
+	outcome  *store.TaskOutcomeStats
+	rank     float64
+}
+
 func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...string) (int64, string, error) {
 	owner := u.ID
 	if u.IsSuperadmin {
@@ -1143,14 +1173,6 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...str
 	ws, err := d.Store.ListWorkers(ctx, owner)
 	if err != nil {
 		return 0, "", err
-	}
-	type cand struct {
-		w        *store.User
-		open     int64
-		accepted int64
-		online   bool
-		capScore int
-		cap      *store.WorkerCapability
 	}
 	ids := make([]int64, 0, len(ws))
 	for _, w := range ws {
@@ -1161,7 +1183,8 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...str
 		return 0, "", err
 	}
 	taskText := strings.ToLower(strings.Join(parts, "\n"))
-	var cands []cand
+	taskKind := store.InferTaskKind(parts...)
+	var cands []workerCandidate
 	for _, w := range ws {
 		if w.Status != store.UserActive {
 			continue
@@ -1170,16 +1193,31 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...str
 		if err != nil {
 			return 0, "", err
 		}
+		outcome, err := d.Store.TaskOutcomeStatsFor(ctx, w.ID, taskKind)
+		if err != nil {
+			return 0, "", err
+		}
 		online := d.Workers != nil && d.Workers.Online(w.ID)
 		cap := caps[w.ID]
-		cands = append(cands, cand{w: w, open: st.Open, accepted: st.Accepted, online: online, cap: cap, capScore: workerCapabilityScore(taskText, cap)})
+		c := workerCandidate{
+			w:        w,
+			open:     st.Open,
+			accepted: st.Accepted,
+			online:   online,
+			cap:      cap,
+			capScore: workerCapabilityScore(taskText, cap),
+			kind:     taskKind,
+			outcome:  outcome,
+		}
+		c.rank = workerDispatchRank(c)
+		cands = append(cands, c)
 	}
 	if len(cands) == 0 {
 		return 0, "", fmt.Errorf("没有可用的 AI 员工可自动指派；请显式指定 assignee_id，或先 create_worker")
 	}
 	sort.Slice(cands, func(i, j int) bool {
-		if cands[i].capScore != cands[j].capScore {
-			return cands[i].capScore > cands[j].capScore
+		if cands[i].rank != cands[j].rank {
+			return cands[i].rank > cands[j].rank
 		}
 		if cands[i].open != cands[j].open {
 			return cands[i].open < cands[j].open
@@ -1190,7 +1228,10 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...str
 		return cands[i].accepted > cands[j].accepted
 	})
 	best := cands[0]
-	note := fmt.Sprintf("（自动指派给 %s：在办 %d 个、历史通过 %d 个", best.w.Name, best.open, best.accepted)
+	note := fmt.Sprintf("（自动指派给 %s：类型 %s、在办 %d 个、历史通过 %d 个", best.w.Name, best.kind, best.open, best.accepted)
+	if best.outcome != nil && best.outcome.Total() > 0 {
+		note += fmt.Sprintf("、同类通过 %d/%d", best.outcome.Accepted, best.outcome.Total())
+	}
 	if best.capScore > 0 {
 		note += fmt.Sprintf("、能力匹配 %d", best.capScore)
 	}
@@ -1202,6 +1243,27 @@ func pickWorkerAssignee(ctx context.Context, d Deps, u *store.User, parts ...str
 	}
 	note += "）"
 	return best.w.ID, note, nil
+}
+
+func workerDispatchRank(c workerCandidate) float64 {
+	rank := float64(c.capScore) * 20
+	if c.outcome != nil {
+		// Bayesian smoothing: no samples starts neutral, enough samples move the
+		// worker up/down without letting one unlucky rejection dominate forever.
+		total := c.outcome.Total()
+		rate := float64(c.outcome.Accepted+1) / float64(total+2)
+		rank += rate * 40
+		if total > 0 {
+			rank += min(float64(total), 10) // known workers beat unknown ties slightly
+		}
+	} else {
+		rank += 20
+	}
+	rank -= float64(c.open) * 5
+	if c.online {
+		rank += 5
+	}
+	return rank
 }
 
 func workerCapabilityScore(taskText string, cap *store.WorkerCapability) int {

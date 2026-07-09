@@ -70,6 +70,45 @@ func TestFirstSkills(t *testing.T) {
 	}
 }
 
+func TestMentionedPromptUsers(t *testing.T) {
+	users := []*store.User{
+		{ID: 1, Name: "PRO", Status: store.UserActive},
+		{ID: 2, Name: "JA", Status: store.UserActive},
+		{ID: 3, Name: "黄桑", Status: store.UserActive},
+		{ID: 4, Name: "Tom", Status: store.UserDisabled},
+	}
+	if got := mentionedPromptUsers("这个 major 问题先别找 ja", 1, users, 4); len(got) != 1 || got[0].Name != "JA" {
+		t.Fatalf("短英文名应按边界匹配: %+v", got)
+	}
+	if got := mentionedPromptUsers("major 问题", 1, users, 4); len(got) != 0 {
+		t.Fatalf("短英文名不应命中普通单词片段: %+v", got)
+	}
+	if got := mentionedPromptUsers("黄桑 看一下 Tom", 1, users, 4); len(got) != 1 || got[0].Name != "黄桑" {
+		t.Fatalf("应按出现顺序命中活跃用户并跳过停用用户: %+v", got)
+	}
+}
+
+func TestRenderPromptUserInfoSkipsSensitiveFields(t *testing.T) {
+	u := &store.User{Info: map[string]string{
+		"position": "CEO",
+		"phone":    "123456",
+		"tg_id":    "999",
+		"api_key":  "secret",
+		"组别":       "视频项目",
+	}}
+	got := renderPromptUserInfo(u)
+	for _, want := range []string{"position=CEO", "组别=视频项目"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("提示信息缺 %q: %s", want, got)
+		}
+	}
+	for _, bad := range []string{"123456", "tg_id", "secret", "api_key"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("敏感字段不应进入提示信息 %q: %s", bad, got)
+		}
+	}
+}
+
 func TestParseSkillRouterSelection(t *testing.T) {
 	cands := []*store.Knowledge{
 		{ID: 10, Title: "A", Kind: store.KnowledgeKindSkill},

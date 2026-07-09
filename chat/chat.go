@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/knowledge"
+	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/textfmt/telegramhtml"
@@ -190,6 +192,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	system += o.ruleContext(ctx, u, channel, text)
 	// 预取检索注入：用本轮输入预取知识库 + 历史对话 top-N，主动喂进上下文（事实先到眼前）。
 	system += o.retrievalContext(ctx, u, channel, text)
+	// 人物上下文：只注入当前用户与本轮明确提到的人，避免画像系统锁在工具背后。
+	system += o.peopleContext(ctx, u, channel, text)
 	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
 	system += o.skillContext(ctx, u, channel, text)
 	system += o.recentFileContext(ctx, u, channel)
@@ -1470,6 +1474,245 @@ func firstSkills(candidates []*store.Knowledge, limit int) []*store.Knowledge {
 		return candidates[:limit]
 	}
 	return candidates
+}
+
+func (o *Orchestrator) peopleContext(ctx context.Context, viewer *store.User, channel, text string) string {
+	if o == nil || o.store == nil || viewer == nil {
+		return ""
+	}
+	users, err := o.store.ListUsers(ctx)
+	if err != nil {
+		slog.Warn("人物上下文加载用户失败，本轮跳过", "user", viewer.ID, "err", err)
+		return ""
+	}
+	byID := make(map[int64]*store.User, len(users))
+	for _, u := range users {
+		if u != nil {
+			byID[u.ID] = u
+		}
+	}
+	subjects := []*store.User{viewer}
+	subjects = append(subjects, mentionedPromptUsers(text, viewer.ID, users, 4)...)
+
+	viewerActive, err := o.store.PermsOf(ctx, viewer.ID)
+	if err != nil {
+		slog.Warn("人物上下文加载主动权限失败，本轮仅注入基础信息", "user", viewer.ID, "err", err)
+	}
+	var b strings.Builder
+	b.WriteString("\n[本轮人物上下文]\n")
+	if isGroupChannel(channel) {
+		b.WriteString("以下人物信息仅用于理解当前发言人与权限边界；群聊回复不要展开个人隐私或画像原文，必要时引导私聊。\n")
+	} else {
+		b.WriteString("以下人物信息按当前权限精简注入；回答仍以工具结果为准，不要展示内部用户ID/TG ID。\n")
+	}
+	for _, subject := range subjects {
+		if subject == nil {
+			continue
+		}
+		b.WriteString(renderPromptPersonBase(subject, byID, o.tz))
+		if info := renderPromptUserInfo(subject); info != "" {
+			b.WriteString("  基本信息：" + info + "\n")
+		}
+		if stats := o.renderPromptAssigneeStats(ctx, subject); stats != "" {
+			b.WriteString("  任务履历：" + stats + "\n")
+		}
+		if profiles := o.renderPromptProfiles(ctx, viewer, subject, viewerActive, byID); profiles != "" {
+			b.WriteString("  可见画像：\n" + profiles)
+		}
+	}
+	return b.String()
+}
+
+func mentionedPromptUsers(text string, currentID int64, users []*store.User, limit int) []*store.User {
+	if strings.TrimSpace(text) == "" || limit <= 0 {
+		return nil
+	}
+	type hit struct {
+		u   *store.User
+		pos int
+	}
+	var hits []hit
+	for _, u := range users {
+		if u == nil || u.ID == currentID || u.Status != store.UserActive {
+			continue
+		}
+		if pos := nameMentionPos(text, u.Name); pos >= 0 {
+			hits = append(hits, hit{u: u, pos: pos})
+		}
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].pos != hits[j].pos {
+			return hits[i].pos < hits[j].pos
+		}
+		return hits[i].u.Name < hits[j].u.Name
+	})
+	out := make([]*store.User, 0, min(limit, len(hits)))
+	for _, h := range hits {
+		out = append(out, h.u)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func nameMentionPos(text, name string) int {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return -1
+	}
+	lowerText := strings.ToLower(text)
+	lowerName := strings.ToLower(name)
+	if len([]rune(lowerName)) <= 2 {
+		return boundedSubstringIndex(lowerText, lowerName)
+	}
+	return strings.Index(lowerText, lowerName)
+}
+
+func boundedSubstringIndex(s, sub string) int {
+	from := 0
+	for {
+		pos := strings.Index(s[from:], sub)
+		if pos < 0 {
+			return -1
+		}
+		pos += from
+		beforeOK := pos == 0 || !isASCIITokenByte(s[pos-1])
+		after := pos + len(sub)
+		afterOK := after >= len(s) || !isASCIITokenByte(s[after])
+		if beforeOK && afterOK {
+			return pos
+		}
+		from = pos + 1
+	}
+}
+
+func isASCIITokenByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
+}
+
+func renderPromptPersonBase(u *store.User, users map[int64]*store.User, tz *time.Location) string {
+	var tags []string
+	if u.IsWorker {
+		if u.IsSuperadmin {
+			tags = append(tags, "Admin AI worker")
+		} else {
+			tags = append(tags, "AI worker")
+		}
+		if u.OwnerID != nil {
+			if owner := users[*u.OwnerID]; owner != nil {
+				tags = append(tags, "归属 "+owner.Name)
+			}
+		}
+		if u.WorkerLastSeen != nil && tz != nil {
+			tags = append(tags, "最近在线 "+u.WorkerLastSeen.In(tz).Format("01-02 15:04"))
+		}
+	} else {
+		tags = append(tags, "真人员工")
+		if u.IsSuperadmin {
+			tags = append(tags, "超级管理员")
+		}
+	}
+	if u.Status != store.UserActive {
+		tags = append(tags, "状态 "+u.Status)
+	}
+	return "- " + u.Name + "（" + strings.Join(tags, "，") + "）\n"
+}
+
+func renderPromptUserInfo(u *store.User) string {
+	if len(u.Info) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(u.Info))
+	for k, v := range u.Info {
+		if strings.TrimSpace(v) != "" && promptInfoKeyAllowed(k) {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	if len(keys) > 5 {
+		keys = keys[:5]
+	}
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, k+"="+textfmt.TruncateRunes(strings.TrimSpace(u.Info[k]), 60))
+	}
+	return strings.Join(parts, "；")
+}
+
+func promptInfoKeyAllowed(key string) bool {
+	k := strings.ToLower(strings.TrimSpace(key))
+	for _, bad := range []string{"token", "secret", "password", "tg", "telegram", "chat", "openid", "external", "id", "phone", "mobile", "email", "mail", "hash", "key"} {
+		if strings.Contains(k, bad) {
+			return false
+		}
+	}
+	return true
+}
+
+func (o *Orchestrator) renderPromptAssigneeStats(ctx context.Context, u *store.User) string {
+	st, err := o.store.StatsOfAssignee(ctx, u.ID)
+	if err != nil {
+		slog.Warn("人物上下文加载任务统计失败", "user", u.ID, "err", err)
+		return ""
+	}
+	outcomes, err := o.store.TaskOutcomeStatsFor(ctx, u.ID, "")
+	if err != nil {
+		slog.Warn("人物上下文加载结果统计失败", "user", u.ID, "err", err)
+		return ""
+	}
+	if st.Open == 0 && st.Awaiting == 0 && st.Accepted == 0 && outcomes.Total() == 0 {
+		return ""
+	}
+	parts := []string{fmt.Sprintf("在办 %d", st.Open)}
+	if st.OverdueNow > 0 {
+		parts = append(parts, fmt.Sprintf("过期 %d", st.OverdueNow))
+	}
+	if st.Awaiting > 0 {
+		parts = append(parts, fmt.Sprintf("待验收 %d", st.Awaiting))
+	}
+	if st.Accepted > 0 {
+		parts = append(parts, fmt.Sprintf("累计通过 %d", st.Accepted))
+	}
+	if st.AcceptedWithDeadline > 0 {
+		parts = append(parts, fmt.Sprintf("按时 %d/%d", st.AcceptedOnTime, st.AcceptedWithDeadline))
+	}
+	if outcomes.Total() > 0 {
+		parts = append(parts, fmt.Sprintf("验收通过率 %d/%d", outcomes.Accepted, outcomes.Total()))
+	}
+	return strings.Join(parts, "，")
+}
+
+func (o *Orchestrator) renderPromptProfiles(ctx context.Context, viewer, subject *store.User, viewerActive []store.Grant, users map[int64]*store.User) string {
+	subjectPassive, err := o.store.PassivePermsToward(ctx, subject.ID)
+	if err != nil {
+		slog.Warn("人物上下文加载被动权限失败", "viewer", viewer.ID, "subject", subject.ID, "err", err)
+		return ""
+	}
+	profiles, err := o.store.ProfilesOn(ctx, subject.ID)
+	if err != nil {
+		slog.Warn("人物上下文加载画像失败", "viewer", viewer.ID, "subject", subject.ID, "err", err)
+		return ""
+	}
+	var lines []string
+	for _, pr := range profiles {
+		if !perm.CanViewProfile(viewer.ID, subject.ID, pr.AuthorID, viewer.IsSuperadmin, viewerActive, subjectPassive) {
+			continue
+		}
+		author := "他人"
+		if au := users[pr.AuthorID]; au != nil {
+			if au.ID == subject.ID {
+				author = "自我介绍"
+			} else {
+				author = au.Name + "的观察"
+			}
+		}
+		lines = append(lines, "    • "+author+"："+textfmt.TruncateRunes(strings.TrimSpace(pr.Content), 140)+"\n")
+		if len(lines) >= 4 {
+			break
+		}
+	}
+	return strings.Join(lines, "")
 }
 
 func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User, channel string) string {
