@@ -141,6 +141,9 @@ func TestShouldMineMemory(t *testing.T) {
 	if !shouldMineMemory("这两个文件是公司员工资料，整理成人事信息", "我会分析资料") {
 		t.Fatal("资料/公司类长期信息应触发后台学习")
 	}
+	if !shouldMineMemory("客户甲的付款周期是每月 25 日对账，月底结算。", "已记录。") {
+		t.Fatal("没有触发词但有长期价值的信息也应交给 miner 判断")
+	}
 }
 
 func TestRenderRetrievalBlock(t *testing.T) {

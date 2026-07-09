@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
@@ -33,6 +34,39 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return renderDecisionItems(items), nil
+			}),
+
+		tool("list_action_turns", "查看最近动作轮次与工具证据。用户问“刚才做了吗/为什么没执行/有没有调用工具/消息发出去没/查看执行日志”时调用；普通用户只看自己，超管可 scope=all。", obj(map[string]any{
+			"scope": p("string", "self 或 all；all 仅超级管理员有效，默认 self"),
+			"limit": p("integer", "返回条数，默认20，最多80"),
+		}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				if d.Store == nil {
+					return "动作账本不可用。", nil
+				}
+				var args struct {
+					Scope string `json:"scope"`
+					Limit int    `json:"limit"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				limit := args.Limit
+				if limit <= 0 {
+					limit = 20
+				}
+				if limit > 80 {
+					limit = 80
+				}
+				userID := u.ID
+				if u != nil && u.IsSuperadmin && strings.EqualFold(strings.TrimSpace(args.Scope), "all") {
+					userID = 0
+				}
+				items, err := d.Store.ListActionTurns(ctx, userID, limit)
+				if err != nil {
+					return "", err
+				}
+				return renderActionTurns(ctx, d.Store, d.TZ, items), nil
 			}),
 
 		tool("score_learning_candidates", "对待审核学习候选做一次治理评分：识别明显重复、冲突、低证据候选，帮助超管审核。", obj(map[string]any{
@@ -321,6 +355,89 @@ func renderDecisionItems(items []*store.DecisionItem) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+type actionTurnDetails struct {
+	PlannerSource string `json:"planner_source"`
+	FinishReason  string `json:"finish_reason"`
+	ToolEvidence  []struct {
+		Tool    string `json:"tool"`
+		OK      bool   `json:"ok"`
+		Summary string `json:"summary"`
+	} `json:"tool_evidence"`
+}
+
+func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, items []*store.ActionTurn) string {
+	if len(items) == 0 {
+		return "（暂无动作轮次记录）"
+	}
+	if tz == nil {
+		tz = time.Local
+	}
+	var b strings.Builder
+	b.WriteString("最近动作轮次\n")
+	for _, it := range items {
+		if it == nil {
+			continue
+		}
+		status := actionOutcomeLabel(it.Outcome)
+		name := userName(ctx, s, it.UserID)
+		fmt.Fprintf(&b, "- #%d %s %s [%s] %s；工具 %d/%d",
+			it.ID, it.CreatedAt.In(tz).Format("01-02 15:04"), name, it.Channel, status, it.SuccessToolCount, it.ToolCount)
+		if strings.TrimSpace(it.Intent) != "" {
+			fmt.Fprintf(&b, "；意图：%s", clipRunes(it.Intent, 80))
+		}
+		b.WriteByte('\n')
+		if strings.TrimSpace(it.UserTextExcerpt) != "" {
+			fmt.Fprintf(&b, "  输入：%s\n", clipRunes(it.UserTextExcerpt, 140))
+		}
+		if strings.TrimSpace(it.ReplyExcerpt) != "" {
+			fmt.Fprintf(&b, "  回复：%s\n", clipRunes(it.ReplyExcerpt, 140))
+		}
+		var details actionTurnDetails
+		if len(it.Evidence) > 0 {
+			_ = json.Unmarshal(it.Evidence, &details)
+		}
+		if len(it.ExpectedTools) > 0 {
+			fmt.Fprintf(&b, "  预计工具：%s\n", strings.Join(it.ExpectedTools, ", "))
+		}
+		if len(details.ToolEvidence) > 0 {
+			b.WriteString("  工具证据：\n")
+			for _, ev := range details.ToolEvidence {
+				state := "fail"
+				if ev.OK {
+					state = "ok"
+				}
+				fmt.Fprintf(&b, "  - %s:%s %s\n", ev.Tool, state, clipRunes(ev.Summary, 180))
+			}
+		}
+		if details.FinishReason != "" {
+			fmt.Fprintf(&b, "  finish_reason: %s\n", details.FinishReason)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func actionOutcomeLabel(outcome string) string {
+	switch outcome {
+	case "evidence_ok":
+		return "已执行"
+	case "planned_without_tool":
+		return "规划了动作但没调用工具"
+	case "tool_attempted_without_success_evidence":
+		return "调用过工具但无成功证据"
+	case "blocked_action_evidence", "blocked_no_tool_completion":
+		return "因缺少完成证据被拦截"
+	case "no_result":
+		return "无模型结果"
+	case "no_action":
+		return "非动作请求"
+	default:
+		if strings.TrimSpace(outcome) == "" {
+			return "未知"
+		}
+		return outcome
+	}
 }
 
 func clipRunes(s string, max int) string {

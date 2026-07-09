@@ -42,7 +42,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"activate_role", "schedule_once", "get_my_profile", "grant_active_perm",
 		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"search_skills", "load_skill",
-		"list_workflows", "list_capabilities",
+		"list_workflows", "list_capabilities", "list_action_turns",
 	} {
 		if !names[keep] {
 			t.Errorf("无授权用户应保留 %s", keep)
@@ -220,6 +220,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
 		"send_file", "start_workflow", "start_worker_skill",
+		"list_action_turns",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
 		"set_telegram_group_listen", "set_telegram_group_auto_invite",

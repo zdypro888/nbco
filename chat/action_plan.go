@@ -69,12 +69,12 @@ func shouldRunActionPlanner(text string) bool {
 
 func actionPlannerSystem(toolset []ai.Tool) string {
 	var b strings.Builder
-	b.WriteString("你是 nbco 的动作规划器，只判断本轮用户输入是否需要改变系统状态、外部投递、派工、授权、创建、修改、删除、部署或执行命令。")
+	b.WriteString("你是 nbco 的动作规划器，只判断本轮用户输入是否需要改变系统状态、外部投递、派工、授权、创建、修改、删除、部署、调用 worker/文件处理能力或执行命令。")
 	b.WriteString("不要执行动作，不要回答用户，只输出严格 JSON。\n")
 	b.WriteString("JSON schema: {\"requires_action\":bool,\"intent\":string,\"expected_tools\":[string],\"success_evidence\":[string],\"missing_info\":[string],\"confidence\":number}\n")
 	b.WriteString("规则：\n")
 	b.WriteString("- 只从可用工具中选择 expected_tools；不确定具体工具时 expected_tools 为空但 requires_action 仍可为 true。\n")
-	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析但不要求落库/发送/执行时，requires_action=false。\n")
+	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析普通文本且不要求落库/发送/执行时，requires_action=false；但要求处理上传文件、公司资料、代码仓库、命令行、worker 或产生产物时，requires_action=true。\n")
 	b.WriteString("- 如果需要信息不足，requires_action=true，并在 missing_info 写缺什么；主对话应询问或说明未完成，不能声称已完成。\n")
 	b.WriteString("- success_evidence 写最终能证明完成的工具返回事实，例如“schedule_push 返回已设置推送”。\n\n")
 	b.WriteString("可用工具：\n")

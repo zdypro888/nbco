@@ -211,6 +211,7 @@ var toolDomain = map[string]string{
 
 	// ops
 	"list_capabilities": CapabilityOps,
+	"list_action_turns": CapabilityOps,
 	"get_ai_settings":   CapabilityOps,
 	"set_ai_settings":   CapabilityOps,
 	"ai_usage_stats":    CapabilityOps,

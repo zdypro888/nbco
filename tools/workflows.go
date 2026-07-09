@@ -56,7 +56,7 @@ var workflowRefRe = regexp.MustCompile(`^[A-Za-z0-9._/@-]+$`)
 
 func workflowTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_workflows", "列出 nbco 已固化的标准工作流模板。遇到资料分析、代码升级、入职、群监控等标准流程时先看这里，优先用工作流而不是临场拼工具。",
+		tool("list_workflows", "列出 nbco 已固化的标准工作流模板。遇到资料分析、代码升级、入职、群监控等标准流程时先看是否有匹配模板；没有模板时继续用底层工具或 skill 组合完成。",
 			obj(map[string]any{"domain": p("string", "可选：workers/ops/...")}),
 			func(_ context.Context, raw json.RawMessage) (string, error) {
 				var args struct {

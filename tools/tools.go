@@ -333,6 +333,7 @@ var groupSensitive = map[string]bool{
 	"test_script_tool":               true,
 	"enable_script_tool":             true,
 	"search_history":                 true, // 会翻出发言人的私聊历史，群里禁用
+	"list_action_turns":              true, // 动作日志含私聊输入和工具结果，群里禁用
 	"ai_usage_stats":                 true,
 	"get_ai_settings":                true,
 	"set_ai_settings":                true,

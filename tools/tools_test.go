@@ -131,7 +131,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "list_capabilities"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "list_capabilities", "list_action_turns"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -148,11 +148,37 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if got := byName["start_workflow"].RequiredAction; got != "manage_worker" {
 		t.Fatalf("start_workflow required_action=%q", got)
 	}
+	if got := byName["list_action_turns"].Domain; got != CapabilityOps {
+		t.Fatalf("list_action_turns domain=%q", got)
+	}
 	if !byName["delete_project"].ApprovalRequired {
 		t.Fatalf("delete_project 应标记为审批工具")
 	}
 	if byName["start_workflow"].GroupAllowed {
 		t.Fatalf("start_workflow 不应在群共享会话可用")
+	}
+}
+
+func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
+	got := renderActionTurns(context.Background(), nil, time.UTC, []*store.ActionTurn{{
+		ID:               9,
+		UserID:           1,
+		Channel:          "telegram",
+		UserTextExcerpt:  "给大家发通知",
+		ReplyExcerpt:     "已发送。",
+		RequiresAction:   true,
+		Intent:           "发送通知",
+		ExpectedTools:    []string{"send_message"},
+		Evidence:         json.RawMessage(`{"tool_evidence":[{"tool":"send_message","ok":true,"summary":"已发送给 3 人。"}],"finish_reason":"stop"}`),
+		Outcome:          "evidence_ok",
+		ToolCount:        1,
+		SuccessToolCount: 1,
+		CreatedAt:        time.Date(2026, 7, 9, 20, 30, 0, 0, time.UTC),
+	}})
+	for _, want := range []string{"已执行", "工具 1/1", "发送通知", "send_message:ok", "已发送给 3 人", "finish_reason"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("动作账本渲染缺 %q:\n%s", want, got)
+		}
 	}
 }
 

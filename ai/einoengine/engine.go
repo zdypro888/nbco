@@ -118,6 +118,11 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	for _, t := range req.Tools {
 		tools = append(tools, &einoTool{t: t})
 	}
+	// Eino supports model.WithToolChoice/WithAgenticToolChoice, but applying it
+	// to the whole ADK run can also force the final summarization turn to call a
+	// tool. nbco keeps tool choice automatic here and enforces side-effect
+	// discipline in chat/action_plan.go: plan actions, require successful tool
+	// evidence, retry once, then block claims without evidence.
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "nbco",
 		Description: "nbco 公司运营中枢",

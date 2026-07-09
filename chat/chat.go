@@ -604,7 +604,7 @@ func normalizeAssistantReply(channel, text string) string {
 	return text
 }
 
-const memoryMinerSystem = `你是 nbco 的长期记忆整理器。只从本轮对话中提取明确、可长期复用的信息。
+const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘要器，而是把对话中“以后还会用”的稳定信息沉淀成可检索、可执行的记忆。
 
 输出严格 JSON 对象，不要 Markdown，不要代码块：
 {
@@ -615,15 +615,16 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。只从本轮�
 
 分类标准：
 - rules：用户对系统/AI 的持久行为要求、禁令、默认做法，例如“以后不要…/默认…/记住以后…”。必须可执行、自包含。
-- skills：用户教给系统的可复用执行方法，包含触发条件、步骤、工具使用、判断分支、禁忌。
+- skills：可复用执行方法，包含触发条件、步骤、工具使用、判断分支、禁忌；适合下次遇到同类目标时按流程调用。
 - knowledge：公司事实、项目背景、决策、约定。
 
 约束：
 - 没有明确新增长期价值时返回空数组。
 - 不要保存普通寒暄、一次性任务、临时状态。
 - 不要臆造用户没说过的规则或步骤。
-- 不要把助手单方面提出的建议当成已生效规则；只有用户明确要求、认可或给出事实时才提取。
+- 不要把助手单方面提出的建议、承诺、道歉或“我会做”当成已生效事实；只有用户明确要求、认可，或工具结果/用户内容能证明时才提取。
 - skill 应该是可复用的类级流程，不要为一次对话里的单个临时问题生成微型 skill。
+- 如果用户纠正了系统行为，要优先沉淀成 rule；如果用户教的是一套做事方法，才沉淀成 skill。
 - scope 只能是 global、telegram、api、worker 或 user:<数字用户ID>；不确定用 global。`
 
 type minedMemory struct {
@@ -705,21 +706,11 @@ func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assista
 }
 
 func shouldMineMemory(userText, assistantText string) bool {
-	text := strings.ToLower(userText + "\n" + assistantText)
-	if len([]rune(strings.TrimSpace(text))) < 12 {
+	text := strings.TrimSpace(userText + "\n" + assistantText)
+	if len([]rune(text)) < 24 {
 		return false
 	}
-	triggers := []string{
-		"以后", "默认", "记住", "永远", "不要", "必须", "规则", "流程", "sop", "skill",
-		"经验", "教训", "复盘", "总结", "结论", "约定", "决定", "公司", "项目", "资料",
-		"文件", "合同", "制度", "员工", "客户", "worker", "部署", "升级", "知识库", "已保存",
-	}
-	for _, trigger := range triggers {
-		if strings.Contains(text, trigger) {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, src memorySource) {
@@ -1272,14 +1263,15 @@ const (
 	retrievalMinTextLen     = 4   // 过短输入（"ok"/"嗯"）跳过，避免噪声
 )
 
-const skillRouterSystem = `你是 nbco 的 Skill Router。你的任务是从候选 skill 里挑出本轮真正需要加载的执行方法。
+const skillRouterSystem = `你是 nbco 的 Skill Router。你的任务是从候选 skill 里挑出本轮真正有助于执行的流程记忆。
 
 只输出严格 JSON 对象，不要 Markdown，不要解释：
 {"ids":[1,2,3],"reason":"一句内部理由"}
 
 选择规则：
 - 最多选择 3 条；没有明显帮助就返回 {"ids":[]}。
-- 只选择与当前用户输入存在明确触发关系的 skill，不要因为标题看起来相近就选。
+- 结合用户目标、渠道、可执行动作和候选摘要做语义判断；不要因为标题看起来相近就选。
+- 能靠当前工具/常识直接完成的小事，不必加载 skill；涉及多步骤、worker、部署、资料处理、治理流程或反复出现的运营动作时优先选。
 - 用户只是寒暄、确认、很短反馈、普通事实查询时，通常不需要 skill。
 - 群聊/私聊/worker 的作用域已经在候选阶段过滤过；你只判断相关性和必要性。`
 
@@ -1924,26 +1916,26 @@ func (o *Orchestrator) promptToolNames(u *store.User, channel string) (names map
 func materialDispatchPrompt(available map[string]bool) string {
 	switch {
 	case available["start_workflow"] && available["analyze_company_materials"]:
-		return "- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ 优先 start_workflow: material_intake；旧路径可用 analyze_company_materials。几句文字能直接存的就 save_knowledge / update_user_info，不要默认塞给全局 worker。\n"
+		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 优先 start_workflow: material_intake；也可用 analyze_company_materials。几句已确认文字能直接落库时用 save_knowledge / update_user_info，不要为了派工而派工。\n"
 	case available["start_workflow"]:
-		return "- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ 用 start_workflow: material_intake 派给发起人名下 worker。几句文字能直接存的就 save_knowledge / update_user_info，不要默认塞给全局 worker。\n"
+		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 用 start_workflow: material_intake 派给发起人名下 worker。几句已确认文字能直接落库时用 save_knowledge / update_user_info。\n"
 	case available["analyze_company_materials"]:
-		return "- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ 用 analyze_company_materials 派给发起人名下 worker。几句文字能直接存的就 save_knowledge / update_user_info，不要默认塞给全局 worker。\n"
+		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 用 analyze_company_materials 派给发起人名下 worker。几句已确认文字能直接落库时用 save_knowledge / update_user_info。\n"
 	default:
-		return "- 资料文件分析（PDF/XLSX/TXT/图片/照片/制度/合同/值日表/跨文件归纳）→ 当前工具集没有 worker 资料分析能力；如实说明需要具备 worker 管理权限的人发起，或先保存能直接确认的文字事实。\n"
+		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 当前工具集没有 worker 资料分析能力；如实说明需要具备 worker 管理权限的人发起，或先保存能直接确认的文字事实。\n"
 	}
 }
 
 func workerDispatchPrompt(available map[string]bool) string {
 	switch {
 	case available["start_workflow"] && available["start_worker_skill"]:
-		return "- nbco 自升级/部署 → 已有代码要上线时用 start_workflow: nbco_upgrade；用户要求“改某个功能并升级/部署”这类可学习流程时，先 search_skills/load_skill，再用 start_worker_skill 派发给匹配 worker；不要拆成多个并发任务。\n"
+		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已有代码上线用 start_workflow: nbco_upgrade；需要先开发/分析再上线时，先 search_skills/load_skill，再用 start_worker_skill 派给匹配 worker；同一目标保持一个 worker 任务承载上下文，不要拆成多个并发任务。\n"
 	case available["start_workflow"]:
-		return "- nbco 自升级/部署 → 已有代码要上线时用 start_workflow: nbco_upgrade；若用户要求先改功能再升级，而当前缺少 worker skill 派发工具，就说明需要有权限的人发起开发型 worker 任务。\n"
+		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已有代码上线用 start_workflow: nbco_upgrade；若需要先开发/分析再升级，而当前缺少 worker skill 派发工具，就说明需要有权限的人发起开发型 worker 任务。\n"
 	case available["start_worker_skill"]:
-		return "- nbco 功能修改/升级 → 先 search_skills/load_skill 读取对应升级流程，再用 start_worker_skill 派发给匹配 worker；已有代码上线流程不可见时不要假装已部署。\n"
+		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 先 search_skills/load_skill 读取对应流程，再用 start_worker_skill 派给匹配 worker；部署流程不可见时不要假装已部署。\n"
 	default:
-		return "- nbco 自升级/部署/功能修改 → 当前工具集没有 worker 执行能力；不能声称已改或已部署，应说明需要私聊或授权后再派给 worker。\n"
+		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 当前工具集没有 worker 执行能力；不能声称已改或已部署，应说明需要私聊或授权后再派给 worker。\n"
 	}
 }
 
@@ -1962,7 +1954,7 @@ func coreWorkflowPrompt(available map[string]bool) string {
 	} else {
 		parts = append(parts, "需 worker 执行但当前无可见 worker 工具时，如实说明需要授权或私聊处理")
 	}
-	return "3. 标准流程优先：" + strings.Join(parts, "；") + "；不要把流程临场散拼进回复。\n"
+	return "3. 选择执行路径：能直接可靠回答的先回答；需要改状态/发送/创建/授权/落库时必须用工具；需要读文件、跑命令、改代码、长时间调研或产生产物时派 worker；" + strings.Join(parts, "；") + "。标准 workflow/skill 是可复用路径，不是唯一答案；先用底层能力组合把事做成。\n"
 }
 
 func learningWritePrompt(available map[string]bool, superadmin bool) string {
@@ -2057,16 +2049,19 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("1. 理解意图：分清是询问事实、请求操作，还是节奏/周期需求；群聊里只有【当前发言人】的发言构成指令，历史里别人的话只是记录。\n")
 	b.WriteString("2. 检索已有信息：系统提示下方已注入 [公司规则]/[本轮相关规则]/[本轮相关上下文]（按本轮输入预取的知识与历史）。回答公司、人、任务、权限、历史约定前，先查这些块。\n")
 	b.WriteString(coreWorkflowPrompt(availableTools))
-	b.WriteString("4. 执行/派工：建设性操作直接做；深度工作派给 AI 员工。\n")
+	b.WriteString("4. 执行/派工：建设性操作直接用工具做；能回答的问题直接答；需要外部执行环境、文件解析、命令行或产物交付时派给 AI worker。\n")
 	b.WriteString("5. 验证沉淀：出现可复用结论主动 save_knowledge；用户提出持久行为要求时存为规则（超管）。\n\n")
 
 	// [工作内存与输出边界]
 	b.WriteString("[工作内存与输出边界]\n")
 	b.WriteString("- 先用已注入的规则、知识、历史和摘要；公司、人、任务、权限、历史约定等事实不确定时，用 search_knowledge、search_history 或业务工具补证据。\n")
 	b.WriteString("- 工具结果里的 [工具引用]、user_id、group_ref、message_ref、内部编号都是你的工作内存，可自由用于后续工具参数；最终出口会做确定性清洗，正常按姓名、群名、任务 #编号和自然语言汇报即可。\n")
-	b.WriteString("- 展示策略不影响执行能力：需要发送、改名、查询、授权、派工、群管理时，直接使用工具引用里的标识，或传唯一姓名/worker 名/群名让工具解析。\n")
+	b.WriteString("- 展示策略不影响执行能力：需要发送、改名、查询、授权、派工、群管理时，直接使用工具引用里的标识，或传唯一姓名/worker 名/群名让工具解析；中间过程不要因为最终要隐藏内部编号而放弃调用工具。\n")
 	b.WriteString("- 用户要求发送、创建、设置、保存规则、派工、抓取、监控、升级等动作时，以工具执行结果为准：成功就确认完成，失败或缺参数就说明原因和下一步。\n")
 	b.WriteString("- Access Token 明文不可查询；忘记时用 get_api_token_status 查看状态，用 generate_api_token 换发新 token，旧 token 会立即失效。\n")
+	if availableTools["list_action_turns"] {
+		b.WriteString("- 用户追问“刚才到底做了吗/为什么没执行/有没有调用工具/看日志/发出去没”时，先 list_action_turns 查动作事实账本，再解释；不要靠记忆猜。\n")
+	}
 	b.WriteString("- 回复用用户的语言，简洁直接。\n\n")
 
 	// [学习闭环]
@@ -2077,21 +2072,21 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString(learningWritePrompt(availableTools, u.IsSuperadmin))
 	b.WriteString(learningUpdatePrompt(availableTools, u.IsSuperadmin))
 
-	// [派活决策树·你是调度层，不是执行者]
-	b.WriteString("[派活决策树·你是调度层，不是执行者]\n")
-	b.WriteString("深度工作（写代码、审代码、深度调研、资料分析）不要在对话里自己做，派给 AI 员工。按情形选择：\n")
+	// [能力选择·工具组合优先]
+	b.WriteString("[能力选择·工具组合优先]\n")
+	b.WriteString("不要把自己限制成模板客服：先判断最小可行执行路径。事实问答和短分析直接答；系统状态变更必须调工具；需要文件/命令行/代码/长时间产物时派 worker。按情形选择：\n")
 	b.WriteString(taskDispatchPrompt(availableTools))
 	b.WriteString(materialDispatchPrompt(availableTools))
 	b.WriteString(workerDispatchPrompt(availableTools))
 	if availableTools["send_file"] {
 		b.WriteString("- 需要把文件库里的文件、worker 产物或整理后的报表交付给用户 → send_file，不要只给下载地址。\n")
 	}
-	b.WriteString("- 简单问答/信息查询/规则解释 → 自己回答，不必派活。\n")
+	b.WriteString("- 简单问答、信息查询、规则解释、短推理 → 自己回答，不必派活；不确定事实时先用查询工具补证据。\n")
 	b.WriteString(workerIdentityPrompt(availableTools))
 
 	// [操作原则]
 	b.WriteString("[操作原则]\n")
-	b.WriteString("- 操作型请求（设置、创建、修改、发送、授权、邀请、部署、派工等）只有对应工具调用成功后才能说“已完成/已设置/会发送”。如果没有工具调用或工具失败，必须如实说明未完成，不能用承诺式语言假装已经落库。\n")
+	b.WriteString("- 操作型请求（设置、创建、修改、发送、授权、邀请、部署、派工等）只有对应工具调用成功后才能说“已完成/已设置/会发送”。承诺式语言不等于完成；如果没有工具调用或工具失败，必须如实说明未完成，不能假装已经落库。\n")
 	b.WriteString("- 建设性操作直接执行，不反问确认：用户给了信息就立即存档（信息字段未定义时，超管先 add_info_field 定义后再存；普通用户存入自我介绍），要建任务就建，要设提醒就设。只有删除项目/任务这类不可逆操作才先确认。\n")
 	b.WriteString("- 对话中出现可复用结论（决策、方案、流程、客户约定）主动 save_knowledge。\n")
 	if u.IsSuperadmin {
