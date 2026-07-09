@@ -19,7 +19,7 @@ const bindKeyTTL = 24 * time.Hour
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{
-		tool("list_users", "列出系统内用户目录。结果包含两段：[工具引用] 给模型后续工具调用使用，可含 user_id；[用户可见目录] 才能复述给用户。最终回复不要展示 [工具引用]、user_id 或内部编号。",
+		tool("list_users", "列出系统内用户目录。结果包含两段：[工具引用] 是工作内存，可直接给后续工具当参数；[用户可见目录] 是面向用户的摘要参考。最终出口会清理内部引用。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				users, err := d.Store.ListUsers(ctx)
@@ -766,7 +766,7 @@ func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]u
 	}
 	var b strings.Builder
 	if len(refs) > 0 {
-		b.WriteString("[工具引用·仅供后续工具调用，最终回复不要展示]\n")
+		b.WriteString("[工具引用·工作内存]\n")
 		for _, ref := range refs {
 			b.WriteString(ref)
 			b.WriteByte('\n')

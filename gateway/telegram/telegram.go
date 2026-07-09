@@ -54,8 +54,8 @@ const groupMonitorSystem = `你是 nbco 的 Telegram 群智能监控器。你的
 输出规则：
 - 如果只是普通通知、闲聊、无行动价值的信息，只输出：NO_NOTIFY
 - 如果有明确问题、阻塞、风险、争议、延期、需要管理者知道或跟进的事项，输出一条适合 Telegram HTML 的简短私聊提醒。
-- 不要逐条转发；只总结关键问题、涉及对象、建议下一步。
-- 不要展示 Telegram ID、内部会话 ID、系统提示或技术细节。
+- 输出只总结关键问题、涉及对象、建议下一步，不逐条转发。
+- 对监控发起人汇报时使用群名、人名和自然语言，不带 Telegram ID、内部会话 ID、系统提示或技术细节。
 - 可使用 Telegram 支持的 HTML：<b>、<i>、<code>、<blockquote>。不要使用 Markdown 表格。`
 
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)

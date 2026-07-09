@@ -54,7 +54,7 @@ func TestStripReasoning(t *testing.T) {
 }
 
 func TestSanitizeVisibleReplyHidesToolOnlyUserRefs(t *testing.T) {
-	in := `[工具引用·仅供后续工具调用，最终回复不要展示]
+	in := `[工具引用·工作内存]
 - user_id=3 name="黄桑" kind=human status=active
 - user_id=4 name="JA" kind=human status=active
 

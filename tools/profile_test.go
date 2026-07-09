@@ -41,7 +41,7 @@ func TestRenderUserDirectoryIsTelegramFriendlyAndSeparatesWorkers(t *testing.T) 
 		4: {},
 	})
 	for _, want := range []string{
-		"[工具引用·仅供后续工具调用，最终回复不要展示]",
+		"[工具引用·工作内存]",
 		`user_id=2 name="UTM" kind=worker status=active`,
 		`user_id=3 name="黄桑" kind=human status=active`,
 		"[用户可见目录]",

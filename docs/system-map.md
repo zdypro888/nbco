@@ -37,6 +37,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 
 - 不做 HR 薪酬/考勤系统。
 - 不向用户展示内部 user_id、Telegram ID、token hash 等系统细节。
+- 内部 ID/ref 是模型工作内存和工具参数，不是能力限制；最终展示由 `textfmt.SanitizeVisibleReply` 与渠道格式化层清理。
 - 真人邀请、用户 Access Token、worker 绑定码、Worker Access Token 必须严格区分。
 
 ### 2. Work：目标、项目、任务、验收、决策

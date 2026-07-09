@@ -19,7 +19,7 @@ const telegramGroupToolLimit = 50
 // telegramGroupTools 管理 Telegram 群这个外部实体，和用户/worker 一样走 list/get/update。
 func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_telegram_groups", "列出 bot 已记录的 Telegram 群。用户问“你进群了吗/公司群收到了吗/有哪些群/监听状态”时先调用。结果里的 group_ref 只给后续工具使用，回复用户时不要展示内部引用或 chat ID。",
+		tool("list_telegram_groups", "列出 bot 已记录的 Telegram 群。用户问“你进群了吗/公司群收到了吗/有哪些群/监听状态”时先调用。结果里的 group_ref 是工作内存，可直接给后续群工具当参数；最终出口会清理内部引用。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				groups, err := d.Store.ListTelegramGroupStates(ctx, telegramGroupToolLimit)
@@ -32,7 +32,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				var b strings.Builder
 				b.WriteString("Telegram 群列表：\n")
 				for _, g := range groups {
-					fmt.Fprintf(&b, "- %s：%s，%s，%s，%s，最近更新 %s；group_ref=%s（内部引用，勿展示给用户）\n",
+					fmt.Fprintf(&b, "- %s：%s，%s，%s，%s，最近更新 %s；group_ref=%s（工作内存）\n",
 						telegramGroupTitle(g), telegramGroupStatusText(g), telegramGroupListenText(g),
 						telegramGroupAutoInviteText(ctx, d, g), telegramGroupMonitorText(ctx, d, g),
 						fmtTime(g.UpdatedAt, d.TZ), telegramGroupRef(g.ChatID))
@@ -124,7 +124,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与 nbco 系统员工。用户问群里有谁、谁已加入系统、成员是不是 AI worker/真人时优先调用本工具；内部用 Telegram ID 精确绑定，但回复用户不要展示 Telegram ID。",
+		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与 nbco 系统员工。用户问群里有谁、谁已加入系统、成员是不是 AI worker/真人时优先调用本工具；内部用 Telegram ID 精确绑定，最终按姓名和绑定状态自然汇报。",
 			obj(map[string]any{
 				"group": p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
 			}),
@@ -239,7 +239,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已关闭 %s 的自动邀请。", telegramGroupTitle(*g)), nil
 			}),
 
-		tool("send_telegram_group_message", "向 Telegram 群发送消息。需要 manage_telegram_group 权限；群里不要用这个工具。发送后返回 message_ref 供编辑、撤回、置顶等后续工具使用，回复用户时不要展示内部引用。",
+		tool("send_telegram_group_message", "向 Telegram 群发送消息。需要 manage_telegram_group 权限；群里通常直接发言即可，私聊里可用本工具代发到群。发送后返回 message_ref 供编辑、撤回、置顶等后续工具使用。",
 			obj(map[string]any{
 				"group":                p("string", "群名、群名片段或 group_ref"),
 				"text":                 p("string", "要发送到群里的内容，可用 Telegram HTML/普通文本"),
@@ -269,7 +269,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				if err := d.Store.SaveTelegramGroupLastMessage(ctx, g.ChatID, messageID); err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已发送到 %s。message_ref=%s（内部引用，勿展示给用户）",
+				return fmt.Sprintf("已发送到 %s。message_ref=%s（工作内存）",
 					telegramGroupTitle(*g), telegramMessageRef(g.ChatID, messageID)), nil
 			}),
 
@@ -498,7 +498,7 @@ func resolveTelegramGroup(ctx context.Context, d Deps, selector string) (*store.
 		var b strings.Builder
 		b.WriteString("匹配到多个 Telegram 群，请用更完整的群名或 group_ref：\n")
 		for _, g := range matches {
-			fmt.Fprintf(&b, "- %s；group_ref=%s（内部引用，勿展示给用户）\n", telegramGroupTitle(g), telegramGroupRef(g.ChatID))
+			fmt.Fprintf(&b, "- %s；group_ref=%s（工作内存）\n", telegramGroupTitle(g), telegramGroupRef(g.ChatID))
 		}
 		return nil, b.String(), nil
 	}
@@ -744,7 +744,7 @@ func renderTelegramGroupMemberBindings(ctx context.Context, d Deps, g store.Tele
 			fmt.Fprintf(&b, "- %s → 未绑定系统员工\n", label)
 		}
 	}
-	fmt.Fprintf(&b, "汇总：已绑定 %d，疑似 %d，未绑定 %d。说明：Telegram ID 仅用于内部精确匹配，回复用户不要展示。", exact, suspected, unmatched)
+	fmt.Fprintf(&b, "汇总：已绑定 %d，疑似 %d，未绑定 %d。说明：Telegram ID 仅用于内部精确匹配；对用户汇报时按姓名和绑定状态表达。", exact, suspected, unmatched)
 	return b.String(), nil
 }
 
@@ -972,6 +972,6 @@ func renderTelegramGroup(g store.TelegramGroupState, tz *time.Location) string {
 	fmt.Fprintf(&b, "- 群类型：%s\n", g.Type)
 	fmt.Fprintf(&b, "- 监听状态：%s\n", telegramGroupListenText(g))
 	fmt.Fprintf(&b, "- 最近更新：%s\n", fmtTime(g.UpdatedAt, tz))
-	fmt.Fprintf(&b, "- group_ref：%s（内部引用，勿展示给用户）", telegramGroupRef(g.ChatID))
+	fmt.Fprintf(&b, "- group_ref：%s（工作内存）", telegramGroupRef(g.ChatID))
 	return b.String()
 }

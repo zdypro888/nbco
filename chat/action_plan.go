@@ -179,7 +179,7 @@ func renderActionPlanContext(plan *actionPlan) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n[本轮动作计划·证据约束]\n")
+	b.WriteString("\n[本轮动作计划]\n")
 	if plan.Intent != "" {
 		b.WriteString("意图：" + plan.Intent + "\n")
 	}
@@ -200,7 +200,7 @@ func renderActionPlanContext(plan *actionPlan) string {
 			b.WriteString("- " + item + "\n")
 		}
 	}
-	b.WriteString("最终回复纪律：只有实际工具返回成功证据后，才能说“已完成/已设置/已更新/会发送”。如果缺参数、无权限、工具不可用或工具返回失败，必须明确说未完成以及下一步需要什么。\n")
+	b.WriteString("完成口径：先看工具结果；工具成功就确认完成，工具没跑、失败、缺参数或无权限，就说明未完成以及下一步。\n")
 	return b.String()
 }
 

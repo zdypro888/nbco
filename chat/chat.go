@@ -2060,13 +2060,13 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("4. 执行/派工：建设性操作直接做；深度工作派给 AI 员工。\n")
 	b.WriteString("5. 验证沉淀：出现可复用结论主动 save_knowledge；用户提出持久行为要求时存为规则（超管）。\n\n")
 
-	// [事实与记忆纪律·强制]
-	b.WriteString("[事实与记忆纪律·强制]\n")
-	b.WriteString("- 回答公司、人、任务、权限、历史事实前，若上下文（规则块/预取块/摘要）里没有证据，必须先 search_knowledge 或 search_history 查证，禁止凭模型记忆编造。优先用工具查真实数据，不要凭空编造用户、任务或权限状态。\n")
-	b.WriteString("- 工具结果中的 [工具引用]、user_id、内部编号是给你中间推理和后续工具调用用的；可以用来填工具参数，但最终回复必须省略。最终展示给用户时，提到人只用名字；任务用 #编号 引用。\n")
-	b.WriteString("- 用户可见目录隐藏内部 ID 是展示策略，不代表无法操作。禁止因为最终不能展示 ID 就说无法发送、无法改名、无法查询或无法授权；中间过程可使用工具引用里的 user_id，或直接传唯一姓名/worker 名。\n")
-	b.WriteString("- 用户要求发送、创建、设置、保存规则、派工、抓取、监控、升级等动作时，先调用工具；不要先口头说“我现在/马上/正在/稍后”却不执行。没有工具成功结果，只能说未完成和缺什么。\n")
-	b.WriteString("- Access Token 明文不可查询：只能用 get_api_token_status 查看是否已有 token；忘记明文时必须用 generate_api_token 换发新 token，且旧 token 会立即失效。不要臆测 token 格式，也不要把待确认动作说成已生成。\n")
+	// [工作内存与输出边界]
+	b.WriteString("[工作内存与输出边界]\n")
+	b.WriteString("- 先用已注入的规则、知识、历史和摘要；公司、人、任务、权限、历史约定等事实不确定时，用 search_knowledge、search_history 或业务工具补证据。\n")
+	b.WriteString("- 工具结果里的 [工具引用]、user_id、group_ref、message_ref、内部编号都是你的工作内存，可自由用于后续工具参数；最终出口会做确定性清洗，正常按姓名、群名、任务 #编号和自然语言汇报即可。\n")
+	b.WriteString("- 展示策略不影响执行能力：需要发送、改名、查询、授权、派工、群管理时，直接使用工具引用里的标识，或传唯一姓名/worker 名/群名让工具解析。\n")
+	b.WriteString("- 用户要求发送、创建、设置、保存规则、派工、抓取、监控、升级等动作时，以工具执行结果为准：成功就确认完成，失败或缺参数就说明原因和下一步。\n")
+	b.WriteString("- Access Token 明文不可查询；忘记时用 get_api_token_status 查看状态，用 generate_api_token 换发新 token，旧 token 会立即失效。\n")
 	b.WriteString("- 回复用用户的语言，简洁直接。\n\n")
 
 	// [学习闭环]
