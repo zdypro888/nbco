@@ -209,8 +209,6 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		MaxPerTool:     8,
 		MaxExactRepeat: 1,
 	})
-	actionPlan := o.maybePlanAction(ctx, u, channel, text, toolset)
-	system += renderActionPlanContext(actionPlan)
 	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
 	if sess.Summary != "" {
 		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
@@ -355,6 +353,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	// 成本计量：每轮 token 用量落库（尽力而为）。
 	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
+	actionPlan := buildActionAuditPlan(text, toolset, res)
 	o.recordActionTurn(ctx, u, sess, channel, text, actionPlan, res, diag)
 
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
@@ -474,49 +473,6 @@ func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.T
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
 	retry.System = req.System + "\n\n[系统保护]\n上一轮没有调用任何工具，却给了“已完成/已设置/会发送”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适工具完成。\n- 如果用户要读取/解析 PDF、XLSX、图片、附件或最近上传文件，先用 list_recent_files 确认文件，再调用 start_workflow、analyze_company_materials 或 start_worker_skill 处理；不能只回答“能读取”。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮工具调用成功后，才能说已经完成。"
-	res, err := o.engine.RunTurn(ctx, &retry)
-	if err != nil {
-		return nil, err
-	}
-	res.Text = textfmt.StripReasoning(res.Text)
-	res.Usage.InputTokens += first.Usage.InputTokens
-	res.Usage.OutputTokens += first.Usage.OutputTokens
-	if needsVisibleReplyRepair(res) {
-		return nil, errors.New("模型重跑后输出仍疑似截断")
-	}
-	return res, nil
-}
-
-func (o *Orchestrator) repairActionEvidenceTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, plan *actionPlan, onDelta func(string)) (*ai.TurnResult, error) {
-	retry := *req
-	retry.OnDelta = onDelta
-	retry.StreamReasoning = false
-	var b strings.Builder
-	b.WriteString(req.System)
-	b.WriteString("\n\n[系统保护]\n上一轮动作计划没有形成成功工具证据，也没有清楚说明缺参/权限/渠道限制。请重新处理同一个用户请求：\n")
-	b.WriteString("- 需要执行就调用当前可见的合适工具，并以工具返回结果为准。\n")
-	b.WriteString("- 工具失败、目标不存在、参数缺失、待确认动作或权限不足时，直接说明未完成和下一步。\n")
-	b.WriteString("- 当前可见工具无法完成该请求时，如实说明不能在当前渠道/权限下完成。\n")
-	if plan != nil {
-		if plan.Intent != "" {
-			b.WriteString("规划意图：" + plan.Intent + "\n")
-		}
-		if len(plan.ExpectedTools) > 0 {
-			b.WriteString("规划预计工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
-			b.WriteString("- 本轮优先调用上述预计工具之一；如果处理最近上传的文件但缺少 file_id，先用 list_recent_files 查最近文件，再调用文件分析/worker/工作流工具。\n")
-		}
-	}
-	if evidence := summarizeToolEvidence(first.Steps); len(evidence) > 0 {
-		b.WriteString("上一轮工具证据：\n")
-		for _, ev := range evidence {
-			state := "失败/不足"
-			if ev.OK {
-				state = "成功"
-			}
-			fmt.Fprintf(&b, "- %s：%s；%s\n", ev.Tool, state, ev.Summary)
-		}
-	}
-	retry.System = b.String()
 	res, err := o.engine.RunTurn(ctx, &retry)
 	if err != nil {
 		return nil, err

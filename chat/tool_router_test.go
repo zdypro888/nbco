@@ -41,8 +41,8 @@ func TestRouteTurnToolsAddsCommsAndSchedule(t *testing.T) {
 
 	routed, route = routeTurnTools("telegram", "给黄桑发消息说明今天开会", testRouteTools())
 	names = routeToolNameSet(routed)
-	if !names["send_message"] || !shouldRunActionPlanner("给黄桑发消息说明今天开会") {
-		t.Fatalf("发消息场景应暴露 send_message 并启动动作规划器，tools=%v route=%s", routedToolNames(routed), route.Summary())
+	if !names["send_message"] || !looksLikeAuditableActionRequest("给黄桑发消息说明今天开会") {
+		t.Fatalf("发消息场景应暴露 send_message 并进入动作审计，tools=%v route=%s", routedToolNames(routed), route.Summary())
 	}
 }
 
@@ -129,13 +129,13 @@ func TestRouteTurnToolsAddsTelegramGroupTools(t *testing.T) {
 	}
 }
 
-func TestShouldRunActionPlannerOnlyForActionLikeTurns(t *testing.T) {
-	if shouldRunActionPlanner("解释一下 token 为什么不能查询明文") {
-		t.Fatal("普通解释问题不应启动动作规划器")
+func TestAuditableActionRequestOnlyForActionLikeTurns(t *testing.T) {
+	if looksLikeAuditableActionRequest("解释一下 token 为什么不能查询明文") {
+		t.Fatal("普通解释问题不应进入动作审计")
 	}
 	for _, text := range []string{"clone了吗？", "刚才通知发出去没？", "部署成功了吗？", "有没有执行 worker 命令？"} {
-		if shouldRunActionPlanner(text) {
-			t.Fatalf("状态核实问题不应启动动作完成守门: %s", text)
+		if looksLikeAuditableActionRequest(text) {
+			t.Fatalf("状态核实问题不应被记录成新动作请求: %s", text)
 		}
 	}
 	for _, text := range []string{
@@ -147,8 +147,8 @@ func TestShouldRunActionPlannerOnlyForActionLikeTurns(t *testing.T) {
 		"帮我部署一下？",
 		"无成人陪伴这个删除掉吧。没用了",
 	} {
-		if !shouldRunActionPlanner(text) {
-			t.Fatalf("操作/worker/文件请求应启动动作规划器: %s", text)
+		if !looksLikeAuditableActionRequest(text) {
+			t.Fatalf("操作/worker/文件请求应进入动作审计: %s", text)
 		}
 	}
 }

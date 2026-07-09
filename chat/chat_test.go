@@ -341,141 +341,7 @@ func TestSideEffectCompletionWithoutTools(t *testing.T) {
 	}
 }
 
-func TestParseActionPlanFiltersUnavailableTools(t *testing.T) {
-	plan, err := parseActionPlan(`{
-		"requires_action": true,
-		"intent": "设置提醒",
-		"expected_tools": ["schedule_push", "delete_project", "schedule_push"],
-		"success_evidence": ["schedule_push 返回已设置推送"],
-		"missing_info": [],
-		"confidence": 2
-	}`, map[string]bool{"schedule_push": true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !plan.RequiresAction || len(plan.ExpectedTools) != 1 || plan.ExpectedTools[0] != "schedule_push" {
-		t.Fatalf("规划器应只保留可见工具且去重: %+v", plan)
-	}
-	if plan.Confidence != 1 {
-		t.Fatalf("confidence 应归一到 1: %+v", plan.Confidence)
-	}
-}
-
-func TestParseActionPlanExpandsMaterialToolAlternatives(t *testing.T) {
-	available := map[string]bool{
-		"start_workflow":            true,
-		"analyze_company_materials": true,
-		"start_worker_skill":        true,
-	}
-	plan, err := parseActionPlan(`{
-		"requires_action": true,
-		"intent": "用户请求读取或分析最近上传的文件",
-		"expected_tools": ["start_workflow"],
-		"success_evidence": ["文件分析/worker 派工工具返回已创建任务或已完成分析"],
-		"confidence": 0.8
-	}`, available)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !sameStringSet(plan.ExpectedTools, []string{"analyze_company_materials", "start_worker_skill", "start_workflow"}) {
-		t.Fatalf("文件/资料类动作应扩展同类执行工具: %+v", plan.ExpectedTools)
-	}
-	steps := []ai.Step{{Kind: ai.StepToolCall, ToolName: "analyze_company_materials", Result: "已创建资料分析任务（任务内部编号 6），分配给你的 worker NBAI。"}}
-	if !hasSuccessfulActionEvidence(plan, steps) {
-		t.Fatal("analyze_company_materials 成功应能证明文件/资料派工动作完成")
-	}
-}
-
-func TestParseActionPlanDoesNotExpandWorkflowForNonMaterialIntent(t *testing.T) {
-	plan, err := parseActionPlan(`{
-		"requires_action": true,
-		"intent": "升级 nbco 系统",
-		"expected_tools": ["start_workflow"],
-		"success_evidence": ["start_workflow 返回已创建升级任务"],
-		"confidence": 0.8
-	}`, map[string]bool{"start_workflow": true, "analyze_company_materials": true, "start_worker_skill": true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !sameStringSet(plan.ExpectedTools, []string{"start_workflow", "start_worker_skill"}) {
-		t.Fatalf("升级类 workflow 应只扩展 worker/运维同类工具: %+v", plan.ExpectedTools)
-	}
-	if containsString(plan.ExpectedTools, "analyze_company_materials") {
-		t.Fatalf("非资料类 workflow 不应扩展到文件分析工具: %+v", plan.ExpectedTools)
-	}
-}
-
-func TestParseActionPlanInfersExpectedToolsWhenPlannerLeavesEmpty(t *testing.T) {
-	plan, err := parseActionPlan(`{
-		"requires_action": true,
-		"intent": "设置每天 10 点自动汇总日本公司群消息并通知我",
-		"expected_tools": [],
-		"success_evidence": ["群监控或定时推送工具返回成功"],
-		"confidence": 0.7
-	}`, map[string]bool{
-		"list_telegram_groups":       true,
-		"set_telegram_group_monitor": true,
-		"schedule_repeating":         true,
-		"send_message":               true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"set_telegram_group_monitor", "schedule_repeating", "send_message"} {
-		if !containsString(plan.ExpectedTools, want) {
-			t.Fatalf("应从 intent 推断动作族工具 %s: %+v", want, plan.ExpectedTools)
-		}
-	}
-	readOnly := []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_telegram_groups", Result: "Telegram 群列表：日本公司成员，智能监控关闭。"}}
-	if hasSuccessfulActionEvidence(plan, readOnly) {
-		t.Fatal("读取群列表不能证明自动汇总/通知已设置")
-	}
-}
-
-func TestFallbackActionPlanCoversHeavyExecution(t *testing.T) {
-	plan := fallbackActionPlan("帮我分析刚才上传的两个 PDF 文件，并整理成公司资料", "planner_error")
-	if plan == nil || !plan.RequiresAction {
-		t.Fatalf("planner 失败时，文件/worker 重活也必须进入动作证据守门: %+v", plan)
-	}
-	if plan.Source != "planner_error" {
-		t.Fatalf("fallback source = %q", plan.Source)
-	}
-	if fallbackActionPlan("解释一下这个概念", "planner_error") != nil {
-		t.Fatal("普通解释不应进入动作计划")
-	}
-	for _, text := range []string{"clone了吗？", "刚才通知发出去没？", "部署成功了吗？"} {
-		if fallbackActionPlan(text, "planner_error") != nil {
-			t.Fatalf("状态查询不应被 fallback 当成新动作: %s", text)
-		}
-	}
-	if fallbackActionPlan("无成人陪伴这个删除掉吧。没用了", "planner_error") == nil {
-		t.Fatal("带“没用了”的删除请求仍应进入动作守门")
-	}
-}
-
-func TestFallbackActionPlanRequiresWorkerToolForAttachmentReference(t *testing.T) {
-	toolset := []ai.Tool{
-		{Name: "list_recent_files"},
-		{Name: "start_workflow"},
-		{Name: "analyze_company_materials"},
-	}
-	plan := fallbackActionPlanWithTools("能看得懂这个吗？", "planner_error", toolset)
-	if plan == nil || !plan.RequiresAction {
-		t.Fatalf("最近附件指代在 planner 失败时也必须进入动作证据守门: %+v", plan)
-	}
-	if !sameStringSet(plan.ExpectedTools, []string{"analyze_company_materials", "start_workflow"}) {
-		t.Fatalf("应要求执行型文件分析工具作为证据，不应只靠 list_recent_files: %+v", plan)
-	}
-	steps := []ai.Step{{Kind: ai.StepToolCall, ToolName: "analyze_company_materials", Result: "已创建资料分析任务（任务内部编号 6），分配给你的 worker NBAI。"}}
-	if !hasSuccessfulActionEvidence(plan, steps) {
-		t.Fatal("fallback 文件动作应承认 analyze_company_materials 的成功证据")
-	}
-	if !strings.Contains(strings.Join(plan.SuccessEvidence, "\n"), "文件分析") {
-		t.Fatalf("完成证据应指向文件分析/worker 结果: %+v", plan.SuccessEvidence)
-	}
-}
-
-func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
+func TestBuildActionAuditPlanDoesNotCallPlanner(t *testing.T) {
 	toolset := []ai.Tool{
 		{Name: "start_workflow"},
 		{Name: "schedule_push"},
@@ -492,83 +358,33 @@ func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
 		{Name: "low_level_db_query"},
 		{Name: "low_level_db_exec"},
 	}
-	cases := []struct {
-		name string
-		text string
-		want []string
-	}{
-		{
-			name: "schedule",
-			text: "明天早上 9 点提醒全体员工完善个人档案",
-			want: []string{"schedule_push", "schedule_repeating"},
-		},
-		{
-			name: "message",
-			text: "通知所有员工完善个人信息",
-			want: []string{"send_message", "create_data_collection_campaign"},
-		},
-		{
-			name: "group-monitor",
-			text: "日本公司群有人发送消息时自动总结，有重要事项通知我",
-			want: []string{"set_telegram_group_monitor", "send_message"},
-		},
-		{
-			name: "memory",
-			text: "以后不要把 worker token 发出来，记成规则",
-			want: []string{"save_rule"},
-		},
-		{
-			name: "delete",
-			text: "无成人陪伴这个删除掉吧。没用了",
-			want: []string{"delete_assigned_task", "delete_project"},
-		},
-		{
-			name: "low-level",
-			text: "领域工具不行的话，用底层 SQL 兜底修一下这条任务状态",
-			want: []string{"low_level_db_query", "low_level_db_exec"},
-		},
+	plan := buildActionAuditPlan("明天早上 9 点提醒全体员工完善个人档案", toolset, &ai.TurnResult{})
+	if plan == nil || !plan.RequiresAction {
+		t.Fatalf("动作请求应进入审计账本: %+v", plan)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			plan := fallbackActionPlanWithTools(tc.text, "planner_error", toolset)
-			if plan == nil || !plan.RequiresAction {
-				t.Fatalf("应进入动作守门: %+v", plan)
-			}
-			for _, want := range tc.want {
-				if !containsString(plan.ExpectedTools, want) {
-					t.Fatalf("fallback 应推断 %s，got %+v", want, plan.ExpectedTools)
-				}
-			}
-			if containsString(plan.ExpectedTools, "list_telegram_groups") {
-				t.Fatalf("读取类工具不应进入预期完成工具: %+v", plan.ExpectedTools)
-			}
-			if tc.name == "message" && containsString(plan.ExpectedTools, "update_user_info") {
-				t.Fatalf("通知大家完善资料不能把直接改员工资料当完成证据: %+v", plan.ExpectedTools)
-			}
-		})
+	if plan.Source != "audit_heuristic" {
+		t.Fatalf("审计计划不应来自同步模型规划器: %+v", plan)
+	}
+	for _, want := range []string{"schedule_push", "schedule_repeating"} {
+		if !containsString(plan.ExpectedTools, want) {
+			t.Fatalf("审计候选工具缺 %s: %+v", want, plan.ExpectedTools)
+		}
+	}
+	if containsString(plan.ExpectedTools, "update_user_info") {
+		t.Fatalf("通知大家完善资料不能把直接改员工资料当完成证据: %+v", plan.ExpectedTools)
 	}
 }
 
-func TestActionCompletionWithoutEvidence(t *testing.T) {
-	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"schedule_push"}}
-	if !actionCompletionWithoutEvidence(plan, "已设置好了", nil) {
-		t.Fatal("完成式回复但无工具证据应拦截")
+func TestActionAuditPlanSkipsStatusQuestions(t *testing.T) {
+	if plan := buildActionAuditPlan("clone了吗？", []ai.Tool{{Name: "list_action_turns"}}, &ai.TurnResult{}); plan != nil {
+		t.Fatalf("状态核实不应被记录成新的动作请求: %+v", plan)
 	}
-	failed := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "给全体设置推送需要 send_msg:_all 权限。"}}
-	if !actionCompletionWithoutEvidence(plan, "已设置好了", failed) {
-		t.Fatal("业务失败工具结果不能当成功证据")
-	}
+}
+
+func TestToolResultEvidenceClassification(t *testing.T) {
 	pending := []ai.Step{{Kind: ai.StepToolCall, ToolName: "create_worker", Result: "⚠️ 高危操作已登记为待确认动作，请向用户复述。"}}
-	if !toolResultLooksFailed(pending[0].Result) {
-		t.Fatal("待确认动作不应算完成证据")
-	}
-	repeated := []ai.Step{{Kind: ai.StepToolCall, ToolName: "generate_api_token", Result: "generate_api_token 对相同参数已经重复调用。请不要继续重复查询，直接整理已有结果回答。"}}
-	if !actionCompletionWithoutEvidence(plan, "已生成好了", repeated) {
-		t.Fatal("重复调用/预算拦截不应算完成证据")
-	}
-	noSuccess := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "这轮没有成功执行任何系统工具。"}}
-	if !toolResultLooksFailed(noSuccess[0].Result) {
-		t.Fatal("没有成功执行不应算完成证据")
+	if !toolResultLooksFailed(pending[0].Result) || !toolResultLooksPendingApproval(pending[0].Result) {
+		t.Fatal("待确认动作不应算完成证据，但要保留 pending_approval 状态")
 	}
 	allSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 24 人，失败 0 人。"}}
 	if toolResultLooksFailed(allSent[0].Result) {
@@ -599,37 +415,23 @@ func TestActionCompletionWithoutEvidence(t *testing.T) {
 	if toolResultLooksFailed("已停用。其名下 2 个未完成任务已重置为待改派。") {
 		t.Fatal("成功停用/作废类动作不应因状态词被误判为失败")
 	}
-	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）：每天 09:00。"}}
-	if actionCompletionWithoutEvidence(plan, "已设置好了", ok) {
-		t.Fatal("成功工具结果应放行完成声明")
-	}
-	if actionCompletionWithoutEvidence(plan, "请问要几点？", nil) {
-		t.Fatal("澄清问题不是完成声明，不应拦截")
-	}
 }
 
-func TestPendingApprovalBecomesExplicitFallback(t *testing.T) {
+func TestPendingApprovalRecordedAsOutcome(t *testing.T) {
 	steps := []ai.Step{{
 		Kind:     ai.StepToolCall,
 		ToolName: "run_worker_command",
 		Result:   "⚠️ 高危操作已登记为待确认动作（确认动作内部编号 2，10 分钟内有效）。请向用户复述将要执行的具体操作并征得明确同意。",
 	}}
-	got := actionEvidenceFallbackForTurn("用 worker clone https://github.com/zdypro888/nbco.git，准备以后升级用", steps)
-	for _, want := range []string{"还没有执行", "待确认", "run_worker_command", "确认执行"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("待确认 fallback 缺 %q:\n%s", want, got)
-		}
-	}
 	outcome := actionTurnOutcome(&actionPlan{RequiresAction: true}, &ai.TurnResult{
-		FinishReason: "blocked_action_evidence",
-		Steps:        steps,
+		Steps: steps,
 	})
 	if outcome != "pending_approval" {
 		t.Fatalf("待确认动作应记录为 pending_approval，got %s", outcome)
 	}
 }
 
-func TestFallbackActionPlanIncludesWorkerCommandForCloneRequest(t *testing.T) {
+func TestActionAuditPlanIncludesWorkerCommandForCloneRequest(t *testing.T) {
 	tools := []ai.Tool{
 		{Name: "start_workflow"},
 		{Name: "start_worker_skill"},
@@ -637,53 +439,19 @@ func TestFallbackActionPlanIncludesWorkerCommandForCloneRequest(t *testing.T) {
 		{Name: "create_worker"},
 		{Name: "issue_worker_bind_code"},
 	}
-	plan := fallbackActionPlanWithTools("你自己项目的源码地址 https://github.com/zdypro888/nbco。用 worker clone 下来，准备以后升级用", "planner_error", tools)
+	plan := buildActionAuditPlan("你自己项目的源码地址 https://github.com/zdypro888/nbco。用 worker clone 下来，准备以后升级用", tools, &ai.TurnResult{})
 	if plan == nil || !plan.RequiresAction {
-		t.Fatalf("clone worker 请求应进入动作守门: %+v", plan)
+		t.Fatalf("clone worker 请求应进入动作审计: %+v", plan)
 	}
 	if !containsString(plan.ExpectedTools, "run_worker_command") {
 		t.Fatalf("worker clone 请求必须允许 run_worker_command 作为完成证据: %+v", plan.ExpectedTools)
 	}
 }
 
-func TestActionRequiresToolRecovery(t *testing.T) {
-	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"send_message"}}
-	if !actionRequiresToolRecovery(plan, "我来帮你通知大家。", nil) {
-		t.Fatal("动作请求没有工具证据也没有缺参说明时应重跑")
-	}
-	if !actionRequiresToolRecovery(plan, "好的", nil) {
-		t.Fatal("动作请求的退化答复应重跑")
-	}
-	missing := &actionPlan{RequiresAction: true, ExpectedTools: []string{"send_message"}, MissingInfo: []string{"收件人"}}
-	if actionRequiresToolRecovery(missing, "请告诉我要发送给谁？", nil) {
-		t.Fatal("缺参澄清应允许返回")
-	}
-	failed := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "没有权限向全体发送消息。"}}
-	if actionRequiresToolRecovery(plan, "我没有权限向全体发送消息，需要授权。", failed) {
-		t.Fatal("工具失败后如实说明不应继续重跑")
-	}
-	if actionRequiresToolRecovery(plan, "已发送。", failed) {
-		t.Fatal("有工具调用的轮次交给工具结果和审计账本，不再由动作完成门二次裁判")
-	}
-	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "已发送给 3 人。"}}
-	if actionRequiresToolRecovery(plan, "已发送。", ok) {
-		t.Fatal("成功工具证据应放行")
-	}
-	fallback := &actionPlan{RequiresAction: true}
-	readOnly := []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_telegram_groups", Result: "Telegram 群列表：日本公司成员，智能监控关闭。"}}
-	if actionRequiresToolRecovery(fallback, "已为您设置自动消息汇总机制。", readOnly) {
-		t.Fatal("有工具调用的轮次不应被动作完成门重写；是否完成交给工具证据账本记录")
-	}
-	monitorOK := []ai.Step{{Kind: ai.StepToolCall, ToolName: "set_telegram_group_monitor", Result: "已开启 日本公司成员 的智能监控。"}}
-	if actionRequiresToolRecovery(fallback, "已开启智能监控。", monitorOK) {
-		t.Fatal("真实状态变更工具成功应能证明完成")
-	}
-}
-
 func TestSuccessfulActionEvidenceAllowsAnyWriteOrExecuteTool(t *testing.T) {
 	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"start_workflow"}}
 	if !hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "run_worker_command", Result: "已创建 worker 命令任务（任务内部编号 9）。"}}) {
-		t.Fatal("planner 候选工具猜错时，真实执行类工具成功仍应作为动作证据")
+		t.Fatal("审计候选工具不匹配时，真实执行类工具成功仍应作为动作证据")
 	}
 	if hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_workers", Result: "worker 列表：NBAI 在线。"}}) {
 		t.Fatal("读取类工具成功不能证明动作完成")
@@ -703,32 +471,6 @@ func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
 	}
 	if !strings.Contains(workerDispatchPrompt(map[string]bool{"start_worker_skill": true}), "start_worker_skill") {
 		t.Fatal("有 worker skill 工具时应提示可派发")
-	}
-}
-
-func TestRepairActionEvidenceTurnRetriesWithEvidenceDiscipline(t *testing.T) {
-	eng := &sequenceEngine{
-		results: []*ai.TurnResult{{
-			Text:  "已设置推送。",
-			Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）。"}},
-		}},
-	}
-	o := &Orchestrator{engine: eng}
-	first := &ai.TurnResult{
-		Text:  "已设置推送。",
-		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "给全体设置推送需要 send_msg:_all 权限。"}},
-	}
-	req := &ai.TurnRequest{SessionID: "s1", System: "base", UserText: "明天 9 点提醒全体完善档案"}
-	plan := &actionPlan{RequiresAction: true, Intent: "设置全体提醒", ExpectedTools: []string{"schedule_push"}}
-	got, err := o.repairActionEvidenceTurn(context.Background(), req, first, plan, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Text != "已设置推送。" || !hasSuccessfulActionEvidence(plan, got.Steps) {
-		t.Fatalf("重跑后应返回带成功工具证据的结果: %+v", got)
-	}
-	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有形成成功工具证据") {
-		t.Fatalf("重跑系统提示应包含证据保护: %+v", eng.reqs)
 	}
 }
 

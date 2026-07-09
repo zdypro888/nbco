@@ -5,17 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 	nbtools "github.com/zdypro888/nbco/tools"
 )
-
-const actionPlannerTimeout = 15 * time.Second
 
 type actionPlan struct {
 	RequiresAction  bool     `json:"requires_action"`
@@ -29,67 +25,47 @@ type actionPlan struct {
 	Raw    string `json:"-"`
 }
 
-func (o *Orchestrator) maybePlanAction(ctx context.Context, u *store.User, channel, text string, toolset []ai.Tool) *actionPlan {
-	if o == nil || o.engine == nil || !shouldRunActionPlanner(text) {
+func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *actionPlan {
+	if strings.TrimSpace(text) == "" || strings.HasPrefix(strings.TrimSpace(text), "[系统") {
 		return nil
 	}
-	plannerCtx, cancel := context.WithTimeout(ctx, actionPlannerTimeout)
-	defer cancel()
-	req := &ai.TurnRequest{
-		SessionID:       "action-planner",
-		System:          actionPlannerSystem(toolset),
-		UserText:        actionPlannerUserText(u, channel, text),
-		Model:           o.runtimeModel(ctx),
-		StreamReasoning: false,
+	requiresAction := looksLikeAuditableActionRequest(text)
+	if res != nil {
+		for _, st := range res.Steps {
+			if st.Kind != ai.StepToolCall {
+				continue
+			}
+			if nbtools.ToolCanProveAction(st.ToolName) || toolResultLooksPendingApproval(st.Result) {
+				requiresAction = true
+				break
+			}
+		}
+		if res.FinishReason == "blocked_no_tool_completion" {
+			requiresAction = true
+		}
 	}
-	res, err := o.engine.RunTurn(plannerCtx, req)
-	if err != nil {
-		slog.Warn("动作规划器失败，使用保守守门", "user", u.ID, "err", err)
-		return fallbackActionPlanWithTools(text, "planner_error", toolset)
-	}
-	plan, err := parseActionPlan(res.Text, toolNames(toolset))
-	if err != nil {
-		slog.Warn("动作规划器输出不可解析，使用保守守门", "user", u.ID, "reply_sha", contentHash(res.Text), "err", err)
-		return fallbackActionPlanWithTools(text, "planner_parse_error", toolset)
-	}
-	if !plan.RequiresAction {
+	if !requiresAction {
 		return nil
 	}
-	plan.Source = "planner"
-	plan.Raw = res.Text
-	return plan
+	available := toolNames(toolset)
+	intent := "用户请求可能需要系统操作"
+	if looksLikeMaterialActionIntent(text) || looksLikeFileReferenceRequest(text) {
+		intent = "用户请求读取或分析最近上传的文件"
+	} else if res != nil && countToolCalls(res.Steps) > 0 {
+		intent = "本轮调用了系统工具"
+	}
+	return &actionPlan{
+		RequiresAction:  true,
+		Intent:          intent,
+		ExpectedTools:   inferActionToolsForText(text, available, 8),
+		SuccessEvidence: []string{"写入/执行工具成功返回，或工具明确返回待确认/失败状态"},
+		Confidence:      0.5,
+		Source:          "audit_heuristic",
+	}
 }
 
-func shouldRunActionPlanner(text string) bool {
-	text = strings.TrimSpace(text)
-	if text == "" || strings.HasPrefix(text, "[系统") {
-		return false
-	}
-	if looksLikeActionStatusQuestion(text) {
-		return false
-	}
-	return looksLikeSideEffectRequest(text) || looksLikeHeavyExecutionRequest(text)
-}
-
-func actionPlannerSystem(toolset []ai.Tool) string {
-	var b strings.Builder
-	b.WriteString("你是 nbco 的动作规划器，只判断本轮用户输入是否需要改变系统状态、外部投递、派工、授权、创建、修改、删除、部署、调用 worker/文件处理能力或执行命令。")
-	b.WriteString("不要执行动作，不要回答用户，只输出严格 JSON。\n")
-	b.WriteString("JSON schema: {\"requires_action\":bool,\"intent\":string,\"expected_tools\":[string],\"success_evidence\":[string],\"missing_info\":[string],\"confidence\":number}\n")
-	b.WriteString("规则：\n")
-	b.WriteString("- 只从可用工具中选择 expected_tools；不确定具体工具时 expected_tools 为空但 requires_action 仍可为 true。\n")
-	b.WriteString("- expected_tools 可以填写多个同一动作类别下的可替代执行工具；不要只因为列表里有 start_workflow 就忽略更直接的发送、定时、群设置或资料分析工具。\n")
-	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析普通文本且不要求落库/发送/执行时，requires_action=false；但要求处理上传文件、公司资料、代码仓库、命令行、worker 或产生产物时，requires_action=true。\n")
-	b.WriteString("- 用户问“做了吗/发了吗/clone 了吗/成功了吗/刚才有没有执行”等核实状态的问题，requires_action=false；主对话应使用读取类工具核实并回答，不要要求新的执行成功证据。\n")
-	b.WriteString("- 用户围绕最近上传/刚发的文件问“能看懂/能读取/这个吗/解析一下”时，属于需要工具确认或派工，requires_action=true。\n")
-	b.WriteString("- 如果需要信息不足，requires_action=true，并在 missing_info 写缺什么；主对话应询问或说明未完成，不能声称已完成。\n")
-	b.WriteString("- success_evidence 写最终能证明完成的工具返回事实，例如“schedule_push 返回已设置推送”。\n\n")
-	b.WriteString("可用工具：\n")
-	for _, t := range toolset {
-		desc := strings.Join(strings.Fields(t.Description), " ")
-		fmt.Fprintf(&b, "- %s: %s\n", t.Name, textfmt.TruncateRunes(desc, 80))
-	}
-	return b.String()
+func looksLikeAuditableActionRequest(text string) bool {
+	return !looksLikeActionStatusQuestion(text) && (looksLikeSideEffectRequest(text) || looksLikeHeavyExecutionRequest(text))
 }
 
 func looksLikeHeavyExecutionRequest(text string) bool {
@@ -141,127 +117,12 @@ func looksLikeActionStatusQuestion(text string) bool {
 	return routeHasAny(s, questionTerms)
 }
 
-func actionPlannerUserText(u *store.User, channel, text string) string {
-	var role string
-	if u != nil {
-		role = u.Name
-		if u.IsSuperadmin {
-			role += "（超级管理员）"
-		}
-	}
-	return fmt.Sprintf("channel=%s\ncurrent_user=%s\nuser_text=%s", channel, role, text)
-}
-
 func toolNames(toolset []ai.Tool) map[string]bool {
 	m := make(map[string]bool, len(toolset))
 	for _, t := range toolset {
 		m[t.Name] = true
 	}
 	return m
-}
-
-func parseActionPlan(text string, available map[string]bool) (*actionPlan, error) {
-	raw := extractJSONObject(text)
-	if raw == "" {
-		return nil, fmt.Errorf("no json object")
-	}
-	var p actionPlan
-	if err := json.Unmarshal([]byte(raw), &p); err != nil {
-		return nil, err
-	}
-	p.Intent = strings.TrimSpace(p.Intent)
-	p.ExpectedTools = filterKnownTools(p.ExpectedTools, available, 8)
-	p.ExpectedTools = expandExpectedToolsForIntent(p.Intent, p.ExpectedTools, available, 8)
-	if len(p.ExpectedTools) == 0 {
-		p.ExpectedTools = inferActionToolsForText(p.Intent, available, 8)
-	}
-	p.SuccessEvidence = cleanStringList(p.SuccessEvidence, 6, 160)
-	p.MissingInfo = cleanStringList(p.MissingInfo, 6, 120)
-	if p.Confidence < 0 {
-		p.Confidence = 0
-	}
-	if p.Confidence > 1 {
-		p.Confidence = 1
-	}
-	return &p, nil
-}
-
-func filterKnownTools(in []string, available map[string]bool, limit int) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, name := range in {
-		name = strings.TrimSpace(name)
-		if name == "" || !available[name] || seen[name] {
-			continue
-		}
-		seen[name] = true
-		out = append(out, name)
-		if len(out) >= limit {
-			break
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-func cleanStringList(in []string, limit, maxRunes int) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, s := range in {
-		s = strings.TrimSpace(s)
-		if s == "" || seen[s] {
-			continue
-		}
-		seen[s] = true
-		out = append(out, textfmt.TruncateRunes(s, maxRunes))
-		if len(out) >= limit {
-			break
-		}
-	}
-	return out
-}
-
-func fallbackActionPlan(text, source string) *actionPlan {
-	return fallbackActionPlanWithTools(text, source, nil)
-}
-
-func fallbackActionPlanWithTools(text, source string, toolset []ai.Tool) *actionPlan {
-	if looksLikeActionStatusQuestion(text) {
-		return nil
-	}
-	if !looksLikeSideEffectRequest(text) && !looksLikeHeavyExecutionRequest(text) {
-		return nil
-	}
-	plan := &actionPlan{
-		RequiresAction:  true,
-		Intent:          "用户请求可能需要系统操作",
-		SuccessEvidence: []string{"至少一个相关工具成功返回"},
-		Confidence:      0.4,
-		Source:          source,
-	}
-	available := toolNames(toolset)
-	if looksLikeFileReferenceRequest(text) || routeHasAny(strings.ToLower(text), []string{"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料"}) {
-		if expected := materialActionTools(available); len(expected) > 0 {
-			plan.Intent = "用户请求读取或分析最近上传的文件"
-			plan.ExpectedTools = expected
-			plan.SuccessEvidence = []string{"文件分析/worker 派工工具返回已创建任务或已完成分析"}
-			plan.Confidence = 0.55
-		}
-		return plan
-	}
-	if expected := inferActionToolsForText(text, available, 8); len(expected) > 0 {
-		plan.ExpectedTools = expected
-		plan.SuccessEvidence = []string{"对应动作类别的执行型工具返回成功结果"}
-		plan.Confidence = 0.5
-	}
-	return plan
-}
-
-func expandExpectedToolsForIntent(intent string, expected []string, available map[string]bool, limit int) []string {
-	if inferred := inferActionToolsForText(intent, available, limit); len(inferred) > 0 {
-		return mergeToolLists(expected, inferred, limit)
-	}
-	return expected
 }
 
 func inferActionToolsForText(text string, available map[string]bool, limit int) []string {
@@ -386,36 +247,6 @@ func availableToolsInOrder(available map[string]bool, names ...string) []string 
 	return out
 }
 
-func renderActionPlanContext(plan *actionPlan) string {
-	if plan == nil || !plan.RequiresAction {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("\n[本轮动作计划]\n")
-	if plan.Intent != "" {
-		b.WriteString("意图：" + plan.Intent + "\n")
-	}
-	if len(plan.ExpectedTools) > 0 {
-		b.WriteString("候选工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
-	} else {
-		b.WriteString("候选工具：规划器未能确定具体工具；你需要自行选择当前可见的合适工具，或说明缺少权限/参数。\n")
-	}
-	if len(plan.SuccessEvidence) > 0 {
-		b.WriteString("完成证据：\n")
-		for _, ev := range plan.SuccessEvidence {
-			b.WriteString("- " + ev + "\n")
-		}
-	}
-	if len(plan.MissingInfo) > 0 {
-		b.WriteString("可能缺少的信息：\n")
-		for _, item := range plan.MissingInfo {
-			b.WriteString("- " + item + "\n")
-		}
-	}
-	b.WriteString("执行口径：候选工具只是提示，不是限制；以真实工具返回为准。写入/执行工具成功才能确认完成；工具没跑、失败、待确认、缺参数或无权限，就说明当前状态和下一步。\n")
-	return b.String()
-}
-
 type toolEvidence struct {
 	Tool    string `json:"tool"`
 	OK      bool   `json:"ok"`
@@ -463,58 +294,6 @@ func countToolEvidence(steps []ai.Step) (total, success int) {
 		}
 	}
 	return total, success
-}
-
-func actionCompletionWithoutEvidence(plan *actionPlan, reply string, steps []ai.Step) bool {
-	if plan == nil || !plan.RequiresAction {
-		return false
-	}
-	trimmed := strings.TrimSpace(reply)
-	if !isDegenerateVisibleReply(trimmed) && !claimsSideEffectDone(trimmed) {
-		return false
-	}
-	return !hasSuccessfulActionEvidence(plan, steps)
-}
-
-func actionRequiresToolRecovery(plan *actionPlan, reply string, steps []ai.Step) bool {
-	if plan == nil || !plan.RequiresAction {
-		return false
-	}
-	if countToolCalls(steps) > 0 {
-		return false
-	}
-	trimmed := strings.TrimSpace(reply)
-	if isDegenerateVisibleReply(trimmed) {
-		return true
-	}
-	if actionReplyExplainsBlockedOrMissing(plan, trimmed) {
-		return false
-	}
-	return claimsSideEffectDone(trimmed)
-}
-
-func actionReplyExplainsBlockedOrMissing(plan *actionPlan, reply string) bool {
-	s := strings.ToLower(strings.TrimSpace(reply))
-	if s == "" {
-		return false
-	}
-	if len(plan.MissingInfo) > 0 && strings.ContainsAny(s, "?？") {
-		return true
-	}
-	needOrBlock := []string{
-		"缺少", "需要", "请提供", "请告诉", "请确认", "确认后", "哪位", "哪个", "什么时候",
-		"几点", "多少", "什么内容", "目标是谁", "发送给谁", "无法", "不能", "没法",
-		"没有权限", "权限不足", "无权限", "当前渠道", "当前工具", "没有可用", "找不到",
-		"未找到", "不存在", "需要授权", "需要到私聊", "pending approval", "permission",
-		"高危", "待确认", "未执行", "没有执行", "还没有执行",
-		"not found", "missing", "need", "cannot", "can't", "forbidden",
-	}
-	for _, p := range needOrBlock {
-		if strings.Contains(s, p) {
-			return true
-		}
-	}
-	return false
 }
 
 func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
@@ -637,26 +416,6 @@ func extractChineseCountAfter(s, marker string) (int, bool) {
 	return n, seen
 }
 
-func actionEvidenceFallback() string {
-	return "这轮没有拿到能证明操作成功的工具结果，所以我不能说已经完成。请重新发一次明确指令；如果缺少参数或权限，我会直接说明，只有工具返回成功后才确认完成。"
-}
-
-func actionEvidenceFallbackForTurn(userText string, steps []ai.Step) string {
-	if st, ok := firstPendingApprovalStep(steps); ok {
-		op := strings.TrimSpace(textfmt.RedactSecrets(userText))
-		if op == "" {
-			op = "刚才请求的高危操作"
-		} else {
-			op = "「" + textfmt.TruncateRunes(op, 180) + "」"
-		}
-		return fmt.Sprintf("还没有执行。系统已把%s登记为待确认的高危操作（工具：%s）。\n\n如果确认要继续，请在下一条消息明确回复“确认执行”。收到确认后，我会用同一参数再次调用工具；未确认前不会执行。", op, st.ToolName)
-	}
-	if ev, ok := firstBlockingToolEvidence(steps); ok {
-		return "没有完成。工具返回：" + ev.Summary
-	}
-	return actionEvidenceFallback()
-}
-
 func firstPendingApprovalStep(steps []ai.Step) (ai.Step, bool) {
 	for _, st := range steps {
 		if st.Kind == ai.StepToolCall && st.Err == "" && toolResultLooksPendingApproval(st.Result) {
@@ -664,27 +423,6 @@ func firstPendingApprovalStep(steps []ai.Step) (ai.Step, bool) {
 		}
 	}
 	return ai.Step{}, false
-}
-
-func firstBlockingToolEvidence(steps []ai.Step) (toolEvidence, bool) {
-	for _, st := range steps {
-		if st.Kind != ai.StepToolCall {
-			continue
-		}
-		if st.Err == "" && !toolResultLooksFailed(st.Result) {
-			continue
-		}
-		summary := st.Err
-		if summary == "" {
-			summary = st.Result
-		}
-		return toolEvidence{
-			Tool:    st.ToolName,
-			OK:      false,
-			Summary: textfmt.TruncateRunes(textfmt.RedactSecrets(strings.TrimSpace(summary)), 260),
-		}, true
-	}
-	return toolEvidence{}, false
 }
 
 func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, plan *actionPlan, res *ai.TurnResult, diag turnDiagnostics) {
