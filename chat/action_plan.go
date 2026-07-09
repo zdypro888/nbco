@@ -139,6 +139,7 @@ func parseActionPlan(text string, available map[string]bool) (*actionPlan, error
 	}
 	p.Intent = strings.TrimSpace(p.Intent)
 	p.ExpectedTools = filterKnownTools(p.ExpectedTools, available, 8)
+	p.ExpectedTools = expandExpectedToolsForIntent(p.Intent, p.ExpectedTools, available)
 	p.SuccessEvidence = cleanStringList(p.SuccessEvidence, 6, 160)
 	p.MissingInfo = cleanStringList(p.MissingInfo, 6, 120)
 	if p.Confidence < 0 {
@@ -202,9 +203,9 @@ func fallbackActionPlanWithTools(text, source string, toolset []ai.Tool) *action
 	}
 	available := toolNames(toolset)
 	if looksLikeFileReferenceRequest(text) || routeHasAny(strings.ToLower(text), []string{"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料"}) {
-		if expected := firstAvailableTool(available, "start_workflow", "analyze_company_materials", "start_worker_skill"); expected != "" {
+		if expected := materialActionTools(available); len(expected) > 0 {
 			plan.Intent = "用户请求读取或分析最近上传的文件"
-			plan.ExpectedTools = []string{expected}
+			plan.ExpectedTools = expected
 			plan.SuccessEvidence = []string{"文件分析/worker 派工工具返回已创建任务或已完成分析"}
 			plan.Confidence = 0.55
 		}
@@ -225,6 +226,73 @@ func firstAvailableTool(available map[string]bool, names ...string) string {
 		}
 	}
 	return ""
+}
+
+func expandExpectedToolsForIntent(intent string, expected []string, available map[string]bool) []string {
+	if len(expected) == 0 || !looksLikeMaterialActionIntent(intent) {
+		return expected
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(expected)+3)
+	for _, name := range expected {
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	hasMaterialTool := false
+	for _, name := range out {
+		if isMaterialActionTool(name) {
+			hasMaterialTool = true
+			break
+		}
+	}
+	if !hasMaterialTool {
+		return out
+	}
+	for _, name := range materialActionTools(available) {
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func looksLikeMaterialActionIntent(intent string) bool {
+	s := strings.ToLower(strings.TrimSpace(intent))
+	if s == "" {
+		return false
+	}
+	return routeHasAny(s, []string{
+		"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料", "材料",
+		"读取", "解析", "分析", "file", "attachment", "material", "document",
+	})
+}
+
+func materialActionTools(available map[string]bool) []string {
+	return availableToolsInOrder(available, "start_workflow", "analyze_company_materials", "start_worker_skill")
+}
+
+func isMaterialActionTool(name string) bool {
+	switch name {
+	case "start_workflow", "analyze_company_materials", "start_worker_skill":
+		return true
+	default:
+		return false
+	}
+}
+
+func availableToolsInOrder(available map[string]bool, names ...string) []string {
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		if available[name] {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 func renderActionPlanContext(plan *actionPlan) string {
@@ -390,14 +458,18 @@ func toolResultLooksFailed(result string) bool {
 	if s == "" {
 		return true
 	}
-	negative := []string{
+	if ok, decided := toolResultCountEvidence(s); decided {
+		return !ok
+	}
+	strongNegative := []string{
 		"待确认动作", "下一条明确确认", "征得明确同意", "pending approval",
 		"重复调用", "不要继续重复", "没有成功", "未成功", "已跳过", "跳过",
-		"不能为空", "必须", "需要", "不能", "无法", "失败", "错误", "无权限", "权限不足",
-		"不存在", "未找到", "不属于你", "不允许", "不在", "请先", "没有可用", "没有对应",
-		"当前入口未装配", "当前工具集", "not found", "forbidden", "permission", "invalid", "failed", "error",
+		"发送失败", "编辑失败", "删除失败", "置顶失败", "执行失败", "自检失败",
+		"不能", "无法", "错误", "无效", "已过期", "已使用", "无权限", "权限不足", "不存在", "未找到", "不属于你", "不允许",
+		"没有可用", "没有对应", "当前入口未装配", "当前工具集", "not found", "forbidden",
+		"permission", "invalid", "failed", "error",
 	}
-	for _, p := range negative {
+	for _, p := range strongNegative {
 		if strings.Contains(s, p) {
 			return true
 		}
@@ -408,7 +480,58 @@ func toolResultLooksFailed(result string) bool {
 			return false
 		}
 	}
+	softNegative := []string{"不能为空", "必须", "需要", "请先", "不在", "失败"}
+	for _, p := range softNegative {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
 	return false
+}
+
+func toolResultCountEvidence(s string) (ok, decided bool) {
+	success, hasSuccess := extractChineseCountAfter(s, "成功")
+	failed, hasFailed := extractChineseCountAfter(s, "失败")
+	if !hasSuccess && !hasFailed {
+		return false, false
+	}
+	if hasSuccess && success > 0 {
+		return true, true
+	}
+	if hasSuccess && hasFailed && success == 0 && failed > 0 {
+		return false, true
+	}
+	if hasFailed && failed == 0 {
+		return true, true
+	}
+	return false, false
+}
+
+func extractChineseCountAfter(s, marker string) (int, bool) {
+	idx := strings.Index(s, marker)
+	if idx < 0 {
+		return 0, false
+	}
+	rest := strings.TrimSpace(s[idx+len(marker):])
+	if rest == "" {
+		return 0, false
+	}
+	n := 0
+	seen := false
+	for _, r := range rest {
+		switch {
+		case r >= '0' && r <= '9':
+			seen = true
+			n = n*10 + int(r-'0')
+		case seen:
+			return n, true
+		case r == ' ' || r == '\t' || r == ':' || r == '：':
+			continue
+		default:
+			return 0, false
+		}
+	}
+	return n, seen
 }
 
 func actionEvidenceFallback() string {

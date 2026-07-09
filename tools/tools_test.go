@@ -84,6 +84,15 @@ func TestMissingInfoFieldNamesUseCanonicalDefaults(t *testing.T) {
 	}
 }
 
+func TestDataCampaignTargetNameFallback(t *testing.T) {
+	if got := dataCampaignTargetName(store.DataCollectionCampaignTarget{UserID: 7, UserName: "黄桑"}); got != "黄桑" {
+		t.Fatalf("target name = %q", got)
+	}
+	if got := dataCampaignTargetName(store.DataCollectionCampaignTarget{UserID: 7}); got != "员工ID 7" {
+		t.Fatalf("target fallback = %q", got)
+	}
+}
+
 func TestTruncate(t *testing.T) {
 	if got := truncate("hello", 10); got != "hello" {
 		t.Errorf("短串不应截断: %q", got)

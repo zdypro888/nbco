@@ -314,6 +314,47 @@ func TestParseActionPlanFiltersUnavailableTools(t *testing.T) {
 	}
 }
 
+func TestParseActionPlanExpandsMaterialToolAlternatives(t *testing.T) {
+	available := map[string]bool{
+		"start_workflow":            true,
+		"analyze_company_materials": true,
+		"start_worker_skill":        true,
+	}
+	plan, err := parseActionPlan(`{
+		"requires_action": true,
+		"intent": "用户请求读取或分析最近上传的文件",
+		"expected_tools": ["start_workflow"],
+		"success_evidence": ["文件分析/worker 派工工具返回已创建任务或已完成分析"],
+		"confidence": 0.8
+	}`, available)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameStringSet(plan.ExpectedTools, []string{"analyze_company_materials", "start_worker_skill", "start_workflow"}) {
+		t.Fatalf("文件/资料类动作应扩展同类执行工具: %+v", plan.ExpectedTools)
+	}
+	steps := []ai.Step{{Kind: ai.StepToolCall, ToolName: "analyze_company_materials", Result: "已创建资料分析任务（任务内部编号 6），分配给你的 worker NBAI。"}}
+	if !hasSuccessfulActionEvidence(plan, steps) {
+		t.Fatal("analyze_company_materials 成功应能证明文件/资料派工动作完成")
+	}
+}
+
+func TestParseActionPlanDoesNotExpandWorkflowForNonMaterialIntent(t *testing.T) {
+	plan, err := parseActionPlan(`{
+		"requires_action": true,
+		"intent": "升级 nbco 系统",
+		"expected_tools": ["start_workflow"],
+		"success_evidence": ["start_workflow 返回已创建升级任务"],
+		"confidence": 0.8
+	}`, map[string]bool{"start_workflow": true, "analyze_company_materials": true, "start_worker_skill": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameStringSet(plan.ExpectedTools, []string{"start_workflow"}) {
+		t.Fatalf("非资料类 workflow 不应扩展到文件分析工具: %+v", plan.ExpectedTools)
+	}
+}
+
 func TestFallbackActionPlanCoversHeavyExecution(t *testing.T) {
 	plan := fallbackActionPlan("帮我分析刚才上传的两个 PDF 文件，并整理成公司资料", "planner_error")
 	if plan == nil || !plan.RequiresAction {
@@ -337,8 +378,12 @@ func TestFallbackActionPlanRequiresWorkerToolForAttachmentReference(t *testing.T
 	if plan == nil || !plan.RequiresAction {
 		t.Fatalf("最近附件指代在 planner 失败时也必须进入动作证据守门: %+v", plan)
 	}
-	if len(plan.ExpectedTools) != 1 || plan.ExpectedTools[0] != "start_workflow" {
+	if !sameStringSet(plan.ExpectedTools, []string{"analyze_company_materials", "start_workflow"}) {
 		t.Fatalf("应要求执行型文件分析工具作为证据，不应只靠 list_recent_files: %+v", plan)
+	}
+	steps := []ai.Step{{Kind: ai.StepToolCall, ToolName: "analyze_company_materials", Result: "已创建资料分析任务（任务内部编号 6），分配给你的 worker NBAI。"}}
+	if !hasSuccessfulActionEvidence(plan, steps) {
+		t.Fatal("fallback 文件动作应承认 analyze_company_materials 的成功证据")
 	}
 	if !strings.Contains(strings.Join(plan.SuccessEvidence, "\n"), "文件分析") {
 		t.Fatalf("完成证据应指向文件分析/worker 结果: %+v", plan.SuccessEvidence)
@@ -365,6 +410,31 @@ func TestActionCompletionWithoutEvidence(t *testing.T) {
 	noSuccess := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "这轮没有成功执行任何系统工具。"}}
 	if !toolResultLooksFailed(noSuccess[0].Result) {
 		t.Fatal("没有成功执行不应算完成证据")
+	}
+	allSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 24 人，失败 0 人。"}}
+	if toolResultLooksFailed(allSent[0].Result) {
+		t.Fatal("成功 N 人、失败 0 人的统计结果应算有效执行证据")
+	}
+	partialSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 20 人，失败 4 人。"}}
+	if toolResultLooksFailed(partialSent[0].Result) {
+		t.Fatal("部分成功的统计结果应算有效执行证据，最终回复负责报告失败明细")
+	}
+	createdWithNextStep := []ai.Step{{Kind: ai.StepToolCall, ToolName: "create_script_tool", Result: "已创建脚本工具（脚本工具#7）format_date（当前 disabled）。请先 test_script_tool，确认通过后再 enable_script_tool。"}}
+	if toolResultLooksFailed(createdWithNextStep[0].Result) {
+		t.Fatal("成功创建后的下一步提示不应被“请先”误判为失败")
+	}
+	noneSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 0 人，失败 24 人。"}}
+	if !toolResultLooksFailed(noneSent[0].Result) {
+		t.Fatal("成功 0 人、失败 N 人不应算成功证据")
+	}
+	if !toolResultLooksFailed("这条 skill 标记为高风险，必须由用户明确确认。确认后再次调用。") {
+		t.Fatal("没有成功动作的确认要求仍应算失败/阻塞证据")
+	}
+	if !toolResultLooksFailed("员工邀请链接或邀请码无效、已使用或已过期，请向管理员重新索取。") {
+		t.Fatal("无效/已使用/已过期的凭据结果不应被“已”误判为成功")
+	}
+	if toolResultLooksFailed("已停用。其名下 2 个未完成任务已重置为待改派。") {
+		t.Fatal("成功停用/作废类动作不应因状态词被误判为失败")
 	}
 	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）：每天 09:00。"}}
 	if actionCompletionWithoutEvidence(plan, "已设置好了", ok) {
@@ -470,6 +540,27 @@ func TestRepairNoToolCompletionTurnRetriesWithToolDiscipline(t *testing.T) {
 	}
 }
 
+func TestMergeRepairResultKeepsOriginalToolEvidence(t *testing.T) {
+	first := &ai.TurnResult{
+		Text:  "已派工。",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "analyze_company_materials", Result: "已创建资料分析任务。"}},
+	}
+	repaired := &ai.TurnResult{
+		Text:  "这轮没有拿到证据。",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_recent_files", Result: "- 文件内部编号 4：a.pdf"}},
+	}
+	got := mergeRepairResult(first, repaired)
+	if got == repaired || got == first {
+		t.Fatal("mergeRepairResult 应返回新结果对象")
+	}
+	if got.Text != repaired.Text {
+		t.Fatalf("最终文本应沿用重跑结果: %q", got.Text)
+	}
+	if countToolCalls(got.Steps) != 2 || got.Steps[0].ToolName != "analyze_company_materials" || got.Steps[1].ToolName != "list_recent_files" {
+		t.Fatalf("应保留第一次与重跑的工具轨迹: %+v", got.Steps)
+	}
+}
+
 type sequenceEngine struct {
 	mu      sync.Mutex
 	reqs    []*ai.TurnRequest
@@ -492,6 +583,23 @@ func (s *sequenceEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.Tu
 	res := s.results[0]
 	s.results = s.results[1:]
 	return res, nil
+}
+
+func sameStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := map[string]int{}
+	for _, s := range a {
+		seen[s]++
+	}
+	for _, s := range b {
+		if seen[s] == 0 {
+			return false
+		}
+		seen[s]--
+	}
+	return true
 }
 
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，

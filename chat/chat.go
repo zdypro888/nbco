@@ -298,7 +298,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			engineOK = false
 			res.Text = visibleReplyFallback(res)
 		} else {
-			res = repaired
+			res = mergeRepairResult(res, repaired)
 		}
 	}
 	if actionRequiresToolRecovery(actionPlan, res.Text, res.Steps) {
@@ -315,11 +315,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		} else if actionRequiresToolRecovery(actionPlan, repaired.Text, repaired.Steps) {
 			slog.Warn("动作证据重跑后仍无成功证据或缺参说明，改用系统兜底答复",
 				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
-			res = repaired
+			res = mergeRepairResult(res, repaired)
 			res.Text = actionEvidenceFallback()
 			res.FinishReason = "blocked_action_evidence"
 		} else {
-			res = repaired
+			res = mergeRepairResult(res, repaired)
 		}
 	} else if sideEffectCompletionWithoutTools(text, res.Text, res.Steps) {
 		slog.Warn("拦截无工具完成声明",
@@ -335,11 +335,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		} else if sideEffectCompletionWithoutTools(text, repaired.Text, repaired.Steps) {
 			slog.Warn("无工具完成声明重跑后仍未落工具，改用系统兜底答复",
 				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
-			res = repaired
+			res = mergeRepairResult(res, repaired)
 			res.Text = noToolCompletionFallback()
 			res.FinishReason = "blocked_no_tool_completion"
 		} else {
-			res = repaired
+			res = mergeRepairResult(res, repaired)
 		}
 	}
 	if engineOK {
@@ -374,6 +374,22 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
 	return res.Text, nil
+}
+
+func mergeRepairResult(first, repaired *ai.TurnResult) *ai.TurnResult {
+	if first == nil {
+		return repaired
+	}
+	if repaired == nil {
+		return first
+	}
+	merged := *repaired
+	if len(first.Steps) > 0 {
+		merged.Steps = make([]ai.Step, 0, len(first.Steps)+len(repaired.Steps))
+		merged.Steps = append(merged.Steps, first.Steps...)
+		merged.Steps = append(merged.Steps, repaired.Steps...)
+	}
+	return &merged
 }
 
 func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {

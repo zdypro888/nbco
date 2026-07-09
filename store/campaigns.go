@@ -268,7 +268,7 @@ func (s *Store) SetDataCollectionCampaignStatus(ctx context.Context, campaignID 
 }
 
 func missingRequiredFields(required []string, info map[string]string) []string {
-	var missing []string
+	missing := []string{}
 	for _, f := range normalizeStringSet(required) {
 		if strings.TrimSpace(info[f]) == "" {
 			missing = append(missing, f)

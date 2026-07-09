@@ -122,15 +122,15 @@ func createDataCampaign(ctx context.Context, d Deps, u *store.User, title, instr
 	if len(required) == 0 {
 		return "required_fields 不能为空。", nil
 	}
-	if err := d.Store.EnsureInfoFields(ctx, required); err != nil {
-		return "", err
-	}
 	targetIDs, msg, err := resolveDataCampaignTargets(ctx, d, u, target, userIDs)
 	if err != nil || msg != "" {
 		return msg, err
 	}
 	if len(targetIDs) == 0 {
 		return "没有可收集的目标成员。", nil
+	}
+	if err := d.Store.EnsureInfoFields(ctx, required); err != nil {
+		return "", err
 	}
 	c, err := d.Store.CreateDataCollectionCampaign(ctx, title, instruction, required, u.ID, targetIDs)
 	if err != nil {
@@ -148,8 +148,9 @@ func createDataCampaign(ctx context.Context, d Deps, u *store.User, title, instr
 		return "", err
 	}
 	sent, failed := 0, 0
+	var failedNames []string
 	if sendNow {
-		sent, failed, err = notifyDataCampaignTargets(ctx, d, u, c, targets, message, true)
+		sent, failed, failedNames, err = notifyDataCampaignTargets(ctx, d, u, c, targets, message, true)
 		if err != nil {
 			return "", err
 		}
@@ -162,7 +163,11 @@ func createDataCampaign(ctx context.Context, d Deps, u *store.User, title, instr
 	fmt.Fprintf(&b, "已创建资料收集活动（%s）：%s。\n", internalRef("资料收集", c.ID), c.Title)
 	fmt.Fprintf(&b, "字段：%s\n目标：%d 人，已完成 %d，待补 %d。", strings.Join(c.RequiredFields, "、"), view.Total, view.Completed, view.Pending)
 	if sendNow {
-		fmt.Fprintf(&b, "\n通知发送：成功 %d 人，失败 %d 人。", sent, failed)
+		fmt.Fprintf(&b, "\n通知发送：成功 %d 人，失败 %d 人", sent, failed)
+		if len(failedNames) > 0 {
+			fmt.Fprintf(&b, "（失败示例：%s）", strings.Join(failedNames, "、"))
+		}
+		b.WriteString("。")
 	} else {
 		b.WriteString("\n本次未发送通知；可用 send_data_collection_reminder 后续提醒。")
 	}
@@ -220,9 +225,13 @@ func remindDataCampaign(ctx context.Context, d Deps, u *store.User, id int64, me
 	if len(pending) == 0 {
 		return "所有目标都已完成，无需提醒。", nil
 	}
-	sent, failed, err := notifyDataCampaignTargets(ctx, d, u, c, pending, message, false)
+	sent, failed, failedNames, err := notifyDataCampaignTargets(ctx, d, u, c, pending, message, false)
 	if err != nil {
 		return "", err
+	}
+	if len(failedNames) > 0 {
+		return fmt.Sprintf("已提醒资料收集活动（%s）的待补目标：成功 %d 人，失败 %d 人（失败示例：%s）。",
+			internalRef("资料收集", id), sent, failed, strings.Join(failedNames, "、")), nil
 	}
 	return fmt.Sprintf("已提醒资料收集活动（%s）的待补目标：成功 %d 人，失败 %d 人。", internalRef("资料收集", id), sent, failed), nil
 }
@@ -328,18 +337,23 @@ func canSendToDataCampaignTarget(ctx context.Context, d Deps, u *store.User, tar
 	return "", nil
 }
 
-func notifyDataCampaignTargets(ctx context.Context, d Deps, sender *store.User, c *store.DataCollectionCampaign, targets []store.DataCollectionCampaignTarget, custom string, initial bool) (int, int, error) {
+func notifyDataCampaignTargets(ctx context.Context, d Deps, sender *store.User, c *store.DataCollectionCampaign, targets []store.DataCollectionCampaignTarget, custom string, initial bool) (int, int, []string, error) {
 	if d.Notifier == nil {
 		pending := 0
+		var names []string
 		for _, t := range targets {
 			if t.Status != store.DataCampaignTargetCompleted {
 				pending++
+				if len(names) < 5 {
+					names = append(names, dataCampaignTargetName(t))
+				}
 			}
 		}
-		return 0, pending, nil
+		return 0, pending, names, nil
 	}
 	sentIDs := make([]int64, 0, len(targets))
 	failed := 0
+	var failedNames []string
 	for _, t := range targets {
 		if t.Status == store.DataCampaignTargetCompleted {
 			continue
@@ -347,14 +361,25 @@ func notifyDataCampaignTargets(ctx context.Context, d Deps, sender *store.User, 
 		body := dataCampaignMessage(sender, c, t, custom, initial)
 		if err := d.Notifier.Send(ctx, t.UserID, body); err != nil {
 			failed++
+			if len(failedNames) < 5 {
+				failedNames = append(failedNames, dataCampaignTargetName(t))
+			}
 			continue
 		}
 		sentIDs = append(sentIDs, t.UserID)
 	}
 	if err := d.Store.MarkDataCollectionCampaignTargetsNotified(ctx, c.ID, sentIDs); err != nil {
-		return len(sentIDs), failed, err
+		return len(sentIDs), failed, failedNames, err
 	}
-	return len(sentIDs), failed, nil
+	return len(sentIDs), failed, failedNames, nil
+}
+
+func dataCampaignTargetName(t store.DataCollectionCampaignTarget) string {
+	name := strings.TrimSpace(t.UserName)
+	if name == "" {
+		return fmt.Sprintf("员工ID %d", t.UserID)
+	}
+	return name
 }
 
 func dataCampaignMessage(sender *store.User, c *store.DataCollectionCampaign, t store.DataCollectionCampaignTarget, custom string, initial bool) string {

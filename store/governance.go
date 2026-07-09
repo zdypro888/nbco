@@ -278,6 +278,10 @@ func scanDecisionItem(row interface{ Scan(...any) error }) (*DecisionItem, error
 	return &d, nil
 }
 
+// UpsertDecisionItem 插入或刷新决策项。冲突键 (owner_id, kind, ref_type, ref_id)：
+// 已 closed 的项不会被重开（status 仅在仍是 open 时保持 open）。
+// 注意：ref_id 为 NULL 时唯一约束不生效（Postgres NULL≠NULL），会插重复行——
+// 所有调用方目前都传非 nil ref_id；新增调用方若无需 ref，应自行保证幂等或改用非空哨兵值。
 func (s *Store) UpsertDecisionItem(ctx context.Context, d DecisionItem) (*DecisionItem, error) {
 	if d.Priority == "" {
 		d.Priority = "normal"
