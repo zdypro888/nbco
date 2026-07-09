@@ -192,6 +192,7 @@ var toolDomain = map[string]string{
 	"get_telegram_group_member":      CapabilityComms,
 	"set_telegram_group_listen":      CapabilityComms,
 	"set_telegram_group_auto_invite": CapabilityComms,
+	"set_telegram_group_monitor":     CapabilityComms,
 	"send_telegram_group_message":    CapabilityComms,
 	"edit_telegram_group_message":    CapabilityComms,
 	"delete_telegram_group_message":  CapabilityComms,

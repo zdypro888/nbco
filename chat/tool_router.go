@@ -241,7 +241,7 @@ var fileToolNames = []string{
 var telegramGroupToolNames = []string{
 	"list_telegram_groups", "get_telegram_group", "list_telegram_group_members",
 	"resolve_telegram_group_members", "get_telegram_group_member", "set_telegram_group_listen",
-	"set_telegram_group_auto_invite", "send_telegram_group_message", "edit_telegram_group_message",
+	"set_telegram_group_auto_invite", "set_telegram_group_monitor", "send_telegram_group_message", "edit_telegram_group_message",
 	"delete_telegram_group_message", "pin_telegram_group_message", "unpin_telegram_group_message",
 	"update_telegram_group_info", "bind_telegram_group_project",
 }

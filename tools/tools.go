@@ -229,6 +229,7 @@ var toolPerm = map[string]string{
 	// 群接入状态可读；控制类操作由可转授的 Telegram 群管理权限解锁。
 	"set_telegram_group_listen":      perm.ActManageTGGroup,
 	"set_telegram_group_auto_invite": perm.ActManageTGGroup,
+	"set_telegram_group_monitor":     perm.ActManageTGGroup,
 	"send_telegram_group_message":    perm.ActManageTGGroup,
 	"edit_telegram_group_message":    perm.ActManageTGGroup,
 	"delete_telegram_group_message":  perm.ActManageTGGroup,
@@ -345,6 +346,7 @@ var groupSensitive = map[string]bool{
 	"schedule_push":                  true, // 定向推送涉及他人，回私聊设更稳妥
 	"set_telegram_group_listen":      true,
 	"set_telegram_group_auto_invite": true,
+	"set_telegram_group_monitor":     true,
 	"send_telegram_group_message":    true,
 	"edit_telegram_group_message":    true,
 	"delete_telegram_group_message":  true,

@@ -364,6 +364,15 @@ func TestActionRequiresToolRecovery(t *testing.T) {
 	if actionRequiresToolRecovery(plan, "已发送。", ok) {
 		t.Fatal("成功工具证据应放行")
 	}
+	fallback := &actionPlan{RequiresAction: true}
+	readOnly := []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_telegram_groups", Result: "Telegram 群列表：日本公司成员，智能监控关闭。"}}
+	if !actionRequiresToolRecovery(fallback, "已为您设置自动消息汇总机制。", readOnly) {
+		t.Fatal("无 expected_tools 时，读取类工具成功不能证明已设置监控")
+	}
+	monitorOK := []ai.Step{{Kind: ai.StepToolCall, ToolName: "set_telegram_group_monitor", Result: "已开启 日本公司成员 的智能监控。"}}
+	if actionRequiresToolRecovery(fallback, "已开启智能监控。", monitorOK) {
+		t.Fatal("真实状态变更工具成功应能证明完成")
+	}
 }
 
 func TestDispatchPromptFollowsAvailableTools(t *testing.T) {

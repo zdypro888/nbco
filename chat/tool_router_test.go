@@ -59,7 +59,7 @@ func TestRouteTurnToolsAddsWorkerAndFiles(t *testing.T) {
 func TestRouteTurnToolsAddsTelegramGroupTools(t *testing.T) {
 	routed, route := routeTurnTools("telegram:group:-100", "@bot 监听这个群并能撤回自己发错的消息", testRouteTools())
 	names := routeToolNameSet(routed)
-	for _, want := range []string{"list_telegram_groups", "set_telegram_group_listen", "delete_telegram_group_message"} {
+	for _, want := range []string{"list_telegram_groups", "set_telegram_group_listen", "set_telegram_group_monitor", "delete_telegram_group_message"} {
 		if !names[want] {
 			t.Fatalf("群场景缺 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
 		}

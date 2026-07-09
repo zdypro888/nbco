@@ -239,6 +239,63 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已关闭 %s 的自动邀请。", telegramGroupTitle(*g)), nil
 			}),
 
+		tool("set_telegram_group_monitor", "开启或关闭 Telegram 群智能监控。需要 manage_telegram_group 权限；开启后普通群消息会进入短缓冲，系统只在发现问题、阻塞、风险或按指令值得提醒时私聊通知发起人，不逐条转发。",
+			obj(map[string]any{
+				"group":       p("string", "群名、群名片段或 group_ref"),
+				"enabled":     p("boolean", "true 开启，false 关闭"),
+				"instruction": p("string", "可选：监控重点，例如“这个群是视频项目群，遇到问题总结给我，不要逐条转发”"),
+			}, "group", "enabled"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Group       string `json:"group"`
+					Enabled     bool   `json:"enabled"`
+					Instruction string `json:"instruction"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				g, msg, err := resolveTelegramGroup(ctx, d, args.Group)
+				if err != nil || g == nil {
+					return msg, err
+				}
+				mon, err := d.Store.TelegramGroupMonitor(ctx, g.ChatID)
+				if err != nil && !errors.Is(err, store.ErrNotFound) {
+					return "", err
+				}
+				now := time.Now()
+				if mon == nil {
+					mon = &store.TelegramGroupMonitor{ChatID: g.ChatID, CreatedBy: u.ID, CreatedAt: now}
+				}
+				mon.Enabled = args.Enabled
+				mon.GroupTitle = telegramGroupTitle(*g)
+				mon.NotifyUserID = u.ID
+				mon.CreatedBy = u.ID
+				mon.UpdatedAt = now
+				if strings.TrimSpace(args.Instruction) != "" {
+					mon.Instruction = strings.TrimSpace(args.Instruction)
+				}
+				if !args.Enabled {
+					mon.PendingCount = 0
+					mon.Buffer = nil
+				}
+				if err := d.Store.SaveTelegramGroupMonitor(ctx, *mon); err != nil {
+					return "", err
+				}
+				if args.Enabled {
+					if err := d.Store.SetKV(ctx, store.TelegramGroupListenKey(g.ChatID), "1"); err != nil {
+						return "", err
+					}
+					g.Listen = true
+					g.UpdatedAt = now
+					if err := d.Store.SaveTelegramGroupState(ctx, *g); err != nil {
+						return "", err
+					}
+					return fmt.Sprintf("已开启 %s 的智能监控，提醒对象为 %s。普通消息只记录上下文，不逐条转发；发现问题、阻塞、风险或符合指令的重点时会私聊汇总。",
+						telegramGroupTitle(*g), telegramMonitorNotifyName(u)), nil
+				}
+				return fmt.Sprintf("已关闭 %s 的智能监控。", telegramGroupTitle(*g)), nil
+			}),
+
 		tool("send_telegram_group_message", "向 Telegram 群发送消息。需要 manage_telegram_group 权限；群里通常直接发言即可，私聊里可用本工具代发到群。发送后返回 message_ref 供编辑、撤回、置顶等后续工具使用。",
 			obj(map[string]any{
 				"group":                p("string", "群名、群名片段或 group_ref"),
@@ -623,6 +680,13 @@ func telegramGroupMonitorText(ctx context.Context, d Deps, g store.TelegramGroup
 		target = u.Name
 	}
 	return fmt.Sprintf("智能监控开启，提醒 %s", target)
+}
+
+func telegramMonitorNotifyName(u *store.User) string {
+	if u == nil || strings.TrimSpace(u.Name) == "" {
+		return "当前用户"
+	}
+	return strings.TrimSpace(u.Name)
 }
 
 func telegramMemberDisplay(m TelegramGroupMember) string {

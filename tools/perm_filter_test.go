@@ -30,7 +30,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"save_skill", "update_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen", "set_telegram_group_auto_invite",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite", "set_telegram_group_monitor",
 	} {
 		if names[gone] {
 			t.Errorf("无授权用户不应看到 %s", gone)
@@ -115,7 +115,7 @@ func TestManageTelegramGroupGrantUnlocks(t *testing.T) {
 	u := &store.User{ID: 2, Status: store.UserActive}
 	grants := []store.Grant{{Kind: store.KindActive, UserID: 2, Action: perm.ActManageTGGroup, Target: store.TargetAll}}
 	got := namesOf(filterByPerm(telegramGroupTools(Deps{}, u), u, grants))
-	for _, name := range []string{"set_telegram_group_listen", "send_telegram_group_message", "update_telegram_group_info"} {
+	for _, name := range []string{"set_telegram_group_listen", "set_telegram_group_monitor", "send_telegram_group_message", "update_telegram_group_info"} {
 		if !got[name] {
 			t.Fatalf("manage_telegram_group 应解锁 %s", name)
 		}
@@ -186,7 +186,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen", "set_telegram_group_auto_invite",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite", "set_telegram_group_monitor",
 	} {
 		if !names[want] {
 			t.Errorf("超管应看到 %s", want)
@@ -223,7 +223,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"list_action_turns",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen", "set_telegram_group_auto_invite",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite", "set_telegram_group_monitor",
 	} {
 		if !full[gone] {
 			t.Fatalf("前置条件：超管私聊应有 %s", gone)
