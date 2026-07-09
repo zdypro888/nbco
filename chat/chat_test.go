@@ -247,6 +247,52 @@ func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
 	}
 }
 
+func TestRepairNoToolCompletionTurnRetriesWithToolDiscipline(t *testing.T) {
+	eng := &sequenceEngine{
+		results: []*ai.TurnResult{{
+			Text:  "已设置推送。",
+			Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "ok"}},
+		}},
+	}
+	o := &Orchestrator{engine: eng}
+	first := &ai.TurnResult{Text: "已为你设置好了。"}
+	req := &ai.TurnRequest{SessionID: "s1", System: "base", UserText: "明天 9 点提醒全体完善档案"}
+	got, err := o.repairNoToolCompletionTurn(context.Background(), req, first, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Text != "已设置推送。" || countToolCalls(got.Steps) != 1 {
+		t.Fatalf("重跑后应返回带工具调用的结果: %+v", got)
+	}
+	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有调用任何工具") {
+		t.Fatalf("重跑系统提示应包含无工具完成保护: %+v", eng.reqs)
+	}
+}
+
+type sequenceEngine struct {
+	mu      sync.Mutex
+	reqs    []*ai.TurnRequest
+	results []*ai.TurnResult
+	err     error
+}
+
+func (s *sequenceEngine) Name() string { return "sequence" }
+
+func (s *sequenceEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reqs = append(s.reqs, req)
+	if s.err != nil {
+		return nil, s.err
+	}
+	if len(s.results) == 0 {
+		return &ai.TurnResult{Text: "收到。"}, nil
+	}
+	res := s.results[0]
+	s.results = s.results[1:]
+	return res, nil
+}
+
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，
 // 普通轮次返回固定答复并记录请求。
 type fakeEngine struct {

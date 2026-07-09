@@ -283,8 +283,22 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		slog.Warn("拦截无工具完成声明",
 			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
 			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
-		res.Text = noToolCompletionFallback()
-		res.FinishReason = "blocked_no_tool_completion"
+		repaired, rerr := o.repairNoToolCompletionTurn(ctx, req, res, onDelta)
+		if rerr != nil {
+			slog.Warn("无工具完成声明重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
+			o.noteEngineResult(false, rerr)
+			engineOK = false
+			res.Text = noToolCompletionFallback()
+			res.FinishReason = "blocked_no_tool_completion"
+		} else if sideEffectCompletionWithoutTools(text, repaired.Text, repaired.Steps) {
+			slog.Warn("无工具完成声明重跑后仍未落工具，改用系统兜底答复",
+				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
+			res = repaired
+			res.Text = noToolCompletionFallback()
+			res.FinishReason = "blocked_no_tool_completion"
+		} else {
+			res = repaired
+		}
 	}
 	if engineOK {
 		o.noteEngineResult(true, nil)
@@ -333,6 +347,23 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	res.Usage.OutputTokens += first.Usage.OutputTokens
 	if needsVisibleReplyRepair(res) {
 		return nil, errors.New("模型重试后仍疑似截断")
+	}
+	return res, nil
+}
+
+func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {
+	retry := *req
+	retry.OnDelta = onDelta
+	retry.StreamReasoning = false
+	retry.System = req.System + "\n\n[系统保护]\n上一轮没有调用任何工具，却给了“已完成/已设置/会发送”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适工具完成。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮工具调用成功后，才能说已经完成。"
+	res, err := o.engine.RunTurn(ctx, &retry)
+	if err != nil {
+		return nil, err
+	}
+	res.Usage.InputTokens += first.Usage.InputTokens
+	res.Usage.OutputTokens += first.Usage.OutputTokens
+	if needsVisibleReplyRepair(res) {
+		return nil, errors.New("模型重跑后输出仍疑似截断")
 	}
 	return res, nil
 }
