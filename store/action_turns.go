@@ -22,6 +22,10 @@ func (s *Store) RecordActionTurn(ctx context.Context, in ActionTurnInput) error 
 	if evidence == nil {
 		evidence = map[string]any{}
 	}
+	expectedTools := in.ExpectedTools
+	if expectedTools == nil {
+		expectedTools = []string{}
+	}
 	raw, err := json.Marshal(evidence)
 	if err != nil {
 		return err
@@ -31,6 +35,6 @@ func (s *Store) RecordActionTurn(ctx context.Context, in ActionTurnInput) error 
 		   (user_id, session_id, channel, user_text_hash, requires_action, intent, expected_tools, evidence, outcome)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		in.UserID, in.SessionID, in.Channel, in.UserTextHash, in.RequiresAction,
-		truncateRunes(in.Intent, 500), in.ExpectedTools, raw, truncateRunes(in.Outcome, 80))
+		truncateRunes(in.Intent, 500), expectedTools, raw, truncateRunes(in.Outcome, 80))
 	return wrapErr(err)
 }

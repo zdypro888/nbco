@@ -262,6 +262,24 @@ func TestRecordActionTurn(t *testing.T) {
 	if outcome != "evidence_ok" || len(expected) != 1 || expected[0] != "schedule_push" {
 		t.Fatalf("action_turns row = outcome=%q expected=%v", outcome, expected)
 	}
+	if err := s.RecordActionTurn(ctx, ActionTurnInput{
+		UserID:         u.ID,
+		Channel:        "telegram",
+		UserTextHash:   "no-plan",
+		RequiresAction: false,
+		Outcome:        "no_action",
+	}); err != nil {
+		t.Fatalf("nil expected_tools should be stored as empty array: %v", err)
+	}
+	expected = nil
+	if err := s.pool.QueryRow(ctx,
+		`SELECT expected_tools FROM action_turns WHERE user_text_hash = $1`, "no-plan").
+		Scan(&expected); err != nil {
+		t.Fatal(err)
+	}
+	if len(expected) != 0 {
+		t.Fatalf("nil expected_tools should roundtrip empty, got %v", expected)
+	}
 }
 
 func TestWorkerClaimRecoversStaleTask(t *testing.T) {
