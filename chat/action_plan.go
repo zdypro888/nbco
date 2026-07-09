@@ -64,7 +64,7 @@ func shouldRunActionPlanner(text string) bool {
 	if text == "" || strings.HasPrefix(text, "[系统") {
 		return false
 	}
-	return true
+	return looksLikeSideEffectRequest(text) || looksLikeHeavyExecutionRequest(text)
 }
 
 func actionPlannerSystem(toolset []ai.Tool) string {
@@ -80,9 +80,28 @@ func actionPlannerSystem(toolset []ai.Tool) string {
 	b.WriteString("可用工具：\n")
 	for _, t := range toolset {
 		desc := strings.Join(strings.Fields(t.Description), " ")
-		fmt.Fprintf(&b, "- %s: %s\n", t.Name, textfmt.TruncateRunes(desc, 140))
+		fmt.Fprintf(&b, "- %s: %s\n", t.Name, textfmt.TruncateRunes(desc, 80))
 	}
 	return b.String()
+}
+
+func looksLikeHeavyExecutionRequest(text string) bool {
+	s := strings.ToLower(strings.TrimSpace(text))
+	if s == "" {
+		return false
+	}
+	keywords := []string{
+		"worker", "agent", "codex", "claude", "pty", "shell", "cmd", "命令", "执行", "运行",
+		"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料", "报表", "产物",
+		"代码", "仓库", "clone", "部署", "升级", "修复", "实现", "测试", "分析刚才", "整理这",
+		"群监控", "监听", "telegram 群", "tg 群",
+	}
+	for _, kw := range keywords {
+		if strings.Contains(s, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 func actionPlannerUserText(u *store.User, channel, text string) string {
@@ -208,6 +227,16 @@ type toolEvidence struct {
 	Tool    string `json:"tool"`
 	OK      bool   `json:"ok"`
 	Summary string `json:"summary,omitempty"`
+}
+
+type turnDiagnostics struct {
+	Route           string   `json:"route,omitempty"`
+	SystemChars     int      `json:"system_chars,omitempty"`
+	HistoryChars    int      `json:"history_chars,omitempty"`
+	ToolCount       int      `json:"tool_count,omitempty"`
+	FullToolCount   int      `json:"full_tool_count,omitempty"`
+	ToolSchemaChars int      `json:"tool_schema_chars,omitempty"`
+	Tools           []string `json:"tools,omitempty"`
 }
 
 func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
@@ -348,7 +377,7 @@ func actionEvidenceFallback() string {
 	return "这轮没有拿到能证明操作成功的工具结果，所以我不能说已经完成。请重新发一次明确指令；如果缺少参数或权限，我会直接说明，只有工具返回成功后才确认完成。"
 }
 
-func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, plan *actionPlan, res *ai.TurnResult) {
+func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, plan *actionPlan, res *ai.TurnResult, diag turnDiagnostics) {
 	if o == nil || o.store == nil || u == nil || sess == nil || plan == nil {
 		return
 	}
@@ -359,6 +388,9 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		"success_evidence": plan.SuccessEvidence,
 		"missing_info":     plan.MissingInfo,
 		"tool_evidence":    summarizeToolEvidence(nil),
+	}
+	if diag.Route != "" || diag.ToolCount > 0 || diag.SystemChars > 0 {
+		evidence["turn_context"] = diag
 	}
 	if res != nil {
 		evidence["tool_evidence"] = summarizeToolEvidence(res.Steps)

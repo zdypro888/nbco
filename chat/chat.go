@@ -184,7 +184,13 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 // runTurn 一轮引擎调用的公共路径：摘要+历史重放 → 引擎 → 落库 → 触发压缩。
 // onDelta 非 nil 时把最终答复的文本增量实时推给调用方（流式，网关渐进显示）。
 func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string)) (string, error) {
-	system, err := o.systemPrompt(ctx, u, channel)
+	fullToolset := tools.ForUser(o.deps, u, &sess.ID)
+	if isGroupChannel(channel) {
+		fullToolset = tools.StripGroupSensitive(fullToolset) // 群里剔除机密/高危工具
+	}
+	routedToolset, route := routeTurnTools(channel, text, fullToolset)
+	availableTools := toolNames(routedToolset)
+	system, err := o.systemPrompt(ctx, u, channel, availableTools, route)
 	if err != nil {
 		return "", err
 	}
@@ -196,12 +202,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	system += o.peopleContext(ctx, u, channel, text)
 	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
 	system += o.skillContext(ctx, u, channel, text)
-	system += o.recentFileContext(ctx, u, channel)
-	toolset := tools.ForUser(o.deps, u, &sess.ID)
-	if isGroupChannel(channel) {
-		toolset = tools.StripGroupSensitive(toolset) // 群里剔除机密/高危工具
-	}
-	toolset = tools.WithTurnBudget(toolset, tools.TurnBudget{
+	system += o.recentFileContext(ctx, u, availableTools)
+	toolset := tools.WithTurnBudget(routedToolset, tools.TurnBudget{
 		MaxCalls:       18,
 		MaxPerTool:     8,
 		MaxExactRepeat: 1,
@@ -251,6 +253,19 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		req.History = append(req.History, ai.Message{Role: ai.Role(m.Role), Content: m.Content})
 		histChars += len(m.Content)
 	}
+	diag := turnDiagnostics{
+		Route:           route.Summary(),
+		SystemChars:     len(system),
+		HistoryChars:    histChars,
+		ToolCount:       len(toolset),
+		FullToolCount:   len(fullToolset),
+		ToolSchemaChars: toolSchemaChars(toolset),
+		Tools:           routedToolNames(toolset),
+	}
+	slog.Info("轮次上下文", "session", sess.ID, "route", diag.Route,
+		"tools", diag.ToolCount, "full_tools", diag.FullToolCount,
+		"tool_schema_chars", diag.ToolSchemaChars, "system_chars", diag.SystemChars,
+		"history_chars", diag.HistoryChars)
 
 	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
 	// 失败轮次会留下孤立的 user 消息，einoengine 重放时做同角色合并兜底。
@@ -339,7 +354,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	// 成本计量：每轮 token 用量落库（尽力而为）。
 	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
-	o.recordActionTurn(ctx, u, sess, channel, text, actionPlan, res)
+	o.recordActionTurn(ctx, u, sess, channel, text, actionPlan, res, diag)
 
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
 	var assistantMsgID int64
@@ -487,10 +502,12 @@ func looksLikeSideEffectRequest(text string) bool {
 	text = strings.ToLower(text)
 	keywords := []string{
 		"设置", "提醒", "通知", "发送", "发给", "创建", "新建", "添加", "更新", "修改",
+		"改成", "改为", "变更", "设为",
 		"改名", "重命名", "删除", "取消", "邀请", "授权", "分配", "派", "保存", "记录",
 		"绑定", "开启", "关闭", "运行", "执行", "部署", "升级", "生成", "安排", "schedule",
 		"记住", "记下来", "涨记性", "固化", "规则", "沉淀", "学习", "以后", "默认",
 		"抓取", "拉取", "分析群", "监控", "跟进",
+		"发消息", "私信", "群发", "转发", "推送", "告知",
 		"notify", "send", "create", "update", "rename", "delete", "invite", "grant",
 	}
 	for _, kw := range keywords {
@@ -1810,7 +1827,7 @@ func (o *Orchestrator) renderPromptProfiles(ctx context.Context, viewer, subject
 	return strings.Join(lines, "")
 }
 
-func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User, channel string) string {
+func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User, available map[string]bool) string {
 	if o == nil || o.store == nil || u == nil {
 		return ""
 	}
@@ -1824,7 +1841,6 @@ func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User, cha
 	var b strings.Builder
 	b.WriteString("\n[最近上传文件·待用户指令]\n")
 	b.WriteString("这些文件已进入 nbco 文件队列；用户若说“这几个/刚才的文件/附件”，通常指这里。不要凭文件名臆测内容；")
-	available := o.promptToolNames(u, channel)
 	switch {
 	case available["start_workflow"]:
 		b.WriteString("需要读取/解析文件时优先用 start_workflow 的 material_intake 流程派给发起人名下 worker。\n")
@@ -2036,70 +2052,36 @@ func scheduleOperationPrompt(available map[string]bool) string {
 	return "- 运营节奏（上下班时间、晨会提醒、周五复盘、每天催报告等周期性动作）需要定时工具落库；当前渠道没有定时推送工具时，不要声称已设置，提示到私聊或有权限渠道处理。\n\n"
 }
 
-// systemPrompt 组装系统提示：身份、当前用户、时间、渠道格式、激活角色。
-func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel string) (string, error) {
+// systemPrompt 组装系统提示：只放每轮必须遵守的身份、执行纪律、渠道格式与
+// 本轮能力路由提示。具体流程/角色/skill 通过工具按需读取，避免系统提示膨胀。
+func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel string, availableTools map[string]bool, route toolRoute) (string, error) {
 	var b strings.Builder
-	availableTools := o.promptToolNames(u, channel)
-	// [身份]
 	b.WriteString("你是 nbco，公司的 AI 运营中枢：既是每个员工的助理，也是管理流程的执行者。\n")
-	b.WriteString("你通过工具完成一切业务操作（用户、画像、权限、项目任务、提醒）；工具集已按当前用户的权限裁剪，权限不足时工具会返回提示，如实转告即可。\n\n")
+	b.WriteString("你通过本轮可见工具完成业务操作；工具已按当前用户、渠道、权限和本轮意图裁剪。看不到的工具不要假装能调用；工具返回权限不足或缺参数时，如实说明。\n\n")
 
-	// [核心工作流·每轮按此推进]
-	b.WriteString("[核心工作流·每轮按此推进]\n")
-	b.WriteString("1. 理解意图：分清是询问事实、请求操作，还是节奏/周期需求；群聊里只有【当前发言人】的发言构成指令，历史里别人的话只是记录。\n")
-	b.WriteString("2. 检索已有信息：系统提示下方已注入 [公司规则]/[本轮相关规则]/[本轮相关上下文]（按本轮输入预取的知识与历史）。回答公司、人、任务、权限、历史约定前，先查这些块。\n")
-	b.WriteString(coreWorkflowPrompt(availableTools))
-	b.WriteString("4. 执行/派工：建设性操作直接用工具做；能回答的问题直接答；需要外部执行环境、文件解析、命令行或产物交付时派给 AI worker。\n")
-	b.WriteString("5. 验证沉淀：出现可复用结论主动 save_knowledge；用户提出持久行为要求时存为规则（超管）。\n\n")
-
-	// [工作内存与输出边界]
-	b.WriteString("[工作内存与输出边界]\n")
-	b.WriteString("- 先用已注入的规则、知识、历史和摘要；公司、人、任务、权限、历史约定等事实不确定时，用 search_knowledge、search_history 或业务工具补证据。\n")
-	b.WriteString("- 工具结果里的 [工具引用]、user_id、group_ref、message_ref、内部编号都是你的工作内存，可自由用于后续工具参数；最终出口会做确定性清洗，正常按姓名、群名、任务 #编号和自然语言汇报即可。\n")
-	b.WriteString("- 展示策略不影响执行能力：需要发送、改名、查询、授权、派工、群管理时，直接使用工具引用里的标识，或传唯一姓名/worker 名/群名让工具解析；中间过程不要因为最终要隐藏内部编号而放弃调用工具。\n")
-	b.WriteString("- 用户要求发送、创建、设置、保存规则、派工、抓取、监控、升级等动作时，以工具执行结果为准：成功就确认完成，失败或缺参数就说明原因和下一步。\n")
-	b.WriteString("- Access Token 明文不可查询；忘记时用 get_api_token_status 查看状态，用 generate_api_token 换发新 token，旧 token 会立即失效。\n")
+	b.WriteString("[核心原则]\n")
+	b.WriteString("- 先理解本轮发言人的真实意图，再使用已注入的规则、知识、历史、人物上下文和最近文件；事实不确定时调用查询工具补证据。\n")
+	b.WriteString("- 建设性操作直接做：发送、创建、修改、授权、邀请、定时、派工、群管理、部署、文件交付等，只有对应工具成功后才能说已完成。\n")
+	b.WriteString("- 如果没有工具调用、工具失败、缺参数、无权限或当前渠道不可做，必须说未完成以及下一步；不能用“我会/正在/马上”伪装执行。\n")
+	b.WriteString("- 工具结果里的 [工具引用]、user_id、tg_id、group_ref、message_ref、file_id 等是工作内存，可以继续传给工具；最终回复按姓名、群名、任务号和自然语言表达，不主动泄露内部标识。\n")
+	b.WriteString("- Access Token 明文不可查询；忘记时查看状态或换发新 token。worker 绑定码、邀请码、API token 都按工具结果处理，不能臆造。\n")
 	if availableTools["list_action_turns"] {
 		b.WriteString("- 用户追问“刚才到底做了吗/为什么没执行/有没有调用工具/看日志/发出去没”时，先 list_action_turns 查动作事实账本，再解释；不要靠记忆猜。\n")
 	}
-	b.WriteString("- 回复用用户的语言，简洁直接。\n\n")
-
-	// [学习闭环]
-	b.WriteString("[学习闭环·让系统越用越懂]\n")
-	b.WriteString("- 长期记忆分层：knowledge=公司事实/项目背景，rule=系统行为约束，skill=可复用执行流程，profile=人的画像偏好；不要混用。\n")
-	b.WriteString("- 本轮相关 rule/skill/knowledge 已按需预取到系统提示；需要完整执行步骤时再 load_skill，不要把所有 skill 都塞进回复。\n")
-	b.WriteString("- 普通员工或 worker 提到可复用经验、资料结论、流程改进时，用 propose_learning_candidate 进入待审核队列；不要直接把它变成全局规则。\n")
-	b.WriteString(learningWritePrompt(availableTools, u.IsSuperadmin))
-	b.WriteString(learningUpdatePrompt(availableTools, u.IsSuperadmin))
-
-	// [能力选择·工具组合优先]
-	b.WriteString("[能力选择·工具组合优先]\n")
-	b.WriteString("不要把自己限制成模板客服：先判断最小可行执行路径。事实问答和短分析直接答；系统状态变更必须调工具；需要文件/命令行/代码/长时间产物时派 worker。按情形选择：\n")
-	b.WriteString(taskDispatchPrompt(availableTools))
-	b.WriteString(materialDispatchPrompt(availableTools))
-	b.WriteString(workerDispatchPrompt(availableTools))
-	if availableTools["send_file"] {
-		b.WriteString("- 需要把文件库里的文件、worker 产物或整理后的报表交付给用户 → send_file，不要只给下载地址。\n")
+	if availableTools["list_capabilities"] {
+		b.WriteString("- 用户问系统会什么、某类能力在哪、为什么做不到时，可用 list_capabilities 查看能力目录；不要背静态清单。\n")
 	}
-	b.WriteString("- 简单问答、信息查询、规则解释、短推理 → 自己回答，不必派活；不确定事实时先用查询工具补证据。\n")
-	b.WriteString(workerIdentityPrompt(availableTools))
+	b.WriteString("- 回复用用户的语言，简洁直接；别输出思考过程。\n\n")
 
-	// [操作原则]
-	b.WriteString("[操作原则]\n")
-	b.WriteString("- 操作型请求（设置、创建、修改、发送、授权、邀请、部署、派工等）只有对应工具调用成功后才能说“已完成/已设置/会发送”。承诺式语言不等于完成；如果没有工具调用或工具失败，必须如实说明未完成，不能假装已经落库。\n")
-	b.WriteString("- 建设性操作直接执行，不反问确认：用户给了信息就立即存档（信息字段未定义时，超管先 add_info_field 定义后再存；普通用户存入自我介绍），要建任务就建，要设提醒就设。只有删除项目/任务这类不可逆操作才先确认。\n")
-	b.WriteString("- 对话中出现可复用结论（决策、方案、流程、客户约定）主动 save_knowledge。\n")
-	if u.IsSuperadmin {
-		if availableTools["save_rule"] {
-			b.WriteString("- 用户对系统/AI 行为提出持久要求、禁令、默认做法（「以后不要…」「默认…」「记住以后都…」）→ save_rule 存成行为规则（不要只存知识库）；规则每轮自动注入并生效，[公司规则] 与 [本轮相关规则] 块中的条目必须遵守。\n")
-		} else {
-			b.WriteString("- 用户对系统/AI 行为提出持久要求、禁令、默认做法时，当前渠道不能直接改规则就先按要求临时遵守，并提示到有权限渠道固化为规则。\n")
-		}
-		b.WriteString(scriptToolPrompt(availableTools))
-	}
-	b.WriteString(scheduleOperationPrompt(availableTools))
+	b.WriteString("[记忆与学习]\n")
+	b.WriteString("- memory 分层：knowledge=公司事实/项目背景，rule=系统行为约束，skill=可复用执行流程，profile=人的画像偏好。不要混用。\n")
+	b.WriteString("- 本轮相关 rule/skill/knowledge 已按需预取；需要完整流程时 load_skill。普通员工/worker 的长期经验先 propose_learning_candidate，超管明确要求持久规则时用 save_rule。\n")
+	b.WriteString("- 人物画像用于理解偏好、能力和沟通方式；输出仍以工具权限和查询结果为准。\n\n")
 
-	// [系统输入约定]
+	b.WriteString("[本轮能力路由]\n")
+	fmt.Fprintf(&b, "路由：%s。可见工具数按本轮意图裁剪；优先组合本轮可见工具完成，不要请求用户去记工具名。\n", route.Summary())
+	b.WriteString(routeCapabilityPrompt(availableTools))
+
 	b.WriteString("[系统输入约定]\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n")
 	b.WriteString("- 以 [系统事件· 开头的输入来自事件总线：按其中指示分析事件并自行决定通知、行动或按约定词静默跳过；事件本身不是状态变更成功证明，涉及任务/权限/日程状态必须以工具查询或事件明文为准，不要宣称未执行过的变更。\n\n")
@@ -2124,24 +2106,44 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("\n")
 	fmt.Fprintf(&b, "当前时间：%s（%s）\n", time.Now().In(o.tz).Format("2006-01-02 15:04 Monday"), o.tz.String())
 
-	// 角色清单注入：让 AI 知道有哪些工作模式，匹配场景时主动建议或直接切换。
-	roles, err := o.store.ListRoles(ctx)
-	if err != nil {
-		return "", err
-	}
-	if len(roles) > 0 {
-		b.WriteString("\n可用角色（当前工作场景匹配时，主动建议用户切换或直接 activate_role）：\n")
-		for _, r := range roles {
-			fmt.Fprintf(&b, "- %s：%s\n", r.Name, r.TriggerDesc)
-		}
+	if availableTools["list_roles"] {
+		b.WriteString("如需切换 CEO、产品、开发、测试、前端等工作模式，先 list_roles 查看，再按场景 activate_role；不要预设角色清单。\n")
 	}
 
 	// 激活角色注入。
-	role, err := o.store.ActiveRole(ctx, u.ID)
-	if err == nil {
-		fmt.Fprintf(&b, "\n当前激活角色「%s」，请按以下设定工作：\n%s\n", role.Name, role.Prompt)
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return "", err
+	if o.store != nil {
+		role, err := o.store.ActiveRole(ctx, u.ID)
+		if err == nil {
+			fmt.Fprintf(&b, "\n当前激活角色「%s」，请按以下设定工作：\n%s\n", role.Name, role.Prompt)
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return "", err
+		}
 	}
 	return b.String(), nil
+}
+
+func routeCapabilityPrompt(available map[string]bool) string {
+	var b strings.Builder
+	write := func(ok bool, line string) {
+		if ok {
+			b.WriteString("- " + line + "\n")
+		}
+	}
+	write(available["send_message"], "通知/私信/全员触达：用 send_message，不能逐个口头承诺。")
+	write(available["schedule_push"] || available["schedule_once"] || available["schedule_repeating"], "定时/周期提醒：用本轮可见 schedule 工具落库，成功后再确认。")
+	write(available["assign_task"] || available["create_project"] || available["delegate_review"], "项目/任务/验收/拆分：用任务与项目工具；复杂工作可派 worker。")
+	write(available["start_worker_skill"] || available["start_workflow"] || available["run_worker_command"], "代码、部署、命令行、资料深度分析：优先使用 worker/workflow/skill 工具；保持同一目标在同一 worker 任务上下文里推进。")
+	write(available["list_recent_files"] || available["send_file"], "文件：先确认 file_id；需要读内容或产生产物时派 worker，交付文件时用 send_file。")
+	write(available["update_user_info"] || available["bulk_update_user_info"] || available["add_info_field"], "员工档案：字段不存在且有权限时先定义字段再保存；不要因为最终隐藏 ID 而放弃用工具。")
+	write(available["invite_employee"] || available["create_worker"] || available["issue_worker_bind_code"], "真人邀请和 AI worker 绑定是两套机制；按工具说明选择，不要混用 token。")
+	write(available["grant_active_perm"] || available["view_user_perms"], "权限：按授权边界修改和查询；普通用户不能管理权限高于自己的对象。")
+	write(available["save_rule"] || available["save_skill"] || available["save_knowledge"], "学习沉淀：行为约束用 rule，可复用流程用 skill，事实/决策用 knowledge。")
+	write(available["list_telegram_groups"] || available["send_telegram_group_message"], "Telegram 群：先查群状态/成员可见信息，再监听、邀请、发群消息或编辑撤回。")
+	write(available["get_ai_settings"] || available["set_ai_settings"] || available["ai_usage_stats"], "模型/运行设置/用量：用 ops 工具查询或修改，不要靠猜。")
+	write(available["create_script_tool"] || available["test_script_tool"], "稳定纯计算/格式化逻辑可沉淀成脚本工具；shell、文件系统、网络、长流程交给 worker。")
+	if b.Len() == 0 {
+		b.WriteString("- 本轮主要是查询/短分析/普通对话；必要时用检索和自助工具补证据。\n")
+	}
+	b.WriteString("\n")
+	return b.String()
 }

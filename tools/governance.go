@@ -360,7 +360,16 @@ func renderDecisionItems(items []*store.DecisionItem) string {
 type actionTurnDetails struct {
 	PlannerSource string `json:"planner_source"`
 	FinishReason  string `json:"finish_reason"`
-	ToolEvidence  []struct {
+	TurnContext   struct {
+		Route           string   `json:"route"`
+		SystemChars     int      `json:"system_chars"`
+		HistoryChars    int      `json:"history_chars"`
+		ToolCount       int      `json:"tool_count"`
+		FullToolCount   int      `json:"full_tool_count"`
+		ToolSchemaChars int      `json:"tool_schema_chars"`
+		Tools           []string `json:"tools"`
+	} `json:"turn_context"`
+	ToolEvidence []struct {
 		Tool    string `json:"tool"`
 		OK      bool   `json:"ok"`
 		Summary string `json:"summary"`
@@ -410,6 +419,11 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 				}
 				fmt.Fprintf(&b, "  - %s:%s %s\n", ev.Tool, state, clipRunes(ev.Summary, 180))
 			}
+		}
+		if details.TurnContext.ToolCount > 0 || details.TurnContext.SystemChars > 0 {
+			fmt.Fprintf(&b, "  上下文：route=%s tools=%d/%d schema_chars=%d system_chars=%d history_chars=%d\n",
+				details.TurnContext.Route, details.TurnContext.ToolCount, details.TurnContext.FullToolCount,
+				details.TurnContext.ToolSchemaChars, details.TurnContext.SystemChars, details.TurnContext.HistoryChars)
 		}
 		if details.FinishReason != "" {
 			fmt.Fprintf(&b, "  finish_reason: %s\n", details.FinishReason)
