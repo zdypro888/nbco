@@ -69,6 +69,13 @@ var (
 	escapedReasoningBlockRe = regexp.MustCompile(`(?is)&lt;\s*think\b[^&]*?&gt;.*?&lt;\s*/\s*think\s*&gt;`)
 	escapedReasoningCloseRe = regexp.MustCompile(`(?is)&lt;\s*/\s*think\s*&gt;`)
 	escapedReasoningOpenRe  = regexp.MustCompile(`(?is)&lt;\s*think\b[^&]*?&gt;`)
+
+	toolOnlySectionRe  = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*?\n\[用户可见目录\]\s*\n?`)
+	trailingToolOnlyRe = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*$`)
+	userIDParenRe      = regexp.MustCompile(`(?i)[（(][^（）()\n]*(?:user[_ -]?id|用户\s*id|用户内部编号|成员内部编号|员工内部编号|tg\s*id|telegram\s*id)[^（）()\n]*[）)]`)
+	userIDKVRe         = regexp.MustCompile(`(?i)\buser[_ -]?id\s*[:=：]\s*-?\d+\b`)
+	userInternalRefRe  = regexp.MustCompile(`(?i)(用户|成员|员工|授予者|创建者|操作者|目标用户)\s*内部编号\s*-?\d+`)
+	userIDLabelRe      = regexp.MustCompile(`(?i)(用户|成员|员工|tg|telegram)\s*id\s*[:=：]?\s*-?\d+\b`)
 )
 
 // RedactSecrets removes API keys, Telegram bot tokens, worker access tokens,
@@ -113,5 +120,20 @@ func StripReasoning(s string) string {
 	}
 	s = reasoningCloseRe.ReplaceAllString(s, "")
 	s = escapedReasoningCloseRe.ReplaceAllString(s, "")
+	return strings.TrimSpace(s)
+}
+
+// SanitizeVisibleReply removes tool-only references and user identity internals
+// from text that is about to be shown to end users. Tool handlers may expose
+// user_id in their own outputs so the model can chain calls; this final display
+// pass is the deterministic privacy boundary.
+func SanitizeVisibleReply(s string) string {
+	s = StripReasoning(s)
+	s = toolOnlySectionRe.ReplaceAllString(s, "$1")
+	s = trailingToolOnlyRe.ReplaceAllString(s, "$1")
+	s = userIDParenRe.ReplaceAllString(s, "")
+	s = userIDKVRe.ReplaceAllString(s, "用户标识")
+	s = userInternalRefRe.ReplaceAllString(s, "$1标识")
+	s = userIDLabelRe.ReplaceAllString(s, "$1标识")
 	return strings.TrimSpace(s)
 }

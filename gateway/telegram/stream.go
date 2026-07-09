@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const (
@@ -106,6 +108,10 @@ func (g *Gateway) logStreamPanic(chatID int64, r any) {
 // 操作）。替换语义让新消息（如工具调用后的最终答复）自然刷新，不与前导文字拼接。
 func (ed *streamEditor) onDelta(snapshot string) {
 	if !ed.ok || snapshot == "" {
+		return
+	}
+	snapshot = textfmt.SanitizeVisibleReply(snapshot)
+	if snapshot == "" {
 		return
 	}
 	ed.mu.Lock()

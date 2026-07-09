@@ -19,7 +19,7 @@ const bindKeyTTL = 24 * time.Hour
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{
-		tool("list_users", "列出系统内用户的安全目录：按真人员工与 AI worker 分组，包含姓名、状态、可见画像数量；最终回复直接用该格式，不要改成 HTML/Markdown 表格，不要展示内部 user_id。注意：隐藏内部编号不影响操作，send_message/update_user_info/get_user_info/get_user_stats 可直接传唯一姓名到 user/user_name。",
+		tool("list_users", "列出系统内用户目录。结果包含两段：[工具引用] 给模型后续工具调用使用，可含 user_id；[用户可见目录] 才能复述给用户。最终回复不要展示 [工具引用]、user_id 或内部编号。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				users, err := d.Store.ListUsers(ctx)
@@ -744,10 +744,16 @@ func messageTargetSelector(values ...string) string {
 
 func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]userDirectoryStats) string {
 	var humans, workers []string
+	var refs []string
 	for _, other := range users {
 		if other == nil || other.ID == currentID {
 			continue
 		}
+		kind := "human"
+		if other.IsWorker {
+			kind = "worker"
+		}
+		refs = append(refs, fmt.Sprintf("- user_id=%d name=%q kind=%s status=%s", other.ID, other.Name, kind, other.Status))
 		line := renderUserDirectoryLine(other, stats[other.ID])
 		if other.IsWorker {
 			workers = append(workers, line)
@@ -759,6 +765,14 @@ func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]u
 		return "（没有其他用户）"
 	}
 	var b strings.Builder
+	if len(refs) > 0 {
+		b.WriteString("[工具引用·仅供后续工具调用，最终回复不要展示]\n")
+		for _, ref := range refs {
+			b.WriteString(ref)
+			b.WriteByte('\n')
+		}
+		b.WriteString("\n[用户可见目录]\n")
+	}
 	if len(humans) > 0 {
 		fmt.Fprintf(&b, "真人员工（%d 位）：\n", len(humans))
 		for _, line := range humans {

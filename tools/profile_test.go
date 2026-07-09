@@ -40,9 +40,23 @@ func TestRenderUserDirectoryIsTelegramFriendlyAndSeparatesWorkers(t *testing.T) 
 		3: {SelfIntro: 6, PeerReview: 1},
 		4: {},
 	})
-	for _, bad := range []string{"#2", "#3", "#4", "ID", "user_id", "active", "<table", "|---"} {
-		if strings.Contains(got, bad) {
-			t.Fatalf("目录不应泄露内部编号/原始状态/表格标记 %q:\n%s", bad, got)
+	for _, want := range []string{
+		"[工具引用·仅供后续工具调用，最终回复不要展示]",
+		`user_id=2 name="UTM" kind=worker status=active`,
+		`user_id=3 name="黄桑" kind=human status=active`,
+		"[用户可见目录]",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("目录缺工具引用 %q:\n%s", want, got)
+		}
+	}
+	visible := got
+	if idx := strings.Index(visible, "[用户可见目录]"); idx >= 0 {
+		visible = visible[idx+len("[用户可见目录]"):]
+	}
+	for _, bad := range []string{"#2", "#3", "#4", "user_id", "<table", "|---"} {
+		if strings.Contains(visible, bad) {
+			t.Fatalf("用户可见目录不应泄露内部编号/表格标记 %q:\n%s", bad, visible)
 		}
 	}
 	for _, want := range []string{
