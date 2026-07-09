@@ -350,8 +350,38 @@ func TestParseActionPlanDoesNotExpandWorkflowForNonMaterialIntent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !sameStringSet(plan.ExpectedTools, []string{"start_workflow"}) {
+	if !sameStringSet(plan.ExpectedTools, []string{"start_workflow", "start_worker_skill"}) {
+		t.Fatalf("升级类 workflow 应只扩展 worker/运维同类工具: %+v", plan.ExpectedTools)
+	}
+	if containsString(plan.ExpectedTools, "analyze_company_materials") {
 		t.Fatalf("非资料类 workflow 不应扩展到文件分析工具: %+v", plan.ExpectedTools)
+	}
+}
+
+func TestParseActionPlanInfersExpectedToolsWhenPlannerLeavesEmpty(t *testing.T) {
+	plan, err := parseActionPlan(`{
+		"requires_action": true,
+		"intent": "设置每天 10 点自动汇总日本公司群消息并通知我",
+		"expected_tools": [],
+		"success_evidence": ["群监控或定时推送工具返回成功"],
+		"confidence": 0.7
+	}`, map[string]bool{
+		"list_telegram_groups":       true,
+		"set_telegram_group_monitor": true,
+		"schedule_repeating":         true,
+		"send_message":               true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"set_telegram_group_monitor", "schedule_repeating", "send_message"} {
+		if !containsString(plan.ExpectedTools, want) {
+			t.Fatalf("应从 intent 推断动作族工具 %s: %+v", want, plan.ExpectedTools)
+		}
+	}
+	readOnly := []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_telegram_groups", Result: "Telegram 群列表：日本公司成员，智能监控关闭。"}}
+	if hasSuccessfulActionEvidence(plan, readOnly) {
+		t.Fatal("读取群列表不能证明自动汇总/通知已设置")
 	}
 }
 
@@ -387,6 +417,65 @@ func TestFallbackActionPlanRequiresWorkerToolForAttachmentReference(t *testing.T
 	}
 	if !strings.Contains(strings.Join(plan.SuccessEvidence, "\n"), "文件分析") {
 		t.Fatalf("完成证据应指向文件分析/worker 结果: %+v", plan.SuccessEvidence)
+	}
+}
+
+func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
+	toolset := []ai.Tool{
+		{Name: "start_workflow"},
+		{Name: "schedule_push"},
+		{Name: "schedule_repeating"},
+		{Name: "send_message"},
+		{Name: "create_data_collection_campaign"},
+		{Name: "update_user_info"},
+		{Name: "set_telegram_group_monitor"},
+		{Name: "list_telegram_groups"},
+		{Name: "save_rule"},
+	}
+	cases := []struct {
+		name string
+		text string
+		want []string
+	}{
+		{
+			name: "schedule",
+			text: "明天早上 9 点提醒全体员工完善个人档案",
+			want: []string{"schedule_push", "schedule_repeating"},
+		},
+		{
+			name: "message",
+			text: "通知所有员工完善个人信息",
+			want: []string{"send_message", "create_data_collection_campaign"},
+		},
+		{
+			name: "group-monitor",
+			text: "日本公司群有人发送消息时自动总结，有重要事项通知我",
+			want: []string{"set_telegram_group_monitor", "send_message"},
+		},
+		{
+			name: "memory",
+			text: "以后不要把 worker token 发出来，记成规则",
+			want: []string{"save_rule"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			plan := fallbackActionPlanWithTools(tc.text, "planner_error", toolset)
+			if plan == nil || !plan.RequiresAction {
+				t.Fatalf("应进入动作守门: %+v", plan)
+			}
+			for _, want := range tc.want {
+				if !containsString(plan.ExpectedTools, want) {
+					t.Fatalf("fallback 应推断 %s，got %+v", want, plan.ExpectedTools)
+				}
+			}
+			if containsString(plan.ExpectedTools, "list_telegram_groups") {
+				t.Fatalf("读取类工具不应进入预期完成工具: %+v", plan.ExpectedTools)
+			}
+			if tc.name == "message" && containsString(plan.ExpectedTools, "update_user_info") {
+				t.Fatalf("通知大家完善资料不能把直接改员工资料当完成证据: %+v", plan.ExpectedTools)
+			}
+		})
 	}
 }
 
@@ -426,6 +515,10 @@ func TestActionCompletionWithoutEvidence(t *testing.T) {
 	noneSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 0 人，失败 24 人。"}}
 	if !toolResultLooksFailed(noneSent[0].Result) {
 		t.Fatal("成功 0 人、失败 N 人不应算成功证据")
+	}
+	emptySent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 0 人，失败 0 人。"}}
+	if !toolResultLooksFailed(emptySent[0].Result) {
+		t.Fatal("成功 0 人、失败 0 人的空执行不应算成功证据")
 	}
 	if !toolResultLooksFailed("这条 skill 标记为高风险，必须由用户明确确认。确认后再次调用。") {
 		t.Fatal("没有成功动作的确认要求仍应算失败/阻塞证据")
@@ -600,6 +693,15 @@ func sameStringSet(a, b []string) bool {
 		seen[s]--
 	}
 	return true
+}
+
+func containsString(list []string, target string) bool {
+	for _, s := range list {
+		if s == target {
+			return true
+		}
+	}
+	return false
 }
 
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，

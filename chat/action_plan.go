@@ -75,6 +75,7 @@ func actionPlannerSystem(toolset []ai.Tool) string {
 	b.WriteString("JSON schema: {\"requires_action\":bool,\"intent\":string,\"expected_tools\":[string],\"success_evidence\":[string],\"missing_info\":[string],\"confidence\":number}\n")
 	b.WriteString("规则：\n")
 	b.WriteString("- 只从可用工具中选择 expected_tools；不确定具体工具时 expected_tools 为空但 requires_action 仍可为 true。\n")
+	b.WriteString("- expected_tools 可以填写多个同一动作类别下的可替代执行工具；不要只因为列表里有 start_workflow 就忽略更直接的发送、定时、群设置或资料分析工具。\n")
 	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析普通文本且不要求落库/发送/执行时，requires_action=false；但要求处理上传文件、公司资料、代码仓库、命令行、worker 或产生产物时，requires_action=true。\n")
 	b.WriteString("- 用户围绕最近上传/刚发的文件问“能看懂/能读取/这个吗/解析一下”时，属于需要工具确认或派工，requires_action=true。\n")
 	b.WriteString("- 如果需要信息不足，requires_action=true，并在 missing_info 写缺什么；主对话应询问或说明未完成，不能声称已完成。\n")
@@ -139,7 +140,10 @@ func parseActionPlan(text string, available map[string]bool) (*actionPlan, error
 	}
 	p.Intent = strings.TrimSpace(p.Intent)
 	p.ExpectedTools = filterKnownTools(p.ExpectedTools, available, 8)
-	p.ExpectedTools = expandExpectedToolsForIntent(p.Intent, p.ExpectedTools, available)
+	p.ExpectedTools = expandExpectedToolsForIntent(p.Intent, p.ExpectedTools, available, 8)
+	if len(p.ExpectedTools) == 0 {
+		p.ExpectedTools = inferActionToolsForText(p.Intent, available, 8)
+	}
 	p.SuccessEvidence = cleanStringList(p.SuccessEvidence, 6, 160)
 	p.MissingInfo = cleanStringList(p.MissingInfo, 6, 120)
 	if p.Confidence < 0 {
@@ -211,53 +215,103 @@ func fallbackActionPlanWithTools(text, source string, toolset []ai.Tool) *action
 		}
 		return plan
 	}
-	if expected := firstAvailableTool(available, "start_workflow", "start_worker_skill", "run_worker_command", "schedule_push", "send_message", "assign_task"); expected != "" {
-		plan.ExpectedTools = []string{expected}
-		plan.SuccessEvidence = []string{expected + " 返回成功结果"}
+	if expected := inferActionToolsForText(text, available, 8); len(expected) > 0 {
+		plan.ExpectedTools = expected
+		plan.SuccessEvidence = []string{"对应动作类别的执行型工具返回成功结果"}
 		plan.Confidence = 0.5
 	}
 	return plan
 }
 
-func firstAvailableTool(available map[string]bool, names ...string) string {
-	for _, name := range names {
-		if available[name] {
-			return name
-		}
+func expandExpectedToolsForIntent(intent string, expected []string, available map[string]bool, limit int) []string {
+	if inferred := inferActionToolsForText(intent, available, limit); len(inferred) > 0 {
+		return mergeToolLists(expected, inferred, limit)
 	}
-	return ""
+	return expected
 }
 
-func expandExpectedToolsForIntent(intent string, expected []string, available map[string]bool) []string {
-	if len(expected) == 0 || !looksLikeMaterialActionIntent(intent) {
-		return expected
+func inferActionToolsForText(text string, available map[string]bool, limit int) []string {
+	s := strings.ToLower(strings.TrimSpace(text))
+	if s == "" {
+		return nil
+	}
+	var groups [][]string
+	if looksLikeMaterialActionIntent(s) || looksLikeFileReferenceRequest(s) {
+		groups = append(groups, materialActionTools(available))
+	}
+	if routeHasAny(s, []string{"定时", "定期", "提醒", "闹钟", "每天", "每周", "每月", "明天", "后天", "早上", "晚上", "schedule"}) {
+		groups = append(groups, availableToolsInOrder(available, "schedule_once", "schedule_repeating", "schedule_push"))
+	}
+	if routeHasAny(s, []string{"通知", "发送", "发给", "私信", "群发", "群里发", "转发", "告知", "消息", "send", "notify"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"send_message", "send_telegram_group_message", "send_file",
+			"create_data_collection_campaign", "send_data_collection_reminder",
+		))
+	}
+	infoObjects := []string{"员工信息", "个人信息", "个人档案", "档案", "手机号", "手机", "职位", "组别", "邮箱", "联系方式"}
+	if routeHasAny(s, []string{"收集", "完善", "补充", "填报", "登记"}) && routeHasAny(s, infoObjects) {
+		groups = append(groups, availableToolsInOrder(available,
+			"create_data_collection_campaign", "send_data_collection_reminder", "send_message",
+		))
+	}
+	if routeHasAny(s, []string{"群监控", "监听", "群消息", "日报", "自动总结", "自动汇总", "重要事项", "自动邀请", "group monitor"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"set_telegram_group_monitor", "set_telegram_group_listen", "set_telegram_group_auto_invite",
+			"bind_telegram_group_project", "update_telegram_group_info",
+		))
+	}
+	peopleDirect := routeHasAny(s, []string{"邀请", "入职", "权限", "授权", "改名", "重命名"})
+	peopleWrite := routeHasAny(s, []string{"保存", "更新", "修改", "添加", "删除", "录入", "设置", "改成", "改为"}) && routeHasAny(s, infoObjects)
+	if peopleDirect || peopleWrite {
+		groups = append(groups, availableToolsInOrder(available,
+			"invite_employee", "update_user_info", "save_infos_on_user", "save_my_infos",
+			"grant_active_perm", "revoke_active_perm", "grant_passive_perm", "revoke_passive_perm",
+			"add_info_field", "remove_info_field",
+		))
+	}
+	if routeHasAny(s, []string{"项目", "任务", "派", "分配", "验收", "通过", "打回", "进度", "里程碑", "目标"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"create_project", "assign_task", "update_assigned_task", "reassign_task",
+			"accept_task", "reject_task", "add_progress", "create_goal", "add_milestone",
+			"decompose_milestone",
+		))
+	}
+	if routeHasAny(s, []string{"记住", "记下来", "以后", "默认", "规则", "规矩", "沉淀", "学习", "涨记性", "skill", "知识库"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"save_rule", "save_knowledge", "save_skill", "propose_learning_candidate",
+		))
+	}
+	if routeHasAny(s, []string{"worker", "agent", "codex", "claude", "pty", "shell", "cmd", "命令", "执行", "运行", "代码", "仓库", "clone", "部署", "升级", "修复", "实现", "测试"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"start_workflow", "start_worker_skill", "run_worker_command",
+			"create_worker", "issue_worker_bind_code", "set_worker_admin", "revoke_worker",
+		))
+	}
+	var out []string
+	for _, group := range groups {
+		out = mergeToolLists(out, group, limit)
+	}
+	return out
+}
+
+func mergeToolLists(a, b []string, limit int) []string {
+	if len(a) == 0 && len(b) == 0 {
+		return nil
 	}
 	seen := map[string]bool{}
-	out := make([]string, 0, len(expected)+3)
-	for _, name := range expected {
-		if name == "" || seen[name] {
-			continue
-		}
-		seen[name] = true
-		out = append(out, name)
-	}
-	hasMaterialTool := false
-	for _, name := range out {
-		if isMaterialActionTool(name) {
-			hasMaterialTool = true
-			break
-		}
-	}
-	if !hasMaterialTool {
-		return out
-	}
-	for _, name := range materialActionTools(available) {
-		if !seen[name] {
+	out := make([]string, 0, len(a)+len(b))
+	for _, list := range [][]string{a, b} {
+		for _, name := range list {
+			if name == "" || seen[name] {
+				continue
+			}
 			seen[name] = true
 			out = append(out, name)
+			if limit > 0 && len(out) >= limit {
+				return out
+			}
 		}
 	}
-	sort.Strings(out)
 	return out
 }
 
@@ -274,15 +328,6 @@ func looksLikeMaterialActionIntent(intent string) bool {
 
 func materialActionTools(available map[string]bool) []string {
 	return availableToolsInOrder(available, "start_workflow", "analyze_company_materials", "start_worker_skill")
-}
-
-func isMaterialActionTool(name string) bool {
-	switch name {
-	case "start_workflow", "analyze_company_materials", "start_worker_skill":
-		return true
-	default:
-		return false
-	}
 }
 
 func availableToolsInOrder(available map[string]bool, names ...string) []string {
@@ -498,7 +543,7 @@ func toolResultCountEvidence(s string) (ok, decided bool) {
 	if hasSuccess && success > 0 {
 		return true, true
 	}
-	if hasSuccess && hasFailed && success == 0 && failed > 0 {
+	if hasSuccess && success == 0 {
 		return false, true
 	}
 	if hasFailed && failed == 0 {
