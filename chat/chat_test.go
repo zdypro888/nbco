@@ -270,6 +270,48 @@ func TestSideEffectCompletionWithoutTools(t *testing.T) {
 	}
 }
 
+func TestParseActionPlanFiltersUnavailableTools(t *testing.T) {
+	plan, err := parseActionPlan(`{
+		"requires_action": true,
+		"intent": "设置提醒",
+		"expected_tools": ["schedule_push", "delete_project", "schedule_push"],
+		"success_evidence": ["schedule_push 返回已设置推送"],
+		"missing_info": [],
+		"confidence": 2
+	}`, map[string]bool{"schedule_push": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.RequiresAction || len(plan.ExpectedTools) != 1 || plan.ExpectedTools[0] != "schedule_push" {
+		t.Fatalf("规划器应只保留可见工具且去重: %+v", plan)
+	}
+	if plan.Confidence != 1 {
+		t.Fatalf("confidence 应归一到 1: %+v", plan.Confidence)
+	}
+}
+
+func TestActionCompletionWithoutEvidence(t *testing.T) {
+	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"schedule_push"}}
+	if !actionCompletionWithoutEvidence(plan, "已设置好了", nil) {
+		t.Fatal("完成式回复但无工具证据应拦截")
+	}
+	failed := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "给全体设置推送需要 send_msg:_all 权限。"}}
+	if !actionCompletionWithoutEvidence(plan, "已设置好了", failed) {
+		t.Fatal("业务失败工具结果不能当成功证据")
+	}
+	pending := []ai.Step{{Kind: ai.StepToolCall, ToolName: "create_worker", Result: "⚠️ 高危操作已登记为待确认动作，请向用户复述。"}}
+	if !toolResultLooksFailed(pending[0].Result) {
+		t.Fatal("待确认动作不应算完成证据")
+	}
+	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）：每天 09:00。"}}
+	if actionCompletionWithoutEvidence(plan, "已设置好了", ok) {
+		t.Fatal("成功工具结果应放行完成声明")
+	}
+	if actionCompletionWithoutEvidence(plan, "请问要几点？", nil) {
+		t.Fatal("澄清问题不是完成声明，不应拦截")
+	}
+}
+
 func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
 	none := map[string]bool{}
 	if strings.Contains(materialDispatchPrompt(none), "analyze_company_materials") || strings.Contains(materialDispatchPrompt(none), "start_workflow: material_intake") {
@@ -283,6 +325,32 @@ func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
 	}
 	if !strings.Contains(workerDispatchPrompt(map[string]bool{"start_worker_skill": true}), "start_worker_skill") {
 		t.Fatal("有 worker skill 工具时应提示可派发")
+	}
+}
+
+func TestRepairActionEvidenceTurnRetriesWithEvidenceDiscipline(t *testing.T) {
+	eng := &sequenceEngine{
+		results: []*ai.TurnResult{{
+			Text:  "已设置推送。",
+			Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）。"}},
+		}},
+	}
+	o := &Orchestrator{engine: eng}
+	first := &ai.TurnResult{
+		Text:  "已设置推送。",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "给全体设置推送需要 send_msg:_all 权限。"}},
+	}
+	req := &ai.TurnRequest{SessionID: "s1", System: "base", UserText: "明天 9 点提醒全体完善档案"}
+	plan := &actionPlan{RequiresAction: true, Intent: "设置全体提醒", ExpectedTools: []string{"schedule_push"}}
+	got, err := o.repairActionEvidenceTurn(context.Background(), req, first, plan, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Text != "已设置推送。" || !hasSuccessfulActionEvidence(plan, got.Steps) {
+		t.Fatalf("重跑后应返回带成功工具证据的结果: %+v", got)
+	}
+	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有拿到能证明操作成功的工具结果") {
+		t.Fatalf("重跑系统提示应包含证据保护: %+v", eng.reqs)
 	}
 }
 

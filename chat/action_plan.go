@@ -1,0 +1,348 @@
+package chat
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
+)
+
+const actionPlannerTimeout = 15 * time.Second
+
+type actionPlan struct {
+	RequiresAction  bool     `json:"requires_action"`
+	Intent          string   `json:"intent"`
+	ExpectedTools   []string `json:"expected_tools"`
+	SuccessEvidence []string `json:"success_evidence"`
+	MissingInfo     []string `json:"missing_info"`
+	Confidence      float64  `json:"confidence"`
+
+	Source string `json:"-"`
+	Raw    string `json:"-"`
+}
+
+func (o *Orchestrator) maybePlanAction(ctx context.Context, u *store.User, channel, text string, toolset []ai.Tool) *actionPlan {
+	if o == nil || o.engine == nil || !shouldRunActionPlanner(text) {
+		return nil
+	}
+	plannerCtx, cancel := context.WithTimeout(ctx, actionPlannerTimeout)
+	defer cancel()
+	req := &ai.TurnRequest{
+		SessionID:       "action-planner",
+		System:          actionPlannerSystem(toolset),
+		UserText:        actionPlannerUserText(u, channel, text),
+		Model:           o.runtimeModel(ctx),
+		StreamReasoning: false,
+	}
+	res, err := o.engine.RunTurn(plannerCtx, req)
+	if err != nil {
+		slog.Warn("动作规划器失败，使用保守守门", "user", u.ID, "err", err)
+		return fallbackActionPlan(text, "planner_error")
+	}
+	plan, err := parseActionPlan(res.Text, toolNames(toolset))
+	if err != nil {
+		slog.Warn("动作规划器输出不可解析，使用保守守门", "user", u.ID, "reply_sha", contentHash(res.Text), "err", err)
+		return fallbackActionPlan(text, "planner_parse_error")
+	}
+	if !plan.RequiresAction {
+		return nil
+	}
+	plan.Source = "planner"
+	plan.Raw = res.Text
+	return plan
+}
+
+func shouldRunActionPlanner(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" || strings.HasPrefix(text, "[系统") {
+		return false
+	}
+	return looksLikeSideEffectRequest(text)
+}
+
+func actionPlannerSystem(toolset []ai.Tool) string {
+	var b strings.Builder
+	b.WriteString("你是 nbco 的动作规划器，只判断本轮用户输入是否需要改变系统状态、外部投递、派工、授权、创建、修改、删除、部署或执行命令。")
+	b.WriteString("不要执行动作，不要回答用户，只输出严格 JSON。\n")
+	b.WriteString("JSON schema: {\"requires_action\":bool,\"intent\":string,\"expected_tools\":[string],\"success_evidence\":[string],\"missing_info\":[string],\"confidence\":number}\n")
+	b.WriteString("规则：\n")
+	b.WriteString("- 只从可用工具中选择 expected_tools；不确定具体工具时 expected_tools 为空但 requires_action 仍可为 true。\n")
+	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析但不要求落库/发送/执行时，requires_action=false。\n")
+	b.WriteString("- 如果需要信息不足，requires_action=true，并在 missing_info 写缺什么；主对话应询问或说明未完成，不能声称已完成。\n")
+	b.WriteString("- success_evidence 写最终能证明完成的工具返回事实，例如“schedule_push 返回已设置推送”。\n\n")
+	b.WriteString("可用工具：\n")
+	for _, t := range toolset {
+		desc := strings.Join(strings.Fields(t.Description), " ")
+		fmt.Fprintf(&b, "- %s: %s\n", t.Name, textfmt.TruncateRunes(desc, 140))
+	}
+	return b.String()
+}
+
+func actionPlannerUserText(u *store.User, channel, text string) string {
+	var role string
+	if u != nil {
+		role = u.Name
+		if u.IsSuperadmin {
+			role += "（超级管理员）"
+		}
+	}
+	return fmt.Sprintf("channel=%s\ncurrent_user=%s\nuser_text=%s", channel, role, text)
+}
+
+func toolNames(toolset []ai.Tool) map[string]bool {
+	m := make(map[string]bool, len(toolset))
+	for _, t := range toolset {
+		m[t.Name] = true
+	}
+	return m
+}
+
+func parseActionPlan(text string, available map[string]bool) (*actionPlan, error) {
+	raw := extractJSONObject(text)
+	if raw == "" {
+		return nil, fmt.Errorf("no json object")
+	}
+	var p actionPlan
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		return nil, err
+	}
+	p.Intent = strings.TrimSpace(p.Intent)
+	p.ExpectedTools = filterKnownTools(p.ExpectedTools, available, 8)
+	p.SuccessEvidence = cleanStringList(p.SuccessEvidence, 6, 160)
+	p.MissingInfo = cleanStringList(p.MissingInfo, 6, 120)
+	if p.Confidence < 0 {
+		p.Confidence = 0
+	}
+	if p.Confidence > 1 {
+		p.Confidence = 1
+	}
+	return &p, nil
+}
+
+func filterKnownTools(in []string, available map[string]bool, limit int) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, name := range in {
+		name = strings.TrimSpace(name)
+		if name == "" || !available[name] || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+		if len(out) >= limit {
+			break
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func cleanStringList(in []string, limit, maxRunes int) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, textfmt.TruncateRunes(s, maxRunes))
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func fallbackActionPlan(text, source string) *actionPlan {
+	if !looksLikeSideEffectRequest(text) {
+		return nil
+	}
+	return &actionPlan{
+		RequiresAction:  true,
+		Intent:          "用户请求可能需要系统操作",
+		SuccessEvidence: []string{"至少一个相关工具成功返回"},
+		Confidence:      0.4,
+		Source:          source,
+	}
+}
+
+func renderActionPlanContext(plan *actionPlan) string {
+	if plan == nil || !plan.RequiresAction {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n[本轮动作计划·证据约束]\n")
+	if plan.Intent != "" {
+		b.WriteString("意图：" + plan.Intent + "\n")
+	}
+	if len(plan.ExpectedTools) > 0 {
+		b.WriteString("预计工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
+	} else {
+		b.WriteString("预计工具：规划器未能确定具体工具；你需要自行选择当前可见的合适工具，或说明缺少权限/参数。\n")
+	}
+	if len(plan.SuccessEvidence) > 0 {
+		b.WriteString("完成证据：\n")
+		for _, ev := range plan.SuccessEvidence {
+			b.WriteString("- " + ev + "\n")
+		}
+	}
+	if len(plan.MissingInfo) > 0 {
+		b.WriteString("可能缺少的信息：\n")
+		for _, item := range plan.MissingInfo {
+			b.WriteString("- " + item + "\n")
+		}
+	}
+	b.WriteString("最终回复纪律：只有实际工具返回成功证据后，才能说“已完成/已设置/已更新/会发送”。如果缺参数、无权限、工具不可用或工具返回失败，必须明确说未完成以及下一步需要什么。\n")
+	return b.String()
+}
+
+type toolEvidence struct {
+	Tool    string `json:"tool"`
+	OK      bool   `json:"ok"`
+	Summary string `json:"summary,omitempty"`
+}
+
+func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
+	var out []toolEvidence
+	for _, st := range steps {
+		if st.Kind != ai.StepToolCall {
+			continue
+		}
+		ok := st.Err == "" && !toolResultLooksFailed(st.Result)
+		summary := st.Err
+		if summary == "" {
+			summary = st.Result
+		}
+		out = append(out, toolEvidence{
+			Tool:    st.ToolName,
+			OK:      ok,
+			Summary: textfmt.TruncateRunes(textfmt.RedactSecrets(strings.TrimSpace(summary)), 220),
+		})
+	}
+	return out
+}
+
+func actionCompletionWithoutEvidence(plan *actionPlan, reply string, steps []ai.Step) bool {
+	if plan == nil || !plan.RequiresAction {
+		return false
+	}
+	trimmed := strings.TrimSpace(reply)
+	if !isDegenerateVisibleReply(trimmed) && !claimsSideEffectDone(trimmed) {
+		return false
+	}
+	return !hasSuccessfulActionEvidence(plan, steps)
+}
+
+func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
+	expected := map[string]bool{}
+	if plan != nil {
+		for _, name := range plan.ExpectedTools {
+			expected[name] = true
+		}
+	}
+	for _, st := range steps {
+		if st.Kind != ai.StepToolCall {
+			continue
+		}
+		if len(expected) > 0 && !expected[st.ToolName] {
+			continue
+		}
+		if st.Err == "" && !toolResultLooksFailed(st.Result) {
+			return true
+		}
+	}
+	return false
+}
+
+func toolResultLooksFailed(result string) bool {
+	s := strings.TrimSpace(strings.ToLower(result))
+	if s == "" {
+		return true
+	}
+	pending := []string{"待确认动作", "下一条明确确认", "征得明确同意", "pending approval"}
+	for _, p := range pending {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
+	positive := []string{"已", "成功", "完成", "ok", "✅", "created", "updated", "saved", "sent", "scheduled"}
+	for _, p := range positive {
+		if strings.Contains(s, p) {
+			return false
+		}
+	}
+	negative := []string{
+		"不能为空", "必须", "需要", "不能", "无法", "失败", "错误", "无权限", "权限不足",
+		"不存在", "未找到", "不属于你", "不允许", "不在", "请先", "没有可用", "没有对应",
+		"当前入口未装配", "当前工具集", "not found", "forbidden", "permission", "invalid", "failed", "error",
+	}
+	for _, p := range negative {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func actionEvidenceFallback() string {
+	return "这轮没有拿到能证明操作成功的工具结果，所以我不能说已经完成。请重新发一次明确指令；如果缺少参数或权限，我会直接说明，只有工具返回成功后才确认完成。"
+}
+
+func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, plan *actionPlan, res *ai.TurnResult) {
+	if o == nil || o.store == nil || u == nil || sess == nil || plan == nil {
+		return
+	}
+	outcome := actionTurnOutcome(plan, res)
+	evidence := map[string]any{
+		"planner_source":   plan.Source,
+		"confidence":       plan.Confidence,
+		"success_evidence": plan.SuccessEvidence,
+		"missing_info":     plan.MissingInfo,
+		"tool_evidence":    summarizeToolEvidence(nil),
+	}
+	if res != nil {
+		evidence["tool_evidence"] = summarizeToolEvidence(res.Steps)
+		evidence["finish_reason"] = res.FinishReason
+	}
+	sid := sess.ID
+	if err := o.store.RecordActionTurn(ctx, store.ActionTurnInput{
+		UserID:         u.ID,
+		SessionID:      &sid,
+		Channel:        channel,
+		UserTextHash:   contentHash(text),
+		RequiresAction: plan.RequiresAction,
+		Intent:         plan.Intent,
+		ExpectedTools:  plan.ExpectedTools,
+		Evidence:       evidence,
+		Outcome:        outcome,
+	}); err != nil {
+		slog.Warn("动作轮次记录失败", "session", sess.ID, "user", u.ID, "err", err)
+	}
+}
+
+func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
+	if plan == nil || !plan.RequiresAction {
+		return "no_action"
+	}
+	if res == nil {
+		return "no_result"
+	}
+	if res.FinishReason == "blocked_action_evidence" || res.FinishReason == "blocked_no_tool_completion" {
+		return res.FinishReason
+	}
+	if hasSuccessfulActionEvidence(plan, res.Steps) {
+		return "evidence_ok"
+	}
+	if countToolCalls(res.Steps) > 0 {
+		return "tool_attempted_without_success_evidence"
+	}
+	return "planned_without_tool"
+}

@@ -197,15 +197,6 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
 	system += o.skillContext(ctx, u, channel, text)
 	system += o.recentFileContext(ctx, u, channel)
-	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
-	if sess.Summary != "" {
-		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
-	}
-
-	start := time.Now()
-	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
-	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
-
 	toolset := tools.ForUser(o.deps, u, &sess.ID)
 	if isGroupChannel(channel) {
 		toolset = tools.StripGroupSensitive(toolset) // 群里剔除机密/高危工具
@@ -215,6 +206,17 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		MaxPerTool:     8,
 		MaxExactRepeat: 1,
 	})
+	actionPlan := o.maybePlanAction(ctx, u, channel, text, toolset)
+	system += renderActionPlanContext(actionPlan)
+	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
+	if sess.Summary != "" {
+		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
+	}
+
+	start := time.Now()
+	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
+	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
+
 	req := &ai.TurnRequest{
 		SessionID:     fmt.Sprintf("%d", sess.ID),
 		EngineSession: sess.EngineRef,
@@ -283,7 +285,27 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = repaired
 		}
 	}
-	if sideEffectCompletionWithoutTools(text, res.Text, res.Steps) {
+	if actionCompletionWithoutEvidence(actionPlan, res.Text, res.Steps) {
+		slog.Warn("拦截缺少成功证据的操作完成声明",
+			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
+			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
+		repaired, rerr := o.repairActionEvidenceTurn(ctx, req, res, actionPlan, onDelta)
+		if rerr != nil {
+			slog.Warn("操作证据重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
+			o.noteEngineResult(false, rerr)
+			engineOK = false
+			res.Text = actionEvidenceFallback()
+			res.FinishReason = "blocked_action_evidence"
+		} else if actionCompletionWithoutEvidence(actionPlan, repaired.Text, repaired.Steps) {
+			slog.Warn("操作证据重跑后仍无成功证据，改用系统兜底答复",
+				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
+			res = repaired
+			res.Text = actionEvidenceFallback()
+			res.FinishReason = "blocked_action_evidence"
+		} else {
+			res = repaired
+		}
+	} else if sideEffectCompletionWithoutTools(text, res.Text, res.Steps) {
 		slog.Warn("拦截无工具完成声明",
 			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
 			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
@@ -315,6 +337,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	// 成本计量：每轮 token 用量落库（尽力而为）。
 	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
+	o.recordActionTurn(ctx, u, sess, channel, text, actionPlan, res)
 
 	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
 	var assistantMsgID int64
@@ -360,6 +383,47 @@ func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.T
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
 	retry.System = req.System + "\n\n[系统保护]\n上一轮没有调用任何工具，却给了“已完成/已设置/会发送”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适工具完成。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮工具调用成功后，才能说已经完成。"
+	res, err := o.engine.RunTurn(ctx, &retry)
+	if err != nil {
+		return nil, err
+	}
+	res.Usage.InputTokens += first.Usage.InputTokens
+	res.Usage.OutputTokens += first.Usage.OutputTokens
+	if needsVisibleReplyRepair(res) {
+		return nil, errors.New("模型重跑后输出仍疑似截断")
+	}
+	return res, nil
+}
+
+func (o *Orchestrator) repairActionEvidenceTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, plan *actionPlan, onDelta func(string)) (*ai.TurnResult, error) {
+	retry := *req
+	retry.OnDelta = onDelta
+	retry.StreamReasoning = false
+	var b strings.Builder
+	b.WriteString(req.System)
+	b.WriteString("\n\n[系统保护]\n上一轮给出了完成式回复，但没有拿到能证明操作成功的工具结果。请重新处理同一个用户请求：\n")
+	b.WriteString("- 如果操作仍需要执行，必须调用合适工具，并以工具返回的成功结果为准。\n")
+	b.WriteString("- 如果工具返回权限不足、目标不存在、参数缺失、待确认动作、执行失败等，不要说已完成；直接说明未完成和下一步需要什么。\n")
+	b.WriteString("- 如果当前可见工具无法完成该请求，如实说明不能在当前渠道/权限下完成。\n")
+	if plan != nil {
+		if plan.Intent != "" {
+			b.WriteString("规划意图：" + plan.Intent + "\n")
+		}
+		if len(plan.ExpectedTools) > 0 {
+			b.WriteString("规划预计工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
+		}
+	}
+	if evidence := summarizeToolEvidence(first.Steps); len(evidence) > 0 {
+		b.WriteString("上一轮工具证据：\n")
+		for _, ev := range evidence {
+			state := "失败/不足"
+			if ev.OK {
+				state = "成功"
+			}
+			fmt.Fprintf(&b, "- %s：%s；%s\n", ev.Tool, state, ev.Summary)
+		}
+	}
+	retry.System = b.String()
 	res, err := o.engine.RunTurn(ctx, &retry)
 	if err != nil {
 		return nil, err

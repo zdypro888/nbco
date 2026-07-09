@@ -231,6 +231,39 @@ func TestTaskOutcomeStats(t *testing.T) {
 	}
 }
 
+func TestRecordActionTurn(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "operator", true)
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecordActionTurn(ctx, ActionTurnInput{
+		UserID:         u.ID,
+		SessionID:      &sess.ID,
+		Channel:        "telegram",
+		UserTextHash:   "abc123",
+		RequiresAction: true,
+		Intent:         "设置提醒",
+		ExpectedTools:  []string{"schedule_push"},
+		Evidence:       map[string]any{"tool_evidence": []map[string]any{{"tool": "schedule_push", "ok": true}}},
+		Outcome:        "evidence_ok",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var outcome string
+	var expected []string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT outcome, expected_tools FROM action_turns WHERE user_id = $1`, u.ID).
+		Scan(&outcome, &expected); err != nil {
+		t.Fatal(err)
+	}
+	if outcome != "evidence_ok" || len(expected) != 1 || expected[0] != "schedule_push" {
+		t.Fatalf("action_turns row = outcome=%q expected=%v", outcome, expected)
+	}
+}
+
 func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
