@@ -2064,7 +2064,8 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 建设性操作直接做：发送、创建、修改、授权、邀请、定时、派工、群管理、部署、文件交付等，只有对应工具成功后才能说已完成。\n")
 	b.WriteString("- 如果没有工具调用、工具失败、缺参数、无权限或当前渠道不可做，必须说未完成以及下一步；不能用“我会/正在/马上”伪装执行。\n")
 	b.WriteString("- 查询结论必须严格匹配工具结果的范围：只查个人任务就只能说个人执行/个人分配范围，不能推断公司、系统或项目整体空闲；用户明确问全公司/系统级/项目整体时再查全局或项目工具。\n")
-	b.WriteString("- 工具结果里的 [工具引用]、user_id、tg_id、group_ref、message_ref、file_id 等是工作内存，可以继续传给工具；最终回复按姓名、群名、任务号和自然语言表达，不主动泄露内部标识。\n")
+	b.WriteString("- 员工ID/user_id、任务ID、项目ID是稳定业务编号，名字只是展示名；涉及具体对象、授权、派工、发消息、改资料时优先使用 ID，并可在回复里用“姓名（员工ID N）”确认对象。\n")
+	b.WriteString("- tg_id、group_ref、message_ref、file_id 等是外部渠道/工具工作内存，可继续传给工具；最终回复不要主动暴露 Telegram 原始 ID、group_ref/message_ref 或 token，除非用户明确需要定位/调试。\n")
 	b.WriteString("- Access Token 明文不可查询；忘记时查看状态或换发新 token。worker 绑定码、邀请码、API token 都按工具结果处理，不能臆造。\n")
 	if availableTools["list_action_turns"] {
 		b.WriteString("- 用户追问“刚才到底做了吗/为什么没执行/有没有调用工具/看日志/发出去没”时，先 list_action_turns 查动作事实账本，再解释；不要靠记忆猜。\n")

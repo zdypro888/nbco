@@ -179,7 +179,7 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 
 func renderUser(u *store.User) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "名字: %s\n状态: %s\n", u.Name, renderUserStatus(u.Status))
+	fmt.Fprintf(&b, "员工ID: %d\n名字: %s\n状态: %s\n", u.ID, u.Name, renderUserStatus(u.Status))
 	if u.IsSuperadmin {
 		b.WriteString("身份: 超级管理员\n")
 	} else if u.IsWorker {

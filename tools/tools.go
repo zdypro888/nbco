@@ -574,9 +574,9 @@ func mustUser(ctx context.Context, s *store.Store, id int64) (*store.User, error
 
 // resolveUserArg resolves an internal user_id, a visible unique name, or a
 // Telegram identity selector such as "tg:123456" / "telegram:123456".
-// User-facing directory tools intentionally hide internal IDs, so action tools
-// must not require the model to recover an ID before it can operate. Telegram ID
-// support is exact and internal: final replies should still use names.
+// User-facing directory tools expose stable employee IDs; names are mutable
+// display labels. Telegram ID support is exact and internal: use it to resolve
+// bindings, but prefer the nbco user_id once the employee is known.
 func resolveUserArg(ctx context.Context, s *store.Store, id int64, names ...string) (*store.User, string, error) {
 	if s == nil {
 		return nil, "用户存储不可用。", nil

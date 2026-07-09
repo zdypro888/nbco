@@ -19,7 +19,7 @@ const bindKeyTTL = 24 * time.Hour
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{
-		tool("list_users", "列出系统内用户目录。结果包含两段：[工具引用] 是工作内存，可直接给后续工具当参数；[用户可见目录] 是面向用户的摘要参考。最终出口会清理内部引用。",
+		tool("list_users", "列出系统内用户目录。员工ID/user_id 是稳定业务编号，优先用于后续工具；姓名只是展示名，可能变化或重名。结果包含工具引用和用户可见目录。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				users, err := d.Store.ListUsers(ctx)
@@ -44,9 +44,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUserDirectory(users, u.ID, stats), nil
 			}),
 
-		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。优先传 user_id 或 tg_id；不知道内部编号时传 user/user_name（唯一姓名）。",
+		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。优先传员工ID/user_id；tg_id 仅作 Telegram 精确绑定；姓名只是兜底且必须唯一。",
 			obj(map[string]any{
-				"user_id":   p("integer", "用户内部编号（可选）"),
+				"user_id":   p("integer", "员工ID/系统用户ID（可选，优先）"),
 				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
@@ -82,9 +82,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUser(other), nil
 			}),
 
-		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；优先传 user_id 或 tg_id；不知道内部编号时传 user/user_name（唯一姓名）；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
+		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；优先传员工ID/user_id；tg_id 仅作 Telegram 精确绑定；姓名只是兜底且必须唯一；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
 			obj(map[string]any{
-				"user_id":   p("integer", "系统成员内部编号（可选）"),
+				"user_id":   p("integer", "员工ID/系统用户ID（可选，优先）"),
 				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
@@ -295,9 +295,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已作废。", nil
 			}),
 
-		tool("send_message", "向指定用户或全体真人员工发送消息。需要 send_msg 主动权限（超管不限）。单人：优先传 user_id 或 tg_id；不知道内部编号时传 user/user_name（唯一姓名）。全体真人员工：target=\"_all\"；不要手动逐个发。",
+		tool("send_message", "向指定用户或全体真人员工发送消息。需要 send_msg 主动权限（超管不限）。单人：优先传员工ID/user_id；tg_id 仅作 Telegram 精确绑定；姓名只是兜底且必须唯一。全体真人员工：target=\"_all\"；不要手动逐个发。",
 			obj(map[string]any{
-				"user_id":   p("integer", "用户内部编号（可选）"),
+				"user_id":   p("integer", "员工ID/系统用户ID（可选，优先）"),
 				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份；也可在 target 里写 tg:<ID>）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
@@ -348,9 +348,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已发送给 %s。", target.Name), nil
 			}),
 
-		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个；优先传 user_id 或 tg_id，不知道内部编号时传 user/user_name。",
+		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个；优先传员工ID/user_id；tg_id 仅作 Telegram 精确绑定；姓名只是兜底。",
 			obj(map[string]any{
-				"user_id":   p("integer", "用户内部编号（可选）"),
+				"user_id":   p("integer", "员工ID/系统用户ID（可选，优先）"),
 				"tg_id":     p("string", "Telegram 用户 ID（可选，精确匹配已绑定身份）"),
 				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
 				"user_name": p("string", "同 user（可选）"),
@@ -820,8 +820,8 @@ func renderUserDirectoryLine(u *store.User, st userDirectoryStats) string {
 	case u.IsSuperadmin:
 		labels = append(labels, "超级管理员")
 	}
-	return fmt.Sprintf("- %s（%s）｜%s｜%s",
-		u.Name, strings.Join(labels, "，"), profileCountLabel("画像", st.SelfIntro), profileCountLabel("评价", st.PeerReview))
+	return fmt.Sprintf("- 员工ID %d｜%s（%s）｜%s｜%s",
+		u.ID, u.Name, strings.Join(labels, "，"), profileCountLabel("画像", st.SelfIntro), profileCountLabel("评价", st.PeerReview))
 }
 
 func profileCountLabel(name string, n int) string {
