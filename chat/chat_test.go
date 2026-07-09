@@ -302,41 +302,48 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 	}
 }
 
-func TestSideEffectCompletionWithoutTools(t *testing.T) {
-	if !sideEffectCompletionWithoutTools("明天早上 9 点提醒全体员工完善个人档案", "已为您设置好定时推送。", nil) {
+func TestSideEffectCompletionWithoutSuccessfulAction(t *testing.T) {
+	if !sideEffectCompletionWithoutSuccessfulAction("明天早上 9 点提醒全体员工完善个人档案", "已为您设置好定时推送。", nil) {
 		t.Fatal("无工具调用的操作完成声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("记录新需求任务：聊天直播运营中台", "收到，已为你创建新项目并建立首个核心任务：项目创建成功，初始任务已下发。", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("记录新需求任务：聊天直播运营中台", "收到，已为你创建新项目并建立首个核心任务：项目创建成功，初始任务已下发。", nil) {
 		t.Fatal("生产踩中的假创建/假下发声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("我这主要涉及商户管理、品牌管理、日志管理、系统管理", "我已经把这些模块拆解为具体的任务条目，并更新到了项目中。", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("我这主要涉及商户管理、品牌管理、日志管理、系统管理", "我已经把这些模块拆解为具体的任务条目，并更新到了项目中。", nil) {
 		t.Fatal("生产踩中的假拆解/假更新声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("有人完善吗？", "我现在立刻开始补发！补发正在进行中。", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("有人完善吗？", "我现在立刻开始补发！补发正在进行中。", nil) {
 		t.Fatal("没有工具调用的第一人称补发声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("有人完善吗？", "消息内容已发，现在正在群里发，马上给您截图确认。", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("有人完善吗？", "消息内容已发，现在正在群里发，马上给您截图确认。", nil) {
 		t.Fatal("没有工具调用的假发送/假群发声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("这次你要涨记性", "我已执行涨记性，保存了底层行为规则。", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("这次你要涨记性", "我已执行涨记性，保存了底层行为规则。", nil) {
 		t.Fatal("没有工具调用的假规则固化声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("今天干什么", "我现在就去群里抓取最新日报，稍后给你发汇总。", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("今天干什么", "我现在就去群里抓取最新日报，稍后给你发汇总。", nil) {
 		t.Fatal("没有工具调用的假抓取/稍后汇报声明应被拦截")
 	}
-	if !sideEffectCompletionWithoutTools("把 worker 重命名为 NBAI", "of", nil) {
+	if !sideEffectCompletionWithoutSuccessfulAction("把 worker 重命名为 NBAI", "of", nil) {
 		t.Fatal("操作请求里的极短碎片应被拦截")
 	}
-	if sideEffectCompletionWithoutTools("这个任务现在是什么状态？", "任务正在进行中。", nil) {
+	readOnly := []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "get_my_projects", Result: "暂无个人项目"},
+		{Kind: ai.StepToolCall, ToolName: "company_overview", Result: "系统中有可用项目"},
+	}
+	if !sideEffectCompletionWithoutSuccessfulAction("你他妈不能分配任务去做？", "收到。我现在立刻把任务派下去。<b>正在派工...</b> 将创建任务并分给 NBAI 执行。", readOnly) {
+		t.Fatal("只调用读取工具却声称派工/创建任务，应被拦截")
+	}
+	if sideEffectCompletionWithoutSuccessfulAction("这个任务现在是什么状态？", "任务正在进行中。", nil) {
 		t.Fatal("事实查询不应按操作完成声明拦截")
 	}
-	if sideEffectCompletionWithoutTools("解释一下这个功能", "我会在下面说明它的工作方式。", nil) {
+	if sideEffectCompletionWithoutSuccessfulAction("解释一下这个功能", "我会在下面说明它的工作方式。", nil) {
 		t.Fatal("普通说明性承诺不应被当成系统动作完成声明")
 	}
-	if sideEffectCompletionWithoutTools("明天提醒我开会", "已设置。", []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push"}}) {
-		t.Fatal("有工具调用的轮次不应被无工具守卫拦截")
+	if sideEffectCompletionWithoutSuccessfulAction("明天提醒我开会", "已设置。", []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）。"}}) {
+		t.Fatal("写入工具成功的轮次不应被动作证据保护拦截")
 	}
-	if !strings.Contains(noToolCompletionFallback(), "没有成功执行任何系统工具") {
+	if !strings.Contains(noToolCompletionFallback(), "没有成功执行任何写入/执行型系统工具") {
 		t.Fatal("fallback 应明确说明未执行工具")
 	}
 }
@@ -491,8 +498,8 @@ func TestRepairNoToolCompletionTurnRetriesWithToolDiscipline(t *testing.T) {
 	if got.Text != "已设置推送。" || countToolCalls(got.Steps) != 1 {
 		t.Fatalf("重跑后应返回带工具调用的结果: %+v", got)
 	}
-	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有调用任何工具") {
-		t.Fatalf("重跑系统提示应包含无工具完成保护: %+v", eng.reqs)
+	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有成功调用任何写入/执行型工具") {
+		t.Fatalf("重跑系统提示应包含无成功动作证据保护: %+v", eng.reqs)
 	}
 }
 

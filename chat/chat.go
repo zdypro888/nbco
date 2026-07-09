@@ -320,19 +320,19 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = mergeRepairResult(res, repaired)
 		}
 	}
-	if sideEffectCompletionWithoutTools(text, res.Text, res.Steps) {
-		slog.Warn("拦截无工具完成声明",
+	if sideEffectCompletionWithoutSuccessfulAction(text, res.Text, res.Steps) {
+		slog.Warn("拦截无成功动作证据的完成声明",
 			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
 			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
 		repaired, rerr := o.repairNoToolCompletionTurn(ctx, req, res, onDelta)
 		if rerr != nil {
-			slog.Warn("无工具完成声明重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
+			slog.Warn("无成功动作证据完成声明重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
 			o.noteEngineResult(false, rerr)
 			engineOK = false
 			res.Text = noToolCompletionFallback()
 			res.FinishReason = "blocked_no_tool_completion"
-		} else if sideEffectCompletionWithoutTools(text, repaired.Text, repaired.Steps) {
-			slog.Warn("无工具完成声明重跑后仍未落工具，改用系统兜底答复",
+		} else if sideEffectCompletionWithoutSuccessfulAction(text, repaired.Text, repaired.Steps) {
+			slog.Warn("无成功动作证据完成声明重跑后仍未落动作工具，改用系统兜底答复",
 				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
 			res = mergeRepairResult(res, repaired)
 			res.Text = noToolCompletionFallback()
@@ -472,7 +472,7 @@ func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.T
 	retry := *req
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
-	retry.System = req.System + "\n\n[系统保护]\n上一轮没有调用任何工具，却给了“已完成/已设置/会发送”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适工具完成。\n- 如果用户要读取/解析 PDF、XLSX、图片、附件或最近上传文件，先用 list_recent_files 确认文件，再调用 start_workflow、analyze_company_materials 或 start_worker_skill 处理；不能只回答“能读取”。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮工具调用成功后，才能说已经完成。"
+	retry.System = req.System + "\n\n[系统保护]\n上一轮没有成功调用任何写入/执行型工具，或只调用了查询/读取工具，却给了“已完成/已设置/会发送/正在执行”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适的写入/执行型工具完成。\n- 如果用户要读取/解析 PDF、XLSX、图片、附件或最近上传文件，先用 list_recent_files 确认文件，再调用 start_workflow、analyze_company_materials 或 start_worker_skill 处理；不能只回答“能读取”。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮写入/执行型工具成功后，才能说已经完成；只调用查询工具时，只能说查到了什么。"
 	res, err := o.engine.RunTurn(ctx, &retry)
 	if err != nil {
 		return nil, err
@@ -517,15 +517,15 @@ func visibleReplyFallback(res *ai.TurnResult) string {
 	return "这轮模型输出被上限截断，只剩不可用的答复碎片。我已拦截，没有把碎片当作结果发送；请再发一次，我会重新处理。"
 }
 
-func sideEffectCompletionWithoutTools(userText, reply string, steps []ai.Step) bool {
-	if countToolCalls(steps) > 0 {
-		return false
-	}
+func sideEffectCompletionWithoutSuccessfulAction(userText, reply string, steps []ai.Step) bool {
 	trimmed := strings.TrimSpace(reply)
 	if isDegenerateVisibleReply(trimmed) {
 		return looksLikeSideEffectRequest(userText)
 	}
-	return claimsSideEffectDone(trimmed)
+	if !claimsSideEffectDone(trimmed) {
+		return false
+	}
+	return !hasSuccessfulActionEvidence(nil, steps)
 }
 
 func looksLikeSideEffectRequest(text string) bool {
@@ -616,7 +616,7 @@ func isDegenerateVisibleReply(reply string) bool {
 }
 
 func noToolCompletionFallback() string {
-	return "这轮没有成功执行任何系统工具，所以我不能说已经完成。请重新发一次明确指令，我会先调用对应工具；只有工具返回成功后才确认完成。"
+	return "这轮没有成功执行任何写入/执行型系统工具，所以我不能说已经完成。请重新发一次明确指令，我会先调用对应工具；只有工具返回成功后才确认完成。"
 }
 
 func countToolCalls(steps []ai.Step) int {
