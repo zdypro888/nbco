@@ -1953,4 +1953,18 @@ func TestPendingApprovals(t *testing.T) {
 	if ok, _ := s.ConsumePendingApproval(ctx, boss.ID, "delete_role", "h", 10, 201); ok {
 		t.Fatal("过期不应核销")
 	}
+	items, err := s.ListPendingApprovals(ctx, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("过期审批不应出现在列表中: %+v", items)
+	}
+	var n int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM pending_approvals`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("列出审批应清理过期残留，剩余 %d", n)
+	}
 }

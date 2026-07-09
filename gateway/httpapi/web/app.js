@@ -14,6 +14,7 @@ const state = {
   workflows: [],
   capabilities: [],
   decisions: [],
+  approvals: [],
   ops: null,
   ai: null,
   selected: null,
@@ -247,7 +248,8 @@ function renderCommandRoute() {
   const pendingFiles = state.files.length;
   const allTasks = mergedTasks();
   const running = allTasks.filter(t => t.status === "pending" || t.status === "in_progress").length;
-  const riskCount = state.me?.is_superadmin ? 3 : 0;
+  const approvals = state.approvals || [];
+  const riskCount = state.me?.is_superadmin ? approvals.length : 0;
   const decisions = state.decisions.length;
   const activeWorkers = state.workers.filter(w => w.online).length;
   const materialActions = canStartWorkflow()
@@ -270,7 +272,7 @@ function renderCommandRoute() {
     ${queueSection("运行中任务", running, renderTaskRows(), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
-    ${queueSection("待确认高风险操作", riskCount, renderRiskRows(), riskActions)}
+    ${queueSection("待确认高风险操作", riskCount, renderRiskRows(approvals), riskActions)}
   `;
 }
 
@@ -343,22 +345,18 @@ function renderTaskRows() {
     </table>`;
 }
 
-function renderRiskRows() {
+function renderRiskRows(approvals) {
   if (!state.me?.is_superadmin) return `<div class="empty">高风险操作只对超级管理员开放。</div>`;
-  const model = state.ai?.current_model || state.ai?.default_model || "未读取";
-  const rows = [
-    ["model", "RISK-MODEL", "改模型", `当前 ${model}`, "admin", "中", "待确认", "模型切换"],
-    ["upgrade", "RISK-UPGRADE", "升级", "执行 scripts/upgrade-nbco.sh", "admin", "高", "待确认", "生产服务"],
-    ["reasoning", "RISK-REASON", "推理展示", state.ai?.stream_reasoning ? "当前展示" : "当前隐藏", "admin", "低", "可切换", "Telegram/Web"],
-  ];
+  if (!approvals?.length) {
+    return `<div class="empty">暂无待确认高风险操作。模型切换和系统升级请使用顶部快捷入口。</div>`;
+  }
   return `
     <table class="data-table">
-      <thead><tr><th></th><th>ID</th><th>命令</th><th>目标</th><th>发起人</th><th>风险等级</th><th>状态</th><th>影响范围</th></tr></thead>
-      <tbody>${rows.map(r => {
-        const selected = state.selected?.kind === "risk" && state.selected.id === r[0];
-        return `<tr class="selectable ${selected ? "selected" : ""}" data-select-kind="risk" data-id="${r[0]}">
-          <td><input type="checkbox"></td><td>${r[1]}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${esc(r[4])}</td>
-          <td>${priorityPill(r[5])}</td><td><span class="pill red">${esc(r[6])}</span></td><td>${esc(r[7])}</td>
+      <thead><tr><th></th><th>ID</th><th>工具</th><th>发起人</th><th>会话</th><th>风险等级</th><th>状态</th><th>过期时间</th></tr></thead>
+      <tbody>${approvals.map(a => {
+        return `<tr>
+          <td><input type="checkbox"></td><td>APPROVAL-${esc(a.id)}</td><td>${esc(a.tool)}</td><td>${esc(a.user_name || a.user_id)}</td>
+          <td>${esc(a.session_id || "")}</td><td>${priorityPill("高")}</td><td><span class="pill red">待确认</span></td><td>${fmtTime(a.expires_at)}</td>
         </tr>`;
       }).join("")}</tbody>
     </table>`;
@@ -792,7 +790,7 @@ async function loadRoute(route) {
 }
 
 async function loadCommandData() {
-  await Promise.allSettled([loadFiles(), loadTasks(), loadAdminData(["workers", "workflows", "capabilities", "decisions", "ops", "ai"])]);
+  await Promise.allSettled([loadFiles(), loadTasks(), loadAdminData(["workers", "workflows", "capabilities", "decisions", "approvals", "ops", "ai"])]);
 }
 
 async function loadFiles() {
@@ -817,6 +815,7 @@ async function loadAdminData(parts) {
   if (parts.includes("workflows")) jobs.push(api("/api/admin/workflows").then(d => { state.workflows = d.workflows || []; }));
   if (parts.includes("capabilities")) jobs.push(api("/api/admin/capabilities").then(d => { state.capabilities = d.capabilities || []; }));
   if (parts.includes("decisions")) jobs.push(api("/api/admin/decisions").then(d => { state.decisions = d.decisions || []; }));
+  if (state.me?.is_superadmin && parts.includes("approvals")) jobs.push(api("/api/admin/approvals").then(d => { state.approvals = d.approvals || []; }));
   if (state.me?.is_superadmin && parts.includes("ops")) jobs.push(api("/api/admin/ops").then(d => { state.ops = d; }));
   if (state.me?.is_superadmin && parts.includes("ai")) jobs.push(api("/api/admin/ai-settings").then(d => { state.ai = d; }));
   const results = await Promise.allSettled(jobs);

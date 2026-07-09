@@ -113,6 +113,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/workers", s.handleAdminWorkers)
 	mux.HandleFunc("GET /api/admin/learning", s.handleAdminLearning)
 	mux.HandleFunc("GET /api/admin/decisions", s.handleAdminDecisions)
+	mux.HandleFunc("GET /api/admin/approvals", s.handleAdminApprovals)
 	mux.HandleFunc("GET /api/admin/ops", s.handleAdminOps)
 	mux.HandleFunc("GET /api/admin/capabilities", s.handleAdminCapabilities)
 	mux.HandleFunc("GET /api/admin/workflows", s.handleAdminWorkflows)
@@ -305,6 +306,19 @@ func (s *Server) handleAdminDecisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"decisions": items})
+}
+
+func (s *Server) handleAdminApprovals(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	items, err := s.store.ListPendingApprovals(r.Context(), 50)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取待确认操作失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"approvals": items})
 }
 
 func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
