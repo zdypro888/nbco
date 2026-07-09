@@ -608,6 +608,44 @@ func TestActionCompletionWithoutEvidence(t *testing.T) {
 	}
 }
 
+func TestPendingApprovalBecomesExplicitFallback(t *testing.T) {
+	steps := []ai.Step{{
+		Kind:     ai.StepToolCall,
+		ToolName: "run_worker_command",
+		Result:   "⚠️ 高危操作已登记为待确认动作（确认动作内部编号 2，10 分钟内有效）。请向用户复述将要执行的具体操作并征得明确同意。",
+	}}
+	got := actionEvidenceFallbackForTurn("用 worker clone https://github.com/zdypro888/nbco.git，准备以后升级用", steps)
+	for _, want := range []string{"还没有执行", "待确认", "run_worker_command", "确认执行"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("待确认 fallback 缺 %q:\n%s", want, got)
+		}
+	}
+	outcome := actionTurnOutcome(&actionPlan{RequiresAction: true}, &ai.TurnResult{
+		FinishReason: "blocked_action_evidence",
+		Steps:        steps,
+	})
+	if outcome != "pending_approval" {
+		t.Fatalf("待确认动作应记录为 pending_approval，got %s", outcome)
+	}
+}
+
+func TestFallbackActionPlanIncludesWorkerCommandForCloneRequest(t *testing.T) {
+	tools := []ai.Tool{
+		{Name: "start_workflow"},
+		{Name: "start_worker_skill"},
+		{Name: "run_worker_command"},
+		{Name: "create_worker"},
+		{Name: "issue_worker_bind_code"},
+	}
+	plan := fallbackActionPlanWithTools("你自己项目的源码地址 https://github.com/zdypro888/nbco。用 worker clone 下来，准备以后升级用", "planner_error", tools)
+	if plan == nil || !plan.RequiresAction {
+		t.Fatalf("clone worker 请求应进入动作守门: %+v", plan)
+	}
+	if !containsString(plan.ExpectedTools, "run_worker_command") {
+		t.Fatalf("worker clone 请求必须允许 run_worker_command 作为完成证据: %+v", plan.ExpectedTools)
+	}
+}
+
 func TestActionRequiresToolRecovery(t *testing.T) {
 	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"send_message"}}
 	if !actionRequiresToolRecovery(plan, "我来帮你通知大家。", nil) {

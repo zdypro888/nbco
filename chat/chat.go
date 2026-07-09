@@ -331,13 +331,13 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			slog.Warn("操作证据重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
 			o.noteEngineResult(false, rerr)
 			engineOK = false
-			res.Text = actionEvidenceFallback()
+			res.Text = actionEvidenceFallbackForTurn(text, res.Steps)
 			res.FinishReason = "blocked_action_evidence"
 		} else if actionRequiresToolRecovery(actionPlan, repaired.Text, repaired.Steps) {
 			slog.Warn("动作证据重跑后仍无成功证据或缺参说明，改用系统兜底答复",
 				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
 			res = mergeRepairResult(res, repaired)
-			res.Text = actionEvidenceFallback()
+			res.Text = actionEvidenceFallbackForTurn(text, res.Steps)
 			res.FinishReason = "blocked_action_evidence"
 		} else {
 			res = mergeRepairResult(res, repaired)

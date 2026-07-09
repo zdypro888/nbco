@@ -509,6 +509,7 @@ func actionReplyExplainsBlockedOrMissing(plan *actionPlan, reply string) bool {
 		"几点", "多少", "什么内容", "目标是谁", "发送给谁", "无法", "不能", "没法",
 		"没有权限", "权限不足", "无权限", "当前渠道", "当前工具", "没有可用", "找不到",
 		"未找到", "不存在", "需要授权", "需要到私聊", "pending approval", "permission",
+		"高危", "待确认", "未执行", "没有执行", "还没有执行",
 		"not found", "missing", "need", "cannot", "can't", "forbidden",
 	}
 	for _, p := range needOrBlock {
@@ -549,11 +550,13 @@ func toolResultLooksFailed(result string) bool {
 	if s == "" {
 		return true
 	}
+	if toolResultLooksPendingApproval(s) {
+		return true
+	}
 	if ok, decided := toolResultCountEvidence(s); decided {
 		return !ok
 	}
 	strongNegative := []string{
-		"待确认动作", "下一条明确确认", "征得明确同意", "pending approval",
 		"重复调用", "不要继续重复", "没有成功", "未成功", "已跳过", "跳过",
 		"发送失败", "编辑失败", "删除失败", "置顶失败", "执行失败", "自检失败",
 		"不能", "无法", "错误", "无效", "已过期", "已使用", "无权限", "权限不足", "不存在", "未找到", "不属于你", "不允许",
@@ -573,6 +576,19 @@ func toolResultLooksFailed(result string) bool {
 	}
 	softNegative := []string{"不能为空", "必须", "需要", "请先", "不在", "失败"}
 	for _, p := range softNegative {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func toolResultLooksPendingApproval(result string) bool {
+	s := strings.TrimSpace(strings.ToLower(result))
+	if s == "" {
+		return false
+	}
+	for _, p := range []string{"待确认动作", "下一条明确确认", "征得明确同意", "pending approval"} {
 		if strings.Contains(s, p) {
 			return true
 		}
@@ -629,6 +645,52 @@ func actionEvidenceFallback() string {
 	return "这轮没有拿到能证明操作成功的工具结果，所以我不能说已经完成。请重新发一次明确指令；如果缺少参数或权限，我会直接说明，只有工具返回成功后才确认完成。"
 }
 
+func actionEvidenceFallbackForTurn(userText string, steps []ai.Step) string {
+	if st, ok := firstPendingApprovalStep(steps); ok {
+		op := strings.TrimSpace(textfmt.RedactSecrets(userText))
+		if op == "" {
+			op = "刚才请求的高危操作"
+		} else {
+			op = "「" + textfmt.TruncateRunes(op, 180) + "」"
+		}
+		return fmt.Sprintf("还没有执行。系统已把%s登记为待确认的高危操作（工具：%s）。\n\n如果确认要继续，请在下一条消息明确回复“确认执行”。收到确认后，我会用同一参数再次调用工具；未确认前不会执行。", op, st.ToolName)
+	}
+	if ev, ok := firstBlockingToolEvidence(steps); ok {
+		return "没有完成。工具返回：" + ev.Summary
+	}
+	return actionEvidenceFallback()
+}
+
+func firstPendingApprovalStep(steps []ai.Step) (ai.Step, bool) {
+	for _, st := range steps {
+		if st.Kind == ai.StepToolCall && st.Err == "" && toolResultLooksPendingApproval(st.Result) {
+			return st, true
+		}
+	}
+	return ai.Step{}, false
+}
+
+func firstBlockingToolEvidence(steps []ai.Step) (toolEvidence, bool) {
+	for _, st := range steps {
+		if st.Kind != ai.StepToolCall {
+			continue
+		}
+		if st.Err == "" && !toolResultLooksFailed(st.Result) {
+			continue
+		}
+		summary := st.Err
+		if summary == "" {
+			summary = st.Result
+		}
+		return toolEvidence{
+			Tool:    st.ToolName,
+			OK:      false,
+			Summary: textfmt.TruncateRunes(textfmt.RedactSecrets(strings.TrimSpace(summary)), 260),
+		}, true
+	}
+	return toolEvidence{}, false
+}
+
 func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, plan *actionPlan, res *ai.TurnResult, diag turnDiagnostics) {
 	if o == nil || o.store == nil || u == nil || sess == nil || plan == nil {
 		return
@@ -680,7 +742,7 @@ func (o *Orchestrator) maybeRecordActionFailureLearning(ctx context.Context, u *
 	}
 	outcome := actionTurnOutcome(plan, res)
 	switch outcome {
-	case "evidence_ok", "no_action":
+	case "evidence_ok", "no_action", "pending_approval":
 		return
 	}
 	intent := strings.TrimSpace(plan.Intent)
@@ -732,7 +794,13 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 		return "no_result"
 	}
 	if res.FinishReason == "blocked_action_evidence" || res.FinishReason == "blocked_no_tool_completion" {
+		if _, ok := firstPendingApprovalStep(res.Steps); ok {
+			return "pending_approval"
+		}
 		return res.FinishReason
+	}
+	if _, ok := firstPendingApprovalStep(res.Steps); ok {
+		return "pending_approval"
 	}
 	if hasSuccessfulActionEvidence(plan, res.Steps) {
 		return "evidence_ok"
