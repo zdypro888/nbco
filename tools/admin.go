@@ -44,49 +44,65 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUserDirectory(users, u.ID, stats), nil
 			}),
 
-		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。",
-			obj(map[string]any{"user_id": p("integer", "用户ID")}, "user_id"),
+		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。优先传 user_id；不知道内部编号时传 user/user_name（唯一姓名）。",
+			obj(map[string]any{
+				"user_id":   p("integer", "用户内部编号（可选）"),
+				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
+				"user_name": p("string", "同 user（可选）"),
+			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					UserID int64 `json:"user_id"`
+					UserID   int64  `json:"user_id"`
+					User     string `json:"user"`
+					UserName string `json:"user_name"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
+				}
+				other, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				if err != nil {
+					return "", err
+				}
+				if msg != "" {
+					return msg, nil
 				}
 				if !u.IsSuperadmin {
 					grants, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActViewSelfIntro, args.UserID) {
+					if !perm.CheckActive(grants, perm.ActViewSelfIntro, other.ID) {
 						return "你没有权限查看该用户信息。", nil
 					}
-				}
-				other, err := d.Store.UserByID(ctx, args.UserID)
-				if err != nil {
-					return "目标用户不存在。", nil
 				}
 				return renderUser(other), nil
 			}),
 
-		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
+		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；优先传 user_id，不知道内部编号时传 user/user_name（唯一姓名）；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
 			obj(map[string]any{
-				"user_id": p("integer", "系统成员内部编号；list_users/list_workers 返回的内部编号都可作为这里的 user_id"),
-				"name":    p("string", "新名字（可选）"),
-				"fields":  infoFieldsSchema("动态字段名→值（空串/null/无清除）"),
-			}, "user_id"),
+				"user_id":   p("integer", "系统成员内部编号（可选）"),
+				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
+				"user_name": p("string", "同 user（可选）"),
+				"name":      p("string", "新名字（可选）"),
+				"fields":    infoFieldsSchema("动态字段名→值（空串/null/无清除）"),
+			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					UserID int64              `json:"user_id"`
-					Name   string             `json:"name"`
-					Fields map[string]*string `json:"fields"`
+					UserID   int64              `json:"user_id"`
+					User     string             `json:"user"`
+					UserName string             `json:"user_name"`
+					Name     string             `json:"name"`
+					Fields   map[string]*string `json:"fields"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				target, err := d.Store.UserByID(ctx, args.UserID)
+				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
 				if err != nil {
-					return "目标用户不存在。", nil
+					return "", err
+				}
+				if msg != "" {
+					return msg, nil
 				}
 				if !u.IsSuperadmin {
 					if target.IsSuperadmin {
@@ -96,7 +112,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActEditInfo, args.UserID) {
+					if !perm.CheckActive(grants, perm.ActEditInfo, target.ID) {
 						return "你没有对该用户的 edit_info 权限。", nil
 					}
 				}
@@ -109,12 +125,12 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					return msg, nil
 				}
 				if args.Name != "" {
-					if err := d.Store.UpdateUserName(ctx, args.UserID, args.Name); err != nil {
+					if err := d.Store.UpdateUserName(ctx, target.ID, args.Name); err != nil {
 						return "", err
 					}
 				}
 				if len(fields) > 0 {
-					if err := d.Store.UpdateUserInfo(ctx, args.UserID, fields); err != nil {
+					if err := d.Store.UpdateUserInfo(ctx, target.ID, fields); err != nil {
 						return "", err
 					}
 				}
@@ -271,61 +287,78 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return "已作废。", nil
 			}),
 
-		tool("send_message", "向指定用户发送消息。需要对其 send_msg 主动权限（超管不限）。",
+		tool("send_message", "向指定用户发送消息。需要对其 send_msg 主动权限（超管不限）。优先传 user_id；不知道内部编号时传 user/user_name（唯一姓名）。",
 			obj(map[string]any{
-				"user_id": p("integer", "用户ID"),
-				"text":    p("string", "消息内容"),
-			}, "user_id", "text"),
+				"user_id":   p("integer", "用户内部编号（可选）"),
+				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
+				"user_name": p("string", "同 user（可选）"),
+				"text":      p("string", "消息内容"),
+			}, "text"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					UserID int64  `json:"user_id"`
-					Text   string `json:"text"`
+					UserID   int64  `json:"user_id"`
+					User     string `json:"user"`
+					UserName string `json:"user_name"`
+					Text     string `json:"text"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
+				}
+				target, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				if err != nil {
+					return "", err
+				}
+				if msg != "" {
+					return msg, nil
 				}
 				if !u.IsSuperadmin {
 					grants, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActSendMsg, args.UserID) {
+					if !perm.CheckActive(grants, perm.ActSendMsg, target.ID) {
 						return "你没有对该用户的 send_msg 权限。", nil
 					}
-				}
-				if _, err := mustUser(ctx, d.Store, args.UserID); err != nil {
-					return err.Error(), nil
 				}
 				if d.Notifier == nil {
 					return "当前入口不支持发送消息。", nil
 				}
-				if err := d.Notifier.Send(ctx, args.UserID, fmt.Sprintf("💬 来自 %s：\n%s", u.Name, args.Text)); err != nil {
+				if err := d.Notifier.Send(ctx, target.ID, fmt.Sprintf("💬 来自 %s：\n%s", u.Name, args.Text)); err != nil {
 					return "发送失败：" + err.Error(), nil
 				}
 				return "已发送。", nil
 			}),
 
-		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个。",
-			obj(map[string]any{"user_id": p("integer", "用户ID")}, "user_id"),
+		tool("get_user_stats", "查看某用户的任务履历统计（当前负载、验收通过数、按时率）。看自己不限；看他人需对其 view_self_intro 权限。任务分配前先看这个；不知道内部编号时传 user/user_name。",
+			obj(map[string]any{
+				"user_id":   p("integer", "用户内部编号（可选）"),
+				"user":      p("string", "姓名或 worker 名（可选；必须唯一匹配）"),
+				"user_name": p("string", "同 user（可选）"),
+			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					UserID int64 `json:"user_id"`
+					UserID   int64  `json:"user_id"`
+					User     string `json:"user"`
+					UserName string `json:"user_name"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				if args.UserID != u.ID && !u.IsSuperadmin {
+				other, msg, err := resolveUserArg(ctx, d.Store, args.UserID, args.User, args.UserName)
+				if err != nil {
+					return "", err
+				}
+				if msg != "" {
+					return msg, nil
+				}
+				if other.ID != u.ID && !u.IsSuperadmin {
 					grants, err := d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
 					}
-					if !perm.CheckActive(grants, perm.ActViewSelfIntro, args.UserID) {
+					if !perm.CheckActive(grants, perm.ActViewSelfIntro, other.ID) {
 						return "你没有权限查看该用户的统计。", nil
 					}
-				}
-				other, err := d.Store.UserByID(ctx, args.UserID)
-				if err != nil {
-					return "目标用户不存在。", nil
 				}
 				st, err := d.Store.StatsOfAssignee(ctx, other.ID)
 				if err != nil {

@@ -468,12 +468,12 @@ func visibleReplyFallback(res *ai.TurnResult) string {
 }
 
 func sideEffectCompletionWithoutTools(userText, reply string, steps []ai.Step) bool {
-	if countToolCalls(steps) > 0 || !looksLikeSideEffectRequest(userText) {
+	if countToolCalls(steps) > 0 {
 		return false
 	}
 	trimmed := strings.TrimSpace(reply)
 	if isDegenerateVisibleReply(trimmed) {
-		return true
+		return looksLikeSideEffectRequest(userText)
 	}
 	return claimsSideEffectDone(trimmed)
 }
@@ -500,13 +500,42 @@ func claimsSideEffectDone(reply string) bool {
 		"已设置", "设置好", "已创建", "已新建", "已添加", "已更新", "已修改", "已改",
 		"已重命名", "已发送", "已保存", "已记录", "已绑定", "已开启", "已关闭", "已取消",
 		"已邀请", "已授权", "已分配", "已安排", "已部署", "已升级", "已生成", "重新生成",
-		"我会发送", "我会在",
-		"会在", "我会立即", "将会", "i've", "i have", "created", "updated", "scheduled",
+		"已建立", "已下发", "已推送", "已通知", "已发出", "已发", "创建成功", "设置成功",
+		"更新成功", "发送成功", "下发成功", "已经发送", "已经创建", "已经更新", "已经设置",
+		"已经记录", "已经把", "我已经把", "我已经将", "已将", "已把", "正在补发",
+		"补发正在进行", "现在正在", "马上发送", "立刻发送",
+		"我会发送",
+		"i've", "i have", "created", "updated", "scheduled",
 		"sent", "saved", "renamed", "deployed",
 	}
 	for _, p := range phrases {
 		if strings.Contains(reply, p) {
 			return true
+		}
+	}
+	if containsDoneVerb(reply) {
+		return true
+	}
+	return false
+}
+
+func containsDoneVerb(reply string) bool {
+	verbs := []string{
+		"设置", "提醒", "通知", "发送", "发出", "发给", "补发", "私信", "群发",
+		"创建", "新建", "建立", "添加", "更新", "修改", "改名", "重命名",
+		"删除", "取消", "邀请", "授权", "分配", "派发", "派", "保存", "记录",
+		"绑定", "开启", "关闭", "运行", "执行", "部署", "升级", "生成", "安排",
+		"下发", "推送", "同步", "拆解", "拆分", "写入", "落实",
+	}
+	doneMarks := []string{"已", "已经", "成功", "完成", "正在", "立刻", "马上", "我会", "将会"}
+	for _, mark := range doneMarks {
+		if !strings.Contains(reply, mark) {
+			continue
+		}
+		for _, verb := range verbs {
+			if strings.Contains(reply, verb) {
+				return true
+			}
 		}
 	}
 	return false

@@ -569,6 +569,53 @@ func mustUser(ctx context.Context, s *store.Store, id int64) (*store.User, error
 	return u, nil
 }
 
+// resolveUserArg resolves either an internal user_id or a visible unique name.
+// User-facing directory tools intentionally hide internal IDs, so action tools
+// must not require the model to recover an ID before it can operate.
+func resolveUserArg(ctx context.Context, s *store.Store, id int64, names ...string) (*store.User, string, error) {
+	if s == nil {
+		return nil, "用户存储不可用。", nil
+	}
+	if id > 0 {
+		u, err := mustUser(ctx, s, id)
+		if err != nil {
+			return nil, err.Error(), nil
+		}
+		return u, "", nil
+	}
+	selector := ""
+	for _, name := range names {
+		if selector = strings.TrimSpace(name); selector != "" {
+			break
+		}
+	}
+	if selector == "" {
+		return nil, "请提供 user_id 或 user/user_name。", nil
+	}
+	if parsed, err := strconv.ParseInt(selector, 10, 64); err == nil && parsed > 0 {
+		u, err := mustUser(ctx, s, parsed)
+		if err != nil {
+			return nil, err.Error(), nil
+		}
+		return u, "", nil
+	}
+	users, err := s.ListUsers(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	if u, ambiguous := matchCompanyUser(users, selector, true); ambiguous {
+		return nil, "匹配到多个同名用户，请用更完整的姓名。", nil
+	} else if u != nil {
+		return u, "", nil
+	}
+	if u, ambiguous := matchCompanyUser(users, selector, false); ambiguous {
+		return nil, "匹配到多个相似用户，请用完整姓名。", nil
+	} else if u != nil {
+		return u, "", nil
+	}
+	return nil, fmt.Sprintf("没有找到名为「%s」的用户。", selector), nil
+}
+
 func userName(ctx context.Context, s *store.Store, id int64) string {
 	if s == nil {
 		return "未知成员"

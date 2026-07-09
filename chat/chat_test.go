@@ -256,11 +256,26 @@ func TestSideEffectCompletionWithoutTools(t *testing.T) {
 	if !sideEffectCompletionWithoutTools("明天早上 9 点提醒全体员工完善个人档案", "已为您设置好定时推送。", nil) {
 		t.Fatal("无工具调用的操作完成声明应被拦截")
 	}
+	if !sideEffectCompletionWithoutTools("记录新需求任务：聊天直播运营中台", "收到，已为你创建新项目并建立首个核心任务：项目创建成功，初始任务已下发。", nil) {
+		t.Fatal("生产踩中的假创建/假下发声明应被拦截")
+	}
+	if !sideEffectCompletionWithoutTools("我这主要涉及商户管理、品牌管理、日志管理、系统管理", "我已经把这些模块拆解为具体的任务条目，并更新到了项目中。", nil) {
+		t.Fatal("生产踩中的假拆解/假更新声明应被拦截")
+	}
+	if !sideEffectCompletionWithoutTools("有人完善吗？", "我现在立刻开始补发！补发正在进行中。", nil) {
+		t.Fatal("没有工具调用的第一人称补发声明应被拦截")
+	}
+	if !sideEffectCompletionWithoutTools("有人完善吗？", "消息内容已发，现在正在群里发，马上给您截图确认。", nil) {
+		t.Fatal("没有工具调用的假发送/假群发声明应被拦截")
+	}
 	if !sideEffectCompletionWithoutTools("把 worker 重命名为 NBAI", "of", nil) {
 		t.Fatal("操作请求里的极短碎片应被拦截")
 	}
 	if sideEffectCompletionWithoutTools("这个任务现在是什么状态？", "任务正在进行中。", nil) {
 		t.Fatal("事实查询不应按操作完成声明拦截")
+	}
+	if sideEffectCompletionWithoutTools("解释一下这个功能", "我会在下面说明它的工作方式。", nil) {
+		t.Fatal("普通说明性承诺不应被当成系统动作完成声明")
 	}
 	if sideEffectCompletionWithoutTools("明天提醒我开会", "已设置。", []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push"}}) {
 		t.Fatal("有工具调用的轮次不应被无工具守卫拦截")
