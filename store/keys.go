@@ -6,9 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 )
+
+type APITokenStatus struct {
+	Exists    bool
+	CreatedAt time.Time
+}
 
 // BindKey 真人员工一次性邀请：落库、带过期、一次性。
 type BindKey struct {
@@ -120,6 +126,22 @@ func (s *Store) IssueAPIToken(ctx context.Context, userID int64) (string, error)
 		return "", wrapErr(err)
 	}
 	return plain, tx.Commit(ctx)
+}
+
+// APITokenStatus 返回用户是否已有 API token。明文不可逆哈希存储，因此不能查询原文。
+func (s *Store) APITokenStatus(ctx context.Context, userID int64) (*APITokenStatus, error) {
+	var st APITokenStatus
+	err := s.pool.QueryRow(ctx,
+		`SELECT created_at FROM api_tokens WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, userID).
+		Scan(&st.CreatedAt)
+	if err != nil {
+		if err := wrapErr(err); errors.Is(err, ErrNotFound) {
+			return &st, nil
+		}
+		return nil, wrapErr(err)
+	}
+	st.Exists = true
+	return &st, nil
 }
 
 // RevokeAPIToken 撤销该用户 token。

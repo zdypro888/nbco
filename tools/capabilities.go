@@ -95,6 +95,7 @@ var toolDomain = map[string]string{
 	"create_org_group":       CapabilityPeople,
 	"list_org_groups":        CapabilityPeople,
 	"add_org_group_member":   CapabilityPeople,
+	"get_api_token_status":   CapabilityPeople,
 	"generate_api_token":     CapabilityPeople,
 	"revoke_api_token":       CapabilityPeople,
 

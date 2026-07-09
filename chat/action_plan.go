@@ -267,8 +267,14 @@ func toolResultLooksFailed(result string) bool {
 	if s == "" {
 		return true
 	}
-	pending := []string{"待确认动作", "下一条明确确认", "征得明确同意", "pending approval"}
-	for _, p := range pending {
+	negative := []string{
+		"待确认动作", "下一条明确确认", "征得明确同意", "pending approval",
+		"重复调用", "不要继续重复", "没有成功", "未成功", "已跳过", "跳过",
+		"不能为空", "必须", "需要", "不能", "无法", "失败", "错误", "无权限", "权限不足",
+		"不存在", "未找到", "不属于你", "不允许", "不在", "请先", "没有可用", "没有对应",
+		"当前入口未装配", "当前工具集", "not found", "forbidden", "permission", "invalid", "failed", "error",
+	}
+	for _, p := range negative {
 		if strings.Contains(s, p) {
 			return true
 		}
@@ -277,16 +283,6 @@ func toolResultLooksFailed(result string) bool {
 	for _, p := range positive {
 		if strings.Contains(s, p) {
 			return false
-		}
-	}
-	negative := []string{
-		"不能为空", "必须", "需要", "不能", "无法", "失败", "错误", "无权限", "权限不足",
-		"不存在", "未找到", "不属于你", "不允许", "不在", "请先", "没有可用", "没有对应",
-		"当前入口未装配", "当前工具集", "not found", "forbidden", "permission", "invalid", "failed", "error",
-	}
-	for _, p := range negative {
-		if strings.Contains(s, p) {
-			return true
 		}
 	}
 	return false

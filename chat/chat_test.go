@@ -303,6 +303,14 @@ func TestActionCompletionWithoutEvidence(t *testing.T) {
 	if !toolResultLooksFailed(pending[0].Result) {
 		t.Fatal("待确认动作不应算完成证据")
 	}
+	repeated := []ai.Step{{Kind: ai.StepToolCall, ToolName: "generate_api_token", Result: "generate_api_token 对相同参数已经重复调用。请不要继续重复查询，直接整理已有结果回答。"}}
+	if !actionCompletionWithoutEvidence(plan, "已生成好了", repeated) {
+		t.Fatal("重复调用/预算拦截不应算完成证据")
+	}
+	noSuccess := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "这轮没有成功执行任何系统工具。"}}
+	if !toolResultLooksFailed(noSuccess[0].Result) {
+		t.Fatal("没有成功执行不应算完成证据")
+	}
 	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已设置推送（#1）：每天 09:00。"}}
 	if actionCompletionWithoutEvidence(plan, "已设置好了", ok) {
 		t.Fatal("成功工具结果应放行完成声明")

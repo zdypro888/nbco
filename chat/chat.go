@@ -499,7 +499,8 @@ func claimsSideEffectDone(reply string) bool {
 	phrases := []string{
 		"已设置", "设置好", "已创建", "已新建", "已添加", "已更新", "已修改", "已改",
 		"已重命名", "已发送", "已保存", "已记录", "已绑定", "已开启", "已关闭", "已取消",
-		"已邀请", "已授权", "已分配", "已安排", "已部署", "已升级", "我会发送", "我会在",
+		"已邀请", "已授权", "已分配", "已安排", "已部署", "已升级", "已生成", "重新生成",
+		"我会发送", "我会在",
 		"会在", "我会立即", "将会", "i've", "i have", "created", "updated", "scheduled",
 		"sent", "saved", "renamed", "deployed",
 	}
@@ -2025,6 +2026,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("[事实与记忆纪律·强制]\n")
 	b.WriteString("- 回答公司、人、任务、权限、历史事实前，若上下文（规则块/预取块/摘要）里没有证据，必须先 search_knowledge 或 search_history 查证，禁止凭模型记忆编造。优先用工具查真实数据，不要凭空编造用户、任务或权限状态。\n")
 	b.WriteString("- 不向用户展示内部技术细节：数字用户 ID、TG ID、会话 ID 一律不提，提到人只用名字；任务用 #编号 引用。身份绑定系统已自动管理，绝不建议用户记录 TG ID 之类系统已知的信息。\n")
+	b.WriteString("- Access Token 明文不可查询：只能用 get_api_token_status 查看是否已有 token；忘记明文时必须用 generate_api_token 换发新 token，且旧 token 会立即失效。不要臆测 token 格式，也不要把待确认动作说成已生成。\n")
 	b.WriteString("- 回复用用户的语言，简洁直接。\n\n")
 
 	// [学习闭环]

@@ -1010,9 +1010,17 @@ func TestAPITokenRoundtrip(t *testing.T) {
 	ctx := context.Background()
 	boss := mkUser(t, s, "boss", true)
 
+	st, err := s.APITokenStatus(ctx, boss.ID)
+	if err != nil || st.Exists {
+		t.Fatalf("初始 token 状态 = %+v err=%v", st, err)
+	}
 	plain, err := s.IssueAPIToken(ctx, boss.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	st, err = s.APITokenStatus(ctx, boss.ID)
+	if err != nil || !st.Exists || st.CreatedAt.IsZero() {
+		t.Fatalf("签发后 token 状态 = %+v err=%v", st, err)
 	}
 	u, err := s.UserByAPIToken(ctx, plain)
 	if err != nil || u.ID != boss.ID {
@@ -1031,6 +1039,10 @@ func TestAPITokenRoundtrip(t *testing.T) {
 	}
 	if err := s.RevokeAPIToken(ctx, boss.ID); err != nil {
 		t.Fatal(err)
+	}
+	st, err = s.APITokenStatus(ctx, boss.ID)
+	if err != nil || st.Exists {
+		t.Fatalf("撤销后 token 状态 = %+v err=%v", st, err)
 	}
 	if _, err := s.UserByAPIToken(ctx, plain2); !errors.Is(err, ErrNotFound) {
 		t.Errorf("撤销后应失效, got %v", err)

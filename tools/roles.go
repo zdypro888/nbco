@@ -54,7 +54,21 @@ func roleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已激活角色「%s」，下轮对话生效。", args.Name), nil
 			}),
 
-		tool("generate_api_token", "生成我的 Access Token（用于 HTTP API/MCP 接入），会替换旧 access token。明文仅返回一次。", obj(nil),
+		tool("get_api_token_status", "查看我是否已有控制中心/API Access Token。只返回是否存在和创建时间；明文不可查询，因为系统只保存哈希。",
+			obj(nil),
+			func(ctx context.Context, _ json.RawMessage) (string, error) {
+				st, err := d.Store.APITokenStatus(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				if !st.Exists {
+					return "当前没有控制中心/API Access Token。系统无法查询旧 token 明文；如需登录控制中心，请使用 generate_api_token 换发一个新的。", nil
+				}
+				return fmt.Sprintf("当前已有控制中心/API Access Token，创建时间：%s。\n明文不可查询（系统只保存哈希）；如果忘记了，只能用 generate_api_token 换发新 token，旧 token 会立即失效。", fmtTime(st.CreatedAt, d.TZ)), nil
+			}),
+
+		tool("generate_api_token", "换发我的控制中心/API Access Token（用于 HTTP API/MCP/控制中心登录），会立即替换旧 token。不能用于查询旧 token；明文仅返回一次，格式不要臆测。",
+			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				plain, err := d.Store.IssueAPIToken(ctx, u.ID)
 				if err != nil {

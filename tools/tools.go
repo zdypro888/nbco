@@ -289,6 +289,7 @@ var workerAllowed = map[string]bool{
 // 防的是「机密外泄进群」与「他人发言经共享历史注入驱动高危操作」两条路径。
 var groupSensitive = map[string]bool{
 	"generate_api_token":             true,
+	"get_api_token_status":           true,
 	"revoke_api_token":               true,
 	"invite_employee":                true,
 	"cancel_invites":                 true,
