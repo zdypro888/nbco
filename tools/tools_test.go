@@ -151,6 +151,15 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if got := byName["list_action_turns"].Domain; got != CapabilityOps {
 		t.Fatalf("list_action_turns domain=%q", got)
 	}
+	if got := byName["list_action_turns"].Effect; got != ToolEffectRead {
+		t.Fatalf("list_action_turns effect=%q", got)
+	}
+	if got := byName["send_message"].Effect; got != ToolEffectWrite {
+		t.Fatalf("send_message effect=%q", got)
+	}
+	if got := byName["run_worker_command"].Effect; got != ToolEffectExecute {
+		t.Fatalf("run_worker_command effect=%q", got)
+	}
 	if !byName["delete_project"].ApprovalRequired {
 		t.Fatalf("delete_project 应标记为审批工具")
 	}
@@ -188,6 +197,18 @@ func TestStaticToolDomainsRegistered(t *testing.T) {
 		if got := capabilityDomain(tl.Name); got == CapabilityExtension {
 			t.Errorf("内建工具 %s 缺少明确业务域", tl.Name)
 		}
+		if got := ToolEffect(tl.Name); got == ToolEffectUnknown {
+			t.Errorf("内建工具 %s 缺少 effect 分类", tl.Name)
+		}
+	}
+	if ToolCanProveAction("list_telegram_groups") {
+		t.Fatal("读取类工具不能作为动作完成证据")
+	}
+	if !ToolCanProveAction("set_telegram_group_monitor") {
+		t.Fatal("写入类工具应能作为动作完成证据")
+	}
+	if !ToolCanProveAction("run_worker_command") {
+		t.Fatal("执行类工具应能作为动作完成证据")
 	}
 }
 

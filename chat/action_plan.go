@@ -12,6 +12,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
+	nbtools "github.com/zdypro888/nbco/tools"
 )
 
 const actionPlannerTimeout = 15 * time.Second
@@ -341,7 +342,7 @@ func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
 			if !expected[st.ToolName] {
 				continue
 			}
-		} else if !toolCanProveSideEffect(st.ToolName) {
+		} else if !nbtools.ToolCanProveAction(st.ToolName) {
 			continue
 		}
 		if st.Err == "" && !toolResultLooksFailed(st.Result) {
@@ -349,17 +350,6 @@ func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
 		}
 	}
 	return false
-}
-
-func toolCanProveSideEffect(name string) bool {
-	if strings.HasPrefix(name, "get_") || strings.HasPrefix(name, "list_") || strings.HasPrefix(name, "search_") || strings.HasPrefix(name, "view_") {
-		return false
-	}
-	switch name {
-	case "company_overview", "ai_usage_stats":
-		return false
-	}
-	return true
 }
 
 func toolResultLooksFailed(result string) bool {

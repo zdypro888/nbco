@@ -22,9 +22,17 @@ const (
 	CapabilityExtension  = "extension"
 )
 
+const (
+	ToolEffectRead    = "read"
+	ToolEffectWrite   = "write"
+	ToolEffectExecute = "execute"
+	ToolEffectUnknown = "unknown"
+)
+
 type Capability struct {
 	Name             string `json:"name"`
 	Domain           string `json:"domain"`
+	Effect           string `json:"effect"`
 	Description      string `json:"description"`
 	RequiredAction   string `json:"required_action,omitempty"`
 	Risk             string `json:"risk"`
@@ -218,6 +226,154 @@ var toolDomain = map[string]string{
 	"ai_usage_stats":    CapabilityOps,
 }
 
+var toolEffect = map[string]string{
+	"accept_task":                    ToolEffectWrite,
+	"activate_role":                  ToolEffectWrite,
+	"add_info_field":                 ToolEffectWrite,
+	"add_milestone":                  ToolEffectWrite,
+	"add_org_group_member":           ToolEffectWrite,
+	"add_progress":                   ToolEffectWrite,
+	"ai_usage_stats":                 ToolEffectRead,
+	"analyze_company_materials":      ToolEffectExecute,
+	"approve_learning_candidate":     ToolEffectWrite,
+	"archive_project":                ToolEffectWrite,
+	"assign_task":                    ToolEffectWrite,
+	"attach_to_task":                 ToolEffectWrite,
+	"bind_telegram_group_project":    ToolEffectWrite,
+	"bulk_update_user_info":          ToolEffectWrite,
+	"cancel_invites":                 ToolEffectWrite,
+	"cancel_schedule":                ToolEffectWrite,
+	"close_goal":                     ToolEffectWrite,
+	"close_milestone":                ToolEffectWrite,
+	"company_overview":               ToolEffectRead,
+	"create_eval_case":               ToolEffectWrite,
+	"create_goal":                    ToolEffectWrite,
+	"create_org_group":               ToolEffectWrite,
+	"create_project":                 ToolEffectWrite,
+	"create_role":                    ToolEffectWrite,
+	"create_script_tool":             ToolEffectWrite,
+	"create_worker":                  ToolEffectWrite,
+	"decompose_milestone":            ToolEffectWrite,
+	"delegate_review":                ToolEffectWrite,
+	"delete_assigned_task":           ToolEffectWrite,
+	"delete_knowledge":               ToolEffectWrite,
+	"delete_project":                 ToolEffectWrite,
+	"delete_role":                    ToolEffectWrite,
+	"delete_telegram_group_message":  ToolEffectWrite,
+	"disable_user":                   ToolEffectWrite,
+	"edit_telegram_group_message":    ToolEffectWrite,
+	"enable_script_tool":             ToolEffectWrite,
+	"enable_user":                    ToolEffectWrite,
+	"generate_api_token":             ToolEffectWrite,
+	"get_ai_settings":                ToolEffectRead,
+	"get_api_token_status":           ToolEffectRead,
+	"get_assigned_tasks":             ToolEffectRead,
+	"get_goal_detail":                ToolEffectRead,
+	"get_knowledge":                  ToolEffectRead,
+	"get_milestone_detail":           ToolEffectRead,
+	"get_my_all_tasks":               ToolEffectRead,
+	"get_my_infos":                   ToolEffectRead,
+	"get_my_infos_on_user":           ToolEffectRead,
+	"get_my_profile":                 ToolEffectRead,
+	"get_my_projects":                ToolEffectRead,
+	"get_my_tasks":                   ToolEffectRead,
+	"get_review_queue":               ToolEffectRead,
+	"get_task_detail":                ToolEffectRead,
+	"get_telegram_group":             ToolEffectRead,
+	"get_telegram_group_member":      ToolEffectRead,
+	"get_user_info":                  ToolEffectRead,
+	"get_user_stats":                 ToolEffectRead,
+	"grant_active_perm":              ToolEffectWrite,
+	"grant_my_passive_perm":          ToolEffectWrite,
+	"grant_passive_perm":             ToolEffectWrite,
+	"invite_employee":                ToolEffectWrite,
+	"issue_worker_bind_code":         ToolEffectWrite,
+	"link_task_to_milestone":         ToolEffectWrite,
+	"list_action_turns":              ToolEffectRead,
+	"list_capabilities":              ToolEffectRead,
+	"list_decision_queue":            ToolEffectRead,
+	"list_eval_cases":                ToolEffectRead,
+	"list_info_fields":               ToolEffectRead,
+	"list_knowledge_versions":        ToolEffectRead,
+	"list_learning_candidates":       ToolEffectRead,
+	"list_material_entities":         ToolEffectRead,
+	"list_my_active_perms":           ToolEffectRead,
+	"list_my_passive_perms":          ToolEffectRead,
+	"list_my_projects":               ToolEffectRead,
+	"list_org_groups":                ToolEffectRead,
+	"list_recent_files":              ToolEffectRead,
+	"list_recent_knowledge":          ToolEffectRead,
+	"list_roles":                     ToolEffectRead,
+	"list_rules":                     ToolEffectRead,
+	"list_schedules":                 ToolEffectRead,
+	"list_script_tools":              ToolEffectRead,
+	"list_telegram_group_members":    ToolEffectRead,
+	"list_telegram_groups":           ToolEffectRead,
+	"list_users":                     ToolEffectRead,
+	"list_workers":                   ToolEffectRead,
+	"list_workflows":                 ToolEffectRead,
+	"load_skill":                     ToolEffectRead,
+	"pin_telegram_group_message":     ToolEffectWrite,
+	"propose_learning_candidate":     ToolEffectWrite,
+	"reassign_task":                  ToolEffectWrite,
+	"refresh_decision_queue":         ToolEffectWrite,
+	"reject_learning_candidate":      ToolEffectWrite,
+	"reject_task":                    ToolEffectWrite,
+	"remove_info_field":              ToolEffectWrite,
+	"resolve_telegram_group_members": ToolEffectRead,
+	"revoke_active_perm":             ToolEffectWrite,
+	"revoke_api_token":               ToolEffectWrite,
+	"revoke_my_passive_perm":         ToolEffectWrite,
+	"revoke_passive_perm":            ToolEffectWrite,
+	"revoke_worker":                  ToolEffectWrite,
+	"rollback_knowledge":             ToolEffectWrite,
+	"run_worker_command":             ToolEffectExecute,
+	"save_checklist":                 ToolEffectWrite,
+	"save_infos_on_user":             ToolEffectWrite,
+	"save_knowledge":                 ToolEffectWrite,
+	"save_my_infos":                  ToolEffectWrite,
+	"save_rule":                      ToolEffectWrite,
+	"save_skill":                     ToolEffectWrite,
+	"schedule_once":                  ToolEffectWrite,
+	"schedule_push":                  ToolEffectWrite,
+	"schedule_repeating":             ToolEffectWrite,
+	"score_learning_candidates":      ToolEffectRead,
+	"search_history":                 ToolEffectRead,
+	"search_knowledge":               ToolEffectRead,
+	"search_skills":                  ToolEffectRead,
+	"send_file":                      ToolEffectWrite,
+	"send_message":                   ToolEffectWrite,
+	"send_telegram_group_message":    ToolEffectWrite,
+	"set_ai_settings":                ToolEffectWrite,
+	"set_rule_pinned":                ToolEffectWrite,
+	"set_telegram_group_auto_invite": ToolEffectWrite,
+	"set_telegram_group_listen":      ToolEffectWrite,
+	"set_telegram_group_monitor":     ToolEffectWrite,
+	"set_worker_admin":               ToolEffectWrite,
+	"split_my_task":                  ToolEffectWrite,
+	"start_worker_skill":             ToolEffectExecute,
+	"start_workflow":                 ToolEffectExecute,
+	"test_script_tool":               ToolEffectExecute,
+	"toggle_checklist":               ToolEffectWrite,
+	"unpin_telegram_group_message":   ToolEffectWrite,
+	"update_assigned_task":           ToolEffectWrite,
+	"update_goal":                    ToolEffectWrite,
+	"update_knowledge":               ToolEffectWrite,
+	"update_milestone":               ToolEffectWrite,
+	"update_my_profile":              ToolEffectWrite,
+	"update_my_task_status":          ToolEffectWrite,
+	"update_role":                    ToolEffectWrite,
+	"update_script_tool":             ToolEffectWrite,
+	"update_skill":                   ToolEffectWrite,
+	"update_telegram_group_info":     ToolEffectWrite,
+	"update_user_info":               ToolEffectWrite,
+	"view_goals":                     ToolEffectRead,
+	"view_my_task_tree":              ToolEffectRead,
+	"view_project":                   ToolEffectRead,
+	"view_user_infos":                ToolEffectRead,
+	"view_user_perms":                ToolEffectRead,
+}
+
 func capabilityTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
 		tool("list_capabilities", "查看 nbco 当前可用能力目录。按领域列出工具、权限、风险和当前用户是否可用；用户问“你会什么/系统有哪些功能/某类能力在哪里”时调用。",
@@ -319,6 +475,7 @@ func capabilityForTool(t ai.Tool) Capability {
 	return Capability{
 		Name:             t.Name,
 		Domain:           capabilityDomain(t.Name),
+		Effect:           ToolEffect(t.Name),
 		Description:      t.Description,
 		RequiredAction:   required,
 		Risk:             risk,
@@ -326,6 +483,22 @@ func capabilityForTool(t ai.Tool) Capability {
 		WorkerAllowed:    workerAllowed[t.Name],
 		GroupAllowed:     !groupSensitive[t.Name],
 		ApprovalRequired: approvalRequired[t.Name],
+	}
+}
+
+func ToolEffect(name string) string {
+	if effect, ok := toolEffect[name]; ok {
+		return effect
+	}
+	return ToolEffectUnknown
+}
+
+func ToolCanProveAction(name string) bool {
+	switch ToolEffect(name) {
+	case ToolEffectWrite, ToolEffectExecute:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -372,7 +545,7 @@ func renderCapabilities(caps []Capability) string {
 		if c.RequiredAction != "" {
 			req = "；权限=" + c.RequiredAction
 		}
-		flags := []string{status, "风险=" + c.Risk}
+		flags := []string{status, "效果=" + c.Effect, "风险=" + c.Risk}
 		if !c.GroupAllowed {
 			flags = append(flags, "群聊禁用")
 		}
