@@ -65,6 +65,9 @@ func shouldRunActionPlanner(text string) bool {
 	if text == "" || strings.HasPrefix(text, "[系统") {
 		return false
 	}
+	if looksLikeActionStatusQuestion(text) {
+		return false
+	}
 	return looksLikeSideEffectRequest(text) || looksLikeHeavyExecutionRequest(text)
 }
 
@@ -77,6 +80,7 @@ func actionPlannerSystem(toolset []ai.Tool) string {
 	b.WriteString("- 只从可用工具中选择 expected_tools；不确定具体工具时 expected_tools 为空但 requires_action 仍可为 true。\n")
 	b.WriteString("- expected_tools 可以填写多个同一动作类别下的可替代执行工具；不要只因为列表里有 start_workflow 就忽略更直接的发送、定时、群设置或资料分析工具。\n")
 	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析普通文本且不要求落库/发送/执行时，requires_action=false；但要求处理上传文件、公司资料、代码仓库、命令行、worker 或产生产物时，requires_action=true。\n")
+	b.WriteString("- 用户问“做了吗/发了吗/clone 了吗/成功了吗/刚才有没有执行”等核实状态的问题，requires_action=false；主对话应使用读取类工具核实并回答，不要要求新的执行成功证据。\n")
 	b.WriteString("- 用户围绕最近上传/刚发的文件问“能看懂/能读取/这个吗/解析一下”时，属于需要工具确认或派工，requires_action=true。\n")
 	b.WriteString("- 如果需要信息不足，requires_action=true，并在 missing_info 写缺什么；主对话应询问或说明未完成，不能声称已完成。\n")
 	b.WriteString("- success_evidence 写最终能证明完成的工具返回事实，例如“schedule_push 返回已设置推送”。\n\n")
@@ -91,6 +95,9 @@ func actionPlannerSystem(toolset []ai.Tool) string {
 func looksLikeHeavyExecutionRequest(text string) bool {
 	s := strings.ToLower(strings.TrimSpace(text))
 	if s == "" {
+		return false
+	}
+	if looksLikeActionStatusQuestion(s) {
 		return false
 	}
 	if looksLikeFileReferenceRequest(s) {
@@ -108,6 +115,30 @@ func looksLikeHeavyExecutionRequest(text string) bool {
 		}
 	}
 	return false
+}
+
+func looksLikeActionStatusQuestion(text string) bool {
+	s := strings.ToLower(strings.TrimSpace(text))
+	if s == "" {
+		return false
+	}
+	actionTerms := []string{
+		"发送", "发出", "发了", "通知", "推送", "私信", "群发",
+		"创建", "新建", "设置", "定时", "提醒", "更新", "修改", "删除", "取消",
+		"执行", "运行", "部署", "升级", "clone", "克隆", "拉取", "同步",
+		"worker", "任务", "工具", "操作",
+		"send", "sent", "created", "updated", "deleted", "deployed", "scheduled", "executed", "ran", "cloned",
+	}
+	if !routeHasAny(s, actionTerms) {
+		return false
+	}
+	questionTerms := []string{
+		"了吗", "了没", "有没有", "是否", "是不是",
+		"成功了吗", "成功没", "完成了吗", "完成没", "做了吗", "做了没",
+		"发出去没", "执行了吗", "执行没", "clone了吗", "clone 了吗",
+		"status", "done", "success",
+	}
+	return routeHasAny(s, questionTerms)
 }
 
 func actionPlannerUserText(u *store.User, channel, text string) string {
@@ -195,6 +226,9 @@ func fallbackActionPlan(text, source string) *actionPlan {
 }
 
 func fallbackActionPlanWithTools(text, source string, toolset []ai.Tool) *actionPlan {
+	if looksLikeActionStatusQuestion(text) {
+		return nil
+	}
 	if !looksLikeSideEffectRequest(text) && !looksLikeHeavyExecutionRequest(text) {
 		return nil
 	}

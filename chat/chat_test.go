@@ -443,6 +443,14 @@ func TestFallbackActionPlanCoversHeavyExecution(t *testing.T) {
 	if fallbackActionPlan("解释一下这个概念", "planner_error") != nil {
 		t.Fatal("普通解释不应进入动作计划")
 	}
+	for _, text := range []string{"clone了吗？", "刚才通知发出去没？", "部署成功了吗？"} {
+		if fallbackActionPlan(text, "planner_error") != nil {
+			t.Fatalf("状态查询不应被 fallback 当成新动作: %s", text)
+		}
+	}
+	if fallbackActionPlan("无成人陪伴这个删除掉吧。没用了", "planner_error") == nil {
+		t.Fatal("带“没用了”的删除请求仍应进入动作守门")
+	}
 }
 
 func TestFallbackActionPlanRequiresWorkerToolForAttachmentReference(t *testing.T) {

@@ -133,12 +133,19 @@ func TestShouldRunActionPlannerOnlyForActionLikeTurns(t *testing.T) {
 	if shouldRunActionPlanner("解释一下 token 为什么不能查询明文") {
 		t.Fatal("普通解释问题不应启动动作规划器")
 	}
+	for _, text := range []string{"clone了吗？", "刚才通知发出去没？", "部署成功了吗？", "有没有执行 worker 命令？"} {
+		if shouldRunActionPlanner(text) {
+			t.Fatalf("状态核实问题不应启动动作完成守门: %s", text)
+		}
+	}
 	for _, text := range []string{
 		"明天早上 9 点提醒全体员工完善档案",
 		"把 worker 重命名为 NBAI",
 		"把黄桑的手机号改成 13800000000",
 		"分析刚才上传的 pdf 并整理成公司资料",
 		"给 nbco 增加天气功能然后部署",
+		"帮我部署一下？",
+		"无成人陪伴这个删除掉吧。没用了",
 	} {
 		if !shouldRunActionPlanner(text) {
 			t.Fatalf("操作/worker/文件请求应启动动作规划器: %s", text)
