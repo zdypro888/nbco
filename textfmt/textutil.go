@@ -63,6 +63,12 @@ var (
 		regexp.MustCompile(`(?i)\b[a-z0-9]{24,}\.[a-z0-9_-]{12,}\b`),
 		regexp.MustCompile(`(?i)\b[a-f0-9]{48,}\b`),
 	}
+	reasoningBlockRe        = regexp.MustCompile(`(?is)<\s*think\b[^>]*>.*?<\s*/\s*think\s*>`)
+	reasoningCloseRe        = regexp.MustCompile(`(?is)<\s*/\s*think\s*>`)
+	reasoningOpenRe         = regexp.MustCompile(`(?is)<\s*think\b[^>]*>`)
+	escapedReasoningBlockRe = regexp.MustCompile(`(?is)&lt;\s*think\b[^&]*?&gt;.*?&lt;\s*/\s*think\s*&gt;`)
+	escapedReasoningCloseRe = regexp.MustCompile(`(?is)&lt;\s*/\s*think\s*&gt;`)
+	escapedReasoningOpenRe  = regexp.MustCompile(`(?is)&lt;\s*think\b[^&]*?&gt;`)
 )
 
 // RedactSecrets removes API keys, Telegram bot tokens, worker access tokens,
@@ -74,4 +80,38 @@ func RedactSecrets(s string) string {
 		s = re.ReplaceAllString(s, "[redacted]")
 	}
 	return s
+}
+
+// StripReasoning removes model-emitted <think> blocks from user-visible text.
+// Some OpenAI-compatible reasoning models put chain-of-thought in Content
+// instead of a dedicated reasoning field, sometimes even with a missing opening
+// tag during streaming. In that dangling-close case, everything before the last
+// </think> is treated as hidden reasoning and dropped.
+func StripReasoning(s string) string {
+	if s == "" {
+		return s
+	}
+	for {
+		next := reasoningBlockRe.ReplaceAllString(s, "")
+		next = escapedReasoningBlockRe.ReplaceAllString(next, "")
+		if next == s {
+			break
+		}
+		s = next
+	}
+	if locs := reasoningCloseRe.FindAllStringIndex(s, -1); len(locs) > 0 {
+		s = s[locs[len(locs)-1][1]:]
+	}
+	if locs := escapedReasoningCloseRe.FindAllStringIndex(s, -1); len(locs) > 0 {
+		s = s[locs[len(locs)-1][1]:]
+	}
+	if loc := reasoningOpenRe.FindStringIndex(s); loc != nil {
+		s = s[:loc[0]]
+	}
+	if loc := escapedReasoningOpenRe.FindStringIndex(s); loc != nil {
+		s = s[:loc[0]]
+	}
+	s = reasoningCloseRe.ReplaceAllString(s, "")
+	s = escapedReasoningCloseRe.ReplaceAllString(s, "")
+	return strings.TrimSpace(s)
 }

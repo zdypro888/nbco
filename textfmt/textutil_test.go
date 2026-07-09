@@ -30,3 +30,25 @@ func TestRedactSecrets(t *testing.T) {
 		t.Fatalf("JSON secret fields not redacted cleanly: %#v", decoded)
 	}
 }
+
+func TestStripReasoning(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"block", "<think>先想想</think>答案", "答案"},
+		{"dangling close", "先想想</think>答案", "答案"},
+		{"escaped block", "&lt;think&gt;先想想&lt;/think&gt;答案", "答案"},
+		{"escaped dangling close", "先想想&lt;/think&gt;答案", "答案"},
+		{"dangling open", "答案\n<think>后面不该显示", "答案"},
+		{"plain", "正常答案", "正常答案"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := StripReasoning(tt.in); got != tt.want {
+				t.Fatalf("StripReasoning(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

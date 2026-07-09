@@ -54,6 +54,27 @@ func TestReadStreamHidesReasoningByDefault(t *testing.T) {
 	}
 }
 
+func TestReadStreamStripsThinkTagsFromContentByDefault(t *testing.T) {
+	chunks := []*schema.Message{
+		{Role: schema.Assistant, Content: "<think>先想想"},
+		{Role: schema.Assistant, Content: "</think>答"},
+		{Role: schema.Assistant, Content: "案"},
+	}
+	var snaps []string
+	msg, err := readStream(schema.StreamReaderFromArray(chunks), schema.Assistant,
+		func(s string) { snaps = append(snaps, s) }, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"答", "答案"}
+	if len(snaps) != len(want) || snaps[0] != want[0] || snaps[1] != want[1] {
+		t.Fatalf("默认应剥离正文里的 think 标签: %v", snaps)
+	}
+	if msg == nil || msg.Content != "答案" {
+		t.Fatalf("最终正文应剥离 think 标签: %+v", msg)
+	}
+}
+
 func TestReadStreamCanEmitReasoning(t *testing.T) {
 	chunks := []*schema.Message{
 		{Role: schema.Assistant, ReasoningContent: "先想想"},

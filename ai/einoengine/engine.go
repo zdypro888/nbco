@@ -26,6 +26,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/config"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 // Engine 持有一个已初始化的 ChatModel；Agent 按轮次构建（工具集因用户而异）。
@@ -304,14 +305,27 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 				wrote = true
 			}
 			if wrote {
-				onDelta(acc.String())
+				snapshot := acc.String()
+				if !showReasoning {
+					snapshot = textfmt.StripReasoning(snapshot)
+				}
+				if strings.TrimSpace(snapshot) != "" {
+					onDelta(snapshot)
+				}
 			}
 		}
 	}
 	if len(chunks) == 0 {
 		return nil, nil
 	}
-	return schema.ConcatMessages(chunks)
+	msg, err := schema.ConcatMessages(chunks)
+	if err != nil || msg == nil {
+		return msg, err
+	}
+	if role == schema.Assistant && !showReasoning {
+		msg.Content = textfmt.StripReasoning(msg.Content)
+	}
+	return msg, nil
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。

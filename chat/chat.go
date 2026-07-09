@@ -270,6 +270,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		o.noteEngineResult(false, err)
 		return "", fmt.Errorf("AI 引擎失败: %w", err)
 	}
+	res.Text = textfmt.StripReasoning(res.Text)
 	engineOK := true
 	if needsVisibleReplyRepair(res) {
 		slog.Warn("模型可见答复疑似截断，准备兜底",
@@ -370,6 +371,7 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	if err != nil {
 		return nil, err
 	}
+	res.Text = textfmt.StripReasoning(res.Text)
 	res.Usage.InputTokens += first.Usage.InputTokens
 	res.Usage.OutputTokens += first.Usage.OutputTokens
 	if needsVisibleReplyRepair(res) {
@@ -387,6 +389,7 @@ func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.T
 	if err != nil {
 		return nil, err
 	}
+	res.Text = textfmt.StripReasoning(res.Text)
 	res.Usage.InputTokens += first.Usage.InputTokens
 	res.Usage.OutputTokens += first.Usage.OutputTokens
 	if needsVisibleReplyRepair(res) {
@@ -428,6 +431,7 @@ func (o *Orchestrator) repairActionEvidenceTurn(ctx context.Context, req *ai.Tur
 	if err != nil {
 		return nil, err
 	}
+	res.Text = textfmt.StripReasoning(res.Text)
 	res.Usage.InputTokens += first.Usage.InputTokens
 	res.Usage.OutputTokens += first.Usage.OutputTokens
 	if needsVisibleReplyRepair(res) {
@@ -589,6 +593,7 @@ func asciiMostly(s string) bool {
 }
 
 func normalizeAssistantReply(channel, text string) string {
+	text = textfmt.StripReasoning(text)
 	if strings.HasPrefix(channel, "telegram") {
 		return telegramhtml.ToHTML(text)
 	}
