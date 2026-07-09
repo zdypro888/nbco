@@ -22,7 +22,7 @@ func TestBuildCompactInput(t *testing.T) {
 		{Role: "assistant", Content: "好，A 方案，周五交付"},
 	}
 	in := buildCompactInput("之前定了预算 10 万", msgs)
-	for _, want := range []string{"既有摘要", "预算 10 万", "待压缩对话", "定 A 方案", "周五交付"} {
+	for _, want := range []string{"既有摘要", "预算 10 万", "已闭合对话轮次", "定 A 方案", "周五交付"} {
 		if !strings.Contains(in, want) {
 			t.Errorf("压缩输入缺 %q", want)
 		}
@@ -32,19 +32,20 @@ func TestBuildCompactInput(t *testing.T) {
 	}
 }
 
-func TestSplitExecutableHistoryMovesDanglingUsersToInertContext(t *testing.T) {
+func TestBuildModelReplayHistoryMovesDanglingUsersToInertContext(t *testing.T) {
 	msgs := []store.ChatMessage{
 		{ID: 1, Role: "user", Content: "查任务"},
 		{ID: 2, Role: "assistant", Content: "任务 #6"},
 		{ID: 3, Role: "user", Content: "把任务 #6 删除"},
 		{ID: 4, Role: "user", Content: "clone 源码准备升级"},
+		{ID: 5, Role: "assistant", Content: "没有成功执行"},
 	}
-	replay, inert := splitExecutableHistory(msgs)
-	if len(replay) != 2 || replay[1].Content != "任务 #6" {
+	replay, inert := buildModelReplayHistory(msgs)
+	if len(replay) != 4 || replay[1].Content != "任务 #6" || replay[2].Content != "clone 源码准备升级" {
 		t.Fatalf("可执行历史应只保留已闭合轮次: replay=%+v inert=%+v", replay, inert)
 	}
-	if len(inert) != 2 || inert[0].Content != "把任务 #6 删除" || inert[1].Content != "clone 源码准备升级" {
-		t.Fatalf("尾部未回复 user 应移入 inert: %+v", inert)
+	if len(inert) != 1 || inert[0].Content != "把任务 #6 删除" {
+		t.Fatalf("中间未回复 user 应移入 inert: %+v", inert)
 	}
 	block := renderInertDanglingHistory(inert)
 	for _, want := range []string{"未回复历史消息", "禁止执行", "把任务 #6 删除", "当前要执行的唯一用户指令"} {
@@ -53,12 +54,28 @@ func TestSplitExecutableHistoryMovesDanglingUsersToInertContext(t *testing.T) {
 		}
 	}
 
-	replay, inert = splitExecutableHistory([]store.ChatMessage{
+	replay, inert = buildModelReplayHistory([]store.ChatMessage{
 		{Role: "user", Content: "查任务"},
 		{Role: "assistant", Content: "已查询"},
 	})
 	if len(replay) != 2 || len(inert) != 0 {
 		t.Fatalf("已闭合历史不应被裁剪: replay=%+v inert=%+v", replay, inert)
+	}
+}
+
+func TestBuildCompactInputMarksUnclosedInputsAsBackground(t *testing.T) {
+	in := buildCompactInput("", []store.ChatMessage{
+		{Role: "user", Content: "把任务 #6 删除"},
+		{Role: "user", Content: "clone 源码准备升级"},
+		{Role: "assistant", Content: "没有成功执行"},
+	})
+	if strings.Contains(in, "assistant: 把任务 #6 删除") {
+		t.Fatalf("未闭合输入不应伪装成助手内容: %s", in)
+	}
+	for _, want := range []string{"已闭合对话轮次", "clone 源码准备升级", "未闭合/旁听输入", "把任务 #6 删除", "不是已执行动作"} {
+		if !strings.Contains(in, want) {
+			t.Fatalf("压缩输入缺 %q: %s", want, in)
+		}
 	}
 }
 

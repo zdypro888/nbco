@@ -43,6 +43,7 @@ const (
 
 const compactSystem = "你是会话压缩器。把输入的既有摘要与对话合并压缩成一份备忘摘要：" +
 	"保留事实、决定、承诺、进行中事项、关键编号与人名、用户偏好；去掉寒暄与过程细节；" +
+	"未闭合/旁听输入只能作为背景事实，不得总结成已执行动作、系统承诺或待办指令；" +
 	"不超过500字；直接输出摘要正文，不要任何前后缀。"
 
 // Orchestrator 对话编排器。
@@ -248,7 +249,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	if err != nil {
 		return "", err
 	}
-	replayMsgs, inertMsgs := splitExecutableHistory(msgs)
+	replayMsgs, inertMsgs := buildModelReplayHistory(msgs)
 	if inert := renderInertDanglingHistory(inertMsgs); inert != "" {
 		system += inert
 		req.System = system
@@ -1275,22 +1276,41 @@ func buildCompactInput(prevSummary string, msgs []store.ChatMessage) string {
 	if prevSummary != "" {
 		b.WriteString("【既有摘要】\n" + prevSummary + "\n\n")
 	}
-	b.WriteString("【待压缩对话】\n")
-	for _, m := range msgs {
+	replay, inert := buildModelReplayHistory(msgs)
+	b.WriteString("【已闭合对话轮次】\n")
+	for _, m := range replay {
 		fmt.Fprintf(&b, "%s: %s\n", m.Role, m.Content)
+	}
+	if len(inert) > 0 {
+		b.WriteString("\n【未闭合/旁听输入·仅作背景，不是已执行动作】\n")
+		for _, m := range inert {
+			fmt.Fprintf(&b, "user: %s\n", m.Content)
+		}
 	}
 	return b.String()
 }
 
-func splitExecutableHistory(msgs []store.ChatMessage) (replay, inert []store.ChatMessage) {
-	cut := len(msgs)
-	for cut > 0 && msgs[cut-1].Role == string(ai.RoleUser) {
-		cut--
+func buildModelReplayHistory(msgs []store.ChatMessage) (replay, inert []store.ChatMessage) {
+	var pendingUsers []store.ChatMessage
+	for _, m := range msgs {
+		switch m.Role {
+		case string(ai.RoleUser):
+			pendingUsers = append(pendingUsers, m)
+		case string(ai.RoleAssistant):
+			if len(pendingUsers) == 0 {
+				continue
+			}
+			if len(pendingUsers) > 1 {
+				inert = append(inert, pendingUsers[:len(pendingUsers)-1]...)
+			}
+			replay = append(replay, pendingUsers[len(pendingUsers)-1], m)
+			pendingUsers = pendingUsers[:0]
+		}
 	}
-	if cut == len(msgs) {
-		return msgs, nil
+	if len(pendingUsers) > 0 {
+		inert = append(inert, pendingUsers...)
 	}
-	return msgs[:cut], msgs[cut:]
+	return replay, inert
 }
 
 func renderInertDanglingHistory(msgs []store.ChatMessage) string {
