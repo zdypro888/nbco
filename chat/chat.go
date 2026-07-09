@@ -281,6 +281,20 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 
 	res, err := o.engine.RunTurn(ctx, req)
 	if err != nil {
+		if toolName := missingToolNameFromEngineErr(err); toolName != "" {
+			slog.Warn("模型调用了不可见工具，准备带工具名单重跑",
+				"session", sess.ID, "missing_tool", toolName, "err", err)
+			repaired, rerr := o.repairMissingToolTurn(ctx, req, toolName, onDelta)
+			if rerr == nil {
+				res = repaired
+				err = nil
+			} else {
+				slog.Warn("未知工具重跑失败", "session", sess.ID, "missing_tool", toolName, "err", rerr)
+				err = rerr
+			}
+		}
+	}
+	if err != nil {
 		slog.Warn("轮次失败", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond), "err", err)
 		o.noteEngineResult(false, err)
 		return "", fmt.Errorf("AI 引擎失败: %w", err)
@@ -390,6 +404,61 @@ func mergeRepairResult(first, repaired *ai.TurnResult) *ai.TurnResult {
 		merged.Steps = append(merged.Steps, repaired.Steps...)
 	}
 	return &merged
+}
+
+func (o *Orchestrator) repairMissingToolTurn(ctx context.Context, req *ai.TurnRequest, missingTool string, onDelta func(string)) (*ai.TurnResult, error) {
+	retry := *req
+	retry.OnDelta = onDelta
+	retry.StreamReasoning = false
+	names := routedToolNames(req.Tools)
+	var b strings.Builder
+	b.WriteString(req.System)
+	b.WriteString("\n\n[系统保护]\n上一轮模型尝试调用不存在或本轮不可见的工具：")
+	b.WriteString(missingTool)
+	b.WriteString("。请重新处理同一个用户请求：\n")
+	b.WriteString("- 只能调用下面列出的可见工具名，不要自造工具名或猜测别名。\n")
+	b.WriteString("- 如果用户要删除任务，优先使用 delete_assigned_task；如果该工具不可见，就说明当前入口无法删除任务。\n")
+	b.WriteString("- 如果没有合适工具、权限不足、参数缺失或目标不明确，直接说明未完成和下一步。\n")
+	if len(names) > 0 {
+		b.WriteString("当前可见工具：")
+		b.WriteString(strings.Join(names, ", "))
+		b.WriteString("\n")
+	}
+	retry.System = b.String()
+	res, err := o.engine.RunTurn(ctx, &retry)
+	if err != nil {
+		return nil, err
+	}
+	res.Text = textfmt.StripReasoning(res.Text)
+	if needsVisibleReplyRepair(res) {
+		return nil, errors.New("未知工具重跑后输出仍疑似截断")
+	}
+	return res, nil
+}
+
+func missingToolNameFromEngineErr(err error) string {
+	if err == nil {
+		return ""
+	}
+	s := err.Error()
+	lower := strings.ToLower(s)
+	markers := []string{"tool ", "工具 "}
+	for _, marker := range markers {
+		idx := strings.Index(s, marker)
+		if idx < 0 {
+			continue
+		}
+		rest := s[idx+len(marker):]
+		end := strings.IndexAny(rest, " \n\t:：,，)")
+		if end < 0 {
+			end = len(rest)
+		}
+		name := strings.Trim(rest[:end], "`'\"“”")
+		if name != "" && (strings.Contains(lower, "not found") || strings.Contains(s, "不存在") || strings.Contains(s, "不可见")) {
+			return name
+		}
+	}
+	return ""
 }
 
 func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {

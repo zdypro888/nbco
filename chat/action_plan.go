@@ -276,6 +276,13 @@ func inferActionToolsForText(text string, available map[string]bool, limit int) 
 			"decompose_milestone",
 		))
 	}
+	if routeHasAny(s, []string{"删除", "删掉", "删了", "取消", "作废", "没用了", "不用了", "归档", "delete", "cancel", "archive"}) {
+		groups = append(groups, availableToolsInOrder(available,
+			"delete_assigned_task", "delete_project", "cancel_schedule", "delete_knowledge",
+			"close_data_collection_campaign", "archive_project", "revoke_worker",
+			"delete_telegram_group_message",
+		))
+	}
 	if routeHasAny(s, []string{"记住", "记下来", "以后", "默认", "规则", "规矩", "沉淀", "学习", "涨记性", "skill", "知识库"}) {
 		groups = append(groups, availableToolsInOrder(available,
 			"save_rule", "save_knowledge", "save_skill", "propose_learning_candidate",

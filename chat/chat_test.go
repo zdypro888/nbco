@@ -428,6 +428,9 @@ func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
 		{Name: "send_message"},
 		{Name: "create_data_collection_campaign"},
 		{Name: "update_user_info"},
+		{Name: "delete_assigned_task"},
+		{Name: "delete_project"},
+		{Name: "cancel_schedule"},
 		{Name: "set_telegram_group_monitor"},
 		{Name: "list_telegram_groups"},
 		{Name: "save_rule"},
@@ -456,6 +459,11 @@ func TestFallbackActionPlanInfersSpecificActionFamilies(t *testing.T) {
 			name: "memory",
 			text: "以后不要把 worker token 发出来，记成规则",
 			want: []string{"save_rule"},
+		},
+		{
+			name: "delete",
+			text: "无成人陪伴这个删除掉吧。没用了",
+			want: []string{"delete_assigned_task", "delete_project"},
 		},
 	}
 	for _, tc := range cases {
@@ -651,6 +659,16 @@ func TestMergeRepairResultKeepsOriginalToolEvidence(t *testing.T) {
 	}
 	if countToolCalls(got.Steps) != 2 || got.Steps[0].ToolName != "analyze_company_materials" || got.Steps[1].ToolName != "list_recent_files" {
 		t.Fatalf("应保留第一次与重跑的工具轨迹: %+v", got.Steps)
+	}
+}
+
+func TestMissingToolNameFromEngineErr(t *testing.T) {
+	err := errors.New("[NodeRunError] tool delete_task not found in toolsNode indexes\nnode path: [node_1, ToolNode]")
+	if got := missingToolNameFromEngineErr(err); got != "delete_task" {
+		t.Fatalf("missing tool = %q", got)
+	}
+	if got := missingToolNameFromEngineErr(errors.New("upstream timeout")); got != "" {
+		t.Fatalf("non tool error should not match: %q", got)
 	}
 }
 

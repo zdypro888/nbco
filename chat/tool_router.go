@@ -90,7 +90,7 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 		addGroup("script", scriptToolNames...)
 	}
 	if looksLikeSideEffectRequest(text) {
-		addReason("action")
+		addGroup("action", actionToolNames...)
 	}
 
 	out := make([]ai.Tool, 0, len(include))
@@ -120,6 +120,7 @@ func keepRoutedToolsUnderSoftLimit(in []ai.Tool, include map[string]bool) []ai.T
 	}
 	for _, name := range []string{
 		"send_message", "schedule_push", "assign_task", "update_user_info",
+		"delete_assigned_task", "reassign_task", "accept_task", "reject_task",
 		"create_data_collection_campaign", "list_data_collection_campaigns",
 		"invite_employee", "analyze_company_materials", "start_worker_skill", "start_workflow", "run_worker_command",
 		"list_telegram_groups", "set_telegram_group_listen", "set_telegram_group_monitor", "send_telegram_group_message", "delete_telegram_group_message",
@@ -280,6 +281,19 @@ var opsToolNames = []string{
 
 var scriptToolNames = []string{
 	"list_script_tools", "create_script_tool", "update_script_tool", "test_script_tool", "enable_script_tool",
+}
+
+var actionToolNames = []string{
+	"send_message", "send_file",
+	"schedule_once", "schedule_repeating", "schedule_push", "cancel_schedule",
+	"get_my_tasks", "get_my_all_tasks", "get_task_detail", "get_assigned_tasks", "company_overview",
+	"assign_task", "update_assigned_task", "delete_assigned_task", "reassign_task", "accept_task", "reject_task",
+	"create_project", "archive_project", "delete_project",
+	"update_user_info", "save_infos_on_user", "save_my_infos", "invite_employee",
+	"create_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
+	"save_rule", "save_knowledge", "save_skill", "propose_learning_candidate",
+	"set_telegram_group_listen", "set_telegram_group_monitor", "set_telegram_group_auto_invite",
+	"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 }
 
 var peopleRouteKeywords = []string{

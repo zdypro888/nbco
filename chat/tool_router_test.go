@@ -87,6 +87,19 @@ func TestRouteTurnToolsKeepsCompanyOverviewForSystemTaskStatus(t *testing.T) {
 	}
 }
 
+func TestRouteTurnToolsAddsActionToolsForBareDeleteRequest(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "无成人陪伴这个删除掉吧。没用了", testRouteTools())
+	names := routeToolNameSet(routed)
+	for _, want := range []string{"get_assigned_tasks", "get_task_detail", "delete_assigned_task"} {
+		if !names[want] {
+			t.Fatalf("裸删除动作应暴露任务定位/删除工具 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
+		}
+	}
+	if !route.Has("action") {
+		t.Fatalf("裸删除动作应带 action route，route=%s", route.Summary())
+	}
+}
+
 func TestRouteTurnToolsAddsTelegramGroupTools(t *testing.T) {
 	routed, route := routeTurnTools("telegram:group:-100", "@bot 监听这个群并能撤回自己发错的消息", testRouteTools())
 	names := routeToolNameSet(routed)
