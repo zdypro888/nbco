@@ -32,6 +32,36 @@ func TestBuildCompactInput(t *testing.T) {
 	}
 }
 
+func TestSplitExecutableHistoryMovesDanglingUsersToInertContext(t *testing.T) {
+	msgs := []store.ChatMessage{
+		{ID: 1, Role: "user", Content: "查任务"},
+		{ID: 2, Role: "assistant", Content: "任务 #6"},
+		{ID: 3, Role: "user", Content: "把任务 #6 删除"},
+		{ID: 4, Role: "user", Content: "clone 源码准备升级"},
+	}
+	replay, inert := splitExecutableHistory(msgs)
+	if len(replay) != 2 || replay[1].Content != "任务 #6" {
+		t.Fatalf("可执行历史应只保留已闭合轮次: replay=%+v inert=%+v", replay, inert)
+	}
+	if len(inert) != 2 || inert[0].Content != "把任务 #6 删除" || inert[1].Content != "clone 源码准备升级" {
+		t.Fatalf("尾部未回复 user 应移入 inert: %+v", inert)
+	}
+	block := renderInertDanglingHistory(inert)
+	for _, want := range []string{"未回复历史消息", "禁止执行", "把任务 #6 删除", "当前要执行的唯一用户指令"} {
+		if !strings.Contains(block, want) {
+			t.Fatalf("inert block 缺 %q: %s", want, block)
+		}
+	}
+
+	replay, inert = splitExecutableHistory([]store.ChatMessage{
+		{Role: "user", Content: "查任务"},
+		{Role: "assistant", Content: "已查询"},
+	})
+	if len(replay) != 2 || len(inert) != 0 {
+		t.Fatalf("已闭合历史不应被裁剪: replay=%+v inert=%+v", replay, inert)
+	}
+}
+
 func TestIsGroupChannel(t *testing.T) {
 	if !isGroupChannel("telegram:group:-42") || isGroupChannel("telegram") || isGroupChannel("api") {
 		t.Error("群渠道判定错误")
