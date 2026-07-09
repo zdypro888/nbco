@@ -17,6 +17,7 @@ const state = {
   capabilities: [],
   decisions: [],
   approvals: [],
+  actionTurns: [],
   ops: null,
   ai: null,
   selected: null,
@@ -717,15 +718,59 @@ function capabilityDomainRows() {
 function renderLogsOnly() {
   const el = document.querySelector("#logs");
   if (!el) return;
-  if (!state.logs.length) {
+  const actionRows = state.actionTurns.map(t => ({
+    time: fmtTime(t.created_at),
+    source: "action",
+    level: actionLogLevel(t),
+    message: actionLogMessage(t),
+    status: actionOutcomeLabel(t),
+    duration: `${Number(t.success_tool_count || 0)}/${Number(t.tool_count || 0)} tools`,
+  }));
+  const rows = [...actionRows, ...state.logs];
+  if (!rows.length) {
     el.innerHTML = `<div class="empty">暂无日志。</div>`;
     return;
   }
   el.innerHTML = `
     <table class="log-table">
-      <thead><tr><th>时间</th><th>来源</th><th>级别</th><th>消息</th><th>HTTP 状态</th><th>耗时</th></tr></thead>
-      <tbody>${state.logs.map(l => `<tr><td>${l.time}</td><td>${esc(l.source)}</td><td>${logPill(l.level)}</td><td>${esc(l.message)}</td><td>${esc(l.status)}</td><td>${esc(l.duration)}</td></tr>`).join("")}</tbody>
+      <thead><tr><th>时间</th><th>来源</th><th>级别</th><th>消息</th><th>状态</th><th>工具/耗时</th></tr></thead>
+      <tbody>${rows.map(l => `<tr><td>${l.time}</td><td>${esc(l.source)}</td><td>${logPill(l.level)}</td><td>${esc(l.message)}</td><td>${esc(l.status)}</td><td>${esc(l.duration)}</td></tr>`).join("")}</tbody>
     </table>`;
+}
+
+function actionLogLevel(t) {
+  const outcome = String(t.outcome || "");
+  if (outcome === "evidence_ok") return "INFO";
+  if (outcome.includes("blocked") || outcome.includes("without_success")) return "WARN";
+  return "DEBUG";
+}
+
+function actionOutcomeLabel(t) {
+  const labels = {
+    evidence_ok: "已执行",
+    planned_without_tool: "未执行",
+    tool_attempted_without_success_evidence: "工具失败",
+    blocked_action_evidence: "已拦截",
+    blocked_no_tool_completion: "已拦截",
+    no_result: "无结果",
+  };
+  return labels[t.outcome] || t.outcome || "";
+}
+
+function actionLogMessage(t) {
+  const intent = t.intent ? `「${t.intent}」` : "动作";
+  const input = truncate(t.user_text_excerpt || "", 70);
+  const reply = truncate(t.reply_excerpt || "", 90);
+  const tools = (t.expected_tools || []).join(", ");
+  const actualTools = actionToolEvidenceLabel(t);
+  const toolHint = actualTools ? `｜工具：${actualTools}` : (tools ? `｜计划工具：${tools}` : "");
+  return `${intent}｜${input}${reply ? ` → ${reply}` : ""}${toolHint}`;
+}
+
+function actionToolEvidenceLabel(t) {
+  const ev = t.evidence && Array.isArray(t.evidence.tool_evidence) ? t.evidence.tool_evidence : [];
+  if (!ev.length) return "";
+  return ev.slice(0, 4).map(x => `${x.tool || "tool"}:${x.ok ? "ok" : "fail"}`).join(", ");
 }
 
 function selectedItem() {
@@ -860,7 +905,7 @@ async function loadRoute(route) {
     else if (route === "tasks") await Promise.allSettled([loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue"])]);
     else if (route === "workers") await loadAdminData(["workers"]);
     else if (route === "model") await loadAdminData(["ai", "capabilities"]);
-    else if (route === "ops") await loadAdminData(["ops", "ai", "workers"]);
+    else if (route === "ops") await loadAdminData(["ops", "ai", "workers", "actionTurns"]);
     else await loadCommandData();
   } catch (err) {
     state.notice = err.message;
@@ -873,7 +918,7 @@ async function loadRoute(route) {
 }
 
 async function loadCommandData() {
-  await Promise.allSettled([loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workers", "workflows", "capabilities", "decisions", "approvals", "ops", "ai"])]);
+  await Promise.allSettled([loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workers", "workflows", "capabilities", "decisions", "approvals", "actionTurns", "ops", "ai"])]);
 }
 
 async function loadFiles() {
@@ -905,6 +950,7 @@ async function loadAdminData(parts) {
   if (parts.includes("capabilities")) jobs.push(api("/api/admin/capabilities").then(d => { state.capabilities = d.capabilities || []; }));
   if (parts.includes("decisions")) jobs.push(api("/api/admin/decisions").then(d => { state.decisions = d.decisions || []; }));
   if (state.me?.is_superadmin && parts.includes("approvals")) jobs.push(api("/api/admin/approvals").then(d => { state.approvals = d.approvals || []; }));
+  if (parts.includes("actionTurns")) jobs.push(api(`/api/admin/action-turns${state.me?.is_superadmin ? "?scope=all" : ""}`).then(d => { state.actionTurns = d.turns || []; }));
   if (state.me?.is_superadmin && parts.includes("ops")) jobs.push(api("/api/admin/ops").then(d => { state.ops = d; }));
   if (state.me?.is_superadmin && parts.includes("ai")) jobs.push(api("/api/admin/ai-settings").then(d => { state.ai = d; }));
   const results = await Promise.allSettled(jobs);

@@ -116,6 +116,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/learning", s.handleAdminLearning)
 	mux.HandleFunc("GET /api/admin/decisions", s.handleAdminDecisions)
 	mux.HandleFunc("GET /api/admin/approvals", s.handleAdminApprovals)
+	mux.HandleFunc("GET /api/admin/action-turns", s.handleAdminActionTurns)
 	mux.HandleFunc("GET /api/admin/ops", s.handleAdminOps)
 	mux.HandleFunc("GET /api/admin/capabilities", s.handleAdminCapabilities)
 	mux.HandleFunc("GET /api/admin/workflows", s.handleAdminWorkflows)
@@ -339,6 +340,24 @@ func (s *Server) handleAdminApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"approvals": items})
+}
+
+func (s *Server) handleAdminActionTurns(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	scope := strings.TrimSpace(r.URL.Query().Get("scope"))
+	userID := u.ID
+	if u.IsSuperadmin && scope == "all" {
+		userID = 0
+	}
+	items, err := s.store.ListActionTurns(r.Context(), userID, 80)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取动作日志失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"turns": items})
 }
 
 func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {

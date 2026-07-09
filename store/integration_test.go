@@ -278,15 +278,19 @@ func TestRecordActionTurn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.RecordActionTurn(ctx, ActionTurnInput{
-		UserID:         u.ID,
-		SessionID:      &sess.ID,
-		Channel:        "telegram",
-		UserTextHash:   "abc123",
-		RequiresAction: true,
-		Intent:         "设置提醒",
-		ExpectedTools:  []string{"schedule_push"},
-		Evidence:       map[string]any{"tool_evidence": []map[string]any{{"tool": "schedule_push", "ok": true}}},
-		Outcome:        "evidence_ok",
+		UserID:           u.ID,
+		SessionID:        &sess.ID,
+		Channel:          "telegram",
+		UserTextHash:     "abc123",
+		UserTextExcerpt:  "明天 9 点提醒全体完善档案",
+		ReplyExcerpt:     "已设置推送。",
+		RequiresAction:   true,
+		Intent:           "设置提醒",
+		ExpectedTools:    []string{"schedule_push"},
+		Evidence:         map[string]any{"tool_evidence": []map[string]any{{"tool": "schedule_push", "ok": true}}},
+		Outcome:          "evidence_ok",
+		ToolCount:        1,
+		SuccessToolCount: 1,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -317,6 +321,13 @@ func TestRecordActionTurn(t *testing.T) {
 	}
 	if len(expected) != 0 {
 		t.Fatalf("nil expected_tools should roundtrip empty, got %v", expected)
+	}
+	items, err := s.ListActionTurns(ctx, u.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 || items[1].UserTextExcerpt != "明天 9 点提醒全体完善档案" || items[1].SuccessToolCount != 1 {
+		t.Fatalf("ListActionTurns 缺少可读动作轨迹: %+v", items)
 	}
 }
 

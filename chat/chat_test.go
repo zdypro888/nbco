@@ -341,6 +341,28 @@ func TestActionCompletionWithoutEvidence(t *testing.T) {
 	}
 }
 
+func TestActionRequiresToolRecovery(t *testing.T) {
+	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"send_message"}}
+	if !actionRequiresToolRecovery(plan, "我来帮你通知大家。", nil) {
+		t.Fatal("动作请求没有工具证据也没有缺参说明时应重跑")
+	}
+	if !actionRequiresToolRecovery(plan, "好的", nil) {
+		t.Fatal("动作请求的退化答复应重跑")
+	}
+	missing := &actionPlan{RequiresAction: true, ExpectedTools: []string{"send_message"}, MissingInfo: []string{"收件人"}}
+	if actionRequiresToolRecovery(missing, "请告诉我要发送给谁？", nil) {
+		t.Fatal("缺参澄清应允许返回")
+	}
+	failed := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "没有权限向全体发送消息。"}}
+	if actionRequiresToolRecovery(plan, "我没有权限向全体发送消息，需要授权。", failed) {
+		t.Fatal("工具失败后如实说明不应继续重跑")
+	}
+	ok := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "已发送给 3 人。"}}
+	if actionRequiresToolRecovery(plan, "已发送。", ok) {
+		t.Fatal("成功工具证据应放行")
+	}
+}
+
 func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
 	none := map[string]bool{}
 	if strings.Contains(materialDispatchPrompt(none), "analyze_company_materials") || strings.Contains(materialDispatchPrompt(none), "start_workflow: material_intake") {
@@ -378,7 +400,7 @@ func TestRepairActionEvidenceTurnRetriesWithEvidenceDiscipline(t *testing.T) {
 	if got.Text != "已设置推送。" || !hasSuccessfulActionEvidence(plan, got.Steps) {
 		t.Fatalf("重跑后应返回带成功工具证据的结果: %+v", got)
 	}
-	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有拿到能证明操作成功的工具结果") {
+	if len(eng.reqs) != 1 || !strings.Contains(eng.reqs[0].System, "没有形成成功工具证据") {
 		t.Fatalf("重跑系统提示应包含证据保护: %+v", eng.reqs)
 	}
 }

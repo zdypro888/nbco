@@ -286,8 +286,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = repaired
 		}
 	}
-	if actionCompletionWithoutEvidence(actionPlan, res.Text, res.Steps) {
-		slog.Warn("拦截缺少成功证据的操作完成声明",
+	if actionRequiresToolRecovery(actionPlan, res.Text, res.Steps) {
+		slog.Warn("拦截缺少成功证据的动作轮次",
 			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
 			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
 		repaired, rerr := o.repairActionEvidenceTurn(ctx, req, res, actionPlan, onDelta)
@@ -297,8 +297,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			engineOK = false
 			res.Text = actionEvidenceFallback()
 			res.FinishReason = "blocked_action_evidence"
-		} else if actionCompletionWithoutEvidence(actionPlan, repaired.Text, repaired.Steps) {
-			slog.Warn("操作证据重跑后仍无成功证据，改用系统兜底答复",
+		} else if actionRequiresToolRecovery(actionPlan, repaired.Text, repaired.Steps) {
+			slog.Warn("动作证据重跑后仍无成功证据或缺参说明，改用系统兜底答复",
 				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
 			res = repaired
 			res.Text = actionEvidenceFallback()
@@ -405,10 +405,10 @@ func (o *Orchestrator) repairActionEvidenceTurn(ctx context.Context, req *ai.Tur
 	retry.StreamReasoning = false
 	var b strings.Builder
 	b.WriteString(req.System)
-	b.WriteString("\n\n[系统保护]\n上一轮给出了完成式回复，但没有拿到能证明操作成功的工具结果。请重新处理同一个用户请求：\n")
-	b.WriteString("- 如果操作仍需要执行，必须调用合适工具，并以工具返回的成功结果为准。\n")
-	b.WriteString("- 如果工具返回权限不足、目标不存在、参数缺失、待确认动作、执行失败等，不要说已完成；直接说明未完成和下一步需要什么。\n")
-	b.WriteString("- 如果当前可见工具无法完成该请求，如实说明不能在当前渠道/权限下完成。\n")
+	b.WriteString("\n\n[系统保护]\n上一轮动作计划没有形成成功工具证据，也没有清楚说明缺参/权限/渠道限制。请重新处理同一个用户请求：\n")
+	b.WriteString("- 需要执行就调用当前可见的合适工具，并以工具返回结果为准。\n")
+	b.WriteString("- 工具失败、目标不存在、参数缺失、待确认动作或权限不足时，直接说明未完成和下一步。\n")
+	b.WriteString("- 当前可见工具无法完成该请求时，如实说明不能在当前渠道/权限下完成。\n")
 	if plan != nil {
 		if plan.Intent != "" {
 			b.WriteString("规划意图：" + plan.Intent + "\n")

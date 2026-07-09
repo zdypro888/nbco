@@ -64,7 +64,7 @@ func shouldRunActionPlanner(text string) bool {
 	if text == "" || strings.HasPrefix(text, "[系统") {
 		return false
 	}
-	return looksLikeSideEffectRequest(text)
+	return true
 }
 
 func actionPlannerSystem(toolset []ai.Tool) string {
@@ -230,6 +230,19 @@ func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
 	return out
 }
 
+func countToolEvidence(steps []ai.Step) (total, success int) {
+	for _, st := range steps {
+		if st.Kind != ai.StepToolCall {
+			continue
+		}
+		total++
+		if st.Err == "" && !toolResultLooksFailed(st.Result) {
+			success++
+		}
+	}
+	return total, success
+}
+
 func actionCompletionWithoutEvidence(plan *actionPlan, reply string, steps []ai.Step) bool {
 	if plan == nil || !plan.RequiresAction {
 		return false
@@ -239,6 +252,49 @@ func actionCompletionWithoutEvidence(plan *actionPlan, reply string, steps []ai.
 		return false
 	}
 	return !hasSuccessfulActionEvidence(plan, steps)
+}
+
+func actionRequiresToolRecovery(plan *actionPlan, reply string, steps []ai.Step) bool {
+	if plan == nil || !plan.RequiresAction {
+		return false
+	}
+	if hasSuccessfulActionEvidence(plan, steps) {
+		return false
+	}
+	if countToolCalls(steps) > 0 {
+		return actionCompletionWithoutEvidence(plan, reply, steps)
+	}
+	trimmed := strings.TrimSpace(reply)
+	if isDegenerateVisibleReply(trimmed) {
+		return true
+	}
+	if actionReplyExplainsBlockedOrMissing(plan, trimmed) {
+		return false
+	}
+	return true
+}
+
+func actionReplyExplainsBlockedOrMissing(plan *actionPlan, reply string) bool {
+	s := strings.ToLower(strings.TrimSpace(reply))
+	if s == "" {
+		return false
+	}
+	if len(plan.MissingInfo) > 0 && strings.ContainsAny(s, "?？") {
+		return true
+	}
+	needOrBlock := []string{
+		"缺少", "需要", "请提供", "请告诉", "请确认", "确认后", "哪位", "哪个", "什么时候",
+		"几点", "多少", "什么内容", "目标是谁", "发送给谁", "无法", "不能", "没法",
+		"没有权限", "权限不足", "无权限", "当前渠道", "当前工具", "没有可用", "找不到",
+		"未找到", "不存在", "需要授权", "需要到私聊", "pending approval", "permission",
+		"not found", "missing", "need", "cannot", "can't", "forbidden",
+	}
+	for _, p := range needOrBlock {
+		if strings.Contains(s, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
@@ -308,17 +364,27 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		evidence["tool_evidence"] = summarizeToolEvidence(res.Steps)
 		evidence["finish_reason"] = res.FinishReason
 	}
+	toolCount, successToolCount := 0, 0
+	replyExcerpt := ""
+	if res != nil {
+		toolCount, successToolCount = countToolEvidence(res.Steps)
+		replyExcerpt = textfmt.RedactSecrets(textfmt.SanitizeVisibleReply(res.Text))
+	}
 	sid := sess.ID
 	if err := o.store.RecordActionTurn(ctx, store.ActionTurnInput{
-		UserID:         u.ID,
-		SessionID:      &sid,
-		Channel:        channel,
-		UserTextHash:   contentHash(text),
-		RequiresAction: plan.RequiresAction,
-		Intent:         plan.Intent,
-		ExpectedTools:  plan.ExpectedTools,
-		Evidence:       evidence,
-		Outcome:        outcome,
+		UserID:           u.ID,
+		SessionID:        &sid,
+		Channel:          channel,
+		UserTextHash:     contentHash(text),
+		UserTextExcerpt:  textfmt.RedactSecrets(text),
+		ReplyExcerpt:     replyExcerpt,
+		RequiresAction:   plan.RequiresAction,
+		Intent:           plan.Intent,
+		ExpectedTools:    plan.ExpectedTools,
+		Evidence:         evidence,
+		Outcome:          outcome,
+		ToolCount:        toolCount,
+		SuccessToolCount: successToolCount,
 	}); err != nil {
 		slog.Warn("动作轮次记录失败", "session", sess.ID, "user", u.ID, "err", err)
 	}
