@@ -227,11 +227,23 @@ func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) []*s
 		return out
 	default: // self 或具体用户 ID（建表时已归一到 UserID）
 		u, err := s.store.UserByID(ctx, sc.UserID)
-		if err != nil || u.Status != store.UserActive {
+		if err != nil || !humanRecipient(u) {
 			return nil
 		}
 		return []*store.User{u}
 	}
+}
+
+func humanRecipient(u *store.User) bool {
+	return u != nil && u.Status == store.UserActive && !u.IsWorker
+}
+
+func (s *Scheduler) humanUser(ctx context.Context, userID int64) (*store.User, bool) {
+	u, err := s.store.UserByID(ctx, userID)
+	if err != nil || !humanRecipient(u) {
+		return nil, false
+	}
+	return u, true
 }
 
 // nudgePass AI 催办：过期且长时间无动静的任务，跑一轮 AI 让它核实状态后
@@ -250,7 +262,7 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 			continue // 不应发生：过期通知必有截止时间；防御 panic 拖垮调度器
 		}
 		u, err := s.store.UserByID(ctx, t.AssigneeID)
-		if err != nil || u.Status != store.UserActive {
+		if err != nil || !humanRecipient(u) {
 			continue
 		}
 		slog.Info("AI 催办启动", "task", t.ID, "user", u.ID, "nudge_count", t.NudgeCount)
@@ -365,7 +377,7 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		"画像条目写可执行的判断（擅长什么、可靠度、适合派什么任务），不写空话。" +
 		"最后回复一份简短盘点摘要（每人一行）。若工具轮次不够用，优先覆盖任务量最大的成员，并在摘要里说明未覆盖谁。"
 	for _, u := range users {
-		if !u.IsSuperadmin || u.Status != store.UserActive {
+		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
 		s.dispatchAI(ctx, u, directive, "🧭 月度人员盘点\n", "画像盘点", nil)
@@ -414,7 +426,7 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		"行为规则（list_rules）只检查是否与知识冲突，不要修改规则本身。" +
 		"最后回复一份简短盘点报告：合并了什么、删了什么、发现哪些冲突；没有可整理的就说明知识库当前健康。"
 	for _, u := range users {
-		if !u.IsSuperadmin || u.Status != store.UserActive {
+		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
 		s.dispatchAI(ctx, u, directive, "📚 月度知识盘点\n", "知识盘点", nil)
@@ -459,7 +471,7 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 			"语言简洁，直接给结论。你的回复会作为周报直接推送给老板。",
 		local.Format("2006-01-02"))
 	for _, u := range users {
-		if !u.IsSuperadmin || u.Status != store.UserActive {
+		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
 		s.dispatchAI(ctx, u, directive, "📈 每周汇总\n", "周报", nil)
@@ -475,10 +487,17 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 	for _, t := range warn {
 		t := t
 		s.sendPool.submit(ctx, func() {
-			if s.send(ctx, t.AssigneeID,
+			_, ok := s.humanUser(ctx, t.AssigneeID)
+			if ok && s.send(ctx, t.AssigneeID,
 				fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline))) {
 				if err := s.store.MarkDeadlineReminderSent(ctx, t.ID, time.Now().UTC()); err != nil {
 					slog.Warn("临近截止提醒 ack 失败", "task", t.ID, "err", err)
+				}
+				return
+			}
+			if !ok {
+				if err := s.store.MarkDeadlineReminderSent(ctx, t.ID, time.Now().UTC()); err != nil {
+					slog.Warn("worker 临近截止提醒跳过 ack 失败", "task", t.ID, "err", err)
 				}
 			}
 		})
@@ -491,8 +510,12 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 	for _, t := range over {
 		t := t
 		s.sendPool.submit(ctx, func() {
-			ok := s.send(ctx, t.AssigneeID,
-				fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+			_, human := s.humanUser(ctx, t.AssigneeID)
+			ok := true
+			if human {
+				ok = s.send(ctx, t.AssigneeID,
+					fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+			}
 			if t.AssignerID != t.AssigneeID {
 				// 分配者侧走事件总线：AI 结合 worker 在线/任务状态决定是否改派或额外通知，
 				// 而非死板模板。bus 未装配（测试）时回退原文模板，保证必达。
@@ -527,6 +550,12 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 			continue
 		}
 		s.sendPool.submit(ctx, func() {
+			if _, ok := s.humanUser(ctx, g.OwnerID); !ok {
+				if err := s.store.MarkGoalDeadlineReminderSent(ctx, g.ID, time.Now().UTC()); err != nil {
+					slog.Warn("worker 目标临近截止提醒跳过 ack 失败", "goal", g.ID, "err", err)
+				}
+				return
+			}
 			if s.send(ctx, g.OwnerID,
 				fmt.Sprintf("⏳ 战略目标「%s」将于 %s 到期，请确认里程碑进度是否需要调整。", g.Title, s.fmtTime(*g.Deadline))) {
 				if err := s.store.MarkGoalDeadlineReminderSent(ctx, g.ID, time.Now().UTC()); err != nil {
@@ -546,6 +575,12 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 			continue
 		}
 		s.sendPool.submit(ctx, func() {
+			if _, human := s.humanUser(ctx, g.OwnerID); !human {
+				if err := s.store.MarkGoalOverdueNoticeSent(ctx, g.ID, time.Now().UTC()); err != nil {
+					slog.Warn("worker 目标过期通知跳过 ack 失败", "goal", g.ID, "err", err)
+				}
+				return
+			}
 			// 与任务过期同构：owner 先同步收到模板（ack 基准=必达），bus 是额外的 AI 介入
 			// （结合里程碑停滞决定是否点名/升级）——bus 是 fire-and-forget，可能去重/丢弃，
 			// 故不能用它来决定 ack，否则事件丢了却永不重试（违背「事件必达」）。
@@ -581,6 +616,12 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 			if ownerID == 0 {
 				return // 目标已删，跳过
 			}
+			if _, ok := s.humanUser(ctx, ownerID); !ok {
+				if err := s.store.MarkMilestoneDeadlineReminderSent(ctx, m.ID, time.Now().UTC()); err != nil {
+					slog.Warn("worker 里程碑临近截止提醒跳过 ack 失败", "milestone", m.ID, "err", err)
+				}
+				return
+			}
 			if s.send(ctx, ownerID,
 				fmt.Sprintf("⏳ 里程碑「%s」（属目标「%s」）将于 %s 到期。", m.Title, gTitle, s.fmtTime(*m.Deadline))) {
 				if err := s.store.MarkMilestoneDeadlineReminderSent(ctx, m.ID, time.Now().UTC()); err != nil {
@@ -602,6 +643,12 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 		s.sendPool.submit(ctx, func() {
 			ownerID, gTitle := s.milestoneOwner(ctx, m.GoalID)
 			if ownerID == 0 {
+				return
+			}
+			if _, human := s.humanUser(ctx, ownerID); !human {
+				if err := s.store.MarkMilestoneOverdueNoticeSent(ctx, m.ID, time.Now().UTC()); err != nil {
+					slog.Warn("worker 里程碑过期通知跳过 ack 失败", "milestone", m.ID, "err", err)
+				}
 				return
 			}
 			// 与目标/任务过期同构：owner 先同步收模板（ack 基准=必达），bus 是额外的 AI 介入。
@@ -663,7 +710,7 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 	// 逐人查待办 + 推送：受 sendPool 限并发异步扇出，几百上千人也不会串行拖成
 	// 一长串，也不阻塞调度节拍（都是廉价 DB 查询 + 一条推送）。
 	for _, u := range users {
-		if u.Status != store.UserActive {
+		if !humanRecipient(u) {
 			continue
 		}
 		u := u

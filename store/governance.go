@@ -128,18 +128,6 @@ func scanKnowledgeVersion(row interface{ Scan(...any) error }) (*KnowledgeVersio
 	return &v, nil
 }
 
-func (s *Store) snapshotKnowledge(ctx context.Context, id int64, changedBy *int64, note string) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err := snapshotKnowledgeRow(ctx, tx, id, changedBy, note); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
 func snapshotKnowledgeRow(ctx context.Context, q pgx.Tx, id int64, changedBy *int64, note string) error {
 	k, err := scanKnowledge(q.QueryRow(ctx, `SELECT `+knowledgeCols+` FROM knowledge WHERE id = $1 FOR UPDATE`, id))
 	if err != nil {

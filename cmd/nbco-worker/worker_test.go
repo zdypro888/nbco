@@ -172,13 +172,67 @@ func TestWorkDirUsesSessionScope(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	w := &Worker{}
-	dir, err := w.workDir(&Task{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco"}})
+	dir, err := w.workDir(&Task{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeType: "project", ScopeKey: "project:7"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(home, "nbco-work", "sessions", "codex", "repo-nbco")
+	want := filepath.Join(home, "nbco-work", "sessions", "codex", "project-7")
 	if dir != want {
 		t.Fatalf("session workDir = %q, want %q", dir, want)
+	}
+}
+
+func TestWorkDirRepoScopeRequiresSourceWorkspace(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	w := &Worker{}
+	task := &Task{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeType: "repo", ScopeKey: "repo:nbco"}}
+	want := filepath.Join(home, "nbco-work", "sessions", "codex", "repo-nbco")
+	dir, err := w.workDir(task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dir != want {
+		t.Fatalf("repo session workDir = %q, want %q", dir, want)
+	}
+	if _, err := os.Stat(want); !os.IsNotExist(err) {
+		t.Fatalf("repo default workspace should not be created before git repo exists, stat err=%v", err)
+	}
+	if got := repoWorkspaceProblem(task.Session, dir); !strings.Contains(got, "session_workspaces") {
+		t.Fatalf("missing repo workspace should be blocked with config hint, got %q", got)
+	}
+
+	if err := os.MkdirAll(filepath.Join(want, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir, err = w.workDir(task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dir != want {
+		t.Fatalf("repo session workDir = %q, want %q", dir, want)
+	}
+}
+
+func TestRepoWorkspaceProblem(t *testing.T) {
+	session := SessionInfo{ScopeType: "repo", ScopeKey: "repo:nbco"}
+	dir := t.TempDir()
+	if got := repoWorkspaceProblem(session, dir); !strings.Contains(got, "不是 git 仓库") {
+		t.Fatalf("non-git repo workspace should be blocked, got %q", got)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := repoWorkspaceProblem(session, dir); got != "" {
+		t.Fatalf("git repo workspace should pass, got %q", got)
+	}
+
+	fileGit := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fileGit, ".git"), []byte("gitdir: ../actual.git\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := repoWorkspaceProblem(session, fileGit); got != "" {
+		t.Fatalf("git worktree file should pass, got %q", got)
 	}
 }
 

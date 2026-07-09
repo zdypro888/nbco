@@ -103,7 +103,10 @@ func (s *Store) FileStoragePaths(ctx context.Context) (map[string]bool, error) {
 func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64, caption string) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
-		 VALUES ($1, 'file', $2, $3, $4)`,
+		 SELECT $1, 'file', $2, $3, $4
+		 WHERE NOT EXISTS (
+		   SELECT 1 FROM task_attachments WHERE task_id = $1 AND file_id = $4
+		 )`,
 		taskID, fmt.Sprint(fileID), caption, fileID)
 	return wrapErr(err)
 }

@@ -69,11 +69,17 @@ func TestWorkerDownloadRejectsUnknownName(t *testing.T) {
 }
 
 func TestLooksLikeNBCOCodeTask(t *testing.T) {
-	if !looksLikeNBCOCodeTask("nbco 需要增加功能并部署到 im.app") {
+	if !looksLikeNBCOCodeTask("nbco 需要增加功能并部署到生产环境") {
 		t.Fatal("nbco code/deploy task should map to repo scope")
+	}
+	if !looksLikeNBCOCodeTask("按 skill 执行，标签包含 repo:nbco") {
+		t.Fatal("explicit repo scope tag should map to repo scope")
 	}
 	if looksLikeNBCOCodeTask("整理 nbco 公司资料表格") {
 		t.Fatal("plain material task mentioning nbco should not automatically map to repo scope")
+	}
+	if looksLikeNBCOCodeTask("nbco worker 普通资料同步") {
+		t.Fatal("plain worker mention should not automatically map to repo scope")
 	}
 }
 

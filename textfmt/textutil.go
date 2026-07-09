@@ -4,6 +4,7 @@ package textfmt
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -50,4 +51,27 @@ func NormalizeScopeTags(tags []string, scope string) []string {
 		out = append(out, tag)
 	}
 	return out
+}
+
+var (
+	secretJSONAssignmentRe = regexp.MustCompile(`(?i)("?(?:api[_-]?key|api[_-]?hash|access[_-]?token|worker[_-]?access[_-]?token|token|secret|password)"?\s*:\s*")([^"]{8,})(")`)
+	secretKVAssignmentRe   = regexp.MustCompile(`(?i)\b((?:api[_-]?key|api[_-]?hash|access[_-]?token|worker[_-]?access[_-]?token|token|secret|password)\s*[:=]\s*["']?)([^"'\s<]{8,})(["']?)`)
+	secretPatterns         = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\bbearer\s+[a-z0-9._~+/=-]{12,}`),
+		regexp.MustCompile(`(?i)\bsk-[a-z0-9][a-z0-9._-]{12,}`),
+		regexp.MustCompile(`(?i)\b[0-9]{6,14}:[a-z0-9_-]{20,}\b`),
+		regexp.MustCompile(`(?i)\b[a-z0-9]{24,}\.[a-z0-9_-]{12,}\b`),
+		regexp.MustCompile(`(?i)\b[a-f0-9]{48,}\b`),
+	}
+)
+
+// RedactSecrets removes API keys, Telegram bot tokens, worker access tokens,
+// and common credential assignments before text is persisted in logs/history.
+func RedactSecrets(s string) string {
+	s = secretJSONAssignmentRe.ReplaceAllString(s, `$1[redacted]$3`)
+	s = secretKVAssignmentRe.ReplaceAllString(s, `$1[redacted]$3`)
+	for _, re := range secretPatterns {
+		s = re.ReplaceAllString(s, "[redacted]")
+	}
+	return s
 }

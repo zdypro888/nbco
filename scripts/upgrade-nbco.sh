@@ -23,6 +23,10 @@ Environment overrides:
   NBCO_ALLOW_DIRTY=0
   NBCO_REQUIRE_HEALTH_BEFORE=1
   NBCO_SKIP_TESTS=0
+  NBCO_LOCK_FILE=/var/lock/nbco-upgrade.lock
+  NBCO_UPGRADE_WORKER=auto             # auto|1|0; auto upgrades a detected local worker service
+  NBCO_WORKER_SERVICE=nbco-worker
+  NBCO_WORKER_BIN=/path/to/nbco-worker # optional; default: detected from worker service ExecStart
 
 Examples:
   scripts/upgrade-nbco.sh
@@ -51,8 +55,10 @@ keep_backups="${NBCO_KEEP_BACKUPS:-10}"
 allow_dirty="${NBCO_ALLOW_DIRTY:-0}"
 require_health_before="${NBCO_REQUIRE_HEALTH_BEFORE:-1}"
 skip_tests="${NBCO_SKIP_TESTS:-0}"
+upgrade_worker="${NBCO_UPGRADE_WORKER:-auto}"
+worker_service="${NBCO_WORKER_SERVICE:-nbco-worker}"
 
-lock_file="/var/lock/nbco-upgrade.lock"
+lock_file="${NBCO_LOCK_FILE:-/var/lock/nbco-upgrade.lock}"
 ts="$(date -u '+%Y%m%d%H%M%S')"
 repo_dir=""
 app_dir=""
@@ -65,16 +71,37 @@ health_url=""
 stage_dir=""
 stage_bin=""
 backup_bin=""
+stage_worker_bin=""
+current_worker_bin=""
+worker_bin_name=""
+backup_worker_bin=""
+build_worker=0
 
 need() { command -v "$1" >/dev/null 2>&1 || die "missing command: $1"; }
 
-detect_exec_bin() {
-	local line bin
-	line="$(systemctl cat "${service}" 2>/dev/null | awk -F= '/^ExecStart=/ {print $2; exit}' || true)"
-	bin="${line%% *}"
+detect_service_exec_bin() {
+	local svc="$1" line bin
+	line="$(systemctl cat "${svc}" 2>/dev/null | awk -F= '/^ExecStart=/ {print $2; exit}' || true)"
+	line="${line#"${line%%[![:space:]]*}"}"
+	line="${line#-}" # systemd allows ExecStart=-/path to ignore command failure.
+	if [[ "${line}" == \"* ]]; then
+		bin="${line#\"}"
+		bin="${bin%%\"*}"
+	else
+		bin="${line%% *}"
+	fi
+	bin="${bin%\"}"
 	if [[ -n "${bin}" && -x "${bin}" ]]; then
 		printf '%s\n' "${bin}"
 	fi
+}
+
+detect_exec_bin() {
+	detect_service_exec_bin "${service}"
+}
+
+service_exists() {
+	systemctl cat "$1" >/dev/null 2>&1
 }
 
 detect_config_file() {
@@ -168,6 +195,23 @@ rollback() {
 	exit 1
 }
 
+rollback_worker() {
+	local reason="$1"
+	log "worker upgrade failed: ${reason}"
+	if [[ -f "${backup_worker_bin}" ]]; then
+		log "rolling back worker binary: ${backup_worker_bin} -> ${current_worker_bin}"
+		install -m 0755 "${backup_worker_bin}" "${current_worker_bin}" || true
+		systemctl restart "${worker_service}" || true
+		if systemctl is-active --quiet "${worker_service}"; then
+			log "worker rollback succeeded"
+		else
+			log "worker rollback attempted but ${worker_service} is not active"
+			journalctl -u "${worker_service}" --since '5 minutes ago' --no-pager | tail -n 120 || true
+		fi
+	fi
+	exit 1
+}
+
 main() {
 	need flock
 	need git
@@ -211,6 +255,27 @@ main() {
 	stage_dir="${bin_dir}/.upgrade-${ts}"
 	stage_bin="${stage_dir}/${bin_name}"
 	backup_bin="${current_bin}.bak.${ts}"
+	case "${upgrade_worker}" in
+		0|false|FALSE|no|NO)
+			build_worker=0
+			;;
+		auto|1|true|TRUE|yes|YES)
+			current_worker_bin="${NBCO_WORKER_BIN:-$(detect_service_exec_bin "${worker_service}" || true)}"
+			if [[ -n "${current_worker_bin}" && -x "${current_worker_bin}" ]] && service_exists "${worker_service}"; then
+				build_worker=1
+				worker_bin_name="$(basename "${current_worker_bin}")"
+				stage_worker_bin="${stage_dir}/${worker_bin_name}"
+				backup_worker_bin="${current_worker_bin}.bak.${ts}"
+			elif [[ "${upgrade_worker}" == "1" || "${upgrade_worker}" == "true" || "${upgrade_worker}" == "TRUE" || "${upgrade_worker}" == "yes" || "${upgrade_worker}" == "YES" ]]; then
+				die "worker upgrade requested but ${worker_service} or worker binary could not be detected; set NBCO_WORKER_SERVICE/NBCO_WORKER_BIN or NBCO_UPGRADE_WORKER=0"
+			else
+				log "worker upgrade skipped: ${worker_service} service/binary not detected"
+			fi
+			;;
+		*)
+			die "NBCO_UPGRADE_WORKER must be auto, 1, or 0"
+			;;
+	esac
 
 	[[ -d "${repo_dir}/.git" ]] || die "repo not found: ${repo_dir}"
 	[[ -d "${bin_dir}" ]] || die "bin dir not found: ${bin_dir}"
@@ -257,9 +322,18 @@ main() {
 	trap cleanup_stage EXIT
 	go build -trimpath -ldflags="-X main.version=${rev}" -o "${stage_bin}" ./cmd/nbco
 	chmod 0755 "${stage_bin}"
+	if [[ "${build_worker}" == "1" ]]; then
+		log "building ${stage_worker_bin}"
+		go build -trimpath -ldflags="-s -w" -o "${stage_worker_bin}" ./cmd/nbco-worker
+		chmod 0755 "${stage_worker_bin}"
+	fi
 
 	if [[ "${dry_run}" == "1" ]]; then
-		log "dry run complete; built ${stage_bin}, no restart performed"
+		if [[ "${build_worker}" == "1" ]]; then
+			log "dry run complete; built ${stage_bin} and ${stage_worker_bin}, no restart performed"
+		else
+			log "dry run complete; built ${stage_bin}, no restart performed"
+		fi
 		exit 0
 	fi
 
@@ -281,11 +355,31 @@ main() {
 	log "upgrade succeeded: ${service} is healthy at ${rev}"
 	collect_logs | tail -n 40 || true
 
+	if [[ "${build_worker}" == "1" ]]; then
+		log "backing up worker ${current_worker_bin} -> ${backup_worker_bin}"
+		cp -p "${current_worker_bin}" "${backup_worker_bin}"
+		log "installing new worker binary"
+		install -m 0755 "${stage_worker_bin}" "${current_worker_bin}"
+		log "restarting ${worker_service}"
+		systemctl restart "${worker_service}" || rollback_worker "systemctl restart ${worker_service} failed"
+		if ! systemctl is-active --quiet "${worker_service}"; then
+			rollback_worker "${worker_service} is not active after restart"
+		fi
+		log "worker upgrade succeeded: ${worker_service} is active"
+		journalctl -u "${worker_service}" --since '2 minutes ago' --no-pager | tail -n 40 || true
+	fi
+
 	log "pruning old backups, keeping ${keep_backups}"
 	find "${bin_dir}" -maxdepth 1 -type f -name "${bin_name}.bak.*" -print0 |
 		xargs -0 ls -1t 2>/dev/null |
 		awk "NR>${keep_backups}" |
 		xargs -r rm -f
+	if [[ "${build_worker}" == "1" ]]; then
+		find "$(dirname "${current_worker_bin}")" -maxdepth 1 -type f -name "${worker_bin_name}.bak.*" -print0 |
+			xargs -0 ls -1t 2>/dev/null |
+			awk "NR>${keep_backups}" |
+			xargs -r rm -f
+	fi
 }
 
 main "$@"

@@ -96,3 +96,18 @@ func TestSchedulePoolRoutesAIWithoutSendPool(t *testing.T) {
 		t.Fatal("AI schedule without orchestrator falls back to template sendPool")
 	}
 }
+
+func TestHumanRecipientSkipsWorkers(t *testing.T) {
+	if !humanRecipient(&store.User{Status: store.UserActive}) {
+		t.Fatal("active human should be a schedule recipient")
+	}
+	if humanRecipient(&store.User{Status: store.UserActive, IsWorker: true}) {
+		t.Fatal("worker accounts should not receive human schedule notifications")
+	}
+	if humanRecipient(&store.User{Status: "disabled"}) {
+		t.Fatal("inactive users should not receive schedule notifications")
+	}
+	if humanRecipient(nil) {
+		t.Fatal("nil user should not be a recipient")
+	}
+}

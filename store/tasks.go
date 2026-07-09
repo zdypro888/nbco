@@ -901,7 +901,12 @@ func (s *Store) ProgressOf(ctx context.Context, taskID int64) ([]Progress, error
 // AddAttachment 挂附件。
 func (s *Store) AddAttachment(ctx context.Context, a Attachment) error {
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO task_attachments (task_id, kind, file_ref, caption) VALUES ($1, $2, $3, $4)`,
+		`INSERT INTO task_attachments (task_id, kind, file_ref, caption)
+		 SELECT $1, $2, $3, $4
+		 WHERE NOT EXISTS (
+		   SELECT 1 FROM task_attachments
+		   WHERE task_id = $1 AND kind = $2 AND file_ref = $3 AND file_id IS NULL
+		 )`,
 		a.TaskID, a.Kind, a.FileRef, a.Caption)
 	return wrapErr(err)
 }

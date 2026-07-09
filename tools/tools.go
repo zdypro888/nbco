@@ -20,6 +20,7 @@ import (
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/workerhub"
 )
 
@@ -471,7 +472,9 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 			result = err.Error()
 		}
 		if s != nil {
-			if aerr := s.Audit(ctx, userID, sessionID, name, args, truncate(result, 2000), ok); aerr != nil {
+			safeArgs := json.RawMessage(textfmt.RedactSecrets(string(args)))
+			safeResult := textfmt.RedactSecrets(result)
+			if aerr := s.Audit(ctx, userID, sessionID, name, safeArgs, truncate(safeResult, 2000), ok); aerr != nil {
 				slog.Warn("审计写入失败", "tool", name, "err", aerr)
 			}
 		}

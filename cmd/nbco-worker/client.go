@@ -232,6 +232,13 @@ func (c *Client) Progress(ctx context.Context, taskID int64, claimID, content st
 	return c.post(ctx, "/api/worker/progress", map[string]any{"task_id": taskID, "claim_id": claimID, "content": content})
 }
 
+// RequestInput asks the task assigner for missing information without marking
+// the task as done. The server keeps the current claim until the assigner
+// updates/reassigns the task, so the worker will not loop on the same blocker.
+func (c *Client) RequestInput(ctx context.Context, taskID int64, claimID, content string) error {
+	return c.post(ctx, "/api/worker/request-input", map[string]any{"task_id": taskID, "claim_id": claimID, "content": content})
+}
+
 // Submit 提交完成，进入验收流；lessons 非空则回流知识库。
 func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string) error {
 	return c.post(ctx, "/api/worker/submit", map[string]any{

@@ -305,10 +305,6 @@ func learningValueScore(c *LearningCandidate) float32 {
 	return score
 }
 
-func equalFoldTrim(a, b string) bool {
-	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
-}
-
 func likelyLearningConflict(a, b *LearningCandidate) bool {
 	if a == nil || b == nil {
 		return false

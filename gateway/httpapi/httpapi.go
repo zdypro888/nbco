@@ -129,6 +129,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/worker/llm", s.handleWorkerLLM)
 	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
+	mux.HandleFunc("POST /api/worker/request-input", s.handleWorkerRequestInput)
 	mux.HandleFunc("POST /api/worker/submit", s.handleWorkerSubmit)
 	mux.HandleFunc("GET /api/worker/files/{id}", s.handleWorkerDownloadFile)
 	mux.HandleFunc("POST /api/worker/artifacts", s.handleWorkerArtifact)
@@ -1339,12 +1340,15 @@ func (s *Server) workerSessionScope(ctx context.Context, t *store.Task) (scopeTy
 }
 
 func looksLikeNBCOCodeTask(text string) bool {
+	if strings.Contains(text, "repo:nbco") || strings.Contains(text, "repository:nbco") {
+		return true
+	}
 	if !strings.Contains(text, "nbco") {
 		return false
 	}
 	for _, kw := range []string{
 		"代码", "功能", "修复", "bug", "部署", "升级", "commit", "push", "测试", "go test",
-		"codex", "claude", "repo", "repository", "代码库", "im.app", "worker",
+		"codex", "claude", "repo", "repository", "代码库", "仓库",
 	} {
 		if strings.Contains(text, kw) {
 			return true
@@ -1375,6 +1379,43 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "记录失败"})
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+}
+
+func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		TaskID  int64  `json:"task_id"`
+		ClaimID string `json:"claim_id"`
+		Content string `json:"content"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.Content) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 与 content 必填"})
+		return
+	}
+	ctx := r.Context()
+	content := "❓ 需要补充信息：" + strings.TrimSpace(req.Content)
+	if err := s.store.AddWorkerProgress(ctx, req.TaskID, u.ID, req.ClaimID, content); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许请求补充信息（可能已被改派或重置）"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "记录失败"})
+		return
+	}
+	t, err := s.store.TaskByID(ctx, req.TaskID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "查询任务失败"})
+		return
+	}
+	if t.AssignerID != u.ID && s.bus != nil {
+		s.bus.Emit("任务需要补充信息", t.AssignerID,
+			fmt.Sprintf("AI 员工「%s」执行任务「%s」（任务内部编号 %d）时需要你补充信息：%s",
+				u.Name, t.Title, t.ID, truncateRunes(req.Content, 500)))
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
 }

@@ -197,6 +197,13 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
 		return
 	}
+	if msg := repoWorkspaceProblem(task.Session, dir); msg != "" {
+		if err := w.client.RequestInput(ctx, task.ID, task.ClaimID, msg); err != nil {
+			log.Printf("请求补充 repo workspace 信息 #%d 失败: %v", task.ID, err)
+			w.report(ctx, task.ID, task.ClaimID, msg)
+		}
+		return
+	}
 	marks := newCompletionMarks()
 	prompt := buildPromptWithMarks(task, knowledge, history, marks)
 
@@ -388,6 +395,9 @@ func (w *Worker) workDir(task *Task) (string, error) {
 			return dir, os.MkdirAll(dir, 0o755)
 		}
 		dir := filepath.Join(home, "nbco-work", "sessions", safeScopePath(task.Session.Engine), safeScopePath(task.Session.ScopeKey))
+		if isRepoSession(task.Session) && !isGitWorktree(dir) {
+			return dir, nil
+		}
 		return dir, os.MkdirAll(dir, 0o755)
 	}
 	taskID := int64(0)
@@ -402,6 +412,45 @@ func (w *Worker) workDir(task *Task) (string, error) {
 	}
 	dir := filepath.Join(home, "nbco-work", fmt.Sprintf("task-%d", taskID), "claim-"+claim)
 	return dir, os.MkdirAll(dir, 0o755)
+}
+
+func repoWorkspaceProblem(session SessionInfo, dir string) string {
+	if !isRepoSession(session) {
+		return ""
+	}
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return "代码仓库会话需要补充源码信息：缺少可用源码目录。请回复这个任务可用的仓库地址/分支，或在 worker 配置 session_workspaces 指向已 clone 的源码目录。"
+	}
+	if isGitWorktree(dir) {
+		return ""
+	}
+	scope := strings.TrimSpace(session.ScopeKey)
+	if scope == "" {
+		scope = strings.TrimSpace(session.ScopeType)
+	}
+	if scope == "" {
+		scope = "repo"
+	}
+	return fmt.Sprintf("代码仓库会话需要补充源码信息：scope=%s，工作目录 %s 不是 git 仓库。请回复这个任务可用的仓库地址/分支，或在 worker 配置 session_workspaces[%q] 指向已 clone 的源码目录；worker 不会让 AI CLI 在空目录里猜测或自动 clone。", scope, dir, scope)
+}
+
+func isRepoSession(session SessionInfo) bool {
+	scopeType := strings.ToLower(strings.TrimSpace(session.ScopeType))
+	scopeKey := strings.ToLower(strings.TrimSpace(session.ScopeKey))
+	return scopeType == "repo" ||
+		strings.HasPrefix(scopeKey, "repo:") ||
+		strings.HasPrefix(scopeKey, "repository:")
+}
+
+func isGitWorktree(dir string) bool {
+	if strings.TrimSpace(dir) == "" {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+		return true
+	}
+	return false
 }
 
 func (w *Worker) configuredWorkspace(session SessionInfo) string {

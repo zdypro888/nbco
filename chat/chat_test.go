@@ -213,6 +213,40 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 	}
 }
 
+func TestSideEffectCompletionWithoutTools(t *testing.T) {
+	if !sideEffectCompletionWithoutTools("明天早上 9 点提醒全体员工完善个人档案", "已为您设置好定时推送。", nil) {
+		t.Fatal("无工具调用的操作完成声明应被拦截")
+	}
+	if !sideEffectCompletionWithoutTools("把 worker 重命名为 NBAI", "of", nil) {
+		t.Fatal("操作请求里的极短碎片应被拦截")
+	}
+	if sideEffectCompletionWithoutTools("这个任务现在是什么状态？", "任务正在进行中。", nil) {
+		t.Fatal("事实查询不应按操作完成声明拦截")
+	}
+	if sideEffectCompletionWithoutTools("明天提醒我开会", "已设置。", []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push"}}) {
+		t.Fatal("有工具调用的轮次不应被无工具守卫拦截")
+	}
+	if !strings.Contains(noToolCompletionFallback(), "没有成功执行任何系统工具") {
+		t.Fatal("fallback 应明确说明未执行工具")
+	}
+}
+
+func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
+	none := map[string]bool{}
+	if strings.Contains(materialDispatchPrompt(none), "analyze_company_materials") || strings.Contains(materialDispatchPrompt(none), "start_workflow: material_intake") {
+		t.Fatal("无权限提示不应暴露不可用资料分析工具名")
+	}
+	if !strings.Contains(materialDispatchPrompt(map[string]bool{"start_workflow": true}), "material_intake") {
+		t.Fatal("有 start_workflow 时应提示资料分析工作流")
+	}
+	if strings.Contains(workerDispatchPrompt(none), "start_worker_skill") || strings.Contains(workerDispatchPrompt(none), "start_workflow: nbco_upgrade") {
+		t.Fatal("无权限提示不应诱导调用不可用 worker 工具")
+	}
+	if !strings.Contains(workerDispatchPrompt(map[string]bool{"start_worker_skill": true}), "start_worker_skill") {
+		t.Fatal("有 worker skill 工具时应提示可派发")
+	}
+}
+
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，
 // 普通轮次返回固定答复并记录请求。
 type fakeEngine struct {

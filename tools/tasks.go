@@ -124,6 +124,9 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					if _, err := d.Store.UpdateTaskStatus(ctx, t.ID, args.Status); err != nil {
 						return "", err
 					}
+					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "📌 状态更新为 "+args.Status+"。"); err != nil {
+						return "", err
+					}
 					return "已更新为 " + args.Status + "。", nil
 				}
 				// 提交完成：自派任务免验收直接 accepted 并向上级联；否则进入待验收。
@@ -135,11 +138,17 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				if t2.Status == store.TaskDone {
+					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 已提交，等待分配者验收。"); err != nil {
+						return "", err
+					}
 					// 任务提交待验收交分配者的 AI 分析（与 worker HTTP 提交路径合一）：
 					// AI 结合会话上下文给出验收建议再通知，而非死板模板。
 					emitEvent(d, "任务提交待验收", t.AssignerID,
 						fmt.Sprintf("「%s」提交了任务「%s」（%s）待你验收。", u.Name, t.Title, internalRef("任务", t.ID)))
 					return "已提交，等待分配者验收。", nil
+				}
+				if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 已完成（自派任务免验收）。"); err != nil {
+					return "", err
 				}
 				notifyChain(ctx, d, u, chain)
 				return "已完成（自派任务免验收）。", nil
@@ -189,10 +198,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				for _, c := range chain {
 					FireReadyDependents(ctx, d, c.ID)
 				}
+				msg := "✅ 验收通过。"
 				if c := strings.TrimSpace(args.Comment); c != "" {
-					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 验收通过："+c); err != nil {
-						return "", err
-					}
+					msg = "✅ 验收通过：" + c
+				}
+				if err := d.Store.AddProgress(ctx, t.ID, u.ID, msg); err != nil {
+					return "", err
 				}
 				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
 				if t.AssigneeID != u.ID {
@@ -366,6 +377,9 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, args.FileID, args.Caption); err != nil {
 						return "", err
 					}
+					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "📎 已附加文件。"); err != nil {
+						return "", err
+					}
 					return "已附加文件。", nil
 				}
 				args.FileRef = strings.TrimSpace(args.FileRef)
@@ -375,6 +389,9 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err := d.Store.AddAttachment(ctx, store.Attachment{
 					TaskID: t.ID, Kind: "file", FileRef: args.FileRef, Caption: args.Caption,
 				}); err != nil {
+					return "", err
+				}
+				if err := d.Store.AddProgress(ctx, t.ID, u.ID, "📎 已附加文件。"); err != nil {
 					return "", err
 				}
 				return "已附加。", nil
