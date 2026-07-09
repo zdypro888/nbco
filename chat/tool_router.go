@@ -71,7 +71,7 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 	if routeHasAny(lower, workerRouteKeywords) {
 		addGroup("worker", workerToolNames...)
 	}
-	if routeHasAny(lower, fileRouteKeywords) {
+	if routeHasAny(lower, fileRouteKeywords) || looksLikeFileReferenceRequest(lower) {
 		addGroup("files", fileToolNames...)
 	}
 	if routeHasAny(lower, telegramRouteKeywords) {
@@ -120,8 +120,10 @@ func keepRoutedToolsUnderSoftLimit(in []ai.Tool, include map[string]bool) []ai.T
 	}
 	for _, name := range []string{
 		"send_message", "schedule_push", "assign_task", "update_user_info",
-		"invite_employee", "start_worker_skill", "start_workflow", "run_worker_command",
-		"list_telegram_groups", "send_telegram_group_message", "save_rule", "save_skill",
+		"create_data_collection_campaign", "list_data_collection_campaigns",
+		"invite_employee", "analyze_company_materials", "start_worker_skill", "start_workflow", "run_worker_command",
+		"list_telegram_groups", "set_telegram_group_listen", "set_telegram_group_monitor", "send_telegram_group_message", "delete_telegram_group_message",
+		"save_rule", "save_skill",
 		"company_overview",
 	} {
 		if include[name] {
@@ -156,6 +158,18 @@ func routeHasAny(text string, keywords []string) bool {
 		}
 	}
 	return false
+}
+
+func looksLikeFileReferenceRequest(text string) bool {
+	s := strings.ToLower(strings.TrimSpace(text))
+	if s == "" {
+		return false
+	}
+	hasExplicitFileRef := routeHasAny(s, fileExplicitReferenceKeywords)
+	hasDeicticRef := routeHasAny(s, fileDeicticReferenceKeywords)
+	hasFileAction := routeHasAny(s, fileReferenceActionKeywords)
+	hasStrongFileAction := routeHasAny(s, strongFileReferenceActionKeywords)
+	return (hasExplicitFileRef && hasFileAction) || (hasDeicticRef && hasStrongFileAction)
 }
 
 func routedToolNames(ts []ai.Tool) []string {
@@ -204,6 +218,8 @@ var peopleToolNames = []string{
 	"list_users", "get_user_info", "update_user_info", "bulk_update_user_info",
 	"get_user_stats", "list_info_fields", "add_info_field", "remove_info_field",
 	"view_user_infos", "get_my_infos_on_user", "save_infos_on_user",
+	"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign",
+	"send_data_collection_reminder", "close_data_collection_campaign",
 	"invite_employee", "cancel_invites", "send_message",
 }
 
@@ -227,6 +243,7 @@ var workToolNames = []string{
 
 var scheduleToolNames = []string{
 	"schedule_once", "schedule_repeating", "schedule_push", "cancel_schedule", "list_schedules", "send_message",
+	"create_data_collection_campaign", "list_data_collection_campaigns", "send_data_collection_reminder",
 }
 
 var workerToolNames = []string{
@@ -270,6 +287,7 @@ var peopleRouteKeywords = []string{
 	"电话", "邮箱", "职位", "角色", "组别", "部门", "信息", "资料", "名单", "ceo", "老板",
 	"黄桑", "真人", "邀请", "入职", "加入", "私信", "发给", "通知", "群发", "改名", "重命名",
 	"完善", "补充", "有人", "消息", "发消息", "转发", "推送", "告知",
+	"收集", "采集", "完成率", "待补",
 	"user", "employee", "member", "profile", "invite", "message", "notify", "rename",
 }
 
@@ -300,6 +318,28 @@ var fileRouteKeywords = []string{
 	"文件", "附件", "上传", "下载", "发送文件", "传文件", "表格", "xlsx", "excel", "pdf", "txt",
 	"照片", "图片", "资料", "刚才那", "这两个", "这些", "整理", "分析文件", "产物", "报表",
 	"file", "attachment", "spreadsheet", "document",
+}
+
+var fileExplicitReferenceKeywords = []string{
+	"刚才", "剛才", "刚发", "刚传", "上传的", "发给你", "给你的", "我给你",
+	"附件", "文件", "pdf", "xlsx", "excel", "图片", "照片", "资料",
+	"file", "attachment", "document",
+}
+
+var fileDeicticReferenceKeywords = []string{
+	"这个", "這個", "这份", "這份", "这张", "這張", "这几个", "這幾個", "这些", "這些",
+	"那个", "那份", "那张", "它",
+}
+
+var fileReferenceActionKeywords = []string{
+	"看懂", "看得懂", "能看", "能读", "能读取", "读取", "读一下", "读懂", "解析",
+	"分析", "识别", "提取", "内容", "整理", "总结", "处理",
+	"read", "parse", "analyze", "analyse", "extract", "summarize",
+}
+
+var strongFileReferenceActionKeywords = []string{
+	"看懂", "看得懂", "能看", "能读", "能读取", "读取", "读一下", "读懂", "解析",
+	"识别", "提取", "内容", "read", "parse", "extract",
 }
 
 var telegramRouteKeywords = []string{

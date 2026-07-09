@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -220,26 +221,39 @@ func (s *Store) UpdateUserName(ctx context.Context, id int64, name string) error
 }
 
 // UpdateUserInfo 合并动态字段值（value 为空串表示删除该字段值）。
+// 原子 JSONB 合并（info || sets - deletes）：单条 UPDATE 内读旧值并合并，
+// 避免旧的 read-modify-write 整列覆写——两个并发调用改同一用户不同字段时后者会静默丢失前者的改动。
 func (s *Store) UpdateUserInfo(ctx context.Context, id int64, kv map[string]string) error {
-	u, err := s.UserByID(ctx, id)
-	if err != nil {
+	if len(kv) == 0 {
+		_, err := s.RefreshDataCollectionCampaignsForUser(ctx, id)
 		return err
 	}
-	if u.Info == nil {
-		u.Info = map[string]string{}
-	}
+	sets := map[string]string{}
+	var dels []string
 	for k, v := range kv {
 		if v == "" {
-			delete(u.Info, k)
+			dels = append(dels, k)
 		} else {
-			u.Info[k] = v
+			sets[k] = v
 		}
 	}
-	raw, err := json.Marshal(u.Info)
+	setsJSON, err := json.Marshal(sets)
 	if err != nil {
 		return err
 	}
-	return s.execOne(ctx, `UPDATE users SET info = $2, updated_at = now() WHERE id = $1`, id, raw)
+	// 先 || 合并设置项，再 - 删除项（单语句原子：Postgres 行级锁串行化并发 UPDATE）。
+	query := `UPDATE users SET info = (coalesce(info,'{}'::jsonb) || $2::jsonb)`
+	args := []any{id, setsJSON}
+	if len(dels) > 0 {
+		query += ` - $3::text[]`
+		args = append(args, dels)
+	}
+	query += `, updated_at = now() WHERE id = $1`
+	if err := s.execOne(ctx, query, args...); err != nil {
+		return err
+	}
+	_, err = s.RefreshDataCollectionCampaignsForUser(ctx, id)
+	return err
 }
 
 // SetUserStatus 停用/启用。
@@ -261,6 +275,31 @@ func (s *Store) ChatRef(ctx context.Context, userID int64, provider string) (str
 func (s *Store) AddInfoField(ctx context.Context, name string) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO info_fields (name) VALUES ($1)`, name)
 	return wrapErr(err)
+}
+
+// EnsureInfoFields 幂等补齐字段定义。字段值来自已通过权限校验的资料更新工具；
+// 这里不做业务判断，只保证动态字段表能承载新字段。
+func (s *Store) EnsureInfoFields(ctx context.Context, names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	seen := map[string]bool{}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		if _, err := tx.Exec(ctx, `INSERT INTO info_fields (name) VALUES ($1) ON CONFLICT DO NOTHING`, name); err != nil {
+			return wrapErr(err)
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // RemoveInfoField 移除字段定义（不清除已有值，历史保留）。

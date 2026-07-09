@@ -45,12 +45,12 @@ func (o *Orchestrator) maybePlanAction(ctx context.Context, u *store.User, chann
 	res, err := o.engine.RunTurn(plannerCtx, req)
 	if err != nil {
 		slog.Warn("动作规划器失败，使用保守守门", "user", u.ID, "err", err)
-		return fallbackActionPlan(text, "planner_error")
+		return fallbackActionPlanWithTools(text, "planner_error", toolset)
 	}
 	plan, err := parseActionPlan(res.Text, toolNames(toolset))
 	if err != nil {
 		slog.Warn("动作规划器输出不可解析，使用保守守门", "user", u.ID, "reply_sha", contentHash(res.Text), "err", err)
-		return fallbackActionPlan(text, "planner_parse_error")
+		return fallbackActionPlanWithTools(text, "planner_parse_error", toolset)
 	}
 	if !plan.RequiresAction {
 		return nil
@@ -76,6 +76,7 @@ func actionPlannerSystem(toolset []ai.Tool) string {
 	b.WriteString("规则：\n")
 	b.WriteString("- 只从可用工具中选择 expected_tools；不确定具体工具时 expected_tools 为空但 requires_action 仍可为 true。\n")
 	b.WriteString("- 用户只是询问事实、解释概念、闲聊、让你分析普通文本且不要求落库/发送/执行时，requires_action=false；但要求处理上传文件、公司资料、代码仓库、命令行、worker 或产生产物时，requires_action=true。\n")
+	b.WriteString("- 用户围绕最近上传/刚发的文件问“能看懂/能读取/这个吗/解析一下”时，属于需要工具确认或派工，requires_action=true。\n")
 	b.WriteString("- 如果需要信息不足，requires_action=true，并在 missing_info 写缺什么；主对话应询问或说明未完成，不能声称已完成。\n")
 	b.WriteString("- success_evidence 写最终能证明完成的工具返回事实，例如“schedule_push 返回已设置推送”。\n\n")
 	b.WriteString("可用工具：\n")
@@ -90,6 +91,9 @@ func looksLikeHeavyExecutionRequest(text string) bool {
 	s := strings.ToLower(strings.TrimSpace(text))
 	if s == "" {
 		return false
+	}
+	if looksLikeFileReferenceRequest(s) {
+		return true
 	}
 	keywords := []string{
 		"worker", "agent", "codex", "claude", "pty", "shell", "cmd", "命令", "执行", "运行",
@@ -182,16 +186,45 @@ func cleanStringList(in []string, limit, maxRunes int) []string {
 }
 
 func fallbackActionPlan(text, source string) *actionPlan {
-	if !looksLikeSideEffectRequest(text) {
+	return fallbackActionPlanWithTools(text, source, nil)
+}
+
+func fallbackActionPlanWithTools(text, source string, toolset []ai.Tool) *actionPlan {
+	if !looksLikeSideEffectRequest(text) && !looksLikeHeavyExecutionRequest(text) {
 		return nil
 	}
-	return &actionPlan{
+	plan := &actionPlan{
 		RequiresAction:  true,
 		Intent:          "用户请求可能需要系统操作",
 		SuccessEvidence: []string{"至少一个相关工具成功返回"},
 		Confidence:      0.4,
 		Source:          source,
 	}
+	available := toolNames(toolset)
+	if looksLikeFileReferenceRequest(text) || routeHasAny(strings.ToLower(text), []string{"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料"}) {
+		if expected := firstAvailableTool(available, "start_workflow", "analyze_company_materials", "start_worker_skill"); expected != "" {
+			plan.Intent = "用户请求读取或分析最近上传的文件"
+			plan.ExpectedTools = []string{expected}
+			plan.SuccessEvidence = []string{"文件分析/worker 派工工具返回已创建任务或已完成分析"}
+			plan.Confidence = 0.55
+		}
+		return plan
+	}
+	if expected := firstAvailableTool(available, "start_workflow", "start_worker_skill", "run_worker_command", "schedule_push", "send_message", "assign_task"); expected != "" {
+		plan.ExpectedTools = []string{expected}
+		plan.SuccessEvidence = []string{expected + " 返回成功结果"}
+		plan.Confidence = 0.5
+	}
+	return plan
+}
+
+func firstAvailableTool(available map[string]bool, names ...string) string {
+	for _, name := range names {
+		if available[name] {
+			return name
+		}
+	}
+	return ""
 }
 
 func renderActionPlanContext(plan *actionPlan) string {
@@ -424,6 +457,56 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		SuccessToolCount: successToolCount,
 	}); err != nil {
 		slog.Warn("动作轮次记录失败", "session", sess.ID, "user", u.ID, "err", err)
+	}
+}
+
+func (o *Orchestrator) maybeRecordActionFailureLearning(ctx context.Context, u *store.User, channel, userText, replyText string, sessionID, userMsgID, assistantMsgID int64, plan *actionPlan, res *ai.TurnResult) {
+	if o == nil || o.store == nil || u == nil || plan == nil || !plan.RequiresAction {
+		return
+	}
+	outcome := actionTurnOutcome(plan, res)
+	switch outcome {
+	case "evidence_ok", "no_action":
+		return
+	}
+	intent := strings.TrimSpace(plan.Intent)
+	if intent == "" {
+		intent = "需要系统动作的请求"
+	}
+	title := "动作失败样本：" + textfmt.TruncateRunes(intent, 48)
+	if ok, err := o.store.LearningCandidateExists(ctx, store.LearningKindSummary, title, store.LearningStatusPending, store.LearningStatusPublished); err != nil {
+		slog.Warn("动作失败学习候选去重失败", "title", title, "err", err)
+	} else if ok {
+		return
+	}
+	evidence, _ := json.Marshal(map[string]any{
+		"source":       "action_guard",
+		"channel":      channel,
+		"session_id":   sessionID,
+		"user_msg_id":  userMsgID,
+		"reply_msg_id": assistantMsgID,
+		"outcome":      outcome,
+		"expected":     plan.ExpectedTools,
+		"user_text":    textfmt.TruncateRunes(userText, 600),
+		"reply_text":   textfmt.TruncateRunes(replyText, 600),
+	})
+	content := fmt.Sprintf("本轮用户请求需要系统动作，但最终结果为 %s。复盘时请判断是否缺工具、缺权限、路由没暴露工具、提示词误导，或模型没有按工具优先原则执行。\n\n用户请求：%s\n\n助手回复：%s",
+		outcome, textfmt.TruncateRunes(userText, 800), textfmt.TruncateRunes(replyText, 800))
+	createdBy := u.ID
+	if _, err := o.store.CreateLearningCandidate(ctx, store.LearningCandidateInput{
+		Kind:       store.LearningKindSummary,
+		Scope:      "global",
+		Title:      title,
+		Content:    content,
+		Tags:       []string{"action_failure", "feedback_loop", "outcome:" + outcome},
+		Evidence:   evidence,
+		Confidence: 0.55,
+		Status:     store.LearningStatusPending,
+		SourceType: "action_guard",
+		SourceRef:  fmt.Sprintf("session:%d/message:%d", sessionID, userMsgID),
+		CreatedBy:  &createdBy,
+	}); err != nil {
+		slog.Warn("动作失败学习候选记录失败", "title", title, "err", err)
 	}
 }
 

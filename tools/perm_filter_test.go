@@ -22,7 +22,8 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 	names := namesOf(ForUser(Deps{}, u, nil))
 	for _, gone := range []string{
 		"create_project", "assign_task", "delegate_review",
-		"invite_employee", "send_message", "update_user_info", "bulk_update_user_info", "save_infos_on_user",
+		"invite_employee", "send_message", "create_data_collection_campaign", "send_data_collection_reminder",
+		"update_user_info", "bulk_update_user_info", "save_infos_on_user",
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
 		"company_overview", "get_ai_settings", "set_ai_settings", "ai_usage_stats", "create_role", "disable_user",
 		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker", "analyze_company_materials",
@@ -40,6 +41,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"get_my_tasks", "update_my_task_status", "accept_task", "split_my_task",
 		"save_knowledge", "search_knowledge", "list_workers", "list_roles",
 		"activate_role", "schedule_once", "get_my_profile", "grant_active_perm",
+		"list_data_collection_campaigns", "get_data_collection_campaign",
 		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"search_skills", "load_skill",
 		"list_workflows", "list_capabilities", "list_action_turns",
@@ -181,6 +183,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
 		"ai_usage_stats", "create_worker", "run_worker_command", "analyze_company_materials", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
+		"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
 		"save_skill", "update_skill", "search_skills", "load_skill", "start_worker_skill",
 		"list_workflows", "start_workflow", "list_capabilities",
 		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
@@ -220,6 +223,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
 		"send_file", "start_workflow", "start_worker_skill",
+		"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
 		"list_action_turns",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",

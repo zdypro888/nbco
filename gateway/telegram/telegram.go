@@ -58,6 +58,17 @@ const groupMonitorSystem = `你是 nbco 的 Telegram 群智能监控器。你的
 - 对监控发起人汇报时使用群名、人名和自然语言，不带 Telegram ID、内部会话 ID、系统提示或技术细节。
 - 可使用 Telegram 支持的 HTML：<b>、<i>、<code>、<blockquote>。不要使用 Markdown 表格。`
 
+const groupMonitorIntentSystem = `你是 nbco 的 Telegram 群管理意图分类器。判断用户在群里 @bot 的这句话是否是在要求开启或关闭“群智能监控/监听/后续总结提醒”。
+
+只输出严格 JSON：{"intent":"on|off|none"}
+
+分类标准：
+- on：用户希望 bot 持续关注本群后续讨论，在出现问题、风险、阻塞、重要事项时总结/提醒/汇报。
+- off：用户希望停止、关闭、取消上述持续关注或总结提醒。
+- none：普通测试、问答、一次性回复、普通聊天、没有持续监控含义。
+
+不要解释，不要输出 Markdown。`
+
 var bindKeyRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var htmlTagTokenRe = regexp.MustCompile(`(?i)</?(b|strong|i|em|u|s|del|code|pre|blockquote|a)(?:\s+[^>]*)?>`)
 var htmlLooseTagRe = regexp.MustCompile(`(?is)<[^<>\n]*>`)
@@ -671,6 +682,9 @@ func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User) boo
 func (g *Gateway) handleGroupMonitorMention(ctx context.Context, msg *models.Message, u *store.User, ask string) bool {
 	intent := groupMonitorIntent(ask)
 	if intent == "" {
+		intent = g.classifyGroupMonitorIntent(ctx, u, ask)
+	}
+	if intent == "" {
 		return false
 	}
 	chatID := msg.Chat.ID
@@ -758,6 +772,57 @@ func groupMonitorIntent(text string) string {
 		return "on"
 	}
 	return ""
+}
+
+func (g *Gateway) classifyGroupMonitorIntent(ctx context.Context, u *store.User, ask string) string {
+	if g == nil || g.orch == nil || strings.TrimSpace(ask) == "" {
+		return ""
+	}
+	userID := int64(0)
+	if u != nil {
+		userID = u.ID
+	}
+	cctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	defer cancel()
+	out, err := g.orch.Summarize(cctx, userID, "telegram_group_monitor_intent", groupMonitorIntentSystem, textfmt.TruncateRunes(ask, 600))
+	if err != nil {
+		slog.Warn("群监控意图分类失败", "user", userID, "err", err)
+		return ""
+	}
+	raw := extractTelegramJSONObject(out)
+	var parsed struct {
+		Intent string `json:"intent"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		slog.Warn("群监控意图分类 JSON 解析失败", "user", userID, "reply_sha", telegramTextHash(out), "err", err)
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(parsed.Intent)) {
+	case "on":
+		return "on"
+	case "off":
+		return "off"
+	default:
+		return ""
+	}
+}
+
+func extractTelegramJSONObject(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
+		return s
+	}
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start >= 0 && end > start {
+		return s[start : end+1]
+	}
+	return s
+}
+
+func telegramTextHash(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])[:12]
 }
 
 func (g *Gateway) observeGroupMonitor(ctx context.Context, chat models.Chat, speaker, text string) {

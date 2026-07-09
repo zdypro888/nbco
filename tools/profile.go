@@ -37,11 +37,10 @@ func profileTools(d Deps, u *store.User) []ai.Tool {
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				defined, err := d.Store.ListInfoFields(ctx)
+				fields, msg, err := normalizeInfoFieldsPtrForWrite(ctx, d.Store, args.Fields)
 				if err != nil {
 					return "", err
 				}
-				fields, msg := normalizeInfoFieldsPtr(args.Fields, defined)
 				if msg != "" {
 					return msg, nil
 				}
@@ -315,6 +314,76 @@ func normalizeInfoFieldsPtr(fields map[string]*string, defined []string) (map[st
 		plain[k] = *v
 	}
 	return normalizeInfoFields(plain, defined)
+}
+
+func normalizeInfoFieldsPtrForWrite(ctx context.Context, s *store.Store, fields map[string]*string) (map[string]string, string, error) {
+	if len(fields) == 0 {
+		return nil, "", nil
+	}
+	defined, err := s.ListInfoFields(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	out, msg := normalizeInfoFieldsPtr(fields, defined)
+	if msg == "" {
+		return out, "", nil
+	}
+	missing := missingInfoFieldNames(fields, defined)
+	if len(missing) == 0 {
+		return nil, msg, nil
+	}
+	if err := s.EnsureInfoFields(ctx, missing); err != nil {
+		return nil, "", err
+	}
+	defined, err = s.ListInfoFields(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	out, msg = normalizeInfoFieldsPtr(fields, defined)
+	return out, msg, nil
+}
+
+func missingInfoFieldNames(fields map[string]*string, defined []string) []string {
+	lookup := newInfoFieldLookup(defined)
+	seen := map[string]bool{}
+	var missing []string
+	for raw := range fields {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			continue
+		}
+		if _, ok := lookup.canonical(name); ok {
+			continue
+		}
+		name = defaultInfoFieldCanonical(name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		missing = append(missing, name)
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+func defaultInfoFieldCanonical(name string) string {
+	key := strings.ToLower(strings.TrimSpace(name))
+	switch key {
+	case "手机号", "电话", "phone", "mobile", "tel":
+		return "手机"
+	case "邮箱", "email", "mail":
+		return "邮箱"
+	case "岗位", "职务", "position", "title":
+		return "职位"
+	case "部门", "department", "dept", "组别", "小组", "group", "team":
+		return "组别"
+	case "昵称", "外号", "nick", "nickname":
+		return "昵称"
+	case "姓名", "真实姓名", "真名", "real_name":
+		return "真实姓名"
+	default:
+		return strings.TrimSpace(name)
+	}
 }
 
 func normalizeInfoValue(field, value string, lookup infoFieldLookup) string {

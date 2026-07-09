@@ -68,6 +68,22 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func TestMissingInfoFieldNamesUseCanonicalDefaults(t *testing.T) {
+	got := missingInfoFieldNames(map[string]*string{
+		"手机号": nil,
+		"部门":  nil,
+		"爱好":  nil,
+	}, []string{"手机"})
+	joined := strings.Join(got, ",")
+	if joined != "爱好,组别" {
+		t.Fatalf("missing fields = %q", joined)
+	}
+	campaign := strings.Join(canonicalDataFields([]string{"手机号", "部门", "phone", "职位"}), ",")
+	if campaign != "手机,组别,职位" {
+		t.Fatalf("campaign fields = %q", campaign)
+	}
+}
+
 func TestTruncate(t *testing.T) {
 	if got := truncate("hello", 10); got != "hello" {
 		t.Errorf("短串不应截断: %q", got)
@@ -131,7 +147,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "list_capabilities", "list_action_turns"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_capabilities", "list_action_turns"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -156,6 +172,9 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if got := byName["send_message"].Effect; got != ToolEffectWrite {
 		t.Fatalf("send_message effect=%q", got)
+	}
+	if got := byName["create_data_collection_campaign"].Effect; got != ToolEffectWrite {
+		t.Fatalf("create_data_collection_campaign effect=%q", got)
 	}
 	if got := byName["run_worker_command"].Effect; got != ToolEffectExecute {
 		t.Fatalf("run_worker_command effect=%q", got)
@@ -219,8 +238,11 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 	if _, err := workflowTemplateByName("nbco_upgrade"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := workflowTemplateByName("nbco_code_change"); err != nil {
+		t.Fatal(err)
+	}
 	rendered := renderWorkflowTemplates("")
-	for _, want := range []string{"material_intake", "nbco_upgrade", "confirm"} {
+	for _, want := range []string{"material_intake", "nbco_upgrade", "nbco_code_change", "confirm"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("工作流列表缺 %q:\n%s", want, rendered)
 		}
@@ -238,6 +260,12 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 	fresh := ListWorkflowTemplates()
 	if fresh[0].Args["file_ids"] == "mutated" {
 		t.Fatal("ListWorkflowTemplates must deep-copy Args")
+	}
+	codePrompt := nbcoCodeChangePrompt("增加天气预报功能", "", "", "", true, true)
+	for _, want := range []string{"增加天气预报功能", "agent session scope", "提交", "healthz", "不要泄露"} {
+		if !strings.Contains(codePrompt, want) {
+			t.Fatalf("nbco code change prompt 缺 %q:\n%s", want, codePrompt)
+		}
 	}
 	prompt := workerSkillTaskPrompt(&store.Knowledge{Title: "通用流程", Content: "执行方法：按步骤做", Tags: []string{"scope:global"}}, "完成本次目标")
 	for _, want := range []string{"通用流程", "完成本次目标", "不要泄露密钥"} {

@@ -364,6 +364,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		assistantMsgID = id
 		o.embedMessage(id, storedReply)
 	}
+	o.maybeRecordActionFailureLearning(ctx, u, channel, storedUserText, storedReply, sess.ID, userMsgID, assistantMsgID, actionPlan, res)
 	o.maybeMineMemory(u, channel, storedUserText, storedReply, sess.ID, userMsgID, assistantMsgID)
 	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
 		if err := o.store.SetSessionEngineRef(ctx, sess.ID, res.EngineSession); err != nil {
@@ -400,7 +401,7 @@ func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.T
 	retry := *req
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
-	retry.System = req.System + "\n\n[系统保护]\n上一轮没有调用任何工具，却给了“已完成/已设置/会发送”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适工具完成。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮工具调用成功后，才能说已经完成。"
+	retry.System = req.System + "\n\n[系统保护]\n上一轮没有调用任何工具，却给了“已完成/已设置/会发送”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适工具完成。\n- 如果用户要读取/解析 PDF、XLSX、图片、附件或最近上传文件，先用 list_recent_files 确认文件，再调用 start_workflow、analyze_company_materials 或 start_worker_skill 处理；不能只回答“能读取”。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮工具调用成功后，才能说已经完成。"
 	res, err := o.engine.RunTurn(ctx, &retry)
 	if err != nil {
 		return nil, err
@@ -430,6 +431,7 @@ func (o *Orchestrator) repairActionEvidenceTurn(ctx context.Context, req *ai.Tur
 		}
 		if len(plan.ExpectedTools) > 0 {
 			b.WriteString("规划预计工具：" + strings.Join(plan.ExpectedTools, ", ") + "\n")
+			b.WriteString("- 本轮优先调用上述预计工具之一；如果处理最近上传的文件但缺少 file_id，先用 list_recent_files 查最近文件，再调用文件分析/worker/工作流工具。\n")
 		}
 	}
 	if evidence := summarizeToolEvidence(first.Steps); len(evidence) > 0 {
@@ -1945,9 +1947,9 @@ func materialDispatchPrompt(available map[string]bool) string {
 func workerDispatchPrompt(available map[string]bool) string {
 	switch {
 	case available["start_workflow"] && available["start_worker_skill"]:
-		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已有代码上线用 start_workflow: nbco_upgrade；需要先开发/分析再上线时，先 search_skills/load_skill，再用 start_worker_skill 派给匹配 worker；同一目标保持一个 worker 任务承载上下文，不要拆成多个并发任务。\n"
+		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已提交版本上线用 start_workflow: nbco_upgrade；需要先改 nbco 代码再可选上线用 start_workflow: nbco_code_change；其他可复用流程先 search_skills/load_skill 再 start_worker_skill。同一目标保持一个 worker 任务承载上下文。\n"
 	case available["start_workflow"]:
-		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已有代码上线用 start_workflow: nbco_upgrade；若需要先开发/分析再升级，而当前缺少 worker skill 派发工具，就说明需要有权限的人发起开发型 worker 任务。\n"
+		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已提交版本上线用 start_workflow: nbco_upgrade；需要先改 nbco 代码再可选上线用 start_workflow: nbco_code_change；缺参数或权限时说明未启动。\n"
 	case available["start_worker_skill"]:
 		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 先 search_skills/load_skill 读取对应流程，再用 start_worker_skill 派给匹配 worker；部署流程不可见时不要假装已部署。\n"
 	default:
@@ -2132,11 +2134,12 @@ func routeCapabilityPrompt(available map[string]bool) string {
 		}
 	}
 	write(available["send_message"], "通知/私信/全员触达：用 send_message，不能逐个口头承诺。")
+	write(available["create_data_collection_campaign"] || available["list_data_collection_campaigns"], "向多人收集字段/完善资料：用 data_collection_campaign 跟踪目标、缺失字段、提醒和完成率；不要只发一条通知就当成任务完成。")
 	write(available["schedule_push"] || available["schedule_once"] || available["schedule_repeating"], "定时/周期提醒：用本轮可见 schedule 工具落库，成功后再确认。")
 	write(available["assign_task"] || available["create_project"] || available["delegate_review"], "项目/任务/验收/拆分：用任务与项目工具；复杂工作可派 worker。")
-	write(available["start_worker_skill"] || available["start_workflow"] || available["run_worker_command"], "代码、部署、命令行、资料深度分析：优先使用 worker/workflow/skill 工具；保持同一目标在同一 worker 任务上下文里推进。")
+	write(available["start_worker_skill"] || available["start_workflow"] || available["run_worker_command"], "代码、部署、命令行、资料深度分析：优先使用 worker/workflow/skill 工具；nbco 自身先开发再上线用 nbco_code_change，已提交版本部署用 nbco_upgrade；保持同一目标在同一 worker 任务上下文里推进。")
 	write(available["list_recent_files"] || available["send_file"], "文件：先确认 file_id；需要读内容或产生产物时派 worker，交付文件时用 send_file。")
-	write(available["update_user_info"] || available["bulk_update_user_info"] || available["add_info_field"], "员工档案：字段不存在且有权限时先定义字段再保存；不要因为最终隐藏 ID 而放弃用工具。")
+	write(available["update_user_info"] || available["bulk_update_user_info"] || available["add_info_field"], "员工档案：用内部 user_id/tg 绑定精确定位；写入工具会自动补动态字段，不能因为最终展示隐藏 ID 而放弃用工具。")
 	write(available["invite_employee"] || available["create_worker"] || available["issue_worker_bind_code"], "真人邀请和 AI worker 绑定是两套机制；按工具说明选择，不要混用 token。")
 	write(available["grant_active_perm"] || available["view_user_perms"], "权限：按授权边界修改和查询；普通用户不能管理权限高于自己的对象。")
 	write(available["save_rule"] || available["save_skill"] || available["save_knowledge"], "学习沉淀：行为约束用 rule，可复用流程用 skill，事实/决策用 knowledge。")

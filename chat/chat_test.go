@@ -314,6 +314,37 @@ func TestParseActionPlanFiltersUnavailableTools(t *testing.T) {
 	}
 }
 
+func TestFallbackActionPlanCoversHeavyExecution(t *testing.T) {
+	plan := fallbackActionPlan("帮我分析刚才上传的两个 PDF 文件，并整理成公司资料", "planner_error")
+	if plan == nil || !plan.RequiresAction {
+		t.Fatalf("planner 失败时，文件/worker 重活也必须进入动作证据守门: %+v", plan)
+	}
+	if plan.Source != "planner_error" {
+		t.Fatalf("fallback source = %q", plan.Source)
+	}
+	if fallbackActionPlan("解释一下这个概念", "planner_error") != nil {
+		t.Fatal("普通解释不应进入动作计划")
+	}
+}
+
+func TestFallbackActionPlanRequiresWorkerToolForAttachmentReference(t *testing.T) {
+	toolset := []ai.Tool{
+		{Name: "list_recent_files"},
+		{Name: "start_workflow"},
+		{Name: "analyze_company_materials"},
+	}
+	plan := fallbackActionPlanWithTools("能看得懂这个吗？", "planner_error", toolset)
+	if plan == nil || !plan.RequiresAction {
+		t.Fatalf("最近附件指代在 planner 失败时也必须进入动作证据守门: %+v", plan)
+	}
+	if len(plan.ExpectedTools) != 1 || plan.ExpectedTools[0] != "start_workflow" {
+		t.Fatalf("应要求执行型文件分析工具作为证据，不应只靠 list_recent_files: %+v", plan)
+	}
+	if !strings.Contains(strings.Join(plan.SuccessEvidence, "\n"), "文件分析") {
+		t.Fatalf("完成证据应指向文件分析/worker 结果: %+v", plan.SuccessEvidence)
+	}
+}
+
 func TestActionCompletionWithoutEvidence(t *testing.T) {
 	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"schedule_push"}}
 	if !actionCompletionWithoutEvidence(plan, "已设置好了", nil) {

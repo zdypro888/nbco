@@ -331,6 +331,50 @@ func TestRecordActionTurn(t *testing.T) {
 	}
 }
 
+func TestDataCollectionCampaignRefreshesOnUserInfoUpdate(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	if err := s.EnsureInfoFields(ctx, []string{"手机", "职位"}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.CreateDataCollectionCampaign(ctx, "完善档案", "补齐联系信息", []string{"手机", "职位"}, boss.ID, []int64{alice.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RefreshDataCollectionCampaign(ctx, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := s.DataCollectionCampaignTargets(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 || targets[0].Status != DataCampaignTargetPending || strings.Join(targets[0].MissingFields, ",") != "手机,职位" {
+		t.Fatalf("初始目标状态 = %+v", targets)
+	}
+	if err := s.UpdateUserInfo(ctx, alice.ID, map[string]string{"手机": "13800000000"}); err != nil {
+		t.Fatal(err)
+	}
+	targets, err = s.DataCollectionCampaignTargets(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if targets[0].Status != DataCampaignTargetPending || strings.Join(targets[0].MissingFields, ",") != "职位" {
+		t.Fatalf("补一项后状态 = %+v", targets[0])
+	}
+	if err := s.UpdateUserInfo(ctx, alice.ID, map[string]string{"职位": "产品经理"}); err != nil {
+		t.Fatal(err)
+	}
+	targets, err = s.DataCollectionCampaignTargets(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if targets[0].Status != DataCampaignTargetCompleted || len(targets[0].MissingFields) != 0 || targets[0].CompletedAt == nil {
+		t.Fatalf("补齐后应完成 = %+v", targets[0])
+	}
+}
+
 func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

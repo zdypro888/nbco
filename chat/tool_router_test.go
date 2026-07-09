@@ -30,7 +30,7 @@ func TestRouteTurnToolsKeepsPlainQuestionSmall(t *testing.T) {
 func TestRouteTurnToolsAddsCommsAndSchedule(t *testing.T) {
 	routed, route := routeTurnTools("telegram", "明天早上9点通知全体员工完善档案", testRouteTools())
 	names := routeToolNameSet(routed)
-	for _, want := range []string{"send_message", "schedule_push", "list_users"} {
+	for _, want := range []string{"send_message", "schedule_push", "list_users", "create_data_collection_campaign"} {
 		if !names[want] {
 			t.Fatalf("通知/定时场景缺 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
 		}
@@ -52,6 +52,29 @@ func TestRouteTurnToolsAddsWorkerAndFiles(t *testing.T) {
 	for _, want := range []string{"list_recent_files", "analyze_company_materials", "start_workflow", "start_worker_skill", "list_workers"} {
 		if !names[want] {
 			t.Fatalf("文件/worker 场景缺 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
+		}
+	}
+}
+
+func TestRouteTurnToolsAddsFilesForRecentAttachmentReference(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "能看得懂这个吗？", testRouteTools())
+	names := routeToolNameSet(routed)
+	for _, want := range []string{"list_recent_files", "analyze_company_materials", "start_workflow", "start_worker_skill"} {
+		if !names[want] {
+			t.Fatalf("最近附件指代场景缺 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
+		}
+	}
+	if names["run_worker_command"] {
+		t.Fatalf("读取附件不应默认暴露命令执行工具: %v", routedToolNames(routed))
+	}
+}
+
+func TestRouteTurnToolsDoesNotTreatEveryDeicticAsFile(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "这个问题怎么处理？", testRouteTools())
+	names := routeToolNameSet(routed)
+	for _, bad := range []string{"analyze_company_materials", "start_workflow", "start_worker_skill"} {
+		if names[bad] {
+			t.Fatalf("普通指代问题不应暴露文件分析工具 %s，tools=%v route=%s", bad, routedToolNames(routed), route.Summary())
 		}
 	}
 }

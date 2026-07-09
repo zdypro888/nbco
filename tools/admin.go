@@ -124,11 +124,10 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 						return "你没有对该用户的 edit_info 权限。", nil
 					}
 				}
-				defined, err := d.Store.ListInfoFields(ctx)
+				fields, msg, err := normalizeInfoFieldsPtrForWrite(ctx, d.Store, args.Fields)
 				if err != nil {
 					return "", err
 				}
-				fields, msg := normalizeInfoFieldsPtr(args.Fields, defined)
 				if msg != "" {
 					return msg, nil
 				}
@@ -177,12 +176,9 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				if len(args.Updates) > 100 {
 					return "单次最多批量更新 100 条。", nil
 				}
-				defined, err := d.Store.ListInfoFields(ctx)
-				if err != nil {
-					return "", err
-				}
 				var grants []store.Grant
 				if !u.IsSuperadmin {
+					var err error
 					grants, err = d.Store.PermsOf(ctx, u.ID)
 					if err != nil {
 						return "", err
@@ -209,7 +205,10 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 							continue
 						}
 					}
-					fields, msg := normalizeInfoFieldsPtr(row.Fields, defined)
+					fields, msg, ferr := normalizeInfoFieldsPtrForWrite(ctx, d.Store, row.Fields)
+					if ferr != nil {
+						return "", ferr
+					}
 					if msg != "" {
 						skipped++
 						fmt.Fprintf(&b, "- %s：%s，已跳过。\n", target.Name, msg)
