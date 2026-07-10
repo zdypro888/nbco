@@ -70,7 +70,7 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 				return renderActionTurns(ctx, d.Store, d.TZ, items), nil
 			}),
 
-		tool("list_system_activity", "查询系统真实工具调用流水，用来核实谁在什么时间做过什么、某项变更是否发生、最近有哪些操作。它直接读取通用审计账本，不依赖任务或专项活动是否创建；不确定工具名时留空筛选并查看最近记录。仅超级管理员可用。", obj(map[string]any{
+		tool("list_system_activity", "查询系统真实工具调用流水，用来核实谁在什么时间做过什么、某项变更是否发生、最近是否有人执行或更新。它直接读取通用审计账本，不依赖任务、计划或专项活动是否创建；领域状态为空时不能代替本工具证明事情没发生。不确定工具名时留空筛选并查看最近记录。仅超级管理员可用。", obj(map[string]any{
 			"user_id":     p("integer", "可选：按员工内部 ID 精确筛选；0 表示所有人"),
 			"session_id":  p("integer", "可选：按会话内部 ID 精确筛选"),
 			"tool":        p("string", "可选：按工具名精确筛选，例如 update_my_profile"),
@@ -408,7 +408,7 @@ func renderDecisionItems(items []*store.DecisionItem) string {
 
 func renderSystemActivity(tz *time.Location, items []*store.AuditActivity) string {
 	if len(items) == 0 {
-		return "（没有匹配的系统活动记录）"
+		return "没有匹配的系统活动记录。这个结果只覆盖当前筛选条件和时间范围，不能证明其他操作或更早时间从未发生。"
 	}
 	if tz == nil {
 		tz = time.Local

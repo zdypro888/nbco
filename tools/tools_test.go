@@ -263,6 +263,10 @@ func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 }
 
 func TestRenderSystemActivityPreservesBusinessResultSemantics(t *testing.T) {
+	empty := renderSystemActivity(time.UTC, nil)
+	if !strings.Contains(empty, "当前筛选条件和时间范围") || !strings.Contains(empty, "不能证明") {
+		t.Fatalf("空活动结果必须保留证据范围: %s", empty)
+	}
 	got := renderSystemActivity(time.UTC, []*store.AuditActivity{
 		{
 			ID: 12, UserID: 7, UserName: "X Fan", Tool: "update_my_profile",

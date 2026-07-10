@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/zdypro888/nbco/store"
 )
@@ -121,6 +124,86 @@ func (fixedEmbedder) Embed(_ context.Context, texts []string) ([][]float32, erro
 		out[i] = []float32{1, 0}
 	}
 	return out, nil
+}
+
+type countingQueryEmbedder struct {
+	calls   atomic.Int32
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+	fail    bool
+}
+
+func (e *countingQueryEmbedder) Model() string { return "counting" }
+
+func (e *countingQueryEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	e.calls.Add(1)
+	if e.fail {
+		return nil, fmt.Errorf("temporary embedding failure")
+	}
+	if e.entered != nil {
+		e.once.Do(func() { close(e.entered) })
+	}
+	if e.release != nil {
+		select {
+		case <-e.release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return [][]float32{{1, float32(len(strings.Join(texts, "")))}}, nil
+}
+
+func TestQueryVectorDeduplicatesAndCaches(t *testing.T) {
+	emb := &countingQueryEmbedder{entered: make(chan struct{}), release: make(chan struct{})}
+	svc := New(nil, emb)
+	const callers = 12
+	errs := make(chan error, callers)
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := svc.queryVector(context.Background(), "同一轮输入")
+			errs <- err
+		}()
+	}
+	select {
+	case <-emb.entered:
+	case <-time.After(time.Second):
+		t.Fatal("embedding request did not start")
+	}
+	close(emb.release)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := emb.calls.Load(); got != 1 {
+		t.Fatalf("concurrent identical queries called embedder %d times", got)
+	}
+	if _, err := svc.queryVector(context.Background(), "同一轮输入"); err != nil {
+		t.Fatal(err)
+	}
+	if got := emb.calls.Load(); got != 1 {
+		t.Fatalf("cached query called embedder again: %d", got)
+	}
+}
+
+func TestQueryVectorFailureCooldown(t *testing.T) {
+	emb := &countingQueryEmbedder{fail: true}
+	svc := New(nil, emb)
+	if _, err := svc.queryVector(context.Background(), "first"); err == nil {
+		t.Fatal("expected first embedding failure")
+	}
+	if _, err := svc.queryVector(context.Background(), "second"); err == nil {
+		t.Fatal("expected cooldown failure")
+	}
+	if got := emb.calls.Load(); got != 1 {
+		t.Fatalf("cooldown should suppress repeated requests, calls=%d", got)
+	}
 }
 
 func TestScopedSemanticSearch(t *testing.T) {

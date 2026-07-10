@@ -400,6 +400,16 @@ func TestDataCollectionCampaignRefreshesOnUserInfoUpdate(t *testing.T) {
 	if len(targets) != 1 || targets[0].Status != DataCampaignTargetPending || strings.Join(targets[0].MissingFields, ",") != "手机,职位" {
 		t.Fatalf("初始目标状态 = %+v", targets)
 	}
+	if err := s.MarkDataCollectionCampaignTargetsNotified(ctx, c.ID, []int64{alice.ID}); err != nil {
+		t.Fatal(err)
+	}
+	views, err := s.ListDataCollectionCampaigns(ctx, boss.ID, true, "all", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(views) != 1 || views[0].Notified != 1 || views[0].Pending != 1 {
+		t.Fatalf("活动汇总应独立统计通知与完成状态: %+v", views)
+	}
 	if err := s.UpdateUserInfo(ctx, alice.ID, map[string]string{"手机": "13800000000"}); err != nil {
 		t.Fatal(err)
 	}

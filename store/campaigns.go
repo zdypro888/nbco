@@ -34,6 +34,7 @@ type DataCollectionCampaignView struct {
 	Total       int64
 	Completed   int64
 	Pending     int64
+	Notified    int64
 }
 
 type DataCollectionCampaignTarget struct {
@@ -110,7 +111,8 @@ func (s *Store) ListDataCollectionCampaigns(ctx context.Context, viewerID int64,
 		        coalesce(u.name, ''),
 		        count(t.user_id),
 		        count(t.user_id) FILTER (WHERE t.status = 'completed'),
-		        count(t.user_id) FILTER (WHERE t.status = 'pending')
+		        count(t.user_id) FILTER (WHERE t.status = 'pending'),
+		        count(t.user_id) FILTER (WHERE t.last_notified_at IS NOT NULL)
 		   FROM data_collection_campaigns c
 		   LEFT JOIN users u ON u.id = c.created_by
 		   LEFT JOIN data_collection_campaign_targets t ON t.campaign_id = c.id
@@ -126,7 +128,7 @@ func (s *Store) ListDataCollectionCampaigns(ctx context.Context, viewerID int64,
 	for rows.Next() {
 		var v DataCollectionCampaignView
 		if err := rows.Scan(&v.ID, &v.Title, &v.Instruction, &v.RequiredFields, &v.Status, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt,
-			&v.CreatorName, &v.Total, &v.Completed, &v.Pending); err != nil {
+			&v.CreatorName, &v.Total, &v.Completed, &v.Pending, &v.Notified); err != nil {
 			return nil, wrapErr(err)
 		}
 		out = append(out, v)

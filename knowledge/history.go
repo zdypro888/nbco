@@ -70,13 +70,11 @@ func (svc *Service) SearchHistory(ctx context.Context, userID int64, query strin
 }
 
 func (svc *Service) semanticHistory(ctx context.Context, userID int64, query string, limit int) ([]store.ChatMessage, error) {
-	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
-	defer cancel()
-	qv, err := svc.embedder.Embed(ectx, []string{query})
-	if err != nil || len(qv) != 1 || len(qv[0]) == 0 {
+	qv, err := svc.queryVector(ctx, query)
+	if err != nil {
 		return nil, err
 	}
-	tag := modelTag(svc.embedder.Model(), len(qv[0]))
+	tag := modelTag(svc.embedder.Model(), len(qv))
 	cands, err := svc.store.EmbeddedMessagesOfUser(ctx, tag, userID)
 	if err != nil || len(cands) == 0 {
 		return nil, err
@@ -87,7 +85,7 @@ func (svc *Service) semanticHistory(ctx context.Context, userID int64, query str
 	}
 	arr := make([]scored, 0, len(cands))
 	for _, c := range cands {
-		arr = append(arr, scored{c.ID, ai.Cosine(qv[0], c.Embedding)})
+		arr = append(arr, scored{c.ID, ai.Cosine(qv, c.Embedding)})
 	}
 	sort.Slice(arr, func(i, j int) bool { return arr[i].sim > arr[j].sim })
 	n := limit * semanticCandidateMul

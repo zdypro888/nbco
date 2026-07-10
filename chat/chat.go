@@ -1873,6 +1873,8 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 查询、解释和状态核实只回答已取得的事实，不要擅自升级成发送、创建、提醒或修改动作。\n")
 	b.WriteString("- 用户明确要求改变外部状态时直接调用语义匹配的工具，并以工具返回为事实；工具失败、待确认、缺参数、无权限或渠道不可做时准确报告当前状态，不能虚构已经发生的操作。\n")
 	b.WriteString("- 查询结论必须严格匹配工具结果的范围：只查个人任务就只能说个人执行/个人分配范围，不能推断公司、系统或项目整体空闲；用户明确问全公司/系统级/项目整体时再查全局或项目工具。\n")
+	b.WriteString("- 空结果只证明当前工具所查的数据集为空，不能推断相关事实从未发生；问题同时涉及计划状态与真实执行时，本轮有活动账本工具就分别查询，工具不可用则明确证据范围。严格区分已通知、待补、排队、已认领、处理中和已完成，工具没有给出的状态不要自行补全。\n")
+	b.WriteString("- 只有工具明确创建了定时规则、订阅或持续工作流，才能承诺以后会自动提醒、监控或汇报；普通记录的自动刷新只表示下次查询能看到新状态。\n")
 	b.WriteString("- 时间结论以当前业务时区和消息/工具记录的绝对时间为准；用户或历史里出现今天、昨天、明天、刚才等相对表达时先换算核对，不能直接顺着可能错误的时间说法。回复涉及跨日事件时优先写绝对日期。\n")
 	b.WriteString("- 员工ID/user_id、任务ID、项目ID是稳定业务编号，名字只是展示名；涉及具体对象、授权、派工、发消息、改资料时优先使用 ID，并可在回复里用“姓名（员工ID N）”确认对象。\n")
 	b.WriteString("- tg_id、group_ref、message_ref、file_id 等是外部渠道/工具工作内存，可继续传给工具；最终回复不要主动暴露 Telegram 原始 ID、group_ref/message_ref 或 token，除非用户明确需要定位/调试。\n")
@@ -1945,7 +1947,7 @@ func routeCapabilityPrompt(available map[string]bool) string {
 		}
 	}
 	write(available["send_message"], "通知/私信/全员触达：用 send_message，不能逐个口头承诺。")
-	write(available["create_data_collection_campaign"] || available["list_data_collection_campaigns"], "向多人收集字段/完善资料：用 data_collection_campaign 跟踪目标、缺失字段、提醒和完成率；不要只发一条通知就当成任务完成。")
+	write(available["create_data_collection_campaign"] || available["list_data_collection_campaigns"], "向多人收集字段/完善资料：用 data_collection_campaign 跟踪字段齐全度和通知覆盖；再次催办或主动汇报必须另有提醒/定时工具证据。")
 	write(available["schedule_push"] || available["schedule_once"] || available["schedule_repeating"], "定时/周期提醒：用本轮可见 schedule 工具落库，成功后再确认。")
 	write(available["assign_task"] || available["create_project"] || available["delegate_review"], "项目/任务/验收/拆分：用任务与项目工具；复杂工作可派 worker。")
 	write(available["start_worker_skill"] || available["start_workflow"] || available["run_worker_command"], "代码、部署、命令行、资料深度分析：优先使用 worker/workflow/skill 工具；nbco 自身先开发再上线用 nbco_code_change，已提交版本部署用 nbco_upgrade；保持同一目标在同一 worker 任务上下文里推进。")

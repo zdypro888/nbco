@@ -232,7 +232,7 @@ func TestSlimSystemPromptAvoidsStaticDispatchTrees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"核心原则", "时间结论以当前业务时区", "list_system_activity", "本轮能力路由", "send_message", "当前用户：PRO"} {
+	for _, want := range []string{"核心原则", "空结果只证明", "只有工具明确创建了定时规则", "时间结论以当前业务时区", "list_system_activity", "本轮能力路由", "send_message", "当前用户：PRO"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("短系统提示缺 %q:\n%s", want, got)
 		}

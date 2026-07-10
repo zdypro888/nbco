@@ -15,6 +15,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 管理真人员工、AI worker、超级管理员。
 - 管理 Telegram 身份绑定、HTTP/MCP Access Token、真人一次性邀请、worker 绑定码。
 - 管理基本信息字段、自我介绍、他人评价、画像可见性。
+- 管理资料收集活动，分别跟踪字段齐全度、通知覆盖和完成进度。
 - 管理主动权限和被动权限，支持上级授权和转授权。
 - 管理组织组/项目组/部门成员关系。
 
@@ -24,6 +25,10 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `get_user_info`
 - `update_user_info`
 - `bulk_update_user_info`
+- `create_data_collection_campaign`
+- `list_data_collection_campaigns`
+- `get_data_collection_campaign`
+- `send_data_collection_reminder`
 - `invite_employee`
 - `grant_active_perm`
 - `revoke_active_perm`
@@ -39,6 +44,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 不向用户展示内部 user_id、Telegram ID、token hash 等系统细节。
 - 内部 ID/ref 是模型工作内存和工具参数，不是能力限制；最终展示由 `textfmt.SanitizeVisibleReply` 与渠道格式化层清理。
 - 真人邀请、用户 Access Token、worker 绑定码、Worker Access Token 必须严格区分。
+- 资料收集活动是专项追踪基线；没有活动不能证明员工没有自行更新，实际发生记录以 `audit_log` 为准。
+- `pending` 只表示字段仍缺失，`notified` 只表示消息已投递。资料更新会刷新完成率，但重复提醒和主动汇报必须由显式提醒或定时规则驱动。
 
 动作闭环：
 
@@ -117,6 +124,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 从 worker lessons、聊天、资料分析中生成学习候选。
 - 对候选做审核、去重、冲突评分、发布和回滚。
 - 把相关 rule/skill/knowledge 按需注入系统提示，避免提示词无限膨胀。
+- 同一轮知识、规则、skill 和历史检索复用查询向量；embedding 短时故障会限流并回退词法检索。
 
 关键工具：
 

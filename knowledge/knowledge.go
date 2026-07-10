@@ -10,10 +10,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"golang.org/x/sync/singleflight"
 )
 
 // semanticCandidateMul 语义召回时，先取 limit×该倍数 的候选再与词法融合排序。
@@ -30,16 +32,131 @@ const skillSemanticMinScore float32 = 0.28
 // embedTimeout embed-on-save / 查询向量化的超时（本地服务通常很快；超时就回退）。
 const embedTimeout = 20 * time.Second
 const asyncEmbedConcurrency = 4
+const queryEmbedConcurrency = 4
+const queryVectorCacheTTL = 2 * time.Minute
+const queryVectorFailureCooldown = 3 * time.Second
+const queryVectorCacheLimit = 256
+
+type queryVectorCacheEntry struct {
+	vector    []float32
+	expiresAt time.Time
+}
 
 // Service 知识库服务。Embedder 可为 nil（未启用语义检索）。
 type Service struct {
-	store    *store.Store
-	embedder ai.Embedder
-	embedSem chan struct{}
+	store      *store.Store
+	embedder   ai.Embedder
+	embedSem   chan struct{}
+	querySem   chan struct{}
+	queryGroup singleflight.Group
+	queryMu    sync.Mutex
+	queryCache map[string]queryVectorCacheEntry
+	failUntil  time.Time
+	failErr    error
 }
 
 func New(s *store.Store, embedder ai.Embedder) *Service {
-	return &Service{store: s, embedder: embedder, embedSem: make(chan struct{}, asyncEmbedConcurrency)}
+	return &Service{
+		store:      s,
+		embedder:   embedder,
+		embedSem:   make(chan struct{}, asyncEmbedConcurrency),
+		querySem:   make(chan struct{}, queryEmbedConcurrency),
+		queryCache: make(map[string]queryVectorCacheEntry),
+	}
+}
+
+// queryVector deduplicates the same semantic query across knowledge, rules,
+// skills, and episodic history. The embedding request outlives an individual
+// retrieval budget so later consumers can reuse its result; callers can still
+// stop waiting immediately through their own context.
+func (svc *Service) queryVector(ctx context.Context, query string) ([]float32, error) {
+	if svc.embedder == nil {
+		return nil, fmt.Errorf("embedding 未启用")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	key := svc.embedder.Model() + "\x00" + strings.TrimSpace(query)
+	if vector, err, ok := svc.queryState(key, time.Now()); ok {
+		return vector, err
+	}
+
+	result := svc.queryGroup.DoChan(key, func() (any, error) {
+		if vector, err, ok := svc.queryState(key, time.Now()); ok {
+			return vector, err
+		}
+		embedCtx, cancel := context.WithTimeout(context.Background(), embedTimeout)
+		defer cancel()
+		select {
+		case svc.querySem <- struct{}{}:
+			defer func() { <-svc.querySem }()
+		case <-embedCtx.Done():
+			svc.recordQueryFailure(embedCtx.Err())
+			return nil, embedCtx.Err()
+		}
+		vectors, err := svc.embedder.Embed(embedCtx, []string{query})
+		if err == nil && (len(vectors) != 1 || len(vectors[0]) == 0) {
+			err = fmt.Errorf("embedding 查询返回无效向量")
+		}
+		if err != nil {
+			svc.recordQueryFailure(err)
+			return nil, err
+		}
+		vector := vectors[0]
+		svc.recordQuerySuccess(key, vector)
+		return vector, nil
+	})
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res := <-result:
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		vector, ok := res.Val.([]float32)
+		if !ok || len(vector) == 0 {
+			return nil, fmt.Errorf("embedding 查询返回无效结果")
+		}
+		return vector, nil
+	}
+}
+
+func (svc *Service) queryState(key string, now time.Time) ([]float32, error, bool) {
+	svc.queryMu.Lock()
+	defer svc.queryMu.Unlock()
+	if cached, ok := svc.queryCache[key]; ok {
+		if now.Before(cached.expiresAt) {
+			return cached.vector, nil, true
+		}
+		delete(svc.queryCache, key)
+	}
+	if now.Before(svc.failUntil) {
+		err := svc.failErr
+		if err == nil {
+			err = fmt.Errorf("embedding 服务暂时不可用")
+		}
+		return nil, err, true
+	}
+	return nil, nil, false
+}
+
+func (svc *Service) recordQueryFailure(err error) {
+	svc.queryMu.Lock()
+	svc.failUntil = time.Now().Add(queryVectorFailureCooldown)
+	svc.failErr = err
+	svc.queryMu.Unlock()
+}
+
+func (svc *Service) recordQuerySuccess(key string, vector []float32) {
+	svc.queryMu.Lock()
+	if len(svc.queryCache) >= queryVectorCacheLimit {
+		clear(svc.queryCache)
+	}
+	svc.queryCache[key] = queryVectorCacheEntry{vector: vector, expiresAt: time.Now().Add(queryVectorCacheTTL)}
+	svc.failUntil = time.Time{}
+	svc.failErr = nil
+	svc.queryMu.Unlock()
 }
 
 // Save 存一条知识，并【异步 fire-and-forget】落 embedding——绝不阻塞建知识的
@@ -249,13 +366,11 @@ func (svc *Service) search(
 // semantic 查询向量化 → 与「同模型同维度」的已嵌入知识做 cosine → 取 topN。
 // 按 modelTag（含维度）取候选：维度变更后旧向量自动排除，绝不用零余弦污染结果。
 func (svc *Service) semantic(ctx context.Context, query string, limit int, candidates func(context.Context, string) ([]store.KnowledgeVec, error), minScore float32) ([]*store.Knowledge, error) {
-	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
-	defer cancel()
-	qv, err := svc.embedder.Embed(ectx, []string{query})
-	if err != nil || len(qv) != 1 || len(qv[0]) == 0 {
+	qv, err := svc.queryVector(ctx, query)
+	if err != nil {
 		return nil, err
 	}
-	tag := modelTag(svc.embedder.Model(), len(qv[0]))
+	tag := modelTag(svc.embedder.Model(), len(qv))
 	cands, err := candidates(ctx, tag)
 	if err != nil {
 		return nil, err
@@ -269,7 +384,7 @@ func (svc *Service) semantic(ctx context.Context, query string, limit int, candi
 	}
 	arr := make([]scored, 0, len(cands))
 	for _, c := range cands {
-		sim := ai.Cosine(qv[0], c.Embedding)
+		sim := ai.Cosine(qv, c.Embedding)
 		if minScore > 0 && sim < minScore {
 			continue
 		}

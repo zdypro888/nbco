@@ -15,7 +15,7 @@ import (
 
 func campaignTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("create_data_collection_campaign", "创建资料收集活动：向自己、指定成员或全体真人员工收集动态字段（如手机、职位、组别），系统跟踪每个目标缺哪些字段、是否完成，并可继续提醒。需要给他人/全体发送时具备 send_msg 权限；字段定义会自动补齐。",
+		tool("create_data_collection_campaign", "创建资料收集活动：向自己、指定成员或全体真人员工收集动态字段（如手机、职位、组别），跟踪字段是否齐全；send_now 只负责本次通知。成员更新资料后进度会自动刷新，但创建活动本身不会建立定时催办或主动汇报，需要时另用提醒/定时工具。给他人或全体发送需要 send_msg 权限；字段定义会自动补齐。",
 			obj(map[string]any{
 				"title":           p("string", "活动标题，如「全员完善个人档案」"),
 				"required_fields": arr("string", "需要收集的字段名，如 手机/职位/组别；常见别名会归一"),
@@ -41,7 +41,7 @@ func campaignTools(d Deps, u *store.User) []ai.Tool {
 				return createDataCampaign(ctx, d, u, args.Title, args.Instruction, args.RequiredFields, args.Target, args.UserIDs, args.Message, args.SendNow)
 			}),
 
-		tool("list_data_collection_campaigns", "查看资料收集活动列表和完成率。用于确认「全员完善资料」这类事项是否真的创建、还有多少人未完成。",
+		tool("list_data_collection_campaigns", "查看资料收集活动列表、完成率和通知覆盖。它只回答专项追踪状态：没有活动不等于没人自行更新资料；用户问最近是否真的有人更新/执行时，本轮如有系统活动账本还要继续查询。pending 只表示字段仍缺失，不表示正在处理。",
 			obj(map[string]any{
 				"status": p("string", "active（默认）| closed | cancelled | all"),
 				"limit":  p("integer", "返回数量，默认 20，最多 100"),
@@ -61,7 +61,7 @@ func campaignTools(d Deps, u *store.User) []ai.Tool {
 				return renderDataCampaignList(items), nil
 			}),
 
-		tool("get_data_collection_campaign", "查看某个资料收集活动的目标明细、缺失字段和完成状态；查看前会刷新完成率。",
+		tool("get_data_collection_campaign", "查看某个资料收集活动的目标明细、缺失字段、通知和完成状态；查看前会刷新完成率。pending 只表示字段仍缺失，不能表述为成员正在处理。",
 			obj(map[string]any{"campaign_id": p("integer", "资料收集活动内部编号")}, "campaign_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -73,7 +73,7 @@ func campaignTools(d Deps, u *store.User) []ai.Tool {
 				return getDataCampaign(ctx, d, u, args.CampaignID)
 			}),
 
-		tool("send_data_collection_reminder", "给资料收集活动中仍未完成的目标重发提醒。只提醒 pending 目标；发送成功后记录 last_notified_at。",
+		tool("send_data_collection_reminder", "立即给资料收集活动中仍未完成的目标重发一次提醒。只提醒 pending 目标；发送成功后记录 last_notified_at。本工具不会创建后续定时提醒。",
 			obj(map[string]any{
 				"campaign_id": p("integer", "资料收集活动内部编号"),
 				"message":     p("string", "可选，覆盖默认提醒文案"),
@@ -171,6 +171,7 @@ func createDataCampaign(ctx context.Context, d Deps, u *store.User, title, instr
 	} else {
 		b.WriteString("\n本次未发送通知；可用 send_data_collection_reminder 后续提醒。")
 	}
+	b.WriteString("\n" + dataCampaignStateBoundary())
 	return b.String(), nil
 }
 
@@ -450,7 +451,7 @@ func dataCampaignView(ctx context.Context, d Deps, u *store.User, id int64) (sto
 
 func renderDataCampaignList(items []store.DataCollectionCampaignView) string {
 	if len(items) == 0 {
-		return "（没有资料收集活动）"
+		return "没有资料收集活动。这个结果只表示未建立专项追踪，不能据此判断员工是否自行更新过资料；如本轮可用系统活动账本，请继续查询实际变更，否则应明确当前证据不足。"
 	}
 	var b strings.Builder
 	b.WriteString("资料收集活动\n")
@@ -459,15 +460,19 @@ func renderDataCampaignList(items []store.DataCollectionCampaignView) string {
 		if creator == "" {
 			creator = strconv.FormatInt(it.CreatedBy, 10)
 		}
-		fmt.Fprintf(&b, "- %s：%s [%s] 完成 %d/%d，待补 %d，创建者 %s\n",
-			internalRef("资料收集", it.ID), it.Title, it.Status, it.Completed, it.Total, it.Pending, creator)
+		fmt.Fprintf(&b, "- %s：%s [%s] 完成 %d/%d，待补 %d，已通知 %d，创建者 %s\n",
+			internalRef("资料收集", it.ID), it.Title, it.Status, it.Completed, it.Total, it.Pending, it.Notified, creator)
 	}
+	b.WriteString(dataCampaignStateBoundary())
 	return strings.TrimSpace(b.String())
 }
 
 func renderDataCampaignDetail(c *store.DataCollectionCampaign, targets []store.DataCollectionCampaignTarget) string {
-	var completed, pending int
+	var completed, pending, notified int
 	for _, t := range targets {
+		if t.LastNotifiedAt != nil {
+			notified++
+		}
 		switch t.Status {
 		case store.DataCampaignTargetCompleted:
 			completed++
@@ -477,7 +482,7 @@ func renderDataCampaignDetail(c *store.DataCollectionCampaign, targets []store.D
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s：%s [%s]\n", internalRef("资料收集", c.ID), c.Title, c.Status)
-	fmt.Fprintf(&b, "字段：%s\n完成：%d/%d，待补：%d\n", strings.Join(c.RequiredFields, "、"), completed, len(targets), pending)
+	fmt.Fprintf(&b, "字段：%s\n完成：%d/%d，待补：%d，已通知：%d\n", strings.Join(c.RequiredFields, "、"), completed, len(targets), pending, notified)
 	if strings.TrimSpace(c.Instruction) != "" {
 		fmt.Fprintf(&b, "说明：%s\n", c.Instruction)
 	}
@@ -486,7 +491,16 @@ func renderDataCampaignDetail(c *store.DataCollectionCampaign, targets []store.D
 			fmt.Fprintf(&b, "- 员工ID %d｜%s｜已完成\n", t.UserID, t.UserName)
 			continue
 		}
-		fmt.Fprintf(&b, "- 员工ID %d｜%s｜待补：%s\n", t.UserID, t.UserName, strings.Join(t.MissingFields, "、"))
+		notification := "未通知"
+		if t.LastNotifiedAt != nil {
+			notification = "已通知"
+		}
+		fmt.Fprintf(&b, "- 员工ID %d｜%s｜待补：%s｜%s\n", t.UserID, t.UserName, strings.Join(t.MissingFields, "、"), notification)
 	}
+	b.WriteString(dataCampaignStateBoundary())
 	return strings.TrimSpace(b.String())
+}
+
+func dataCampaignStateBoundary() string {
+	return "状态说明：待补只表示字段仍缺失，不代表成员正在处理；已通知只表示消息投递成功。资料更新后完成率会自动刷新，但活动本身不会自动重复提醒或主动汇报。"
 }
