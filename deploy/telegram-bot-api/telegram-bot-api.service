@@ -1,0 +1,35 @@
+[Unit]
+Description=Official Telegram Bot API Server (local mode)
+Documentation=https://github.com/tdlib/telegram-bot-api
+Wants=network-online.target
+After=network-online.target
+Before=nbco.service
+
+[Service]
+Type=simple
+User=telegram-bot-api
+Group=telegram-bot-api
+EnvironmentFile=/etc/nbco/telegram-bot-api.env
+StateDirectory=telegram-bot-api
+StateDirectoryMode=0750
+WorkingDirectory=/var/lib/telegram-bot-api
+ExecStartPre=/usr/bin/mkdir -p /var/lib/telegram-bot-api/tmp
+ExecStart=/usr/local/bin/telegram-bot-api --local --http-ip-address=127.0.0.1 --http-port=8081 --dir=/var/lib/telegram-bot-api --temp-dir=/var/lib/telegram-bot-api/tmp
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+UMask=0027
+
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/telegram-bot-api
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
