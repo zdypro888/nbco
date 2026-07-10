@@ -200,10 +200,10 @@ func tailText(s string, n int) string {
 }
 
 func writeCommandScript(dir, command string) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "command.txt"), []byte(command), 0o644)
+	return os.WriteFile(filepath.Join(dir, "command.txt"), []byte(command), 0o600)
 }
 
 func commandSummary(command, mode string, res commandResult, err error) string {

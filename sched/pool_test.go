@@ -84,6 +84,28 @@ func TestPoolRecoversPanic(t *testing.T) {
 	}
 }
 
+func TestTrySubmitDoesNotQueueWhenFull(t *testing.T) {
+	p := newPool(1)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	if !p.trySubmit(context.Background(), func() {
+		close(started)
+		<-release
+	}) {
+		t.Fatal("first task should be accepted")
+	}
+	<-started
+	if p.trySubmit(context.Background(), func() {}) {
+		t.Fatal("full pool must reject instead of queueing")
+	}
+	close(release)
+	p.wait()
+	if !p.trySubmit(context.Background(), func() {}) {
+		t.Fatal("released slot should accept new work")
+	}
+	p.wait()
+}
+
 // ctx 已取消时，未开始的任务不执行。
 func TestPoolRespectsCancel(t *testing.T) {
 	p := newPool(1)

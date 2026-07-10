@@ -26,6 +26,7 @@ const (
 	ScheduleTargetAll  = "_all"
 
 	scheduleDeliveryLease = 10 * time.Minute
+	scheduleClaimBatch    = 128
 )
 
 // Schedule 一条定时任务。FireAt 是下次触发时间（UTC）。
@@ -46,6 +47,8 @@ type Schedule struct {
 	DailyAt   string // "HH:MM"（公司时区），kind=daily 用
 	Weekdays  string // "1,2,3,4,5"（1=周一…7=周日），空=每天
 	CreatedBy int64
+	// DeliveryClaimedAt 标识 DueSchedules 当前认领租约；ack 必须携带同一值。
+	DeliveryClaimedAt *time.Time
 }
 
 type ScheduleView struct {
@@ -54,13 +57,13 @@ type ScheduleView struct {
 	CreatorName  string
 }
 
-const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by`
+const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	var sc Schedule
 	if err := row.Scan(&sc.ID, &sc.UserID, &sc.Kind, &sc.Message, &sc.FireAt,
 		&sc.IntervalS, &sc.Status, &sc.LastFired, &sc.CreatedAt,
-		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy); err != nil {
+		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy, &sc.DeliveryClaimedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &sc, nil
@@ -138,7 +141,7 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		var v ScheduleView
 		if err := rows.Scan(&v.ID, &v.UserID, &v.Kind, &v.Message, &v.FireAt,
 			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
-			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy,
+			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy, &v.DeliveryClaimedAt,
 			&v.ReceiverName, &v.CreatorName); err != nil {
 			return nil, wrapErr(err)
 		}
@@ -168,10 +171,17 @@ func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
 func (s *Store) DueSchedules(ctx context.Context, now time.Time) ([]*Schedule, error) {
 	stale := now.Add(-scheduleDeliveryLease)
 	rows, err := s.pool.Query(ctx,
-		`UPDATE schedules SET delivery_claimed_at = $1
-		 WHERE status = 'active' AND fire_at <= $1
-		   AND (delivery_claimed_at IS NULL OR delivery_claimed_at <= $2)
-		 RETURNING `+scheduleCols, now, stale)
+		`WITH due AS (
+		   SELECT id FROM schedules
+		    WHERE status = 'active' AND fire_at <= $1
+		      AND (delivery_claimed_at IS NULL OR delivery_claimed_at <= $2)
+		    ORDER BY fire_at, id
+		    LIMIT $3
+		    FOR UPDATE SKIP LOCKED
+		 )
+		 UPDATE schedules s SET delivery_claimed_at = $1
+		 FROM due WHERE s.id = due.id
+		 RETURNING `+scheduleColsWithAlias("s"), now, stale, scheduleClaimBatch)
 	if err != nil {
 		return nil, err
 	}
@@ -187,8 +197,15 @@ func (s *Store) DueSchedules(ctx context.Context, now time.Time) ([]*Schedule, e
 	return scs, rows.Err()
 }
 
+// ReleaseScheduleClaim 释放尚未开始执行的认领，让下一轮调度可立即重试。
+func (s *Store) ReleaseScheduleClaim(ctx context.Context, id int64, claimAt time.Time) error {
+	return s.execOne(ctx,
+		`UPDATE schedules SET delivery_claimed_at = NULL
+		 WHERE id = $1 AND delivery_claimed_at = $2`, id, claimAt)
+}
+
 // MarkScheduleDelivered ack 一次成功投递并推进下一次触发时间。
-func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, firedAt time.Time, nextFireAt *time.Time, done bool) error {
+func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, claimAt, firedAt time.Time, nextFireAt *time.Time, done bool) error {
 	status := ScheduleActive
 	if done {
 		status = ScheduleDone
@@ -199,7 +216,7 @@ func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, firedAt tim
 		   status = $3,
 		   fire_at = COALESCE($4, fire_at),
 		   delivery_claimed_at = NULL
-		 WHERE id = $1 AND delivery_claimed_at IS NOT NULL`, id, firedAt, status, nextFireAt)
+		 WHERE id = $1 AND delivery_claimed_at = $5`, id, firedAt, status, nextFireAt, claimAt)
 }
 
 // UpdateScheduleFireAt 修正下次触发时间（daily 的工作日跳过/时区校正）。

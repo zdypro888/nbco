@@ -29,15 +29,17 @@ const skillSemanticMinScore float32 = 0.28
 
 // embedTimeout embed-on-save / 查询向量化的超时（本地服务通常很快；超时就回退）。
 const embedTimeout = 20 * time.Second
+const asyncEmbedConcurrency = 4
 
 // Service 知识库服务。Embedder 可为 nil（未启用语义检索）。
 type Service struct {
 	store    *store.Store
 	embedder ai.Embedder
+	embedSem chan struct{}
 }
 
 func New(s *store.Store, embedder ai.Embedder) *Service {
-	return &Service{store: s, embedder: embedder}
+	return &Service{store: s, embedder: embedder, embedSem: make(chan struct{}, asyncEmbedConcurrency)}
 }
 
 // Save 存一条知识，并【异步 fire-and-forget】落 embedding——绝不阻塞建知识的
@@ -62,7 +64,20 @@ func (svc *Service) embedAsync(k *store.Knowledge) {
 	if svc.embedder == nil {
 		return
 	}
+	select {
+	case svc.embedSem <- struct{}{}:
+	default:
+		// 保存已成功；周期回填会补齐被限流的向量，避免请求洪峰制造无界 goroutine。
+		slog.Debug("知识异步向量化并发已满，交由回填补齐", "id", k.ID)
+		return
+	}
 	go func() {
+		defer func() {
+			<-svc.embedSem
+			if r := recover(); r != nil {
+				slog.Error("知识异步向量化 panic 已恢复", "id", k.ID, "panic", r)
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), embedTimeout)
 		defer cancel()
 		svc.embedOne(ctx, k)

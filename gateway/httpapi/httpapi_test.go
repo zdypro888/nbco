@@ -37,6 +37,19 @@ func TestHandleVersion(t *testing.T) {
 	}
 }
 
+func TestHandlerSetsSecurityHeaders(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/version", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "script-src 'self' https://telegram.org") || !strings.Contains(got, "object-src 'none'") {
+		t.Fatalf("Content-Security-Policy 不完整: %q", got)
+	}
+}
+
 func TestWorkerDownloadBinary(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "worker")

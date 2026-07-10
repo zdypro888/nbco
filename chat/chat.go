@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/keylock"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
@@ -43,6 +44,8 @@ const (
 
 const compactSystem = "你是会话压缩器。把输入的既有摘要与对话合并压缩成一份备忘摘要：" +
 	"保留事实、决定、承诺、进行中事项、关键编号与人名、用户偏好；去掉寒暄与过程细节；" +
+	"每条对话都带发生时间；把今天、昨天、明天、上周等相对时间按该条消息的发生时间改写为绝对日期，禁止原样保留会随时间漂移的日期词；" +
+	"既有摘要中无法可靠换算的相对时间改写为‘当时’并保留原始事件，不得按当前日期重新解释；" +
 	"未闭合/旁听输入只能作为背景事实，不得总结成已执行动作、系统承诺或待办指令；" +
 	"不超过500字；直接输出摘要正文，不要任何前后缀。"
 
@@ -55,9 +58,10 @@ type Orchestrator struct {
 	defaultStreamReasoning bool
 
 	mu         sync.Mutex
-	locks      map[int64]*sync.Mutex  // 同一用户的轮次串行：用户消息与系统触发轮次（催办/周报）不互踩会话
-	groupLocks map[string]*sync.Mutex // 群共享会话按渠道串行
-	compacting map[int64]bool         // 正在后台压缩的会话，防并发压缩
+	locks      keylock.Map[int64]  // 同一用户的轮次串行：用户消息与系统触发轮次（催办/周报）不互踩会话
+	groupLocks keylock.Map[string] // 群共享会话按渠道串行
+	compacting map[int64]bool      // 正在后台压缩的会话，防并发压缩
+	memorySem  chan struct{}       // 限制后台 Memory Miner 并发，避免突发对话压垮模型
 
 	// 引擎健康：连续失败计数 + 最近错误。超阈值给超管推告警，避免引擎挂了只能等用户投诉。
 	// 主动行为（催办/周报/画像）全靠引擎，挂了会静默停摆。
@@ -76,29 +80,8 @@ const (
 // New 创建编排器。
 func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, streamReasoning bool) *Orchestrator {
 	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz, defaultStreamReasoning: streamReasoning,
-		locks: map[int64]*sync.Mutex{}, groupLocks: map[string]*sync.Mutex{}, compacting: map[int64]bool{}}
-}
-
-func (o *Orchestrator) userLock(id int64) *sync.Mutex {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	l, ok := o.locks[id]
-	if !ok {
-		l = &sync.Mutex{}
-		o.locks[id] = l
-	}
-	return l
-}
-
-func (o *Orchestrator) groupLock(channel string) *sync.Mutex {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	l, ok := o.groupLocks[channel]
-	if !ok {
-		l = &sync.Mutex{}
-		o.groupLocks[channel] = l
-	}
-	return l
+		compacting: map[int64]bool{},
+		memorySem:  make(chan struct{}, 4)}
 }
 
 // isGroupChannel 群共享会话的渠道值约定（telegram:group:<chatID>）。
@@ -107,9 +90,8 @@ func isGroupChannel(channel string) bool { return strings.Contains(channel, ":gr
 // HandleMessage 处理用户在某渠道的一轮输入，返回给用户的答复。
 // 系统触发的轮次（催办/周报）同样走这里：调度器把系统指令作为输入传入。
 func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel, text string) (string, error) {
-	lock := o.userLock(u.ID)
-	lock.Lock()
-	defer lock.Unlock()
+	release := o.locks.Acquire(u.ID)
+	defer release()
 
 	sess, err := o.ensureSession(ctx, u, channel)
 	if err != nil {
@@ -121,9 +103,8 @@ func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel
 // HandleMessageStream 同 HandleMessage，但把最终答复的文本增量实时喂给 onDelta
 // （eino 流式）——网关据此渐进显示，长轮次不让用户干等。返回仍是完整答复。
 func (o *Orchestrator) HandleMessageStream(ctx context.Context, u *store.User, channel, text string, onDelta func(string)) (string, error) {
-	lock := o.userLock(u.ID)
-	lock.Lock()
-	defer lock.Unlock()
+	release := o.locks.Acquire(u.ID)
+	defer release()
 
 	sess, err := o.ensureSession(ctx, u, channel)
 	if err != nil {
@@ -135,9 +116,8 @@ func (o *Orchestrator) HandleMessageStream(ctx context.Context, u *store.User, c
 // HandleGroupMessage 群共享会话的一轮：会话按渠道共享，工具集按发言人权限
 // 裁剪（并剔除群内高危工具），输入带【发言人】署名让 AI 分得清谁在说话。
 func (o *Orchestrator) HandleGroupMessage(ctx context.Context, u *store.User, channel, speaker, text string) (string, error) {
-	lock := o.groupLock(channel)
-	lock.Lock()
-	defer lock.Unlock()
+	release := o.groupLocks.Acquire(channel)
+	defer release()
 
 	sess, err := o.ensureGroupSession(ctx, u, channel)
 	if err != nil {
@@ -185,7 +165,7 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 // runTurn 一轮引擎调用的公共路径：摘要+历史重放 → 引擎 → 落库 → 触发压缩。
 // onDelta 非 nil 时把最终答复的文本增量实时推给调用方（流式，网关渐进显示）。
 func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string)) (string, error) {
-	fullToolset := tools.ForUser(o.deps, u, &sess.ID)
+	fullToolset := tools.ForUserContext(ctx, o.deps, u, &sess.ID)
 	if isGroupChannel(channel) {
 		fullToolset = tools.StripGroupSensitive(fullToolset) // 群里剔除机密/高危工具
 	}
@@ -204,14 +184,16 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// Skill 注入只放摘要：完整步骤通过 load_skill 按需读取，避免系统提示膨胀。
 	system += o.skillContext(ctx, u, channel, text)
 	system += o.recentFileContext(ctx, u, availableTools)
-	toolset := tools.WithTurnBudget(routedToolset, tools.TurnBudget{
+	toolGuard := tools.NewTurnBudgetGuard(tools.TurnBudget{
 		MaxCalls:       18,
 		MaxPerTool:     8,
 		MaxExactRepeat: 1,
 	})
+	toolset := toolGuard.Wrap(routedToolset)
 	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
 	if sess.Summary != "" {
-		system += "\n\n[早前对话摘要（更早内容已压缩，以下为要点）]\n" + sess.Summary
+		system += "\n\n[早前对话摘要（更早内容已压缩，以下为历史要点）]\n" +
+			"摘要中的相对日期词只代表摘要生成当时，不得按当前日期重新解释；涉及时间结论时以带绝对时间的历史消息或工具记录为准。\n" + sess.Summary
 	}
 
 	start := time.Now()
@@ -219,12 +201,13 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
 
 	req := &ai.TurnRequest{
-		SessionID:     fmt.Sprintf("%d", sess.ID),
-		EngineSession: sess.EngineRef,
-		System:        system,
-		UserText:      text,
-		Model:         o.runtimeModel(ctx),
-		Tools:         toolset,
+		SessionID:          fmt.Sprintf("%d", sess.ID),
+		EngineSession:      sess.EngineRef,
+		System:             system,
+		UserText:           text,
+		Model:              o.runtimeModel(ctx),
+		Tools:              toolset,
+		ShouldDisableTools: toolGuard.ShouldDisableTools,
 		// 实时轨迹：工具调用与产出上报到日志（审计层另行落库）。
 		OnEvent: func(s ai.Step) {
 			switch {
@@ -254,7 +237,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	}
 	histChars := 0
 	for _, m := range replayMsgs {
-		req.History = append(req.History, ai.Message{Role: ai.Role(m.Role), Content: m.Content})
+		req.History = append(req.History, ai.Message{Role: ai.Role(m.Role), Content: modelHistoryContent(m, o.tz)})
 		histChars += len(m.Content)
 	}
 	diag := turnDiagnostics{
@@ -320,7 +303,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = mergeRepairResult(res, repaired)
 		}
 	}
-	if sideEffectCompletionWithoutSuccessfulAction(text, res.Text, res.Steps) {
+	if sideEffectCompletionWithoutSuccessfulActionWithTools(text, res.Text, toolset, res.Steps) {
 		slog.Warn("拦截无成功动作证据的完成声明",
 			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
 			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
@@ -331,7 +314,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			engineOK = false
 			res.Text = noToolCompletionFallback()
 			res.FinishReason = "blocked_no_tool_completion"
-		} else if sideEffectCompletionWithoutSuccessfulAction(text, repaired.Text, repaired.Steps) {
+		} else if sideEffectCompletionWithoutSuccessfulActionWithTools(text, repaired.Text, toolset, repaired.Steps) {
 			slog.Warn("无成功动作证据完成声明重跑后仍未落动作工具，改用系统兜底答复",
 				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
 			res = mergeRepairResult(res, repaired)
@@ -403,7 +386,6 @@ func (o *Orchestrator) repairMissingToolTurn(ctx context.Context, req *ai.TurnRe
 	b.WriteString(missingTool)
 	b.WriteString("。请重新处理同一个用户请求：\n")
 	b.WriteString("- 只能调用下面列出的可见工具名，不要自造工具名或猜测别名。\n")
-	b.WriteString("- 如果用户要删除任务，优先使用 delete_assigned_task；如果该工具不可见，就说明当前入口无法删除任务。\n")
 	b.WriteString("- 如果没有合适工具、权限不足、参数缺失或目标不明确，直接说明未完成和下一步。\n")
 	if len(names) > 0 {
 		b.WriteString("当前可见工具：")
@@ -472,7 +454,20 @@ func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.T
 	retry := *req
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
-	retry.System = req.System + "\n\n[系统保护]\n上一轮没有成功调用任何写入/执行型工具，或只调用了查询/读取工具，却给了“已完成/已设置/会发送/正在执行”之类完成式回复。这是不允许的。请重新处理同一个用户请求：\n- 如果用户要设置、创建、修改、发送、授权、邀请、部署、派工等操作，必须调用合适的写入/执行型工具完成。\n- 如果用户要读取/解析 PDF、XLSX、图片、附件或最近上传文件，先用 list_recent_files 确认文件，再调用 start_workflow、analyze_company_materials 或 start_worker_skill 处理；不能只回答“能读取”。\n- 如果当前工具集没有对应工具、权限不足、参数缺失或渠道不允许操作，直接说明未完成以及缺什么，不要声称已完成。\n- 最终只有在本轮写入/执行型工具成功后，才能说已经完成；只调用查询工具时，只能说查到了什么。"
+	var actionTools []string
+	for _, tool := range req.Tools {
+		if tools.ToolCanProveActionTool(tool) {
+			actionTools = append(actionTools, tool.Name)
+		}
+	}
+	retry.System = req.System + "\n\n[系统保护]\n上一轮没有成功调用任何写入/执行型工具，或只调用了查询工具，却给了完成式回复。请重新判断用户意图并处理同一个请求：\n" +
+		"- 用户确实要求改变外部状态或执行工作时，从本轮工具定义中选择语义和参数匹配的写入/执行工具；可以组合查询工具定位稳定 ID，但查询本身不等于完成。\n" +
+		"- 用户只是在询问、解释或核实状态时，直接依据事实回答，不要为了通过检查而制造动作。\n" +
+		"- 没有合适工具、缺参数、无权限或渠道不允许时，明确说尚未完成以及缺什么，不要让用户机械重复原指令。\n" +
+		"- 只有工具成功结果能证明完成；工具失败或待确认时准确报告当前状态。"
+	if len(actionTools) > 0 {
+		retry.System += "\n本轮可见的写入/执行工具：" + strings.Join(actionTools, ", ")
+	}
 	res, err := o.engine.RunTurn(ctx, &retry)
 	if err != nil {
 		return nil, err
@@ -518,6 +513,10 @@ func visibleReplyFallback(res *ai.TurnResult) string {
 }
 
 func sideEffectCompletionWithoutSuccessfulAction(userText, reply string, steps []ai.Step) bool {
+	return sideEffectCompletionWithoutSuccessfulActionWithTools(userText, reply, nil, steps)
+}
+
+func sideEffectCompletionWithoutSuccessfulActionWithTools(userText, reply string, toolset []ai.Tool, steps []ai.Step) bool {
 	trimmed := strings.TrimSpace(reply)
 	if isDegenerateVisibleReply(trimmed) {
 		return looksLikeSideEffectRequest(userText)
@@ -525,7 +524,7 @@ func sideEffectCompletionWithoutSuccessfulAction(userText, reply string, steps [
 	if !claimsSideEffectDone(trimmed) {
 		return false
 	}
-	return !hasSuccessfulActionEvidence(nil, steps)
+	return !hasSuccessfulActionEvidenceWithTools(nil, toolset, steps)
 }
 
 func looksLikeSideEffectRequest(text string) bool {
@@ -567,10 +566,7 @@ func claimsSideEffectDone(reply string) bool {
 			return true
 		}
 	}
-	if containsDoneVerb(reply) {
-		return true
-	}
-	return false
+	return containsDoneVerb(reply)
 }
 
 func containsDoneVerb(reply string) bool {
@@ -669,6 +665,7 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘�
 - 没有明确新增长期价值时返回空数组。
 - 不要保存普通寒暄、一次性任务、临时状态。
 - 不要臆造用户没说过的规则或步骤。
+- 保存涉及日期的稳定事实时，必须根据“对话发生时间”把今天、昨天、明天、上周等相对表达换成绝对日期；无法可靠换算就不保存该时间结论。
 - 不要把助手单方面提出的建议、承诺、道歉或“我会做”当成已生效事实；只有用户明确要求、认可，或工具结果/用户内容能证明时才提取。
 - skill 应该是可复用的类级流程，不要为一次对话里的单个临时问题生成微型 skill。
 - 如果用户纠正了系统行为，要优先沉淀成 rule；如果用户教的是一套做事方法，才沉淀成 skill。
@@ -698,12 +695,13 @@ type minedMemory struct {
 }
 
 type memorySource struct {
-	Channel            string `json:"channel"`
-	SessionID          int64  `json:"session_id,omitempty"`
-	UserMessageID      int64  `json:"user_message_id,omitempty"`
-	AssistantMessageID int64  `json:"assistant_message_id,omitempty"`
-	UserText           string `json:"user_text,omitempty"`
-	AssistantText      string `json:"assistant_text,omitempty"`
+	Channel            string    `json:"channel"`
+	SessionID          int64     `json:"session_id,omitempty"`
+	UserMessageID      int64     `json:"user_message_id,omitempty"`
+	AssistantMessageID int64     `json:"assistant_message_id,omitempty"`
+	UserText           string    `json:"user_text,omitempty"`
+	AssistantText      string    `json:"assistant_text,omitempty"`
+	OccurredAt         time.Time `json:"-"`
 }
 
 func (s memorySource) ref() string {
@@ -736,11 +734,18 @@ func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assista
 	if !shouldMineMemory(userText, assistantText) {
 		return
 	}
+	select {
+	case o.memorySem <- struct{}{}:
+	default:
+		slog.Debug("Memory Miner 并发已满，跳过本轮后台提炼", "user", u.ID)
+		return
+	}
 	src := memorySource{
 		Channel: channel, SessionID: sessionID, UserMessageID: userMsgID, AssistantMessageID: assistantMsgID,
-		UserText: userText, AssistantText: assistantText,
+		UserText: userText, AssistantText: assistantText, OccurredAt: time.Now().In(orTimeZone(o.tz)),
 	}
 	go func() {
+		defer func() { <-o.memorySem }()
 		defer func() {
 			if r := recover(); r != nil {
 				slog.Error("Memory Miner panic 已恢复", "user", u.ID, "panic", r)
@@ -754,14 +759,12 @@ func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assista
 
 func shouldMineMemory(userText, assistantText string) bool {
 	text := strings.TrimSpace(userText + "\n" + assistantText)
-	if len([]rune(text)) < 24 {
-		return false
-	}
-	return true
+	return len([]rune(text)) >= 24
 }
 
 func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, src memorySource) {
-	input := fmt.Sprintf("当前用户：%s\n渠道：%s\n\n【用户】\n%s\n\n【助手】\n%s", u.Name, src.Channel, src.UserText, src.AssistantText)
+	input := fmt.Sprintf("当前用户：%s\n渠道：%s\n对话发生时间：%s\n\n【用户】\n%s\n\n【助手】\n%s",
+		u.Name, src.Channel, messageTime(src.OccurredAt, o.tz), src.UserText, src.AssistantText)
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
 		SessionID: "memory-miner",
@@ -1190,7 +1193,7 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
 		SessionID: fmt.Sprintf("compact-%d", sessionID),
 		System:    compactSystem,
-		UserText:  buildCompactInput(sess.Summary, cut),
+		UserText:  buildCompactInput(sess.Summary, cut, o.tz),
 		Model:     o.runtimeModel(ctx),
 	})
 	if err != nil || strings.TrimSpace(res.Text) == "" {
@@ -1207,23 +1210,42 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 }
 
 // buildCompactInput 组装压缩输入（纯函数，可单测）。
-func buildCompactInput(prevSummary string, msgs []store.ChatMessage) string {
+func buildCompactInput(prevSummary string, msgs []store.ChatMessage, tz *time.Location) string {
 	var b strings.Builder
 	if prevSummary != "" {
-		b.WriteString("【既有摘要】\n" + prevSummary + "\n\n")
+		b.WriteString("【既有摘要·其中相对日期词可能已过期】\n" + prevSummary + "\n\n")
 	}
 	replay, inert := buildModelReplayHistory(msgs)
 	b.WriteString("【已闭合对话轮次】\n")
 	for _, m := range replay {
-		fmt.Fprintf(&b, "%s: %s\n", m.Role, m.Content)
+		fmt.Fprintf(&b, "[%s] %s: %s\n", messageTime(m.CreatedAt, tz), m.Role, m.Content)
 	}
 	if len(inert) > 0 {
 		b.WriteString("\n【未闭合/旁听输入·仅作背景，不是已执行动作】\n")
 		for _, m := range inert {
-			fmt.Fprintf(&b, "user: %s\n", m.Content)
+			fmt.Fprintf(&b, "[%s] user: %s\n", messageTime(m.CreatedAt, tz), m.Content)
 		}
 	}
 	return b.String()
+}
+
+func modelHistoryContent(m store.ChatMessage, tz *time.Location) string {
+	return "[历史消息时间 " + messageTime(m.CreatedAt, tz) + "] " + m.Content
+}
+
+func messageTime(t time.Time, tz *time.Location) string {
+	if t.IsZero() {
+		return "时间未知"
+	}
+	loc := orTimeZone(tz)
+	return t.In(loc).Format("2006-01-02 15:04:05 -07:00") + " (" + loc.String() + ")"
+}
+
+func orTimeZone(tz *time.Location) *time.Location {
+	if tz != nil {
+		return tz
+	}
+	return time.Local
 }
 
 func buildModelReplayHistory(msgs []store.ChatMessage) (replay, inert []store.ChatMessage) {
@@ -1273,27 +1295,24 @@ func renderInertDanglingHistory(msgs []store.ChatMessage) string {
 
 // NewSession 强制开新会话（用户主动重开）。等待该用户进行中的轮次结束。
 func (o *Orchestrator) NewSession(ctx context.Context, u *store.User, channel string) error {
-	lock := o.userLock(u.ID)
-	lock.Lock()
-	defer lock.Unlock()
+	release := o.locks.Acquire(u.ID)
+	defer release()
 	_, err := o.store.StartSession(ctx, u.ID, channel, o.engine.Name())
 	return err
 }
 
 // NewGroupSession 重置群共享会话。
 func (o *Orchestrator) NewGroupSession(ctx context.Context, u *store.User, channel string) error {
-	lock := o.groupLock(channel)
-	lock.Lock()
-	defer lock.Unlock()
+	release := o.groupLocks.Acquire(channel)
+	defer release()
 	_, err := o.store.StartGroupSession(ctx, u.ID, channel, o.engine.Name())
 	return err
 }
 
 // TouchGroupSession 确保群共享会话存在（开启监听时调用，让旁听记录有处可落）。
 func (o *Orchestrator) TouchGroupSession(ctx context.Context, u *store.User, channel string) error {
-	lock := o.groupLock(channel)
-	lock.Lock()
-	defer lock.Unlock()
+	release := o.groupLocks.Acquire(channel)
+	defer release()
 	_, err := o.ensureGroupSession(ctx, u, channel)
 	return err
 }
@@ -1990,150 +2009,6 @@ func styleFor(channel string) string {
 	return channelStyle["api"]
 }
 
-func (o *Orchestrator) promptToolNames(u *store.User, channel string) (names map[string]bool) {
-	names = map[string]bool{}
-	if o == nil || u == nil {
-		return names
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Warn("系统提示工具集探测失败，降级为空工具提示", "user", u.ID, "panic", r)
-			names = map[string]bool{}
-		}
-	}()
-	toolset := tools.ForUser(o.deps, u, nil)
-	if isGroupChannel(channel) {
-		toolset = tools.StripGroupSensitive(toolset)
-	}
-	for _, tl := range toolset {
-		names[tl.Name] = true
-	}
-	return names
-}
-
-func materialDispatchPrompt(available map[string]bool) string {
-	switch {
-	case available["start_workflow"] && available["analyze_company_materials"]:
-		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 优先 start_workflow: material_intake；也可用 analyze_company_materials。几句已确认文字能直接落库时用 save_knowledge / update_user_info，不要为了派工而派工。\n"
-	case available["start_workflow"]:
-		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 用 start_workflow: material_intake 派给发起人名下 worker。几句已确认文字能直接落库时用 save_knowledge / update_user_info。\n"
-	case available["analyze_company_materials"]:
-		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 用 analyze_company_materials 派给发起人名下 worker。几句已确认文字能直接落库时用 save_knowledge / update_user_info。\n"
-	default:
-		return "- 资料/文件/图片需要解析、归纳或抽取结构化信息 → 当前工具集没有 worker 资料分析能力；如实说明需要具备 worker 管理权限的人发起，或先保存能直接确认的文字事实。\n"
-	}
-}
-
-func workerDispatchPrompt(available map[string]bool) string {
-	switch {
-	case available["start_workflow"] && available["start_worker_skill"]:
-		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已提交版本上线用 start_workflow: nbco_upgrade；需要先改 nbco 代码再可选上线用 start_workflow: nbco_code_change；其他可复用流程先 search_skills/load_skill 再 start_worker_skill。同一目标保持一个 worker 任务承载上下文。\n"
-	case available["start_workflow"]:
-		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 已提交版本上线用 start_workflow: nbco_upgrade；需要先改 nbco 代码再可选上线用 start_workflow: nbco_code_change；缺参数或权限时说明未启动。\n"
-	case available["start_worker_skill"]:
-		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 先 search_skills/load_skill 读取对应流程，再用 start_worker_skill 派给匹配 worker；部署流程不可见时不要假装已部署。\n"
-	default:
-		return "- 代码修改、系统运维、部署升级、长时间命令行工作 → 当前工具集没有 worker 执行能力；不能声称已改或已部署，应说明需要私聊或授权后再派给 worker。\n"
-	}
-}
-
-func coreWorkflowPrompt(available map[string]bool) string {
-	var parts []string
-	if available["list_workflows"] {
-		parts = append(parts, "确定性内置流程先 list_workflows")
-	}
-	if available["search_skills"] && available["load_skill"] {
-		parts = append(parts, "可学习/可调整的流程先 search_skills，匹配后 load_skill")
-	}
-	if available["start_worker_skill"] {
-		parts = append(parts, "需 worker 执行则 start_worker_skill")
-	} else if available["start_workflow"] {
-		parts = append(parts, "需 worker 执行则优先使用当前可见工作流")
-	} else {
-		parts = append(parts, "需 worker 执行但当前无可见 worker 工具时，如实说明需要授权或私聊处理")
-	}
-	return "3. 选择执行路径：能直接可靠回答的先回答；需要改状态/发送/创建/授权/落库时必须用工具；需要读文件、跑命令、改代码、长时间调研或产生产物时派 worker；" + strings.Join(parts, "；") + "。标准 workflow/skill 是可复用路径，不是唯一答案；先用底层能力组合把事做成。\n"
-}
-
-func learningWritePrompt(available map[string]bool, superadmin bool) string {
-	if superadmin && available["save_rule"] && available["save_skill"] {
-		return "- 超管明确提出“以后/默认/记住/永远不要”等持久要求时，可直接 save_rule；可复用流程用 save_skill；普通事实用 save_knowledge。\n"
-	}
-	if superadmin {
-		return "- 超管明确提出“以后/默认/记住/永远不要”等持久要求或可复用流程时，当前渠道若不能直接改 rule/skill，就先遵守并提示到有权限渠道固化；普通事实用 save_knowledge。\n"
-	}
-	return "- 普通事实用 save_knowledge；规则或流程类长期要求没有直接发布权限时，提交学习候选或提示需要超管审核。\n"
-}
-
-func learningUpdatePrompt(available map[string]bool, superadmin bool) string {
-	if superadmin && available["update_skill"] && available["update_knowledge"] {
-		return "- 发现已有 skill/rule 过时或不完整时，超管上下文下优先 update_skill / update_knowledge 修正旧条目，避免制造同义重复。\n\n"
-	}
-	return "- 发现已有 skill/rule/knowledge 过时或不完整时，优先修正旧条目；当前没有修改权限时，提出学习候选或说明需要超管处理，避免制造同义重复。\n\n"
-}
-
-func taskDispatchPrompt(available map[string]bool) string {
-	var b strings.Builder
-	if available["create_goal"] && available["add_milestone"] && available["decompose_milestone"] {
-		b.WriteString("- 长期/战略性目标（「提升…」「下季度…」这类方向，而非单个动作）→ create_goal 建目标 → add_milestone 拆成可验收的关键里程碑 → decompose_milestone 把里程碑落成具体任务（任务仍归项目执行）；用 view_goals / get_goal_detail 跟踪进度，周报自动汇总目标达成。单一明确的执行项仍直接 assign_task。\n")
-	} else {
-		b.WriteString("- 长期/战略性目标 → 当前若没有建目标/拆里程碑工具，就先整理成目标草案、里程碑和验收口径，提示需要有派活权限的人落库。\n")
-	}
-	if available["assign_task"] {
-		b.WriteString("- 单一明确任务、已知执行人 → assign_task 直接派（assignee_id 省略=自动派给最合适的 AI 员工）。\n")
-	} else {
-		b.WriteString("- 单一明确任务、已知执行人 → 当前无派活工具时不要声称已派；整理任务标题、描述、验收标准，提示需要有派活权限的人创建。\n")
-	}
-	if available["split_my_task"] {
-		b.WriteString("- 任务复杂/需多人并行/有依赖 → 先 split_my_task 拆成子任务再分派（也可分给自己）。\n")
-	}
-	if available["delegate_review"] {
-		b.WriteString("- 已提交待验收、需深度核查交付质量 → delegate_review 委派给 AI 员工审核，结论回来后再协助分配者验收或打回。\n")
-	}
-	if available["reassign_task"] {
-		b.WriteString("- 执行人离线/不胜任/需换人 → reassign_task 改派（保留任务ID与进度历史，自动终止旧执行人、唤醒新执行人）；不要用 delete+assign，那会销毁进度记录。\n")
-	}
-	return b.String()
-}
-
-func workerIdentityPrompt(available map[string]bool) string {
-	if available["invite_employee"] || available["create_worker"] || available["issue_worker_bind_code"] || available["run_worker_command"] {
-		var parts []string
-		if available["invite_employee"] {
-			parts = append(parts, "真人加入用 invite_employee")
-		} else {
-			parts = append(parts, "真人加入需使用员工邀请权限")
-		}
-		if available["list_workers"] || available["create_worker"] || available["issue_worker_bind_code"] || available["run_worker_command"] {
-			var workerTools []string
-			for _, name := range []string{"list_workers", "create_worker", "issue_worker_bind_code", "run_worker_command"} {
-				if available[name] {
-					workerTools = append(workerTools, name)
-				}
-			}
-			if len(workerTools) > 0 {
-				parts = append(parts, "AI worker/工作机/机器人用 "+strings.Join(workerTools, "/")+" 等 worker 工具")
-			}
-		}
-		return "- 严格区分真人员工与 AI worker/机器人：" + strings.Join(parts, "；") + "。不要把 AI worker 当真人员工邀请，也不要把真人员工邀请链接当 worker 绑定码。\n\n"
-	}
-	return "- 严格区分真人员工与 AI worker/机器人：当前渠道没有邀请或 worker 管理工具时，不要声称已创建/已邀请/已绑定；提示需要私聊或授权后处理。\n\n"
-}
-
-func scriptToolPrompt(available map[string]bool) string {
-	if available["create_script_tool"] && available["test_script_tool"] && available["enable_script_tool"] {
-		return "- 可重复、稳定、可测试的纯计算/格式化/字段转换 → create_script_tool + test_script_tool + enable_script_tool 固化成脚本工具；脚本工具只做无文件/无网络/无 shell 的纯逻辑。涉及 shell、文件、Excel/PDF、爬虫或长流程执行时派给 worker，不要塞进脚本工具。\n"
-	}
-	return "- 可重复、稳定、可测试的纯计算/格式化/字段转换可以沉淀为脚本工具；当前渠道没有脚本管理工具时先整理规格和测试样例，提示到有权限渠道固化。\n"
-}
-
-func scheduleOperationPrompt(available map[string]bool) string {
-	if available["schedule_push"] {
-		return "- 运营节奏（上下班时间、晨会提醒、周五复盘、每天催报告等自然语言表达的周期性动作）→ 用 schedule_push 落成规则；节奏变了就改规则（cancel_schedule + 重设），一切以对话为准，没有硬编码。具体参数（mode、目标、时间、工作日）见 schedule_push 工具说明。\n\n"
-	}
-	return "- 运营节奏（上下班时间、晨会提醒、周五复盘、每天催报告等周期性动作）需要定时工具落库；当前渠道没有定时推送工具时，不要声称已设置，提示到私聊或有权限渠道处理。\n\n"
-}
-
 // systemPrompt 组装系统提示：只放每轮必须遵守的身份、执行纪律、渠道格式与
 // 本轮能力路由提示。具体流程/角色/skill 通过工具按需读取，避免系统提示膨胀。
 func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel string, availableTools map[string]bool, route toolRoute) (string, error) {
@@ -2146,6 +2021,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 建设性操作直接做：发送、创建、修改、授权、邀请、定时、派工、群管理、部署、文件交付等，只有对应工具成功后才能说已完成。\n")
 	b.WriteString("- 如果没有工具调用、工具失败、缺参数、无权限或当前渠道不可做，必须说未完成以及下一步；不能用“我会/正在/马上”伪装执行。\n")
 	b.WriteString("- 查询结论必须严格匹配工具结果的范围：只查个人任务就只能说个人执行/个人分配范围，不能推断公司、系统或项目整体空闲；用户明确问全公司/系统级/项目整体时再查全局或项目工具。\n")
+	b.WriteString("- 时间结论以当前业务时区和消息/工具记录的绝对时间为准；用户或历史里出现今天、昨天、明天、刚才等相对表达时先换算核对，不能直接顺着可能错误的时间说法。回复涉及跨日事件时优先写绝对日期。\n")
 	b.WriteString("- 员工ID/user_id、任务ID、项目ID是稳定业务编号，名字只是展示名；涉及具体对象、授权、派工、发消息、改资料时优先使用 ID，并可在回复里用“姓名（员工ID N）”确认对象。\n")
 	b.WriteString("- tg_id、group_ref、message_ref、file_id 等是外部渠道/工具工作内存，可继续传给工具；最终回复不要主动暴露 Telegram 原始 ID、group_ref/message_ref 或 token，除非用户明确需要定位/调试。\n")
 	b.WriteString("- Access Token 明文不可查询；忘记时查看状态或换发新 token。worker 绑定码、邀请码、API token 都按工具结果处理，不能臆造。\n")
@@ -2188,7 +2064,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 		b.WriteString("，超级管理员")
 	}
 	b.WriteString("\n")
-	fmt.Fprintf(&b, "当前时间：%s（%s）\n", time.Now().In(o.tz).Format("2006-01-02 15:04 Monday"), o.tz.String())
+	fmt.Fprintf(&b, "当前时间：%s（%s）\n", time.Now().In(o.tz).Format("2006-01-02 15:04 -07:00 Monday"), o.tz.String())
 
 	if availableTools["list_roles"] {
 		b.WriteString("如需切换 CEO、产品、开发、测试、前端等工作模式，先 list_roles 查看，再按场景 activate_role；不要预设角色清单。\n")

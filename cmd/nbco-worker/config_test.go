@@ -43,6 +43,26 @@ func TestSaveConfigCreatesPrivateFile(t *testing.T) {
 	}
 }
 
+func TestSaveConfigTightensExistingFilePermissions(t *testing.T) {
+	if os.PathSeparator == '\\' {
+		t.Skip("Windows does not expose POSIX permission bits")
+	}
+	path := filepath.Join(t.TempDir(), "worker.json")
+	if err := os.WriteFile(path, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(path, Config{Server: "https://nbco.example.com", Token: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("config mode = %o, want 600", got)
+	}
+}
+
 func TestServiceNameDefaults(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -21,11 +21,16 @@ var uuidSessionRefRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]
 // cliInvocationFor returns the PTY command line for the configured engine. The
 // worker still starts a short-lived interactive process per task; continuity is
 // provided by the engine's native session resume when nbco has a safe ref.
-func (w *Worker) cliInvocationFor(session SessionInfo) cliInvocation {
+func (w *Worker) cliInvocationFor(session SessionInfo, dir string) cliInvocation {
 	base := w.cliArgs()
 	inv := cliInvocation{Args: append([]string(nil), base...)}
 	ref := cleanEngineSessionRef(session.EngineSessionRef)
 	if ref == "" || len(w.cfg.Args) > 0 {
+		return inv
+	}
+	// A native session owns its original CWD. Resuming it after a workspace
+	// remap can make the CLI edit the wrong checkout or carry unrelated context.
+	if canonicalDir(session.Workdir) == "" || canonicalDir(session.Workdir) != canonicalDir(dir) {
 		return inv
 	}
 	switch strings.ToLower(strings.TrimSpace(w.cfg.Engine)) {

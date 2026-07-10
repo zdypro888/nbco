@@ -17,17 +17,18 @@ import (
 )
 
 func TestBuildCompactInput(t *testing.T) {
+	tz := time.FixedZone("CST", 8*60*60)
 	msgs := []store.ChatMessage{
-		{Role: "user", Content: "定 A 方案"},
-		{Role: "assistant", Content: "好，A 方案，周五交付"},
+		{Role: "user", Content: "定 A 方案", CreatedAt: time.Date(2026, 7, 9, 1, 2, 3, 0, time.UTC)},
+		{Role: "assistant", Content: "好，A 方案，周五交付", CreatedAt: time.Date(2026, 7, 9, 1, 3, 0, 0, time.UTC)},
 	}
-	in := buildCompactInput("之前定了预算 10 万", msgs)
-	for _, want := range []string{"既有摘要", "预算 10 万", "已闭合对话轮次", "定 A 方案", "周五交付"} {
+	in := buildCompactInput("之前定了预算 10 万", msgs, tz)
+	for _, want := range []string{"既有摘要", "相对日期词可能已过期", "预算 10 万", "已闭合对话轮次", "2026-07-09 09:02:03 +08:00 (CST)", "定 A 方案", "周五交付"} {
 		if !strings.Contains(in, want) {
 			t.Errorf("压缩输入缺 %q", want)
 		}
 	}
-	if strings.Contains(buildCompactInput("", msgs), "既有摘要") {
+	if strings.Contains(buildCompactInput("", msgs, tz), "既有摘要") {
 		t.Error("无既有摘要不应有该段")
 	}
 }
@@ -68,7 +69,7 @@ func TestBuildCompactInputMarksUnclosedInputsAsBackground(t *testing.T) {
 		{Role: "user", Content: "把任务 #6 删除"},
 		{Role: "user", Content: "clone 源码准备升级"},
 		{Role: "assistant", Content: "没有成功执行"},
-	})
+	}, time.UTC)
 	if strings.Contains(in, "assistant: 把任务 #6 删除") {
 		t.Fatalf("未闭合输入不应伪装成助手内容: %s", in)
 	}
@@ -76,6 +77,15 @@ func TestBuildCompactInputMarksUnclosedInputsAsBackground(t *testing.T) {
 		if !strings.Contains(in, want) {
 			t.Fatalf("压缩输入缺 %q: %s", want, in)
 		}
+	}
+}
+
+func TestModelHistoryContentCarriesBusinessTime(t *testing.T) {
+	tz := time.FixedZone("CST", 8*60*60)
+	msg := store.ChatMessage{Content: "昨天提交了", CreatedAt: time.Date(2026, 7, 9, 17, 30, 0, 0, time.UTC)}
+	got := modelHistoryContent(msg, tz)
+	if !strings.Contains(got, "2026-07-10 01:30:00 +08:00 (CST)") || !strings.Contains(got, "昨天提交了") {
+		t.Fatalf("history timestamp missing or wrong: %q", got)
 	}
 }
 
@@ -350,20 +360,20 @@ func TestSideEffectCompletionWithoutSuccessfulAction(t *testing.T) {
 
 func TestBuildActionAuditPlanDoesNotCallPlanner(t *testing.T) {
 	toolset := []ai.Tool{
-		{Name: "start_workflow"},
-		{Name: "schedule_push"},
-		{Name: "schedule_repeating"},
-		{Name: "send_message"},
-		{Name: "create_data_collection_campaign"},
-		{Name: "update_user_info"},
-		{Name: "delete_assigned_task"},
-		{Name: "delete_project"},
-		{Name: "cancel_schedule"},
-		{Name: "set_telegram_group_monitor"},
-		{Name: "list_telegram_groups"},
-		{Name: "save_rule"},
-		{Name: "low_level_db_query"},
-		{Name: "low_level_db_exec"},
+		{Name: "start_workflow", Description: "启动标准 worker 工作流"},
+		{Name: "schedule_push", Description: "设置定向周期智能推送，目标可以是全体成员，例如例会提醒"},
+		{Name: "schedule_repeating", Description: "设置循环定时提醒"},
+		{Name: "send_message", Description: "向员工发送消息"},
+		{Name: "create_data_collection_campaign", Description: "创建员工资料收集活动"},
+		{Name: "update_user_info", Description: "修改真人员工基本信息"},
+		{Name: "delete_assigned_task", Description: "删除任务"},
+		{Name: "delete_project", Description: "删除项目"},
+		{Name: "cancel_schedule", Description: "取消定时规则"},
+		{Name: "set_telegram_group_monitor", Description: "设置群监控"},
+		{Name: "list_telegram_groups", Description: "列出群"},
+		{Name: "save_rule", Description: "保存规则"},
+		{Name: "low_level_db_query", Description: "底层数据库查询"},
+		{Name: "low_level_db_exec", Description: "底层数据库写入"},
 	}
 	plan := buildActionAuditPlan("明天早上 9 点提醒全体员工完善个人档案", toolset, &ai.TurnResult{})
 	if plan == nil || !plan.RequiresAction {
@@ -372,10 +382,8 @@ func TestBuildActionAuditPlanDoesNotCallPlanner(t *testing.T) {
 	if plan.Source != "audit_heuristic" {
 		t.Fatalf("审计计划不应来自同步模型规划器: %+v", plan)
 	}
-	for _, want := range []string{"schedule_push", "schedule_repeating"} {
-		if !containsString(plan.ExpectedTools, want) {
-			t.Fatalf("审计候选工具缺 %s: %+v", want, plan.ExpectedTools)
-		}
+	if !containsString(plan.ExpectedTools, "schedule_push") {
+		t.Fatalf("审计候选工具缺 schedule_push: %+v", plan.ExpectedTools)
 	}
 	if containsString(plan.ExpectedTools, "update_user_info") {
 		t.Fatalf("通知大家完善资料不能把直接改员工资料当完成证据: %+v", plan.ExpectedTools)
@@ -422,6 +430,9 @@ func TestToolResultEvidenceClassification(t *testing.T) {
 	if toolResultLooksFailed("已停用。其名下 2 个未完成任务已重置为待改派。") {
 		t.Fatal("成功停用/作废类动作不应因状态词被误判为失败")
 	}
+	if !toolResultLooksFailed(tools.TurnBudgetExhaustedMarker + " 本轮工具调用已达到上限。") {
+		t.Fatal("工具预算控制流结果不能充当动作成功证据")
+	}
 }
 
 func TestPendingApprovalRecordedAsOutcome(t *testing.T) {
@@ -462,22 +473,6 @@ func TestSuccessfulActionEvidenceAllowsAnyWriteOrExecuteTool(t *testing.T) {
 	}
 	if hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_workers", Result: "worker 列表：NBAI 在线。"}}) {
 		t.Fatal("读取类工具成功不能证明动作完成")
-	}
-}
-
-func TestDispatchPromptFollowsAvailableTools(t *testing.T) {
-	none := map[string]bool{}
-	if strings.Contains(materialDispatchPrompt(none), "analyze_company_materials") || strings.Contains(materialDispatchPrompt(none), "start_workflow: material_intake") {
-		t.Fatal("无权限提示不应暴露不可用资料分析工具名")
-	}
-	if !strings.Contains(materialDispatchPrompt(map[string]bool{"start_workflow": true}), "material_intake") {
-		t.Fatal("有 start_workflow 时应提示资料分析工作流")
-	}
-	if strings.Contains(workerDispatchPrompt(none), "start_worker_skill") || strings.Contains(workerDispatchPrompt(none), "start_workflow: nbco_upgrade") {
-		t.Fatal("无权限提示不应诱导调用不可用 worker 工具")
-	}
-	if !strings.Contains(workerDispatchPrompt(map[string]bool{"start_worker_skill": true}), "start_worker_skill") {
-		t.Fatal("有 worker skill 工具时应提示可派发")
 	}
 }
 
@@ -556,23 +551,6 @@ func (s *sequenceEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.Tu
 	res := s.results[0]
 	s.results = s.results[1:]
 	return res, nil
-}
-
-func sameStringSet(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	seen := map[string]int{}
-	for _, s := range a {
-		seen[s]++
-	}
-	for _, s := range b {
-		if seen[s] == 0 {
-			return false
-		}
-		seen[s]--
-	}
-	return true
 }
 
 func containsString(list []string, target string) bool {

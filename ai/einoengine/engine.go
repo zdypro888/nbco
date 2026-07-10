@@ -118,6 +118,9 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	for _, t := range req.Tools {
 		tools = append(tools, &einoTool{t: t})
 	}
+	handlers := []adk.TypedChatModelAgentMiddleware[*schema.Message]{
+		&toolBudgetMiddleware{shouldDisable: req.ShouldDisableTools, maxIterations: e.maxTurns},
+	}
 	// Eino supports model.WithToolChoice/WithAgenticToolChoice, but applying it
 	// to the whole ADK run can also force the final summarization turn to call a
 	// tool. nbco keeps tool choice automatic here and enforces side-effect
@@ -133,6 +136,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		},
 		MaxIterations:    e.maxTurns,
 		ModelRetryConfig: modelRetryConfig(),
+		Handlers:         handlers,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("构建 agent: %w", err)
@@ -432,6 +436,31 @@ func outputLikelyTruncated(usage ai.Usage, finishReason string, maxTokens int) b
 // einoTool 把 ai.Tool 适配成 eino 的 InvokableTool。
 type einoTool struct {
 	t ai.Tool
+}
+
+// toolBudgetMiddleware uses Eino's model-state hook to terminate a spent tool
+// phase. The rejected tool result remains in Messages, while an empty ToolInfos
+// list forces the next model invocation to produce a final response.
+type toolBudgetMiddleware struct {
+	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
+	shouldDisable func() bool
+	maxIterations int
+	iteration     int
+}
+
+func (m *toolBudgetMiddleware) BeforeModelRewriteState(
+	ctx context.Context,
+	state *adk.TypedChatModelAgentState[*schema.Message],
+	_ *adk.TypedModelContext[*schema.Message],
+) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
+	m.iteration++
+	budgetSpent := m.shouldDisable != nil && m.shouldDisable()
+	finalIteration := m.maxIterations > 0 && m.iteration >= m.maxIterations
+	if budgetSpent || finalIteration {
+		state.ToolInfos = nil
+		state.DeferredToolInfos = nil
+	}
+	return ctx, state, nil
 }
 
 func (e *einoTool) Info(context.Context) (*schema.ToolInfo, error) {

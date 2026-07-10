@@ -72,6 +72,7 @@ var (
 
 	toolOnlySectionRe  = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*?\n\[用户可见目录\]\s*\n?`)
 	trailingToolOnlyRe = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*$`)
+	internalMarkerRe   = regexp.MustCompile(`(?i)\[nbco:[a-z0-9_-]+\]\s*`)
 	userIDParenRe      = regexp.MustCompile(`(?i)[（(][^（）()\n]*(?:user[_ -]?id|用户\s*id|用户内部编号|成员内部编号|员工内部编号|tg\s*id|telegram\s*id)[^（）()\n]*[）)]`)
 	userIDKVRe         = regexp.MustCompile(`(?i)\buser[_ -]?id\s*[:=：]\s*-?\d+\b`)
 	userInternalRefRe  = regexp.MustCompile(`(?i)(用户|成员|员工|授予者|创建者|操作者|目标用户)\s*内部编号\s*-?\d+`)
@@ -131,6 +132,7 @@ func SanitizeVisibleReply(s string) string {
 	s = StripReasoning(s)
 	s = toolOnlySectionRe.ReplaceAllString(s, "$1")
 	s = trailingToolOnlyRe.ReplaceAllString(s, "$1")
+	s = internalMarkerRe.ReplaceAllString(s, "")
 	s = userIDParenRe.ReplaceAllString(s, "")
 	s = userIDKVRe.ReplaceAllString(s, "用户标识")
 	s = userInternalRefRe.ReplaceAllString(s, "$1标识")

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zdypro888/nbco/safefs"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -258,7 +259,7 @@ func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userI
 	}
 	defer src.Close()
 
-	if err := os.MkdirAll(s.fileStorePath, 0o755); err != nil {
+	if err := safefs.EnsurePrivateDir(s.fileStorePath); err != nil {
 		return nil, fmt.Errorf("创建文件存储目录失败")
 	}
 	tmp, err := os.CreateTemp(s.fileStorePath, ".upload-*")
@@ -279,13 +280,14 @@ func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userI
 	sum := hex.EncodeToString(h.Sum(nil))
 	rel := filepath.Join(sum[:2], sum)
 	dst := filepath.Join(s.fileStorePath, rel)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := safefs.EnsurePrivateDir(filepath.Dir(dst)); err != nil {
 		return nil, fmt.Errorf("创建存储目录失败")
 	}
-	if _, err := os.Stat(dst); errors.Is(err, os.ErrNotExist) {
-		if err := os.Rename(tmpName, dst); err != nil {
-			return nil, fmt.Errorf("落盘失败")
-		}
+	moved, err := safefs.InstallContentFile(tmpName, dst, sum)
+	if err != nil {
+		return nil, fmt.Errorf("落盘失败")
+	}
+	if moved {
 		tmpName = ""
 	}
 	uid := userID
@@ -305,12 +307,7 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, id int64) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "文件不存在"})
 		return
 	}
-	path, err := s.filePath(f.StoragePath)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "文件路径非法"})
-		return
-	}
-	fp, err := os.Open(path)
+	fp, err := safefs.OpenRegular(s.fileStorePath, f.StoragePath)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "文件不存在"})
 		return
@@ -321,25 +318,6 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, id int64) {
 	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.OriginalName))
 	http.ServeContent(w, r, f.OriginalName, f.CreatedAt, fp)
-}
-
-func (s *Server) filePath(rel string) (string, error) {
-	clean := filepath.Clean(rel)
-	if filepath.IsAbs(clean) || clean == "." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("bad path")
-	}
-	root, err := filepath.Abs(s.fileStorePath)
-	if err != nil {
-		return "", err
-	}
-	full, err := filepath.Abs(filepath.Join(root, clean))
-	if err != nil {
-		return "", err
-	}
-	if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
-		return "", fmt.Errorf("bad path")
-	}
-	return full, nil
 }
 
 func (s *Server) runFileGC(ctx context.Context) {
@@ -381,6 +359,11 @@ func (s *Server) collectOrphanFiles(ctx context.Context, grace time.Duration) er
 	} else if err != nil {
 		return err
 	}
+	rootFS, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer rootFS.Close()
 	cutoff := time.Now().Add(-grace)
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || ctx.Err() != nil {
@@ -398,7 +381,7 @@ func (s *Server) collectOrphanFiles(ctx context.Context, grace time.Duration) er
 			return err
 		}
 		if strings.HasPrefix(filepath.Base(path), ".upload-") || !live[rel] {
-			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			if err := rootFS.Remove(rel); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 		}

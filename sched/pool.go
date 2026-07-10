@@ -47,5 +47,29 @@ func (p *pool) submit(ctx context.Context, fn func()) {
 	}()
 }
 
+// trySubmit 仅在当前有执行槽位时接收任务，不创建等待信号量的 goroutine。
+func (p *pool) trySubmit(ctx context.Context, fn func()) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	select {
+	case p.sem <- struct{}{}:
+	default:
+		return false
+	}
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		defer func() { <-p.sem }()
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("后台任务 panic 已恢复", "panic", r)
+			}
+		}()
+		fn()
+	}()
+	return true
+}
+
 // wait 等待所有已派发任务结束（测试用；Run 不调用它以免关停被长 AI 轮次拖住）。
 func (p *pool) wait() { p.wg.Wait() }

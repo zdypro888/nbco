@@ -8,8 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
+)
+
+var (
+	mcpServerNameRE  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
+	permissionNameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 )
 
 // AI 引擎类型。
@@ -55,11 +62,13 @@ type AIConfig struct {
 }
 
 // MCPServer 外接 MCP 工具服务（Streamable HTTP）。
-// 其工具经统一审计层并入所有用户的工具集，各引擎通吃。
+// 其工具经统一权限与审计层并入工具集，各引擎通吃；默认仅超管可用且不进入群共享会话。
 type MCPServer struct {
-	Name    string            `json:"name"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"` // 可选，如 Authorization
+	Name           string            `json:"name"`
+	URL            string            `json:"url"`
+	Headers        map[string]string `json:"headers"`         // 可选，如 Authorization
+	RequiredAction string            `json:"required_action"` // 默认 superadmin；可填主动权限名
+	AllowInGroups  bool              `json:"allow_in_groups"` // 仅明确确认无敏感影响时开启
 }
 
 // Config 全量配置。
@@ -144,6 +153,13 @@ func (c *Config) applyDefaults() {
 	if c.WorkerDownloadPath == "" {
 		c.WorkerDownloadPath = "downloads"
 	}
+	for i := range c.MCPServers {
+		c.MCPServers[i].RequiredAction = strings.TrimSpace(c.MCPServers[i].RequiredAction)
+		if c.MCPServers[i].RequiredAction == "" {
+			// 外部工具的能力无法由 nbco 静态证明，默认采取最小权限。
+			c.MCPServers[i].RequiredAction = "superadmin"
+		}
+	}
 }
 
 // SlogLevel 配置的日志级别（Load 已校验合法性）。
@@ -183,6 +199,9 @@ func (c *Config) validate() error {
 		if strings.TrimSpace(c.AI.Model) == "" {
 			errs = append(errs, errors.New("ai.model 必填（eino 引擎）"))
 		}
+		if c.AI.MaxTurns < 2 {
+			errs = append(errs, errors.New("ai.max_turns 至少为 2（工具调用后需要一轮最终答复）"))
+		}
 		if c.AI.Provider != ProviderClaude && c.AI.Provider != ProviderOpenAI {
 			errs = append(errs, fmt.Errorf("ai.provider 不支持: %q", c.AI.Provider))
 		}
@@ -205,9 +224,30 @@ func (c *Config) validate() error {
 	default:
 		errs = append(errs, fmt.Errorf("ai.engine 不支持: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", c.AI.Engine))
 	}
-	for i, m := range c.MCPServers {
-		if strings.TrimSpace(m.Name) == "" || strings.TrimSpace(m.URL) == "" {
+	seenMCPNames := map[string]int{}
+	for i := range c.MCPServers {
+		m := &c.MCPServers[i]
+		m.Name = strings.TrimSpace(m.Name)
+		m.URL = strings.TrimSpace(m.URL)
+		if m.Name == "" || m.URL == "" {
 			errs = append(errs, fmt.Errorf("mcp_servers[%d]: name 与 url 必填", i))
+			continue
+		}
+		if !mcpServerNameRE.MatchString(m.Name) {
+			errs = append(errs, fmt.Errorf("mcp_servers[%d]: name 只能使用字母、数字、下划线和连字符，且最长 64 字符", i))
+		}
+		if !permissionNameRE.MatchString(m.RequiredAction) {
+			errs = append(errs, fmt.Errorf("mcp_servers[%d]: required_action 必须是小写权限标识", i))
+		}
+		key := strings.ToLower(m.Name)
+		if first, exists := seenMCPNames[key]; exists {
+			errs = append(errs, fmt.Errorf("mcp_servers[%d]: name 与 mcp_servers[%d] 重复", i, first))
+		} else {
+			seenMCPNames[key] = i
+		}
+		parsed, err := url.Parse(m.URL)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			errs = append(errs, fmt.Errorf("mcp_servers[%d]: url 必须是有效的 http/https 地址", i))
 		}
 	}
 	return errors.Join(errs...)

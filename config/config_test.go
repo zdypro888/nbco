@@ -21,6 +21,7 @@ func TestLoadDefaults(t *testing.T) {
 		"telegram_token": "tok",
 		"superadmins": [1],
 		"postgres_dsn": "postgres://x",
+		"mcp_servers": [{"name":"ops","url":"https://ops.example/mcp"}],
 		"ai": {"api_key": "k", "model": "m"}
 	}`))
 	if err != nil {
@@ -52,6 +53,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.WorkerDownloadPath != "downloads" {
 		t.Errorf("WorkerDownloadPath 默认值 = %q", cfg.WorkerDownloadPath)
+	}
+	if got := cfg.MCPServers[0].RequiredAction; got != "superadmin" {
+		t.Errorf("MCP required_action 默认值 = %q", got)
 	}
 }
 
@@ -99,6 +103,9 @@ func TestLoadValidation(t *testing.T) {
 		{"eino 缺 model",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"api_key":"k"}}`,
 			"ai.model"},
+		{"eino max_turns 过小",
+			`{"postgres_dsn":"d","ai":{"api_key":"k","model":"m","max_turns":1}}`,
+			"ai.max_turns"},
 		{"未知引擎",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"engine":"gpt"}}`,
 			"ai.engine 不支持"},
@@ -111,6 +118,18 @@ func TestLoadValidation(t *testing.T) {
 		{"mcp server 缺 url",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","mcp_servers":[{"name":"x"}],"ai":{"api_key":"k","model":"m"}}`,
 			"mcp_servers[0]"},
+		{"mcp server 名称重复",
+			`{"postgres_dsn":"d","mcp_servers":[{"name":"ops","url":"https://a.example/mcp"},{"name":"OPS","url":"https://b.example/mcp"}],"ai":{"api_key":"k","model":"m"}}`,
+			"重复"},
+		{"mcp server url 非 HTTP",
+			`{"postgres_dsn":"d","mcp_servers":[{"name":"ops","url":"file:///tmp/mcp"}],"ai":{"api_key":"k","model":"m"}}`,
+			"http/https"},
+		{"mcp server 名称非法",
+			`{"postgres_dsn":"d","mcp_servers":[{"name":"运营 工具","url":"https://a.example/mcp"}],"ai":{"api_key":"k","model":"m"}}`,
+			"name 只能"},
+		{"mcp required_action 非法",
+			`{"postgres_dsn":"d","mcp_servers":[{"name":"ops","url":"https://a.example/mcp","required_action":"Manage Worker"}],"ai":{"api_key":"k","model":"m"}}`,
+			"required_action"},
 		{"TLS 证书缺 key",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","tls_cert_file":"/x/cert.pem","ai":{"api_key":"k","model":"m"}}`,
 			"tls_cert_file"},

@@ -1226,7 +1226,10 @@ func TestDirectedDailySchedule(t *testing.T) {
 		t.Fatalf("daily 租约过期应可重试, got %d err=%v", len(due2), err)
 	}
 	next := time.Now().UTC().Add(24 * time.Hour)
-	if err := s.MarkScheduleDelivered(ctx, sc.ID, time.Now().UTC(), &next, false); err != nil {
+	if err := s.MarkScheduleDelivered(ctx, sc.ID, *due[0].DeliveryClaimedAt, time.Now().UTC(), &next, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("旧租约不得确认新认领, got %v", err)
+	}
+	if err := s.MarkScheduleDelivered(ctx, sc.ID, *due2[0].DeliveryClaimedAt, time.Now().UTC(), &next, false); err != nil {
 		t.Fatal(err)
 	}
 	if due2, err = s.DueSchedules(ctx, time.Now().UTC()); err != nil || len(due2) != 0 {

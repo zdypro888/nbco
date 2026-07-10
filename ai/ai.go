@@ -18,6 +18,13 @@ import (
 type Tool struct {
 	Name        string
 	Description string
+	// Effect 描述工具的外部影响，供路由、审计和动作证据判断使用。
+	// 未声明的第三方工具按 unknown 处理。
+	Effect string
+	// RequiredAction 声明调用工具所需的主动权限。空值表示沿用内建工具权限
+	// 注册表；外部工具应显式声明，"superadmin" 表示仅超级管理员可用。
+	RequiredAction string
+	GroupSensitive bool // true 表示不得暴露给群共享会话
 	// InputSchema 是 JSON Schema（object 类型）。
 	InputSchema map[string]any
 	// Handler 执行工具并返回给模型的文本结果。
@@ -25,6 +32,13 @@ type Tool struct {
 	// 只有系统性故障才返回 error。
 	Handler func(ctx context.Context, args json.RawMessage) (string, error)
 }
+
+const (
+	ToolEffectRead    = "read"
+	ToolEffectWrite   = "write"
+	ToolEffectExecute = "execute"
+	ToolEffectUnknown = "unknown"
+)
 
 // Role 消息角色。
 type Role string
@@ -79,6 +93,9 @@ type TurnRequest struct {
 	Model string
 	// Tools 本轮可用工具集（已按用户权限裁剪）。
 	Tools []Tool
+	// ShouldDisableTools 在工具循环期间动态报告是否应进入最终答复阶段。
+	// 引擎应在下一次模型调用前撤下工具，而不是只靠工具结果文本劝模型停手。
+	ShouldDisableTools func() bool
 	// OnEvent 可选回调：工具调用与文本产出实时上报（审计/流式）。
 	// 引擎在任意 goroutine 调用它，实现方需自行保证并发安全。
 	OnEvent func(Step)

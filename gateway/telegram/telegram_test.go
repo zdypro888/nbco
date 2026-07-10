@@ -16,6 +16,14 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
+func TestGatewayFormatsTimeInBusinessTimezone(t *testing.T) {
+	g := &Gateway{tz: time.FixedZone("CST", 8*60*60)}
+	utc := time.Date(2026, 7, 9, 17, 30, 0, 0, time.UTC)
+	if got := g.formatTime(utc); got != "2026-07-10 01:30:00 +08:00 (CST)" {
+		t.Fatalf("formatted time = %q", got)
+	}
+}
+
 func TestMessageText(t *testing.T) {
 	g := &Gateway{}
 	ctx := context.Background()

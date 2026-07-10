@@ -29,11 +29,20 @@ const state = {
   actionOK: true,
 };
 
+let memoryToken = "";
 const storage = {
-  get token() { return localStorage.getItem("nbco_token") || ""; },
+  get token() {
+    try { return localStorage.getItem("nbco_token") || memoryToken; }
+    catch (_) { return memoryToken; }
+  },
   set token(value) {
-    if (value) localStorage.setItem("nbco_token", value);
-    else localStorage.removeItem("nbco_token");
+    memoryToken = value || "";
+    try {
+      if (value) localStorage.setItem("nbco_token", value);
+      else localStorage.removeItem("nbco_token");
+    } catch (_) {
+      // Some embedded webviews disable persistent storage; memory auth still works.
+    }
   },
 };
 
@@ -249,6 +258,9 @@ function renderContent() {
   default:
     el.innerHTML = renderCommandRoute();
     break;
+  }
+  if (state.notice) {
+    el.insertAdjacentHTML("afterbegin", `<div class="result bad page-notice">${esc(state.notice)}</div>`);
   }
 }
 
@@ -901,8 +913,8 @@ async function loadRoute(route) {
       renderApp();
       return;
     }
-    if (route === "files") await Promise.allSettled([loadFiles(), loadAdminData(["workers", "capabilities"])]);
-    else if (route === "tasks") await Promise.allSettled([loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue"])]);
+    if (route === "files") await settleLoads("文件中心", [loadFiles(), loadAdminData(["workers", "capabilities"])]);
+    else if (route === "tasks") await settleLoads("任务中心", [loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue"])]);
     else if (route === "workers") await loadAdminData(["workers"]);
     else if (route === "model") await loadAdminData(["ai", "capabilities"]);
     else if (route === "ops") await loadAdminData(["ops", "ai", "workers", "actionTurns"]);
@@ -918,7 +930,16 @@ async function loadRoute(route) {
 }
 
 async function loadCommandData() {
-  await Promise.allSettled([loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workers", "workflows", "capabilities", "decisions", "approvals", "actionTurns", "ops", "ai"])]);
+  await settleLoads("控制中心", [loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workers", "workflows", "capabilities", "decisions", "approvals", "actionTurns", "ops", "ai"])]);
+}
+
+async function settleLoads(label, jobs) {
+  const results = await Promise.allSettled(jobs);
+  const failures = results.filter(x => x.status === "rejected").map(x => x.reason);
+  if (!failures.length) return results;
+  const first = failures[0] instanceof Error ? failures[0].message : String(failures[0]);
+  const suffix = failures.length > 1 ? `（另有 ${failures.length - 1} 项失败）` : "";
+  throw new Error(`${label}部分数据加载失败：${first}${suffix}`);
 }
 
 async function loadFiles() {
@@ -953,10 +974,7 @@ async function loadAdminData(parts) {
   if (parts.includes("actionTurns")) jobs.push(api(`/api/admin/action-turns${state.me?.is_superadmin ? "?scope=all" : ""}`).then(d => { state.actionTurns = d.turns || []; }));
   if (state.me?.is_superadmin && parts.includes("ops")) jobs.push(api("/api/admin/ops").then(d => { state.ops = d; }));
   if (state.me?.is_superadmin && parts.includes("ai")) jobs.push(api("/api/admin/ai-settings").then(d => { state.ai = d; }));
-  const results = await Promise.allSettled(jobs);
-  for (const res of results) {
-    if (res.status === "rejected") addLog("admin", "WARN", res.reason.message);
-  }
+  await settleLoads("管理数据", jobs);
 }
 
 function canStartWorkflow() {

@@ -228,7 +228,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	}
 
 	sessionStartedAt := time.Now()
-	invocation := w.cliInvocationFor(task.Session)
+	invocation := w.cliInvocationFor(task.Session, dir)
 	if invocation.ResumeRef != "" {
 		log.Printf("worker 会话 #%d scope=%s 恢复 %s 原生会话 %s", task.Session.ID, task.Session.ScopeKey, w.cfg.Engine, invocation.ResumeRef)
 	}
@@ -389,16 +389,16 @@ func (w *Worker) workDir(task *Task) (string, error) {
 	}
 	if task != nil && strings.TrimSpace(task.Session.ScopeKey) != "" {
 		if dir := w.configuredWorkspace(task.Session); dir != "" {
-			return dir, os.MkdirAll(dir, 0o755)
+			return dir, os.MkdirAll(dir, 0o700)
 		}
 		if dir := strings.TrimSpace(task.Session.Workdir); dir != "" {
-			return dir, os.MkdirAll(dir, 0o755)
+			return dir, os.MkdirAll(dir, 0o700)
 		}
 		dir := filepath.Join(home, "nbco-work", "sessions", safeScopePath(task.Session.Engine), safeScopePath(task.Session.ScopeKey))
 		if isRepoSession(task.Session) && !isGitWorktree(dir) {
 			return dir, nil
 		}
-		return dir, os.MkdirAll(dir, 0o755)
+		return dir, os.MkdirAll(dir, 0o700)
 	}
 	taskID := int64(0)
 	claimID := ""
@@ -411,7 +411,7 @@ func (w *Worker) workDir(task *Task) (string, error) {
 		claim = "no-claim"
 	}
 	dir := filepath.Join(home, "nbco-work", fmt.Sprintf("task-%d", taskID), "claim-"+claim)
-	return dir, os.MkdirAll(dir, 0o755)
+	return dir, os.MkdirAll(dir, 0o700)
 }
 
 func repoWorkspaceProblem(session SessionInfo, dir string) string {
@@ -466,11 +466,20 @@ func (w *Worker) configuredWorkspace(session SessionInfo) string {
 }
 
 func safeScopePath(v string) string {
-	v = strings.TrimSpace(v)
+	original := strings.TrimSpace(v)
+	v = original
 	v = strings.NewReplacer(":", "-", "/", "-", "\\", "-", " ", "-").Replace(v)
 	v = safeFileName(v)
 	if v == "" {
-		return "default"
+		if original == "" {
+			return "default"
+		}
+		sum := sha256.Sum256([]byte(original))
+		return "default-" + hex.EncodeToString(sum[:5])
+	}
+	if v != original {
+		sum := sha256.Sum256([]byte(original))
+		v += "-" + hex.EncodeToString(sum[:5])
 	}
 	return v
 }
@@ -491,13 +500,13 @@ func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error
 	if err := os.RemoveAll(ioDir); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, taskAttachmentRelDir("attachment")), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, taskAttachmentRelDir("attachment")), 0o700); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, taskAttachmentRelDir("previous_artifact")), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, taskAttachmentRelDir("previous_artifact")), 0o700); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, taskArtifactRelDir()), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, taskArtifactRelDir()), 0o700); err != nil {
 		return err
 	}
 	if len(task.Attachments) == 0 {

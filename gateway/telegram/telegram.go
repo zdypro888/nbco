@@ -29,7 +29,9 @@ import (
 	"github.com/zdypro888/nbco/ai/stt"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
+	"github.com/zdypro888/nbco/keylock"
 	"github.com/zdypro888/nbco/perm"
+	"github.com/zdypro888/nbco/safefs"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/tools"
@@ -97,16 +99,17 @@ type Gateway struct {
 	modelBaseURL  string
 	modelAPIKey   string
 	fileStorePath string
+	tz            *time.Location
 
 	mu         sync.Mutex
-	locks      map[int64]*sync.Mutex // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
-	self       *models.User          // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
+	locks      keylock.Map[int64] // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
+	self       *models.User       // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
 	pending    map[int64]*pendingTextMessage
 	pendingSeq int64
 }
 
 // New 创建网关。
-func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath string) (*Gateway, error) {
+func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath string, tz *time.Location) (*Gateway, error) {
 	g := &Gateway{
 		store:         s,
 		orch:          orch,
@@ -117,7 +120,7 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus,
 		modelBaseURL:  strings.TrimSpace(modelBaseURL),
 		modelAPIKey:   strings.TrimSpace(modelAPIKey),
 		fileStorePath: strings.TrimSpace(fileStorePath),
-		locks:         map[int64]*sync.Mutex{},
+		tz:            orLocalTimeZone(tz),
 		pending:       map[int64]*pendingTextMessage{},
 	}
 	for _, id := range superadmins {
@@ -234,11 +237,7 @@ func (g *Gateway) SendFile(ctx context.Context, userID int64, fileID int64, capt
 	if err != nil {
 		return fmt.Errorf("文件不存在: %w", err)
 	}
-	path, err := g.filePath(f.StoragePath)
-	if err != nil {
-		return err
-	}
-	fp, err := os.Open(path)
+	fp, err := safefs.OpenRegular(g.fileStorePath, f.StoragePath)
 	if err != nil {
 		return err
 	}
@@ -375,9 +374,13 @@ func (g *Gateway) dispatchPendingText(p *pendingTextMessage) {
 
 func (g *Gateway) dispatchMessage(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) {
 	go func() {
-		lock := g.userLock(lockKey)
-		lock.Lock()
-		defer lock.Unlock()
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Telegram 消息处理 panic 已恢复", "chat", lockKey, "panic", r)
+			}
+		}()
+		release := g.locks.Acquire(lockKey)
+		defer release()
 		if isGroup {
 			g.processGroup(ctx, msg)
 			return
@@ -840,7 +843,7 @@ func (g *Gateway) observeGroupMonitor(ctx context.Context, chat models.Chat, spe
 	if mon == nil || !mon.Enabled || mon.NotifyUserID == 0 {
 		return
 	}
-	line := fmt.Sprintf("%s %s：%s", time.Now().Format("15:04"), speaker, text)
+	line := fmt.Sprintf("%s %s：%s", time.Now().In(g.timeZone()).Format("2006-01-02 15:04"), speaker, text)
 	mon.Buffer = append(mon.Buffer, line)
 	if len(mon.Buffer) > 30 {
 		mon.Buffer = mon.Buffer[len(mon.Buffer)-30:]
@@ -861,7 +864,7 @@ func (g *Gateway) observeGroupMonitor(ctx context.Context, chat models.Chat, spe
 		return
 	}
 	snapshot := *mon
-	go g.evaluateGroupMonitor(snapshot, lines)
+	go g.evaluateGroupMonitor(context.WithoutCancel(ctx), snapshot, lines)
 }
 
 func shouldCheckGroupMonitor(mon store.TelegramGroupMonitor, latest string) bool {
@@ -889,7 +892,7 @@ func containsGroupMonitorSignal(text string) bool {
 	return false
 }
 
-func (g *Gateway) evaluateGroupMonitor(mon store.TelegramGroupMonitor, lines []string) {
+func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.TelegramGroupMonitor, lines []string) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("群监控后台 panic 已恢复", "chat", mon.ChatID, "panic", r)
@@ -898,7 +901,7 @@ func (g *Gateway) evaluateGroupMonitor(mon store.TelegramGroupMonitor, lines []s
 	if len(lines) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 90*time.Second)
 	defer cancel()
 	title := strings.TrimSpace(mon.GroupTitle)
 	if title == "" {
@@ -1010,7 +1013,7 @@ func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message
 		private += fmt.Sprintf("点击绑定：%s\n", html.EscapeString(link))
 	}
 	private += fmt.Sprintf("兜底邀请码：<code>%s</code>\n有效期至 %s，仅可使用一次。",
-		html.EscapeString(key), expiresAt.In(time.Local).Format("2006-01-02 15:04"))
+		html.EscapeString(key), g.formatTime(expiresAt))
 	if _, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: tgID, Text: private, ParseMode: models.ParseModeHTML}); err == nil {
 		g.reply(ctx, chatID, fmt.Sprintf("✅ 已把一次性邀请私发给 %s。", html.EscapeString(name)))
 		return true
@@ -1406,14 +1409,26 @@ func (g *Gateway) apiTokenStatusMessage(ctx context.Context, u *store.User) stri
 		return "当前没有控制中心/API Access Token。\n\n获取新的：<code>/token new</code>"
 	}
 	return fmt.Sprintf("当前已有控制中心/API Access Token。\n创建时间：<code>%s</code>\n\n明文无法查询；忘记了只能换发：<code>/token new</code>",
-		html.EscapeString(fmtTime(st.CreatedAt)))
+		html.EscapeString(g.formatTime(st.CreatedAt)))
 }
 
-func fmtTime(t time.Time) string {
+func (g *Gateway) formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Local().Format("2006-01-02 15:04:05")
+	loc := g.timeZone()
+	return t.In(loc).Format("2006-01-02 15:04:05 -07:00") + " (" + loc.String() + ")"
+}
+
+func (g *Gateway) timeZone() *time.Location {
+	return orLocalTimeZone(g.tz)
+}
+
+func orLocalTimeZone(tz *time.Location) *time.Location {
+	if tz != nil {
+		return tz
+	}
+	return time.Local
 }
 
 func (g *Gateway) modelStatus(ctx context.Context) string {
@@ -1639,17 +1654,6 @@ func inviteTokenFromText(text, botUsername string) (string, bool) {
 		return "", false
 	}
 	return key, true
-}
-
-func (g *Gateway) userLock(tgID int64) *sync.Mutex {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	l, ok := g.locks[tgID]
-	if !ok {
-		l = &sync.Mutex{}
-		g.locks[tgID] = l
-	}
-	return l
 }
 
 func (g *Gateway) reply(ctx context.Context, chatID int64, text string) {
@@ -2140,7 +2144,7 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("下载非 200: %d", resp.StatusCode)
 	}
-	if err := os.MkdirAll(g.fileStorePath, 0o755); err != nil {
+	if err := safefs.EnsurePrivateDir(g.fileStorePath); err != nil {
 		return nil, fmt.Errorf("创建文件存储目录失败: %w", err)
 	}
 	tmp, err := os.CreateTemp(g.fileStorePath, ".tg-upload-*")
@@ -2165,13 +2169,14 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 	sum := hex.EncodeToString(h.Sum(nil))
 	rel := filepath.Join(sum[:2], sum)
 	dst := filepath.Join(g.fileStorePath, rel)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := safefs.EnsurePrivateDir(filepath.Dir(dst)); err != nil {
 		return nil, fmt.Errorf("创建存储目录失败: %w", err)
 	}
-	if _, err := os.Stat(dst); errors.Is(err, os.ErrNotExist) {
-		if err := os.Rename(tmpName, dst); err != nil {
-			return nil, fmt.Errorf("落盘失败: %w", err)
-		}
+	moved, err := safefs.InstallContentFile(tmpName, dst, sum)
+	if err != nil {
+		return nil, fmt.Errorf("落盘失败: %w", err)
+	}
+	if moved {
 		tmpName = ""
 	}
 	name := filepath.Base(strings.TrimSpace(in.name))
@@ -2190,25 +2195,6 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 		Source: "telegram", OriginalName: name, MIMEType: mimeType,
 		SizeBytes: n, SHA256: sum, StoragePath: rel, CreatedBy: &uid,
 	})
-}
-
-func (g *Gateway) filePath(rel string) (string, error) {
-	clean := filepath.Clean(rel)
-	if filepath.IsAbs(clean) || clean == "." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("文件路径非法")
-	}
-	root, err := filepath.Abs(g.fileStorePath)
-	if err != nil {
-		return "", err
-	}
-	full, err := filepath.Abs(filepath.Join(root, clean))
-	if err != nil {
-		return "", err
-	}
-	if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
-		return "", fmt.Errorf("文件路径非法")
-	}
-	return full, nil
 }
 
 func safeTelegramFilename(name string) string {

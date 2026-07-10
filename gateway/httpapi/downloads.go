@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/zdypro888/nbco/safefs"
 )
 
 var workerDownloadNames = map[string]bool{
@@ -30,12 +31,8 @@ func (s *Server) handleWorkerDownloadBinary(w http.ResponseWriter, r *http.Reque
 	if root == "" {
 		root = "downloads"
 	}
-	full, err := safeJoin(root, "worker", name)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "worker 发行文件不存在"})
-		return
-	}
-	if _, err := os.Stat(full); errors.Is(err, os.ErrNotExist) {
+	f, err := safefs.OpenRegular(root, "worker/"+name)
+	if errors.Is(err, os.ErrNotExist) {
 		writeJSON(w, http.StatusNotFound, map[string]string{
 			"error": fmt.Sprintf("worker 发行文件未部署：%s", name),
 		})
@@ -44,27 +41,17 @@ func (s *Server) handleWorkerDownloadBinary(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取发行文件失败"})
 		return
 	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "worker 发行文件不存在"})
+		return
+	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
 	if strings.HasSuffix(name, ".sha256") {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
-	http.ServeFile(w, r, full)
-}
-
-func safeJoin(root string, parts ...string) (string, error) {
-	base, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
-	}
-	joined := filepath.Join(append([]string{base}, parts...)...)
-	full, err := filepath.Abs(joined)
-	if err != nil {
-		return "", err
-	}
-	if full != base && !strings.HasPrefix(full, base+string(filepath.Separator)) {
-		return "", fmt.Errorf("bad path")
-	}
-	return full, nil
+	http.ServeContent(w, r, name, info.ModTime(), f)
 }

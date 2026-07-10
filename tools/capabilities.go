@@ -23,10 +23,10 @@ const (
 )
 
 const (
-	ToolEffectRead    = "read"
-	ToolEffectWrite   = "write"
-	ToolEffectExecute = "execute"
-	ToolEffectUnknown = "unknown"
+	ToolEffectRead    = ai.ToolEffectRead
+	ToolEffectWrite   = ai.ToolEffectWrite
+	ToolEffectExecute = ai.ToolEffectExecute
+	ToolEffectUnknown = ai.ToolEffectUnknown
 )
 
 type Capability struct {
@@ -436,7 +436,8 @@ func CapabilityRegistry(ctx context.Context, d Deps, u *store.User, includeUnava
 			return nil, err
 		}
 	}
-	all = append(all, dynamicScriptTools(d, u, grants)...)
+	all = append(all, dynamicScriptTools(ctx, d, u, grants)...)
+	all = dedupeTools(all)
 	available := map[string]bool{}
 	filterInput := make([]ai.Tool, len(all))
 	copy(filterInput, all)
@@ -467,21 +468,18 @@ func CapabilityRegistry(ctx context.Context, d Deps, u *store.User, includeUnava
 }
 
 func capabilityForTool(t ai.Tool) Capability {
-	required := ""
-	superOnly := false
-	if req, ok := toolPerm[t.Name]; ok {
-		if req == reqSuper {
-			required = reqSuper
-			superOnly = true
-		} else {
+	required := strings.TrimSpace(t.RequiredAction)
+	if required == "" {
+		if req, ok := toolPerm[t.Name]; ok {
 			required = req
 		}
 	}
+	superOnly := required == reqSuper
 	risk := "normal"
 	switch {
 	case approvalRequired[t.Name]:
 		risk = "approval"
-	case groupSensitive[t.Name]:
+	case t.GroupSensitive || groupSensitive[t.Name]:
 		risk = "sensitive"
 	case superOnly:
 		risk = "admin"
@@ -489,13 +487,13 @@ func capabilityForTool(t ai.Tool) Capability {
 	return Capability{
 		Name:             t.Name,
 		Domain:           capabilityDomain(t.Name),
-		Effect:           ToolEffect(t.Name),
+		Effect:           effectForTool(t),
 		Description:      t.Description,
 		RequiredAction:   required,
 		Risk:             risk,
 		SuperadminOnly:   superOnly,
 		WorkerAllowed:    workerAllowed[t.Name],
-		GroupAllowed:     !groupSensitive[t.Name],
+		GroupAllowed:     !t.GroupSensitive && !groupSensitive[t.Name],
 		ApprovalRequired: approvalRequired[t.Name],
 	}
 }
@@ -507,8 +505,33 @@ func ToolEffect(name string) string {
 	return ToolEffectUnknown
 }
 
+// IsBuiltinTool 报告名称是否属于 nbco 内建能力注册表。
+func IsBuiltinTool(name string) bool {
+	_, ok := toolEffect[name]
+	return ok
+}
+
+func effectForTool(t ai.Tool) string {
+	switch t.Effect {
+	case ToolEffectRead, ToolEffectWrite, ToolEffectExecute:
+		return t.Effect
+	default:
+		return ToolEffect(t.Name)
+	}
+}
+
 func ToolCanProveAction(name string) bool {
 	switch ToolEffect(name) {
+	case ToolEffectWrite, ToolEffectExecute:
+		return true
+	default:
+		return false
+	}
+}
+
+// ToolCanProveActionTool 使用工具实例上的元数据判断成功调用能否证明动作完成。
+func ToolCanProveActionTool(t ai.Tool) bool {
+	switch effectForTool(t) {
 	case ToolEffectWrite, ToolEffectExecute:
 		return true
 	default:

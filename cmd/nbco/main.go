@@ -75,8 +75,12 @@ func run(configPath string) error {
 	kb := knowledge.New(st, embedder)
 	if embedder != nil {
 		slog.Info("语义检索已启用", "embed_model", embedder.Model())
-		go backfillKnowledge(ctx, kb)
-		go backfillMessages(ctx, kb) // 情景记忆：存量消息补向量
+		go runBackfillLoop(ctx, "knowledge", 10*time.Minute, func(ctx context.Context) {
+			backfillKnowledge(ctx, kb)
+		})
+		go runBackfillLoop(ctx, "messages", 10*time.Minute, func(ctx context.Context) {
+			backfillMessages(ctx, kb) // 情景记忆：存量消息补向量
+		})
 	}
 
 	deps := tools.Deps{
@@ -158,7 +162,7 @@ func run(configPath string) error {
 		if sttClient != nil {
 			slog.Info("语音转写已启用", "stt_model", cfg.AI.STTModel)
 		}
-		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath)
+		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, tz)
 		if err != nil {
 			return err
 		}
@@ -200,7 +204,33 @@ func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, error) {
 	return nil, fmt.Errorf("不支持的 ai.engine: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", cfg.AI.Engine)
 }
 
-// backfillKnowledge 启动后分批给存量知识补 embedding（首次启用语义检索或换模型时）。
+// runBackfillLoop 启动即执行，随后周期重扫。异步嵌入在洪峰时会主动丢弃
+// 请求以保护主链路，周期回填保证这些记录无需重启也能最终补齐。
+func runBackfillLoop(ctx context.Context, name string, interval time.Duration, run func(context.Context)) {
+	if interval <= 0 || run == nil {
+		return
+	}
+	for ctx.Err() == nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("embedding 回填 panic 已恢复", "kind", name, "panic", r)
+				}
+			}()
+			run(ctx)
+		}()
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
+}
+
+// backfillKnowledge 分批给存量知识补 embedding（首次启用语义检索、换模型或
+// 热路径限流漏嵌入时）。
 // 收敛与防死循环：探测/DB 出错即停；用 id 游标扫描整库，单条内容失败只跳过
 // 本轮，不挡住后续知识；拉不满一批即停（已扫完）；批间小憩，不打爆本地服务。
 func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
@@ -210,7 +240,7 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 	for ctx.Err() == nil {
 		res, err := kb.Backfill(ctx, batch, cursor)
 		if err != nil {
-			slog.Warn("知识 embedding 回填中止（服务不可用，重启后再试）", "err", err)
+			slog.Warn("知识 embedding 本轮回填中止（服务不可用，稍后重试）", "err", err)
 			break
 		}
 		total += res.Embedded
@@ -239,7 +269,7 @@ func backfillMessages(ctx context.Context, kb *knowledge.Service) {
 	for ctx.Err() == nil {
 		res, err := kb.BackfillMessages(ctx, batch, cursor)
 		if err != nil {
-			slog.Warn("消息 embedding 回填中止（服务不可用，重启后再试）", "err", err)
+			slog.Warn("消息 embedding 本轮回填中止（服务不可用，稍后重试）", "err", err)
 			break
 		}
 		total += res.Embedded

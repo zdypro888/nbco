@@ -139,7 +139,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/worker/artifacts", s.handleWorkerArtifact)
 	mux.HandleFunc("GET /api/worker/ws", s.handleWorkerWS)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
-	return mux
+	return securityHeaders(mux)
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func mustWebAssetFS() fs.FS {
@@ -820,12 +830,24 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	if status == http.StatusOK {
 		// 用量落库含两次目标归因查询，异步执行：不阻塞 worker 拿响应（热路径），
 		// 失败不阻断业务。用独立 context，响应已返回后仍能完成。
-		outCopy := out
-		go recordWorkerLLMUsage(context.Background(), s.store, u.ID, model, outCopy)
+		recordWorkerLLMUsageAsync(s.store, u.ID, model, bytes.Clone(out))
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write(out)
+}
+
+func recordWorkerLLMUsageAsync(st *store.Store, userID int64, model string, out []byte) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("worker LLM 用量记录 panic 已恢复", "worker", userID, "panic", r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		recordWorkerLLMUsage(ctx, st, userID, model, out)
+	}()
 }
 
 func (s *Server) callWorkerLLMOpenAI(ctx context.Context, model string, body map[string]any) (int, []byte, error) {
@@ -1772,7 +1794,7 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 	if u == nil {
 		return nil
 	}
-	return mcpbridge.NewServer("nbco", "1", tools.StripApprovalRequired(tools.ForUser(s.deps, u, nil)))
+	return mcpbridge.NewServer("nbco", "1", tools.StripApprovalRequired(tools.ForUserContext(r.Context(), s.deps, u, nil)))
 }
 
 // Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。

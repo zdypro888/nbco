@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 
 	"github.com/zdypro888/nbco/ai"
@@ -30,14 +31,20 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 		return nil
 	}
 	requiresAction := looksLikeAuditableActionRequest(text)
+	byName := toolDefinitionsByName(toolset)
+	actualActionSet := map[string]bool{}
+	var actualActions []string
 	if res != nil {
 		for _, st := range res.Steps {
 			if st.Kind != ai.StepToolCall {
 				continue
 			}
-			if nbtools.ToolCanProveAction(st.ToolName) || toolResultLooksPendingApproval(st.Result) {
+			if toolCanProveAction(st.ToolName, byName) || toolResultLooksPendingApproval(st.Result) {
 				requiresAction = true
-				break
+				if toolCanProveAction(st.ToolName, byName) && !actualActionSet[st.ToolName] {
+					actualActionSet[st.ToolName] = true
+					actualActions = append(actualActions, st.ToolName)
+				}
 			}
 		}
 		if res.FinishReason == "blocked_no_tool_completion" {
@@ -47,17 +54,27 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 	if !requiresAction {
 		return nil
 	}
-	available := toolNames(toolset)
 	intent := "用户请求可能需要系统操作"
 	if looksLikeMaterialActionIntent(text) || looksLikeFileReferenceRequest(text) {
 		intent = "用户请求读取或分析最近上传的文件"
 	} else if res != nil && countToolCalls(res.Steps) > 0 {
 		intent = "本轮调用了系统工具"
 	}
+	expected := inferActionToolsForText(text, toolset, 8)
+	expectedSet := make(map[string]bool, len(expected))
+	for _, name := range expected {
+		expectedSet[name] = true
+	}
+	for _, name := range actualActions {
+		if !expectedSet[name] {
+			expectedSet[name] = true
+			expected = append(expected, name)
+		}
+	}
 	return &actionPlan{
 		RequiresAction:  true,
 		Intent:          intent,
-		ExpectedTools:   inferActionToolsForText(text, available, 8),
+		ExpectedTools:   expected,
 		SuccessEvidence: []string{"写入/执行工具成功返回，或工具明确返回待确认/失败状态"},
 		Confidence:      0.5,
 		Source:          "audit_heuristic",
@@ -125,99 +142,43 @@ func toolNames(toolset []ai.Tool) map[string]bool {
 	return m
 }
 
-func inferActionToolsForText(text string, available map[string]bool, limit int) []string {
-	s := strings.ToLower(strings.TrimSpace(text))
-	if s == "" {
-		return nil
+func inferActionToolsForText(text string, toolset []ai.Tool, limit int) []string {
+	type candidate struct {
+		name  string
+		score int
+		order int
 	}
-	var groups [][]string
-	if looksLikeMaterialActionIntent(s) || looksLikeFileReferenceRequest(s) {
-		groups = append(groups, materialActionTools(available))
-	}
-	if routeHasAny(s, []string{"定时", "定期", "提醒", "闹钟", "每天", "每周", "每月", "明天", "后天", "早上", "晚上", "schedule"}) {
-		groups = append(groups, availableToolsInOrder(available, "schedule_once", "schedule_repeating", "schedule_push"))
-	}
-	if routeHasAny(s, []string{"通知", "发送", "发给", "私信", "群发", "群里发", "转发", "告知", "消息", "send", "notify"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"send_message", "send_telegram_group_message", "send_file",
-			"create_data_collection_campaign", "send_data_collection_reminder",
-		))
-	}
-	infoObjects := []string{"员工信息", "个人信息", "个人档案", "档案", "手机号", "手机", "职位", "组别", "邮箱", "联系方式"}
-	if routeHasAny(s, []string{"收集", "完善", "补充", "填报", "登记"}) && routeHasAny(s, infoObjects) {
-		groups = append(groups, availableToolsInOrder(available,
-			"create_data_collection_campaign", "send_data_collection_reminder", "send_message",
-		))
-	}
-	if routeHasAny(s, []string{"群监控", "监听", "群消息", "日报", "自动总结", "自动汇总", "重要事项", "自动邀请", "group monitor"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"set_telegram_group_monitor", "set_telegram_group_listen", "set_telegram_group_auto_invite",
-			"bind_telegram_group_project", "update_telegram_group_info",
-		))
-	}
-	peopleDirect := routeHasAny(s, []string{"邀请", "入职", "权限", "授权", "改名", "重命名"})
-	peopleWrite := routeHasAny(s, []string{"保存", "更新", "修改", "添加", "删除", "录入", "设置", "改成", "改为"}) && routeHasAny(s, infoObjects)
-	if peopleDirect || peopleWrite {
-		groups = append(groups, availableToolsInOrder(available,
-			"invite_employee", "update_user_info", "save_infos_on_user", "save_my_infos",
-			"grant_active_perm", "revoke_active_perm", "grant_passive_perm", "revoke_passive_perm",
-			"add_info_field", "remove_info_field",
-		))
-	}
-	if routeHasAny(s, []string{"项目", "任务", "派", "分配", "验收", "通过", "打回", "进度", "里程碑", "目标"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"create_project", "assign_task", "update_assigned_task", "reassign_task",
-			"accept_task", "reject_task", "add_progress", "create_goal", "add_milestone",
-			"decompose_milestone",
-		))
-	}
-	if routeHasAny(s, []string{"删除", "删掉", "删了", "取消", "作废", "没用了", "不用了", "归档", "delete", "cancel", "archive"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"delete_assigned_task", "delete_project", "cancel_schedule", "delete_knowledge",
-			"close_data_collection_campaign", "archive_project", "revoke_worker",
-			"delete_telegram_group_message",
-		))
-	}
-	if routeHasAny(s, []string{"记住", "记下来", "以后", "默认", "规则", "规矩", "沉淀", "学习", "涨记性", "skill", "知识库"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"save_rule", "save_knowledge", "save_skill", "propose_learning_candidate",
-		))
-	}
-	if routeHasAny(s, []string{"worker", "agent", "codex", "claude", "pty", "shell", "cmd", "命令", "执行", "运行", "代码", "仓库", "clone", "部署", "升级", "修复", "实现", "测试"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"start_workflow", "start_worker_skill", "run_worker_command",
-			"create_worker", "issue_worker_bind_code", "set_worker_admin", "revoke_worker",
-		))
-	}
-	if routeHasAny(s, []string{"底层", "最底层", "兜底", "强制", "数据库", "查库", "写库", "sql", "final fallback"}) {
-		groups = append(groups, availableToolsInOrder(available,
-			"low_level_db_query", "low_level_db_exec",
-		))
-	}
-	var out []string
-	for _, group := range groups {
-		out = mergeToolLists(out, group, limit)
-	}
-	return out
-}
-
-func mergeToolLists(a, b []string, limit int) []string {
-	if len(a) == 0 && len(b) == 0 {
-		return nil
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(a)+len(b))
-	for _, list := range [][]string{a, b} {
-		for _, name := range list {
-			if name == "" || seen[name] {
-				continue
-			}
-			seen[name] = true
-			out = append(out, name)
-			if limit > 0 && len(out) >= limit {
-				return out
-			}
+	var ranked []candidate
+	for i, t := range toolset {
+		if !nbtools.ToolCanProveActionTool(t) {
+			continue
 		}
+		score := toolTextRelevance(text, t)
+		if score <= 0 {
+			continue
+		}
+		ranked = append(ranked, candidate{name: t.Name, score: score, order: i})
+	}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].score != ranked[j].score {
+			return ranked[i].score > ranked[j].score
+		}
+		return ranked[i].order < ranked[j].order
+	})
+	// ExpectedTools is an audit hint, not an exhaustive allowlist. Keep only
+	// top-scoring ties so weakly related write tools do not pollute failure
+	// learning (actual action tools are appended separately after execution).
+	if len(ranked) > 0 {
+		top := ranked[0].score
+		end := 0
+		for end < len(ranked) && ranked[end].score == top && (limit <= 0 || end < limit) {
+			end++
+		}
+		ranked = ranked[:end]
+	}
+	out := make([]string, 0, len(ranked))
+	for _, item := range ranked {
+		out = append(out, item.name)
 	}
 	return out
 }
@@ -231,20 +192,6 @@ func looksLikeMaterialActionIntent(intent string) bool {
 		"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料", "材料",
 		"读取", "解析", "分析", "file", "attachment", "material", "document",
 	})
-}
-
-func materialActionTools(available map[string]bool) []string {
-	return availableToolsInOrder(available, "start_workflow", "analyze_company_materials", "start_worker_skill")
-}
-
-func availableToolsInOrder(available map[string]bool, names ...string) []string {
-	out := make([]string, 0, len(names))
-	for _, name := range names {
-		if available[name] {
-			out = append(out, name)
-		}
-	}
-	return out
 }
 
 type toolEvidence struct {
@@ -297,12 +244,17 @@ func countToolEvidence(steps []ai.Step) (total, success int) {
 }
 
 func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
+	return hasSuccessfulActionEvidenceWithTools(plan, nil, steps)
+}
+
+func hasSuccessfulActionEvidenceWithTools(plan *actionPlan, toolset []ai.Tool, steps []ai.Step) bool {
 	expected := map[string]bool{}
 	if plan != nil {
 		for _, name := range plan.ExpectedTools {
 			expected[name] = true
 		}
 	}
+	byName := toolDefinitionsByName(toolset)
 	for _, st := range steps {
 		if st.Kind != ai.StepToolCall {
 			continue
@@ -313,16 +265,34 @@ func hasSuccessfulActionEvidence(plan *actionPlan, steps []ai.Step) bool {
 		if expected[st.ToolName] {
 			return true
 		}
-		if nbtools.ToolCanProveAction(st.ToolName) {
+		if toolCanProveAction(st.ToolName, byName) {
 			return true
 		}
 	}
 	return false
 }
 
+func toolDefinitionsByName(toolset []ai.Tool) map[string]ai.Tool {
+	out := make(map[string]ai.Tool, len(toolset))
+	for _, t := range toolset {
+		out[t.Name] = t
+	}
+	return out
+}
+
+func toolCanProveAction(name string, byName map[string]ai.Tool) bool {
+	if t, ok := byName[name]; ok {
+		return nbtools.ToolCanProveActionTool(t)
+	}
+	return nbtools.ToolCanProveAction(name)
+}
+
 func toolResultLooksFailed(result string) bool {
 	s := strings.TrimSpace(strings.ToLower(result))
 	if s == "" {
+		return true
+	}
+	if strings.Contains(s, strings.ToLower(nbtools.TurnBudgetExhaustedMarker)) {
 		return true
 	}
 	if toolResultLooksPendingApproval(s) {

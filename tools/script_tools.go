@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/perm"
@@ -214,12 +216,13 @@ type scriptToolUpdateArgs struct {
 	RequiredAction *string        `json:"required_action"`
 }
 
-func dynamicScriptTools(d Deps, u *store.User, grants []store.Grant) []ai.Tool {
+func dynamicScriptTools(ctx context.Context, d Deps, u *store.User, grants []store.Grant) []ai.Tool {
 	if d.Store == nil || u == nil {
 		return nil
 	}
-	items, err := d.Store.ListScriptTools(context.Background(), true, 100)
+	items, err := d.Store.ListScriptTools(ctx, true, 100)
 	if err != nil {
+		slog.Warn("加载动态脚本工具失败，本轮按无脚本工具降级", "user", u.ID, "err", err)
 		return nil
 	}
 	var out []ai.Tool
@@ -232,15 +235,24 @@ func dynamicScriptTools(d Deps, u *store.User, grants []store.Grant) []ai.Tool {
 			schema = obj(nil)
 		}
 		script := *st
-		out = append(out, tool(script.Name, script.Description, schema, func(ctx context.Context, raw json.RawMessage) (string, error) {
-			out, err := scripttool.Run(ctx, script.Name, script.Source, raw, scripttool.RunOptions{
-				Predeclared: scriptBuiltins(ctx, d, u, grants, script.Name),
+		toolDef := tool(script.Name, script.Description, schema, func(ctx context.Context, raw json.RawMessage) (string, error) {
+			const timeout = 2 * time.Minute
+			runCtx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			out, err := scripttool.Run(runCtx, script.Name, script.Source, raw, scripttool.RunOptions{
+				Timeout:     timeout,
+				Predeclared: scriptBuiltins(runCtx, d, u, grants, script.Name),
 			})
 			if err != nil {
 				return "脚本工具执行失败：" + err.Error(), nil
 			}
 			return truncate(out, 12000), nil
-		}))
+		})
+		// 脚本可组合领域工具和 AI，保守地按执行型能力审计。
+		toolDef.Effect = ai.ToolEffectExecute
+		toolDef.RequiredAction = script.RequiredAction
+		toolDef.GroupSensitive = true
+		out = append(out, toolDef)
 	}
 	return out
 }

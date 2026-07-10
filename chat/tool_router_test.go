@@ -3,12 +3,14 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	nbtools "github.com/zdypro888/nbco/tools"
 )
 
 func TestRouteTurnToolsKeepsPlainQuestionSmall(t *testing.T) {
@@ -24,6 +26,66 @@ func TestRouteTurnToolsKeepsPlainQuestionSmall(t *testing.T) {
 	}
 	if len(routed) >= len(testRouteTools()) {
 		t.Fatalf("路由后工具应小于全量: got=%d full=%d", len(routed), len(testRouteTools()))
+	}
+}
+
+func TestRouteTurnToolsIncludesExtensionTools(t *testing.T) {
+	all := append(testRouteTools(), ai.Tool{
+		Name: "weather_lookup", Description: "查询天气预报", Effect: ai.ToolEffectRead,
+	})
+	routed, route := routeTurnTools("telegram", "查一下明天的天气", all)
+	if !routeToolNameSet(routed)["weather_lookup"] {
+		t.Fatalf("extension tool was dropped: tools=%v route=%s", routedToolNames(routed), route.Summary())
+	}
+	if !route.Has("extension") {
+		t.Fatalf("extension route missing: %s", route.Summary())
+	}
+}
+
+func TestToolSoftLimitKeepsRelevantLateToolWithoutAllowlist(t *testing.T) {
+	in := make([]ai.Tool, 0, 70)
+	for i := range 69 {
+		in = append(in, ai.Tool{Name: "generic_" + strconv.Itoa(i), Description: "普通管理能力"})
+	}
+	in = append(in, ai.Tool{Name: "new_milestone_editor", Description: "修改里程碑标题说明和截止时间"})
+	got := keepRoutedToolsUnderSoftLimit("请修改里程碑截止时间", in, nil, nil)
+	if len(got) != routedToolSoftLimit {
+		t.Fatalf("软上限结果数 = %d", len(got))
+	}
+	if !routeToolNameSet(got)["new_milestone_editor"] {
+		t.Fatalf("末尾新增的相关工具被静默裁掉: %v", routedToolNames(got))
+	}
+}
+
+func TestExtensionToolCanProvideActionEvidence(t *testing.T) {
+	custom := ai.Tool{Name: "company_action", Description: "执行公司扩展动作", Effect: ai.ToolEffectExecute}
+	steps := []ai.Step{{Kind: ai.StepToolCall, ToolName: custom.Name, Result: "执行成功"}}
+	if sideEffectCompletionWithoutSuccessfulActionWithTools("执行扩展动作", "已完成。", []ai.Tool{custom}, steps) {
+		t.Fatal("successful extension execution must satisfy action evidence")
+	}
+	plan := buildActionAuditPlan("执行扩展动作", []ai.Tool{custom}, &ai.TurnResult{Steps: steps})
+	if plan == nil || !containsString(plan.ExpectedTools, custom.Name) {
+		t.Fatalf("actual extension action must be recorded in audit plan: %+v", plan)
+	}
+}
+
+func TestInferActionToolsUsesEffectMetadataAndDescription(t *testing.T) {
+	toolset := []ai.Tool{
+		{Name: "weather_update", Description: "更新城市天气预报配置", Effect: ai.ToolEffectWrite},
+		{Name: "unrelated_write", Description: "修改员工排班", Effect: ai.ToolEffectWrite},
+		{Name: "weather_read", Description: "查询城市天气预报", Effect: ai.ToolEffectRead},
+	}
+	got := inferActionToolsForText("更新天气预报", toolset, 8)
+	if len(got) != 1 || got[0] != "weather_update" {
+		t.Fatalf("动作工具推导未遵循 effect/相关性元数据: %v", got)
+	}
+}
+
+func TestGroupSensitiveExtensionIsStrippedByMetadata(t *testing.T) {
+	tools := []ai.Tool{{Name: "custom_admin", GroupSensitive: true}, {Name: "custom_weather"}}
+	got := nbtools.StripGroupSensitive(tools)
+	if len(got) != 1 || got[0].Name != "custom_weather" {
+		t.Fatalf("group metadata filtering failed: %+v", got)
 	}
 }
 
@@ -162,7 +224,7 @@ func TestSlimSystemPromptAvoidsStaticDispatchTrees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"核心原则", "本轮能力路由", "send_message", "当前用户：PRO"} {
+	for _, want := range []string{"核心原则", "时间结论以当前业务时区", "本轮能力路由", "send_message", "当前用户：PRO"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("短系统提示缺 %q:\n%s", want, got)
 		}

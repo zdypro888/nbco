@@ -8,6 +8,7 @@ package sched
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -117,7 +118,16 @@ func (s *Scheduler) tick(ctx context.Context) {
 	}
 	for _, sc := range due {
 		sc := sc
-		s.schedulePool(sc).submit(ctx, func() { s.fireSchedule(ctx, sc) })
+		if s.schedulePool(sc).trySubmit(ctx, func() { s.fireSchedule(ctx, sc) }) {
+			continue
+		}
+		if sc.DeliveryClaimedAt == nil {
+			slog.Error("到期任务缺少租约，无法释放", "schedule", sc.ID)
+			continue
+		}
+		if err := s.store.ReleaseScheduleClaim(ctx, sc.ID, *sc.DeliveryClaimedAt); err != nil && !errors.Is(err, store.ErrNotFound) {
+			slog.Warn("调度池满载且释放任务租约失败", "schedule", sc.ID, "err", err)
+		}
 	}
 	s.deadlinePass(ctx, now)
 	s.goalDeadlinePass(ctx, now)
@@ -140,6 +150,11 @@ func (s *Scheduler) schedulePool(sc *store.Schedule) *pool {
 // daily 任务顺带把下次触发时间校正到工作日过滤后的正确时刻。
 // 这里没有任何具体运营政策：几点、对谁、说什么全部来自数据行（AI 按对话创建）。
 func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
+	if sc.DeliveryClaimedAt == nil {
+		slog.Error("拒绝执行缺少租约的定时任务", "schedule", sc.ID)
+		return
+	}
+	claimAt := *sc.DeliveryClaimedAt
 	now := time.Now().UTC()
 	done := sc.Kind == store.ScheduleOnce
 	var next *time.Time
@@ -147,8 +162,8 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 		n := store.NextDailyFire(now, sc.DailyAt, sc.Weekdays, s.tz)
 		next = &n
 		// 今天不在工作日过滤内（比如补跑/时钟漂移落到周末）：只校正不投递。
-		if !store.WeekdayAllowed(time.Now().In(s.tz).Weekday(), sc.Weekdays) {
-			if err := s.store.MarkScheduleDelivered(ctx, sc.ID, now, next, false); err != nil {
+		if !store.WeekdayAllowed(now.In(s.tz).Weekday(), sc.Weekdays) {
+			if err := s.store.MarkScheduleDelivered(ctx, sc.ID, claimAt, now, next, false); err != nil {
 				slog.Warn("daily 定时跳过校正失败", "schedule", sc.ID, "err", err)
 			}
 			return
@@ -158,7 +173,11 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 		next = &n
 	}
 
-	targets := s.resolveTargets(ctx, sc)
+	targets, err := s.resolveTargets(ctx, sc)
+	if err != nil {
+		slog.Warn("定时任务目标解析失败，保留租约等待重试", "schedule", sc.ID, "err", err)
+		return
+	}
 	sent, failed := 0, 0
 	for _, u := range targets {
 		var one bool
@@ -191,7 +210,7 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 			slog.Warn("定时任务部分目标投递失败（不重试，避免对已达目标重复推送）",
 				"schedule", sc.ID, "sent", sent, "failed", failed)
 		}
-		if err := s.store.MarkScheduleDelivered(ctx, sc.ID, now, next, done); err != nil {
+		if err := s.store.MarkScheduleDelivered(ctx, sc.ID, claimAt, now, next, done); err != nil {
 			slog.Warn("定时任务 ack 失败", "schedule", sc.ID, "err", err)
 		}
 		return
@@ -203,21 +222,20 @@ func nextRepeatFire(fireAt, now time.Time, interval time.Duration) time.Time {
 	if interval <= 0 {
 		return now.Add(time.Hour).UTC()
 	}
-	next := fireAt
-	for !next.After(now) {
-		next = next.Add(interval)
+	if fireAt.After(now) {
+		return fireAt.UTC()
 	}
-	return next.UTC()
+	elapsed := now.Sub(fireAt)
+	return now.Add(interval - elapsed%interval).UTC()
 }
 
 // resolveTargets 展开定时任务的目标为具体用户（活跃、非 worker）。
-func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) []*store.User {
+func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) ([]*store.User, error) {
 	switch sc.Target {
 	case store.ScheduleTargetAll:
 		users, err := s.store.ListUsers(ctx)
 		if err != nil {
-			slog.Error("定时任务展开全员失败", "schedule", sc.ID, "err", err)
-			return nil
+			return nil, fmt.Errorf("展开全员: %w", err)
 		}
 		var out []*store.User
 		for _, u := range users {
@@ -225,13 +243,19 @@ func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) []*s
 				out = append(out, u)
 			}
 		}
-		return out
+		return out, nil
 	default: // self 或具体用户 ID（建表时已归一到 UserID）
 		u, err := s.store.UserByID(ctx, sc.UserID)
-		if err != nil || !humanRecipient(u) {
-			return nil
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("读取接收人 %d: %w", sc.UserID, err)
 		}
-		return []*store.User{u}
+		if !humanRecipient(u) {
+			return nil, nil
+		}
+		return []*store.User{u}, nil
 	}
 }
 

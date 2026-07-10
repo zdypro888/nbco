@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/zdypro888/nbco/ai"
+	nbtools "github.com/zdypro888/nbco/tools"
 )
 
 const routedToolSoftLimit = 48
+const routedExtensionToolLimit = 12
 
 type toolRoute struct {
 	Reasons []string
@@ -33,6 +36,7 @@ func (r toolRoute) Has(reason string) bool {
 func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) {
 	available := toolNames(all)
 	include := map[string]bool{}
+	priority := map[string]int{}
 	var route toolRoute
 	addReason := func(reason string) {
 		for _, got := range route.Reasons {
@@ -42,19 +46,23 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 		}
 		route.Reasons = append(route.Reasons, reason)
 	}
-	add := func(names ...string) {
+	add := func(weight int, names ...string) {
 		for _, name := range names {
 			if available[name] {
 				include[name] = true
+				priority[name] = max(priority[name], weight)
 			}
 		}
 	}
 	addGroup := func(reason string, names ...string) {
 		addReason(reason)
-		add(names...)
+		// A smaller matched capability group is a more specific signal. This
+		// prevents broad domains such as people/work from crowding a focused
+		// schedule, ops, or Telegram group domain at the schema soft limit.
+		add(1000+1000/max(1, len(names)), names...)
 	}
 
-	add(baselineToolNames...)
+	add(100, baselineToolNames...)
 	lower := strings.ToLower(strings.TrimSpace(text))
 	if isGroupChannel(channel) {
 		addGroup("telegram_group", telegramGroupToolNames...)
@@ -92,6 +100,14 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 	if looksLikeSideEffectRequest(text) {
 		addGroup("action", actionToolNames...)
 	}
+	extensions := selectExtensionTools(text, all, routedExtensionToolLimit)
+	if len(extensions) > 0 {
+		addReason("extension")
+		for _, t := range extensions {
+			include[t.Name] = true
+			priority[t.Name] = max(priority[t.Name], 2000)
+		}
+	}
 
 	out := make([]ai.Tool, 0, len(include))
 	for _, t := range all {
@@ -100,7 +116,7 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 		}
 	}
 	if len(out) > routedToolSoftLimit {
-		out = keepRoutedToolsUnderSoftLimit(out, include)
+		out = keepRoutedToolsUnderSoftLimit(text, out, extensions, priority)
 	}
 	if len(route.Reasons) == 0 {
 		route.Reasons = []string{"baseline"}
@@ -108,45 +124,102 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 	return out, route
 }
 
-func keepRoutedToolsUnderSoftLimit(in []ai.Tool, include map[string]bool) []ai.Tool {
+func keepRoutedToolsUnderSoftLimit(text string, in, extensions []ai.Tool, priority map[string]int) []ai.Tool {
 	if len(in) <= routedToolSoftLimit {
 		return in
 	}
-	pinned := map[string]bool{}
-	for _, name := range append([]string{}, baselineToolNames...) {
-		if include[name] {
-			pinned[name] = true
-		}
+	extension := make(map[string]bool, len(extensions))
+	for _, t := range extensions {
+		extension[t.Name] = true
 	}
-	for _, name := range []string{
-		"send_message", "schedule_push", "assign_task", "update_user_info",
-		"delete_assigned_task", "reassign_task", "accept_task", "reject_task",
-		"create_data_collection_campaign", "list_data_collection_campaigns",
-		"invite_employee", "analyze_company_materials", "start_worker_skill", "start_workflow", "run_worker_command",
-		"list_telegram_groups", "set_telegram_group_listen", "set_telegram_group_monitor", "send_telegram_group_message", "delete_telegram_group_message",
-		"save_rule", "save_skill",
-		"company_overview", "low_level_db_query", "low_level_db_exec",
-	} {
-		if include[name] {
-			pinned[name] = true
-		}
+	type rankedTool struct {
+		tool  ai.Tool
+		score int
+		order int
 	}
+	ranked := make([]rankedTool, 0, len(in))
+	for i, t := range in {
+		// Text relevance dominates. Extension and baseline bonuses only stabilize
+		// ties, so a newly added relevant tool cannot disappear merely because it
+		// was not added to a hand-maintained priority list.
+		score := toolTextRelevance(text, t)*1000 + priority[t.Name]
+		if extension[t.Name] {
+			score += 200
+		}
+		ranked = append(ranked, rankedTool{tool: t, score: score, order: i})
+	}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].score != ranked[j].score {
+			return ranked[i].score > ranked[j].score
+		}
+		return ranked[i].order < ranked[j].order
+	})
 	out := make([]ai.Tool, 0, routedToolSoftLimit)
-	for _, t := range in {
-		if pinned[t.Name] {
-			out = append(out, t)
-		}
-	}
-	for _, t := range in {
-		if len(out) >= routedToolSoftLimit {
-			break
-		}
-		if pinned[t.Name] {
-			continue
-		}
-		out = append(out, t)
+	for _, item := range ranked[:routedToolSoftLimit] {
+		out = append(out, item.tool)
 	}
 	return out
+}
+
+func selectExtensionTools(text string, all []ai.Tool, limit int) []ai.Tool {
+	var extensions []ai.Tool
+	for _, t := range all {
+		if !nbtools.IsBuiltinTool(t.Name) {
+			extensions = append(extensions, t)
+		}
+	}
+	if len(extensions) <= limit {
+		return extensions
+	}
+	type scoredTool struct {
+		tool  ai.Tool
+		score int
+		order int
+	}
+	scored := make([]scoredTool, 0, len(extensions))
+	for i, t := range extensions {
+		scored = append(scored, scoredTool{tool: t, score: toolTextRelevance(text, t), order: i})
+	}
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].score != scored[j].score {
+			return scored[i].score > scored[j].score
+		}
+		return scored[i].order < scored[j].order
+	})
+	out := make([]ai.Tool, 0, limit)
+	for _, item := range scored[:limit] {
+		out = append(out, item.tool)
+	}
+	return out
+}
+
+func toolTextRelevance(text string, tool ai.Tool) int {
+	query := strings.ToLower(strings.TrimSpace(text))
+	if query == "" {
+		return 0
+	}
+	name := strings.ToLower(tool.Name)
+	desc := strings.ToLower(tool.Description)
+	score := 0
+	for _, part := range strings.FieldsFunc(name, func(r rune) bool {
+		return r == '_' || r == '-' || r == '.' || unicode.IsSpace(r)
+	}) {
+		if len([]rune(part)) > 1 && strings.Contains(query, part) {
+			score += 20
+		}
+	}
+	// 中文没有稳定的分词边界，使用相邻双字做轻量相关性评分。
+	runes := []rune(query)
+	for i := 0; i+1 < len(runes); i++ {
+		gram := string(runes[i : i+2])
+		if strings.TrimSpace(gram) == "" {
+			continue
+		}
+		if strings.Contains(desc, gram) || strings.Contains(name, gram) {
+			score++
+		}
+	}
+	return score
 }
 
 func routeHasAny(text string, keywords []string) bool {

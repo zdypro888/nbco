@@ -70,6 +70,27 @@ func TestFilterByPermGrantUnlocks(t *testing.T) {
 	}
 }
 
+func TestFilterByPermUsesToolMetadataForExternalTools(t *testing.T) {
+	u := &store.User{ID: 2, Status: store.UserActive}
+	ts := []ai.Tool{
+		{Name: "external_admin", RequiredAction: reqSuper},
+		{Name: "external_worker", RequiredAction: perm.ActManageWorker},
+	}
+	if got := namesOf(filterByPerm(append([]ai.Tool(nil), ts...), u, nil)); len(got) != 0 {
+		t.Fatalf("无授权用户看到了外部工具: %v", got)
+	}
+	grants := []store.Grant{{Kind: store.KindActive, UserID: u.ID, Action: perm.ActManageWorker, Target: store.TargetAll}}
+	got := namesOf(filterByPerm(append([]ai.Tool(nil), ts...), u, grants))
+	if !got["external_worker"] || got["external_admin"] {
+		t.Fatalf("外部工具元数据权限裁剪错误: %v", got)
+	}
+	super := &store.User{ID: 1, IsSuperadmin: true, Status: store.UserActive}
+	got = namesOf(filterByPerm(append([]ai.Tool(nil), ts...), super, nil))
+	if !got["external_worker"] || !got["external_admin"] {
+		t.Fatalf("超管应看到全部外部工具: %v", got)
+	}
+}
+
 // 拿到 manage_worker 授权后，AI 员工管理工具出现（目标级校验在 handler 内另做）。
 func TestManageWorkerGrantUnlocks(t *testing.T) {
 	u := &store.User{ID: 2, Status: store.UserActive}

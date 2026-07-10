@@ -132,16 +132,22 @@ func wakeWorker(d Deps, u *store.User) {
 //     根本看不到该工具；worker 机器账号只拿白名单最小集。
 //  2. handler 内目标级校验（各工具自带）——有能力 ≠ 对任意目标都行。
 func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
+	return ForUserContext(context.Background(), d, u, sessionID)
+}
+
+// ForUserContext 与 ForUser 相同，但权限和动态工具装配会响应调用方取消。
+func ForUserContext(ctx context.Context, d Deps, u *store.User, sessionID *int64) []ai.Tool {
 	ts := baseStaticTools(d, u)
 	var grants []store.Grant
 	if !u.IsSuperadmin && d.Store != nil {
 		var err error
-		if grants, err = d.Store.PermsOf(context.Background(), u.ID); err != nil {
+		if grants, err = d.Store.PermsOf(ctx, u.ID); err != nil {
 			slog.Warn("加载权限失败，按无授权裁剪工具集", "user", u.ID, "err", err)
 			grants = nil // 失败按最小权限处理（fail-closed）
 		}
 	}
-	ts = append(ts, dynamicScriptTools(d, u, grants)...)
+	ts = append(ts, dynamicScriptTools(ctx, d, u, grants)...)
+	ts = dedupeTools(ts)
 	ts = filterByPerm(ts, u, grants)
 
 	for i := range ts {
@@ -149,6 +155,23 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 		ts[i] = withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i]))
 	}
 	return ts
+}
+
+// dedupeTools keeps the first definition. Built-ins are assembled before MCP
+// extras and dynamic scripts, so external configuration can never shadow a
+// trusted core capability or make the model API reject duplicate tool names.
+func dedupeTools(ts []ai.Tool) []ai.Tool {
+	out := ts[:0]
+	seen := make(map[string]bool, len(ts))
+	for _, t := range ts {
+		if seen[t.Name] {
+			slog.Warn("忽略重名工具", "tool", t.Name)
+			continue
+		}
+		seen[t.Name] = true
+		out = append(out, t)
+	}
+	return out
 }
 
 // baseStaticTools 是内建工具的唯一装配入口。ForUser 在此基础上追加动态脚本工具、
@@ -373,7 +396,7 @@ var groupSensitive = map[string]bool{
 func StripGroupSensitive(ts []ai.Tool) []ai.Tool {
 	out := ts[:0]
 	for _, t := range ts {
-		if groupSensitive[t.Name] {
+		if t.GroupSensitive || groupSensitive[t.Name] {
 			continue
 		}
 		out = append(out, t)
@@ -395,31 +418,45 @@ func StripApprovalRequired(ts []ai.Tool) []ai.Tool {
 	return out
 }
 
-// TurnBudget bounds one model turn's tool use. It is intentionally a soft
-// guard: once limits are hit, the tool returns an instruction-like result so
-// the model can finish from already fetched facts instead of spinning.
+// TurnBudget bounds one model turn's tool use. Once a limit is hit the guard
+// rejects that call and asks the engine to withdraw tools before its next model
+// invocation, guaranteeing that even a weak model can leave the tool loop.
 type TurnBudget struct {
 	MaxCalls       int
 	MaxPerTool     int
 	MaxExactRepeat int
 }
 
-func WithTurnBudget(ts []ai.Tool, budget TurnBudget) []ai.Tool {
-	if budget.MaxCalls <= 0 && budget.MaxPerTool <= 0 && budget.MaxExactRepeat <= 0 {
+// TurnBudgetExhaustedMarker identifies control-flow responses that never ran
+// the wrapped tool. Evidence consumers must not treat them as successful side
+// effects merely because the readable text contains words such as “已”.
+const TurnBudgetExhaustedMarker = "[nbco:tool_budget_exhausted]"
+
+// TurnBudgetGuard owns one turn's counters and exposes the state to the engine.
+// It is safe when a model emits several parallel tool calls in one response.
+type TurnBudgetGuard struct {
+	state *turnBudgetState
+}
+
+func NewTurnBudgetGuard(budget TurnBudget) *TurnBudgetGuard {
+	return &TurnBudgetGuard{state: &turnBudgetState{
+		budget: budget,
+		tools:  map[string]int{},
+		exact:  map[string]int{},
+	}}
+}
+
+func (g *TurnBudgetGuard) Wrap(ts []ai.Tool) []ai.Tool {
+	if g == nil || g.state == nil || (g.state.budget.MaxCalls <= 0 && g.state.budget.MaxPerTool <= 0 && g.state.budget.MaxExactRepeat <= 0) {
 		return ts
 	}
 	out := make([]ai.Tool, len(ts))
 	copy(out, ts)
-	state := &turnBudgetState{
-		budget: budget,
-		tools:  map[string]int{},
-		exact:  map[string]int{},
-	}
 	for i := range out {
 		inner := out[i].Handler
 		name := out[i].Name
 		out[i].Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
-			if msg := state.check(name, args); msg != "" {
+			if msg := g.state.check(name, args); msg != "" {
 				return msg, nil
 			}
 			return inner(ctx, args)
@@ -428,31 +465,59 @@ func WithTurnBudget(ts []ai.Tool, budget TurnBudget) []ai.Tool {
 	return out
 }
 
+// ShouldDisableTools reports whether a budget violation has already occurred.
+// Eino reads this between iterations and removes the advertised tool list.
+func (g *TurnBudgetGuard) ShouldDisableTools() bool {
+	if g == nil || g.state == nil {
+		return false
+	}
+	return g.state.shouldDisableTools()
+}
+
+// WithTurnBudget is retained for callers that only need wrapped handlers. Chat
+// turns should use NewTurnBudgetGuard so the engine can also observe exhaustion.
+func WithTurnBudget(ts []ai.Tool, budget TurnBudget) []ai.Tool {
+	return NewTurnBudgetGuard(budget).Wrap(ts)
+}
+
 type turnBudgetState struct {
 	mu     sync.Mutex
 	budget TurnBudget
 	total  int
 	tools  map[string]int
 	exact  map[string]int
+	stop   bool
 }
 
 func (s *turnBudgetState) check(name string, args json.RawMessage) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.stop {
+		return TurnBudgetExhaustedMarker + " 本轮工具阶段已经结束。请基于已经取得的结果直接回答用户。"
+	}
 	if s.budget.MaxCalls > 0 && s.total >= s.budget.MaxCalls {
-		return "本轮工具调用已达到上限。请基于已经取得的结果给用户一个简洁结论；如果仍缺关键信息，请说明需要用户下一轮继续。"
+		s.stop = true
+		return TurnBudgetExhaustedMarker + " 本轮工具调用已达到上限。请基于已经取得的结果给用户一个简洁结论；如果仍缺关键信息，请说明需要用户下一轮继续。"
 	}
 	if s.budget.MaxPerTool > 0 && s.tools[name] >= s.budget.MaxPerTool {
-		return fmt.Sprintf("%s 本轮调用次数过多。请停止重复查询，基于已有结果回答。", name)
+		s.stop = true
+		return fmt.Sprintf("%s %s 本轮调用次数过多。请停止重复查询，基于已有结果回答。", TurnBudgetExhaustedMarker, name)
 	}
 	exactKey := name + "\x00" + canonicalArgsHash(args)
 	if s.budget.MaxExactRepeat > 0 && s.exact[exactKey] >= s.budget.MaxExactRepeat {
-		return fmt.Sprintf("%s 对相同参数已经重复调用。请不要继续重复查询，直接整理已有结果回答。", name)
+		s.stop = true
+		return fmt.Sprintf("%s %s 对相同参数已经重复调用。请不要继续重复查询，直接整理已有结果回答。", TurnBudgetExhaustedMarker, name)
 	}
 	s.total++
 	s.tools[name]++
 	s.exact[exactKey]++
 	return ""
+}
+
+func (s *turnBudgetState) shouldDisableTools() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stop
 }
 
 // filterByPerm 按注册表裁剪工具集（超管全通过；worker 走白名单）。
@@ -462,7 +527,13 @@ func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 		if u.IsWorker && !u.IsSuperadmin && !workerAllowed[t.Name] {
 			continue
 		}
-		req, gated := toolPerm[t.Name]
+		req := strings.TrimSpace(t.RequiredAction)
+		_, gated := toolPerm[t.Name]
+		if req == "" {
+			req = toolPerm[t.Name]
+		} else {
+			gated = true
+		}
 		if gated && !u.IsSuperadmin {
 			if req == reqSuper || !hasAnyActive(grants, req) {
 				continue
@@ -555,7 +626,7 @@ func decode[T any](raw json.RawMessage, v *T) error {
 
 // tool 便捷构造。
 func tool(name, desc string, schema map[string]any, h func(ctx context.Context, args json.RawMessage) (string, error)) ai.Tool {
-	return ai.Tool{Name: name, Description: desc, InputSchema: schema, Handler: h}
+	return ai.Tool{Name: name, Description: desc, Effect: ToolEffect(name), InputSchema: schema, Handler: h}
 }
 
 // --- 通用小助手 ---

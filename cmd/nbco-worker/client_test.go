@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -57,5 +59,33 @@ func TestClientRequestInput(t *testing.T) {
 	}
 	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.Content != "请提供 repo URL" {
 		t.Fatalf("request body = %+v", body)
+	}
+}
+
+func TestDownloadFileReplacesExistingDestination(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer tok-worker-a" {
+			t.Fatalf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte("new content"))
+	}))
+	defer srv.Close()
+	dst := filepath.Join(t.TempDir(), "artifact.txt")
+	if err := os.WriteFile(dst, []byte("old content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := newClient(srv.URL, "tok-worker-a").DownloadFile(context.Background(), "/file", dst); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new content" {
+		t.Fatalf("downloaded content = %q", got)
+	}
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(dst), ".nbco-download-*"))
+	if err != nil || len(matches) != 0 {
+		t.Fatalf("temporary downloads left behind: %v, err=%v", matches, err)
 	}
 }

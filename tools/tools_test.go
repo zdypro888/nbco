@@ -208,6 +208,31 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 }
 
+func TestBuiltinToolRegistryIsCompleteAndUnique(t *testing.T) {
+	super := &store.User{ID: 1, Name: "boss", Status: store.UserActive, IsSuperadmin: true}
+	seen := map[string]bool{}
+	for _, tl := range baseStaticTools(Deps{}, super) {
+		if seen[tl.Name] {
+			t.Errorf("内建工具重名: %s", tl.Name)
+		}
+		seen[tl.Name] = true
+		if _, ok := toolEffect[tl.Name]; !ok {
+			t.Errorf("内建工具未声明 effect: %s", tl.Name)
+		}
+	}
+}
+
+func TestDedupeToolsKeepsFirstDefinition(t *testing.T) {
+	got := dedupeTools([]ai.Tool{
+		{Name: "same", Description: "trusted"},
+		{Name: "same", Description: "external"},
+		{Name: "other"},
+	})
+	if len(got) != 2 || got[0].Description != "trusted" || got[1].Name != "other" {
+		t.Fatalf("工具去重结果错误: %+v", got)
+	}
+}
+
 func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 	got := renderActionTurns(context.Background(), nil, time.UTC, []*store.ActionTurn{{
 		ID:               9,
@@ -316,27 +341,47 @@ func TestNBCOUpgradeWorkflowRequiresSuperadmin(t *testing.T) {
 
 func TestWithTurnBudget(t *testing.T) {
 	calls := 0
-	ts := WithTurnBudget([]ai.Tool{{
+	guard := NewTurnBudgetGuard(TurnBudget{MaxCalls: 2, MaxExactRepeat: 1})
+	ts := guard.Wrap([]ai.Tool{{
 		Name: "lookup",
 		Handler: func(context.Context, json.RawMessage) (string, error) {
 			calls++
 			return "ok", nil
 		},
-	}}, TurnBudget{MaxCalls: 2, MaxExactRepeat: 1})
+	}})
 	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":1}`)); got != "ok" {
 		t.Fatalf("首次调用应通过: %q", got)
 	}
 	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":1}`)); !strings.Contains(got, "重复") {
 		t.Fatalf("相同参数重复调用应被挡住: %q", got)
 	}
-	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":2}`)); got != "ok" {
-		t.Fatalf("不同参数第二次调用应通过: %q", got)
+	if !guard.ShouldDisableTools() {
+		t.Fatal("预算违规后应通知引擎撤下工具")
 	}
-	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":3}`)); !strings.Contains(got, "达到上限") {
+	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":2}`)); !strings.Contains(got, "已经结束") {
+		t.Fatalf("进入终止态后不应再执行其他调用: %q", got)
+	}
+	if calls != 1 {
+		t.Fatalf("实际 handler 调用次数 = %d, want 1", calls)
+	}
+}
+
+func TestTurnBudgetTotalLimit(t *testing.T) {
+	guard := NewTurnBudgetGuard(TurnBudget{MaxCalls: 1})
+	ts := guard.Wrap([]ai.Tool{{
+		Name: "lookup",
+		Handler: func(context.Context, json.RawMessage) (string, error) {
+			return "ok", nil
+		},
+	}})
+	if got, _ := ts[0].Handler(context.Background(), nil); got != "ok" {
+		t.Fatalf("预算内调用 = %q", got)
+	}
+	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"next":true}`)); !strings.Contains(got, "达到上限") {
 		t.Fatalf("总预算超限应被挡住: %q", got)
 	}
-	if calls != 2 {
-		t.Fatalf("实际 handler 调用次数 = %d, want 2", calls)
+	if !guard.ShouldDisableTools() {
+		t.Fatal("总预算超限后应进入终止态")
 	}
 }
 

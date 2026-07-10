@@ -47,7 +47,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
 | `daily_summary_hour` | 每日待办推送小时（0-23），-1 关闭 |
 | `sched_ai_concurrency` | 调度器同时进行的 AI 轮次上限（催办/周报/定时 AI 推送），默认 4；防「全员问候」几百轮齐发打爆后端 |
-| `mcp_servers` | 外接 MCP 工具服务列表（`name`/`url`/`headers`），可选 |
+| `mcp_servers` | 外接 MCP 工具服务列表（`name`/`url`/`headers`/`required_action`）；默认仅超管可用，可选 |
 | `ai.engine` | 仅支持 `eino`（直调 API） |
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
 | `ai.api_key` / `ai.model` | eino 引擎必填 |

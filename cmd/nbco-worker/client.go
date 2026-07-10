@@ -277,14 +277,15 @@ func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
 	if resp.StatusCode != http.StatusOK {
 		return c.errStatus(resp)
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 		return err
 	}
-	tmp := dst + ".tmp"
-	out, err := os.Create(tmp)
+	out, err := os.CreateTemp(filepath.Dir(dst), ".nbco-download-*")
 	if err != nil {
 		return err
 	}
+	tmp := out.Name()
+	defer os.Remove(tmp)
 	_, copyErr := io.Copy(out, resp.Body)
 	closeErr := out.Close()
 	if copyErr != nil {
@@ -295,7 +296,7 @@ func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
 		_ = os.Remove(tmp)
 		return closeErr
 	}
-	return os.Rename(tmp, dst)
+	return replaceFile(tmp, dst)
 }
 
 // UploadArtifact 上传一个已安全打开的产物文件（r 通常是校验过的 *os.File）。

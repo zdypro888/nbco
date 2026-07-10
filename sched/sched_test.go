@@ -97,6 +97,18 @@ func TestSchedulePoolRoutesAIWithoutSendPool(t *testing.T) {
 	}
 }
 
+func TestNextRepeatFireSkipsLongBacklogInConstantTime(t *testing.T) {
+	now := time.Date(2026, 7, 9, 12, 0, 30, 0, time.UTC)
+	fireAt := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	got := nextRepeatFire(fireAt, now, time.Minute)
+	if !got.Equal(time.Date(2026, 7, 9, 12, 1, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected next repeat fire: %s", got)
+	}
+	if !got.After(now) || got.Sub(now) > time.Minute {
+		t.Fatalf("next fire must be the first aligned time after now: %s", got)
+	}
+}
+
 func TestHumanRecipientSkipsWorkers(t *testing.T) {
 	if !humanRecipient(&store.User{Status: store.UserActive}) {
 		t.Fatal("active human should be a schedule recipient")

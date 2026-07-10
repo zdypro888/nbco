@@ -76,3 +76,10 @@ func TestSanitizeVisibleReplyHidesToolOnlyUserRefs(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizeVisibleReplyHidesInternalMarkers(t *testing.T) {
+	got := SanitizeVisibleReply("[nbco:tool_budget_exhausted] 请基于已有结果回答。")
+	if got != "请基于已有结果回答。" {
+		t.Fatalf("internal marker leaked: %q", got)
+	}
+}
