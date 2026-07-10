@@ -375,7 +375,7 @@ function renderScheduleRows(items = state.schedules || []) {
       <thead><tr><th>ID</th><th>规则</th><th>目标</th><th>创建人</th><th>模式</th><th>状态</th><th>下次触发</th><th>上次触发</th></tr></thead>
       <tbody>${items.map(s => `<tr class="selectable" data-select-kind="schedule" data-id="${s.id}">
         <td>SCH-${s.id}</td>
-        <td class="td-title"><div class="title-strong">${esc(scheduleTitle(s))}</div><div class="subline">${esc(truncate(s.message, 72))}</div></td>
+        <td class="td-title"><div class="title-strong">${esc(scheduleTitle(s))}</div><div class="subline">${esc(scheduleSubtitle(s))}</div></td>
         <td>${esc(scheduleTarget(s))}</td>
         <td>${esc(s.creator_name || "")}</td>
         <td>${esc(s.mode || "message")}</td>
@@ -635,7 +635,7 @@ function scheduleInspector(s) {
       <dt>上次触发</dt><dd>${fmtTime(s.last_fired) || "未触发"}</dd>
       <dt>创建时间</dt><dd>${fmtTime(s.created_at) || ""}</dd>
     </dl>
-    <div class="result">${esc(s.message || "")}</div>`;
+    <div class="result">${esc(scheduleSubtitle(s))}</div>`;
 }
 
 function workerInspector(worker) {
@@ -815,12 +815,23 @@ function taskQueueSource() {
 }
 
 function scheduleTitle(s) {
+  if (s.title) return s.title;
   if (s.kind === "daily") {
     const days = s.weekdays ? ` 周${s.weekdays}` : " 每天";
     return `${s.daily_at || fmtTime(s.fire_at)}${days}`;
   }
   if (s.kind === "repeat") return `每 ${s.interval_s || 0} 秒`;
   return `单次 ${fmtTime(s.fire_at)}`;
+}
+
+function scheduleSubtitle(s) {
+  if (s.title) {
+    const days = s.weekdays ? `周${s.weekdays}` : "每天";
+    if (s.kind === "daily") return `${days} ${s.daily_at || fmtTime(s.fire_at)}`;
+    if (s.kind === "repeat") return `每 ${s.interval_s || 0} 秒`;
+    return `单次 ${fmtTime(s.fire_at)}`;
+  }
+  return truncate(s.message || "", 72);
 }
 
 function scheduleTarget(s) {

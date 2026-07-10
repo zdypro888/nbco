@@ -156,7 +156,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_capabilities", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_telegram_group_messages", "set_telegram_group_digest", "list_capabilities", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}

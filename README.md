@@ -256,6 +256,9 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 
 - **默认只应答点名**：@bot 或回复 bot 的消息才触发 AI，以**发言人的权限**跑**群共享会话**（历史带【发言人】署名），未绑定成员会被引导私聊绑定——群里绝不做绑定流程
 - **/listen 群监听**（超管）：开启后 bot 旁听群讨论记入群会话上下文（不插话），再被 @ 时能接住前文；再次 /listen 关闭。旁听普通消息需在 @BotFather `/setprivacy` 选 Disable
+- **群消息事实查询**：`list_telegram_group_messages` 按公司时区读取系统真实保存的群消息，跨 `/new` 会话重置并支持稳定游标分页；回答“今天群里说了什么”时不再拿群配置代替消息内容
+- **事件监控**：`set_telegram_group_monitor` 只分析开启后的新消息。消息按时间窗口批处理，由 AI 判断是否值得提醒；分析批次有持久租约、失败退避和重启恢复，不依赖关键词表
+- **每日摘要**：`set_telegram_group_digest` 是独立的持久自动化，必须明确发送时刻；到点读取当天群消息再生成摘要。它与 `/listen`、事件监控互不修改开关，也不冒充业务任务
 - **/new**（超管）：重置本群会话
 - 系统提示注入群纪律：回复全员可见，涉及隐私（画像/Token/私人任务）引导私聊，不主动插话
 
@@ -311,7 +314,7 @@ Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；�
 nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把可长期复用的结论沉淀成可治理资产：
 
 - **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态与审核人
-- **对话学习**：Memory Miner 从超管对话里抽取规则、skill、知识；已发布内容也会留下 learning candidate 记录，便于之后审计
+- **对话学习**：Memory Miner 从超管对话里抽取规则、skill、知识；每个条目必须逐字引用用户原话作为来源证明，助手承诺、工具执行结果、当前开关和队列状态不能复制成长期记忆；已发布内容也会留下 learning candidate 记录，便于之后审计
 - **worker 学习**：worker 完成资料分析任务时，可在汇报末尾输出 `NBCO_LEARNING_CANDIDATES_JSON:`，nbco 会解析为学习候选
 - **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，标记明显重复/冲突；调度器月度知识盘点和 Web 学习页会自动触发一次轻量评分
 - **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布到正式知识库/规则/Skill，用 `reject_learning_candidate` 清理噪音

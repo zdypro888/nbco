@@ -1,6 +1,9 @@
 package tools
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +39,109 @@ func TestRenderTelegramGroupHidesChatIDLabel(t *testing.T) {
 	}
 	if strings.Contains(got, "chat_id") || strings.Contains(got, "TG ID") {
 		t.Fatalf("renderTelegramGroup should not expose chat id labels:\n%s", got)
+	}
+}
+
+func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
+	tz := time.FixedZone("CST", 8*60*60)
+	from, to, msg := telegramGroupMessageRange("2026-07-10", 0, tz)
+	if msg != "" || from.In(tz).Format("2006-01-02 15:04") != "2026-07-10 00:00" || to.Sub(from) != 24*time.Hour {
+		t.Fatalf("date range = %v %v %q", from, to, msg)
+	}
+	if _, _, msg := telegramGroupMessageRange("bad", 0, tz); !strings.Contains(msg, "YYYY-MM-DD") {
+		t.Fatalf("invalid date message = %q", msg)
+	}
+	page := store.ChannelMessagePage{
+		Total: 3, NextCursor: 42,
+		Messages: []store.ChatMessage{
+			{Role: "user", Content: "【Alice】日报完成", CreatedAt: from.Add(10 * time.Hour)},
+			{Role: "assistant", Content: "收到", CreatedAt: from.Add(10*time.Hour + time.Minute)},
+		},
+	}
+	got := renderTelegramGroupMessages(store.TelegramGroupState{Title: "项目群"}, page, from, to, tz)
+	for _, want := range []string{"项目群", "共 3 条", "仅最新部分", "【Alice】日报完成", "nbco：收到", "next_cursor: 42"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("group messages missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestTelegramGroupDigestDirectiveUsesMessageFactTool(t *testing.T) {
+	got := telegramGroupDigestDirective(store.TelegramGroupState{ChatID: -100123, Title: "项目群"}, "只看风险")
+	for _, want := range []string{"list_telegram_group_messages", "telegram:group:-100123", "实际消息", "只看风险"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("digest directive missing %q: %s", want, got)
+		}
+	}
+}
+
+func TestTelegramGroupMessageAndDigestToolsIntegration(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	boss := mkToolsUser(t, s, "boss", true)
+	group := store.TelegramGroupState{
+		ChatID: -100123, Title: "项目群", Type: "supergroup", Status: "member", Listen: false, UpdatedAt: time.Now(),
+	}
+	if err := s.SaveTelegramGroupState(ctx, group); err != nil {
+		t.Fatal(err)
+	}
+	session, err := s.StartGroupSession(ctx, boss.ID, telegramGroupChannel(group.ChatID), "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendMessage(ctx, session.ID, "user", "【Alice】今天完成发布"); err != nil {
+		t.Fatal(err)
+	}
+
+	byName := map[string]func(context.Context, json.RawMessage) (string, error){}
+	for _, tool := range telegramGroupTools(Deps{Store: s, TZ: time.UTC}, boss) {
+		byName[tool.Name] = tool.Handler
+	}
+	listOut, err := byName["list_telegram_group_messages"](ctx, json.RawMessage(`{"group":"项目群"}`))
+	if err != nil || !strings.Contains(listOut, "今天完成发布") {
+		t.Fatalf("list group messages = %q err=%v", listOut, err)
+	}
+	monitorOut, err := byName["set_telegram_group_monitor"](ctx, json.RawMessage(`{"group":"项目群","enabled":true,"instruction":"按管理价值判断"}`))
+	if err != nil || !strings.Contains(monitorOut, "事件监控") || !strings.Contains(monitorOut, "每日摘要仍未开启") {
+		t.Fatalf("set monitor = %q err=%v", monitorOut, err)
+	}
+	storedGroup, err := s.TelegramGroupState(ctx, group.ChatID)
+	if err != nil || storedGroup.Listen {
+		t.Fatalf("monitor must not change explicit listen setting: group=%+v err=%v", storedGroup, err)
+	}
+
+	setOut, err := byName["set_telegram_group_digest"](ctx, json.RawMessage(`{"group":"项目群","enabled":true,"daily_at":"18:30","instruction":"只看风险"}`))
+	if err != nil || !strings.Contains(setOut, "每日摘要") || !strings.Contains(setOut, "18:30") {
+		t.Fatalf("set digest = %q err=%v", setOut, err)
+	}
+	sc, err := s.AutomationSchedule(ctx, boss.ID, telegramGroupDigestSourceKind, "-100123")
+	if err != nil || sc.SourceKind != telegramGroupDigestSourceKind || !strings.Contains(sc.Message, "list_telegram_group_messages") {
+		t.Fatalf("digest schedule = %+v err=%v", sc, err)
+	}
+	if sc.Title != "项目群 每日摘要" {
+		t.Fatalf("digest should have a user-facing title: %+v", sc)
+	}
+	storedGroup, err = s.TelegramGroupState(ctx, group.ChatID)
+	if err != nil || storedGroup.Listen {
+		t.Fatalf("digest must not change explicit listen setting: group=%+v err=%v", storedGroup, err)
+	}
+	firstID := sc.ID
+	if _, err := byName["set_telegram_group_digest"](ctx, json.RawMessage(`{"group":"项目群","enabled":true,"daily_at":"19:00"}`)); err != nil {
+		t.Fatal(err)
+	}
+	sc, err = s.AutomationSchedule(ctx, boss.ID, telegramGroupDigestSourceKind, "-100123")
+	if err != nil || sc.ID != firstID || sc.DailyAt != "19:00" {
+		t.Fatalf("digest update should be idempotent: %+v err=%v", sc, err)
+	}
+	getOut, err := byName["get_telegram_group"](ctx, json.RawMessage(`{"group":"项目群"}`))
+	if err != nil || !strings.Contains(getOut, "每日摘要：已设置") || !strings.Contains(getOut, "群消息内容：本工具未查询") {
+		t.Fatalf("get group digest status = %q err=%v", getOut, err)
+	}
+	if _, err := byName["set_telegram_group_digest"](ctx, json.RawMessage(`{"group":"项目群","enabled":false}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AutomationSchedule(ctx, boss.ID, telegramGroupDigestSourceKind, "-100123"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("disabled digest should not remain active: %v", err)
 	}
 }
 

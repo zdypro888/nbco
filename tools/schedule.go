@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -189,13 +190,17 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					Message: args.Content, CreatedBy: u.ID,
 				}
 				if hasDaily {
-					var hh, mm int
-					if _, err := fmt.Sscanf(strings.TrimSpace(args.DailyAt), "%d:%d", &hh, &mm); err != nil || hh < 0 || hh > 23 || mm < 0 || mm > 59 {
-						return "daily_at 格式应为 HH:MM，如 10:00。", nil
+					dailyAt, err := normalizeDailyAt(args.DailyAt)
+					if err != nil {
+						return err.Error(), nil
+					}
+					weekdays, err := normalizeWeekdays(args.Weekdays)
+					if err != nil {
+						return err.Error(), nil
 					}
 					sc.Kind = store.ScheduleDaily
-					sc.DailyAt = fmt.Sprintf("%02d:%02d", hh, mm)
-					sc.Weekdays = strings.TrimSpace(args.Weekdays)
+					sc.DailyAt = dailyAt
+					sc.Weekdays = weekdays
 					sc.FireAt = store.NextDailyFire(time.Now(), sc.DailyAt, sc.Weekdays, d.TZ)
 				} else {
 					at, err := parseDeadline(args.OnceAt, d.TZ)
@@ -241,18 +246,22 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return "已取消。", nil
 			}),
 
-		tool("list_schedules", "查看我的定时提醒。", obj(nil),
+		tool("list_schedules", "查看我的定时提醒和持久自动化。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				scs, err := d.Store.SchedulesOf(ctx, u.ID)
 				if err != nil {
 					return "", err
 				}
 				if len(scs) == 0 {
-					return "（无定时提醒）", nil
+					return "（无定时提醒或自动化）", nil
 				}
 				var b strings.Builder
 				for _, sc := range scs {
-					fmt.Fprintf(&b, "- %s [%s] %s 下次 %s", internalRef("提醒", sc.ID), sc.Kind, sc.Message, fmtTime(sc.FireAt, d.TZ))
+					refLabel := "提醒"
+					if strings.TrimSpace(sc.SourceKind) != "" {
+						refLabel = "自动化"
+					}
+					fmt.Fprintf(&b, "- %s [%s] %s 下次 %s", internalRef(refLabel, sc.ID), sc.Kind, scheduleDisplayMessage(ctx, d, sc), fmtTime(sc.FireAt, d.TZ))
 					if sc.Kind == store.ScheduleRepeat {
 						fmt.Fprintf(&b, "（每 %d 秒）", sc.IntervalS)
 					}
@@ -274,4 +283,70 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 	}
+}
+
+func normalizeDailyAt(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	hour, minute, ok := strings.Cut(raw, ":")
+	if !ok || len(hour) < 1 || len(hour) > 2 || len(minute) != 2 || !asciiDigits(hour) || !asciiDigits(minute) {
+		return "", fmt.Errorf("daily_at 格式应为 HH:MM，如 10:00")
+	}
+	hh, _ := strconv.Atoi(hour)
+	mm, _ := strconv.Atoi(minute)
+	if hh > 23 || mm > 59 {
+		return "", fmt.Errorf("daily_at 格式应为 HH:MM，如 10:00")
+	}
+	return fmt.Sprintf("%02d:%02d", hh, mm), nil
+}
+
+func normalizeWeekdays(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	var seen [8]bool
+	for _, part := range strings.Split(raw, ",") {
+		n, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || n < 1 || n > 7 {
+			return "", fmt.Errorf("weekdays 格式应为 1 到 7 的逗号列表，如 1,2,3,4,5")
+		}
+		seen[n] = true
+	}
+	parts := make([]string, 0, 7)
+	for n := 1; n <= 7; n++ {
+		if seen[n] {
+			parts = append(parts, strconv.Itoa(n))
+		}
+	}
+	return strings.Join(parts, ","), nil
+}
+
+func asciiDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return s != ""
+}
+
+func scheduleDisplayMessage(ctx context.Context, d Deps, sc *store.Schedule) string {
+	if sc == nil {
+		return ""
+	}
+	if title := strings.TrimSpace(sc.Title); title != "" {
+		return title
+	}
+	if sc.SourceKind != telegramGroupDigestSourceKind {
+		return sc.Message
+	}
+	chatID, err := strconv.ParseInt(sc.SourceKey, 10, 64)
+	if err != nil || d.Store == nil {
+		return "Telegram 群每日摘要"
+	}
+	group, err := d.Store.TelegramGroupState(ctx, chatID)
+	if err != nil || group == nil {
+		return "Telegram 群每日摘要"
+	}
+	return telegramGroupTitle(*group) + " 每日摘要"
 }

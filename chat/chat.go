@@ -503,9 +503,9 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘�
 
 输出严格 JSON 对象，不要 Markdown，不要代码块：
 {
-  "rules": [{"title":"","content":"","scope":"global","pinned":false}],
-  "skills": [{"title":"","trigger":"","summary":"","procedure":"","constraints":"","scope":"global","tags":[]}],
-  "knowledge": [{"title":"","content":"","tags":[]}]
+  "rules": [{"title":"","content":"","scope":"global","pinned":false,"evidence":"用户原话"}],
+  "skills": [{"title":"","trigger":"","summary":"","procedure":"","constraints":"","scope":"global","tags":[],"evidence":"用户原话"}],
+  "knowledge": [{"title":"","content":"","tags":[],"evidence":"用户原话"}]
 }
 
 分类标准：
@@ -516,19 +516,22 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘�
 约束：
 - 没有明确新增长期价值时返回空数组。
 - 不要保存普通寒暄、一次性任务、临时状态。
+- 当前开关、运行状态、队列进度和工具执行结果属于结构化业务数据，不是长期规则/知识；不能复制一份到记忆库。
 - 不要臆造用户没说过的规则或步骤。
 - 保存涉及日期的稳定事实时，必须根据“对话发生时间”把今天、昨天、明天、上周等相对表达换成绝对日期；无法可靠换算就不保存该时间结论。
-- 不要把助手单方面提出的建议、承诺、道歉或“我会做”当成已生效事实；只有用户明确要求、认可，或工具结果/用户内容能证明时才提取。
+- 不要把助手单方面提出的建议、承诺、道歉或“我会做”当成已生效事实。助手文本只能帮助理解上下文，不能作为记忆证据。
+- 每个条目的 evidence 必须逐字摘自【用户】内容，不能改写、不能引用助手；用户仅说“好的/当然/现在做”等操作确认时，不足以证明一条长期记忆。
 - skill 应该是可复用的类级流程，不要为一次对话里的单个临时问题生成微型 skill。
 - 如果用户纠正了系统行为，要优先沉淀成 rule；如果用户教的是一套做事方法，才沉淀成 skill。
 - scope 只能是 global、telegram、api、worker 或 user:<数字用户ID>；不确定用 global。`
 
 type minedMemory struct {
 	Rules []struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
-		Scope   string `json:"scope"`
-		Pinned  bool   `json:"pinned"`
+		Title    string `json:"title"`
+		Content  string `json:"content"`
+		Scope    string `json:"scope"`
+		Pinned   bool   `json:"pinned"`
+		Evidence string `json:"evidence"`
 	} `json:"rules"`
 	Skills []struct {
 		Title       string   `json:"title"`
@@ -538,11 +541,13 @@ type minedMemory struct {
 		Constraints string   `json:"constraints"`
 		Scope       string   `json:"scope"`
 		Tags        []string `json:"tags"`
+		Evidence    string   `json:"evidence"`
 	} `json:"skills"`
 	Knowledge []struct {
-		Title   string   `json:"title"`
-		Content string   `json:"content"`
-		Tags    []string `json:"tags"`
+		Title    string   `json:"title"`
+		Content  string   `json:"content"`
+		Tags     []string `json:"tags"`
+		Evidence string   `json:"evidence"`
 	} `json:"knowledge"`
 }
 
@@ -657,7 +662,7 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 			break
 		}
 		title, content := strings.TrimSpace(r.Title), strings.TrimSpace(r.Content)
-		if title == "" || content == "" || o.memoryAlreadyKnown(ctx, store.KnowledgeKindPolicy, title) {
+		if title == "" || content == "" || !validUserMemoryEvidence(src.UserText, r.Evidence, 8) || o.memoryAlreadyKnown(ctx, store.KnowledgeKindPolicy, title) {
 			continue
 		}
 		scope := normalizeMemoryScope(r.Scope)
@@ -679,7 +684,8 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 		}
 		title := strings.TrimSpace(sk.Title)
 		if title == "" || strings.TrimSpace(sk.Trigger) == "" || strings.TrimSpace(sk.Summary) == "" ||
-			strings.TrimSpace(sk.Procedure) == "" || o.memoryAlreadyKnown(ctx, store.KnowledgeKindSkill, title) {
+			strings.TrimSpace(sk.Procedure) == "" || !validUserMemoryEvidence(src.UserText, sk.Evidence, 8) ||
+			o.memoryAlreadyKnown(ctx, store.KnowledgeKindSkill, title) {
 			continue
 		}
 		scope := normalizeMemoryScope(sk.Scope)
@@ -701,7 +707,7 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 			break
 		}
 		title, content := strings.TrimSpace(k.Title), strings.TrimSpace(k.Content)
-		if title == "" || content == "" || o.memoryAlreadyKnown(ctx, store.KnowledgeKindFact, title) {
+		if title == "" || content == "" || !validUserMemoryEvidence(src.UserText, k.Evidence, 4) || o.memoryAlreadyKnown(ctx, store.KnowledgeKindFact, title) {
 			continue
 		}
 		if !autoPublish {
@@ -715,6 +721,19 @@ func (o *Orchestrator) persistMinedMemory(ctx context.Context, u *store.User, mi
 		}
 		slog.Info("Memory Miner 保存知识", "user", u.ID, "title", title)
 	}
+}
+
+func validUserMemoryEvidence(userText, evidence string, minRunes int) bool {
+	userText = normalizeMemoryEvidence(userText)
+	evidence = normalizeMemoryEvidence(evidence)
+	if minRunes < 1 {
+		minRunes = 1
+	}
+	return len([]rune(evidence)) >= minRunes && strings.Contains(userText, evidence)
+}
+
+func normalizeMemoryEvidence(text string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(text)), " ")
 }
 
 func (o *Orchestrator) recordPendingLearningCandidate(ctx context.Context, userID int64, kind, scope, title, content string, tags []string, source string, src memorySource, confidence float32) {
@@ -1956,7 +1975,7 @@ func routeCapabilityPrompt(available map[string]bool) string {
 	write(available["invite_employee"] || available["create_worker"] || available["issue_worker_bind_code"], "真人邀请和 AI worker 绑定是两套机制；按工具说明选择，不要混用 token。")
 	write(available["grant_active_perm"] || available["view_user_perms"], "权限：按授权边界修改和查询；普通用户不能管理权限高于自己的对象。")
 	write(available["save_rule"] || available["save_skill"] || available["save_knowledge"], "学习沉淀：行为约束用 rule，可复用流程用 skill，事实/决策用 knowledge。")
-	write(available["list_telegram_groups"] || available["send_telegram_group_message"], "Telegram 群：先查群状态/成员可见信息，再监听、邀请、发群消息或编辑撤回。")
+	write(available["list_telegram_groups"] || available["send_telegram_group_message"], "Telegram 群：配置状态用 get/list group，群内事实与摘要先用 list_telegram_group_messages；事件监控和定时摘要是两个独立工具。")
 	write(available["get_ai_settings"] || available["set_ai_settings"] || available["ai_usage_stats"], "模型/运行设置/用量：用 ops 工具查询或修改，不要靠猜。")
 	write(available["create_script_tool"] || available["test_script_tool"], "稳定纯计算/格式化逻辑可沉淀成脚本工具；shell、文件系统、网络、长流程交给 worker。")
 	if b.Len() == 0 {

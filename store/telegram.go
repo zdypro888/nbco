@@ -48,21 +48,26 @@ type TelegramPendingEmployeeInvite struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
-// TelegramGroupMonitor 是群智能监控配置与小缓冲。
-// 普通旁听消息仍进群共享会话；这里的 Buffer 只用于“是否值得私聊提醒”的短窗判断。
+// TelegramGroupMonitor 保存群事件监控配置、持久批次游标和分析租约。
+// Buffer 仅为兼容旧数据保留，新消息正文统一从群共享事实流读取。
 type TelegramGroupMonitor struct {
-	ChatID         int64     `json:"chat_id"`
-	Enabled        bool      `json:"enabled"`
-	GroupTitle     string    `json:"group_title,omitempty"`
-	Instruction    string    `json:"instruction,omitempty"`
-	NotifyUserID   int64     `json:"notify_user_id"`
-	CreatedBy      int64     `json:"created_by"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	LastCheckedAt  time.Time `json:"last_checked_at,omitempty"`
-	LastNotifiedAt time.Time `json:"last_notified_at,omitempty"`
-	PendingCount   int       `json:"pending_count,omitempty"`
-	Buffer         []string  `json:"buffer,omitempty"`
+	ChatID            int64     `json:"chat_id"`
+	Enabled           bool      `json:"enabled"`
+	GroupTitle        string    `json:"group_title,omitempty"`
+	Instruction       string    `json:"instruction,omitempty"`
+	NotifyUserID      int64     `json:"notify_user_id"`
+	CreatedBy         int64     `json:"created_by"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	LastCheckedAt     time.Time `json:"last_checked_at,omitempty"`
+	LastNotifiedAt    time.Time `json:"last_notified_at,omitempty"`
+	BatchStartedAt    time.Time `json:"batch_started_at,omitempty"`
+	PendingCount      int       `json:"pending_count,omitempty"`
+	AnalysisOwner     string    `json:"analysis_owner,omitempty"`
+	AnalysisStartedAt time.Time `json:"analysis_started_at,omitempty"`
+	AnalysisThrough   time.Time `json:"analysis_through,omitempty"`
+	AnalysisFailures  int       `json:"analysis_failures,omitempty"`
+	Buffer            []string  `json:"buffer,omitempty"`
 }
 
 func telegramGroupKey(chatID int64) string {
@@ -252,6 +257,64 @@ func (s *Store) SaveTelegramGroupMonitor(ctx context.Context, mon TelegramGroupM
 	if mon.ChatID == 0 {
 		return nil
 	}
+	normalizeTelegramGroupMonitor(&mon)
+	raw, err := json.Marshal(mon)
+	if err != nil {
+		return err
+	}
+	return s.SetKV(ctx, TelegramGroupMonitorKey(mon.ChatID), string(raw))
+}
+
+// UpdateTelegramGroupMonitor 用 PostgreSQL 行锁串行化监控状态的读改写，防止配置、
+// 新消息和分析确认并发到达时互相覆盖。
+func (s *Store) UpdateTelegramGroupMonitor(ctx context.Context, chatID int64, update func(*TelegramGroupMonitor) error) (*TelegramGroupMonitor, error) {
+	if chatID == 0 {
+		return nil, fmt.Errorf("telegram group monitor requires chat id")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) // no-op after commit
+	key := TelegramGroupMonitorKey(chatID)
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1, '') ON CONFLICT (key) DO NOTHING`, key); err != nil {
+		return nil, err
+	}
+	var raw string
+	if err := tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key = $1 FOR UPDATE`, key).Scan(&raw); err != nil {
+		return nil, err
+	}
+	mon := TelegramGroupMonitor{ChatID: chatID}
+	if raw != "" {
+		if err := json.Unmarshal([]byte(raw), &mon); err != nil {
+			return nil, err
+		}
+		mon.ChatID = chatID
+	}
+	if update != nil {
+		if err := update(&mon); err != nil {
+			return nil, err
+		}
+	}
+	normalizeTelegramGroupMonitor(&mon)
+	encoded, err := json.Marshal(mon)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE kv_state SET value = $2 WHERE key = $1`, key, string(encoded)); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &mon, nil
+}
+
+func normalizeTelegramGroupMonitor(mon *TelegramGroupMonitor) {
+	if mon == nil {
+		return
+	}
 	now := time.Now()
 	if mon.CreatedAt.IsZero() {
 		mon.CreatedAt = now
@@ -268,11 +331,6 @@ func (s *Store) SaveTelegramGroupMonitor(ctx context.Context, mon TelegramGroupM
 			mon.Buffer[i] = string(runes[:240])
 		}
 	}
-	raw, err := json.Marshal(mon)
-	if err != nil {
-		return err
-	}
-	return s.SetKV(ctx, TelegramGroupMonitorKey(mon.ChatID), string(raw))
 }
 
 func (s *Store) TelegramGroupMonitor(ctx context.Context, chatID int64) (*TelegramGroupMonitor, error) {
@@ -291,4 +349,23 @@ func (s *Store) TelegramGroupMonitor(ctx context.Context, chatID int64) (*Telegr
 		return nil, ErrNotFound
 	}
 	return &mon, nil
+}
+
+func (s *Store) ListTelegramGroupMonitors(ctx context.Context, limit int) ([]TelegramGroupMonitor, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	pairs, err := s.ListKVPrefix(ctx, KVTelegramGroupMonitorPrefix, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TelegramGroupMonitor, 0, len(pairs))
+	for _, pair := range pairs {
+		var mon TelegramGroupMonitor
+		if json.Unmarshal([]byte(pair.Value), &mon) == nil && mon.ChatID != 0 {
+			out = append(out, mon)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].UpdatedAt.After(out[j].UpdatedAt) })
+	return out, nil
 }

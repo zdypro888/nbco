@@ -9,6 +9,7 @@ import (
 // TelegramGroupController 是工具层对 Telegram 群的控制接口。
 // 具体实现由 gateway/telegram 注入；工具层不直接依赖 Telegram 包。
 type TelegramGroupController interface {
+	EnsureTelegramGroupSession(ctx context.Context, chatID int64, ownerID int64) error
 	GetTelegramGroupMemberCount(ctx context.Context, chatID int64) (int, error)
 	GetTelegramGroupAdministrators(ctx context.Context, chatID int64) ([]TelegramGroupMember, error)
 	GetTelegramGroupMember(ctx context.Context, chatID int64, userID int64) (*TelegramGroupMember, error)
@@ -20,6 +21,14 @@ type TelegramGroupController interface {
 	UnpinTelegramGroupMessage(ctx context.Context, chatID int64, messageID int) error
 	SetTelegramGroupTitle(ctx context.Context, chatID int64, title string) error
 	SetTelegramGroupDescription(ctx context.Context, chatID int64, description string) error
+}
+
+func (h *TelegramGroupHub) EnsureTelegramGroupSession(ctx context.Context, chatID int64, ownerID int64) error {
+	c, err := h.controller()
+	if err != nil {
+		return err
+	}
+	return c.EnsureTelegramGroupSession(ctx, chatID, ownerID)
 }
 
 type TelegramGroupMember struct {

@@ -203,6 +203,22 @@ func TestShouldMineMemory(t *testing.T) {
 	}
 }
 
+func TestValidUserMemoryEvidence(t *testing.T) {
+	userText := "以后不要把 worker token 发出来。\n当前先开启群监控。"
+	if !validUserMemoryEvidence(userText, "以后不要把 worker token 发出来。", 8) {
+		t.Fatal("exact durable user evidence should pass")
+	}
+	if validUserMemoryEvidence(userText, "系统已经开启每日摘要", 4) {
+		t.Fatal("assistant-derived statement must not pass user provenance")
+	}
+	if validUserMemoryEvidence("当然要开启", "当然要开启", 8) {
+		t.Fatal("short operational confirmation must not become a durable rule")
+	}
+	if !validUserMemoryEvidence("客户甲的付款周期是 每月 25 日", "客户甲的付款周期是 每月 25 日", 4) {
+		t.Fatal("stable user fact should pass")
+	}
+}
+
 func TestRenderRetrievalBlock(t *testing.T) {
 	tz := time.UTC
 	ks := []*store.Knowledge{

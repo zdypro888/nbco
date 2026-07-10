@@ -199,6 +199,17 @@ func TestRouteTurnToolsAddsTelegramGroupTools(t *testing.T) {
 	}
 }
 
+func TestTelegramGroupSummaryQueryGetsMessageFacts(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "群今天有什么需要我注意的", testRouteTools())
+	names := routeToolNameSet(routed)
+	if !names["list_telegram_group_messages"] || !names["get_telegram_group"] {
+		t.Fatalf("群摘要查询应同时具备消息事实和配置工具: tools=%v route=%s", routedToolNames(routed), route.Summary())
+	}
+	if route.Has("action") {
+		t.Fatalf("一次性群摘要查询不应被当成动作: route=%s", route.Summary())
+	}
+}
+
 func TestAuditableActionRequestOnlyForActionLikeTurns(t *testing.T) {
 	if looksLikeAuditableActionRequest("解释一下 token 为什么不能查询明文") {
 		t.Fatal("普通解释问题不应进入动作审计")

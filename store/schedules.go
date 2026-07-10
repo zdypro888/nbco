@@ -25,6 +25,9 @@ const (
 	ScheduleTargetSelf = "self"
 	ScheduleTargetAll  = "_all"
 
+	// 领域自动化来源。调度器仍保持通用，领域入口用稳定来源标识实现幂等配置。
+	ScheduleSourceTelegramGroupDigest = "telegram_group_digest"
+
 	scheduleDeliveryLease = 10 * time.Minute
 	scheduleClaimBatch    = 128
 )
@@ -47,6 +50,12 @@ type Schedule struct {
 	DailyAt   string // "HH:MM"（公司时区），kind=daily 用
 	Weekdays  string // "1,2,3,4,5"（1=周一…7=周日），空=每天
 	CreatedBy int64
+	// SourceKind/SourceKey 把领域自动化稳定绑定到一条日程。普通提醒为空；
+	// 领域工具可幂等更新自己的日程，不靠标题或消息文本查找。
+	SourceKind string
+	SourceKey  string
+	// Title 是面向用户的名称；Message 可继续保存机器执行指令，不需要泄露到界面。
+	Title string
 	// DeliveryClaimedAt 标识 DueSchedules 当前认领租约；ack 必须携带同一值。
 	DeliveryClaimedAt *time.Time
 }
@@ -57,13 +66,14 @@ type ScheduleView struct {
 	CreatorName  string
 }
 
-const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at`
+const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	var sc Schedule
 	if err := row.Scan(&sc.ID, &sc.UserID, &sc.Kind, &sc.Message, &sc.FireAt,
 		&sc.IntervalS, &sc.Status, &sc.LastFired, &sc.CreatedAt,
-		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy, &sc.DeliveryClaimedAt); err != nil {
+		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy, &sc.DeliveryClaimedAt,
+		&sc.SourceKind, &sc.SourceKey, &sc.Title); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &sc, nil
@@ -72,11 +82,68 @@ func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 // CreateSchedule 建定时任务（Target/Mode 空值归一为 self/message）。
 func (s *Store) CreateSchedule(ctx context.Context, sc *Schedule) (*Schedule, error) {
 	return scanSchedule(s.pool.QueryRow(ctx,
-		`INSERT INTO schedules (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING `+scheduleCols,
+		`INSERT INTO schedules (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+scheduleCols,
 		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
 		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
-		sc.DailyAt, sc.Weekdays, sc.CreatedBy))
+		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title)))
+}
+
+// UpsertAutomationSchedule 幂等创建或更新一个领域自动化日程。唯一身份是
+// (created_by, source_kind, source_key)，普通提醒不设置 source，不受影响。
+func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Schedule, error) {
+	if sc == nil || strings.TrimSpace(sc.SourceKind) == "" || strings.TrimSpace(sc.SourceKey) == "" {
+		return nil, fmt.Errorf("automation schedule requires source_kind and source_key")
+	}
+	return scanSchedule(s.pool.QueryRow(ctx,
+		`INSERT INTO schedules
+		   (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		 ON CONFLICT (created_by, source_kind, source_key)
+		 WHERE status = 'active' AND source_kind <> '' AND source_key <> ''
+		 DO UPDATE SET
+		   user_id = EXCLUDED.user_id,
+		   kind = EXCLUDED.kind,
+		   message = EXCLUDED.message,
+		   fire_at = EXCLUDED.fire_at,
+		   interval_s = EXCLUDED.interval_s,
+		   target = EXCLUDED.target,
+		   mode = EXCLUDED.mode,
+		   daily_at = EXCLUDED.daily_at,
+		   weekdays = EXCLUDED.weekdays,
+		   title = EXCLUDED.title,
+		   last_fired = NULL,
+		   delivery_claimed_at = NULL
+		 RETURNING `+scheduleCols,
+		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
+		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
+		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title)))
+}
+
+func (s *Store) AutomationSchedule(ctx context.Context, createdBy int64, sourceKind, sourceKey string) (*Schedule, error) {
+	return scanSchedule(s.pool.QueryRow(ctx,
+		`SELECT `+scheduleCols+` FROM schedules
+		 WHERE created_by = $1 AND source_kind = $2 AND source_key = $3 AND status = 'active'`,
+		createdBy, strings.TrimSpace(sourceKind), strings.TrimSpace(sourceKey)))
+}
+
+// HasActiveAutomationSchedule 判断任一所有者是否启用了指定领域自动化。采集链路
+// 用它保留自动化需要的事实，而不依赖某个用户的界面设置。
+func (s *Store) HasActiveAutomationSchedule(ctx context.Context, sourceKind, sourceKey string) (bool, error) {
+	var active bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+		   SELECT 1 FROM schedules
+		    WHERE source_kind = $1 AND source_key = $2 AND status = 'active'
+		 )`, strings.TrimSpace(sourceKind), strings.TrimSpace(sourceKey)).Scan(&active)
+	return active, err
+}
+
+func (s *Store) CancelAutomationSchedule(ctx context.Context, createdBy int64, sourceKind, sourceKey string) error {
+	return s.execOne(ctx,
+		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL
+		 WHERE created_by = $1 AND source_kind = $2 AND source_key = $3 AND status = 'active'`,
+		createdBy, strings.TrimSpace(sourceKind), strings.TrimSpace(sourceKey))
 }
 
 // SchedulesOf 某用户可见的活跃定时任务：给我的 + 我创建的（含定向给他人的）。
@@ -142,6 +209,7 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		if err := rows.Scan(&v.ID, &v.UserID, &v.Kind, &v.Message, &v.FireAt,
 			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
 			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy, &v.DeliveryClaimedAt,
+			&v.SourceKind, &v.SourceKey, &v.Title,
 			&v.ReceiverName, &v.CreatorName); err != nil {
 			return nil, wrapErr(err)
 		}

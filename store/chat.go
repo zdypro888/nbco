@@ -33,6 +33,15 @@ type ChatMessage struct {
 	CreatedAt time.Time
 }
 
+// ChannelMessagePage 是某个渠道在绝对时间范围内的消息页。查询跨越该渠道的
+// 历史会话，因此 /new 只重置模型上下文，不会让群消息事实从审计查询里消失。
+type ChannelMessagePage struct {
+	Messages []ChatMessage
+	Total    int64
+	// NextCursor 非零表示还有更早消息；传给 ListChannelMessagesPage 可继续读取。
+	NextCursor int64
+}
+
 const sessionCols = `id, user_id, channel, engine, engine_ref, active, created_at, summary, summary_upto`
 
 func scanSession(row interface{ Scan(...any) error }) (*ChatSession, error) {
@@ -222,6 +231,66 @@ func (s *Store) MessagesByIDs(ctx context.Context, ids []int64) ([]ChatMessage, 
 		}
 	}
 	return out, nil
+}
+
+// ListChannelMessages 按渠道读取 [from, to) 范围内的消息，返回最新 limit 条并按
+// 写入顺序排列。Total 是该范围完整数量，调用方可据此明确是否发生截断。
+func (s *Store) ListChannelMessages(ctx context.Context, channel string, from, to time.Time, limit int) (ChannelMessagePage, error) {
+	return s.ListChannelMessagesPage(ctx, channel, from, to, 0, limit)
+}
+
+// ListChannelMessagesPage 使用稳定消息 ID 游标向更早记录翻页。Total 是当前
+// 游标之前仍符合时间范围的完整数量，不依赖 OFFSET，因此新消息不会造成跳页。
+func (s *Store) ListChannelMessagesPage(ctx context.Context, channel string, from, to time.Time, beforeID int64, limit int) (ChannelMessagePage, error) {
+	channel = strings.TrimSpace(channel)
+	if channel == "" {
+		return ChannelMessagePage{}, nil
+	}
+	if from.IsZero() {
+		from = time.Unix(0, 0).UTC()
+	}
+	if to.IsZero() {
+		to = time.Now().UTC()
+	}
+	if !to.After(from) {
+		return ChannelMessagePage{}, nil
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	if beforeID < 0 {
+		beforeID = 0
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, count(*) OVER ()
+		   FROM chat_messages m
+		   JOIN chat_sessions cs ON cs.id = m.session_id
+		  WHERE cs.channel = $1 AND m.created_at >= $2 AND m.created_at < $3
+		    AND ($4::bigint = 0 OR m.id < $4)
+		  ORDER BY m.id DESC
+		  LIMIT $5`, channel, from, to, beforeID, limit)
+	if err != nil {
+		return ChannelMessagePage{}, err
+	}
+	defer rows.Close()
+	page := ChannelMessagePage{Messages: []ChatMessage{}}
+	for rows.Next() {
+		var m ChatMessage
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt, &page.Total); err != nil {
+			return ChannelMessagePage{}, err
+		}
+		page.Messages = append(page.Messages, m)
+	}
+	if err := rows.Err(); err != nil {
+		return ChannelMessagePage{}, err
+	}
+	for left, right := 0, len(page.Messages)-1; left < right; left, right = left+1, right-1 {
+		page.Messages[left], page.Messages[right] = page.Messages[right], page.Messages[left]
+	}
+	if page.Total > int64(len(page.Messages)) && len(page.Messages) > 0 {
+		page.NextCursor = page.Messages[0].ID
+	}
+	return page, nil
 }
 
 func (s *Store) queryMessages(ctx context.Context, sql string, args ...any) ([]ChatMessage, error) {

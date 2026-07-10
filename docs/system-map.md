@@ -155,7 +155,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 职责：
 
 - Telegram 私聊和群聊入口。
-- 群状态、群监听、成员可见信息、自动邀请、群消息管理。
+- 群状态、跨会话消息事实流、群监听、事件监控、每日摘要、成员可见信息、自动邀请、群消息管理。
 - 文件上传、下载、任务附件、worker 产物、Telegram 文件收发。
 - 定时提醒、循环提醒、AI 推送。
 
@@ -163,10 +163,13 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 
 - `list_telegram_groups`
 - `get_telegram_group`
+- `list_telegram_group_messages`
 - `list_telegram_group_members`
 - `resolve_telegram_group_members`
 - `set_telegram_group_listen`
 - `set_telegram_group_auto_invite`
+- `set_telegram_group_monitor`
+- `set_telegram_group_digest`
 - `send_telegram_group_message`
 - `edit_telegram_group_message`
 - `delete_telegram_group_message`
@@ -178,6 +181,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 边界：
 
 - 群聊默认只响应点名；监听只记上下文，不主动插话。
+- 普通监听、事件监控、每日摘要是三个独立消费者，共用跨 `/new` 保留的群消息事实流；关闭一个不会破坏另外两个。
+- 事件监控按消息批次交 AI 判断管理价值；每日摘要是有稳定来源身份的持久自动化，不属于业务任务。
 - 群共享会话禁用 token、权限、worker 命令、规则修改等敏感工具。
 - Telegram 格式只使用 Telegram HTML 子集；非法 HTML 自动降级纯文本。
 

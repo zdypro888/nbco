@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -429,6 +430,89 @@ func TestDataCollectionCampaignRefreshesOnUserInfoUpdate(t *testing.T) {
 	}
 	if targets[0].Status != DataCampaignTargetCompleted || len(targets[0].MissingFields) != 0 || targets[0].CompletedAt == nil {
 		t.Fatalf("补齐后应完成 = %+v", targets[0])
+	}
+}
+
+func TestChannelMessagesCrossSessionBoundaries(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	channel := "telegram:group:-100123"
+	first, err := s.StartGroupSession(ctx, boss.ID, channel, "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendMessage(ctx, first.ID, "user", "【Alice】第一条"); err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.StartGroupSession(ctx, boss.ID, channel, "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendMessage(ctx, second.ID, "user", "【Bob】第二条"); err != nil {
+		t.Fatal(err)
+	}
+	page, err := s.ListChannelMessages(ctx, channel, time.Now().Add(-time.Minute), time.Now().Add(time.Minute), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 2 || len(page.Messages) != 1 || page.Messages[0].Content != "【Bob】第二条" || page.NextCursor == 0 {
+		t.Fatalf("channel page should span reset sessions and keep latest limit: %+v", page)
+	}
+	older, err := s.ListChannelMessagesPage(ctx, channel, time.Now().Add(-time.Minute), time.Now().Add(time.Minute), page.NextCursor, 1)
+	if err != nil || older.Total != 1 || len(older.Messages) != 1 || older.Messages[0].Content != "【Alice】第一条" || older.NextCursor != 0 {
+		t.Fatalf("channel cursor should read the remaining older message: page=%+v err=%v", older, err)
+	}
+	page, err = s.ListChannelMessages(ctx, channel, time.Now().Add(-time.Minute), time.Now().Add(time.Minute), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Messages) != 2 || page.Messages[0].Content != "【Alice】第一条" || page.Messages[1].Content != "【Bob】第二条" {
+		t.Fatalf("channel messages should be chronological: %+v", page.Messages)
+	}
+}
+
+func TestAutomationScheduleUpsertIsIdempotent(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	base := &Schedule{
+		UserID: boss.ID, Kind: ScheduleDaily, Message: "daily group digest",
+		FireAt: time.Now().Add(time.Hour), Target: ScheduleTargetSelf, Mode: ScheduleModeAI,
+		DailyAt: "18:30", CreatedBy: boss.ID, SourceKind: ScheduleSourceTelegramGroupDigest, SourceKey: "-100123",
+		Title: "项目群 每日摘要",
+	}
+	first, err := s.UpsertAutomationSchedule(ctx, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.DailyAt = "19:00"
+	base.Title = "项目群 晚间摘要"
+	base.FireAt = time.Now().Add(2 * time.Hour)
+	second, err := s.UpsertAutomationSchedule(ctx, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ID != first.ID || second.DailyAt != "19:00" || second.Title != "项目群 晚间摘要" {
+		t.Fatalf("automation upsert should update one row: first=%+v second=%+v", first, second)
+	}
+	active, err := s.HasActiveAutomationSchedule(ctx, base.SourceKind, base.SourceKey)
+	if err != nil || !active {
+		t.Fatalf("HasActiveAutomationSchedule active=%v err=%v", active, err)
+	}
+	loaded, err := s.AutomationSchedule(ctx, boss.ID, base.SourceKind, base.SourceKey)
+	if err != nil || loaded.ID != first.ID {
+		t.Fatalf("AutomationSchedule = %+v err=%v", loaded, err)
+	}
+	if err := s.CancelAutomationSchedule(ctx, boss.ID, base.SourceKind, base.SourceKey); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AutomationSchedule(ctx, boss.ID, base.SourceKind, base.SourceKey); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cancelled automation should not be active: %v", err)
+	}
+	active, err = s.HasActiveAutomationSchedule(ctx, base.SourceKind, base.SourceKey)
+	if err != nil || active {
+		t.Fatalf("cancelled automation active=%v err=%v", active, err)
 	}
 }
 
@@ -1864,6 +1948,37 @@ func TestTelegramGroupMonitor(t *testing.T) {
 	}
 	if _, err := s.TelegramGroupMonitor(ctx, -404); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing monitor err = %v", err)
+	}
+}
+
+func TestTelegramGroupMonitorAtomicUpdate(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	const writers = 16
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+	for range writers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := s.UpdateTelegramGroupMonitor(ctx, -2001, func(mon *TelegramGroupMonitor) error {
+				mon.Enabled = true
+				mon.PendingCount++
+				return nil
+			})
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	mon, err := s.TelegramGroupMonitor(ctx, -2001)
+	if err != nil || mon.PendingCount != writers {
+		t.Fatalf("atomic monitor updates lost data: monitor=%+v err=%v", mon, err)
 	}
 }
 

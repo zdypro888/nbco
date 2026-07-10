@@ -12,8 +12,6 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-
-	"github.com/zdypro888/nbco/store"
 )
 
 func TestGatewayFormatsTimeInBusinessTimezone(t *testing.T) {
@@ -65,31 +63,31 @@ func TestDisplayNameFromMessageWithoutFrom(t *testing.T) {
 	}
 }
 
-func TestGroupMonitorIntent(t *testing.T) {
-	if got := groupMonitorIntent("这个群是视频项目群，你来监控下群里之后讨论的问题，如果遇到问题总结给我"); got != "on" {
-		t.Fatalf("groupMonitorIntent on = %q", got)
+func TestGroupMonitorEvaluationDelay(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	if got := groupMonitorEvaluationDelay(time.Time{}, now); got != groupMonitorDebounce {
+		t.Fatalf("zero batch delay = %v", got)
 	}
-	if got := groupMonitorIntent("关闭本群监控"); got != "off" {
-		t.Fatalf("groupMonitorIntent off = %q", got)
+	if got := groupMonitorEvaluationDelay(now.Add(-time.Minute), now); got != groupMonitorDebounce {
+		t.Fatalf("normal debounce = %v", got)
 	}
-	if got := groupMonitorIntent("测试一下"); got != "" {
-		t.Fatalf("groupMonitorIntent unrelated = %q", got)
+	if got := groupMonitorEvaluationDelay(now.Add(-groupMonitorMaxWait+5*time.Second), now); got != 5*time.Second {
+		t.Fatalf("max wait cap = %v", got)
+	}
+	if got := groupMonitorEvaluationDelay(now.Add(-groupMonitorMaxWait-time.Second), now); got != 0 {
+		t.Fatalf("overdue batch should flush immediately, got %v", got)
 	}
 }
 
-func TestShouldCheckGroupMonitor(t *testing.T) {
-	mon := store.TelegramGroupMonitor{Enabled: true, PendingCount: 1}
-	if !shouldCheckGroupMonitor(mon, "这里报错了，项目卡住") {
-		t.Fatal("问题信号应触发检查")
+func TestGroupMonitorRetryDelay(t *testing.T) {
+	if got := groupMonitorRetryDelay(1); got != groupMonitorDebounce {
+		t.Fatalf("first retry = %v", got)
 	}
-	mon.LastCheckedAt = time.Now()
-	if shouldCheckGroupMonitor(mon, "这里报错了") {
-		t.Fatal("冷却期内不应重复触发")
+	if got := groupMonitorRetryDelay(4); got != 8*groupMonitorDebounce {
+		t.Fatalf("fourth retry = %v", got)
 	}
-	mon.LastCheckedAt = time.Now().Add(-10 * time.Minute)
-	mon.PendingCount = groupMonitorCheckEvery
-	if !shouldCheckGroupMonitor(mon, "普通讨论") {
-		t.Fatal("累计消息达到阈值应触发检查")
+	if got := groupMonitorRetryDelay(99); got != 30*time.Minute {
+		t.Fatalf("retry cap = %v", got)
 	}
 }
 
