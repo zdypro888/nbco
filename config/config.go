@@ -73,12 +73,15 @@ type MCPServer struct {
 
 // Config 全量配置。
 type Config struct {
-	TelegramToken string  `json:"telegram_token"`
-	Superadmins   []int64 `json:"superadmins"`
-	PostgresDSN   string  `json:"postgres_dsn"`
-	Listen        string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
-	LogLevel      string  `json:"log_level"` // debug | info | warn | error，默认 info
-	FileStorePath string  `json:"file_store_path"`
+	TelegramToken string `json:"telegram_token"`
+	// TelegramAPIURL 可指向本机 telegram-bot-api；为空使用 Telegram 云端。
+	// 本机服务可突破云端 20MB 下载限制。
+	TelegramAPIURL string  `json:"telegram_api_url"`
+	Superadmins    []int64 `json:"superadmins"`
+	PostgresDSN    string  `json:"postgres_dsn"`
+	Listen         string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
+	LogLevel       string  `json:"log_level"` // debug | info | warn | error，默认 info
+	FileStorePath  string  `json:"file_store_path"`
 	// WorkerDownloadPath 保存 nbco-worker 多平台发行二进制；为空默认 downloads。
 	WorkerDownloadPath string `json:"worker_download_path"`
 	TLSCertFile        string `json:"tls_cert_file"` // 可选；配置后 HTTP 服务改用 HTTPS
@@ -116,6 +119,7 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) applyDefaults() {
+	c.TelegramAPIURL = strings.TrimRight(strings.TrimSpace(c.TelegramAPIURL), "/")
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8900"
 	}
@@ -182,6 +186,12 @@ func (c *Config) validate() error {
 	// superadmins 可留空：启用 Telegram 时，全新系统里第一个发 /superadmin 的人自动成为超管。
 	if strings.TrimSpace(c.PostgresDSN) == "" {
 		errs = append(errs, errors.New("postgres_dsn 必填"))
+	}
+	if c.TelegramAPIURL != "" {
+		parsed, err := url.Parse(c.TelegramAPIURL)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.RawQuery != "" || parsed.Fragment != "" {
+			errs = append(errs, errors.New("telegram_api_url 必须是无查询参数的 http/https 基地址"))
+		}
 	}
 	if (strings.TrimSpace(c.TLSCertFile) == "") != (strings.TrimSpace(c.TLSKeyFile) == "") {
 		errs = append(errs, errors.New("tls_cert_file 与 tls_key_file 必须同时配置"))

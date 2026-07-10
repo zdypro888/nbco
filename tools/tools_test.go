@@ -529,6 +529,26 @@ func TestObjectRenderersUseInternalRefsInsteadOfHashIDs(t *testing.T) {
 	}
 }
 
+func TestRenderFileQueueDistinguishesSavedAndFailed(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	got := renderFileQueue(
+		[]store.File{{ID: 4, OriginalName: "saved.pdf", SizeBytes: 10, CreatedAt: now}},
+		[]store.FileIntake{
+			{ID: 1, OriginalName: "saved.pdf", Status: store.FileIntakeSaved, CreatedAt: now},
+			{ID: 2, OriginalName: "large.zip", SizeBytes: 25 << 20, Status: store.FileIntakeFailed, ErrorMessage: "Telegram 下载受限", CreatedAt: now},
+			{ID: 3, OriginalName: "pending.xlsx", Status: store.FileIntakePending, CreatedAt: now},
+		}, time.UTC,
+	)
+	for _, want := range []string{"文件内部编号 4", "large.zip", "Telegram 下载受限", "pending.xlsx", "仍在接收中", "没有系统 file_id"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("queue missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Count(got, "saved.pdf") != 1 {
+		t.Fatalf("saved intake should not duplicate the file row:\n%s", got)
+	}
+}
+
 func TestCanonicalArgsHash(t *testing.T) {
 	a := canonicalArgsHash([]byte(`{"user_id": 5, "reason": "违规"}`))
 	b := canonicalArgsHash([]byte(`{ "reason":"违规","user_id":5 }`))

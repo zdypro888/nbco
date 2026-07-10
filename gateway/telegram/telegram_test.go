@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+
+	"github.com/zdypro888/nbco/store"
 )
 
 func TestGatewayFormatsTimeInBusinessTimezone(t *testing.T) {
@@ -35,18 +38,18 @@ func TestMessageText(t *testing.T) {
 		Document: &models.Document{FileID: "doc1", FileName: "报告.pdf"},
 		Caption:  "上周的报告",
 	})
-	if !strings.Contains(got, "报告.pdf") || !strings.Contains(got, "file_id=doc1") || !strings.Contains(got, "上周的报告") {
+	if !strings.Contains(got, "报告.pdf") || strings.Contains(got, "doc1") || !strings.Contains(got, "上周的报告") {
 		t.Errorf("文件消息 = %q", got)
 	}
 	got = g.messageText(ctx, &models.Message{
 		Photo: []models.PhotoSize{{FileID: "small"}, {FileID: "big"}},
 	})
-	if !strings.Contains(got, "file_id=big") || strings.Contains(got, "small") {
+	if got != "[用户发来图片]" || strings.Contains(got, "big") || strings.Contains(got, "small") {
 		t.Errorf("图片应取最大尺寸: %q", got)
 	}
-	got = g.messageText(ctx, &models.Message{Voice: &models.Voice{FileID: "v1"}})
-	if !strings.Contains(got, "语音") {
-		t.Errorf("语音消息 = %q", got)
+	got = g.messageText(ctx, &models.Message{Voice: &models.Voice{FileID: "voice-secret"}})
+	if strings.Contains(got, "voice-secret") || !strings.Contains(got, "未配置转写服务") {
+		t.Errorf("语音占位不应暴露 Telegram file_id: %q", got)
 	}
 }
 
@@ -435,5 +438,53 @@ func TestOnboardingMessages(t *testing.T) {
 	}
 	if !strings.Contains(success, "欢迎加入") || !strings.Contains(success, "自我介绍") {
 		t.Errorf("绑定成功文案信息不足:\n%s", success)
+	}
+}
+
+func TestTelegramCloudLargeFileFailsBeforeDownload(t *testing.T) {
+	g := &Gateway{fileStorePath: t.TempDir()}
+	_, err := g.saveTelegramFile(context.Background(), 1, incomingTelegramFile{
+		fileID: "opaque", name: "large.zip", sizeBytes: telegramCloudFileDownloadLimit + 1,
+	})
+	var intakeErr *telegramFileIntakeError
+	if !errors.As(err, &intakeErr) || intakeErr.code != "telegram_cloud_limit" {
+		t.Fatalf("error = %#v, want telegram_cloud_limit", err)
+	}
+}
+
+func TestTelegramFileIntakeHelpers(t *testing.T) {
+	rawID := "reusable-telegram-file-id"
+	ref := telegramFileExternalRef(42, "", rawID)
+	if strings.Contains(ref, rawID) || !strings.HasPrefix(ref, "42:") {
+		t.Fatalf("external ref must be stable without exposing file_id: %q", ref)
+	}
+	uniqueRef := telegramFileExternalRef(42, "unique", rawID)
+	if uniqueRef != "42:unique" {
+		t.Fatalf("unique ref = %q", uniqueRef)
+	}
+
+	savedFile := &store.File{ID: 9, OriginalName: "saved.pdf"}
+	results := []incomingTelegramFileResult{
+		{input: incomingTelegramFile{name: "saved.pdf"}, file: savedFile},
+		{input: incomingTelegramFile{name: "large.zip", sizeBytes: telegramCloudFileDownloadLimit + 1}, errorCode: "telegram_cloud_limit", errorMessage: "too large"},
+	}
+	saved, failed := splitTelegramFileIntakes(results)
+	if len(saved) != 1 || saved[0].ID != savedFile.ID || len(failed) != 1 {
+		t.Fatalf("split result: saved=%+v failed=%+v", saved, failed)
+	}
+	prompt := failedFilesPrompt(failed)
+	for _, want := range []string{"large.zip", "接收失败", "不得声称", "不要编造"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("failed prompt missing %q: %s", want, prompt)
+		}
+	}
+
+	g := &Gateway{publicBaseURL: "https://im.app:8443"}
+	if got := g.fileCenterURL(); got != "https://im.app:8443/?view=files" {
+		t.Fatalf("file center URL = %q", got)
+	}
+	g.publicBaseURL = "http://127.0.0.1:8443"
+	if got := g.fileCenterURL(); got != "" {
+		t.Fatalf("insecure file center URL must not become a Telegram WebApp: %q", got)
 	}
 }

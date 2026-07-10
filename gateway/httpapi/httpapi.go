@@ -1,5 +1,6 @@
 // Package httpapi 是 HTTP 入口：内嵌 Web 页 + REST 对话/任务接口 + 对外 MCP 端点 + CLI 回连端点。
-// 认证只走 Authorization: Bearer <api token>（不支持查询参数，避免 token 进访问日志）。
+// 认证支持 Authorization: Bearer <api token> 与 Telegram Mini App 签名；
+// 两者都不使用查询参数，避免凭据进入访问日志。
 package httpapi
 
 import (
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -68,12 +70,14 @@ type Server struct {
 	llmSem        chan struct{} // llm 管道限并发（与 sched/events 同理：护住模型网关）
 	fileStorePath string
 	downloadPath  string
+	telegramToken string
 }
 
 // New 创建 HTTP 入口。
-func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.Bus, llm LLMConfig, fileStorePath, downloadPath string) *Server {
+func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.Bus, llm LLMConfig, fileStorePath, downloadPath, telegramToken string) *Server {
 	return &Server{store: s, orch: orch, deps: deps, bus: bus, llm: llm,
-		llmSem: make(chan struct{}, llmProxyConcurrency), fileStorePath: fileStorePath, downloadPath: downloadPath}
+		llmSem: make(chan struct{}, llmProxyConcurrency), fileStorePath: fileStorePath,
+		downloadPath: downloadPath, telegramToken: strings.TrimSpace(telegramToken)}
 }
 
 // Handler 组装路由。
@@ -162,8 +166,20 @@ func mustWebAssetFS() fs.FS {
 
 // authenticate 解析 Bearer token 并返回启用状态的用户。
 func (s *Server) authenticate(r *http.Request) *store.User {
-	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if token == "" || token == r.Header.Get("Authorization") {
+	if raw := strings.TrimSpace(r.Header.Get("X-Telegram-Init-Data")); raw != "" {
+		tgID, ok := validateTelegramInitData(raw, s.telegramToken, time.Now(), telegramInitDataMaxAge)
+		if !ok {
+			return nil
+		}
+		u, err := s.store.UserByIdentity(r.Context(), "telegram", strconv.FormatInt(tgID, 10))
+		if err != nil || u.Status != store.UserActive {
+			return nil
+		}
+		return u
+	}
+	auth := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(auth, "Bearer ")
+	if token == "" || token == auth {
 		return nil
 	}
 	u, err := s.store.UserByAPIToken(r.Context(), token)

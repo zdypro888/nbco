@@ -62,7 +62,8 @@
 
 Telegram 入口只做适配：
 
-- 收到 document/photo/video 后调用 Bot API `GetFile` 下载到 nbco 文件存储。
+- 收到 document/photo/video 后先建立文件接收流水，再调用 Bot API `GetFile` 下载到 nbco 文件存储；失败记录不会伪装成可分析文件。
+- Telegram 云端 Bot API 下载上限为 20MB。大文件可从已签名的 Mini App 文件中心上传，或配置本机 `telegram-bot-api`。
 - 若消息上下文能定位任务，自动挂附件；否则把文件作为会话文件，让 AI 决定挂到哪个任务或创建任务。
 - 通知验收时支持发送 artifact 链接；需要时再补 `sendDocument`。
 

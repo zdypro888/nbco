@@ -194,6 +194,32 @@ func TestLoadTelegramOptional(t *testing.T) {
 	}
 }
 
+func TestLoadTelegramAPIURL(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{
+		"telegram_token":"t",
+		"telegram_api_url":"http://127.0.0.1:8081/",
+		"postgres_dsn":"d",
+		"ai":{"api_key":"k","model":"m"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TelegramAPIURL != "http://127.0.0.1:8081" {
+		t.Fatalf("TelegramAPIURL = %q", cfg.TelegramAPIURL)
+	}
+	for _, raw := range []string{"file:///tmp/tg", "https://example.com/api?token=x", "//example.com"} {
+		_, err := Load(writeConfig(t, `{
+			"telegram_token":"t",
+			"telegram_api_url":"`+raw+`",
+			"postgres_dsn":"d",
+			"ai":{"api_key":"k","model":"m"}
+		}`))
+		if err == nil || !strings.Contains(err.Error(), "telegram_api_url") {
+			t.Errorf("telegram_api_url=%q 应被拒绝，got %v", raw, err)
+		}
+	}
+}
+
 func TestLoadRejectsCLIEngines(t *testing.T) {
 	for _, engine := range []string{"claudecli", "codexcli"} {
 		_, err := Load(writeConfig(t, `{

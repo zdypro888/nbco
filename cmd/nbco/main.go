@@ -153,7 +153,7 @@ func run(configPath string) error {
 		MaxCompletionTokens: cfg.AI.MaxCompletionTokens, ReasoningEffort: cfg.AI.ReasoningEffort,
 		TimeoutMS: cfg.AI.TimeoutMS,
 	}
-	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath)
+	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath, cfg.TelegramToken)
 
 	var tg *telegram.Gateway
 	if strings.TrimSpace(cfg.TelegramToken) != "" {
@@ -162,7 +162,7 @@ func run(configPath string) error {
 		if sttClient != nil {
 			slog.Info("语音转写已启用", "stt_model", cfg.AI.STTModel)
 		}
-		tg, err = telegram.New(cfg.TelegramToken, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, tz)
+		tg, err = telegram.New(cfg.TelegramToken, cfg.TelegramAPIURL, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, cfg.PublicBaseURL, tz)
 		if err != nil {
 			return err
 		}

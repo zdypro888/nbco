@@ -37,13 +37,14 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | 字段 | 说明 |
 |------|------|
 | `telegram_token` | Bot token；可留空，留空则不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用 |
+| `telegram_api_url` | 可选的自建 `telegram-bot-api` 基地址；为空使用 Telegram 云端。云端只能下载不超过 20MB 的文件，本机服务可接收更大的 Telegram 文件 |
 | `superadmins` | Telegram 用户 ID 列表（启用 Telegram 时可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |
 | `postgres_dsn` | PostgreSQL 连接串（首次启动自动建表） |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
 | `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 只记录消息长度与短哈希，不记录对话/工具明文） |
 | `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释 |
 | `worker_download_path` | `nbco-worker` 多平台发行物目录，默认 `downloads`；服务端通过 `/downloads/worker/...` 提供下载 |
-| `public_base_url` | 保留给外部回调集成，通常留空 |
+| `public_base_url` | 外部可访问的 HTTPS 基地址；Telegram Mini App 文件中心等入口需要配置 |
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
 | `daily_summary_hour` | 每日待办推送小时（0-23），-1 关闭 |
 | `sched_ai_concurrency` | 调度器同时进行的 AI 轮次上限（催办/周报/定时 AI 推送），默认 4；防「全员问候」几百轮齐发打爆后端 |
@@ -77,7 +78,7 @@ docker compose up -d
 浏览器打开 `http://<listen>/` 即是 Web 入口（内嵌单页，无需部署前端）：粘贴 Access Token 登录，
 可对话（与 REST 同一会话）、看我的待办/待验收/我分配的任务和决策队列；超管还可以看全景、AI 员工能力、学习候选治理与运维状态。
 
-认证一律 `Authorization: Bearer <token>`。全新系统且没有 Telegram 时，先调一次：
+普通浏览器和 API 使用 `Authorization: Bearer <token>`；从 Bot 按钮打开的 Telegram Mini App 使用 Telegram 签名自动登录，不在 URL 中传凭据。全新系统且没有 Telegram 时，先调一次：
 
 ```bash
 curl -X POST http://<listen>/api/bootstrap \

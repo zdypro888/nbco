@@ -19,6 +19,30 @@ type File struct {
 	CreatedAt    time.Time
 }
 
+const (
+	FileIntakePending = "pending"
+	FileIntakeSaved   = "saved"
+	FileIntakeFailed  = "failed"
+)
+
+// FileIntake records every external file handoff, including failures that did
+// not produce a File. This is the source of truth for “did you receive it?”.
+type FileIntake struct {
+	ID           int64
+	UserID       int64
+	Source       string
+	ExternalRef  string
+	OriginalName string
+	MIMEType     string
+	SizeBytes    int64
+	Status       string
+	ErrorCode    string
+	ErrorMessage string
+	FileID       *int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 // Artifact 是 worker 或用户提交到任务上的产物文件。
 type Artifact struct {
 	ID        int64
@@ -77,6 +101,63 @@ func (s *Store) RecentFilesByUser(ctx context.Context, userID int64, limit int, 
 			return nil, err
 		}
 		out = append(out, *f)
+	}
+	return out, rows.Err()
+}
+
+func scanFileIntake(row interface{ Scan(...any) error }) (*FileIntake, error) {
+	var in FileIntake
+	if err := row.Scan(&in.ID, &in.UserID, &in.Source, &in.ExternalRef, &in.OriginalName,
+		&in.MIMEType, &in.SizeBytes, &in.Status, &in.ErrorCode, &in.ErrorMessage,
+		&in.FileID, &in.CreatedAt, &in.UpdatedAt); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &in, nil
+}
+
+const fileIntakeCols = `id, user_id, source, external_ref, original_name, mime_type, size_bytes, status, error_code, error_message, file_id, created_at, updated_at`
+
+func (s *Store) CreateFileIntake(ctx context.Context, in FileIntake) (*FileIntake, error) {
+	return scanFileIntake(s.pool.QueryRow(ctx,
+		`INSERT INTO file_intakes (user_id, source, external_ref, original_name, mime_type, size_bytes)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING `+fileIntakeCols,
+		in.UserID, in.Source, in.ExternalRef, in.OriginalName, in.MIMEType, in.SizeBytes))
+}
+
+func (s *Store) CompleteFileIntake(ctx context.Context, intakeID, fileID int64) error {
+	return s.execOne(ctx,
+		`UPDATE file_intakes
+		 SET status = 'saved', file_id = $2, error_code = '', error_message = '', updated_at = now()
+		 WHERE id = $1 AND status = 'pending'`, intakeID, fileID)
+}
+
+func (s *Store) FailFileIntake(ctx context.Context, intakeID int64, code, message string) error {
+	return s.execOne(ctx,
+		`UPDATE file_intakes
+		 SET status = 'failed', error_code = $2, error_message = $3, updated_at = now()
+		 WHERE id = $1 AND status = 'pending'`, intakeID, code, message)
+}
+
+func (s *Store) RecentFileIntakesByUser(ctx context.Context, userID int64, limit int, since time.Time) ([]FileIntake, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+fileIntakeCols+` FROM file_intakes
+		 WHERE user_id = $1 AND created_at >= $2
+		 ORDER BY id DESC LIMIT $3`, userID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]FileIntake, 0, limit)
+	for rows.Next() {
+		in, err := scanFileIntake(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *in)
 	}
 	return out, rows.Err()
 }

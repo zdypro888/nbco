@@ -1804,27 +1804,59 @@ func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User, ava
 		return ""
 	}
 	fs, err := o.store.RecentFilesByUser(ctx, u.ID, 8, time.Now().Add(-24*time.Hour))
-	if err != nil || len(fs) == 0 {
-		if err != nil {
-			slog.Warn("最近上传文件加载失败，本轮跳过", "user", u.ID, "err", err)
-		}
+	if err != nil {
+		slog.Warn("最近上传文件加载失败，本轮跳过", "user", u.ID, "err", err)
+		return ""
+	}
+	intakes, err := o.store.RecentFileIntakesByUser(ctx, u.ID, 8, time.Now().Add(-24*time.Hour))
+	if err != nil {
+		slog.Warn("最近文件接收流水加载失败，本轮跳过", "user", u.ID, "err", err)
+		return ""
+	}
+	if len(fs) == 0 && len(intakes) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n[最近上传文件·待用户指令]\n")
-	b.WriteString("这些文件已进入 nbco 文件队列；用户若说“这几个/刚才的文件/附件”，通常指这里。不要凭文件名臆测内容；")
-	switch {
-	case available["start_workflow"]:
-		b.WriteString("需要读取/解析文件时优先用 start_workflow 的 material_intake 流程派给发起人名下 worker。\n")
-	case available["analyze_company_materials"]:
-		b.WriteString("需要读取/解析文件时调用 analyze_company_materials 派给发起人名下 worker。\n")
-	default:
-		b.WriteString("当前工具集不能直接派 worker 解析文件；需要有 worker 管理权限的人发起，或先说明权限不足。\n")
+	if len(fs) > 0 {
+		b.WriteString("\n[最近上传文件·待用户指令]\n")
+		b.WriteString("这些文件已进入 nbco 文件队列；用户若说“这几个/刚才的文件/附件”，通常指这里。不要凭文件名臆测内容；")
+		switch {
+		case available["start_workflow"]:
+			b.WriteString("需要读取/解析文件时优先用 start_workflow 的 material_intake 流程派给发起人名下 worker。\n")
+		case available["analyze_company_materials"]:
+			b.WriteString("需要读取/解析文件时调用 analyze_company_materials 派给发起人名下 worker。\n")
+		default:
+			b.WriteString("当前工具集不能直接派 worker 解析文件；需要有 worker 管理权限的人发起，或先说明权限不足。\n")
+		}
+		for _, f := range fs {
+			fmt.Fprintf(&b, "- #%d %s（%s，%s，%s）\n", f.ID, f.OriginalName, textfmt.FormatBytes(f.SizeBytes), f.MIMEType, f.CreatedAt.In(o.tz).Format("01-02 15:04"))
+		}
 	}
-	for _, f := range fs {
-		fmt.Fprintf(&b, "- #%d %s（%s，%s，%s）\n", f.ID, f.OriginalName, textfmt.FormatBytes(f.SizeBytes), f.MIMEType, f.CreatedAt.In(o.tz).Format("01-02 15:04"))
+	failures := 0
+	for _, in := range intakes {
+		if in.Status == store.FileIntakeSaved {
+			continue
+		}
+		if failures == 0 {
+			b.WriteString("\n[最近文件接收失败·没有文件内容]\n")
+			b.WriteString("以下记录没有系统 file_id，不能读取、分析或声称已经收到。Telegram 网关会在失败消息中提供真实的“打开 nbco 文件中心”按钮；只能让用户使用该按钮或重新发送以再次获取入口，不得编造 /upload 等命令或链接。\n")
+		}
+		fmt.Fprintf(&b, "- %s（%s）status=%s；原因=%s；时间=%s\n",
+			in.OriginalName, textfmt.FormatBytes(in.SizeBytes), in.Status,
+			recentFileIntakeReason(in), in.CreatedAt.In(o.tz).Format("01-02 15:04"))
+		failures++
 	}
 	return b.String()
+}
+
+func recentFileIntakeReason(in store.FileIntake) string {
+	if reason := strings.TrimSpace(in.ErrorMessage); reason != "" {
+		return reason
+	}
+	if in.Status == store.FileIntakePending {
+		return "仍在接收中，尚无可用文件内容"
+	}
+	return "没有可用文件内容"
 }
 
 type skillMemoryParts struct {
@@ -1896,7 +1928,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 只有工具明确创建了定时规则、订阅或持续工作流，才能承诺以后会自动提醒、监控或汇报；普通记录的自动刷新只表示下次查询能看到新状态。\n")
 	b.WriteString("- 时间结论以当前业务时区和消息/工具记录的绝对时间为准；用户或历史里出现今天、昨天、明天、刚才等相对表达时先换算核对，不能直接顺着可能错误的时间说法。回复涉及跨日事件时优先写绝对日期。\n")
 	b.WriteString("- 员工ID/user_id、任务ID、项目ID是稳定业务编号，名字只是展示名；涉及具体对象、授权、派工、发消息、改资料时优先使用 ID，并可在回复里用“姓名（员工ID N）”确认对象。\n")
-	b.WriteString("- tg_id、group_ref、message_ref、file_id 等是外部渠道/工具工作内存，可继续传给工具；最终回复不要主动暴露 Telegram 原始 ID、group_ref/message_ref 或 token，除非用户明确需要定位/调试。\n")
+	b.WriteString("- tg_id、group_ref、message_ref 等是外部渠道/工具工作内存，可继续传给工具；file_id 只认 list_recent_files 等工具返回的 nbco 系统文件 ID，绝不使用 Telegram 原始 file_id。最终回复不要主动暴露 Telegram 原始 ID、group_ref/message_ref 或 token，除非用户明确需要定位/调试。\n")
 	b.WriteString("- Access Token 明文不可查询；忘记时查看状态或换发新 token。worker 绑定码、邀请码、API token 都按工具结果处理，不能臆造。\n")
 	if availableTools["list_system_activity"] {
 		b.WriteString("- 用户查询谁做过什么、某项变更是否发生、近期操作或历史执行情况时，用 list_system_activity 查询真实工具流水；专项任务/活动为空不代表底层没有发生操作。\n")

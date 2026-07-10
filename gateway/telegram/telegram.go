@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -87,17 +88,19 @@ type pendingTextMessage struct {
 
 // Gateway Telegram 网关。
 type Gateway struct {
-	bot           *bot.Bot
-	store         *store.Store
-	orch          *chat.Orchestrator
-	bus           *events.Bus // 系统事件总线（可为 nil）：入职等事件交 AI 分析决策
-	stt           *stt.Client // 语音转写（可为 nil = 未启用，语音消息提示改用文字）
-	superadmins   map[int64]bool
-	defaultModel  string
-	modelBaseURL  string
-	modelAPIKey   string
-	fileStorePath string
-	tz            *time.Location
+	bot            *bot.Bot
+	store          *store.Store
+	orch           *chat.Orchestrator
+	bus            *events.Bus // 系统事件总线（可为 nil）：入职等事件交 AI 分析决策
+	stt            *stt.Client // 语音转写（可为 nil = 未启用，语音消息提示改用文字）
+	superadmins    map[int64]bool
+	defaultModel   string
+	modelBaseURL   string
+	modelAPIKey    string
+	fileStorePath  string
+	publicBaseURL  string
+	telegramAPIURL string
+	tz             *time.Location
 
 	mu                sync.Mutex
 	locks             keylock.Map[int64] // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
@@ -110,7 +113,7 @@ type Gateway struct {
 }
 
 // New 创建网关。
-func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath string, tz *time.Location) (*Gateway, error) {
+func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath, publicBaseURL string, tz *time.Location) (*Gateway, error) {
 	g := &Gateway{
 		store:             s,
 		orch:              orch,
@@ -121,6 +124,8 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus,
 		modelBaseURL:      strings.TrimSpace(modelBaseURL),
 		modelAPIKey:       strings.TrimSpace(modelAPIKey),
 		fileStorePath:     strings.TrimSpace(fileStorePath),
+		publicBaseURL:     strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
+		telegramAPIURL:    strings.TrimRight(strings.TrimSpace(telegramAPIURL), "/"),
 		tz:                orLocalTimeZone(tz),
 		pending:           map[int64]*pendingTextMessage{},
 		monitorTimers:     map[int64]*time.Timer{},
@@ -130,14 +135,18 @@ func New(token string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus,
 	for _, id := range superadmins {
 		g.superadmins[id] = true
 	}
-	b, err := bot.New(token,
+	options := []bot.Option{
 		bot.WithDefaultHandler(g.handle),
 		bot.WithAllowedUpdates(bot.AllowedUpdates{
 			models.AllowedUpdateMessage,
 			models.AllowedUpdateMyChatMember,
 			models.AllowedUpdateChatMember,
 		}),
-	)
+	}
+	if g.telegramAPIURL != "" {
+		options = append(options, bot.WithServerURL(g.telegramAPIURL))
+	}
+	b, err := bot.New(token, options...)
 	if err != nil {
 		return nil, fmt.Errorf("初始化 Telegram bot: %w", err)
 	}
@@ -572,9 +581,6 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
 	text := g.messageText(ctx, msg)
-	if msg.From != nil {
-		g.saveSeenMember(ctx, chatID, msg.From, text, msg.ID)
-	}
 	tgID := userID(msg.From)
 	var u *store.User
 	bound := false
@@ -597,6 +603,32 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		slog.Warn("读取群摘要采集状态失败", "chat", chatID, "err", err)
 	}
 	g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), listenOn)
+	mentionText := text
+	if hasIncomingTelegramFiles(msg) {
+		mentionText = nonMediaText(msg)
+	}
+	mentioned := g.mentioned(msg, mentionText)
+	var intakeResults []incomingTelegramFileResult
+	fileInstruction := ""
+	if hasIncomingTelegramFiles(msg) {
+		fileInstruction = strings.TrimSpace(nonMediaText(msg))
+		if bound && (mentioned || listenOn || monitorOn || digestOn) {
+			intakeResults = g.saveIncomingTelegramFiles(ctx, msg, u)
+			saved, failed := splitTelegramFileIntakes(intakeResults)
+			text = telegramFileContext(saved, failed, fileInstruction)
+		} else {
+			text = "[群消息包含文件，但文件没有进入 nbco，也没有可读取的文件内容]"
+			if !bound {
+				text = "[群成员发送了文件，但发送者尚未绑定；文件没有进入 nbco，也没有可读取的文件内容]"
+			}
+			if fileInstruction != "" {
+				text += "\n" + fileInstruction
+			}
+		}
+	}
+	if msg.From != nil {
+		g.saveSeenMember(ctx, chatID, msg.From, text, msg.ID)
+	}
 
 	switch cmd {
 	case "/listen":
@@ -642,7 +674,6 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 
-	mentioned := g.mentioned(msg, text)
 	if !mentioned {
 		// 采集：任一消费者启用才记录，谁说的都署名（未绑定用户用 TG 显示名）。
 		if listenOn || monitorOn || digestOn {
@@ -668,6 +699,13 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		}
 		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
 		return
+	}
+	if len(intakeResults) > 0 {
+		saved, failed := splitTelegramFileIntakes(intakeResults)
+		if len(saved) == 0 || fileInstruction == "" {
+			g.replyFileIntakeResults(ctx, chatID, saved, failed, false)
+			return
+		}
 	}
 	ask := strings.TrimSpace(stripMention(text, g.botUsername()))
 	if ask == "" {
@@ -1491,12 +1529,18 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		return
 	}
 
-	if files := g.saveIncomingPrivateFiles(ctx, msg, u); len(files) > 0 {
-		if strings.TrimSpace(msg.Text) == "" && strings.TrimSpace(msg.Caption) == "" {
-			g.reply(ctx, chatID, fmt.Sprintf("📎 已收到并暂存 %d 个文件。告诉我接下来要怎么处理它们。", len(files)))
+	if intakes := g.saveIncomingTelegramFiles(ctx, msg, u); len(intakes) > 0 {
+		instruction := strings.TrimSpace(nonMediaText(msg))
+		saved, failed := splitTelegramFileIntakes(intakes)
+		if len(saved) == 0 {
+			g.replyFileIntakeResults(ctx, chatID, saved, failed, true)
 			return
 		}
-		text = savedFilesPrompt(files) + "\n" + strings.TrimSpace(nonMediaText(msg))
+		if instruction == "" {
+			g.replyFileIntakeResults(ctx, chatID, saved, failed, true)
+			return
+		}
+		text = telegramFileContext(saved, failed, instruction)
 	}
 
 	switch commandOf(text, g.botUsername()) {
@@ -2136,8 +2180,8 @@ func (g *Gateway) SetTelegramGroupDescription(ctx context.Context, chatID int64,
 	return err
 }
 
-// messageText 把消息转成给编排器的文本：纯文本原样返回；带媒体的消息把
-// 文件引用（file_id）拼进文本，AI 据此可调用 attach_to_task 等工具处理附件。
+// messageText 把消息转成安全文本。Telegram 原始 file_id 不进入模型上下文；
+// 可分析文件必须先经过统一接收流水并转换成 nbco 系统 file_id。
 func (g *Gateway) messageText(ctx context.Context, msg *models.Message) string {
 	var parts []string
 	if msg.Document != nil {
@@ -2145,14 +2189,23 @@ func (g *Gateway) messageText(ctx context.Context, msg *models.Message) string {
 		if name == "" {
 			name = "未命名"
 		}
-		parts = append(parts, fmt.Sprintf("[用户发来文件「%s」，file_id=%s]", name, msg.Document.FileID))
+		parts = append(parts, fmt.Sprintf("[用户发来文件「%s」]", name))
 	}
 	if n := len(msg.Photo); n > 0 {
 		// Photo 按尺寸升序，取最大的一张。
-		parts = append(parts, fmt.Sprintf("[用户发来图片，file_id=%s]", msg.Photo[n-1].FileID))
+		parts = append(parts, "[用户发来图片]")
 	}
 	if msg.Video != nil {
-		parts = append(parts, fmt.Sprintf("[用户发来视频，file_id=%s]", msg.Video.FileID))
+		parts = append(parts, "[用户发来视频]")
+	}
+	if msg.Animation != nil {
+		parts = append(parts, "[用户发来动画文件]")
+	}
+	if msg.Audio != nil {
+		parts = append(parts, "[用户发来音频文件]")
+	}
+	if msg.VideoNote != nil {
+		parts = append(parts, "[用户发来视频留言]")
 	}
 	if msg.Voice != nil {
 		if text := g.transcribeVoice(ctx, msg.Voice.FileID); text != "" {
@@ -2160,7 +2213,7 @@ func (g *Gateway) messageText(ctx context.Context, msg *models.Message) string {
 		} else if g.stt != nil {
 			parts = append(parts, "[用户发来语音，转写失败，请让用户改用文字或稍后重试]")
 		} else {
-			parts = append(parts, fmt.Sprintf("[用户发来语音，file_id=%s（未配置转写服务，请让用户改用文字）]", msg.Voice.FileID))
+			parts = append(parts, "[用户发来语音，但未配置转写服务，请让用户改用文字]")
 		}
 	}
 	if caption := strings.TrimSpace(msg.Caption); caption != "" {
@@ -2339,15 +2392,55 @@ func telegramPlainText(s string) string {
 
 // voiceDownloadLimit 语音文件下载上限（TG 语音条通常远小于此）。
 const voiceDownloadLimit = 20 << 20
+const telegramCloudFileDownloadLimit = 20 << 20
 const telegramFileDownloadLimit = 200 << 20
 
 type incomingTelegramFile struct {
-	fileID string
-	name   string
-	mime   string
+	fileID      string
+	uniqueID    string
+	externalRef string
+	name        string
+	mime        string
+	sizeBytes   int64
 }
 
-func (g *Gateway) saveIncomingPrivateFiles(ctx context.Context, msg *models.Message, u *store.User) []store.File {
+type incomingTelegramFileResult struct {
+	input        incomingTelegramFile
+	file         *store.File
+	intake       *store.FileIntake
+	errorCode    string
+	errorMessage string
+	err          error
+}
+
+type telegramFileIntakeError struct {
+	code        string
+	userMessage string
+	cause       error
+}
+
+func (e *telegramFileIntakeError) Error() string {
+	if e.cause != nil {
+		return e.cause.Error()
+	}
+	return e.userMessage
+}
+
+func (e *telegramFileIntakeError) Unwrap() error { return e.cause }
+
+func newTelegramFileIntakeError(code, userMessage string, cause error) error {
+	return &telegramFileIntakeError{code: code, userMessage: userMessage, cause: cause}
+}
+
+func telegramFileIntakeFailure(err error) (string, string) {
+	var intakeErr *telegramFileIntakeError
+	if errors.As(err, &intakeErr) {
+		return intakeErr.code, intakeErr.userMessage
+	}
+	return "receive_failed", "文件接收失败，文件没有进入 nbco。"
+}
+
+func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Message, u *store.User) []incomingTelegramFileResult {
 	if msg == nil || u == nil {
 		return nil
 	}
@@ -2357,13 +2450,16 @@ func (g *Gateway) saveIncomingPrivateFiles(ctx context.Context, msg *models.Mess
 		if name == "" {
 			name = "document"
 		}
-		incoming = append(incoming, incomingTelegramFile{fileID: msg.Document.FileID, name: name, mime: msg.Document.MimeType})
+		incoming = append(incoming, incomingTelegramFile{
+			fileID: msg.Document.FileID, uniqueID: msg.Document.FileUniqueID,
+			name: name, mime: msg.Document.MimeType, sizeBytes: msg.Document.FileSize,
+		})
 	}
 	if n := len(msg.Photo); n > 0 {
+		photo := msg.Photo[n-1]
 		incoming = append(incoming, incomingTelegramFile{
-			fileID: msg.Photo[n-1].FileID,
-			name:   fmt.Sprintf("photo-%d.jpg", msg.ID),
-			mime:   "image/jpeg",
+			fileID: photo.FileID, uniqueID: photo.FileUniqueID,
+			name: fmt.Sprintf("photo-%d.jpg", msg.ID), mime: "image/jpeg", sizeBytes: int64(photo.FileSize),
 		})
 	}
 	if msg.Video != nil {
@@ -2371,45 +2467,145 @@ func (g *Gateway) saveIncomingPrivateFiles(ctx context.Context, msg *models.Mess
 		if name == "" {
 			name = fmt.Sprintf("video-%d.mp4", msg.ID)
 		}
-		incoming = append(incoming, incomingTelegramFile{fileID: msg.Video.FileID, name: name, mime: msg.Video.MimeType})
+		incoming = append(incoming, incomingTelegramFile{
+			fileID: msg.Video.FileID, uniqueID: msg.Video.FileUniqueID,
+			name: name, mime: msg.Video.MimeType, sizeBytes: msg.Video.FileSize,
+		})
+	}
+	if msg.Animation != nil {
+		name := strings.TrimSpace(msg.Animation.FileName)
+		if name == "" {
+			name = fmt.Sprintf("animation-%d.mp4", msg.ID)
+		}
+		incoming = append(incoming, incomingTelegramFile{
+			fileID: msg.Animation.FileID, uniqueID: msg.Animation.FileUniqueID,
+			name: name, mime: msg.Animation.MimeType, sizeBytes: msg.Animation.FileSize,
+		})
+	}
+	if msg.Audio != nil {
+		name := strings.TrimSpace(msg.Audio.FileName)
+		if name == "" {
+			name = fmt.Sprintf("audio-%d", msg.ID)
+		}
+		incoming = append(incoming, incomingTelegramFile{
+			fileID: msg.Audio.FileID, uniqueID: msg.Audio.FileUniqueID,
+			name: name, mime: msg.Audio.MimeType, sizeBytes: msg.Audio.FileSize,
+		})
+	}
+	if msg.VideoNote != nil {
+		incoming = append(incoming, incomingTelegramFile{
+			fileID: msg.VideoNote.FileID, uniqueID: msg.VideoNote.FileUniqueID,
+			name: fmt.Sprintf("video-note-%d.mp4", msg.ID), mime: "video/mp4", sizeBytes: int64(msg.VideoNote.FileSize),
+		})
 	}
 	if len(incoming) == 0 {
 		return nil
 	}
-	var saved []store.File
-	for _, in := range incoming {
-		f, err := g.saveTelegramFile(ctx, u.ID, in)
+	results := make([]incomingTelegramFileResult, 0, len(incoming))
+	for i := range incoming {
+		in := incoming[i]
+		in.externalRef = telegramFileExternalRef(msg.ID, in.uniqueID, in.fileID)
+		result := incomingTelegramFileResult{input: in}
+		intake, err := g.store.CreateFileIntake(ctx, store.FileIntake{
+			UserID: u.ID, Source: "telegram", ExternalRef: in.externalRef,
+			OriginalName: in.name, MIMEType: in.mime, SizeBytes: in.sizeBytes,
+		})
 		if err != nil {
-			slog.Warn("Telegram 文件暂存失败", "user", u.ID, "name", in.name, "err", err)
+			result.errorCode = "intake_record_failed"
+			result.errorMessage = "系统未能建立文件接收记录，文件没有进入 nbco。"
+			result.err = err
+			slog.Warn("Telegram 文件接收记录创建失败", "user", u.ID, "name", in.name, "err", err)
+			results = append(results, result)
 			continue
 		}
-		saved = append(saved, *f)
+		result.intake = intake
+		f, err := g.saveTelegramFile(ctx, u.ID, in)
+		if err != nil {
+			result.errorCode, result.errorMessage = telegramFileIntakeFailure(err)
+			result.err = err
+			if markErr := g.store.FailFileIntake(ctx, intake.ID, result.errorCode, result.errorMessage); markErr != nil {
+				slog.Warn("Telegram 文件失败状态保存失败", "user", u.ID, "intake", intake.ID, "err", markErr)
+			}
+			slog.Warn("Telegram 文件暂存失败", "user", u.ID, "name", in.name,
+				"size", in.sizeBytes, "code", result.errorCode, "err", err)
+			results = append(results, result)
+			continue
+		}
+		result.file = f
+		if err := g.store.CompleteFileIntake(ctx, intake.ID, f.ID); err != nil {
+			slog.Warn("Telegram 文件成功状态保存失败", "user", u.ID, "intake", intake.ID, "file", f.ID, "err", err)
+		}
+		results = append(results, result)
 	}
-	return saved
+	return results
 }
 
 func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomingTelegramFile) (*store.File, error) {
 	if strings.TrimSpace(g.fileStorePath) == "" {
-		return nil, fmt.Errorf("file_store_path 未配置")
+		return nil, newTelegramFileIntakeError("storage_not_configured", "文件存储尚未配置，文件没有进入 nbco。", errors.New("file_store_path 未配置"))
+	}
+	if in.sizeBytes > telegramFileDownloadLimit {
+		return nil, newTelegramFileIntakeError("nbco_size_limit",
+			fmt.Sprintf("文件超过 nbco 的 %s 接收上限。", formatTelegramBytes(telegramFileDownloadLimit)), nil)
+	}
+	if g.usesTelegramCloudAPI() && in.sizeBytes > telegramCloudFileDownloadLimit {
+		return nil, newTelegramFileIntakeError("telegram_cloud_limit",
+			fmt.Sprintf("Telegram 云端 Bot API 只能下载不超过 %s 的文件；文件没有进入 nbco。", formatTelegramBytes(telegramCloudFileDownloadLimit)), nil)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	tf, err := g.bot.GetFile(ctx, &bot.GetFileParams{FileID: in.fileID})
 	if err != nil {
-		return nil, fmt.Errorf("获取文件信息失败: %w", err)
+		if strings.Contains(strings.ToLower(err.Error()), "file is too big") {
+			return nil, newTelegramFileIntakeError("telegram_cloud_limit",
+				fmt.Sprintf("Telegram 云端 Bot API 只能下载不超过 %s 的文件；文件没有进入 nbco。", formatTelegramBytes(telegramCloudFileDownloadLimit)), err)
+		}
+		return nil, newTelegramFileIntakeError("telegram_get_file_failed", "Telegram 未提供可下载的文件信息，请稍后重试。", err)
+	}
+	if filepath.IsAbs(tf.FilePath) {
+		local, err := os.Open(tf.FilePath)
+		if err != nil {
+			return nil, newTelegramFileIntakeError("local_bot_api_file_failed", "本机 Telegram 文件服务未能打开该文件，请稍后重试。", err)
+		}
+		defer local.Close()
+		f, err := g.persistTelegramFile(ctx, userID, in, local, in.mime)
+		if err != nil {
+			return nil, wrapTelegramFileStorageError(err)
+		}
+		return f, nil
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.bot.FileDownloadLink(tf), nil)
 	if err != nil {
-		return nil, err
+		return nil, newTelegramFileIntakeError("telegram_download_failed", "无法建立 Telegram 文件下载请求，请稍后重试。", err)
 	}
 	resp, err := voiceHTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("下载失败: %w", err)
+		return nil, newTelegramFileIntakeError("telegram_download_failed", "Telegram 文件下载失败，请稍后重试。", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("下载非 200: %d", resp.StatusCode)
+		return nil, newTelegramFileIntakeError("telegram_download_failed", "Telegram 文件下载失败，请稍后重试。", fmt.Errorf("下载状态: %d", resp.StatusCode))
 	}
+	f, err := g.persistTelegramFile(ctx, userID, in, resp.Body, resp.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, wrapTelegramFileStorageError(err)
+	}
+	return f, nil
+}
+
+func (g *Gateway) usesTelegramCloudAPI() bool {
+	return g.telegramAPIURL == "" || strings.Contains(strings.ToLower(g.telegramAPIURL), "api.telegram.org")
+}
+
+func wrapTelegramFileStorageError(err error) error {
+	var intakeErr *telegramFileIntakeError
+	if errors.As(err, &intakeErr) {
+		return err
+	}
+	return newTelegramFileIntakeError("storage_failed", "文件下载后暂存失败，请稍后重试。", err)
+}
+
+func (g *Gateway) persistTelegramFile(ctx context.Context, userID int64, in incomingTelegramFile, src io.Reader, contentType string) (*store.File, error) {
 	if err := safefs.EnsurePrivateDir(g.fileStorePath); err != nil {
 		return nil, fmt.Errorf("创建文件存储目录失败: %w", err)
 	}
@@ -2421,7 +2617,7 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 	defer func() { _ = os.Remove(tmpName) }()
 
 	h := sha256.New()
-	limited := &io.LimitedReader{R: resp.Body, N: telegramFileDownloadLimit + 1}
+	limited := &io.LimitedReader{R: src, N: telegramFileDownloadLimit + 1}
 	n, err := io.Copy(tmp, io.TeeReader(limited, h))
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
@@ -2430,7 +2626,8 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 		return nil, fmt.Errorf("保存下载文件失败: %w", err)
 	}
 	if n > telegramFileDownloadLimit || limited.N == 0 {
-		return nil, fmt.Errorf("文件超过 %s 上限", formatTelegramBytes(telegramFileDownloadLimit))
+		return nil, newTelegramFileIntakeError("nbco_size_limit",
+			fmt.Sprintf("文件超过 nbco 的 %s 接收上限。", formatTelegramBytes(telegramFileDownloadLimit)), nil)
 	}
 	sum := hex.EncodeToString(h.Sum(nil))
 	rel := filepath.Join(sum[:2], sum)
@@ -2451,7 +2648,7 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 	}
 	mimeType := strings.TrimSpace(in.mime)
 	if mimeType == "" {
-		mimeType = resp.Header.Get("Content-Type")
+		mimeType = contentType
 	}
 	if mimeType == "" {
 		mimeType = mime.TypeByExtension(filepath.Ext(name))
@@ -2461,6 +2658,110 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 		Source: "telegram", OriginalName: name, MIMEType: mimeType,
 		SizeBytes: n, SHA256: sum, StoragePath: rel, CreatedBy: &uid,
 	})
+}
+
+func telegramFileExternalRef(messageID int, uniqueID, fileID string) string {
+	ref := strings.TrimSpace(uniqueID)
+	if ref == "" {
+		sum := sha256.Sum256([]byte(fileID))
+		ref = hex.EncodeToString(sum[:8])
+	}
+	return fmt.Sprintf("%d:%s", messageID, ref)
+}
+
+func splitTelegramFileIntakes(results []incomingTelegramFileResult) ([]store.File, []incomingTelegramFileResult) {
+	saved := make([]store.File, 0, len(results))
+	failed := make([]incomingTelegramFileResult, 0, len(results))
+	for _, result := range results {
+		if result.file != nil {
+			saved = append(saved, *result.file)
+		} else {
+			failed = append(failed, result)
+		}
+	}
+	return saved, failed
+}
+
+func failedFilesPrompt(failed []incomingTelegramFileResult) string {
+	var b strings.Builder
+	b.WriteString("[本轮未能进入 nbco 的文件]\n")
+	for _, result := range failed {
+		fmt.Fprintf(&b, "- 文件名=%s；大小=%s；状态=接收失败；原因=%s\n",
+			result.input.name, formatTelegramBytes(result.input.sizeBytes), result.errorMessage)
+	}
+	b.WriteString("不得声称这些文件已保存、已读取或可分析，也不要编造不存在的上传命令。")
+	return strings.TrimSpace(b.String())
+}
+
+func telegramFileContext(saved []store.File, failed []incomingTelegramFileResult, instruction string) string {
+	parts := make([]string, 0, 3)
+	if len(saved) > 0 {
+		parts = append(parts, savedFilesPrompt(saved))
+	}
+	if len(failed) > 0 {
+		parts = append(parts, failedFilesPrompt(failed))
+	}
+	if instruction = strings.TrimSpace(instruction); instruction != "" {
+		parts = append(parts, instruction)
+	}
+	return strings.Join(parts, "\n")
+}
+
+func (g *Gateway) replyFileIntakeResults(ctx context.Context, chatID int64, saved []store.File, failed []incomingTelegramFileResult, offerFileCenter bool) {
+	var b strings.Builder
+	if len(saved) > 0 {
+		fmt.Fprintf(&b, "📎 已收到并暂存 <b>%d</b> 个文件。", len(saved))
+		if len(failed) == 0 {
+			b.WriteString("告诉我接下来要怎么处理它们。")
+		}
+		b.WriteString("\n")
+	}
+	if len(failed) > 0 {
+		b.WriteString("⚠️ <b>以下文件没有进入 nbco</b>\n")
+		cloudLimited := false
+		for _, result := range failed {
+			fmt.Fprintf(&b, "• <b>%s</b>（%s）：%s\n",
+				html.EscapeString(result.input.name), formatTelegramBytes(result.input.sizeBytes), html.EscapeString(result.errorMessage))
+			cloudLimited = cloudLimited || result.errorCode == "telegram_cloud_limit"
+		}
+		if cloudLimited {
+			fmt.Fprintf(&b, "可以把文件拆分到 %s 以内后重新发送，", formatTelegramBytes(telegramCloudFileDownloadLimit))
+		} else {
+			b.WriteString("可以稍后重试，")
+		}
+		if offerFileCenter {
+			b.WriteString("或通过 nbco 文件中心直接上传。")
+		} else {
+			b.WriteString("或私聊我后从 nbco 文件中心上传。")
+		}
+	}
+	text := strings.TrimSpace(b.String())
+	uploadURL := g.fileCenterURL()
+	if !offerFileCenter || uploadURL == "" || len(failed) == 0 {
+		g.reply(ctx, chatID, text)
+		return
+	}
+	_, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatID, Text: text, ParseMode: models.ParseModeHTML,
+		ReplyMarkup: &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{{
+			{Text: "打开 nbco 文件中心", WebApp: &models.WebAppInfo{URL: uploadURL}},
+		}}},
+	})
+	if err != nil {
+		slog.Warn("发送文件中心按钮失败，降级普通回复", "chat", chatID, "err", err)
+		g.reply(ctx, chatID, text+"\n"+html.EscapeString(uploadURL))
+	}
+}
+
+func (g *Gateway) fileCenterURL() string {
+	if g.publicBaseURL == "" {
+		return ""
+	}
+	parsed, err := url.Parse(g.publicBaseURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return ""
+	}
+	return g.publicBaseURL + "/?view=files"
 }
 
 func safeTelegramFilename(name string) string {
@@ -2538,5 +2839,10 @@ func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
 // 路由用的轻量判断，不触发语音转写等重加工。
 func hasMessagePayload(msg *models.Message) bool {
 	return strings.TrimSpace(msg.Text) != "" || strings.TrimSpace(msg.Caption) != "" ||
-		msg.Document != nil || len(msg.Photo) > 0 || msg.Video != nil || msg.Voice != nil
+		hasIncomingTelegramFiles(msg) || msg.Voice != nil
+}
+
+func hasIncomingTelegramFiles(msg *models.Message) bool {
+	return msg != nil && (msg.Document != nil || len(msg.Photo) > 0 || msg.Video != nil ||
+		msg.Animation != nil || msg.Audio != nil || msg.VideoNote != nil)
 }

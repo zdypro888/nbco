@@ -37,6 +37,17 @@ type fileJSON struct {
 	DownloadURL  string `json:"download_url,omitempty"`
 }
 
+type fileIntakeJSON struct {
+	ID           int64  `json:"id"`
+	OriginalName string `json:"original_name"`
+	MIMEType     string `json:"mime_type"`
+	SizeBytes    int64  `json:"size_bytes"`
+	Status       string `json:"status"`
+	ErrorCode    string `json:"error_code,omitempty"`
+	ErrorMessage string `json:"error_message,omitempty"`
+	CreatedAt    string `json:"created_at"`
+}
+
 func toFileJSON(f store.File, downloadURL string) fileJSON {
 	return fileJSON{
 		ID: f.ID, OriginalName: f.OriginalName, MIMEType: f.MIMEType,
@@ -91,7 +102,23 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	for _, f := range files {
 		out = append(out, toFileJSON(f, "/api/files/"+strconv.FormatInt(f.ID, 10)))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"files": out})
+	intakes, err := s.store.RecentFileIntakesByUser(r.Context(), u.ID, limit, time.Now().Add(-time.Duration(sinceHours)*time.Hour))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取文件接收记录失败"})
+		return
+	}
+	intakeOut := make([]fileIntakeJSON, 0, len(intakes))
+	for _, in := range intakes {
+		if in.Status == store.FileIntakeSaved {
+			continue
+		}
+		intakeOut = append(intakeOut, fileIntakeJSON{
+			ID: in.ID, OriginalName: in.OriginalName, MIMEType: in.MIMEType,
+			SizeBytes: in.SizeBytes, Status: in.Status, ErrorCode: in.ErrorCode,
+			ErrorMessage: in.ErrorMessage, CreatedAt: in.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"files": out, "intakes": intakeOut})
 }
 
 func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {

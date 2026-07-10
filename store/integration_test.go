@@ -808,6 +808,58 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	}
 }
 
+func TestFileIntakeLifecycle(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "file-owner", false)
+
+	pending, err := s.CreateFileIntake(ctx, FileIntake{
+		UserID: u.ID, Source: "telegram", ExternalRef: "10:unique",
+		OriginalName: "report.pdf", MIMEType: "application/pdf", SizeBytes: 128,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending.Status != FileIntakePending || pending.FileID != nil {
+		t.Fatalf("new intake = %+v", pending)
+	}
+	f, err := s.CreateFile(ctx, &File{
+		Source: "telegram", OriginalName: "report.pdf", MIMEType: "application/pdf",
+		SizeBytes: 128, SHA256: strings.Repeat("a", 64), StoragePath: "aa/report", CreatedBy: &u.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CompleteFileIntake(ctx, pending.ID, f.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	failed, err := s.CreateFileIntake(ctx, FileIntake{
+		UserID: u.ID, Source: "telegram", ExternalRef: "11:unique",
+		OriginalName: "large.zip", SizeBytes: 25 << 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.FailFileIntake(ctx, failed.ID, "telegram_cloud_limit", "文件没有进入 nbco"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.RecentFileIntakesByUser(ctx, u.ID, 10, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("intakes = %+v", got)
+	}
+	if got[0].Status != FileIntakeFailed || got[0].ErrorCode != "telegram_cloud_limit" || got[0].FileID != nil {
+		t.Fatalf("failed intake = %+v", got[0])
+	}
+	if got[1].Status != FileIntakeSaved || got[1].FileID == nil || *got[1].FileID != f.ID {
+		t.Fatalf("saved intake = %+v", got[1])
+	}
+}
+
 func TestSelfAssignedSkipsReview(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

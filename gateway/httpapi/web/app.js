@@ -1,13 +1,15 @@
 const root = document.querySelector("#root");
 const telegramWebApp = window.Telegram && window.Telegram.WebApp;
 const tg = telegramWebApp && String(telegramWebApp.initData || "").trim() ? telegramWebApp : null;
+const requestedView = new URLSearchParams(window.location.search).get("view");
 
 const state = {
   me: null,
-  route: "command",
+  route: requestedView === "files" ? "files" : "command",
   loading: false,
   notice: "",
   files: [],
+  fileIntakes: [],
   selectedFileIDs: new Set(),
   tasks: { todo: [], assigned: [], review: [] },
   taskQueue: [],
@@ -45,6 +47,7 @@ const storage = {
     }
   },
 };
+let useAccessToken = !tg;
 
 if (tg) {
   document.body.classList.add("tg-mini");
@@ -102,7 +105,9 @@ function addLog(source, level, message, status = "", duration = "") {
 
 async function api(path, opts = {}) {
   const started = performance.now();
-  const headers = { Authorization: "Bearer " + storage.token, ...(opts.headers || {}) };
+  const headers = { ...(opts.headers || {}) };
+  if (tg && !useAccessToken) headers["X-Telegram-Init-Data"] = tg.initData;
+  else headers.Authorization = "Bearer " + storage.token;
   if (opts.body && !(opts.body instanceof FormData) && !Object.prototype.hasOwnProperty.call(headers, "Content-Type")) {
     headers["Content-Type"] = "application/json";
   }
@@ -122,10 +127,13 @@ async function api(path, opts = {}) {
 }
 
 function renderLogin(error = "") {
+  const hint = tg
+    ? "Telegram 自动登录未成功，也可以使用你的 Access Token。"
+    : "使用你的 Access Token 登录。";
   root.innerHTML = `
     <main class="login">
       <h1>nbco</h1>
-      <p>AI 运营控制中心。使用你的 Access Token 登录。</p>
+      <p>AI 运营控制中心。${hint}</p>
       <input id="loginToken" type="password" autocomplete="off" placeholder="Access Token">
       <button class="btn primary" style="width:100%;margin-top:10px" data-action="login">进入控制中心</button>
       <div class="error">${esc(error)}</div>
@@ -415,8 +423,16 @@ function renderFilesRoute() {
         </div>
         <div class="result ${state.actionResult ? (state.actionOK ? "ok" : "bad") : ""}">${esc(state.actionResult || "文件上传后只进入待处理材料池，不会自动分析。")}</div>
       </div>
+      ${renderFailedFileIntakes()}
       ${renderMaterialRows()}
     </section>`;
+}
+
+function renderFailedFileIntakes() {
+  if (!state.fileIntakes.length) return "";
+  return `<div class="result bad"><strong>未进入文件库</strong><br>${state.fileIntakes.slice(0, 8).map(x =>
+    `${esc(x.original_name)}（${fmtBytes(x.size_bytes)}）：${esc(x.error_message || x.status)}`
+  ).join("<br>")}</div>`;
 }
 
 function renderTasksRoute() {
@@ -909,7 +925,7 @@ async function enter() {
     renderApp();
     await loadRoute(state.route);
   } catch (err) {
-    if (storage.token) renderLogin(err.message);
+    if (storage.token || tg) renderLogin(err.message);
   }
 }
 
@@ -956,6 +972,7 @@ async function settleLoads(label, jobs) {
 async function loadFiles() {
   const data = await api("/api/files?limit=40&since_hours=720");
   state.files = data.files || [];
+  state.fileIntakes = data.intakes || [];
 }
 
 async function loadTasks() {
@@ -1020,9 +1037,10 @@ async function uploadFiles() {
     renderApp();
     return;
   }
-  try {
-    const uploaded = [];
-    for (const file of input.files) {
+  const uploaded = [];
+  const failures = [];
+  for (const file of input.files) {
+    try {
       const fd = new FormData();
       fd.append("file", file);
       const data = await api("/api/files", { method: "POST", body: fd });
@@ -1030,19 +1048,31 @@ async function uploadFiles() {
         uploaded.push(Number(data.file.id));
         state.selectedFileIDs.add(Number(data.file.id));
       }
+    } catch (err) {
+      failures.push(`${file.name}: ${err.message}`);
     }
-    setResult(`已上传 ${uploaded.length} 个文件：${uploaded.map(id => "#" + id).join("、")}`);
-    await loadFiles();
-    if (uploaded.length) state.selected = { kind: "file", id: uploaded[0] };
-  } catch (err) {
-    setResult(err.message, false);
   }
+  try {
+    await loadFiles();
+  } catch (err) {
+    failures.push(`刷新文件列表: ${err.message}`);
+  }
+  if (failures.length) {
+    const prefix = uploaded.length ? `已上传 ${uploaded.length} 个文件；` : "";
+    setResult(`${prefix}${failures.join("；")}`, false);
+  } else {
+    setResult(`已上传 ${uploaded.length} 个文件：${uploaded.map(id => "#" + id).join("、")}`);
+  }
+  if (uploaded.length) state.selected = { kind: "file", id: uploaded[0] };
   renderApp();
 }
 
 async function downloadFile(id) {
   const file = state.files.find(f => Number(f.id) === Number(id));
-  const res = await fetch(`/api/files/${id}`, { headers: { Authorization: "Bearer " + storage.token } });
+  const headers = {};
+  if (tg && !useAccessToken) headers["X-Telegram-Init-Data"] = tg.initData;
+  else headers.Authorization = "Bearer " + storage.token;
+  const res = await fetch(`/api/files/${id}`, { headers });
   addLog("http", res.ok ? "INFO" : "WARN", `GET /api/files/${id}`, String(res.status));
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -1189,9 +1219,11 @@ document.addEventListener("click", async event => {
   const action = btn.dataset.action;
   if (action === "login") {
     storage.token = document.querySelector("#loginToken")?.value.trim() || "";
+    useAccessToken = true;
     await enter();
   } else if (action === "logout") {
     storage.token = "";
+    useAccessToken = !tg;
     state.me = null;
     renderLogin();
   } else if (action === "refresh") {
@@ -1255,7 +1287,7 @@ document.addEventListener("keydown", event => {
   }
 });
 
-if (storage.token) {
+if (storage.token || tg) {
   enter();
 } else {
   renderLogin();

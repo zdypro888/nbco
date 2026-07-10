@@ -1,5 +1,6 @@
 {
   "telegram_token": "123456:ABC-DEF...",
+  "telegram_api_url": "",
   "superadmins": [111111111],
   "postgres_dsn": "postgres://nbco:nbco@127.0.0.1:5432/nbco?sslmode=disable",
   "listen": "127.0.0.1:8900",
@@ -8,7 +9,7 @@
   "worker_download_path": "downloads",
   "tls_cert_file": "",
   "tls_key_file": "",
-  "public_base_url": "",
+  "public_base_url": "https://nbco.example.com",
   "timezone": "Asia/Shanghai",
   "daily_summary_hour": 9,
   "sched_ai_concurrency": 4,
