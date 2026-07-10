@@ -82,7 +82,7 @@ func lowLevelTools(d Deps, u *store.User) []ai.Tool {
 			}),
 
 		tool("low_level_db_exec",
-			"超管兜底写库工具。仅在明确没有合适领域工具且用户要求强制底层处理时使用；优先使用 update_user_info/delete_assigned_task/cancel_schedule 等业务工具。只允许 INSERT/UPDATE/DELETE 单语句，UPDATE/DELETE 必须带 WHERE，禁止 DDL/凭据表；默认最多影响 10 行，超出自动回滚。",
+			"超管兜底写库工具。仅在明确没有合适领域工具且用户要求强制底层处理时使用；优先使用 update_user_info/delete_assigned_task/delete_file/cancel_schedule 等业务工具。只允许 INSERT/UPDATE/DELETE 单语句，UPDATE/DELETE 必须带 WHERE，禁止 DDL/凭据表；默认最多影响 10 行，超出自动回滚。",
 			obj(map[string]any{
 				"sql":        p("string", "写 SQL；只允许 INSERT/UPDATE/DELETE；可使用 $1 参数占位"),
 				"args":       arr("string", "SQL 参数，按 $1/$2 顺序传入；需要数字时建议 SQL 里写 $1::bigint"),

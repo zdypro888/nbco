@@ -219,6 +219,74 @@ func TestValidUserMemoryEvidence(t *testing.T) {
 	}
 }
 
+func TestKnowledgeMemoryRequiresUserFactOrVerifiedToolEvidence(t *testing.T) {
+	question := memorySource{UserText: "能看得懂这个吗？", AssistantText: "系统不支持图片"}
+	if validKnowledgeMemoryEvidence(question, "能看得懂这个吗？", 6) {
+		t.Fatal("a user question must not publish an assistant-derived capability claim")
+	}
+	grounded := memorySource{
+		UserText:     "帮我查一下",
+		ToolEvidence: "[list_capabilities] Telegram 文件接收已启用",
+	}
+	if !validKnowledgeMemoryEvidence(grounded, "Telegram 文件接收已启用", 6) {
+		t.Fatal("verified tool evidence should ground knowledge")
+	}
+	if got := knowledgeMemoryEvidenceSource(grounded, "Telegram 文件接收已启用", 6); got != "tool" {
+		t.Fatalf("tool evidence source = %q", got)
+	}
+	declarative := memorySource{UserText: "客户甲的付款周期是每月25日"}
+	if !validKnowledgeMemoryEvidence(declarative, "客户甲的付款周期是每月25日", 6) {
+		t.Fatal("a direct user fact should remain learnable")
+	}
+	if got := knowledgeMemoryEvidenceSource(declarative, "客户甲的付款周期是每月25日", 6); got != "user" {
+		t.Fatalf("user evidence source = %q", got)
+	}
+}
+
+func TestVerifiedMemoryToolEvidence(t *testing.T) {
+	got := verifiedMemoryToolEvidence([]ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "list_recent_files", Result: "文件已保存"},
+		{Kind: ai.StepToolCall, ToolName: "broken", Result: "不能采用", Err: "failed"},
+		{Kind: ai.StepText, Result: "assistant-only"},
+		{Kind: ai.StepToolCall, ToolName: "secret", Result: "token=0123456789abcdef0123456789abcdef"},
+	})
+	for _, want := range []string{"[list_recent_files]", "文件已保存", "[secret]"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("verified tool evidence missing %q: %s", want, got)
+		}
+	}
+	for _, bad := range []string{"不能采用", "assistant-only", "0123456789abcdef0123456789abcdef"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("verified tool evidence leaked %q: %s", bad, got)
+		}
+	}
+}
+
+func TestExplicitMemoryCommit(t *testing.T) {
+	for _, text := range []string{"以后不要把 token 发出来", "记住这个要求", "默认派给我的 worker", "save as a rule"} {
+		if !explicitMemoryCommit(text) {
+			t.Fatalf("explicit memory instruction not recognized: %q", text)
+		}
+	}
+	for _, text := range []string{"能看懂这个吗？", "有人完善吗", "你不能分配任务去做？"} {
+		if explicitMemoryCommit(text) {
+			t.Fatalf("ordinary question/complaint must remain reviewable: %q", text)
+		}
+	}
+}
+
+func TestMemoryEvidenceCoverage(t *testing.T) {
+	if got := memoryEvidenceCoverage("公司地址是东京", "公司地址是东京千代田区"); got < 0.5 {
+		t.Fatalf("substantial evidence coverage = %.2f", got)
+	}
+	if got := memoryEvidenceCoverage("能看懂这个吗", "nbco 系统不支持 Telegram 图片接收，必须通过另一套上传入口才能处理"); got >= 0.35 {
+		t.Fatalf("short prompt must not ground expanded system claims: %.2f", got)
+	}
+	if got := memoryEvidenceCoverage("", "anything"); got != 0 {
+		t.Fatalf("empty evidence coverage = %.2f", got)
+	}
+}
+
 func TestRenderRetrievalBlock(t *testing.T) {
 	tz := time.UTC
 	ks := []*store.Knowledge{

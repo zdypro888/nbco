@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	jsonschema "github.com/eino-contrib/jsonschema"
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
 )
@@ -33,6 +34,10 @@ func TestAllToolSchemasValid(t *testing.T) {
 		}
 		if len(schema.Properties) == 0 || schema.Properties[0] != '{' {
 			t.Errorf("%s: properties 必须是对象, got %s", tool.Name, schema.Properties)
+		}
+		var einoSchema jsonschema.Schema
+		if err := json.Unmarshal(raw, &einoSchema); err != nil {
+			t.Errorf("%s: Eino JSON Schema 解析失败: %v", tool.Name, err)
 		}
 	}
 }
@@ -156,7 +161,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_telegram_group_messages", "set_telegram_group_digest", "list_capabilities", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_telegram_group_messages", "set_telegram_group_digest", "list_capabilities", "query_data", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -184,6 +189,9 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if !byName["list_system_activity"].SuperadminOnly || byName["list_system_activity"].GroupAllowed {
 		t.Fatalf("list_system_activity 应仅超管可用且禁止群聊: %+v", byName["list_system_activity"])
+	}
+	if got := byName["query_data"]; got.Domain != CapabilityOps || got.Effect != ToolEffectRead || got.GroupAllowed || !got.WorkerAllowed {
+		t.Fatalf("query_data 元数据错误: %+v", got)
 	}
 	if got := byName["low_level_db_query"].Domain; got != CapabilityOps {
 		t.Fatalf("low_level_db_query domain=%q", got)
@@ -546,6 +554,72 @@ func TestRenderFileQueueDistinguishesSavedAndFailed(t *testing.T) {
 	}
 	if strings.Count(got, "saved.pdf") != 1 {
 		t.Fatalf("saved intake should not duplicate the file row:\n%s", got)
+	}
+}
+
+func TestRenderWorkspaceResources(t *testing.T) {
+	now := time.Date(2026, 7, 10, 16, 0, 0, 0, time.UTC)
+	got := renderWorkspaceResources([]store.WorkspaceResource{
+		{Kind: "file", ID: 4, Name: "申请表.pdf", State: "saved", CreatedAt: now},
+		{Kind: "task", ID: 6, Name: "申请表分析", State: "done", CreatedAt: now},
+	}, time.UTC, semanticSearchPlan{Terms: []string{"申请表"}}, false)
+	for _, want := range []string{"resource_ref=file:4", "类型=file", "申请表.pdf", "resource_ref=task:6", "不要把内部引用主动展示"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("workspace rendering missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestPlanSemanticSearchUsesAIInsteadOfCodeFuzzyMatching(t *testing.T) {
+	called := false
+	d := Deps{SubcallAI: func(_ context.Context, _ *store.User, purpose, prompt string) (string, error) {
+		called = true
+		if purpose != "search_planner" {
+			t.Fatalf("purpose = %q", purpose)
+		}
+		if !strings.Contains(prompt, "无成分陪伴") {
+			t.Fatalf("planner did not receive intent: %s", prompt)
+		}
+		return `{"terms":["无成人陪伴","乘机申请表"],"kinds":["file"],"recent":false}`, nil
+	}}
+	plan := planSemanticSearch(context.Background(), d, &store.User{ID: 1}, "无成分陪伴的那个文件", []string{"task", "file", "project"})
+	if !called {
+		t.Fatal("semantic planner was not called")
+	}
+	if got := strings.Join(plan.Terms, ","); got != "无成人陪伴,乘机申请表" {
+		t.Fatalf("terms = %q", got)
+	}
+	if len(plan.Kinds) != 1 || plan.Kinds[0] != "file" || plan.Recent {
+		t.Fatalf("plan = %+v", plan)
+	}
+}
+
+func TestParseSemanticSearchPlanRejectsInventedKindsWithoutTreatingTermsAsSQL(t *testing.T) {
+	plan, ok := parseSemanticSearchPlan(`{"terms":["申请表","%全部%","申请表"],"kinds":["file","secret"],"recent":false}`, []string{"task", "file"})
+	if !ok {
+		t.Fatal("valid JSON plan was rejected")
+	}
+	if len(plan.Terms) != 2 || plan.Terms[0] != "申请表" || plan.Terms[1] != "%全部%" {
+		t.Fatalf("terms = %#v", plan.Terms)
+	}
+	if len(plan.Kinds) != 1 || plan.Kinds[0] != "file" {
+		t.Fatalf("kinds = %#v", plan.Kinds)
+	}
+}
+
+func TestRenderDataSourcesAndRows(t *testing.T) {
+	catalog := renderDataSources([]store.DataSource{{Name: "tasks", Description: "任务", Fields: []string{"task_id", "status"}}})
+	for _, want := range []string{"tasks", "task_id,status", "当前身份"} {
+		if !strings.Contains(catalog, want) {
+			t.Fatalf("catalog missing %q: %s", want, catalog)
+		}
+	}
+	rows := renderDataRows("tasks", semanticSearchPlan{Terms: []string{"申请表"}}, map[string]string{"status": "done"}, 0,
+		[]json.RawMessage{json.RawMessage(`{"task_id":6,"status":"done"}`)})
+	for _, want := range []string{"数据源=tasks", `"task_id":6`, "权限裁剪"} {
+		if !strings.Contains(rows, want) {
+			t.Fatalf("rows missing %q: %s", want, rows)
+		}
 	}
 }
 

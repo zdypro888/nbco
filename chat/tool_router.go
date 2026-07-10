@@ -63,6 +63,11 @@ func routeTurnTools(channel, text string, all []ai.Tool) ([]ai.Tool, toolRoute) 
 	}
 
 	add(100, baselineToolNames...)
+	// The broad read plane must survive the schema soft limit. It is the model's
+	// escape hatch when a newly added domain has no dedicated routing keywords;
+	// permission filtering has already removed tools the caller cannot use.
+	add(2600, "query_data")
+	add(2200, "low_level_db_query")
 	lower := strings.ToLower(strings.TrimSpace(text))
 	if isGroupChannel(channel) {
 		addGroup("telegram_group", telegramGroupToolNames...)
@@ -275,8 +280,9 @@ func jsonMarshalToolSchema(v map[string]any) ([]byte, error) {
 
 var baselineToolNames = []string{
 	"list_capabilities",
+	"query_data", "low_level_db_query",
 	"search_knowledge", "get_knowledge", "list_recent_knowledge",
-	"search_history",
+	"search_history", "search_workspace",
 	"search_skills", "load_skill", "propose_learning_candidate",
 	"list_recent_files",
 	"get_my_profile", "update_my_profile", "get_my_infos", "save_my_infos",
@@ -305,6 +311,7 @@ var permissionToolNames = []string{
 }
 
 var workToolNames = []string{
+	"search_workspace",
 	"get_my_projects", "get_my_tasks", "get_my_all_tasks", "get_task_detail", "view_my_task_tree",
 	"update_my_task_status", "get_review_queue", "accept_task", "reject_task",
 	"save_checklist", "toggle_checklist", "add_progress", "attach_to_task",
@@ -327,7 +334,7 @@ var workerToolNames = []string{
 }
 
 var fileToolNames = []string{
-	"list_recent_files", "send_file", "attach_to_task",
+	"search_workspace", "list_recent_files", "send_file", "delete_file", "attach_to_task",
 	"analyze_company_materials", "start_worker_skill", "list_workflows", "start_workflow",
 }
 
@@ -349,7 +356,7 @@ var memoryToolNames = []string{
 }
 
 var opsToolNames = []string{
-	"list_capabilities", "list_action_turns", "list_system_activity", "get_ai_settings", "set_ai_settings", "ai_usage_stats",
+	"list_capabilities", "query_data", "list_action_turns", "list_system_activity", "get_ai_settings", "set_ai_settings", "ai_usage_stats",
 	"list_eval_cases", "create_eval_case", "get_api_token_status", "generate_api_token", "revoke_api_token",
 	"low_level_db_query", "low_level_db_exec",
 }
@@ -359,7 +366,7 @@ var scriptToolNames = []string{
 }
 
 var actionToolNames = []string{
-	"send_message", "send_file",
+	"send_message", "send_file", "search_workspace", "delete_file",
 	"schedule_once", "schedule_repeating", "schedule_push", "cancel_schedule",
 	"get_my_tasks", "get_my_all_tasks", "get_task_detail", "get_assigned_tasks", "company_overview",
 	"assign_task", "update_assigned_task", "delete_assigned_task", "reassign_task", "accept_task", "reject_task",

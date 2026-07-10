@@ -241,6 +241,26 @@ func (s *Store) DeleteOrphanFileRow(ctx context.Context, fileID int64) error {
 	return err
 }
 
+// DeleteUnreferencedFile deletes file metadata only when no task attachment or
+// artifact still references it. Content-addressed blobs are reclaimed by GC so
+// another file row sharing the same bytes remains safe.
+func (s *Store) DeleteUnreferencedFile(ctx context.Context, fileID int64) error {
+	tag, err := s.pool.Exec(ctx,
+		`DELETE FROM files WHERE id = $1
+		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
+		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)`, fileID)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	if _, err := s.FileByID(ctx, fileID); err != nil {
+		return err
+	}
+	return ErrConflict
+}
+
 // AddWorkerArtifact 仅当 worker 仍持有同一 claim 时，把文件登记为任务产物。
 func (s *Store) AddWorkerArtifact(ctx context.Context, taskID, workerID int64, claimID string, fileID int64, caption string) error {
 	tag, err := s.pool.Exec(ctx,

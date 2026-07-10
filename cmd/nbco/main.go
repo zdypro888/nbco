@@ -149,25 +149,39 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
-	deps.ScriptAI = func(ctx context.Context, u *store.User, prompt string) (string, error) {
+	deps.SubcallAI = func(ctx context.Context, u *store.User, purpose, prompt string) (string, error) {
 		actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		defer cancel()
 		name := ""
+		userID := int64(0)
 		if u != nil {
 			name = u.Name
+			userID = u.ID
+		}
+		purpose = strings.TrimSpace(purpose)
+		if purpose == "" {
+			purpose = "internal"
 		}
 		model := strings.TrimSpace(cfg.AI.Model)
 		if runtimeModel, err := st.GetKV(actx, store.KVAIModel); err == nil && strings.TrimSpace(runtimeModel) != "" {
 			model = strings.TrimSpace(runtimeModel)
 		}
 		res, err := engine.RunTurn(actx, &ai.TurnRequest{
-			SessionID: "script-ai",
-			System:    "你是 nbco 脚本工具的受控 AI 子调用。只回答本次脚本请求需要的结果，不调用工具，不输出无关解释。",
+			SessionID: "subcall:" + purpose,
+			System:    "你是 nbco 内部的受控 AI 子调用。只完成指定的单一分析任务，不调用工具，不输出无关解释。",
 			UserText:  fmt.Sprintf("调用者：%s\n\n%s", name, prompt),
 			Model:     model,
 		})
 		if err != nil {
 			return "", err
+		}
+		if userID > 0 && (res.Usage.InputTokens > 0 || res.Usage.OutputTokens > 0) {
+			if err := st.RecordAIUsage(actx, store.AIUsage{
+				UserID: userID, Kind: "subcall_" + purpose, Model: model,
+				InputTokens: res.Usage.InputTokens, OutputTokens: res.Usage.OutputTokens,
+			}); err != nil {
+				slog.Warn("AI 子调用用量落库失败", "purpose", purpose, "err", err)
+			}
 		}
 		return res.Text, nil
 	}

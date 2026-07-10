@@ -78,8 +78,14 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `refresh_decision_queue`
 - `list_decision_queue`
 - `company_overview`
+- `search_workspace`
+- `query_data`
 
 边界：
+
+- `query_data` 是 AI 的通用只读数据面：模型选择 source/search/filters，Store 在搜索前执行行级和字段级权限；凭据、物理文件路径、模型密钥和迁移状态不进入目录。
+- `search_workspace` 的错别字改写和跨类型查询由受控 AI 子调用规划；数据库只做字面候选召回、稳定 ID 和权限裁剪，主 Agent 决定最终对象。
+- 超管保留 `low_level_db_query` 只读兜底；所有写入仍优先走领域工具、审批和审计。
 
 - 单一明确执行项直接派任务。
 - 复杂、多依赖、多人并行的工作先拆分。
@@ -149,6 +155,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - fact/rule/skill/profile 不混用。
 - 普通员工和 worker 的复用经验先进候选队列。
 - 超管明确提出“以后/默认/记住/永远不要”这类行为约束时，走 rule。
+- assistant 文本不能独立成为学习证据；工具结果只能生成待审核候选。自动发布要求用户原话足以覆盖结论，短句不得扩写成大段系统事实。
 
 ### 5. Comms：Telegram、群、通知、文件
 
@@ -175,6 +182,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `delete_telegram_group_message`
 - `pin_telegram_group_message`
 - `list_recent_files`
+- `delete_file`
 - `send_file`
 - `schedule_push`
 

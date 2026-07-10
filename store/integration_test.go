@@ -8,6 +8,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -857,6 +858,194 @@ func TestFileIntakeLifecycle(t *testing.T) {
 	}
 	if got[1].Status != FileIntakeSaved || got[1].FileID == nil || *got[1].FileID != f.ID {
 		t.Fatalf("saved intake = %+v", got[1])
+	}
+}
+
+func TestWorkspaceCandidatesAndDeleteFile(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "workspace-owner", false)
+	other := mkUser(t, s, "workspace-other", false)
+	admin := mkUser(t, s, "workspace-admin", true)
+	pj, err := s.CreateProject(ctx, "无成人陪伴资料项目", "", owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := mkTask(t, s, pj.ID, owner.ID, owner.ID, "无成人陪伴申请表分析", nil)
+	owned, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "无成人陪伴乘机申请表.pdf", MIMEType: "application/pdf",
+		SizeBytes: 10, SHA256: strings.Repeat("c", 64), StoragePath: "cc/owned", CreatedBy: &owner.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherFile, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "无成人陪伴内部附件.pdf", MIMEType: "application/pdf",
+		SizeBytes: 11, SHA256: strings.Repeat("d", 64), StoragePath: "dd/other", CreatedBy: &other.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matches, err := s.WorkspaceCandidates(ctx, owner.ID, false, WorkspaceCandidateFilter{
+		Terms: []string{"无成人陪伴"}, Limit: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, item := range matches {
+		seen[fmt.Sprintf("%s:%d", item.Kind, item.ID)] = true
+	}
+	for _, want := range []string{fmt.Sprintf("task:%d", task.ID), fmt.Sprintf("file:%d", owned.ID), fmt.Sprintf("project:%d", pj.ID)} {
+		if !seen[want] {
+			t.Fatalf("owner search missing %s: %+v", want, matches)
+		}
+	}
+	if seen[fmt.Sprintf("file:%d", otherFile.ID)] {
+		t.Fatalf("owner search leaked another user's file: %+v", matches)
+	}
+	adminMatches, err := s.WorkspaceCandidates(ctx, admin.ID, true, WorkspaceCandidateFilter{
+		Terms: []string{"无成人陪伴"}, Limit: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundOther := false
+	for _, item := range adminMatches {
+		foundOther = foundOther || item.Kind == "file" && item.ID == otherFile.ID
+	}
+	if !foundOther {
+		t.Fatalf("superadmin search should include all matching files: %+v", adminMatches)
+	}
+
+	if err := s.AddTaskAttachmentFile(ctx, task.ID, owned.ID, "input"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteUnreferencedFile(ctx, owned.ID); !errors.Is(err, ErrConflict) {
+		t.Fatalf("referenced file delete = %v, want conflict", err)
+	}
+	if err := s.DeleteTask(ctx, task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteUnreferencedFile(ctx, owned.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.FileByID(ctx, owned.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted file lookup = %v, want not found", err)
+	}
+}
+
+func TestReadDataEnforcesRowAndFieldVisibility(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "data-owner", false)
+	other := mkUser(t, s, "data-other", false)
+	admin := mkUser(t, s, "data-admin", true)
+	if err := s.UpdateUserInfo(ctx, other.ID, map[string]string{"phone": "13800000000"}); err != nil {
+		t.Fatal(err)
+	}
+	ownerProject := mkProject(t, s, owner.ID)
+	ownerTask := mkTask(t, s, ownerProject.ID, owner.ID, owner.ID, "owner visible task", nil)
+	otherProject := mkProject(t, s, other.ID)
+	otherTask := mkTask(t, s, otherProject.ID, other.ID, other.ID, "other hidden task", nil)
+
+	ownerRows, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{Source: "tasks", Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerIDs := dataReadIDs(t, ownerRows, "task_id")
+	if !ownerIDs[ownerTask.ID] || ownerIDs[otherTask.ID] {
+		t.Fatalf("ordinary task visibility = %v", ownerIDs)
+	}
+	adminRows, err := s.ReadData(ctx, admin.ID, true, DataReadQuery{Source: "tasks", Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminIDs := dataReadIDs(t, adminRows, "task_id")
+	if !adminIDs[ownerTask.ID] || !adminIDs[otherTask.ID] {
+		t.Fatalf("admin task visibility = %v", adminIDs)
+	}
+
+	userRows, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{
+		Source: "users", Filters: map[string]string{"user_id": fmt.Sprint(other.ID)}, Limit: 5,
+	})
+	if err != nil || len(userRows) != 1 {
+		t.Fatalf("user read = %s, %v", userRows, err)
+	}
+	var hidden struct {
+		Info map[string]string `json:"info"`
+	}
+	if err := json.Unmarshal(userRows[0], &hidden); err != nil {
+		t.Fatal(err)
+	}
+	if len(hidden.Info) != 0 {
+		t.Fatalf("hidden info leaked: %#v", hidden.Info)
+	}
+	if err := s.GrantPerm(ctx, Grant{
+		Kind: KindActive, UserID: owner.ID, Action: "view_self_intro",
+		Target: fmt.Sprint(other.ID), GrantedBy: admin.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	userRows, err = s.ReadData(ctx, owner.ID, false, DataReadQuery{
+		Source: "users", Filters: map[string]string{"user_id": fmt.Sprint(other.ID)}, Limit: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var visible struct {
+		Info map[string]string `json:"info"`
+	}
+	if err := json.Unmarshal(userRows[0], &visible); err != nil {
+		t.Fatal(err)
+	}
+	if visible.Info["phone"] != "13800000000" {
+		t.Fatalf("granted info = %#v", visible.Info)
+	}
+	if _, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{Source: "audit_activity"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ordinary audit access = %v", err)
+	}
+}
+
+func dataReadIDs(t *testing.T, rows []json.RawMessage, field string) map[int64]bool {
+	t.Helper()
+	out := map[int64]bool{}
+	for _, row := range rows {
+		var item map[string]any
+		if err := json.Unmarshal(row, &item); err != nil {
+			t.Fatal(err)
+		}
+		id, ok := item[field].(float64)
+		if !ok {
+			t.Fatalf("%s missing numeric %s", row, field)
+		}
+		out[int64(id)] = true
+	}
+	return out
+}
+
+func TestReadDataAllSourcesCompile(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	admin := mkUser(t, s, "catalog-admin", true)
+	employee := mkUser(t, s, "catalog-employee", false)
+	for _, tc := range []struct {
+		user    *User
+		sources []DataSource
+	}{
+		{admin, DataSources(true)},
+		{employee, DataSources(false)},
+	} {
+		for _, source := range tc.sources {
+			t.Run(fmt.Sprintf("user_%d/%s", tc.user.ID, source.Name), func(t *testing.T) {
+				if _, err := s.ReadData(ctx, tc.user.ID, tc.user.IsSuperadmin, DataReadQuery{
+					Source: source.Name, Limit: 1,
+				}); err != nil {
+					t.Fatalf("source %s: %v", source.Name, err)
+				}
+			})
+		}
 	}
 }
 

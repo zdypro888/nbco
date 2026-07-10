@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,6 +16,45 @@ import (
 
 func fileTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
+		tool("search_workspace", "由 AI 规划查询词，跨任务、文件和项目检索当前用户可访问的候选对象，不要求先猜类型或内部ID。适合名称片段、错别字、上下文指代和修改/删除前消歧；工具只返回候选，最终对象仍由主 Agent 判断。",
+			obj(map[string]any{
+				"query": p("string", "名称或名称片段"),
+				"limit": p("integer", "最多返回条数，默认 12，最多 30"),
+			}, "query"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Query string `json:"query"`
+					Limit int    `json:"limit"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if strings.TrimSpace(args.Query) == "" {
+					return "query 不能为空。", nil
+				}
+				if args.Limit <= 0 || args.Limit > 30 {
+					args.Limit = 12
+				}
+				plan := planSemanticSearch(ctx, d, u, args.Query, []string{"task", "file", "project"})
+				items, err := d.Store.WorkspaceCandidates(ctx, u.ID, u.IsSuperadmin, store.WorkspaceCandidateFilter{
+					Terms: plan.Terms, Kinds: plan.Kinds, Limit: args.Limit,
+				})
+				if err != nil {
+					return "", err
+				}
+				fallback := false
+				if len(items) == 0 && len(plan.Terms) > 0 {
+					items, err = d.Store.WorkspaceCandidates(ctx, u.ID, u.IsSuperadmin, store.WorkspaceCandidateFilter{
+						Limit: args.Limit,
+					})
+					if err != nil {
+						return "", err
+					}
+					fallback = true
+				}
+				return renderWorkspaceResources(items, d.TZ, plan, fallback), nil
+			}),
+
 		tool("list_recent_files", "查看当前用户最近的文件接收队列，包括成功保存的系统 file_id 和未入库文件的失败原因。用户说“刚才那个文件/这些资料/附件”时先调用；只有 status=saved 的文件才能派 worker 分析。",
 			obj(map[string]any{
 				"limit":       p("integer", "返回条数，默认 10，最多 50"),
@@ -95,7 +135,58 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				}
 				return "已发送文件。", nil
 			}),
+
+		tool("delete_file", "删除 nbco 文件库中的文件记录。调用前用 search_workspace 或 list_recent_files 确认系统 file_id；普通用户只能删除自己上传的文件，超级管理员可删除任意未被任务附件/产物引用的文件。",
+			obj(map[string]any{
+				"file_id": p("integer", "search_workspace 或 list_recent_files 返回的系统文件ID"),
+			}, "file_id"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					FileID int64 `json:"file_id"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				f, err := d.Store.FileByID(ctx, args.FileID)
+				if errors.Is(err, store.ErrNotFound) {
+					return "文件不存在或已经删除。", nil
+				}
+				if err != nil {
+					return "", err
+				}
+				if !u.IsSuperadmin && (f.CreatedBy == nil || *f.CreatedBy != u.ID) {
+					return "你只能删除自己上传的文件。", nil
+				}
+				if err := d.Store.DeleteUnreferencedFile(ctx, f.ID); err != nil {
+					if errors.Is(err, store.ErrConflict) {
+						return "该文件仍被任务附件或任务产物引用，不能直接删除。", nil
+					}
+					if errors.Is(err, store.ErrNotFound) {
+						return "文件不存在或已经删除。", nil
+					}
+					return "", err
+				}
+				return fmt.Sprintf("已删除文件「%s」。", f.OriginalName), nil
+			}),
 	}
+}
+
+func renderWorkspaceResources(items []store.WorkspaceResource, tz *time.Location, plan semanticSearchPlan, fallback bool) string {
+	if len(items) == 0 {
+		return "（没有匹配的现存任务、文件或项目）"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "AI 查询计划：terms=%q kinds=%q recent=%t。\n", plan.Terms, plan.Kinds, plan.Recent)
+	if fallback {
+		b.WriteString("字面候选为空，已移除查询词和类型限制，以下是按时间返回的可访问候选；请由主 Agent 结合上下文判断，不要直接猜。\n")
+	}
+	b.WriteString("工作区匹配结果：\n")
+	for _, item := range items {
+		fmt.Fprintf(&b, "- resource_ref=%s:%d；类型=%s；名称=%s；状态=%s；创建时间=%s\n",
+			item.Kind, item.ID, item.Kind, item.Name, item.State, fmtTime(item.CreatedAt, tz))
+	}
+	b.WriteString("resource_ref 仅供后续工具定位对象；不要把内部引用主动展示给用户。")
+	return strings.TrimSpace(b.String())
 }
 
 func renderFileQueue(fs []store.File, intakes []store.FileIntake, tz *time.Location) string {

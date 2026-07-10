@@ -45,7 +45,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"list_data_collection_campaigns", "get_data_collection_campaign",
 		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"search_skills", "load_skill",
-		"list_workflows", "list_capabilities", "list_action_turns",
+		"list_workflows", "list_capabilities", "list_action_turns", "query_data",
 	} {
 		if !names[keep] {
 			t.Errorf("无授权用户应保留 %s", keep)
@@ -176,7 +176,7 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 			t.Errorf("worker 工具集出现白名单外的 %s", n)
 		}
 	}
-	for _, keep := range []string{"get_my_tasks", "add_progress", "save_knowledge", "search_knowledge", "search_skills", "load_skill"} {
+	for _, keep := range []string{"get_my_tasks", "add_progress", "save_knowledge", "search_knowledge", "search_skills", "load_skill", "query_data"} {
 		if !names[keep] {
 			t.Errorf("worker 应保留 %s", keep)
 		}
@@ -208,7 +208,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 		"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
 		"save_skill", "update_skill", "search_skills", "load_skill", "start_worker_skill",
 		"list_workflows", "start_workflow", "list_capabilities", "list_system_activity",
-		"low_level_db_query", "low_level_db_exec",
+		"query_data", "low_level_db_query", "low_level_db_exec",
 		"list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
@@ -245,7 +245,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
 		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
 		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
-		"low_level_db_query", "low_level_db_exec",
+		"query_data", "low_level_db_query", "low_level_db_exec",
 		"send_file", "start_workflow", "start_worker_skill",
 		"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
 		"list_action_turns", "list_system_activity",

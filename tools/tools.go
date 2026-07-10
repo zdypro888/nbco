@@ -49,9 +49,10 @@ type Deps struct {
 	// Extra 追加进每个用户工具集的外部工具（如外接 MCP server 的工具），
 	// 与内建工具一样经过审计层。
 	Extra []ai.Tool
-	// ScriptAI is the constrained AI subcall exposed to script tools. The caller
-	// user is passed through so usage and permissions stay attributable.
-	ScriptAI func(ctx context.Context, u *store.User, prompt string) (string, error)
+	// SubcallAI is a constrained, tool-free AI subcall used by semantic planners
+	// and exposed to script tools. Purpose keeps usage attributable by subsystem;
+	// the caller identity is always preserved.
+	SubcallAI func(ctx context.Context, u *store.User, purpose, prompt string) (string, error)
 }
 
 // Eventer 系统事件出口（由 events.Bus 实现）。
@@ -198,6 +199,7 @@ func baseStaticTools(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, materialTools(d, u)...)
 	ts = append(ts, workflowTools(d, u)...)
 	ts = append(ts, capabilityTools(d, u)...)
+	ts = append(ts, dataReadTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, lowLevelTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
@@ -315,6 +317,8 @@ var workerAllowed = map[string]bool{
 	"load_skill":                 true,
 	"propose_learning_candidate": true,
 	"list_recent_files":          true,
+	"search_workspace":           true,
+	"query_data":                 true,
 }
 
 // groupSensitive 群共享会话里必须剔除的工具：结果含机密（Token）、或影响面
@@ -373,9 +377,11 @@ var groupSensitive = map[string]bool{
 	"set_ai_settings":                 true,
 	"low_level_db_query":              true,
 	"low_level_db_exec":               true,
+	"query_data":                      true,
 	"remove_info_field":               true,
 	"send_message":                    true, // 群里可直接说，无需借 bot 向他人/全体转发
 	"send_file":                       true,
+	"delete_file":                     true,
 	"create_data_collection_campaign": true,
 	"list_data_collection_campaigns":  true,
 	"get_data_collection_campaign":    true,

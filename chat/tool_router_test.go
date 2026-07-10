@@ -16,7 +16,7 @@ import (
 func TestRouteTurnToolsKeepsPlainQuestionSmall(t *testing.T) {
 	routed, route := routeTurnTools("telegram", "你现在能做什么？简单说", testRouteTools())
 	names := routeToolNameSet(routed)
-	if !names["list_capabilities"] || !names["search_knowledge"] {
+	if !names["list_capabilities"] || !names["search_knowledge"] || !names["query_data"] {
 		t.Fatalf("基础查询工具应保留: %v", routedToolNames(routed))
 	}
 	for _, bad := range []string{"send_message", "assign_task", "start_workflow", "run_worker_command", "schedule_push"} {
@@ -160,13 +160,20 @@ func TestRouteTurnToolsKeepsCompanyOverviewForSystemTaskStatus(t *testing.T) {
 func TestRouteTurnToolsAddsActionToolsForBareDeleteRequest(t *testing.T) {
 	routed, route := routeTurnTools("telegram", "无成人陪伴这个删除掉吧。没用了", testRouteTools())
 	names := routeToolNameSet(routed)
-	for _, want := range []string{"get_assigned_tasks", "get_task_detail", "delete_assigned_task"} {
+	for _, want := range []string{"search_workspace", "get_assigned_tasks", "get_task_detail", "delete_assigned_task", "delete_file"} {
 		if !names[want] {
 			t.Fatalf("裸删除动作应暴露任务定位/删除工具 %s，tools=%v route=%s", want, routedToolNames(routed), route.Summary())
 		}
 	}
 	if !route.Has("action") {
 		t.Fatalf("裸删除动作应带 action route，route=%s", route.Summary())
+	}
+}
+
+func TestRouteTurnToolsKeepsWorkspaceSearchInBaseline(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "模糊查询啊", testRouteTools())
+	if !routeToolNameSet(routed)["search_workspace"] {
+		t.Fatalf("ambiguous follow-up needs workspace search, tools=%v route=%s", routedToolNames(routed), route.Summary())
 	}
 }
 

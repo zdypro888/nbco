@@ -334,10 +334,10 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 			if err := starlark.UnpackArgs("nbco_ai", args, kwargs, "prompt", &prompt); err != nil {
 				return nil, err
 			}
-			if d.ScriptAI == nil {
+			if d.SubcallAI == nil {
 				return nil, fmt.Errorf("脚本 AI 能力未配置")
 			}
-			out, err := d.ScriptAI(ctx, u, prompt)
+			out, err := d.SubcallAI(ctx, u, "script", prompt)
 			if err != nil {
 				return nil, err
 			}
@@ -414,6 +414,7 @@ func staticToolsForScript(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, scriptToolManagementTools(d, u)...)
 	ts = append(ts, workerTools(d, u)...)
 	ts = append(ts, materialTools(d, u)...)
+	ts = append(ts, dataReadTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
 	ts = append(ts, d.Extra...)
