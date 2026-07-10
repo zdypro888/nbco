@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -33,6 +34,43 @@ import (
 
 var version = "dev"
 
+func runtimeVersion() string {
+	info, _ := debug.ReadBuildInfo()
+	return resolveVersion(version, info)
+}
+
+func resolveVersion(linked string, info *debug.BuildInfo) string {
+	if linked = strings.TrimSpace(linked); linked != "" && linked != "dev" {
+		return linked
+	}
+	if info == nil {
+		return "dev"
+	}
+	revision := ""
+	dirty := false
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = strings.TrimSpace(setting.Value)
+		case "vcs.modified":
+			dirty = setting.Value == "true"
+		}
+	}
+	if revision != "" {
+		if len(revision) > 12 {
+			revision = revision[:12]
+		}
+		if dirty {
+			revision += "-dirty"
+		}
+		return revision
+	}
+	if moduleVersion := strings.TrimSpace(info.Main.Version); moduleVersion != "" && moduleVersion != "(devel)" {
+		return moduleVersion
+	}
+	return "dev"
+}
+
 func main() {
 	configPath := flag.String("config", "nbco.json", "配置文件路径")
 	flag.Parse()
@@ -51,7 +89,7 @@ func run(configPath string) error {
 		return err
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.SlogLevel()})))
-	httpapi.Version = version
+	httpapi.Version = runtimeVersion()
 	tz, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
 		return fmt.Errorf("时区 %q: %w", cfg.Timezone, err)
@@ -177,7 +215,7 @@ func run(configPath string) error {
 	if strings.TrimSpace(cfg.TLSCertFile) != "" {
 		scheme = "https"
 	}
-	slog.Info("nbco 启动", "engine", engine.Name(), "listen", cfg.Listen, "scheme", scheme, "tz", tz.String())
+	slog.Info("nbco 启动", "version", httpapi.Version, "engine", engine.Name(), "listen", cfg.Listen, "scheme", scheme, "tz", tz.String())
 
 	errCh := make(chan error, 2)
 	go func() { errCh <- api.Serve(ctx, cfg.Listen, cfg.TLSCertFile, cfg.TLSKeyFile) }()

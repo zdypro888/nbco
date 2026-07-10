@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"runtime/debug"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -31,5 +32,28 @@ func TestRunBackfillLoopRepeatsRecoversAndStops(t *testing.T) {
 	}
 	if got := calls.Load(); got != 3 {
 		t.Fatalf("回填次数 = %d, want 3", got)
+	}
+}
+
+func TestResolveVersion(t *testing.T) {
+	info := &debug.BuildInfo{
+		Main: debug.Module{Version: "v1.2.3"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "9fd96bde9e10ea4d12346703974bb11af8de3756"},
+			{Key: "vcs.modified", Value: "true"},
+		},
+	}
+	if got := resolveVersion("release-7", info); got != "release-7" {
+		t.Fatalf("linked version = %q", got)
+	}
+	if got := resolveVersion("dev", info); got != "9fd96bde9e10-dirty" {
+		t.Fatalf("VCS fallback = %q", got)
+	}
+	info.Settings = nil
+	if got := resolveVersion("dev", info); got != "v1.2.3" {
+		t.Fatalf("module fallback = %q", got)
+	}
+	if got := resolveVersion("dev", nil); got != "dev" {
+		t.Fatalf("development fallback = %q", got)
 	}
 }
