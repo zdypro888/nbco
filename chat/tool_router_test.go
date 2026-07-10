@@ -29,6 +29,17 @@ func TestRouteTurnToolsKeepsPlainQuestionSmall(t *testing.T) {
 	}
 }
 
+func TestPeopleStatusQueryCanInspectCanonicalActivityWithoutBecomingAction(t *testing.T) {
+	routed, route := routeTurnTools("telegram", "员工有在完善自己的信息吗", testRouteTools())
+	names := routeToolNameSet(routed)
+	if !names["list_system_activity"] || !names["list_data_collection_campaigns"] {
+		t.Fatalf("人员状态查询应同时具备专项状态和底层活动证据: tools=%v route=%s", routedToolNames(routed), route.Summary())
+	}
+	if route.Has("action") || looksLikeAuditableActionRequest("员工有在完善自己的信息吗") {
+		t.Fatalf("人员状态查询不能被升级成执行动作: route=%s", route.Summary())
+	}
+}
+
 func TestRouteTurnToolsIncludesExtensionTools(t *testing.T) {
 	all := append(testRouteTools(), ai.Tool{
 		Name: "weather_lookup", Description: "查询天气预报", Effect: ai.ToolEffectRead,
@@ -60,9 +71,6 @@ func TestToolSoftLimitKeepsRelevantLateToolWithoutAllowlist(t *testing.T) {
 func TestExtensionToolCanProvideActionEvidence(t *testing.T) {
 	custom := ai.Tool{Name: "company_action", Description: "执行公司扩展动作", Effect: ai.ToolEffectExecute}
 	steps := []ai.Step{{Kind: ai.StepToolCall, ToolName: custom.Name, Result: "执行成功"}}
-	if sideEffectCompletionWithoutSuccessfulActionWithTools("执行扩展动作", "已完成。", []ai.Tool{custom}, steps) {
-		t.Fatal("successful extension execution must satisfy action evidence")
-	}
 	plan := buildActionAuditPlan("执行扩展动作", []ai.Tool{custom}, &ai.TurnResult{Steps: steps})
 	if plan == nil || !containsString(plan.ExpectedTools, custom.Name) {
 		t.Fatalf("actual extension action must be recorded in audit plan: %+v", plan)
@@ -219,12 +227,12 @@ func TestSlimSystemPromptAvoidsStaticDispatchTrees(t *testing.T) {
 	o := &Orchestrator{tz: time.UTC}
 	u := &store.User{ID: 1, Name: "PRO", IsSuperadmin: true}
 	got, err := o.systemPrompt(context.Background(), u, "telegram",
-		map[string]bool{"list_capabilities": true, "send_message": true, "list_roles": true},
+		map[string]bool{"list_capabilities": true, "list_system_activity": true, "send_message": true, "list_roles": true},
 		toolRoute{Reasons: []string{"people", "action"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"核心原则", "时间结论以当前业务时区", "本轮能力路由", "send_message", "当前用户：PRO"} {
+	for _, want := range []string{"核心原则", "时间结论以当前业务时区", "list_system_activity", "本轮能力路由", "send_message", "当前用户：PRO"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("短系统提示缺 %q:\n%s", want, got)
 		}

@@ -762,8 +762,8 @@ function actionOutcomeLabel(t) {
     evidence_ok: "已执行",
     planned_without_tool: "未执行",
     tool_attempted_without_success_evidence: "工具失败",
-    blocked_action_evidence: "已拦截",
-    blocked_no_tool_completion: "已拦截",
+    blocked_action_evidence: "历史版本拦截",
+    blocked_no_tool_completion: "历史版本拦截",
     no_result: "无结果",
   };
   return labels[t.outcome] || t.outcome || "";

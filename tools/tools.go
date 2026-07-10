@@ -232,19 +232,20 @@ var toolPerm = map[string]string{
 	"revoke_passive_perm": perm.ActManagePerm,
 	"view_user_perms":     perm.ActManagePerm,
 	// 超管专属（组装函数已裁剪，这里再声明一层防御 + 让矩阵完整）
-	"company_overview":   reqSuper,
-	"get_ai_settings":    reqSuper,
-	"set_ai_settings":    reqSuper,
-	"ai_usage_stats":     reqSuper,
-	"low_level_db_query": reqSuper,
-	"low_level_db_exec":  reqSuper,
-	"add_info_field":     reqSuper,
-	"remove_info_field":  reqSuper,
-	"disable_user":       reqSuper,
-	"enable_user":        reqSuper,
-	"create_role":        reqSuper,
-	"update_role":        reqSuper,
-	"delete_role":        reqSuper,
+	"company_overview":     reqSuper,
+	"get_ai_settings":      reqSuper,
+	"set_ai_settings":      reqSuper,
+	"ai_usage_stats":       reqSuper,
+	"list_system_activity": reqSuper,
+	"low_level_db_query":   reqSuper,
+	"low_level_db_exec":    reqSuper,
+	"add_info_field":       reqSuper,
+	"remove_info_field":    reqSuper,
+	"disable_user":         reqSuper,
+	"enable_user":          reqSuper,
+	"create_role":          reqSuper,
+	"update_role":          reqSuper,
+	"delete_role":          reqSuper,
 	// AI 员工管理：有 manage_worker 权限即可，handler 内限定只能操作自己名下的
 	// worker（超管不限）——和真人邀请（generate_key）一样是权限而非身份门槛
 	"create_worker":             perm.ActManageWorker,
@@ -364,6 +365,7 @@ var groupSensitive = map[string]bool{
 	"enable_script_tool":              true,
 	"search_history":                  true, // 会翻出发言人的私聊历史，群里禁用
 	"list_action_turns":               true, // 动作日志含私聊输入和工具结果，群里禁用
+	"list_system_activity":            true, // 全局工具流水含私聊参数和业务结果，群里禁用
 	"ai_usage_stats":                  true,
 	"get_ai_settings":                 true,
 	"set_ai_settings":                 true,

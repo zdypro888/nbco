@@ -331,6 +331,53 @@ func TestRecordActionTurn(t *testing.T) {
 	}
 }
 
+func TestListAuditActivity(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	bossSession, err := s.StartSession(ctx, boss.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliceSession, err := s.StartSession(ctx, alice.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Audit(ctx, alice.ID, &aliceSession.ID, "update_my_profile",
+		[]byte(`{"fields":{"职位":"开发"}}`), "已更新。", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Audit(ctx, boss.ID, &bossSession.ID, "list_users", []byte(`{}`), "alice", true); err != nil {
+		t.Fatal(err)
+	}
+
+	since := time.Now().Add(-time.Hour)
+	items, err := s.ListAuditActivity(ctx, AuditActivityFilter{
+		Tool: "update_my_profile", Since: &since, Limit: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].UserID != alice.ID || items[0].UserName != "alice" || items[0].SessionID == nil || *items[0].SessionID != aliceSession.ID {
+		t.Fatalf("tool filter result = %+v", items)
+	}
+	items, err = s.ListAuditActivity(ctx, AuditActivityFilter{Query: "开发", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Tool != "update_my_profile" {
+		t.Fatalf("query should search args: %+v", items)
+	}
+	items, err = s.ListAuditActivity(ctx, AuditActivityFilter{UserID: boss.ID, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Tool != "list_users" {
+		t.Fatalf("user filter result = %+v", items)
+	}
+}
+
 func TestDataCollectionCampaignRefreshesOnUserInfoUpdate(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

@@ -224,13 +224,14 @@ var toolDomain = map[string]string{
 	"enable_script_tool": CapabilityAutomation,
 
 	// ops
-	"list_capabilities":  CapabilityOps,
-	"list_action_turns":  CapabilityOps,
-	"get_ai_settings":    CapabilityOps,
-	"set_ai_settings":    CapabilityOps,
-	"ai_usage_stats":     CapabilityOps,
-	"low_level_db_query": CapabilityOps,
-	"low_level_db_exec":  CapabilityOps,
+	"list_capabilities":    CapabilityOps,
+	"list_action_turns":    CapabilityOps,
+	"list_system_activity": CapabilityOps,
+	"get_ai_settings":      CapabilityOps,
+	"set_ai_settings":      CapabilityOps,
+	"ai_usage_stats":       CapabilityOps,
+	"low_level_db_query":   CapabilityOps,
+	"low_level_db_exec":    CapabilityOps,
 }
 
 var toolEffect = map[string]string{
@@ -300,6 +301,7 @@ var toolEffect = map[string]string{
 	"issue_worker_bind_code":          ToolEffectWrite,
 	"link_task_to_milestone":          ToolEffectWrite,
 	"list_action_turns":               ToolEffectRead,
+	"list_system_activity":            ToolEffectRead,
 	"list_capabilities":               ToolEffectRead,
 	"list_data_collection_campaigns":  ToolEffectRead,
 	"list_decision_queue":             ToolEffectRead,

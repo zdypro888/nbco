@@ -47,9 +47,6 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 				}
 			}
 		}
-		if res.FinishReason == "blocked_no_tool_completion" {
-			requiresAction = true
-		}
 	}
 	if !requiresAction {
 		return nil
@@ -460,7 +457,7 @@ func (o *Orchestrator) maybeRecordActionFailureLearning(ctx context.Context, u *
 		return
 	}
 	evidence, _ := json.Marshal(map[string]any{
-		"source":       "action_guard",
+		"source":       "action_audit",
 		"channel":      channel,
 		"session_id":   sessionID,
 		"user_msg_id":  userMsgID,
@@ -482,7 +479,7 @@ func (o *Orchestrator) maybeRecordActionFailureLearning(ctx context.Context, u *
 		Evidence:   evidence,
 		Confidence: 0.55,
 		Status:     store.LearningStatusPending,
-		SourceType: "action_guard",
+		SourceType: "action_audit",
 		SourceRef:  fmt.Sprintf("session:%d/message:%d", sessionID, userMsgID),
 		CreatedBy:  &createdBy,
 	}); err != nil {
@@ -496,12 +493,6 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 	}
 	if res == nil {
 		return "no_result"
-	}
-	if res.FinishReason == "blocked_action_evidence" || res.FinishReason == "blocked_no_tool_completion" {
-		if _, ok := firstPendingApprovalStep(res.Steps); ok {
-			return "pending_approval"
-		}
-		return res.FinishReason
 	}
 	if _, ok := firstPendingApprovalStep(res.Steps); ok {
 		return "pending_approval"

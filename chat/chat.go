@@ -300,30 +300,12 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			engineOK = false
 			res.Text = visibleReplyFallback(res)
 		} else {
-			res = mergeRepairResult(res, repaired)
+			res = repaired
 		}
 	}
-	if sideEffectCompletionWithoutSuccessfulActionWithTools(text, res.Text, toolset, res.Steps) {
-		slog.Warn("拦截无成功动作证据的完成声明",
-			"session", sess.ID, "reply_len", len(res.Text), "tool_calls", countToolCalls(res.Steps),
-			"user_sha", contentHash(text), "reply_sha", contentHash(res.Text))
-		repaired, rerr := o.repairNoToolCompletionTurn(ctx, req, res, onDelta)
-		if rerr != nil {
-			slog.Warn("无成功动作证据完成声明重跑失败，改用系统兜底答复", "session", sess.ID, "err", rerr)
-			o.noteEngineResult(false, rerr)
-			engineOK = false
-			res.Text = noToolCompletionFallback()
-			res.FinishReason = "blocked_no_tool_completion"
-		} else if sideEffectCompletionWithoutSuccessfulActionWithTools(text, repaired.Text, toolset, repaired.Steps) {
-			slog.Warn("无成功动作证据完成声明重跑后仍未落动作工具，改用系统兜底答复",
-				"session", sess.ID, "reply_len", len(repaired.Text), "reply_sha", contentHash(repaired.Text))
-			res = mergeRepairResult(res, repaired)
-			res.Text = noToolCompletionFallback()
-			res.FinishReason = "blocked_no_tool_completion"
-		} else {
-			res = mergeRepairResult(res, repaired)
-		}
-	}
+	// Do not post-filter business semantics here. Tool traces feed the audit
+	// ledger, but they must never trigger a second agent run or replace a valid
+	// model answer based on natural-language wording.
 	if engineOK {
 		o.noteEngineResult(true, nil)
 	}
@@ -357,22 +339,6 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 上下文压缩：未折叠消息超阈值时后台折叠（不阻塞本轮回复）。
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
 	return res.Text, nil
-}
-
-func mergeRepairResult(first, repaired *ai.TurnResult) *ai.TurnResult {
-	if first == nil {
-		return repaired
-	}
-	if repaired == nil {
-		return first
-	}
-	merged := *repaired
-	if len(first.Steps) > 0 {
-		merged.Steps = make([]ai.Step, 0, len(first.Steps)+len(repaired.Steps))
-		merged.Steps = append(merged.Steps, first.Steps...)
-		merged.Steps = append(merged.Steps, repaired.Steps...)
-	}
-	return &merged
 }
 
 func (o *Orchestrator) repairMissingToolTurn(ctx context.Context, req *ai.TurnRequest, missingTool string, onDelta func(string)) (*ai.TurnResult, error) {
@@ -450,37 +416,6 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	return res, nil
 }
 
-func (o *Orchestrator) repairNoToolCompletionTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {
-	retry := *req
-	retry.OnDelta = onDelta
-	retry.StreamReasoning = false
-	var actionTools []string
-	for _, tool := range req.Tools {
-		if tools.ToolCanProveActionTool(tool) {
-			actionTools = append(actionTools, tool.Name)
-		}
-	}
-	retry.System = req.System + "\n\n[系统保护]\n上一轮没有成功调用任何写入/执行型工具，或只调用了查询工具，却给了完成式回复。请重新判断用户意图并处理同一个请求：\n" +
-		"- 用户确实要求改变外部状态或执行工作时，从本轮工具定义中选择语义和参数匹配的写入/执行工具；可以组合查询工具定位稳定 ID，但查询本身不等于完成。\n" +
-		"- 用户只是在询问、解释或核实状态时，直接依据事实回答，不要为了通过检查而制造动作。\n" +
-		"- 没有合适工具、缺参数、无权限或渠道不允许时，明确说尚未完成以及缺什么，不要让用户机械重复原指令。\n" +
-		"- 只有工具成功结果能证明完成；工具失败或待确认时准确报告当前状态。"
-	if len(actionTools) > 0 {
-		retry.System += "\n本轮可见的写入/执行工具：" + strings.Join(actionTools, ", ")
-	}
-	res, err := o.engine.RunTurn(ctx, &retry)
-	if err != nil {
-		return nil, err
-	}
-	res.Text = textfmt.StripReasoning(res.Text)
-	res.Usage.InputTokens += first.Usage.InputTokens
-	res.Usage.OutputTokens += first.Usage.OutputTokens
-	if needsVisibleReplyRepair(res) {
-		return nil, errors.New("模型重跑后输出仍疑似截断")
-	}
-	return res, nil
-}
-
 func needsVisibleReplyRepair(res *ai.TurnResult) bool {
 	if res == nil {
 		return false
@@ -512,21 +447,6 @@ func visibleReplyFallback(res *ai.TurnResult) string {
 	return "这轮模型输出被上限截断，只剩不可用的答复碎片。我已拦截，没有把碎片当作结果发送；请再发一次，我会重新处理。"
 }
 
-func sideEffectCompletionWithoutSuccessfulAction(userText, reply string, steps []ai.Step) bool {
-	return sideEffectCompletionWithoutSuccessfulActionWithTools(userText, reply, nil, steps)
-}
-
-func sideEffectCompletionWithoutSuccessfulActionWithTools(userText, reply string, toolset []ai.Tool, steps []ai.Step) bool {
-	trimmed := strings.TrimSpace(reply)
-	if isDegenerateVisibleReply(trimmed) {
-		return looksLikeSideEffectRequest(userText)
-	}
-	if !claimsSideEffectDone(trimmed) {
-		return false
-	}
-	return !hasSuccessfulActionEvidenceWithTools(nil, toolset, steps)
-}
-
 func looksLikeSideEffectRequest(text string) bool {
 	text = strings.ToLower(text)
 	keywords := []string{
@@ -545,74 +465,6 @@ func looksLikeSideEffectRequest(text string) bool {
 		}
 	}
 	return false
-}
-
-func claimsSideEffectDone(reply string) bool {
-	reply = strings.ToLower(reply)
-	phrases := []string{
-		"已设置", "设置好", "已创建", "已新建", "已添加", "已更新", "已修改", "已改",
-		"已重命名", "已发送", "已保存", "已记录", "已绑定", "已开启", "已关闭", "已取消",
-		"已邀请", "已授权", "已分配", "已安排", "已部署", "已升级", "已生成", "重新生成",
-		"已建立", "已下发", "已推送", "已通知", "已发出", "已发", "创建成功", "设置成功",
-		"更新成功", "发送成功", "下发成功", "已经发送", "已经创建", "已经更新", "已经设置",
-		"已经记录", "已经把", "我已经把", "我已经将", "已将", "已把", "正在补发",
-		"补发正在进行", "现在正在", "我现在就去", "稍后给你", "马上发送", "立刻发送",
-		"我会发送",
-		"i've", "i have", "created", "updated", "scheduled",
-		"sent", "saved", "renamed", "deployed",
-	}
-	for _, p := range phrases {
-		if strings.Contains(reply, p) {
-			return true
-		}
-	}
-	return containsDoneVerb(reply)
-}
-
-func containsDoneVerb(reply string) bool {
-	verbs := []string{
-		"设置", "提醒", "通知", "发送", "发出", "发给", "补发", "私信", "群发",
-		"创建", "新建", "建立", "添加", "更新", "修改", "改名", "重命名",
-		"删除", "取消", "邀请", "授权", "分配", "派发", "派", "保存", "记录",
-		"绑定", "开启", "关闭", "运行", "执行", "部署", "升级", "生成", "安排",
-		"下发", "推送", "同步", "拆解", "拆分", "写入", "落实", "固化", "学习",
-		"沉淀", "抓取", "拉取", "分析", "监控", "跟进",
-	}
-	doneMarks := []string{"已", "已经", "成功", "完成", "正在", "立刻", "马上", "我会", "我来", "将会"}
-	for _, mark := range doneMarks {
-		if !strings.Contains(reply, mark) {
-			continue
-		}
-		for _, verb := range verbs {
-			if strings.Contains(reply, verb) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func isDegenerateVisibleReply(reply string) bool {
-	if reply == "" {
-		return true
-	}
-	runes := []rune(reply)
-	if len(runes) <= 2 {
-		return true
-	}
-	if len(runes) <= 6 && asciiMostly(reply) {
-		return true
-	}
-	switch reply {
-	case "现在", "好的", "收到", "ok", "OK", "嗯", "好":
-		return true
-	default:
-		return false
-	}
-}
-
-func noToolCompletionFallback() string {
-	return "这轮没有成功执行任何写入/执行型系统工具，所以我不能说已经完成。请重新发一次明确指令，我会先调用对应工具；只有工具返回成功后才确认完成。"
 }
 
 func countToolCalls(steps []ai.Step) int {
@@ -2018,15 +1870,18 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 
 	b.WriteString("[核心原则]\n")
 	b.WriteString("- 先理解本轮发言人的真实意图，再使用已注入的规则、知识、历史、人物上下文和最近文件；事实不确定时调用查询工具补证据。\n")
-	b.WriteString("- 建设性操作直接做：发送、创建、修改、授权、邀请、定时、派工、群管理、部署、文件交付等，只有对应工具成功后才能说已完成。\n")
-	b.WriteString("- 如果没有工具调用、工具失败、缺参数、无权限或当前渠道不可做，必须说未完成以及下一步；不能用“我会/正在/马上”伪装执行。\n")
+	b.WriteString("- 查询、解释和状态核实只回答已取得的事实，不要擅自升级成发送、创建、提醒或修改动作。\n")
+	b.WriteString("- 用户明确要求改变外部状态时直接调用语义匹配的工具，并以工具返回为事实；工具失败、待确认、缺参数、无权限或渠道不可做时准确报告当前状态，不能虚构已经发生的操作。\n")
 	b.WriteString("- 查询结论必须严格匹配工具结果的范围：只查个人任务就只能说个人执行/个人分配范围，不能推断公司、系统或项目整体空闲；用户明确问全公司/系统级/项目整体时再查全局或项目工具。\n")
 	b.WriteString("- 时间结论以当前业务时区和消息/工具记录的绝对时间为准；用户或历史里出现今天、昨天、明天、刚才等相对表达时先换算核对，不能直接顺着可能错误的时间说法。回复涉及跨日事件时优先写绝对日期。\n")
 	b.WriteString("- 员工ID/user_id、任务ID、项目ID是稳定业务编号，名字只是展示名；涉及具体对象、授权、派工、发消息、改资料时优先使用 ID，并可在回复里用“姓名（员工ID N）”确认对象。\n")
 	b.WriteString("- tg_id、group_ref、message_ref、file_id 等是外部渠道/工具工作内存，可继续传给工具；最终回复不要主动暴露 Telegram 原始 ID、group_ref/message_ref 或 token，除非用户明确需要定位/调试。\n")
 	b.WriteString("- Access Token 明文不可查询；忘记时查看状态或换发新 token。worker 绑定码、邀请码、API token 都按工具结果处理，不能臆造。\n")
+	if availableTools["list_system_activity"] {
+		b.WriteString("- 用户查询谁做过什么、某项变更是否发生、近期操作或历史执行情况时，用 list_system_activity 查询真实工具流水；专项任务/活动为空不代表底层没有发生操作。\n")
+	}
 	if availableTools["list_action_turns"] {
-		b.WriteString("- 用户追问“刚才到底做了吗/为什么没执行/有没有调用工具/看日志/发出去没”时，先 list_action_turns 查动作事实账本，再解释；不要靠记忆猜。\n")
+		b.WriteString("- 用户追问某轮为什么没执行、模型当时看到了哪些工具或如何路由时，用 list_action_turns 查轮次诊断；它是观测记录，不是业务状态来源。\n")
 	}
 	if availableTools["list_capabilities"] {
 		b.WriteString("- 用户问系统会什么、某类能力在哪、为什么做不到时，可用 list_capabilities 查看能力目录；不要背静态清单。\n")

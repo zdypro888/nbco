@@ -10,6 +10,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 func governanceTools(d Deps, u *store.User) []ai.Tool {
@@ -36,7 +37,7 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 				return renderDecisionItems(items), nil
 			}),
 
-		tool("list_action_turns", "查看最近动作轮次与工具证据。用户问“刚才做了吗/为什么没执行/有没有调用工具/消息发出去没/查看执行日志”时调用；普通用户只看自己，超管可 scope=all。", obj(map[string]any{
+		tool("list_action_turns", "查看最近 AI 动作轮次的意图、路由、可见工具和执行轨迹，用于诊断为什么没调用工具或某轮如何决策；它不是业务状态来源。普通用户只看自己，超管可 scope=all。", obj(map[string]any{
 			"scope": p("string", "self 或 all；all 仅超级管理员有效，默认 self"),
 			"limit": p("integer", "返回条数，默认20，最多80"),
 		}),
@@ -67,6 +68,54 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return renderActionTurns(ctx, d.Store, d.TZ, items), nil
+			}),
+
+		tool("list_system_activity", "查询系统真实工具调用流水，用来核实谁在什么时间做过什么、某项变更是否发生、最近有哪些操作。它直接读取通用审计账本，不依赖任务或专项活动是否创建；不确定工具名时留空筛选并查看最近记录。仅超级管理员可用。", obj(map[string]any{
+			"user_id":     p("integer", "可选：按员工内部 ID 精确筛选；0 表示所有人"),
+			"session_id":  p("integer", "可选：按会话内部 ID 精确筛选"),
+			"tool":        p("string", "可选：按工具名精确筛选，例如 update_my_profile"),
+			"query":       p("string", "可选：在工具名、参数、结果和员工名中进行文字检索"),
+			"since_hours": p("integer", "向前查询小时数，默认 24，最大 8760"),
+			"limit":       p("integer", "返回条数，默认 50，最大 200"),
+		}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				if d.Store == nil {
+					return "系统活动账本不可用。", nil
+				}
+				var args struct {
+					UserID     int64  `json:"user_id"`
+					SessionID  int64  `json:"session_id"`
+					Tool       string `json:"tool"`
+					Query      string `json:"query"`
+					SinceHours int    `json:"since_hours"`
+					Limit      int    `json:"limit"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				hours := args.SinceHours
+				if hours <= 0 {
+					hours = 24
+				}
+				if hours > 24*365 {
+					hours = 24 * 365
+				}
+				limit := args.Limit
+				if limit <= 0 {
+					limit = 50
+				}
+				if limit > 200 {
+					limit = 200
+				}
+				since := time.Now().Add(-time.Duration(hours) * time.Hour)
+				items, err := d.Store.ListAuditActivity(ctx, store.AuditActivityFilter{
+					UserID: args.UserID, SessionID: args.SessionID, Tool: args.Tool,
+					Query: args.Query, Since: &since, Limit: limit,
+				})
+				if err != nil {
+					return "", err
+				}
+				return renderSystemActivity(d.TZ, items), nil
 			}),
 
 		tool("score_learning_candidates", "对待审核学习候选做一次治理评分：识别明显重复、冲突、低证据候选，帮助超管审核。", obj(map[string]any{
@@ -357,6 +406,40 @@ func renderDecisionItems(items []*store.DecisionItem) string {
 	return strings.TrimSpace(b.String())
 }
 
+func renderSystemActivity(tz *time.Location, items []*store.AuditActivity) string {
+	if len(items) == 0 {
+		return "（没有匹配的系统活动记录）"
+	}
+	if tz == nil {
+		tz = time.Local
+	}
+	var b strings.Builder
+	b.WriteString("系统工具调用流水（handler 状态只表示工具处理器是否报系统错误，业务结果以结果正文为准）\n")
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		name := strings.TrimSpace(item.UserName)
+		if name == "" {
+			name = fmt.Sprintf("员工ID %d", item.UserID)
+		}
+		state := "handler-ok"
+		if !item.OK {
+			state = "system-error"
+		}
+		fmt.Fprintf(&b, "- 活动内部编号 %d · %s · %s（员工ID %d）· %s [%s]\n",
+			item.ID, item.CreatedAt.In(tz).Format("2006-01-02 15:04:05"), name, item.UserID, item.Tool, state)
+		args := strings.TrimSpace(string(item.Args))
+		if args != "" && args != "{}" && args != "null" {
+			fmt.Fprintf(&b, "  参数：%s\n", clipRunes(textfmt.RedactSecrets(args), 360))
+		}
+		if result := strings.TrimSpace(item.Result); result != "" {
+			fmt.Fprintf(&b, "  结果：%s\n", clipRunes(textfmt.RedactSecrets(result), 500))
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 type actionTurnDetails struct {
 	PlannerSource string `json:"planner_source"`
 	FinishReason  string `json:"finish_reason"`
@@ -441,7 +524,7 @@ func actionOutcomeLabel(outcome string) string {
 	case "tool_attempted_without_success_evidence":
 		return "调用过工具但无成功证据"
 	case "blocked_action_evidence", "blocked_no_tool_completion":
-		return "因缺少完成证据被拦截"
+		return "历史版本曾拦截"
 	case "no_result":
 		return "无模型结果"
 	case "no_action":

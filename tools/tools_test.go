@@ -156,7 +156,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_capabilities", "list_action_turns", "low_level_db_query", "low_level_db_exec"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_capabilities", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -178,6 +178,12 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if got := byName["list_action_turns"].Effect; got != ToolEffectRead {
 		t.Fatalf("list_action_turns effect=%q", got)
+	}
+	if got := byName["list_system_activity"].Effect; got != ToolEffectRead {
+		t.Fatalf("list_system_activity effect=%q", got)
+	}
+	if !byName["list_system_activity"].SuperadminOnly || byName["list_system_activity"].GroupAllowed {
+		t.Fatalf("list_system_activity 应仅超管可用且禁止群聊: %+v", byName["list_system_activity"])
 	}
 	if got := byName["low_level_db_query"].Domain; got != CapabilityOps {
 		t.Fatalf("low_level_db_query domain=%q", got)
@@ -252,6 +258,26 @@ func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 	for _, want := range []string{"已执行", "工具 1/1", "发送通知", "send_message:ok", "已发送给 3 人", "route=people,action", "tools=22/152", "finish_reason"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("动作账本渲染缺 %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestRenderSystemActivityPreservesBusinessResultSemantics(t *testing.T) {
+	got := renderSystemActivity(time.UTC, []*store.AuditActivity{
+		{
+			ID: 12, UserID: 7, UserName: "X Fan", Tool: "update_my_profile",
+			Args: []byte(`{"fields":{"职位":"开发"}}`), Result: "已更新。", OK: true,
+			CreatedAt: time.Date(2026, 7, 10, 7, 43, 6, 0, time.UTC),
+		},
+		{
+			ID: 11, UserID: 6, UserName: "mxb", Tool: "update_my_profile",
+			Result: "字段 department 未定义。", OK: true,
+			CreatedAt: time.Date(2026, 7, 10, 7, 40, 0, 0, time.UTC),
+		},
+	})
+	for _, want := range []string{"系统工具调用流水", "X Fan", "update_my_profile", "职位", "已更新", "department 未定义", "业务结果以结果正文为准"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("系统活动渲染缺 %q:\n%s", want, got)
 		}
 	}
 }

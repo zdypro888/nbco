@@ -286,6 +286,7 @@ var baselineToolNames = []string{
 	"list_workflows",
 	"get_api_token_status",
 	"list_action_turns",
+	"list_system_activity",
 }
 
 var peopleToolNames = []string{
@@ -348,7 +349,7 @@ var memoryToolNames = []string{
 }
 
 var opsToolNames = []string{
-	"list_capabilities", "list_action_turns", "get_ai_settings", "set_ai_settings", "ai_usage_stats",
+	"list_capabilities", "list_action_turns", "list_system_activity", "get_ai_settings", "set_ai_settings", "ai_usage_stats",
 	"list_eval_cases", "create_eval_case", "get_api_token_status", "generate_api_token", "revoke_api_token",
 	"low_level_db_query", "low_level_db_exec",
 }
