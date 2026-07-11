@@ -70,13 +70,18 @@ var (
 	escapedReasoningCloseRe = regexp.MustCompile(`(?is)&lt;\s*/\s*think\s*&gt;`)
 	escapedReasoningOpenRe  = regexp.MustCompile(`(?is)&lt;\s*think\b[^&]*?&gt;`)
 
-	toolOnlySectionRe  = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*?\n\[用户可见目录\]\s*\n?`)
-	trailingToolOnlyRe = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*$`)
-	internalMarkerRe   = regexp.MustCompile(`(?i)\[nbco:[a-z0-9_-]+\]\s*`)
-	userIDParenRe      = regexp.MustCompile(`(?i)[（(][^（）()\n]*(?:user[_ -]?id|用户\s*id|用户内部编号|成员内部编号|员工内部编号|tg\s*id|telegram\s*id)[^（）()\n]*[）)]`)
-	userIDKVRe         = regexp.MustCompile(`(?i)\buser[_ -]?id\s*[:=：]\s*-?\d+\b`)
-	userInternalRefRe  = regexp.MustCompile(`(?i)(用户|成员|员工|授予者|创建者|操作者|目标用户)\s*内部编号\s*-?\d+`)
-	userIDLabelRe      = regexp.MustCompile(`(?i)(用户|成员|员工|tg|telegram)\s*id\s*[:=：]?\s*-?\d+\b`)
+	toolOnlySectionRe            = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*?\n\[用户可见目录\]\s*\n?`)
+	trailingToolOnlyRe           = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*$`)
+	internalMarkerRe             = regexp.MustCompile(`(?i)\[nbco:[a-z0-9_-]+\]\s*`)
+	legacyHistoryTimeRe          = regexp.MustCompile(`(?m)(^|\n)[\t ]*\[历史消息时间[^\r\n]{1,240}\][\t ]*`)
+	historyMetaTagRe             = regexp.MustCompile(`(?is)[\t ]*<nbco_history_meta\b[^>]*?/?>[\t ]*`)
+	historyMetaDanglingRe        = regexp.MustCompile(`(?is)[\t ]*<nbco_history_meta\b[^>]*$`)
+	escapedHistoryMetaTagRe      = regexp.MustCompile(`(?is)[\t ]*&lt;nbco_history_meta\b.*?/?&gt;[\t ]*`)
+	escapedHistoryMetaDanglingRe = regexp.MustCompile(`(?is)[\t ]*&lt;nbco_history_meta\b[^&]*$`)
+	userIDParenRe                = regexp.MustCompile(`(?i)[（(][^（）()\n]*(?:user[_ -]?id|用户\s*id|用户内部编号|成员内部编号|员工内部编号|tg\s*id|telegram\s*id)[^（）()\n]*[）)]`)
+	userIDKVRe                   = regexp.MustCompile(`(?i)\buser[_ -]?id\s*[:=：]\s*-?\d+\b`)
+	userInternalRefRe            = regexp.MustCompile(`(?i)(用户|成员|员工|授予者|创建者|操作者|目标用户)\s*内部编号\s*-?\d+`)
+	userIDLabelRe                = regexp.MustCompile(`(?i)(用户|成员|员工|tg|telegram)\s*id\s*[:=：]?\s*-?\d+\b`)
 )
 
 // RedactSecrets removes API keys, Telegram bot tokens, worker access tokens,
@@ -124,12 +129,43 @@ func StripReasoning(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// StripHistoryMetadata removes nbco's internal replay-time protocol from model
+// text. Historical timestamps are useful to resolve relative dates, but they
+// are not presentation content and must never be persisted or shown. The
+// legacy natural-language prefix is removed as well so already polluted history
+// cannot teach later turns to repeat it. Dangling forms cover streamed partials.
+func StripHistoryMetadata(s string) string {
+	if s == "" {
+		return s
+	}
+	for {
+		next := legacyHistoryTimeRe.ReplaceAllString(s, "$1")
+		next = historyMetaTagRe.ReplaceAllString(next, "")
+		next = escapedHistoryMetaTagRe.ReplaceAllString(next, "")
+		if next == s {
+			break
+		}
+		s = next
+	}
+	s = historyMetaDanglingRe.ReplaceAllString(s, "")
+	s = escapedHistoryMetaDanglingRe.ReplaceAllString(s, "")
+	// A streaming snapshot can end halfway through the old prefix before the
+	// closing bracket arrives. Suppress only that unfinished final line.
+	lineStart := strings.LastIndexByte(s, '\n') + 1
+	lastLine := strings.TrimLeft(s[lineStart:], " \t")
+	if strings.HasPrefix(lastLine, "[历史消息时间") && !strings.Contains(lastLine, "]") {
+		s = s[:lineStart]
+	}
+	return strings.TrimSpace(s)
+}
+
 // SanitizeVisibleReply removes tool-only references and user identity internals
 // from text that is about to be shown to end users. Tool handlers may expose
 // user_id in their own outputs so the model can chain calls; this final display
 // pass is the deterministic privacy boundary.
 func SanitizeVisibleReply(s string) string {
 	s = StripReasoning(s)
+	s = StripHistoryMetadata(s)
 	s = toolOnlySectionRe.ReplaceAllString(s, "$1")
 	s = trailingToolOnlyRe.ReplaceAllString(s, "$1")
 	s = internalMarkerRe.ReplaceAllString(s, "")

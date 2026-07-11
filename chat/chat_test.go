@@ -84,8 +84,21 @@ func TestModelHistoryContentCarriesBusinessTime(t *testing.T) {
 	tz := time.FixedZone("CST", 8*60*60)
 	msg := store.ChatMessage{Content: "昨天提交了", CreatedAt: time.Date(2026, 7, 9, 17, 30, 0, 0, time.UTC)}
 	got := modelHistoryContent(msg, tz)
-	if !strings.Contains(got, "2026-07-10 01:30:00 +08:00 (CST)") || !strings.Contains(got, "昨天提交了") {
+	if !strings.Contains(got, "2026-07-10 01:30:00 +08:00 (CST)") || !strings.Contains(got, "昨天提交了") ||
+		!strings.Contains(got, "<nbco_history_meta") || strings.Contains(got, "历史消息时间") {
 		t.Fatalf("history timestamp missing or wrong: %q", got)
+	}
+}
+
+func TestModelHistoryContentDoesNotRefeedLegacyMarker(t *testing.T) {
+	msg := store.ChatMessage{
+		Role:      string(ai.RoleAssistant),
+		Content:   "[历史消息时间 2026-07-11 22:19 +08:00 (Asia/Shanghai)] <b>已发送</b>",
+		CreatedAt: time.Date(2026, 7, 11, 14, 19, 0, 0, time.UTC),
+	}
+	got := modelHistoryContent(msg, time.FixedZone("CST", 8*60*60))
+	if strings.Contains(got, "历史消息时间") || !strings.HasPrefix(got, "<b>已发送</b>\n") {
+		t.Fatalf("legacy marker was re-fed: %q", got)
 	}
 }
 
@@ -275,7 +288,7 @@ func TestRenderRetrievalBlock(t *testing.T) {
 	}
 	ms := []store.ChatMessage{
 		{Role: "user", Content: "上次定的客户A付款条件", CreatedAt: time.Date(2026, 6, 21, 10, 3, 0, 0, tz)},
-		{Role: "assistant", Content: "已记录到知识库", CreatedAt: time.Date(2026, 6, 21, 10, 5, 0, 0, tz)},
+		{Role: "assistant", Content: "[历史消息时间 2026-06-21 10:05 +00:00 (UTC)] 已记录到知识库", CreatedAt: time.Date(2026, 6, 21, 10, 5, 0, 0, tz)},
 	}
 	out := renderRetrievalBlock(ks, ms, tz)
 	for _, want := range []string{"已预取", "#12", "客户A付款条件", "net 60", "客户, 财务", "用户", "AI", "06-21 10:03"} {
@@ -285,6 +298,9 @@ func TestRenderRetrievalBlock(t *testing.T) {
 	}
 	if strings.Contains(out, "scope:global") {
 		t.Errorf("scope 内部标签不应展示：%s", out)
+	}
+	if strings.Contains(out, "历史消息时间") {
+		t.Errorf("预取块不应回灌内部时间标记：%s", out)
 	}
 	if renderRetrievalBlock(nil, nil, tz) != "" {
 		t.Error("空输入应返回空串")

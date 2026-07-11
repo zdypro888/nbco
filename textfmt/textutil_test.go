@@ -83,3 +83,26 @@ func TestSanitizeVisibleReplyHidesInternalMarkers(t *testing.T) {
 		t.Fatalf("internal marker leaked: %q", got)
 	}
 }
+
+func TestStripHistoryMetadata(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"legacy", "[历史消息时间 2026-07-11 22:19 +08:00 (Asia/Shanghai)] <b>已发送</b>", "<b>已发送</b>"},
+		{"repeated legacy", "[历史消息时间 old] [历史消息时间 newer] answer", "answer"},
+		{"structured suffix", "answer\n<nbco_history_meta timestamp=\"2026-07-11 22:19:00 +08:00\"/>", "answer"},
+		{"escaped structured", "answer &lt;nbco_history_meta timestamp=\"x\"/&gt;", "answer"},
+		{"streaming legacy", "[历史消息时间 2026-07", ""},
+		{"streaming structured", "answer\n<nbco_history_meta timestamp=\"2026", "answer"},
+		{"ordinary brackets", "[历史进度] 正常内容", "[历史进度] 正常内容"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := StripHistoryMetadata(tt.in); got != tt.want {
+				t.Fatalf("StripHistoryMetadata(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

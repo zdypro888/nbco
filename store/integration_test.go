@@ -3148,6 +3148,43 @@ func TestTelegramPendingEmployeeInvite(t *testing.T) {
 	}
 }
 
+func TestLegacyHistoryMarkerMigrationIsIdempotent(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "history-owner", false)
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := s.AppendMessage(ctx, sess.ID, "assistant",
+		"[历史消息时间 old] [历史消息时间 newer] <b>已发送</b>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetMessageEmbedding(ctx, id, "test-model", []float32{1, 2}); err != nil {
+		t.Fatal(err)
+	}
+	sql, err := migrationsFS.ReadFile("migrations/0052_strip_legacy_history_markers.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.pool.Exec(ctx, string(sql)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var content, model string
+	var embedding []float32
+	if err := s.pool.QueryRow(ctx,
+		`SELECT content, embedding, embed_model FROM chat_messages WHERE id = $1`, id).
+		Scan(&content, &embedding, &model); err != nil {
+		t.Fatal(err)
+	}
+	if content != "<b>已发送</b>" || embedding != nil || model != "" {
+		t.Fatalf("legacy marker cleanup = content=%q embedding=%v model=%q", content, embedding, model)
+	}
+}
+
 func TestScriptTools(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

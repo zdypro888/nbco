@@ -9,6 +9,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const historySearchLimit = 8
@@ -47,10 +48,12 @@ func memoryTools(d Deps, u *store.User) []ai.Tool {
 				b.WriteString("历史对话片段（按相关度）：\n")
 				for _, m := range ms {
 					who := "用户"
+					content := m.Content
 					if m.Role == string(ai.RoleAssistant) {
 						who = "AI"
+						content = textfmt.StripHistoryMetadata(content)
 					}
-					fmt.Fprintf(&b, "- [%s·%s] %s\n", fmtTime(m.CreatedAt, d.TZ), who, truncate(m.Content, 300))
+					fmt.Fprintf(&b, "- [%s·%s] %s\n", fmtTime(m.CreatedAt, d.TZ), who, truncate(content, 300))
 				}
 				return b.String(), nil
 			}),

@@ -31,12 +31,15 @@ func TestSemanticActionContinuationOnlyBeforeActionAttempt(t *testing.T) {
 func TestSemanticRouterInputIncludesRecentContextForReferences(t *testing.T) {
 	input := renderSemanticToolRouterInput("telegram", "那就发吧", "用户先前在讨论通知员工", []store.ChatMessage{
 		{Role: string(ai.RoleUser), Content: "通知黄桑今天开会"},
-		{Role: string(ai.RoleAssistant), Content: "需要现在发送吗？"},
+		{Role: string(ai.RoleAssistant), Content: "[历史消息时间 2026-07-11 10:00 +08:00 (Asia/Shanghai)] 需要现在发送吗？"},
 	}, []ai.Tool{{Name: "send_message", Domain: "people", Effect: ai.ToolEffectWrite, Description: "发送消息"}})
 	for _, want := range []string{"那就发吧", "通知黄桑今天开会", "需要现在发送吗", "send_message"} {
 		if !strings.Contains(input, want) {
 			t.Fatalf("router input missing %q: %s", want, input)
 		}
+	}
+	if strings.Contains(input, "历史消息时间") {
+		t.Fatalf("router input leaked replay metadata: %s", input)
 	}
 }
 

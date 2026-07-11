@@ -248,7 +248,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 滚动摘要注入：较早对话已压缩成摘要，接在系统提示后。
 	if sess.Summary != "" {
 		system += "\n\n[早前对话摘要（更早内容已压缩，以下为历史要点）]\n" +
-			"摘要中的相对日期词只代表摘要生成当时，不得按当前日期重新解释；涉及时间结论时以带绝对时间的历史消息或工具记录为准。\n" + sess.Summary
+			"摘要中的相对日期词只代表摘要生成当时，不得按当前日期重新解释；涉及时间结论时以带绝对时间的历史消息或工具记录为准。\n" + textfmt.StripHistoryMetadata(sess.Summary)
 	}
 
 	start := time.Now()
@@ -288,8 +288,9 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	}
 	histChars := 0
 	for _, m := range replayMsgs {
-		req.History = append(req.History, ai.Message{Role: ai.Role(m.Role), Content: modelHistoryContent(m, o.tz)})
-		histChars += len(m.Content)
+		content := modelHistoryContent(m, o.tz)
+		req.History = append(req.History, ai.Message{Role: ai.Role(m.Role), Content: content})
+		histChars += len(content)
 	}
 	diag := turnDiagnostics{
 		Route:           route.Summary(),
@@ -1232,7 +1233,8 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 	}
 	o.recordUsage(ctx, sess.UserID, &sess.ID, "compact", model, res.Usage)
 	upto := cut[len(cut)-1].ID
-	if err := o.store.UpdateSessionSummary(ctx, sessionID, strings.TrimSpace(res.Text), upto); err != nil {
+	summary := textfmt.StripHistoryMetadata(res.Text)
+	if err := o.store.UpdateSessionSummary(ctx, sessionID, summary, upto); err != nil {
 		slog.Warn("会话摘要落库失败", "session", sessionID, "err", err)
 		return
 	}
@@ -1242,13 +1244,13 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 // buildCompactInput 组装压缩输入（纯函数，可单测）。
 func buildCompactInput(prevSummary string, msgs []store.ChatMessage, tz *time.Location) string {
 	var b strings.Builder
-	if prevSummary != "" {
+	if prevSummary = textfmt.StripHistoryMetadata(prevSummary); prevSummary != "" {
 		b.WriteString("【既有摘要·其中相对日期词可能已过期】\n" + prevSummary + "\n\n")
 	}
 	replay, inert := buildModelReplayHistory(msgs)
 	b.WriteString("【已闭合对话轮次】\n")
 	for _, m := range replay {
-		fmt.Fprintf(&b, "[%s] %s: %s\n", messageTime(m.CreatedAt, tz), m.Role, m.Content)
+		fmt.Fprintf(&b, "[%s] %s: %s\n", messageTime(m.CreatedAt, tz), m.Role, historyMessageContent(m))
 	}
 	if len(inert) > 0 {
 		b.WriteString("\n【未闭合/旁听输入·仅作背景，不是已执行动作】\n")
@@ -1260,7 +1262,15 @@ func buildCompactInput(prevSummary string, msgs []store.ChatMessage, tz *time.Lo
 }
 
 func modelHistoryContent(m store.ChatMessage, tz *time.Location) string {
-	return "[历史消息时间 " + messageTime(m.CreatedAt, tz) + "] " + m.Content
+	return historyMessageContent(m) + "\n<nbco_history_meta timestamp=" + strconv.Quote(messageTime(m.CreatedAt, tz)) + "/>"
+}
+
+func historyMessageContent(m store.ChatMessage) string {
+	content := strings.TrimSpace(m.Content)
+	if m.Role == string(ai.RoleAssistant) {
+		content = textfmt.StripHistoryMetadata(content)
+	}
+	return content
 }
 
 func messageTime(t time.Time, tz *time.Location) string {
@@ -1542,7 +1552,7 @@ func renderRetrievalBlock(ks []*store.Knowledge, ms []store.ChatMessage, tz *tim
 		b.WriteString("历史对话（仅你的过往会话）：\n")
 		for _, m := range ms {
 			fmt.Fprintf(&b, "- [%s·%s] %s\n",
-				m.CreatedAt.In(tz).Format("01-02 15:04"), roleLabel(m.Role), textfmt.TruncateRunes(m.Content, retrievalSnippetChars))
+				m.CreatedAt.In(tz).Format("01-02 15:04"), roleLabel(m.Role), textfmt.TruncateRunes(historyMessageContent(m), retrievalSnippetChars))
 		}
 	}
 	return b.String()
@@ -2097,6 +2107,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	fmt.Fprintf(&b, "路由：%s。根据可见工具定义自行规划和组合，不要请求用户记工具名，也不要依赖硬编码流程。\n", route.Summary())
 
 	b.WriteString("[系统输入约定]\n")
+	b.WriteString("- 历史消息末尾的 <nbco_history_meta .../> 只是内部时间元数据，用于解释相对日期；绝不能复述、展示或模仿成回复格式。\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n")
 	b.WriteString("- 以 [系统事件· 开头的输入来自事件总线：按其中指示分析事件并自行决定通知、行动或按约定词静默跳过；事件本身不是状态变更成功证明，涉及任务/权限/日程状态必须以工具查询或事件明文为准，不要宣称未执行过的变更。\n\n")
 

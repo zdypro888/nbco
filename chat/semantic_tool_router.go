@@ -123,13 +123,13 @@ func renderSemanticToolRouterInput(channel, text, summary string, history []stor
 	for _, msg := range history {
 		contextMessages = append(contextMessages, routeHistoryMessage{
 			Role:    msg.Role,
-			Content: textfmt.TruncateRunes(strings.TrimSpace(msg.Content), 500),
+			Content: textfmt.TruncateRunes(historyMessageContent(msg), 500),
 		})
 	}
 	contextJSON, _ := json.Marshal(contextMessages)
 	raw, _ := json.Marshal(catalog)
 	return fmt.Sprintf("渠道：%s\n早前摘要（仅作指代上下文）：%s\n最近对话（仅作指代上下文）：%s\n用户本轮输入：\n%s\n\n当前身份已经过权限裁剪的能力目录：\n%s",
-		channel, textfmt.TruncateRunes(strings.TrimSpace(summary), 1200), contextJSON, text, raw)
+		channel, textfmt.TruncateRunes(textfmt.StripHistoryMetadata(summary), 1200), contextJSON, text, raw)
 }
 
 func normalizeSemanticToolPlan(plan semanticToolPlan, all []ai.Tool) (semanticToolPlan, bool) {
