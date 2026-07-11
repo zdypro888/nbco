@@ -144,7 +144,10 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 		}),
 	}
 	if g.telegramAPIURL != "" {
-		options = append(options, bot.WithServerURL(g.telegramAPIURL))
+		options = append(options,
+			bot.WithServerURL(g.telegramAPIURL),
+			bot.WithHTTPClient(time.Minute, newLocalBotAPIHTTPClient()),
+		)
 	}
 	b, err := bot.New(token, options...)
 	if err != nil {
