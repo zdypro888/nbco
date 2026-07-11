@@ -261,9 +261,12 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 		Title:       title,
 		Command:     command,
 		PTY:         false,
-		Description: "标准工作流 nbco_upgrade：在一个 worker 命令任务内执行升级脚本。脚本负责拉取目标 ref、运行测试、构建、重启、healthz 检查；失败自动回滚。不要把同一次升级拆成多个并发任务。",
-		Acceptance:  "完成汇报必须包含目标版本、测试结果、部署结果、healthz 状态；失败时说明是否已回滚。",
+		Description: "标准工作流 nbco_upgrade：在一个 worker 命令任务内执行升级脚本。脚本负责拉取目标 ref、运行测试、构建、重启、readyz 与版本检查；失败自动回滚。不要把同一次升级拆成多个并发任务。",
+		Acceptance:  "完成汇报必须包含目标版本、测试结果、部署结果、readyz 与版本状态；失败时说明是否已回滚。",
 		Priority:    "high",
+		ScopeType:   "repo",
+		ScopeKey:    "repo:nbco",
+		ScopeTitle:  "NBCO codebase and deployment",
 	})
 	if err != nil {
 		return "", err
@@ -318,14 +321,17 @@ func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw
 		title = "修改 nbco：" + textTitle(goal, 32)
 	}
 	t, err := d.Store.CreateTask(ctx, &store.Task{
-		ProjectID:   pj.ID,
-		AssignerID:  u.ID,
-		AssigneeID:  w.ID,
-		Title:       title,
-		Goal:        "用一个可信 admin worker 完成 nbco 代码变更、验证与可选上线。",
-		Description: nbcoCodeChangePrompt(goal, args.RepoDir, args.RepoURL, args.Branch, args.CommitPush, args.Deploy),
-		Acceptance:  "完成汇报必须包含：使用/创建的 agent session scope、源码位置、变更摘要、测试命令与结果、git 状态；如果 commit_push=true，包含提交与 push 结果；如果 deploy=true，包含部署命令、healthz 和失败回滚状态。",
-		Priority:    "high",
+		ProjectID:        pj.ID,
+		AssignerID:       u.ID,
+		AssigneeID:       w.ID,
+		Title:            title,
+		Goal:             "用一个可信 admin worker 完成 nbco 代码变更、验证与可选上线。",
+		Description:      nbcoCodeChangePrompt(goal, args.RepoDir, args.RepoURL, args.Branch, args.CommitPush, args.Deploy),
+		Acceptance:       "完成汇报必须包含：使用/创建的 agent session scope、源码位置、变更摘要、测试命令与结果、git 状态；如果 commit_push=true，包含提交与 push 结果；如果 deploy=true，包含部署命令、readyz、版本检查和失败回滚状态。",
+		Priority:         "high",
+		WorkerScopeType:  "repo",
+		WorkerScopeKey:   "repo:nbco",
+		WorkerScopeTitle: "NBCO codebase and deployment",
 	})
 	if err != nil {
 		return "", err
@@ -373,7 +379,7 @@ func nbcoCodeChangePrompt(goal, repoDir, repoURL, branch string, commitPush, dep
 		b.WriteString("6. 本任务未授权 commit_push；除非后续明确授权，不要提交或 push。\n")
 	}
 	if deploy {
-		b.WriteString("7. 已授权部署：提交/push 完成后，使用项目标准升级脚本 scripts/upgrade-nbco.sh 或当前部署文档执行上线，完成 healthz 检查；失败时按脚本/文档回滚并汇报。\n")
+		b.WriteString("7. 已授权部署：提交/push 完成后，使用项目标准升级脚本 scripts/upgrade-nbco.sh 或当前部署文档执行上线，完成 readyz 与版本检查；失败时按脚本/文档回滚并汇报。\n")
 	} else {
 		b.WriteString("7. 本任务未授权部署；不要重启生产服务。\n")
 	}

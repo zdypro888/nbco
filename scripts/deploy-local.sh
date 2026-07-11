@@ -65,13 +65,13 @@ pkill -f "${BIN_DIR}/nbco -config ${APP_DIR}/nbco.json" 2>/dev/null || true
 launchctl bootstrap "${GUI_DOMAIN}" "${AGENT}"
 
 for _ in $(seq 1 20); do
-	if curl -fsS --max-time 2 "http://${LISTEN}/healthz" >/dev/null; then
-		echo "nbco deployed: http://${LISTEN}/healthz ok"
+	if curl -fsS --max-time 2 "http://${LISTEN}/readyz" >/dev/null; then
+		echo "nbco deployed: http://${LISTEN}/readyz ok"
 		exit 0
 	fi
 	sleep 1
 done
 
-echo "nbco deploy failed: healthz not ready" >&2
+echo "nbco deploy failed: readyz not ready" >&2
 tail -80 "${LOG_DIR}/nbco.log" >&2 || true
 exit 1

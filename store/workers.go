@@ -2,11 +2,15 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 )
 
-const workerClaimTimeout = 3 * time.Hour
+const (
+	workerClaimTimeout = 3 * time.Hour
+	workerMaxFailures  = 5
+)
 
 // Worker 绑定码：create_worker 只把这个短时效一次性码带回对话，真正的
 // Worker Access Token 由工作机兑换时才签发——长期凭据永不进入聊天与会话历史。
@@ -206,21 +210,43 @@ func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error
 	if err != nil {
 		return nil, err
 	}
-	return scanTask(s.pool.QueryRow(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// One worker identity owns one local workspace/CLI at a time. Locking the
+	// worker row makes concurrent pollers serialize before they inspect claims.
+	var exists bool
+	if err := tx.QueryRow(ctx,
+		`SELECT TRUE FROM users WHERE id=$1 AND is_worker AND status='active' FOR UPDATE`, workerID).Scan(&exists); err != nil {
+		return nil, wrapErr(err)
+	}
+	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks
-		    SET status = 'in_progress',
-		        worker_claimed_by = $1,
-		        worker_claimed_at = now(),
-		        worker_claim_id = $3,
-		        updated_at = now()
+			    SET status = 'in_progress',
+			        worker_claimed_by = $1,
+			        worker_claimed_at = now(),
+			        worker_claim_id = $3,
+			        worker_retry_at = NULL,
+			        updated_at = now()
 			 WHERE id = (
 			   SELECT t.id FROM tasks t
 			   WHERE t.assignee_id = $1
-			     AND (
-			       t.status = 'pending'
-			       OR (t.status = 'in_progress' AND t.worker_claimed_at IS NULL)
-			       OR (t.status = 'in_progress' AND t.worker_claimed_at IS NOT NULL AND t.worker_claimed_at <= $2)
-			     )
+				     AND (
+				       t.status = 'pending'
+				       OR (t.status = 'in_progress' AND t.worker_claimed_at IS NULL)
+				       OR (t.status = 'in_progress' AND t.worker_claimed_at IS NOT NULL AND t.worker_claimed_at <= $2)
+				     )
+				     AND (t.worker_retry_at IS NULL OR t.worker_retry_at <= now())
+				     AND NOT EXISTS (
+				       SELECT 1 FROM tasks active
+				        WHERE active.assignee_id = $1
+				          AND active.status = 'in_progress'
+				          AND active.worker_claimed_at IS NOT NULL
+				          AND active.worker_claimed_at > $2
+				          AND active.worker_claim_id <> ''
+				     )
 			     -- 依赖编排：前置任务未全部验收通过前不可领取
 			     AND NOT EXISTS (
 			       SELECT 1 FROM tasks d WHERE d.id = ANY(t.depends_on) AND d.status <> 'accepted'
@@ -232,6 +258,80 @@ func (s *Store) ClaimNextTask(ctx context.Context, workerID int64) (*Task, error
 			     id
 			   LIMIT 1 FOR UPDATE SKIP LOCKED
 				 ) RETURNING `+taskCols, workerID, staleBefore, claimID))
+	if err != nil {
+		return nil, err
+	}
+	return t, tx.Commit(ctx)
+}
+
+// FailWorkerTask records a genuine execution failure and releases the claim
+// with durable exponential backoff. Repeated failures pause the task for human
+// intervention instead of spinning forever or silently holding a three-hour
+// claim lease.
+func (s *Store) FailWorkerTask(ctx context.Context, taskID, workerID int64, claimID, cause string) (*Task, error) {
+	claimID = strings.TrimSpace(claimID)
+	cause = strings.TrimSpace(cause)
+	if claimID == "" || cause == "" {
+		return nil, ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var failures int
+	if err := tx.QueryRow(ctx,
+		`SELECT worker_failures FROM tasks
+		  WHERE id=$1 AND assignee_id=$2 AND status='in_progress' AND worker_claim_id=$3
+		  FOR UPDATE`, taskID, workerID, claimID).Scan(&failures); err != nil {
+		return nil, wrapErr(err)
+	}
+	failures++
+	blocked := failures >= workerMaxFailures
+	var retryAt *time.Time
+	if !blocked {
+		next := time.Now().UTC().Add(workerFailureBackoff(failures))
+		retryAt = &next
+	}
+	t, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks SET
+		   status = CASE WHEN $5 THEN 'awaiting_input' ELSE 'pending' END,
+		   worker_claimed_by = NULL,
+		   worker_claimed_at = NULL,
+		   worker_claim_id = '',
+		   worker_retry_at = $4,
+		   worker_failures = $6,
+		   worker_last_error = $7,
+		   updated_at = now()
+		 WHERE id=$1 AND assignee_id=$2 AND status='in_progress' AND worker_claim_id=$3
+		 RETURNING `+taskCols,
+		taskID, workerID, claimID, retryAt, blocked, failures, truncateRunes(cause, 2000)))
+	if err != nil {
+		return nil, err
+	}
+	message := fmt.Sprintf("⚠️ Worker 执行失败（第 %d/%d 次）：%s", failures, workerMaxFailures, truncateRunes(cause, 1000))
+	if blocked {
+		message += "；已暂停，等待分配者处理。"
+	} else if retryAt != nil {
+		message += "；将在 " + retryAt.Format(time.RFC3339) + " 后自动重试。"
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO task_progress (task_id, author_id, content) VALUES ($1,$2,$3)`,
+		taskID, workerID, message); err != nil {
+		return nil, wrapErr(err)
+	}
+	return t, tx.Commit(ctx)
+}
+
+func workerFailureBackoff(attempt int) time.Duration {
+	delays := [...]time.Duration{30 * time.Second, 2 * time.Minute, 10 * time.Minute, 30 * time.Minute}
+	if attempt <= 0 {
+		return delays[0]
+	}
+	if attempt > len(delays) {
+		return delays[len(delays)-1]
+	}
+	return delays[attempt-1]
 }
 
 // ReleaseWorkerTaskClaim 清掉一次已领取但尚未交付给 worker 的 claim，使任务立即可重领。
@@ -259,7 +359,7 @@ func (s *Store) ReleaseWorkerTaskClaim(ctx context.Context, taskID, workerID int
 }
 
 // RevokeWorker 停用 worker 并撤销其 token（历史任务保留）。目标非 worker 时 ErrNotFound。
-// 同事务内把该 worker 名下「未完成」的任务（pending/in_progress）重置为 pending 并清空
+// 同事务内把该 worker 名下「未完成」的任务（pending/in_progress/awaiting_input）重置为 pending 并清空
 // worker claim——否则它们会永远停在已禁用的 assignee 名下无人恢复（ClaimNextTask 只认领
 // assignee_id 匹配自己的任务，nudgePass 对禁用 assignee 直接跳过）。返回重置的任务数。
 func (s *Store) RevokeWorker(ctx context.Context, workerID int64) (int64, error) {
@@ -285,8 +385,9 @@ func (s *Store) RevokeWorker(ctx context.Context, workerID int64) (int64, error)
 	rtag, err := tx.Exec(ctx,
 		`UPDATE tasks SET status = 'pending',
 		    worker_claimed_by = NULL, worker_claimed_at = NULL, worker_claim_id = '',
+		    worker_retry_at = NULL, worker_failures = 0, worker_last_error = '',
 		    updated_at = now()
-		  WHERE assignee_id = $1 AND status IN ('pending', 'in_progress')`, workerID)
+		  WHERE assignee_id = $1 AND status IN ('pending', 'in_progress', 'awaiting_input')`, workerID)
 	if err != nil {
 		return 0, err
 	}

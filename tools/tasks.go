@@ -39,7 +39,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderTasks(ts, d.TZ), nil
 			}),
 
-		tool("get_my_all_tasks", "查看当前用户自己的所有任务（含已完成和已拆分）。只代表“我作为执行人”的范围。",
+		tool("get_my_all_tasks", "查看当前用户相关的所有任务（含负责、协作、验收、关注以及已完成/已拆分任务）。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, false)
@@ -49,7 +49,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderTasks(ts, d.TZ), nil
 			}),
 
-		tool("get_task_detail", "查看任务详情（含描述、验收标准、清单、进度日志、附件）。需要是任务的执行人或分配者。",
+		tool("get_task_detail", "查看任务详情（含责任人、参与者、描述、验收标准、清单、进度日志、附件）。需要是任务相关人。",
 			obj(map[string]any{"task_id": p("integer", "任务ID")}, "task_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -62,8 +62,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if !canSeeTask(u, t) {
-					return "你不是该任务的执行人或分配者。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanView {
+					return "你不是该任务的相关人。", nil
 				}
 				return renderTaskDetail(ctx, d, t)
 			}),
@@ -81,8 +85,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if !canSeeTask(u, t) {
-					return "你不是该任务的执行人或分配者。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanView {
+					return "你不是该任务的相关人。", nil
 				}
 				var b strings.Builder
 				if err := renderTree(ctx, d.Store, t, 0, &b, d.TZ); err != nil {
@@ -91,7 +99,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("update_my_task_status", "更新我的任务状态。status: pending/in_progress/done。done=提交给分配者验收（自派任务直接完成）。",
+		tool("update_my_task_status", "更新我负责或协作的任务状态。status: pending/in_progress/done。done=提交给分配者验收（自派任务直接完成）。",
 			obj(map[string]any{
 				"task_id": p("integer", "任务ID"),
 				"status":  p("string", "pending | in_progress | done"),
@@ -113,14 +121,21 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if t.AssigneeID != u.ID {
-					return "只有任务执行人能更新状态。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanContribute {
+					return "只有任务责任人或协作者能更新状态。", nil
 				}
 				if t.Status == store.TaskSplit {
 					return "该任务已拆分，状态由子任务决定。", nil
 				}
 				if t.Status == store.TaskAccepted {
 					return "任务已验收通过，状态不可再改。", nil
+				}
+				if t.Status == store.TaskCancelled {
+					return "任务已取消，状态不可再改。", nil
 				}
 				if args.Status != store.TaskDone {
 					if _, err := d.Store.UpdateTaskStatus(ctx, t.ID, args.Status); err != nil {
@@ -132,7 +147,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "已更新为 " + args.Status + "。", nil
 				}
 				// 提交完成：自派任务免验收直接 accepted 并向上级联；否则进入待验收。
-				t2, chain, err := d.Store.SubmitTask(ctx, t.ID)
+				t2, chain, err := d.Store.SubmitTaskBy(ctx, t.ID, u.ID)
 				if err != nil {
 					if errors.Is(err, store.ErrNotFound) {
 						return "任务当前状态不允许提交。", nil
@@ -147,6 +162,13 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					// AI 结合会话上下文给出验收建议再通知，而非死板模板。
 					emitEvent(d, "任务提交待验收", t.AssignerID,
 						fmt.Sprintf("「%s」提交了任务「%s」（%s）待你验收。", u.Name, t.Title, internalRef("任务", t.ID)))
+					reviewers, _ := d.Store.TaskParticipantIDs(ctx, t.ID, store.TaskParticipantReviewer)
+					for _, reviewerID := range reviewers {
+						if reviewerID != t.AssignerID {
+							emitEvent(d, "任务提交待验收", reviewerID,
+								fmt.Sprintf("「%s」提交了任务「%s」（%s），你是指定验收人。", u.Name, t.Title, internalRef("任务", t.ID)))
+						}
+					}
 					return "已提交，等待分配者验收。", nil
 				}
 				if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 已完成（自派任务免验收）。"); err != nil {
@@ -186,8 +208,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if t.AssignerID != u.ID && !u.IsSuperadmin {
-					return "只有任务分配者能验收。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanReview {
+					return "只有任务分配者或指定验收人能验收。", nil
 				}
 				_, chain, err := d.Store.AcceptTask(ctx, t.ID)
 				if err != nil {
@@ -214,6 +240,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("✅ 你的任务「%s」（%s）验收通过。", t.Title, internalRef("任务", t.ID)))
 				}
+				notifyTaskParticipants(ctx, d, t, u.ID,
+					fmt.Sprintf("✅ 任务「%s」（%s）已验收通过。", t.Title, internalRef("任务", t.ID)))
 				notifyChain(ctx, d, u, chain)
 				return "已验收通过。", nil
 			}),
@@ -238,10 +266,15 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if t.AssignerID != u.ID && !u.IsSuperadmin {
-					return "只有任务分配者能验收。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
 				}
-				if _, err := d.Store.RejectTask(ctx, t.ID, u.ID, args.Reason); err != nil {
+				if !access.CanReview {
+					return "只有任务分配者或指定验收人能验收。", nil
+				}
+				rejected, err := d.Store.RejectTask(ctx, t.ID, u.ID, args.Reason)
+				if err != nil {
 					if errors.Is(err, store.ErrNotFound) {
 						return "任务不在待验收状态。", nil
 					}
@@ -252,19 +285,19 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("🔁 任务「%s」（%s）验收未通过：%s\n请修改后重新提交。", t.Title, internalRef("任务", t.ID), args.Reason))
 				}
+				notifyTaskParticipants(ctx, d, t, u.ID,
+					fmt.Sprintf("🔁 任务「%s」（%s）验收未通过：%s", t.Title, internalRef("任务", t.ID), args.Reason))
 				closeTaskDecisions(ctx, d, t.AssignerID, t.ID)
-				// 执行人是 worker：回到 pending 让它重新认领返工（打回理由已在
-				// 过程记录里，会随任务历史进入下一轮 prompt），并推实时唤醒。
+				// 执行人是 worker：RejectTask 已在同一事务中回到 pending，打回
+				// 理由会随任务历史进入下一轮 prompt；这里只负责实时唤醒。
 				if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
-					if _, serr := d.Store.UpdateTaskStatus(ctx, t.ID, store.TaskPending); serr == nil {
-						wakeWorker(d, au)
-						return "已打回；AI 员工将重新领取并按打回理由返工。", nil
-					}
+					wakeWorker(d, au)
+					return "已打回；AI 员工将重新领取并按打回理由返工。", nil
 				}
-				return "已打回，任务回到进行中。", nil
+				return "已打回，任务回到" + rejected.Status + "。", nil
 			}),
 
-		tool("save_checklist", "保存任务的工作清单（整体替换）。根据任务描述归纳生成。需要是任务执行人。",
+		tool("save_checklist", "保存任务的工作清单（整体替换）。根据任务描述归纳生成。需要是任务责任人或协作者。",
 			obj(map[string]any{
 				"task_id": p("integer", "任务ID"),
 				"items":   arr("string", "清单条目"),
@@ -281,8 +314,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if t.AssigneeID != u.ID {
-					return "只有任务执行人能编辑清单。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanContribute {
+					return "只有任务责任人或协作者能编辑清单。", nil
 				}
 				if err := d.Store.ReplaceChecklist(ctx, t.ID, args.Items); err != nil {
 					return "", err
@@ -309,8 +346,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if t.AssigneeID != u.ID {
-					return "只有任务执行人能勾选清单。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanContribute {
+					return "只有任务责任人或协作者能勾选清单。", nil
 				}
 				if err := d.Store.ToggleChecklist(ctx, t.ID, args.Position-1, args.Done); err != nil {
 					if errors.Is(err, store.ErrNotFound) {
@@ -321,7 +362,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return "已更新。", nil
 			}),
 
-		tool("add_progress", "给任务添加进度记录（把用户汇报总结后写入）。需要是任务执行人。",
+		tool("add_progress", "给任务添加进度记录（把用户汇报总结后写入）。需要是任务责任人或协作者。",
 			obj(map[string]any{
 				"task_id": p("integer", "任务ID"),
 				"content": p("string", "进度内容"),
@@ -338,8 +379,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if t.AssigneeID != u.ID {
-					return "只有任务执行人能记录进度。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanContribute {
+					return "只有任务责任人或协作者能记录进度。", nil
 				}
 				if err := d.Store.AddProgress(ctx, t.ID, u.ID, args.Content); err != nil {
 					return "", err
@@ -347,7 +392,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return "已记录。", nil
 			}),
 
-		tool("attach_to_task", "给任务附加文件。优先传 file_id（系统真实文件ID）；也兼容旧 file_ref（如 Telegram file_id）。需要是任务执行人或分配者。",
+		tool("attach_to_task", "给任务附加文件。优先传 file_id（系统真实文件ID）；也兼容旧 file_ref（如 Telegram file_id）。需要是任务责任人、协作者或分配者。",
 			obj(map[string]any{
 				"task_id":  p("integer", "任务ID"),
 				"file_id":  p("integer", "系统文件ID（/api/files 上传返回的 id，可选）"),
@@ -368,8 +413,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
 				}
-				if !canSeeTask(u, t) {
-					return "你不是该任务的执行人或分配者。", nil
+				access, err := d.Store.TaskAccessForUser(ctx, t, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanContribute && !access.CanManage {
+					return "你不能给该任务附加文件。", nil
 				}
 				if args.FileID > 0 {
 					ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, args.FileID)
@@ -379,8 +428,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					if !ok {
 						return "你无权访问这个文件。", nil
 					}
-					if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, args.FileID, args.Caption); err != nil {
+					inserted, err := d.Store.AddTaskAttachmentFileOnce(ctx, t.ID, args.FileID, args.Caption)
+					if err != nil {
 						return "", err
+					}
+					if !inserted {
+						return "该文件已经附加到任务，无需重复操作。", nil
 					}
 					if err := d.Store.AddProgress(ctx, t.ID, u.ID, "📎 已附加文件。"); err != nil {
 						return "", err
@@ -391,10 +444,14 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if args.FileRef == "" {
 					return "file_id 或 file_ref 至少填写一个。", nil
 				}
-				if err := d.Store.AddAttachment(ctx, store.Attachment{
+				inserted, err := d.Store.AddAttachmentOnce(ctx, store.Attachment{
 					TaskID: t.ID, Kind: "file", FileRef: args.FileRef, Caption: args.Caption,
-				}); err != nil {
+				})
+				if err != nil {
 					return "", err
+				}
+				if !inserted {
+					return "该文件引用已经附加到任务，无需重复操作。", nil
 				}
 				if err := d.Store.AddProgress(ctx, t.ID, u.ID, "📎 已附加文件。"); err != nil {
 					return "", err
@@ -510,7 +567,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderTasks(ts, d.TZ), nil
 			}),
 
-		tool("update_assigned_task", "修改我分配出去的任务的目标/描述/验收标准/截止时间。只有分配者能改。",
+		tool("update_assigned_task", "修改我分配出去的任务的目标/描述/验收标准/截止时间。若 AI 员工正在等待补充信息，本操作会让任务恢复排队。只有分配者能改。",
 			obj(map[string]any{
 				"task_id":     p("integer", "任务ID"),
 				"goal":        p("string", "新目标（可选）"),
@@ -536,20 +593,24 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if t.AssignerID != u.ID {
 					return "只有分配者能修改任务。", nil
 				}
+				if args.Goal == nil && args.Description == nil && args.Acceptance == nil && strings.TrimSpace(args.Deadline) == "" {
+					return "没有提供要修改的任务内容。", nil
+				}
 				deadline, derr := parseDeadline(args.Deadline, d.TZ)
 				if derr != nil {
 					return derr.Error(), nil
 				}
-				if _, err := d.Store.UpdateTaskContent(ctx, t.ID, args.Goal, args.Description, args.Acceptance, deadline); err != nil {
+				_, err = d.Store.UpdateTaskContent(ctx, t.ID, args.Goal, args.Description, args.Acceptance, deadline)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "任务状态已经变化，只有待办、执行中或待补充信息的任务可以修改。", nil
+					}
 					return "", err
 				}
 				if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
 					switch t.Status {
 					case store.TaskInProgress:
 						_ = d.Store.AddProgress(ctx, t.ID, u.ID, "✏️ 任务要求已更新：请按最新目标/描述/验收标准重新执行。")
-						if _, serr := d.Store.UpdateTaskStatus(ctx, t.ID, store.TaskPending); serr != nil {
-							return "", serr
-						}
 						if d.Workers != nil {
 							d.Workers.Cancel(au.ID, t.ID)
 						}
@@ -557,13 +618,168 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 						return "已更新；AI 员工当前执行已终止，将按新要求重新领取。", nil
 					case store.TaskPending:
 						wakeWorker(d, au)
+					case store.TaskAwaitingInput:
+						_ = d.Store.AddProgress(ctx, t.ID, u.ID, "💬 已补充任务信息，AI 员工可以继续执行。")
+						wakeWorker(d, au)
+						return "已补充信息；AI 员工任务已恢复排队。", nil
 					}
 				}
 				if t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("✏️ 任务「%s」（%s）的要求被 %s 更新了，请查看详情。", t.Title, internalRef("任务", t.ID), u.Name))
 				}
+				notifyTaskParticipants(ctx, d, t, u.ID,
+					fmt.Sprintf("✏️ 任务「%s」（%s）的要求被 %s 更新了，请查看详情。", t.Title, internalRef("任务", t.ID), u.Name))
 				return "已更新。", nil
+			}),
+
+		tool("set_task_participants", "整体设置任务参与者。责任人仍由 assignee_id 表示；collaborator_ids 可参与执行和提交，reviewer_ids 可验收/打回，watcher_ids 只读并接收关键通知。只有任务分配者或超管可设置；AI Worker 应使用独立子任务，不能作为参与者。",
+			obj(map[string]any{
+				"task_id":          p("integer", "任务ID"),
+				"collaborator_ids": arr("integer", "协作者用户ID列表；空数组表示清空"),
+				"reviewer_ids":     arr("integer", "验收人用户ID列表；空数组表示清空"),
+				"watcher_ids":      arr("integer", "观察者用户ID列表；空数组表示清空"),
+			}, "task_id", "collaborator_ids", "reviewer_ids", "watcher_ids"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID          int64   `json:"task_id"`
+					CollaboratorIDs []int64 `json:"collaborator_ids"`
+					ReviewerIDs     []int64 `json:"reviewer_ids"`
+					WatcherIDs      []int64 `json:"watcher_ids"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				task, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				access, err := d.Store.TaskAccessForUser(ctx, task, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanManage {
+					return "只有任务分配者或超级管理员能设置参与者。", nil
+				}
+				inputs, _, validation, err := resolveTaskParticipantInputs(
+					ctx, d, u, task.AssigneeID, args.CollaboratorIDs, args.ReviewerIDs, args.WatcherIDs)
+				if err != nil {
+					return "", err
+				}
+				if validation != "" {
+					return validation, nil
+				}
+				before, err := d.Store.TaskParticipants(ctx, task.ID)
+				if err != nil {
+					return "", err
+				}
+				after, err := d.Store.ReplaceTaskParticipants(ctx, task.ID, u.ID, inputs)
+				if err != nil {
+					return "", err
+				}
+				inheritViewPermsForTaskPeople(ctx, d, u, task, after)
+				beforeRole := map[int64]string{}
+				for _, participant := range before {
+					beforeRole[participant.UserID] = participant.Role
+				}
+				afterSet := map[int64]bool{}
+				for _, participant := range after {
+					afterSet[participant.UserID] = true
+					if beforeRole[participant.UserID] != participant.Role {
+						notifyQuiet(ctx, d, participant.UserID,
+							fmt.Sprintf("📌 %s 将你设为任务「%s」（%s）的%s。", u.Name, task.Title, internalRef("任务", task.ID), taskParticipantRoleLabel(participant.Role)))
+					}
+				}
+				for _, participant := range before {
+					if !afterSet[participant.UserID] {
+						notifyQuiet(ctx, d, participant.UserID,
+							fmt.Sprintf("任务「%s」（%s）的参与关系已由 %s 移除。", task.Title, internalRef("任务", task.ID), u.Name))
+					}
+				}
+				summary := renderTaskParticipantSummary(after)
+				if summary == "" {
+					summary = "当前没有额外参与者。"
+				}
+				return "已更新任务参与者。" + summary, nil
+			}),
+
+		tool("cancel_assigned_task", "取消我分配的未终态任务并保留全部历史。重复任务合并时传 superseded_by 指向保留任务，系统会重连依赖；不要用物理删除掩盖已发生的业务记录。只有任务分配者或超管可操作。",
+			obj(map[string]any{
+				"task_id":       p("integer", "要取消的任务ID"),
+				"reason":        p("string", "取消原因，必填"),
+				"superseded_by": p("integer", "替代任务ID（可选，用于合并重复任务）"),
+			}, "task_id", "reason"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					TaskID       int64  `json:"task_id"`
+					Reason       string `json:"reason"`
+					SupersededBy int64  `json:"superseded_by"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if strings.TrimSpace(args.Reason) == "" {
+					return "取消任务必须给出原因。", nil
+				}
+				task, err := d.Store.TaskByID(ctx, args.TaskID)
+				if err != nil {
+					return fmt.Sprintf("任务 %d 不存在", args.TaskID), nil
+				}
+				access, err := d.Store.TaskAccessForUser(ctx, task, u.ID, u.IsSuperadmin)
+				if err != nil {
+					return "", err
+				}
+				if !access.CanManage {
+					return "只有任务分配者或超级管理员能取消任务。", nil
+				}
+				var replacement *int64
+				if args.SupersededBy > 0 {
+					replacement = &args.SupersededBy
+				}
+				cancelled, chain, err := d.Store.CancelTask(ctx, task.ID, args.Reason, replacement)
+				if err != nil {
+					switch {
+					case errors.Is(err, store.ErrNotFound):
+						return "任务已完成、已拆分、已取消，或当前状态不允许取消。", nil
+					case errors.Is(err, store.ErrConflict):
+						return "替代任务无效：必须是同项目中另一条未取消任务。", nil
+					default:
+						return "", err
+					}
+				}
+				if d.Workers != nil {
+					if owner, uerr := d.Store.UserByID(ctx, task.AssigneeID); uerr == nil && owner.IsWorker {
+						d.Workers.Cancel(owner.ID, task.ID)
+					}
+				}
+				recipients := map[int64]bool{task.AssigneeID: true}
+				participantIDs, _ := d.Store.TaskParticipantIDs(ctx, task.ID)
+				for _, id := range participantIDs {
+					recipients[id] = true
+				}
+				notice := fmt.Sprintf("任务「%s」（%s）已取消：%s", task.Title, internalRef("任务", task.ID), args.Reason)
+				if replacement != nil {
+					notice = fmt.Sprintf("重复任务「%s」（%s）已合并到 %s：%s", task.Title, internalRef("任务", task.ID), internalRef("任务", *replacement), args.Reason)
+					if kept, kerr := d.Store.TaskByID(ctx, *replacement); kerr == nil {
+						recipients[kept.AssigneeID] = true
+						keptParticipantIDs, _ := d.Store.TaskParticipantIDs(ctx, kept.ID)
+						for _, id := range keptParticipantIDs {
+							recipients[id] = true
+						}
+					}
+				}
+				for id := range recipients {
+					if id != u.ID {
+						notifyQuiet(ctx, d, id, notice)
+					}
+				}
+				closeTaskDecisions(ctx, d, task.AssignerID, task.ID)
+				notifyChain(ctx, d, u, chain)
+				reply := fmt.Sprintf("任务「%s」（%s）已取消，历史保留。", cancelled.Title, internalRef("任务", cancelled.ID))
+				if replacement != nil {
+					reply += fmt.Sprintf(" 后续统一以任务 %s 为准。", internalRef("任务", *replacement))
+				}
+				return reply, nil
 			}),
 
 		tool("delete_assigned_task", "删除我分配出去的任务（递归删除其子任务）。只有分配者能删。",
@@ -660,11 +876,10 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if r := strings.TrimSpace(args.Reason); r != "" {
 					note += " 原因：" + r
 				}
-				_ = d.Store.AddProgress(ctx, t.ID, u.ID, note)
 				// 先清 claim + 换人（ReassignTask 把 worker_claim_id 置空、状态回 pending）：
 				// 旧执行人的 submit/add_progress 是 claim 守卫的，claim 一空就写不进，杜绝竞态。
 				// 再 Cancel 只是让在跑的进程停手——顺序与 update_assigned_task 一致。
-				t, err = d.Store.ReassignTask(ctx, t.ID, args.AssigneeID)
+				t, err = d.Store.ReassignTaskWithProgress(ctx, t.ID, args.AssigneeID, u.ID, note)
 				if err != nil {
 					return "", err
 				}
@@ -730,29 +945,37 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderProjects(ps), nil
 			}),
 
-		tool("assign_task", "在项目中创建任务并分配给某人。需要对该人的 create_project 权限。assignee_id 省略时自动派给最合适的 AI 员工（负载最低、通过率优先、在线优先，仅限自己名下）。depends_on 可指定前置任务：全部验收通过前 worker 领不到本任务，用于串流水线（如开发→测试→审查）。用于单一明确任务；复杂或需多人并行的任务先 split_my_task 拆分，已提交待验收任务要深度审核用 delegate_review。",
+		tool("assign_task", "为一个明确交付物创建一个任务并指定唯一责任人。多人共同完成同一交付物时用 collaborator_ids/reviewer_ids/watcher_ids 绑定到同一任务，绝不要为每个人复制同名任务；只有需要彼此独立产出时才传 allow_parallel=true，且应给出不同范围或验收标准。需要对所有参与人的 create_project 权限。assignee_id 省略时自动派给最合适的 AI 员工。depends_on 可指定前置任务。复杂工作可先拆成目标不同的子任务。",
 			obj(map[string]any{
-				"project_id":  p("integer", "项目ID"),
-				"assignee_id": p("integer", "执行人用户ID（可选；省略=自动派给最合适的 AI 员工）"),
-				"title":       p("string", "标题"),
-				"goal":        p("string", "为什么做（可选）"),
-				"description": p("string", "做什么"),
-				"acceptance":  p("string", "验收标准（可选）"),
-				"deadline":    p("string", "截止时间 ISO8601（可选）"),
-				"priority":    p("string", "low/normal/high（可选）"),
-				"depends_on":  arr("integer", "前置任务ID列表（可选；须为已存在的任务）"),
+				"project_id":       p("integer", "项目ID"),
+				"assignee_id":      p("integer", "唯一责任人用户ID（可选；省略=自动派给最合适的 AI 员工）"),
+				"collaborator_ids": arr("integer", "协作者用户ID列表：可查看、写进度/清单/附件并提交同一任务"),
+				"reviewer_ids":     arr("integer", "指定验收人用户ID列表：可查看并验收/打回"),
+				"watcher_ids":      arr("integer", "观察者用户ID列表：只读并接收关键通知"),
+				"allow_parallel":   p("boolean", "明确需要独立产出时才设 true；默认合并等价未终态任务"),
+				"title":            p("string", "标题"),
+				"goal":             p("string", "为什么做（可选）"),
+				"description":      p("string", "做什么"),
+				"acceptance":       p("string", "验收标准（可选）"),
+				"deadline":         p("string", "截止时间 ISO8601（可选）"),
+				"priority":         p("string", "low/normal/high（可选）"),
+				"depends_on":       arr("integer", "前置任务ID列表（可选；须为已存在的任务）"),
 			}, "project_id", "title", "description"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					ProjectID   int64   `json:"project_id"`
-					AssigneeID  int64   `json:"assignee_id"`
-					Title       string  `json:"title"`
-					Goal        string  `json:"goal"`
-					Description string  `json:"description"`
-					Acceptance  string  `json:"acceptance"`
-					Deadline    string  `json:"deadline"`
-					Priority    string  `json:"priority"`
-					DependsOn   []int64 `json:"depends_on"`
+					ProjectID       int64   `json:"project_id"`
+					AssigneeID      int64   `json:"assignee_id"`
+					CollaboratorIDs []int64 `json:"collaborator_ids"`
+					ReviewerIDs     []int64 `json:"reviewer_ids"`
+					WatcherIDs      []int64 `json:"watcher_ids"`
+					AllowParallel   bool    `json:"allow_parallel"`
+					Title           string  `json:"title"`
+					Goal            string  `json:"goal"`
+					Description     string  `json:"description"`
+					Acceptance      string  `json:"acceptance"`
+					Deadline        string  `json:"deadline"`
+					Priority        string  `json:"priority"`
+					DependsOn       []int64 `json:"depends_on"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
@@ -790,37 +1013,67 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return err.Error(), nil
 				}
-				if !u.IsSuperadmin && args.AssigneeID != u.ID {
-					grants, err := d.Store.PermsOf(ctx, u.ID)
-					if err != nil {
-						return "", err
-					}
-					if !perm.CheckActive(grants, perm.ActCreateProject, args.AssigneeID) {
-						return "你没有对该用户的 create_project 权限。", nil
-					}
+				participantInputs, participantUsers, validation, err := resolveTaskParticipantInputs(
+					ctx, d, u, args.AssigneeID, args.CollaboratorIDs, args.ReviewerIDs, args.WatcherIDs)
+				if err != nil {
+					return "", err
+				}
+				if validation != "" {
+					return validation, nil
 				}
 				deadline, derr := parseDeadline(args.Deadline, d.TZ)
 				if derr != nil {
 					return derr.Error(), nil
 				}
-				t, err := d.Store.CreateTask(ctx, &store.Task{
+				created, err := d.Store.CreateOrMergeTask(ctx, &store.Task{
 					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: args.AssigneeID,
 					Title: args.Title, Goal: args.Goal, Description: args.Description,
 					Acceptance: args.Acceptance, Priority: args.Priority, Deadline: deadline,
-					DependsOn: args.DependsOn,
-				})
+					DependsOn:       args.DependsOn,
+					WorkerScopeType: "project", WorkerScopeKey: fmt.Sprintf("project:%d", pj.ID),
+					WorkerScopeTitle: pj.Name,
+				}, participantInputs, u.ID, args.AllowParallel)
 				if err != nil {
+					switch {
+					case errors.Is(err, store.ErrWorkerTaskParticipant):
+						return "AI Worker 不能作为共享任务协作者；需要多个 Worker 独立产出时请拆成范围不同的子任务。", nil
+					case errors.Is(err, store.ErrConflict):
+						return "发现等价的未终态任务，但本次执行约束与现有任务冲突；请明确更新现有任务，或仅在确需独立交付时设置 allow_parallel=true。", nil
+					}
 					return "", err
 				}
-				inheritViewPerms(ctx, d, u, []*store.Task{t})
-				if t.AssigneeID != u.ID {
+				t := created.Task
+				inheritViewPermsForTaskPeople(ctx, d, u, t, created.Participants)
+				if created.Created && t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("📌 %s 给你分配了任务「%s」（%s）\n%s", u.Name, t.Title, internalRef("任务", t.ID), t.Description))
 				}
-				if len(t.DependsOn) == 0 {
+				for _, participant := range created.ChangedParticipants {
+					label := taskParticipantRoleLabel(participant.Role)
+					notifyQuiet(ctx, d, participant.UserID,
+						fmt.Sprintf("📌 %s 将你设为任务「%s」（%s）的%s。", u.Name, t.Title, internalRef("任务", t.ID), label))
+				}
+				if !created.Created && t.AssigneeID != u.ID {
+					notifyQuiet(ctx, d, t.AssigneeID,
+						fmt.Sprintf("任务「%s」（%s）合并了等价派发，参与人员已更新，请查看任务详情。", t.Title, internalRef("任务", t.ID)))
+				}
+				if created.Created && len(t.DependsOn) == 0 {
 					wakeWorker(d, assignee) // 有前置的任务此刻还领不了，就绪时再唤醒
 				}
-				reply := fmt.Sprintf("任务「%s」已创建（%s）并分配给 %s。", t.Title, internalRef("任务", t.ID), assignee.Name)
+				ownerName := userName(ctx, d.Store, t.AssigneeID)
+				if owner := participantUsers[t.AssigneeID]; owner != nil {
+					ownerName = owner.Name
+				}
+				reply := fmt.Sprintf("任务「%s」已创建（%s），责任人 %s。", t.Title, internalRef("任务", t.ID), ownerName)
+				if !created.Created {
+					reply = fmt.Sprintf("发现等价的未终态任务「%s」（%s），没有重复创建；已合并本次参与人和执行约束。责任人 %s。", t.Title, internalRef("任务", t.ID), ownerName)
+					if len(created.UpdatedFields) > 0 {
+						reply += " 已更新字段：" + strings.Join(created.UpdatedFields, "、") + "。"
+					}
+				}
+				if people := renderTaskParticipantSummary(created.Participants); people != "" {
+					reply += " " + people
+				}
 				if autoPickNote != "" {
 					reply += autoPickNote
 				}
@@ -912,10 +1165,6 @@ func setProjectStatus(ctx context.Context, d Deps, u *store.User, raw json.RawMe
 	return "已更新为 " + status + "。", nil
 }
 
-func canSeeTask(u *store.User, t *store.Task) bool {
-	return u.IsSuperadmin || t.AssigneeID == u.ID || t.AssignerID == u.ID
-}
-
 func hasAnyActive(grants []store.Grant, action string) bool {
 	for _, g := range grants {
 		if g.Kind == store.KindActive && g.Action == action {
@@ -925,9 +1174,129 @@ func hasAnyActive(grants []store.Grant, action string) bool {
 	return false
 }
 
+func resolveTaskParticipantInputs(ctx context.Context, d Deps, assigner *store.User, ownerID int64, collaborators, reviewers, watchers []int64) ([]store.TaskParticipantInput, map[int64]*store.User, string, error) {
+	people := map[int64]*store.User{}
+	owner, err := mustUser(ctx, d.Store, ownerID)
+	if err != nil {
+		return nil, nil, err.Error(), nil
+	}
+	people[owner.ID] = owner
+	var grants []store.Grant
+	if !assigner.IsSuperadmin {
+		grants, err = d.Store.PermsOf(ctx, assigner.ID)
+		if err != nil {
+			return nil, nil, "", err
+		}
+	}
+	canAssign := func(targetID int64) bool {
+		return assigner.IsSuperadmin || targetID == assigner.ID || perm.CheckActive(grants, perm.ActCreateProject, targetID)
+	}
+	if !canAssign(owner.ID) {
+		return nil, nil, "你没有对责任人的 create_project 权限。", nil
+	}
+
+	type group struct {
+		role string
+		ids  []int64
+	}
+	groups := []group{
+		{role: store.TaskParticipantCollaborator, ids: collaborators},
+		{role: store.TaskParticipantReviewer, ids: reviewers},
+		{role: store.TaskParticipantWatcher, ids: watchers},
+	}
+	seen := map[int64]string{}
+	var inputs []store.TaskParticipantInput
+	for _, group := range groups {
+		for _, id := range group.ids {
+			if id <= 0 || id == owner.ID || id == assigner.ID {
+				continue
+			}
+			if prior, ok := seen[id]; ok {
+				if prior != group.role {
+					return nil, nil, fmt.Sprintf("同一用户不能同时作为%s和%s；请选择一个角色。", taskParticipantRoleLabel(prior), taskParticipantRoleLabel(group.role)), nil
+				}
+				continue
+			}
+			person, err := mustUser(ctx, d.Store, id)
+			if err != nil {
+				return nil, nil, err.Error(), nil
+			}
+			if person.IsWorker {
+				return nil, nil, fmt.Sprintf("%s 是 AI Worker，不能作为共享任务参与者；请给 Worker 创建独立子任务。", person.Name), nil
+			}
+			if !canAssign(person.ID) {
+				return nil, nil, fmt.Sprintf("你没有对 %s 的 create_project 权限。", person.Name), nil
+			}
+			seen[id] = group.role
+			people[id] = person
+			inputs = append(inputs, store.TaskParticipantInput{UserID: id, Role: group.role})
+		}
+	}
+	sort.Slice(inputs, func(i, j int) bool {
+		if inputs[i].Role != inputs[j].Role {
+			return inputs[i].Role < inputs[j].Role
+		}
+		return inputs[i].UserID < inputs[j].UserID
+	})
+	return inputs, people, "", nil
+}
+
+func taskParticipantRoleLabel(role string) string {
+	switch role {
+	case store.TaskParticipantCollaborator:
+		return "协作者"
+	case store.TaskParticipantReviewer:
+		return "验收人"
+	case store.TaskParticipantWatcher:
+		return "观察者"
+	default:
+		return "参与者"
+	}
+}
+
+func renderTaskParticipantSummary(participants []store.TaskParticipant) string {
+	if len(participants) == 0 {
+		return ""
+	}
+	groups := map[string][]string{}
+	for _, participant := range participants {
+		groups[participant.Role] = append(groups[participant.Role], participant.UserName)
+	}
+	var parts []string
+	for _, role := range []string{store.TaskParticipantCollaborator, store.TaskParticipantReviewer, store.TaskParticipantWatcher} {
+		if names := groups[role]; len(names) > 0 {
+			parts = append(parts, taskParticipantRoleLabel(role)+"："+strings.Join(names, "、"))
+		}
+	}
+	return strings.Join(parts, "；") + "。"
+}
+
 // inheritViewPerms 派任务时的权限继承：执行人获得分配者 view_self_intro 的可见范围。
 // 失败只记日志，不阻断派发。
 func inheritViewPerms(ctx context.Context, d Deps, assigner *store.User, created []*store.Task) {
+	ids := make([]int64, 0, len(created))
+	for _, task := range created {
+		if task != nil {
+			ids = append(ids, task.AssigneeID)
+		}
+	}
+	inheritViewPermsToUsers(ctx, d, assigner, ids)
+}
+
+func inheritViewPermsForTaskPeople(ctx context.Context, d Deps, assigner *store.User, task *store.Task, participants []store.TaskParticipant) {
+	if task == nil {
+		return
+	}
+	ids := []int64{task.AssigneeID}
+	for _, participant := range participants {
+		if participant.Role != store.TaskParticipantWatcher {
+			ids = append(ids, participant.UserID)
+		}
+	}
+	inheritViewPermsToUsers(ctx, d, assigner, ids)
+}
+
+func inheritViewPermsToUsers(ctx context.Context, d Deps, assigner *store.User, userIDs []int64) {
 	grantTo := func(assigneeID int64, target string) {
 		err := d.Store.GrantPerm(ctx, store.Grant{
 			Kind: store.KindActive, UserID: assigneeID, Action: perm.ActViewSelfIntro,
@@ -949,16 +1318,18 @@ func inheritViewPerms(ctx context.Context, d Deps, assigner *store.User, created
 		}
 		all, targets = perm.ViewIntroTargets(grants)
 	}
-	for _, t := range created {
-		if t.AssigneeID == assigner.ID {
+	seen := map[int64]bool{}
+	for _, assigneeID := range userIDs {
+		if assigneeID <= 0 || assigneeID == assigner.ID || seen[assigneeID] {
 			continue
 		}
+		seen[assigneeID] = true
 		if all {
-			grantTo(t.AssigneeID, store.TargetAll)
+			grantTo(assigneeID, store.TargetAll)
 			continue
 		}
 		for _, tg := range targets {
-			grantTo(t.AssigneeID, fmt.Sprintf("%d", tg))
+			grantTo(assigneeID, fmt.Sprintf("%d", tg))
 		}
 	}
 }
@@ -982,6 +1353,22 @@ func notifyQuiet(ctx context.Context, d Deps, userID int64, text string) {
 	}
 	if err := d.Notifier.Send(ctx, userID, text); err != nil {
 		slog.Warn("通知投递失败", "user", userID, "err", err)
+	}
+}
+
+func notifyTaskParticipants(ctx context.Context, d Deps, task *store.Task, excludeUserID int64, text string) {
+	if task == nil || d.Store == nil {
+		return
+	}
+	participants, err := d.Store.TaskParticipants(ctx, task.ID)
+	if err != nil {
+		slog.Warn("读取任务参与者通知名单失败", "task", task.ID, "err", err)
+		return
+	}
+	for _, participant := range participants {
+		if participant.UserID != excludeUserID && participant.UserID != task.AssigneeID {
+			notifyQuiet(ctx, d, participant.UserID, text)
+		}
 	}
 }
 
@@ -1054,6 +1441,11 @@ func taskLine(t *store.Task, tz *time.Location) string {
 	if t.Priority != "" && t.Priority != "normal" {
 		line += " 优先级 " + t.Priority
 	}
+	if t.WorkerRetryAt != nil {
+		line += fmt.Sprintf(" Worker重试 %s（连续失败 %d 次）", fmtTime(*t.WorkerRetryAt, tz), t.WorkerFailures)
+	} else if t.WorkerFailures > 0 {
+		line += fmt.Sprintf(" Worker连续失败 %d 次", t.WorkerFailures)
+	}
 	return line
 }
 
@@ -1061,6 +1453,27 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	var b strings.Builder
 	b.WriteString(taskLine(t, d.TZ))
 	b.WriteByte('\n')
+	fmt.Fprintf(&b, "责任人: %s\n分配者: %s\n", userName(ctx, d.Store, t.AssigneeID), userName(ctx, d.Store, t.AssignerID))
+	participants, err := d.Store.TaskParticipants(ctx, t.ID)
+	if err != nil {
+		return "", err
+	}
+	if summary := renderTaskParticipantSummary(participants); summary != "" {
+		fmt.Fprintf(&b, "参与者: %s\n", strings.TrimSuffix(summary, "。"))
+	}
+	if t.SubmittedBy != nil {
+		fmt.Fprintf(&b, "最近提交人: %s", userName(ctx, d.Store, *t.SubmittedBy))
+		if t.SubmittedAt != nil {
+			fmt.Fprintf(&b, "（%s）", fmtTime(*t.SubmittedAt, d.TZ))
+		}
+		b.WriteByte('\n')
+	}
+	if t.Status == store.TaskCancelled {
+		fmt.Fprintf(&b, "取消原因: %s\n", t.CancelReason)
+		if t.SupersededBy != nil {
+			fmt.Fprintf(&b, "替代任务: %s\n", internalRef("任务", *t.SupersededBy))
+		}
+	}
 	if t.Goal != "" {
 		fmt.Fprintf(&b, "目标: %s\n", t.Goal)
 	}
@@ -1076,6 +1489,9 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 			mode = "pty"
 		}
 		fmt.Fprintf(&b, "Worker 命令(%s): %s\n", mode, t.WorkerCommand)
+	}
+	if strings.TrimSpace(t.WorkerLastError) != "" {
+		fmt.Fprintf(&b, "Worker 最近错误: %s\n", t.WorkerLastError)
 	}
 	items, err := d.Store.Checklist(ctx, t.ID)
 	if err != nil {

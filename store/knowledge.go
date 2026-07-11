@@ -174,6 +174,14 @@ func (s *Store) KnowledgeByID(ctx context.Context, id int64) (*Knowledge, error)
 		`SELECT `+knowledgeCols+` FROM knowledge WHERE id = $1`, id))
 }
 
+func (s *Store) RecentKnowledgeByKind(ctx context.Context, kind string, limit int) ([]*Knowledge, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	return s.queryKnowledge(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE kind = $1 ORDER BY id DESC LIMIT $2`, kind, limit)
+}
+
 // DeleteKnowledge 删除知识条目。
 func (s *Store) DeleteKnowledge(ctx context.Context, id int64) error {
 	tx, err := s.pool.Begin(ctx)

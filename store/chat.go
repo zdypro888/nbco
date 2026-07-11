@@ -33,6 +33,16 @@ type ChatMessage struct {
 	CreatedAt time.Time
 }
 
+func (s *Store) ChatMessageByID(ctx context.Context, id int64) (*ChatMessage, error) {
+	var m ChatMessage
+	if err := s.pool.QueryRow(ctx,
+		`SELECT id, session_id, role, content, created_at FROM chat_messages WHERE id = $1`, id).
+		Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &m, nil
+}
+
 // ChannelMessagePage 是某个渠道在绝对时间范围内的消息页。查询跨越该渠道的
 // 历史会话，因此 /new 只重置模型上下文，不会让群消息事实从审计查询里消失。
 type ChannelMessagePage struct {

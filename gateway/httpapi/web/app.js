@@ -13,6 +13,7 @@ const state = {
   selectedFileIDs: new Set(),
   tasks: { todo: [], assigned: [], review: [] },
   taskQueue: [],
+  taskHistory: [],
   schedules: [],
   workers: [],
   workflows: [],
@@ -275,7 +276,8 @@ function renderContent() {
 function renderCommandRoute() {
   const pendingFiles = state.files.length;
   const allTasks = taskQueueSource();
-  const queuedTasks = allTasks.filter(t => ["pending", "in_progress", "done"].includes(t.status));
+  const queuedTasks = allTasks.filter(t => ["pending", "in_progress", "awaiting_input", "done"].includes(t.status));
+  const taskCounts = countTaskStatuses(queuedTasks);
   const activeSchedules = (state.schedules || []).filter(s => s.status === "active");
   const approvals = state.approvals || [];
   const riskCount = state.me?.is_superadmin ? approvals.length : 0;
@@ -292,7 +294,7 @@ function renderCommandRoute() {
   return `
     <div class="metrics">
       ${metric("folder-up", "待处理材料", pendingFiles, `${selectedFileList().length} 个已选`)}
-      ${metric("player-play", "任务队列", queuedTasks.length, `${allTasks.length} 个可见任务`)}
+      ${metric("player-play", "任务队列", queuedTasks.length, `${taskCounts.pending} 待处理 · ${taskCounts.in_progress} 进行中 · ${taskCounts.awaiting_input} 待补充 · ${taskCounts.done} 待验收`)}
       ${metric("robot", "Worker 可用", activeWorkers, `总数 ${state.workers.length}`)}
       ${metric("calendar-time", "定时自动化", activeSchedules.length, `${state.schedules.length} 条可见规则`)}
       ${metric("alert-triangle", "需要确认", riskCount + decisions, `${decisions} 个决策项`)}
@@ -364,13 +366,13 @@ function renderTaskRows(tasks = taskQueueSource().filter(t => t.status !== "acce
         return `<tr class="selectable ${selected ? "selected" : ""}" data-select-kind="task" data-id="${t.id}">
           <td><input type="checkbox"></td>
           <td>RUN-${t.id}</td>
-          <td class="td-title"><div class="title-strong">${esc(t.title)}</div><div class="subline">优先级 ${esc(t.priority || "normal")}</div></td>
-          <td>${esc(t.assignee_name || "")}</td>
+		  <td class="td-title"><div class="title-strong">${esc(t.title)}</div><div class="subline">优先级 ${esc(t.priority || "normal")}${taskWorkerState(t)}</div></td>
+          <td>${taskOwnerCell(t)}</td>
           <td>${esc(t.assigner_name || "")}</td>
           <td>${fmtTime(t.created_at) || "未知"}</td>
           <td><div class="progress"><span style="width:${progress}%"></span></div></td>
           <td>${statusPill(t.status)}</td>
-          <td>${t.deadline ? fmtTime(t.deadline) : "待评估"}</td>
+          <td>${t.deadline ? fmtTime(t.deadline) : `更新于 ${fmtAge(t.updated_at)}`}</td>
         </tr>`;
       }).join("")}</tbody>
     </table>`;
@@ -436,29 +438,34 @@ function renderFailedFileIntakes() {
 }
 
 function renderTasksRoute() {
-  const global = state.me?.is_superadmin
-    ? `${queueSection("全局任务队列", state.taskQueue.length, taskTable(state.taskQueue), `
-        <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
-      `)}
-      ${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), `
-        <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
-      `)}`
-    : `${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), "")}`;
+	const assignedActive = state.tasks.assigned.filter(t => ["pending", "in_progress", "awaiting_input", "done"].includes(t.status));
+	const assignedHistory = state.tasks.assigned.filter(t => ["accepted", "split", "cancelled"].includes(t.status));
+	if (state.me?.is_superadmin) {
+		return `${queueSection("全局任务队列", state.taskQueue.length, taskTable(state.taskQueue), `
+			<button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
+		`)}
+		${queueSection("任务历史", state.taskHistory.length, taskTable(state.taskHistory), "")}
+		${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), `
+			<button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
+		`)}`;
+	}
+	const schedules = queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), "");
   return `
-    ${global}
+		${schedules}
     ${queueSection("我的待办", state.tasks.todo.length, taskTable(state.tasks.todo), "")}
     ${queueSection("待验收", state.tasks.review.length, taskTable(state.tasks.review), "")}
-    ${queueSection("我分配的", state.tasks.assigned.length, taskTable(state.tasks.assigned), "")}`;
+		${queueSection("我分配的活跃任务", assignedActive.length, taskTable(assignedActive), "")}
+		${queueSection("我分配的历史", assignedHistory.length, taskTable(assignedHistory), "")}`;
 }
 
 function taskTable(tasks) {
   if (!tasks.length) return `<div class="empty">（空）</div>`;
   return `
     <table class="data-table">
-      <thead><tr><th>ID</th><th>标题</th><th>状态</th><th>执行人</th><th>发起人</th><th>截止</th></tr></thead>
+      <thead><tr><th>ID</th><th>标题</th><th>状态</th><th>责任人与参与者</th><th>发起人</th><th>最近更新</th><th>截止</th></tr></thead>
       <tbody>${tasks.map(t => `<tr class="selectable" data-select-kind="task" data-id="${t.id}">
-        <td>#${t.id}</td><td class="td-title"><div class="title-strong">${esc(t.title)}</div></td><td>${statusPill(t.status)}</td>
-        <td>${esc(t.assignee_name || "")}</td><td>${esc(t.assigner_name || "")}</td><td>${fmtTime(t.deadline) || "未设定"}</td>
+			<td>#${t.id}</td><td class="td-title"><div class="title-strong">${esc(t.title)}</div>${taskWorkerState(t, true)}</td><td>${statusPill(t.status)}</td>
+        <td>${taskOwnerCell(t)}</td><td>${esc(t.assigner_name || "")}</td><td>${fmtAge(t.updated_at)}</td><td>${fmtTime(t.deadline) || "未设定"}</td>
       </tr>`).join("")}</tbody>
     </table>`;
 }
@@ -623,19 +630,37 @@ function fileInspector(file) {
 }
 
 function taskInspector(task) {
+  const participants = taskParticipantText(task);
   return `
     <dl class="kv">
       <dt>任务</dt><dd>#${task.id} ${esc(task.title)}</dd>
       <dt>状态</dt><dd>${statusPill(task.status)}</dd>
-      <dt>执行人</dt><dd>${esc(task.assignee_name || "")}</dd>
+      <dt>责任人</dt><dd>${esc(task.assignee_name || "")}</dd>
+      <dt>参与者</dt><dd>${esc(participants || "无额外参与者")}</dd>
       <dt>发起人</dt><dd>${esc(task.assigner_name || "")}</dd>
       <dt>优先级</dt><dd>${esc(task.priority || "normal")}</dd>
       <dt>创建</dt><dd>${fmtTime(task.created_at) || ""}</dd>
-      <dt>更新</dt><dd>${fmtTime(task.updated_at) || ""}</dd>
+      <dt>更新</dt><dd>${fmtTime(task.updated_at) || ""}（${fmtAge(task.updated_at)}）</dd>
       <dt>截止</dt><dd>${fmtTime(task.deadline) || "未设定"}</dd>
-      <dt>催办次数</dt><dd>${esc(task.nudge_count || 0)}</dd>
-    </dl>
-    <div class="result">任务验收、打回、拆分等深层动作仍建议在 Telegram/对话中通过工具执行；控制台先负责总览和入口。</div>`;
+		${task.submitted_by ? `<dt>最近提交</dt><dd>${esc(task.submitted_by_name || `用户 #${task.submitted_by}`)}${task.submitted_at ? ` · ${fmtTime(task.submitted_at)}` : ""}</dd>` : ""}
+		${task.cancel_reason ? `<dt>取消原因</dt><dd>${esc(task.cancel_reason)}</dd>` : ""}
+		${task.superseded_by ? `<dt>替代任务</dt><dd>#${esc(task.superseded_by)}</dd>` : ""}
+		<dt>催办次数</dt><dd>${esc(task.nudge_count || 0)}</dd>
+		${task.worker_failures ? `<dt>Worker 失败</dt><dd>${esc(task.worker_failures)} 次${task.worker_retry_at ? `，${fmtTime(task.worker_retry_at)} 重试` : ""}</dd>` : ""}
+	  </dl>
+	  ${task.goal ? `<div class="result"><strong>目标</strong><br>${esc(task.goal)}</div>` : ""}
+	  ${task.description ? `<div class="result"><strong>描述</strong><br>${esc(task.description)}</div>` : ""}
+	  ${task.acceptance ? `<div class="result"><strong>验收标准</strong><br>${esc(task.acceptance)}</div>` : ""}
+	  ${task.worker_last_error ? `<div class="result bad">${esc(task.worker_last_error)}</div>` : ""}
+	  `;
+}
+
+function taskWorkerState(task, block = false) {
+	if (!task?.worker_failures) return "";
+	const text = task.worker_retry_at
+		? `Worker 失败 ${task.worker_failures} 次，${fmtTime(task.worker_retry_at)} 重试`
+		: `Worker 连续失败 ${task.worker_failures} 次`;
+	return block ? `<div class="subline">${esc(text)}</div>` : ` · ${esc(text)}`;
 }
 
 function scheduleInspector(s) {
@@ -805,7 +830,7 @@ function selectedItem() {
   const selected = state.selected;
   if (!selected) return null;
   if (selected.kind === "file") return { ...selected, item: state.files.find(f => Number(f.id) === Number(selected.id)) };
-  if (selected.kind === "task") return { ...selected, item: taskQueueSource().find(t => Number(t.id) === Number(selected.id)) };
+  if (selected.kind === "task") return { ...selected, item: allTaskSource().find(t => Number(t.id) === Number(selected.id)) };
   if (selected.kind === "schedule") return { ...selected, item: state.schedules.find(s => Number(s.id) === Number(selected.id)) };
   if (selected.kind === "worker") return { ...selected, item: state.workers.find(w => Number(w.id) === Number(selected.id)) };
   if (selected.kind === "risk") return selected;
@@ -826,8 +851,54 @@ function mergedTasks() {
 }
 
 function taskQueueSource() {
-  if (state.me?.is_superadmin && state.taskQueue.length) return state.taskQueue;
+	if (state.me?.is_superadmin) return state.taskQueue;
   return mergedTasks();
+}
+
+function allTaskSource() {
+  const seen = new Set();
+  const out = [];
+  for (const task of [...taskQueueSource(), ...(state.taskHistory || []), ...mergedTasks()]) {
+    if (!task || seen.has(Number(task.id))) continue;
+    seen.add(Number(task.id));
+    out.push(task);
+  }
+  return out;
+}
+
+function countTaskStatuses(tasks) {
+  const counts = { pending: 0, in_progress: 0, awaiting_input: 0, done: 0 };
+  for (const task of tasks || []) {
+    if (Object.prototype.hasOwnProperty.call(counts, task.status)) counts[task.status]++;
+  }
+  return counts;
+}
+
+function taskParticipantText(task) {
+  const labels = { collaborator: "协作", reviewer: "验收", watcher: "关注" };
+  const groups = new Map();
+  for (const participant of task?.participants || []) {
+    const role = labels[participant.role] || "参与";
+    const names = groups.get(role) || [];
+    names.push(participant.user_name || `用户 #${participant.user_id}`);
+    groups.set(role, names);
+  }
+  return [...groups.entries()].map(([role, names]) => `${role}：${names.join("、")}`).join("；");
+}
+
+function taskOwnerCell(task) {
+  const participants = taskParticipantText(task);
+  return `<div class="title-strong">${esc(task.assignee_name || "未指定")}</div>${participants ? `<div class="subline">${esc(participants)}</div>` : ""}`;
+}
+
+function fmtAge(value) {
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return "未知";
+  const seconds = Math.max(0, Math.floor((Date.now() - at.getTime()) / 1000));
+  if (seconds < 60) return "刚刚";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
+  return `${Math.floor(seconds / 86400)} 天前`;
 }
 
 function scheduleTitle(s) {
@@ -890,6 +961,7 @@ function statusPill(status) {
     cancelled: ["amber", "已取消"],
     pending: ["amber", "待处理"],
     in_progress: ["blue", "运行中"],
+    awaiting_input: ["amber", "待补充"],
     done: ["teal", "待验收"],
     accepted: ["green", "已完成"],
     split: ["blue", "已拆分"],
@@ -911,6 +983,8 @@ function taskProgress(status) {
     return 86;
   case "in_progress":
     return 58;
+  case "awaiting_input":
+    return 44;
   case "split":
     return 42;
   default:
@@ -993,7 +1067,10 @@ async function loadSchedules(status = "active") {
 
 async function loadAdminData(parts) {
   const jobs = [];
-  if (state.me?.is_superadmin && parts.includes("taskQueue")) jobs.push(api("/api/admin/task-queue?scope=all").then(d => { state.taskQueue = d.tasks || []; }));
+	if (state.me?.is_superadmin && parts.includes("taskQueue")) {
+		jobs.push(api("/api/admin/task-queue?scope=queue").then(d => { state.taskQueue = d.tasks || []; }));
+		jobs.push(api("/api/admin/task-queue?scope=history").then(d => { state.taskHistory = d.tasks || []; }));
+	}
   if (parts.includes("workers")) jobs.push(api("/api/admin/workers").then(d => { state.workers = d.workers || []; }));
   if (parts.includes("workflows")) jobs.push(api("/api/admin/workflows").then(d => { state.workflows = d.workflows || []; }));
   if (parts.includes("capabilities")) jobs.push(api("/api/admin/capabilities").then(d => { state.capabilities = d.capabilities || []; }));

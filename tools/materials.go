@@ -77,11 +77,13 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 	}
 	t, err := d.Store.CreateTask(ctx, &store.Task{
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
-		Title:       title,
-		Goal:        "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
-		Description: materialAnalysisPrompt(instruction),
-		Acceptance:  "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
-		Priority:    "high",
+		Title:           title,
+		Goal:            "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
+		Description:     materialAnalysisPrompt(instruction),
+		Acceptance:      "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
+		Priority:        "high",
+		WorkerScopeType: "materials", WorkerScopeKey: "materials:company-intelligence",
+		WorkerScopeTitle: "Company material analysis",
 	})
 	if err != nil {
 		return "", err

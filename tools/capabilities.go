@@ -124,6 +124,8 @@ var toolDomain = map[string]string{
 	"split_my_task":          CapabilityWork,
 	"get_assigned_tasks":     CapabilityWork,
 	"update_assigned_task":   CapabilityWork,
+	"set_task_participants":  CapabilityWork,
+	"cancel_assigned_task":   CapabilityWork,
 	"delete_assigned_task":   CapabilityWork,
 	"reassign_task":          CapabilityWork,
 	"create_project":         CapabilityWork,
@@ -255,6 +257,7 @@ var toolEffect = map[string]string{
 	"bind_telegram_group_project":     ToolEffectWrite,
 	"bulk_update_user_info":           ToolEffectWrite,
 	"cancel_invites":                  ToolEffectWrite,
+	"cancel_assigned_task":            ToolEffectWrite,
 	"cancel_schedule":                 ToolEffectWrite,
 	"close_data_collection_campaign":  ToolEffectWrite,
 	"close_goal":                      ToolEffectWrite,
@@ -361,13 +364,14 @@ var toolEffect = map[string]string{
 	"schedule_once":                   ToolEffectWrite,
 	"schedule_push":                   ToolEffectWrite,
 	"schedule_repeating":              ToolEffectWrite,
-	"score_learning_candidates":       ToolEffectRead,
+	"score_learning_candidates":       ToolEffectWrite,
 	"search_history":                  ToolEffectRead,
 	"search_knowledge":                ToolEffectRead,
 	"search_skills":                   ToolEffectRead,
 	"send_file":                       ToolEffectWrite,
 	"send_data_collection_reminder":   ToolEffectWrite,
 	"send_message":                    ToolEffectWrite,
+	"set_task_participants":           ToolEffectWrite,
 	"send_telegram_group_message":     ToolEffectWrite,
 	"set_ai_settings":                 ToolEffectWrite,
 	"set_rule_pinned":                 ToolEffectWrite,
@@ -551,7 +555,22 @@ func ToolCanProveActionTool(t ai.Tool) bool {
 	}
 }
 
-func capabilityDomain(name string) string {
+// ReadOnlyTools returns only capabilities whose declared or built-in effect is
+// read-only. Unknown external tools are excluded because a system-generated
+// report must not guess whether an extension has side effects.
+func ReadOnlyTools(in []ai.Tool) []ai.Tool {
+	out := make([]ai.Tool, 0, len(in))
+	for _, t := range in {
+		if effectForTool(t) == ToolEffectRead {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// CapabilityDomain 返回工具所属的稳定能力领域。未知/外部工具归入 extension，
+// 让上层语义路由不依赖维护另一份工具名清单。
+func CapabilityDomain(name string) string {
 	if d, ok := toolDomain[name]; ok {
 		return d
 	}
@@ -560,6 +579,8 @@ func capabilityDomain(name string) string {
 	}
 	return CapabilityExtension
 }
+
+func capabilityDomain(name string) string { return CapabilityDomain(name) }
 
 func domainRank(domain string) int {
 	for i, d := range domainOrder {

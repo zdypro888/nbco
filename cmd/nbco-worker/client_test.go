@@ -34,9 +34,11 @@ func TestClientMe(t *testing.T) {
 
 func TestClientRequestInput(t *testing.T) {
 	var body struct {
-		TaskID  int64  `json:"task_id"`
-		ClaimID string `json:"claim_id"`
-		Content string `json:"content"`
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		Content          string `json:"content"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		EngineSessionRef string `json:"engine_session_ref"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/worker/request-input" {
@@ -53,12 +55,75 @@ func TestClientRequestInput(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := newClient(srv.URL, "tok-worker-a").RequestInput(context.Background(), 42, "claim-1", "请提供 repo URL")
+	err := newClient(srv.URL, "tok-worker-a").RequestInput(context.Background(), 42, "claim-1", "请提供 repo URL",
+		SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"}, "/tmp/repo")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.Content != "请提供 repo URL" {
 		t.Fatalf("request body = %+v", body)
+	}
+	if body.WorkerSessionID != 9 || body.EngineSessionRef == "" {
+		t.Fatalf("request input must persist worker session: %+v", body)
+	}
+}
+
+func TestClientFailCarriesClaimAndSession(t *testing.T) {
+	var body struct {
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		Error            string `json:"error"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		EngineSessionRef string `json:"engine_session_ref"`
+		Workdir          string `json:"workdir"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/fail" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+
+	session := SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"}
+	if err := newClient(srv.URL, "tok-worker-a").Fail(context.Background(), 42, "claim-1", "agent crashed", session, "/tmp/repo"); err != nil {
+		t.Fatal(err)
+	}
+	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.Error != "agent crashed" ||
+		body.WorkerSessionID != 9 || body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" {
+		t.Fatalf("fail body = %+v", body)
+	}
+}
+
+func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
+	var body struct {
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		EngineSessionRef string `json:"engine_session_ref"`
+		Workdir          string `json:"workdir"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/session" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+
+	session := SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"}
+	if err := newClient(srv.URL, "tok-worker-a").UpdateSession(context.Background(), 42, "claim-1", session, "/tmp/repo"); err != nil {
+		t.Fatal(err)
+	}
+	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.WorkerSessionID != 9 ||
+		body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" {
+		t.Fatalf("session body = %+v", body)
 	}
 }
 

@@ -3,6 +3,7 @@ package einoengine
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -176,6 +177,51 @@ func TestOutputLikelyTruncated(t *testing.T) {
 	}
 	if outputLikelyTruncated(usage(100, 200), "stop", 4096) {
 		t.Fatal("normal stop well below max should not be treated as truncated")
+	}
+}
+
+func TestPreservePartialAgentErrorKeepsCompletedToolEvidence(t *testing.T) {
+	res := &ai.TurnResult{Steps: []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "send_message", Result: "sent"},
+		{Kind: ai.StepToolCall, ToolName: "missing_tool"},
+	}}
+	got, err := preservePartialAgentError(res, map[string]int{"pending": 1}, errors.New("tool missing_tool not found"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != res || !got.OutputLikelyTruncated || got.FinishReason != "agent_error" {
+		t.Fatalf("partial result metadata not preserved: %+v", got)
+	}
+	if got.Steps[0].Result != "sent" || got.Steps[0].Err != "" {
+		t.Fatalf("completed evidence changed: %+v", got.Steps[0])
+	}
+	if !strings.Contains(got.Steps[1].Err, "missing_tool") {
+		t.Fatalf("pending call did not receive terminal error: %+v", got.Steps[1])
+	}
+}
+
+func TestPreservePartialAgentErrorReturnsHardErrorWithoutEvidence(t *testing.T) {
+	want := errors.New("model unavailable")
+	got, err := preservePartialAgentError(&ai.TurnResult{}, nil, want)
+	if got != nil || !errors.Is(err, want) {
+		t.Fatalf("got result=%+v err=%v", got, err)
+	}
+	partial := &ai.TurnResult{Usage: usage(10, 200)}
+	got, err = preservePartialAgentError(partial, nil, want)
+	if err != nil || got != partial || !got.OutputLikelyTruncated {
+		t.Fatalf("token-bearing partial turn should be repairable: result=%+v err=%v", got, err)
+	}
+}
+
+func TestEmptyTurnNeedsRepairWhenReasoningUsesOutputBudget(t *testing.T) {
+	if !emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 4096)}, 4096) {
+		t.Fatal("empty visible output at the token limit must enter tool-free repair")
+	}
+	if emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 20), FinishReason: "stop"}, 4096) {
+		t.Fatal("ordinary empty stop without tool evidence should remain a hard model error")
+	}
+	if !emptyTurnNeedsRepair(&ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "read"}}}, 4096) {
+		t.Fatal("tool evidence must always be preserved for repair")
 	}
 }
 

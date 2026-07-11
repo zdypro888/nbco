@@ -52,6 +52,19 @@ func (h *TelegramGroupHub) Set(c TelegramGroupController) {
 	h.c = c
 }
 
+func (h *TelegramGroupHub) Ready() bool {
+	h.mu.RLock()
+	c := h.c
+	h.mu.RUnlock()
+	if c == nil {
+		return false
+	}
+	if r, ok := c.(interface{ Ready() bool }); ok {
+		return r.Ready()
+	}
+	return true
+}
+
 func (h *TelegramGroupHub) controller() (TelegramGroupController, error) {
 	h.mu.RLock()
 	c := h.c

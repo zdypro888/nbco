@@ -56,7 +56,7 @@ type toolCallFunc struct {
 	Arguments string `json:"arguments"`
 }
 
-// agentTools 智能体的全部能力面：执行命令 + 收尾提交。刻意不给独立的读写文件
+// agentTools 智能体的全部能力面：执行命令、请求信息、收尾提交。刻意不给独立的读写文件
 // 工具——cat/写重定向都是命令，能力面越小越好审计。
 var agentTools = []map[string]any{
 	{"type": "function", "function": map[string]any{
@@ -66,6 +66,13 @@ var agentTools = []map[string]any{
 			"command":     map[string]any{"type": "string", "description": "要执行的命令"},
 			"timeout_sec": map[string]any{"type": "integer", "description": "可选超时秒数，默认600，最大1800"},
 		}, "required": []string{"command"}},
+	}},
+	{"type": "function", "function": map[string]any{
+		"name":        "request_input",
+		"description": "只有任务确实缺少分配者才能提供的关键信息、无法继续时调用；任务会暂停，待对方补充后以同一主题上下文重新领取。",
+		"parameters": map[string]any{"type": "object", "properties": map[string]any{
+			"question": map[string]any{"type": "string", "description": "一个具体、可直接回答的问题"},
+		}, "required": []string{"question"}},
 	}},
 	{"type": "function", "function": map[string]any{
 		"name":        "task_done",
@@ -79,10 +86,11 @@ var agentTools = []map[string]any{
 
 func agentSystemPrompt(name string) string {
 	return fmt.Sprintf("你是公司的 AI 员工「%s」，在一台工作机的主题 workspace 中独立完成任务。\n"+
-		"你唯一的操作手段是 run_command 工具（无浏览器、无图形界面、不能反问用户）。\n"+
+		"你可以用 run_command 操作工作机；确实缺少外部关键信息时用 request_input 暂停并向分配者提问。\n"+
 		"工作原则：\n"+
 		"- 小步执行：一次一条命令，根据真实输出决定下一步，绝不臆造结果\n"+
 		"- 先看后动：不熟悉的环境先用 ls/cat/--version 等命令摸清情况\n"+
+		"- workspace 可能为空；任务给出仓库地址时可自行 clone，不要仅因目录为空就停下\n"+
 		"- 自我验证：完成后用命令实际检查验收标准是否达成\n"+
 		"- 交付文件放进 "+taskArtifactRelDir()+"/ 目录（提交时自动上传）\n"+
 		"- 验证通过后调用 task_done 提交，不要空谈计划不动手", name)
@@ -92,7 +100,7 @@ func agentSystemPrompt(name string) string {
 // 而非屏幕哨兵。
 func agentTaskText(task *Task, knowledge, history []string) string {
 	return taskBrief(task, knowledge, history) +
-		"\n请从摸清现状开始，用 run_command 逐步完成并验证，最后 task_done 提交。"
+		"\n请从摸清现状开始，用 run_command 逐步完成并验证；缺关键外部信息时 request_input，否则最后 task_done 提交。"
 }
 
 // executeBuiltin 内置智能体主循环：模型决策 → 本机执行 → 结果喂回，直到
@@ -116,8 +124,7 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Task, knowled
 				w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，已终止执行。")
 				return
 			}
-			w.submitAgent(ctx, runCtx, task, dir,
-				"任务执行中断（内置智能体模型调用失败："+err.Error()+"），进展见过程记录。", "")
+			w.failTask(ctx, task, "内置智能体模型调用失败: "+err.Error(), task.Session, dir)
 			return
 		}
 		if len(msg.ToolCalls) == 0 {
@@ -127,11 +134,7 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Task, knowled
 			}
 			noTool++
 			if noTool > maxNudges {
-				summary := strings.TrimSpace(msg.Content)
-				if summary == "" {
-					summary = "内置智能体多次未调用工具，任务在未确认完成的状态下提交，请核查。"
-				}
-				w.submitAgent(ctx, runCtx, task, dir, clipHead(summary, agentThoughtLimit), "")
+				w.failTask(ctx, task, "内置智能体多次未调用执行或完成工具，无法确认任务完成", task.Session, dir)
 				return
 			}
 			msgs = append(msgs, msg, chatMessage{Role: "user",
@@ -154,17 +157,32 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Task, knowled
 				}
 				w.submitAgent(ctx, runCtx, task, dir, summary, strings.TrimSpace(args.Lessons))
 				return
+			case "request_input":
+				var args struct {
+					Question string `json:"question"`
+				}
+				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+				question := strings.TrimSpace(args.Question)
+				if question == "" {
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: "question 不能为空"})
+					continue
+				}
+				if err := w.client.RequestInput(ctx, task.ID, task.ClaimID, question, task.Session, dir); err != nil {
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: "请求补充信息失败：" + err.Error()})
+					continue
+				}
+				log.Printf("任务 #%d 已暂停，等待分配者补充信息", task.ID)
+				return
 			case "run_command":
 				result := w.agentRunCommand(ctx, runCtx, task, dir, tc.Function.Arguments)
 				msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: result})
 			default:
 				msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID,
-					Content: "未知工具 " + tc.Function.Name + "，可用工具：run_command、task_done。"})
+					Content: "未知工具 " + tc.Function.Name + "，可用工具：run_command、request_input、task_done。"})
 			}
 		}
 	}
-	w.submitAgent(ctx, runCtx, task, dir,
-		fmt.Sprintf("内置智能体达到 %d 步上限仍未收尾，请结合过程记录评估进展后验收或打回。", agentMaxSteps), "")
+	w.failTask(ctx, task, fmt.Sprintf("内置智能体达到 %d 步上限仍未收尾", agentMaxSteps), task.Session, dir)
 }
 
 // llmWithRetry 模型调用带瞬时故障重试；任务被取消/杀死时立即放弃。
@@ -266,9 +284,12 @@ func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Task, dir, summa
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
+		w.failTask(ctx, task, "提交内置智能体任务结果失败: "+err.Error(), task.Session, dir)
+		w.handoffDeferredRestart()
 		return
 	}
 	log.Printf("任务 #%d 已提交验收（内置智能体）", task.ID)
+	w.handoffDeferredRestart()
 }
 
 // clipTail 超限截断保尾部（命令输出的关键信息通常在末尾），对齐 UTF-8 边界。

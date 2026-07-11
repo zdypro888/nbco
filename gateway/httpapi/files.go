@@ -168,7 +168,12 @@ func (s *Server) handleAttachFile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "任务不存在"})
 		return
 	}
-	if !u.IsSuperadmin && t.AssignerID != u.ID && t.AssigneeID != u.ID {
+	access, err := s.store.TaskAccessForUser(r.Context(), t, u.ID, u.IsSuperadmin)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "权限查询失败"})
+		return
+	}
+	if !access.CanContribute && !access.CanManage {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权操作该任务"})
 		return
 	}
@@ -185,11 +190,12 @@ func (s *Server) handleAttachFile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权访问文件"})
 		return
 	}
-	if err := s.store.AddTaskAttachmentFile(r.Context(), taskID, req.FileID, req.Caption); err != nil {
+	inserted, err := s.store.AddTaskAttachmentFileOnce(r.Context(), taskID, req.FileID, req.Caption)
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "挂载失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "attached": inserted})
 }
 
 func (s *Server) handleWorkerDownloadFile(w http.ResponseWriter, r *http.Request) {
@@ -348,12 +354,7 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, id int64) {
 }
 
 func (s *Server) runFileGC(ctx context.Context) {
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("文件存储 GC panic 已恢复", "panic", r)
-		}
-	}()
-	s.gcFileStore(ctx)
+	s.runFileGCPass(ctx)
 	t := time.NewTicker(fileGCEvery)
 	defer t.Stop()
 	for {
@@ -361,9 +362,18 @@ func (s *Server) runFileGC(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			s.gcFileStore(ctx)
+			s.runFileGCPass(ctx)
 		}
 	}
+}
+
+func (s *Server) runFileGCPass(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("文件存储 GC panic 已恢复；后续周期仍会继续", "panic", r)
+		}
+	}()
+	s.gcFileStore(ctx)
 }
 
 func (s *Server) gcFileStore(ctx context.Context) {
@@ -393,7 +403,10 @@ func (s *Server) collectOrphanFiles(ctx context.Context, grace time.Duration) er
 	defer rootFS.Close()
 	cutoff := time.Now().Add(-grace)
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil || ctx.Err() != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if err != nil {
 			return err
 		}
 		if d.IsDir() {

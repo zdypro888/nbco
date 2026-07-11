@@ -105,6 +105,7 @@ func (s *Server) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("GET /readyz", s.handleReady)
 	mux.HandleFunc("GET /version", s.handleVersion)
 	mux.HandleFunc("GET /downloads/worker/{name}", s.handleWorkerDownloadBinary)
 	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
@@ -137,13 +138,37 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/worker/llm", s.handleWorkerLLM)
 	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
+	mux.HandleFunc("POST /api/worker/session", s.handleWorkerSession)
 	mux.HandleFunc("POST /api/worker/request-input", s.handleWorkerRequestInput)
+	mux.HandleFunc("POST /api/worker/fail", s.handleWorkerFail)
 	mux.HandleFunc("POST /api/worker/submit", s.handleWorkerSubmit)
 	mux.HandleFunc("GET /api/worker/files/{id}", s.handleWorkerDownloadFile)
 	mux.HandleFunc("POST /api/worker/artifacts", s.handleWorkerArtifact)
 	mux.HandleFunc("GET /api/worker/ws", s.handleWorkerWS)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(s.mcpServer, nil))
 	return securityHeaders(mux)
+}
+
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	if s.store == nil {
+		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	if err := s.store.Ping(ctx); err != nil {
+		http.Error(w, "db unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if strings.TrimSpace(s.telegramToken) != "" {
+		ready, ok := s.deps.Notifier.(interface{ Ready() bool })
+		if !ok || !ready.Ready() {
+			http.Error(w, "telegram unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ready"))
 }
 
 func securityHeaders(next http.Handler) http.Handler {
@@ -320,7 +345,12 @@ func (s *Server) handleAdminTaskQueue(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "查询失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"tasks": tasksJSON(ts, names)})
+	tasks, err := s.tasksJSON(r.Context(), ts, names)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取任务参与者失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tasks": tasks})
 }
 
 func (s *Server) handleAdminLearning(w http.ResponseWriter, r *http.Request) {
@@ -529,7 +559,12 @@ func (s *Server) taskList(w http.ResponseWriter, r *http.Request,
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "查询失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"tasks": tasksJSON(ts, names)})
+	tasks, err := s.tasksJSON(r.Context(), ts, names)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取任务参与者失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tasks": tasks})
 }
 
 // handleOverview 老板全景（超管专用）。
@@ -582,46 +617,85 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		pjs = append(pjs, projJSON{ID: p.ID, Name: p.Name, Status: p.Status,
 			Open: c.Open, Awaiting: c.Awaiting, Accepted: c.Accepted})
 	}
+	overdueJSON, err := s.tasksJSON(ctx, overdue, names)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取任务参与者失败"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"stats": map[string]int64{
-			"open": stats.Open, "overdue": stats.Overdue,
+			"open": stats.Open, "awaiting_input": stats.AwaitingInput, "overdue": stats.Overdue,
 			"awaiting": stats.Awaiting, "done_week": stats.DoneSince,
 		},
 		"projects": pjs,
-		"overdue":  tasksJSON(overdue, names),
+		"overdue":  overdueJSON,
 	})
 }
 
 // taskJSON 任务的对外表示（带人名，前端免二次查询）。
 type taskJSON struct {
-	ID           int64      `json:"id"`
-	ProjectID    int64      `json:"project_id"`
-	Title        string     `json:"title"`
-	Status       string     `json:"status"`
-	Priority     string     `json:"priority"`
-	Deadline     *time.Time `json:"deadline,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	AssignerID   int64      `json:"assigner_id"`
-	AssignerName string     `json:"assigner_name"`
-	AssigneeID   int64      `json:"assignee_id"`
-	AssigneeName string     `json:"assignee_name"`
-	NudgeCount   int64      `json:"nudge_count,omitempty"`
-	WorkerClaim  string     `json:"worker_claim_id,omitempty"`
+	ID              int64                   `json:"id"`
+	ProjectID       int64                   `json:"project_id"`
+	ParentID        *int64                  `json:"parent_id,omitempty"`
+	Title           string                  `json:"title"`
+	Goal            string                  `json:"goal,omitempty"`
+	Description     string                  `json:"description,omitempty"`
+	Acceptance      string                  `json:"acceptance,omitempty"`
+	Status          string                  `json:"status"`
+	Priority        string                  `json:"priority"`
+	Deadline        *time.Time              `json:"deadline,omitempty"`
+	CreatedAt       time.Time               `json:"created_at"`
+	UpdatedAt       time.Time               `json:"updated_at"`
+	AssignerID      int64                   `json:"assigner_id"`
+	AssignerName    string                  `json:"assigner_name"`
+	AssigneeID      int64                   `json:"assignee_id"`
+	AssigneeName    string                  `json:"assignee_name"`
+	Participants    []store.TaskParticipant `json:"participants"`
+	SubmittedBy     *int64                  `json:"submitted_by,omitempty"`
+	SubmittedByName string                  `json:"submitted_by_name,omitempty"`
+	SubmittedAt     *time.Time              `json:"submitted_at,omitempty"`
+	CancelReason    string                  `json:"cancel_reason,omitempty"`
+	CancelledAt     *time.Time              `json:"cancelled_at,omitempty"`
+	SupersededBy    *int64                  `json:"superseded_by,omitempty"`
+	NudgeCount      int64                   `json:"nudge_count,omitempty"`
+	WorkerClaim     string                  `json:"worker_claim_id,omitempty"`
+	WorkerRetry     *time.Time              `json:"worker_retry_at,omitempty"`
+	WorkerFails     int                     `json:"worker_failures,omitempty"`
+	WorkerError     string                  `json:"worker_last_error,omitempty"`
 }
 
-func tasksJSON(ts []*store.Task, names map[int64]string) []taskJSON {
+func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int64]string) ([]taskJSON, error) {
+	taskIDs := make([]int64, 0, len(ts))
+	for _, task := range ts {
+		taskIDs = append(taskIDs, task.ID)
+	}
+	participants, err := s.store.TaskParticipantsForTasks(ctx, taskIDs)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]taskJSON, 0, len(ts))
 	for _, t := range ts {
+		taskParticipants := participants[t.ID]
+		if taskParticipants == nil {
+			taskParticipants = []store.TaskParticipant{}
+		}
+		submittedByName := ""
+		if t.SubmittedBy != nil {
+			submittedByName = names[*t.SubmittedBy]
+		}
 		out = append(out, taskJSON{
-			ID: t.ID, ProjectID: t.ProjectID, Title: t.Title, Status: t.Status,
+			ID: t.ID, ProjectID: t.ProjectID, ParentID: t.ParentID,
+			Title: t.Title, Goal: t.Goal, Description: t.Description, Acceptance: t.Acceptance, Status: t.Status,
 			Priority: t.Priority, Deadline: t.Deadline, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 			AssignerID: t.AssignerID, AssignerName: names[t.AssignerID],
 			AssigneeID: t.AssigneeID, AssigneeName: names[t.AssigneeID],
+			Participants: taskParticipants, SubmittedBy: t.SubmittedBy, SubmittedByName: submittedByName, SubmittedAt: t.SubmittedAt,
+			CancelReason: t.CancelReason, CancelledAt: t.CancelledAt, SupersededBy: t.SupersededBy,
 			NudgeCount: t.NudgeCount, WorkerClaim: t.WorkerClaimID,
+			WorkerRetry: t.WorkerRetryAt, WorkerFails: t.WorkerFailures, WorkerError: t.WorkerLastError,
 		})
 	}
-	return out
+	return out, nil
 }
 
 type scheduleJSON struct {
@@ -676,8 +750,12 @@ func (s *Server) userNames(ctx context.Context) (map[int64]string, error) {
 // --- AI 员工（worker）接口 ---
 
 const (
-	workerKnowledgeHits  = 4
-	workerHistoryEntries = 10 // 领取任务时随带的最近过程记录条数（返工时含打回理由）
+	workerKnowledgeHits     = 4
+	workerHistoryEntries    = 10 // 领取任务时随带的最近过程记录条数（返工时含打回理由）
+	workerContextLineRunes  = 1800
+	workerContextTotalRunes = 16000
+	workerHistoryLineRunes  = 2000
+	workerHistoryTotalRunes = 12000
 )
 
 type workerFileJSON struct {
@@ -1312,15 +1390,31 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		query += " " + t.Description
 	}
 	if ps, err := s.store.ProfilesBy(ctx, u.ID, u.ID); err == nil {
-		for _, p := range ps {
+		for i, p := range ps {
+			if i >= workerKnowledgeHits {
+				break
+			}
 			lessons = append(lessons, "我的工作画像："+p.Content)
 		}
 	}
 	if u.OwnerID != nil {
 		if ps, err := s.store.ProfilesBy(ctx, u.ID, *u.OwnerID); err == nil {
-			for _, p := range ps {
+			for i, p := range ps {
+				if i >= workerKnowledgeHits {
+					break
+				}
 				lessons = append(lessons, "监护人对我的工作画像："+p.Content)
 			}
+		}
+	}
+	seenKnowledge := make(map[int64]bool)
+	appendKnowledge := func(prefix string, items []*store.Knowledge) {
+		for _, k := range items {
+			if k == nil || k.Kind == store.KnowledgeKindPolicy || seenKnowledge[k.ID] {
+				continue
+			}
+			seenKnowledge[k.ID] = true
+			lessons = append(lessons, prefix+k.Title+"："+boundedWorkerText(k.Content, workerContextLineRunes))
 		}
 	}
 	var personal []*store.Knowledge
@@ -1331,11 +1425,18 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		personal, personalErr = s.store.SearchKnowledgeByAuthor(ctx, u.ID, query, workerKnowledgeHits)
 	}
 	if personalErr == nil {
-		for _, k := range personal {
-			if k.Kind == store.KnowledgeKindPolicy {
-				continue // 规则走下方专门通道，不混进经验
-			}
-			lessons = append(lessons, "我的历史经验："+k.Title+"："+k.Content)
+		appendKnowledge("我的历史经验：", personal)
+	}
+	if scopeTag := strings.TrimSpace(t.WorkerScopeKey); scopeTag != "" {
+		var scoped []*store.Knowledge
+		var scopedErr error
+		if s.deps.Knowledge != nil {
+			scoped, scopedErr = s.deps.Knowledge.SearchByTag(ctx, scopeTag, query, workerKnowledgeHits)
+		} else {
+			scoped, scopedErr = s.store.SearchKnowledgeByTag(ctx, scopeTag, query, workerKnowledgeHits)
+		}
+		if scopedErr == nil {
+			appendKnowledge("本主题历史经验：", scoped)
 		}
 	}
 	projectTag := fmt.Sprintf("project:%d", t.ProjectID)
@@ -1347,12 +1448,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		project, projectErr = s.store.SearchKnowledgeByTag(ctx, projectTag, query, workerKnowledgeHits)
 	}
 	if projectErr == nil {
-		for _, k := range project {
-			if k.Kind == store.KnowledgeKindPolicy {
-				continue
-			}
-			lessons = append(lessons, "本项目历史经验："+k.Title+"："+k.Content)
-		}
+		appendKnowledge("本项目历史经验：", project)
 	}
 	var ks []*store.Knowledge
 	if s.deps.Knowledge != nil {
@@ -1360,12 +1456,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	} else {
 		ks, _ = s.store.SearchKnowledge(ctx, query, workerKnowledgeHits)
 	}
-	for _, k := range ks {
-		if k.Kind == store.KnowledgeKindPolicy {
-			continue
-		}
-		lessons = append(lessons, k.Title+"："+k.Content)
-	}
+	appendKnowledge("", ks)
 	// 规则注入：常驻规则 + 与任务语义相关的动态规则中适用 worker 场景的，
 	// 放在全部经验之前（规则优先于经验）。
 	var rules []*store.Knowledge
@@ -1382,9 +1473,11 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	}
 	rules = append(rules, dynRules...)
 	var ruleLines []string
+	seenRules := make(map[int64]bool)
 	for _, k := range rules {
-		if knowledge.RuleApplies(k.Tags, "worker", u.ID) {
-			ruleLines = append(ruleLines, "公司规则（必须遵守）："+k.Title+"："+k.Content)
+		if k != nil && !seenRules[k.ID] && knowledge.RuleApplies(k.Tags, "worker", u.ID) {
+			seenRules[k.ID] = true
+			ruleLines = append(ruleLines, "公司规则（必须遵守）："+k.Title+"："+boundedWorkerText(k.Content, workerContextLineRunes))
 		}
 	}
 	lessons = append(ruleLines, lessons...)
@@ -1403,6 +1496,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	lessons = append(skillLines, lessons...)
+	lessons = boundedWorkerLines(lessons, workerContextLineRunes, workerContextTotalRunes)
 	// 返工闭环：带上任务已有的过程记录（含验收打回理由），worker 按它改。
 	var history []string
 	if ps, err := s.store.ProgressOf(ctx, t.ID); err == nil {
@@ -1413,6 +1507,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 			history = append(history, pr.Content)
 		}
 	}
+	history = boundedWorkerLines(history, workerHistoryLineRunes, workerHistoryTotalRunes)
 	var attachments []workerFileJSON
 	if fs, err := s.store.TaskFileAttachments(ctx, t.ID); err == nil {
 		for _, f := range fs {
@@ -1458,47 +1553,66 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	delivered = true
 }
 
+func boundedWorkerText(text string, limit int) string {
+	text = strings.TrimSpace(text)
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	if limit == 1 {
+		return "…"
+	}
+	return string(runes[:limit-1]) + "…"
+}
+
+func boundedWorkerLines(lines []string, perLine, total int) []string {
+	if perLine <= 0 || total <= 0 {
+		return nil
+	}
+	out := make([]string, 0, len(lines))
+	remaining := total
+	for _, line := range lines {
+		if remaining <= 0 {
+			break
+		}
+		line = boundedWorkerText(line, min(perLine, remaining))
+		if line == "" {
+			continue
+		}
+		out = append(out, line)
+		remaining -= len([]rune(line))
+	}
+	return out
+}
+
 func (s *Server) workerSessionScope(ctx context.Context, t *store.Task) (scopeType, scopeKey, title string) {
-	projectName := ""
-	if pj, err := s.store.ProjectByID(ctx, t.ProjectID); err == nil {
-		projectName = pj.Name
+	if key := strings.TrimSpace(t.WorkerScopeKey); key != "" {
+		typ := strings.TrimSpace(t.WorkerScopeType)
+		if typ == "" {
+			typ = "custom"
+		}
+		title := strings.TrimSpace(t.WorkerScopeTitle)
+		if title == "" {
+			title = key
+		}
+		return typ, key, title
 	}
-	text := strings.ToLower(strings.Join([]string{projectName, t.Title, t.Goal, t.Description, t.WorkerCommand}, "\n"))
-	if looksLikeNBCOCodeTask(text) {
-		return "repo", "repo:nbco", "NBCO codebase / deployment"
-	}
-	switch strings.ToLower(strings.TrimSpace(projectName)) {
-	case "company intelligence inbox":
-		return "materials", "materials:company-intelligence", "Company material analysis"
-	case "worker commands":
-		return "ops", "ops:worker-commands", "Worker command tasks"
-	}
+	// Legacy rows created before worker_scope_* existed fall back to their stable
+	// project identity. No task text or project-name keyword affects session reuse.
 	if t.ProjectID > 0 {
-		name := strings.TrimSpace(projectName)
+		name := ""
+		if pj, err := s.store.ProjectByID(ctx, t.ProjectID); err == nil {
+			name = strings.TrimSpace(pj.Name)
+		}
 		if name == "" {
 			name = fmt.Sprintf("Project %d", t.ProjectID)
 		}
 		return "project", fmt.Sprintf("project:%d", t.ProjectID), name
 	}
 	return "task", fmt.Sprintf("task:%d", t.ID), "One-off task"
-}
-
-func looksLikeNBCOCodeTask(text string) bool {
-	if strings.Contains(text, "repo:nbco") || strings.Contains(text, "repository:nbco") {
-		return true
-	}
-	if !strings.Contains(text, "nbco") {
-		return false
-	}
-	for _, kw := range []string{
-		"代码", "功能", "修复", "bug", "部署", "升级", "commit", "push", "测试", "go test",
-		"codex", "claude", "repo", "repository", "代码库", "仓库",
-	} {
-		if strings.Contains(text, kw) {
-			return true
-		}
-	}
-	return false
 }
 
 // handleWorkerProgress worker 回传执行进度（CLI 屏幕或命令输出的节流片段）。
@@ -1512,10 +1626,11 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 		ClaimID string `json:"claim_id"`
 		Content string `json:"content"`
 	}
-	if err := decodeJSON(w, r, &req); err != nil || strings.TrimSpace(req.Content) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 与 content 必填"})
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Content) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id 与 content 必填"})
 		return
 	}
+	req.Content = truncateRunes(textfmt.RedactSecrets(req.Content), 16000)
 	if err := s.store.AddWorkerProgress(r.Context(), req.TaskID, u.ID, req.ClaimID, req.Content); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许记录进度（可能已被改派或重置）"})
@@ -1527,33 +1642,78 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
 }
 
+// handleWorkerSession persists native CLI continuity while the exact task claim
+// is still active. This closes the power-loss window before submit/fail/input.
+func (s *Server) handleWorkerSession(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		SessionSummary   string `json:"session_summary"`
+		EngineSessionRef string `json:"engine_session_ref"`
+		Workdir          string `json:"workdir"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || req.WorkerSessionID == 0 ||
+		strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.EngineSessionRef) == "" || strings.TrimSpace(req.Workdir) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id、worker_session_id、engine_session_ref 与 workdir 必填"})
+		return
+	}
+	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	if err := s.store.UpdateWorkerSessionForClaim(r.Context(), req.WorkerSessionID, u.ID, req.TaskID,
+		req.ClaimID, req.SessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务 claim 或 worker 会话已失效"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存 worker 会话失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+}
+
 func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request) {
 	u := s.requireWorker(w, r)
 	if u == nil {
 		return
 	}
 	var req struct {
-		TaskID  int64  `json:"task_id"`
-		ClaimID string `json:"claim_id"`
-		Content string `json:"content"`
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		Content          string `json:"content"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		SessionSummary   string `json:"session_summary"`
+		EngineSessionRef string `json:"engine_session_ref"`
+		Workdir          string `json:"workdir"`
 	}
-	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.Content) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 与 content 必填"})
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Content) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id 与 content 必填"})
 		return
 	}
+	req.Content = truncateRunes(textfmt.RedactSecrets(req.Content), 4000)
+	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
 	ctx := r.Context()
-	content := "❓ 需要补充信息：" + strings.TrimSpace(req.Content)
-	if err := s.store.AddWorkerProgress(ctx, req.TaskID, u.ID, req.ClaimID, content); err != nil {
+	if req.WorkerSessionID > 0 {
+		if err := s.store.UpdateWorkerSessionForClaim(ctx, req.WorkerSessionID, u.ID, req.TaskID,
+			req.ClaimID, req.SessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeJSON(w, http.StatusConflict, map[string]string{"error": "任务 claim 或 worker 会话已失效"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存 worker 会话失败"})
+			return
+		}
+	}
+	t, err := s.store.RequestWorkerInput(ctx, req.TaskID, u.ID, req.ClaimID, req.Content)
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许请求补充信息（可能已被改派或重置）"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "记录失败"})
-		return
-	}
-	t, err := s.store.TaskByID(ctx, req.TaskID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "查询任务失败"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "暂停任务失败"})
 		return
 	}
 	if t.AssignerID != u.ID && s.bus != nil {
@@ -1562,6 +1722,60 @@ func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request
 				u.Name, t.Title, t.ID, truncateRunes(req.Content, 500)))
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+}
+
+// handleWorkerFail records an execution failure, releases the exact claim and
+// applies durable retry/backoff. Repeated failures pause for the assigner rather
+// than submitting an interrupted run as completed work.
+func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
+	u := s.requireWorker(w, r)
+	if u == nil {
+		return
+	}
+	var req struct {
+		TaskID           int64  `json:"task_id"`
+		ClaimID          string `json:"claim_id"`
+		Error            string `json:"error"`
+		WorkerSessionID  int64  `json:"worker_session_id"`
+		SessionSummary   string `json:"session_summary"`
+		EngineSessionRef string `json:"engine_session_ref"`
+		Workdir          string `json:"workdir"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Error) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id 与 error 必填"})
+		return
+	}
+	req.Error = truncateRunes(textfmt.RedactSecrets(req.Error), 4000)
+	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	ctx := r.Context()
+	if req.WorkerSessionID > 0 {
+		if err := s.store.UpdateWorkerSessionForClaim(ctx, req.WorkerSessionID, u.ID, req.TaskID,
+			req.ClaimID, req.SessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeJSON(w, http.StatusConflict, map[string]string{"error": "任务 claim 或 worker 会话已失效"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存 worker 会话失败"})
+			return
+		}
+	}
+	t, err := s.store.FailWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Error)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前 claim 已失效"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "记录 worker 失败状态失败"})
+		return
+	}
+	if t.Status == store.TaskAwaitingInput && t.AssignerID != u.ID && s.bus != nil {
+		s.bus.Emit("Worker 任务连续失败", t.AssignerID,
+			fmt.Sprintf("AI 员工「%s」执行任务「%s」（任务内部编号 %d）连续失败，任务已暂停等待处理。最近错误：%s",
+				u.Name, t.Title, t.ID, truncateRunes(t.WorkerLastError, 500)))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": "1", "status": t.Status, "retry_at": t.WorkerRetryAt, "failures": t.WorkerFailures,
+	})
 }
 
 // handleWorkerSubmit worker 提交完成：进入验收流；可复用经验回流知识库（进化闭环）。
@@ -1580,11 +1794,29 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		EngineSessionRef string `json:"engine_session_ref"`
 		Workdir          string `json:"workdir"`
 	}
-	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
+	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Summary) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id 与 summary 必填"})
 		return
 	}
+	req.Summary = truncateRunes(textfmt.RedactSecrets(req.Summary), 64000)
+	req.Lessons = truncateRunes(textfmt.RedactSecrets(req.Lessons), 20000)
+	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
 	ctx := r.Context()
+	sessionSummary := strings.TrimSpace(req.SessionSummary)
+	if sessionSummary == "" {
+		sessionSummary = truncateRunes(req.Summary, 1200)
+	}
+	if req.WorkerSessionID > 0 {
+		if err := s.store.UpdateWorkerSessionForClaim(ctx, req.WorkerSessionID, u.ID, req.TaskID,
+			req.ClaimID, sessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeJSON(w, http.StatusConflict, map[string]string{"error": "任务 claim 或 worker 会话已失效"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存 worker 会话失败"})
+			return
+		}
+	}
 	// 原子提交：要求任务仍是本 worker 手上的 in_progress。若此刻分配者刚把它
 	// 改需求重置为 pending，提交落空（ErrNotFound），旧交付不会被当成完成。
 	t, chain, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary)
@@ -1606,22 +1838,16 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	// 进化：可复用经验回流知识库，供后续同类任务检索。
 	if lessons := strings.TrimSpace(req.Lessons); lessons != "" {
 		tags := []string{"worker经验", fmt.Sprintf("worker:%d", u.ID), fmt.Sprintf("project:%d", t.ProjectID)}
+		if scope := strings.TrimSpace(t.WorkerScopeKey); scope != "" {
+			tags = append(tags, scope)
+		}
 		if _, err := s.store.CreateKnowledge(ctx, t.Title, lessons, tags, u.ID); err != nil {
 			slog.Warn("worker 经验入库失败", "task", t.ID, "err", err)
 		}
 	}
-	if req.WorkerSessionID > 0 {
-		sessionSummary := strings.TrimSpace(req.SessionSummary)
-		if sessionSummary == "" {
-			sessionSummary = truncateRunes(req.Summary, 1200)
-		}
-		if err := s.store.UpdateWorkerSession(ctx, req.WorkerSessionID, u.ID, t.ID, sessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
-			slog.Warn("worker 会话更新失败", "worker", u.ID, "task", t.ID, "session", req.WorkerSessionID, "err", err)
-		}
-	}
 	learned := s.ingestWorkerLearningCandidates(ctx, u, t, req.Summary)
 	// 提交事件交派活人的 AI 分析：AI 可先看交付摘要，通知里直接给验收建议。
-	if t.AssignerID != u.ID {
+	if t.AssignerID != u.ID && s.bus != nil {
 		extra := ""
 		if learned > 0 {
 			extra = fmt.Sprintf(" 已抽取 %d 条学习候选，可用 list_learning_candidates 审核。", learned)
@@ -1828,8 +2054,9 @@ func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) erro
 		ReadHeaderTimeout: 10 * time.Second,
 		// 不设 ReadTimeout：它覆盖「读完整个请求体」，与 200MB 上传/产物回传
 		// （可长达分钟级）直接冲突；慢速头攻击由 ReadHeaderTimeout 挡。
-		WriteTimeout: 10 * time.Minute,
-		IdleTimeout:  2 * time.Minute,
+		// 同样不设全局 WriteTimeout：Go 从读完请求头就开始计时，30 分钟文件
+		// 传输或长 AI 轮次会在真正写响应前耗尽它。各长操作由自身 context 限时。
+		IdleTimeout: 2 * time.Minute,
 	}
 	errCh := make(chan error, 1)
 	go func() {

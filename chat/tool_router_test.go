@@ -250,7 +250,7 @@ func TestSlimSystemPromptAvoidsStaticDispatchTrees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"核心原则", "空结果只证明", "只有工具明确创建了定时规则", "时间结论以当前业务时区", "list_system_activity", "本轮能力路由", "send_message", "当前用户：PRO"} {
+	for _, want := range []string{"核心原则", "空结果", "对应工具成功", "当前业务时区", "本轮能力路由", "当前用户：PRO"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("短系统提示缺 %q:\n%s", want, got)
 		}
@@ -259,23 +259,6 @@ func TestSlimSystemPromptAvoidsStaticDispatchTrees(t *testing.T) {
 		if strings.Contains(got, bad) {
 			t.Fatalf("系统提示不应再常驻旧长提示 %q:\n%s", bad, got)
 		}
-	}
-}
-
-func TestRouteCapabilityPromptStaysCompact(t *testing.T) {
-	p := routeCapabilityPrompt(map[string]bool{
-		"send_message":       true,
-		"schedule_push":      true,
-		"start_worker_skill": true,
-		"save_rule":          true,
-	})
-	for _, want := range []string{"send_message", "schedule", "worker", "rule"} {
-		if !strings.Contains(p, want) {
-			t.Fatalf("能力提示缺 %q: %s", want, p)
-		}
-	}
-	if strings.Contains(p, "长期/战略性目标") || strings.Contains(p, "运营节奏") {
-		t.Fatalf("短能力提示不应退回旧长决策树: %s", p)
 	}
 }
 

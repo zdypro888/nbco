@@ -79,14 +79,16 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 				brief := buildReviewBrief(t, executor, progress, args.Note, d.TZ)
 
 				rt, err := d.Store.CreateTask(ctx, &store.Task{
-					ProjectID:   t.ProjectID,
-					AssignerID:  u.ID,
-					AssigneeID:  reviewer.ID,
-					Title:       fmt.Sprintf("审核任务 %d：%s", t.ID, t.Title),
-					Goal:        "把关交付质量：核实交付是否真正满足验收标准，给出可执行的验收结论。",
-					Description: brief,
-					Acceptance:  "完成汇报第一句必须是「建议通过」或「建议打回：<理由>」，并附核查依据。",
-					Priority:    "high",
+					ProjectID:       t.ProjectID,
+					AssignerID:      u.ID,
+					AssigneeID:      reviewer.ID,
+					Title:           fmt.Sprintf("审核任务 %d：%s", t.ID, t.Title),
+					Goal:            "把关交付质量：核实交付是否真正满足验收标准，给出可执行的验收结论。",
+					Description:     brief,
+					Acceptance:      "完成汇报第一句必须是「建议通过」或「建议打回：<理由>」，并附核查依据。",
+					Priority:        "high",
+					WorkerScopeType: t.WorkerScopeType, WorkerScopeKey: t.WorkerScopeKey,
+					WorkerScopeTitle: t.WorkerScopeTitle,
 				})
 				if err != nil {
 					return "", err

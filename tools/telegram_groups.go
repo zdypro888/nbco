@@ -764,7 +764,7 @@ func telegramGroupChannel(chatID int64) string {
 // 和摘要各自的状态决定，不能让一个功能篡改另一个功能的开关。
 func ensureTelegramGroupTranscript(ctx context.Context, d Deps, u *store.User, g *store.TelegramGroupState) error {
 	if d.Store == nil || u == nil || g == nil {
-		return errors.New("Telegram 群采集依赖不完整")
+		return errors.New("telegram 群采集依赖不完整")
 	}
 	if d.TelegramGroups != nil {
 		if err := d.TelegramGroups.EnsureTelegramGroupSession(ctx, g.ChatID, u.ID); err != nil {

@@ -41,23 +41,36 @@ func (s *Store) WorkspaceCandidates(ctx context.Context, userID int64, isSuperad
 			SELECT 'task'::text AS kind, t.id, t.title AS name, t.status AS state, t.created_at
 			  FROM tasks t
 			 WHERE $2::boolean OR t.assigner_id = $1 OR t.assignee_id = $1
+			    OR EXISTS (SELECT 1 FROM task_participants tp
+			                WHERE tp.task_id = t.id AND tp.user_id = $1)
 			UNION ALL
 			SELECT 'file'::text, f.id, f.original_name, 'saved'::text, f.created_at
 			  FROM files f
 			 WHERE ($2::boolean OR f.created_by = $1
 			        OR EXISTS (
 			             SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
-			              WHERE a.file_id = f.id AND (t.assigner_id = $1 OR t.assignee_id = $1)
+			             WHERE a.file_id = f.id AND (
+			               t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+			                 SELECT 1 FROM task_participants tp
+			                  WHERE tp.task_id = t.id AND tp.user_id = $1
+			               ))
 			        ) OR EXISTS (
 			             SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
-			              WHERE a.file_id = f.id AND (t.assigner_id = $1 OR t.assignee_id = $1)
+			              WHERE a.file_id = f.id AND (
+			                t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+			                  SELECT 1 FROM task_participants tp
+			                   WHERE tp.task_id = t.id AND tp.user_id = $1
+			                ))
 			        ))
 			UNION ALL
 			SELECT 'project'::text, p.id, p.name, p.status, p.created_at
 			  FROM projects p
 			 WHERE ($2::boolean OR p.creator_id = $1 OR EXISTS (
 			       SELECT 1 FROM tasks t WHERE t.project_id = p.id
-			        AND (t.assigner_id = $1 OR t.assignee_id = $1)
+			        AND (t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+			          SELECT 1 FROM task_participants tp
+			           WHERE tp.task_id = t.id AND tp.user_id = $1
+			        ))
 			   ))
 		)
 		SELECT kind, id, name, state, created_at

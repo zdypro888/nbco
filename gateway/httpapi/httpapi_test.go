@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/zdypro888/nbco/store"
 )
 
 func TestDecodeJSONLimitsBody(t *testing.T) {
@@ -81,18 +83,36 @@ func TestWorkerDownloadRejectsUnknownName(t *testing.T) {
 	}
 }
 
-func TestLooksLikeNBCOCodeTask(t *testing.T) {
-	if !looksLikeNBCOCodeTask("nbco 需要增加功能并部署到生产环境") {
-		t.Fatal("nbco code/deploy task should map to repo scope")
+func TestWorkerSessionScopeUsesPersistedIdentity(t *testing.T) {
+	s := &Server{}
+	typ, key, title := s.workerSessionScope(context.Background(), &store.Task{
+		ID: 9, Title: "arbitrary title", WorkerScopeType: "repo",
+		WorkerScopeKey: "repo:nbco", WorkerScopeTitle: "NBCO repository",
+	})
+	if typ != "repo" || key != "repo:nbco" || title != "NBCO repository" {
+		t.Fatalf("explicit scope = (%q, %q, %q)", typ, key, title)
 	}
-	if !looksLikeNBCOCodeTask("按 skill 执行，标签包含 repo:nbco") {
-		t.Fatal("explicit repo scope tag should map to repo scope")
+
+	// Content must never promote a task into a persistent repository session.
+	typ, key, _ = s.workerSessionScope(context.Background(), &store.Task{
+		ID: 10, Title: "修改 nbco 并部署代码",
+	})
+	if typ != "task" || key != "task:10" {
+		t.Fatalf("text-derived scope leaked through: (%q, %q)", typ, key)
 	}
-	if looksLikeNBCOCodeTask("整理 nbco 公司资料表格") {
-		t.Fatal("plain material task mentioning nbco should not automatically map to repo scope")
+}
+
+func TestBoundedWorkerLinesCapsEachLineAndTotal(t *testing.T) {
+	got := boundedWorkerLines([]string{"abcdef", "ghijkl", "mnop"}, 4, 7)
+	if len(got) != 2 || got[0] != "abc…" || got[1] != "gh…" {
+		t.Fatalf("bounded lines = %#v", got)
 	}
-	if looksLikeNBCOCodeTask("nbco worker 普通资料同步") {
-		t.Fatal("plain worker mention should not automatically map to repo scope")
+	total := 0
+	for _, line := range got {
+		total += len([]rune(line))
+	}
+	if total > 7 {
+		t.Fatalf("bounded lines exceeded total: %d", total)
 	}
 }
 

@@ -39,8 +39,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.Engine != EngineEino || cfg.AI.Provider != ProviderClaude {
 		t.Errorf("引擎默认值 = %q/%q", cfg.AI.Engine, cfg.AI.Provider)
 	}
-	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 || cfg.AI.TimeoutMS != 300000 {
-		t.Errorf("MaxTokens/MaxTurns/TimeoutMS 默认值 = %d/%d/%d", cfg.AI.MaxTokens, cfg.AI.MaxTurns, cfg.AI.TimeoutMS)
+	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 || cfg.AI.TimeoutMS != 300000 || cfg.AI.TurnTimeoutMS != 600000 {
+		t.Errorf("MaxTokens/MaxTurns/TimeoutMS/TurnTimeoutMS 默认值 = %d/%d/%d/%d",
+			cfg.AI.MaxTokens, cfg.AI.MaxTurns, cfg.AI.TimeoutMS, cfg.AI.TurnTimeoutMS)
 	}
 	if cfg.AI.MaxCompletionTokens != 0 || cfg.AI.ReasoningEffort != "" {
 		t.Errorf("reasoning 默认配置 = max_completion_tokens:%d reasoning_effort:%q", cfg.AI.MaxCompletionTokens, cfg.AI.ReasoningEffort)
@@ -106,6 +107,9 @@ func TestLoadValidation(t *testing.T) {
 		{"eino max_turns 过小",
 			`{"postgres_dsn":"d","ai":{"api_key":"k","model":"m","max_turns":1}}`,
 			"ai.max_turns"},
+		{"turn timeout 过大",
+			`{"postgres_dsn":"d","ai":{"api_key":"k","model":"m","turn_timeout_ms":1800001}}`,
+			"ai.turn_timeout_ms"},
 		{"未知引擎",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"engine":"gpt"}}`,
 			"ai.engine 不支持"},

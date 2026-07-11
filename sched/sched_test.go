@@ -83,16 +83,16 @@ func TestRenderOrphanNotice(t *testing.T) {
 	}
 }
 
-func TestSchedulePoolRoutesAIWithoutSendPool(t *testing.T) {
+func TestDeliveryPoolRoutesAIWithoutSendPool(t *testing.T) {
 	s := &Scheduler{aiPool: newPool(1), sendPool: newPool(1), orch: &chat.Orchestrator{}}
-	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeAI}) != s.aiPool {
+	if s.deliveryPool(store.ScheduleModeAI) != s.aiPool {
 		t.Fatal("AI schedule should use aiPool directly")
 	}
-	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeMessage}) != s.sendPool {
+	if s.deliveryPool(store.ScheduleModeMessage) != s.sendPool {
 		t.Fatal("message schedule should use sendPool")
 	}
 	s.orch = nil
-	if s.schedulePool(&store.Schedule{Mode: store.ScheduleModeAI}) != s.sendPool {
+	if s.deliveryPool(store.ScheduleModeAI) != s.sendPool {
 		t.Fatal("AI schedule without orchestrator falls back to template sendPool")
 	}
 }
@@ -106,6 +106,17 @@ func TestNextRepeatFireSkipsLongBacklogInConstantTime(t *testing.T) {
 	}
 	if !got.After(now) || got.Sub(now) > time.Minute {
 		t.Fatalf("next fire must be the first aligned time after now: %s", got)
+	}
+}
+
+func TestDailyDeliveryAllowedUsesActualDeliveryDay(t *testing.T) {
+	friday := time.Date(2026, 7, 10, 9, 0, 0, 0, tz)
+	sunday := friday.Add(48 * time.Hour)
+	if !dailyDeliveryAllowed(friday, "1,2,3,4,5", tz) {
+		t.Fatal("Friday should be an allowed workday")
+	}
+	if dailyDeliveryAllowed(sunday, "1,2,3,4,5", tz) {
+		t.Fatal("a Friday occurrence caught up on Sunday must not be delivered")
 	}
 }
 

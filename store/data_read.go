@@ -124,11 +124,14 @@ var dataSourceDefs = map[string]dataSourceDef{
 		query: `SELECT jsonb_build_object(
 			'project_id', p.id, 'name', p.name, 'description', p.description,
 			'creator_id', p.creator_id, 'status', p.status, 'created_at', p.created_at
-		) AS item, p.created_at AS sort_at, p.id AS sort_id
-		FROM projects p WHERE $2 OR p.creator_id = $1 OR EXISTS (
-			SELECT 1 FROM tasks t WHERE t.project_id = p.id
-			 AND (t.assigner_id = $1 OR t.assignee_id = $1)
-		)`,
+			) AS item, p.created_at AS sort_at, p.id AS sort_id
+			FROM projects p WHERE $2 OR p.creator_id = $1 OR EXISTS (
+				SELECT 1 FROM tasks t WHERE t.project_id = p.id
+				 AND (t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+				      SELECT 1 FROM task_participants tp
+				       WHERE tp.task_id = t.id AND tp.user_id = $1
+				 ))
+			)`,
 	},
 	"tasks": {
 		DataSource: DataSource{
@@ -143,7 +146,9 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'status', t.status, 'depends_on', t.depends_on, 'milestone_id', t.milestone_id,
 			'created_at', t.created_at, 'updated_at', t.updated_at
 		) AS item, t.updated_at AS sort_at, t.id AS sort_id
-		FROM tasks t WHERE $2 OR t.assigner_id = $1 OR t.assignee_id = $1`,
+			FROM tasks t WHERE $2 OR t.assigner_id = $1 OR t.assignee_id = $1
+			 OR EXISTS (SELECT 1 FROM task_participants tp
+			             WHERE tp.task_id = t.id AND tp.user_id = $1)`,
 	},
 	"files": {
 		DataSource: DataSource{
@@ -155,11 +160,19 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'mime_type', f.mime_type, 'size_bytes', f.size_bytes,
 			'created_by', f.created_by, 'created_at', f.created_at
 		) AS item, f.created_at AS sort_at, f.id AS sort_id
-		FROM files f WHERE $2 OR f.created_by = $1
-		 OR EXISTS (SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
-		             WHERE a.file_id = f.id AND (t.assigner_id = $1 OR t.assignee_id = $1))
-		 OR EXISTS (SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
-		             WHERE a.file_id = f.id AND (t.assigner_id = $1 OR t.assignee_id = $1))`,
+			FROM files f WHERE $2 OR f.created_by = $1
+			 OR EXISTS (SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
+			             WHERE a.file_id = f.id AND (
+			               t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+			                 SELECT 1 FROM task_participants tp
+			                  WHERE tp.task_id = t.id AND tp.user_id = $1
+			               )))
+			 OR EXISTS (SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
+			             WHERE a.file_id = f.id AND (
+			               t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+			                 SELECT 1 FROM task_participants tp
+			                  WHERE tp.task_id = t.id AND tp.user_id = $1
+			               )))`,
 	},
 	"schedules": {
 		DataSource: DataSource{

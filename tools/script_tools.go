@@ -17,7 +17,11 @@ import (
 	"go.starlark.net/starlark"
 )
 
-const scriptToolListLimit = 50
+const (
+	scriptToolListLimit   = 50
+	scriptNestedToolLimit = 16
+	scriptNestedAILimit   = 4
+)
 
 var scriptToolNameRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]{2,63}$`)
 
@@ -133,7 +137,6 @@ func scriptToolManagementTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				_ = d.Store.SetScriptToolEnabled(ctx, args.ID, false)
 				return fmt.Sprintf("已更新脚本工具（%s）%s，并已自动 disabled。请重新测试后启用。", internalRef("脚本工具", updated.ID), updated.Name), nil
 			}),
 
@@ -157,12 +160,21 @@ func scriptToolManagementTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				out, err := runStoredScriptTool(ctx, st, args.Args)
+				grants, err := scriptValidationGrants(ctx, d, u)
+				if err != nil {
+					return "", err
+				}
+				out, err := runStoredScriptTool(ctx, d, u, grants, st, args.Args)
 				result := out
 				if err != nil {
 					result = "ERROR: " + err.Error()
 				}
-				_ = d.Store.SetScriptToolTestResult(ctx, st.ID, truncate(result, 2000))
+				if recordErr := d.Store.RecordScriptToolTest(ctx, st.ID, st.Source, truncate(result, 2000), err == nil); recordErr != nil {
+					if errors.Is(recordErr, store.ErrConflict) {
+						return "测试执行期间源码已被更新，本次结果未采信；请重新测试最新版本。", nil
+					}
+					return "", recordErr
+				}
 				if err != nil {
 					return result, nil
 				}
@@ -189,6 +201,9 @@ func scriptToolManagementTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				if err := d.Store.SetScriptToolEnabled(ctx, args.ID, args.Enabled); err != nil {
+					if args.Enabled && errors.Is(err, store.ErrConflict) {
+						return "当前源码尚未通过测试，或测试后源码已变化；请先运行 test_script_tool。", nil
+					}
 					return "", err
 				}
 				if args.Enabled {
@@ -227,7 +242,8 @@ func dynamicScriptTools(ctx context.Context, d Deps, u *store.User, grants []sto
 	}
 	var out []ai.Tool
 	for _, st := range items {
-		if st == nil || !scriptToolAllowed(u, grants, st.RequiredAction) {
+		if st == nil || !st.LastTestOK || st.TestedSourceHash != store.ScriptToolSourceHash(st.Source) ||
+			!scriptToolAllowed(u, grants, st.RequiredAction) {
 			continue
 		}
 		schema := map[string]any{}
@@ -271,13 +287,29 @@ func scriptToolAllowed(u *store.User, grants []store.Grant, required string) boo
 	return hasAnyActive(grants, required)
 }
 
-func scriptValidationBuiltins() starlark.StringDict {
+func scriptValidationBuiltins(d Deps, u *store.User, grants []store.Grant, selfName string) starlark.StringDict {
+	allowed := make(map[string]bool)
+	for _, tool := range filterByPerm(staticToolsForScript(d, u), u, grants) {
+		allowed[tool.Name] = true
+	}
+	toolCalls, aiCalls := 0, 0
 	return starlark.StringDict{
 		"nbco_tool": starlark.NewBuiltin("nbco_tool", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var name string
 			var input starlark.Value = starlark.NewDict(0)
 			if err := starlark.UnpackArgs("nbco_tool", args, kwargs, "name", &name, "args?", &input); err != nil {
 				return nil, err
+			}
+			name = strings.TrimSpace(name)
+			if name == "" || name == selfName || !allowed[name] {
+				return nil, fmt.Errorf("当前用户不可调用工具 %s", name)
+			}
+			if _, err := scripttool.FromStarlark(input); err != nil {
+				return nil, err
+			}
+			toolCalls++
+			if toolCalls > scriptNestedToolLimit {
+				return nil, fmt.Errorf("脚本单次运行最多调用 %d 次 nbco_tool", scriptNestedToolLimit)
 			}
 			return starlark.String("{}"), nil
 		}),
@@ -286,12 +318,20 @@ func scriptValidationBuiltins() starlark.StringDict {
 			if err := starlark.UnpackArgs("nbco_ai", args, kwargs, "prompt", &prompt); err != nil {
 				return nil, err
 			}
+			if d.SubcallAI == nil {
+				return nil, fmt.Errorf("脚本 AI 能力未配置")
+			}
+			aiCalls++
+			if aiCalls > scriptNestedAILimit {
+				return nil, fmt.Errorf("脚本单次运行最多调用 %d 次 nbco_ai", scriptNestedAILimit)
+			}
 			return starlark.String(""), nil
 		}),
 	}
 }
 
 func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.Grant, selfName string) starlark.StringDict {
+	toolCalls, aiCalls := 0, 0
 	return starlark.StringDict{
 		"nbco_tool": starlark.NewBuiltin("nbco_tool", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var name string
@@ -305,6 +345,10 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 			}
 			if name == selfName {
 				return nil, fmt.Errorf("脚本不能递归调用自己")
+			}
+			toolCalls++
+			if toolCalls > scriptNestedToolLimit {
+				return nil, fmt.Errorf("脚本单次运行最多调用 %d 次 nbco_tool", scriptNestedToolLimit)
 			}
 			goVal, err := scripttool.FromStarlark(input)
 			if err != nil {
@@ -336,6 +380,10 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 			}
 			if d.SubcallAI == nil {
 				return nil, fmt.Errorf("脚本 AI 能力未配置")
+			}
+			aiCalls++
+			if aiCalls > scriptNestedAILimit {
+				return nil, fmt.Errorf("脚本单次运行最多调用 %d 次 nbco_ai", scriptNestedAILimit)
 			}
 			out, err := d.SubcallAI(ctx, u, "script", prompt)
 			if err != nil {
@@ -383,10 +431,21 @@ func validateScriptToolSpec(ctx context.Context, d Deps, u *store.User, name, de
 	if requiredAction != "" && !perm.ValidActiveAction(requiredAction) {
 		return "required_action 不是合法主动权限。"
 	}
-	if err := scripttool.Validate(ctx, name, source, scripttool.RunOptions{Predeclared: scriptValidationBuiltins()}); err != nil {
+	grants, err := scriptValidationGrants(ctx, d, u)
+	if err != nil {
+		return "加载脚本权限失败：" + err.Error()
+	}
+	if err := scripttool.Validate(ctx, name, source, scripttool.RunOptions{Predeclared: scriptValidationBuiltins(d, u, grants, name)}); err != nil {
 		return "脚本自检失败：" + err.Error()
 	}
 	return ""
+}
+
+func scriptValidationGrants(ctx context.Context, d Deps, u *store.User) ([]store.Grant, error) {
+	if u == nil || u.IsSuperadmin || d.Store == nil {
+		return nil, nil
+	}
+	return d.Store.PermsOf(ctx, u.ID)
 }
 
 func staticToolNames(d Deps, u *store.User) map[string]bool {
@@ -421,7 +480,7 @@ func staticToolsForScript(d Deps, u *store.User) []ai.Tool {
 	return ts
 }
 
-func runStoredScriptTool(ctx context.Context, st *store.ScriptTool, args map[string]any) (string, error) {
+func runStoredScriptTool(ctx context.Context, d Deps, u *store.User, grants []store.Grant, st *store.ScriptTool, args map[string]any) (string, error) {
 	if st.Runtime != scripttool.RuntimeStarlark {
 		return "", fmt.Errorf("不支持的脚本运行时 %q", st.Runtime)
 	}
@@ -432,7 +491,9 @@ func runStoredScriptTool(ctx context.Context, st *store.ScriptTool, args map[str
 	if err != nil {
 		return "", err
 	}
-	return scripttool.Run(ctx, st.Name, st.Source, raw, scripttool.RunOptions{})
+	return scripttool.Run(ctx, st.Name, st.Source, raw, scripttool.RunOptions{
+		Predeclared: scriptValidationBuiltins(d, u, grants, st.Name),
+	})
 }
 
 func renderScriptToolList(items []*store.ScriptTool) string {
@@ -453,7 +514,11 @@ func renderScriptToolList(items []*store.ScriptTool) string {
 		fmt.Fprintf(&b, "- %s：%s（%s，runtime=%s，required_action=%s）：%s\n",
 			internalRef("脚本工具", st.ID), st.Name, state, st.Runtime, req, st.Description)
 		if strings.TrimSpace(st.LastTestResult) != "" {
-			fmt.Fprintf(&b, "  最近测试：%s\n", truncate(st.LastTestResult, 300))
+			state := "失败"
+			if st.LastTestOK && st.TestedSourceHash == store.ScriptToolSourceHash(st.Source) {
+				state = "通过"
+			}
+			fmt.Fprintf(&b, "  最近测试（%s）：%s\n", state, truncate(st.LastTestResult, 300))
 		}
 	}
 	return strings.TrimSpace(b.String())

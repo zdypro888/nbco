@@ -33,6 +33,7 @@ func runCommandExec(ctx context.Context, dir, command string, progress func(stri
 	bin, args := shellCommand(command)
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	configureProcessTree(cmd)
 	// WaitDelay：sh 退出后若孙进程（nohup/后台守护）仍持有 stdout/stderr 管道，
 	// 10 秒后强制关闭——否则 Run 的内部拷贝 goroutine 永不结束，worker 主循环
 	// 被一条「启动了后台进程」的命令永久钉死，超时与服务端取消都救不回。
@@ -56,6 +57,7 @@ func runCommandPTY(ctx context.Context, dir, command string, progress func(strin
 	bin, args := shellCommand(command)
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	configurePTYProcessTree(cmd)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: termCols, Rows: termRows})
 	if err != nil {
 		return commandResult{ExitCode: -1}, err
@@ -96,9 +98,7 @@ func runCommandPTY(ctx context.Context, dir, command string, progress func(strin
 	case waitErr = <-waitDone:
 	case <-ctx.Done():
 		_ = ptmx.Close()
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+		_ = killProcessTree(cmd.Process)
 		<-waitDone
 		waitErr = ctx.Err()
 	}

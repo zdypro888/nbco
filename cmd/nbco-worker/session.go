@@ -78,6 +78,7 @@ type cliSession struct {
 func startSession(ctx context.Context, dir, bin string, args ...string) (*cliSession, error) {
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	configurePTYProcessTree(cmd)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: termCols, Rows: termRows})
 	if err != nil {
 		return nil, err
@@ -132,7 +133,7 @@ func (s *cliSession) Write(p []byte) error {
 func (s *cliSession) Kill() {
 	_ = s.ptmx.Close()
 	if s.cmd.Process != nil {
-		_ = s.cmd.Process.Kill()
+		_ = killProcessTree(s.cmd.Process)
 	}
 	s.waitOnce.Do(func() { _ = s.cmd.Wait() })
 }

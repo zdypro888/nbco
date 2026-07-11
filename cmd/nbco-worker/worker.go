@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -29,34 +30,40 @@ const (
 // 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
 // 避免任务描述里提前注入固定标记后被 parseCompletion 误认成完成输出。
 const (
-	markSummary = "<<<SUMMARY>>>"
-	markLessons = "<<<LESSONS>>>"
-	markEnd     = "<<<END>>>"
+	markSummary   = "<<<SUMMARY>>>"
+	markLessons   = "<<<LESSONS>>>"
+	markNeedInput = "<<<NEED_INPUT>>>"
+	markEnd       = "<<<END>>>"
 )
 
 type completionMarks struct {
-	Summary string
-	Lessons string
-	End     string
+	Summary   string
+	Lessons   string
+	NeedInput string
+	End       string
 }
 
-var defaultCompletionMarks = completionMarks{Summary: markSummary, Lessons: markLessons, End: markEnd}
+var defaultCompletionMarks = completionMarks{
+	Summary: markSummary, Lessons: markLessons, NeedInput: markNeedInput, End: markEnd,
+}
 
 func newCompletionMarks() completionMarks {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		nonce := fmt.Sprint(time.Now().UnixNano())
 		return completionMarks{
-			Summary: "<<<SUMMARY:" + nonce + ">>>",
-			Lessons: "<<<LESSONS:" + nonce + ">>>",
-			End:     "<<<END:" + nonce + ">>>",
+			Summary:   "<<<SUMMARY:" + nonce + ">>>",
+			Lessons:   "<<<LESSONS:" + nonce + ">>>",
+			NeedInput: "<<<NEED_INPUT:" + nonce + ">>>",
+			End:       "<<<END:" + nonce + ">>>",
 		}
 	}
 	nonce := hex.EncodeToString(b[:])
 	return completionMarks{
-		Summary: "<<<SUMMARY:" + nonce + ">>>",
-		Lessons: "<<<LESSONS:" + nonce + ">>>",
-		End:     "<<<END:" + nonce + ">>>",
+		Summary:   "<<<SUMMARY:" + nonce + ">>>",
+		Lessons:   "<<<LESSONS:" + nonce + ">>>",
+		NeedInput: "<<<NEED_INPUT:" + nonce + ">>>",
+		End:       "<<<END:" + nonce + ">>>",
 	}
 }
 
@@ -194,14 +201,7 @@ func (w *Worker) killed() bool {
 func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
 	dir, err := w.workDir(task)
 	if err != nil {
-		w.report(ctx, task.ID, task.ClaimID, "创建工作目录失败: "+err.Error())
-		return
-	}
-	if msg := repoWorkspaceProblem(task.Session, dir); msg != "" {
-		if err := w.client.RequestInput(ctx, task.ID, task.ClaimID, msg); err != nil {
-			log.Printf("请求补充 repo workspace 信息 #%d 失败: %v", task.ID, err)
-			w.report(ctx, task.ID, task.ClaimID, msg)
-		}
+		w.failTask(ctx, task, "创建工作目录失败: "+err.Error(), task.Session, "")
 		return
 	}
 	marks := newCompletionMarks()
@@ -215,7 +215,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	defer w.unregisterRun()
 
 	if err := w.prepareFiles(runCtx, task, dir); err != nil {
-		w.report(ctx, task.ID, task.ClaimID, "下载任务附件失败: "+err.Error())
+		w.failTask(ctx, task, "下载任务附件失败: "+err.Error(), task.Session, dir)
 		return
 	}
 	if strings.TrimSpace(task.Command) != "" {
@@ -229,12 +229,13 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 
 	sessionStartedAt := time.Now()
 	invocation := w.cliInvocationFor(task.Session, dir)
+	persistNewSession := invocation.ResumeRef == ""
 	if invocation.ResumeRef != "" {
 		log.Printf("worker 会话 #%d scope=%s 恢复 %s 原生会话 %s", task.Session.ID, task.Session.ScopeKey, w.cfg.Engine, invocation.ResumeRef)
 	}
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, invocation.Args...)
 	if err != nil {
-		w.report(ctx, task.ID, task.ClaimID, "启动 "+w.cfg.Bin+" 失败: "+err.Error())
+		w.failTask(ctx, task, "启动 "+w.cfg.Bin+" 失败: "+err.Error(), task.Session, dir)
 		return
 	}
 	warmup(runCtx, sess.Screen, sess.Write)
@@ -242,14 +243,18 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		log.Printf("恢复 %s 原生会话 %s 失败，改用新交互会话", w.cfg.Engine, invocation.ResumeRef)
 		sess.Kill()
 		sessionStartedAt = time.Now()
+		persistNewSession = true
 		sess, err = startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 		if err != nil {
-			w.report(ctx, task.ID, task.ClaimID, "恢复会话失败，重新启动 "+w.cfg.Bin+" 也失败: "+err.Error())
+			w.failTask(ctx, task, "恢复会话失败，重新启动 "+w.cfg.Bin+" 也失败: "+err.Error(), task.Session, dir)
 			return
 		}
 		warmup(runCtx, sess.Screen, sess.Write)
 	}
 	defer sess.Kill()
+	if persistNewSession {
+		go w.persistNativeSession(runCtx, task, dir, sessionStartedAt)
+	}
 
 	// 周期回传屏幕快照当进度（有变化才发）。
 	stopProg := make(chan struct{})
@@ -258,11 +263,13 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 
 	screen, werr := sess.submitAndWait(runCtx, prompt, w.wait)
 	summary, lessons, ok := parseCompletionWithMarks(screen, marks)
+	question, needsInput := parseInputRequestWithMarks(screen, marks)
 	// 长任务可能触发 CLI 上下文压缩，把开头的收尾要求挤掉——用简短提醒补一轮。
-	for n := 0; !ok && werr == nil && n < maxNudges; n++ {
+	for n := 0; !ok && !needsInput && werr == nil && n < maxNudges; n++ {
 		log.Printf("任务 #%d 未按格式收尾，补提醒（%d/%d）", task.ID, n+1, maxNudges)
-		screen, werr = sess.submitAndWait(runCtx, completionNudge, w.wait)
+		screen, werr = sess.submitAndWait(runCtx, completionNudgeWithMarks(marks), w.wait)
 		summary, lessons, ok = parseCompletionWithMarks(screen, marks)
+		question, needsInput = parseInputRequestWithMarks(screen, marks)
 	}
 
 	// 被服务端取消（任务已删或改派）：报告后直接退出，不上传不提交。
@@ -271,12 +278,33 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		log.Printf("任务 #%d 已按服务端指令取消", task.ID)
 		return
 	}
-	if !ok {
-		note := "任务执行结束（未按格式收尾）"
-		if werr != nil {
-			note = "任务执行中断（" + werr.Error() + "）"
+	if needsInput && (!ok || strings.LastIndex(screen, marks.NeedInput) > strings.LastIndex(screen, marks.Summary)) {
+		submitSession := task.Session
+		if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
+			submitSession.EngineSessionRef = ref
 		}
-		summary = note + "，最后屏幕：\n" + tailLines(screen, 12)
+		if err := w.client.RequestInput(ctx, task.ID, task.ClaimID, question, submitSession, dir); err != nil {
+			log.Printf("任务 #%d 请求补充信息失败: %v", task.ID, err)
+			w.failTask(ctx, task, "请求补充信息失败: "+err.Error(), submitSession, dir)
+			return
+		}
+		log.Printf("任务 #%d 已暂停，等待分配者补充信息", task.ID)
+		return
+	}
+	if !ok {
+		note := "Agent 未按协议返回完成或补充信息标记"
+		if werr != nil {
+			note = "Agent 执行中断: " + werr.Error()
+		}
+		if tail := tailLines(screen, 12); tail != "" {
+			note += "；最后屏幕：\n" + tail
+		}
+		submitSession := task.Session
+		if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
+			submitSession.EngineSessionRef = ref
+		}
+		w.failTask(ctx, task, note, submitSession, dir)
+		return
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
 	submitSession := task.Session
@@ -285,9 +313,12 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
+		w.failTask(ctx, task, "提交任务结果失败: "+err.Error(), submitSession, dir)
+		w.handoffDeferredRestart()
 		return
 	}
 	log.Printf("任务 #%d 已提交验收", task.ID)
+	w.handoffDeferredRestart()
 }
 
 func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir string) {
@@ -313,12 +344,75 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 		return
 	}
 	summary := commandSummary(command, mode, res, err)
+	if err != nil {
+		// A normal non-zero command exit is represented by res.ExitCode with a nil
+		// error and remains a reviewable result. Context expiry, process startup,
+		// and PTY infrastructure failures are execution failures: release the claim
+		// through the server's durable retry policy instead of marking work done.
+		w.failTask(ctx, task, "命令执行基础设施失败: "+summary, task.Session, dir)
+		return
+	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
+		w.failTask(ctx, task, "提交命令任务结果失败: "+err.Error(), task.Session, dir)
+		w.handoffDeferredRestart()
 		return
 	}
 	log.Printf("命令任务 #%d 已提交验收（exit=%d）", task.ID, res.ExitCode)
+	w.handoffDeferredRestart()
+}
+
+func (w *Worker) failTask(ctx context.Context, task *Task, cause string, session SessionInfo, workdir string) {
+	if task == nil || strings.TrimSpace(task.ClaimID) == "" {
+		return
+	}
+	failCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	if err := w.client.Fail(failCtx, task.ID, task.ClaimID, cause, session, workdir); err != nil {
+		// A conflict commonly means a previous request reached the server but its
+		// response was lost. The claim lease remains the final recovery fallback.
+		log.Printf("记录任务 #%d 执行失败状态未确认: %v", task.ID, err)
+		return
+	}
+	log.Printf("任务 #%d 执行失败，已交由服务端退避重试", task.ID)
+}
+
+func (w *Worker) handoffDeferredRestart() {
+	if scheduled, err := scheduleDeferredWorkerRestart(); err != nil {
+		log.Printf("延迟重启 worker 交接失败，将保留标记供后续重试: %v", err)
+	} else if scheduled {
+		log.Printf("任务结果已提交，worker 服务将在后台重启以加载新版本")
+	}
+}
+
+func (w *Worker) persistNativeSession(ctx context.Context, task *Task, dir string, since time.Time) {
+	if task == nil || task.Session.ID <= 0 || strings.TrimSpace(task.ClaimID) == "" {
+		return
+	}
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		if ref := w.detectEngineSessionRef(dir, since); ref != "" {
+			session := task.Session
+			session.EngineSessionRef = ref
+			persistCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			err := w.client.UpdateSession(persistCtx, task.ID, task.ClaimID, session, dir)
+			cancel()
+			if err == nil {
+				log.Printf("任务 #%d 已提前保存 %s 原生会话 %s", task.ID, w.cfg.Engine, ref)
+				return
+			}
+			if ctx.Err() == nil {
+				log.Printf("任务 #%d 提前保存原生会话失败，将重试: %v", task.ID, err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func (w *Worker) appendArtifactReport(ctx context.Context, task *Task, dir, summary string) string {
@@ -395,9 +489,6 @@ func (w *Worker) workDir(task *Task) (string, error) {
 			return dir, os.MkdirAll(dir, 0o700)
 		}
 		dir := filepath.Join(home, "nbco-work", "sessions", safeScopePath(task.Session.Engine), safeScopePath(task.Session.ScopeKey))
-		if isRepoSession(task.Session) && !isGitWorktree(dir) {
-			return dir, nil
-		}
 		return dir, os.MkdirAll(dir, 0o700)
 	}
 	taskID := int64(0)
@@ -412,45 +503,6 @@ func (w *Worker) workDir(task *Task) (string, error) {
 	}
 	dir := filepath.Join(home, "nbco-work", fmt.Sprintf("task-%d", taskID), "claim-"+claim)
 	return dir, os.MkdirAll(dir, 0o700)
-}
-
-func repoWorkspaceProblem(session SessionInfo, dir string) string {
-	if !isRepoSession(session) {
-		return ""
-	}
-	dir = strings.TrimSpace(dir)
-	if dir == "" {
-		return "代码仓库会话需要补充源码信息：缺少可用源码目录。请回复这个任务可用的仓库地址/分支，或在 worker 配置 session_workspaces 指向已 clone 的源码目录。"
-	}
-	if isGitWorktree(dir) {
-		return ""
-	}
-	scope := strings.TrimSpace(session.ScopeKey)
-	if scope == "" {
-		scope = strings.TrimSpace(session.ScopeType)
-	}
-	if scope == "" {
-		scope = "repo"
-	}
-	return fmt.Sprintf("代码仓库会话需要补充源码信息：scope=%s，工作目录 %s 不是 git 仓库。请回复这个任务可用的仓库地址/分支，或在 worker 配置 session_workspaces[%q] 指向已 clone 的源码目录；worker 不会让 AI CLI 在空目录里猜测或自动 clone。", scope, dir, scope)
-}
-
-func isRepoSession(session SessionInfo) bool {
-	scopeType := strings.ToLower(strings.TrimSpace(session.ScopeType))
-	scopeKey := strings.ToLower(strings.TrimSpace(session.ScopeKey))
-	return scopeType == "repo" ||
-		strings.HasPrefix(scopeKey, "repo:") ||
-		strings.HasPrefix(scopeKey, "repository:")
-}
-
-func isGitWorktree(dir string) bool {
-	if strings.TrimSpace(dir) == "" {
-		return false
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-		return true
-	}
-	return false
 }
 
 func (w *Worker) configuredWorkspace(session SessionInfo) string {
@@ -615,16 +667,26 @@ func safeFileName(name string) string {
 	name = strings.Trim(name, ". ")
 	if len(name) > 160 {
 		ext := filepath.Ext(name)
-		name = strings.TrimSuffix(name, ext)
+		stem := strings.TrimSuffix(name, ext)
 		if len(ext) > 20 {
 			ext = ""
 		}
-		if len(name) > 160-len(ext) {
-			name = name[:160-len(ext)]
-		}
-		name += ext
+		name = truncateUTF8Bytes(stem, 160-len(ext)) + ext
 	}
 	return name
+}
+
+func truncateUTF8Bytes(s string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if len(s) <= maxBytes {
+		return s
+	}
+	for maxBytes > 0 && !utf8.ValidString(s[:maxBytes]) {
+		maxBytes--
+	}
+	return s[:maxBytes]
 }
 
 func verifySHA256(path, want string) (bool, error) {
@@ -720,7 +782,10 @@ func buildPromptWithMarks(task *Task, knowledge, history []string, marks complet
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	b.WriteString(taskBrief(task, knowledge, history))
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
+	b.WriteString("workspace 可能尚未初始化；先检查现状，任务提供了仓库地址时可自行 clone。\n")
 	fmt.Fprintf(&b, "如果需要交付文件，请把文件放进 %s/ 目录，系统会在提交前自动上传。\n", taskArtifactRelDir())
+	b.WriteString("如果确实缺少只有分配者才能提供的关键信息，不要猜测或假装完成；输出以下提问段并结束：\n")
+	fmt.Fprintf(&b, "%s\n（一个具体、可直接回答的问题）\n%s\n", marks.NeedInput, marks.End)
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
 	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
 		marks.Summary, marks.Lessons, marks.End)
@@ -728,8 +793,16 @@ func buildPromptWithMarks(task *Task, knowledge, history []string, marks complet
 	return b.String()
 }
 
-// completionNudge 收尾补提醒。刻意不写哨兵原文，避免它的回显被误认成收尾输出。
-const completionNudge = "请现在收尾：按任务开头的要求，依次单独成行输出 SUMMARY、LESSONS、END 三个尖括号标记段（一句话总结；可复用经验，无则写：无）。"
+// completionNudgeWithMarks repeats this run's nonce-bearing protocol after a
+// long CLI session compacts the original prompt. Placeholder text is deliberate:
+// the parsers recognize it as terminal echo and only accept the agent's later
+// filled block.
+func completionNudgeWithMarks(marks completionMarks) string {
+	return fmt.Sprintf("请现在按下面的精确标记收尾，每个标记独占一行。\n"+
+		"已完成时：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
+		"只有被分配者才能提供的信息确实阻塞时：\n%s\n（一个具体、可直接回答的问题）\n%s",
+		marks.Summary, marks.Lessons, marks.End, marks.NeedInput, marks.End)
+}
 
 // parseCompletion 从渲染屏幕上解析收尾三段。粘贴的任务原文可能被 TUI 回显
 // （其中也含哨兵与占位说明），因此从最后一个候选块往前找，跳过回显的指令块。
@@ -764,10 +837,31 @@ func parseCompletionWithMarks(out string, marks completionMarks) (summary, lesso
 	return "", "", false
 }
 
+func parseInputRequestWithMarks(out string, marks completionMarks) (question string, ok bool) {
+	for si := strings.LastIndex(out, marks.NeedInput); si >= 0; si = strings.LastIndex(out[:si], marks.NeedInput) {
+		rest := out[si+len(marks.NeedInput):]
+		ei := strings.Index(rest, marks.End)
+		if ei < 0 {
+			continue
+		}
+		question = strings.TrimSpace(rest[:ei])
+		if question == "" || isInputPromptEcho(question) {
+			continue
+		}
+		return strings.Join(strings.Fields(question), " "), true
+	}
+	return "", false
+}
+
 // isPromptEcho 是否是任务指令里的占位说明（回显）。屏幕换行/空格可能把文字
 // 折断，先压掉空白再比对。
 func isPromptEcho(s string) bool {
 	flat := strings.NewReplacer("\n", "", " ", "").Replace(s)
 	return strings.Contains(flat, "一句话说明你做了什么") ||
 		strings.Contains(flat, "可复用的经验教训")
+}
+
+func isInputPromptEcho(s string) bool {
+	flat := strings.NewReplacer("\n", "", " ", "").Replace(s)
+	return strings.Contains(flat, "一个具体、可直接回答的问题")
 }

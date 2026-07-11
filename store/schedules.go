@@ -28,8 +28,11 @@ const (
 	// 领域自动化来源。调度器仍保持通用，领域入口用稳定来源标识实现幂等配置。
 	ScheduleSourceTelegramGroupDigest = "telegram_group_digest"
 
-	scheduleDeliveryLease = 10 * time.Minute
-	scheduleClaimBatch    = 128
+	scheduleDeliveryLease        = 10 * time.Minute
+	scheduleClaimBatch           = 128
+	scheduleRecipientLease       = 6 * time.Minute
+	scheduleRecipientBatch       = 128
+	scheduleRecipientMaxAttempts = 5
 )
 
 // Schedule 一条定时任务。FireAt 是下次触发时间（UTC）。
@@ -64,6 +67,38 @@ type ScheduleView struct {
 	Schedule
 	ReceiverName string
 	CreatorName  string
+}
+
+// ScheduleDelivery 是一次日程触发对一个接收人的独立投递。日程本身只负责
+// 生成 occurrence；每个接收人单独 claim/retry，避免部分失败导致整批重发。
+type ScheduleDelivery struct {
+	ID           int64
+	ScheduleID   int64
+	OccurrenceAt time.Time
+	UserID       int64
+	Mode         string
+	Message      string
+	Title        string
+	ResultText   string
+	Status       string
+	Attempts     int
+	AvailableAt  time.Time
+	ClaimedAt    *time.Time
+	DeliveredAt  *time.Time
+	LastError    string
+	CreatedAt    time.Time
+}
+
+const scheduleDeliveryCols = `id, schedule_id, occurrence_at, user_id, mode, message, title, result_text, status, attempts, available_at, claimed_at, delivered_at, last_error, created_at`
+
+func scanScheduleDelivery(row interface{ Scan(...any) error }) (*ScheduleDelivery, error) {
+	var d ScheduleDelivery
+	if err := row.Scan(&d.ID, &d.ScheduleID, &d.OccurrenceAt, &d.UserID, &d.Mode, &d.Message,
+		&d.Title, &d.ResultText, &d.Status, &d.Attempts, &d.AvailableAt, &d.ClaimedAt, &d.DeliveredAt,
+		&d.LastError, &d.CreatedAt); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &d, nil
 }
 
 const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title`
@@ -140,10 +175,22 @@ func (s *Store) HasActiveAutomationSchedule(ctx context.Context, sourceKind, sou
 }
 
 func (s *Store) CancelAutomationSchedule(ctx context.Context, createdBy int64, sourceKind, sourceKey string) error {
-	return s.execOne(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id int64
+	if err := tx.QueryRow(ctx,
 		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL
-		 WHERE created_by = $1 AND source_kind = $2 AND source_key = $3 AND status = 'active'`,
-		createdBy, strings.TrimSpace(sourceKind), strings.TrimSpace(sourceKey))
+		 WHERE created_by = $1 AND source_kind = $2 AND source_key = $3 AND status = 'active'
+		 RETURNING id`, createdBy, strings.TrimSpace(sourceKind), strings.TrimSpace(sourceKey)).Scan(&id); err != nil {
+		return wrapErr(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE schedule_deliveries SET status = 'cancelled', claimed_at = NULL WHERE schedule_id = $1 AND status IN ('pending','processing')`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // SchedulesOf 某用户可见的活跃定时任务：给我的 + 我创建的（含定向给他人的）。
@@ -228,9 +275,24 @@ func scheduleColsWithAlias(alias string) string {
 
 // CancelSchedule 取消（接收者或创建者都可取消）。
 func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
-	return s.execOne(ctx,
-		`UPDATE schedules SET status = 'cancelled'
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx,
+		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL
 		 WHERE id = $1 AND (user_id = $2 OR created_by = $2) AND status = 'active'`, id, userID)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if _, err := tx.Exec(ctx, `UPDATE schedule_deliveries SET status = 'cancelled', claimed_at = NULL WHERE schedule_id = $1 AND status IN ('pending','processing')`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // DueSchedules 原子认领到期任务。这里只写短租约，不推进 fire_at/状态；
@@ -285,6 +347,131 @@ func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, claimAt, fi
 		   fire_at = COALESCE($4, fire_at),
 		   delivery_claimed_at = NULL
 		 WHERE id = $1 AND delivery_claimed_at = $5`, id, firedAt, status, nextFireAt, claimAt)
+}
+
+// FanOutScheduleOccurrence 原子完成两件事：为本次 occurrence 创建逐人投递记录，
+// 并推进日程到下一次。进程在事务后崩溃也只会留下可重试的 recipient rows。
+func (s *Store) FanOutScheduleOccurrence(ctx context.Context, sc *Schedule, userIDs []int64, firedAt time.Time, nextFireAt *time.Time, done bool) error {
+	if sc == nil || sc.DeliveryClaimedAt == nil {
+		return ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO schedule_deliveries (schedule_id, occurrence_at, user_id, mode, message, title)
+			 VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (schedule_id, occurrence_at, user_id) DO NOTHING`,
+			sc.ID, sc.FireAt, userID, sc.Mode, sc.Message, sc.Title); err != nil {
+			return err
+		}
+	}
+	status := ScheduleActive
+	if done {
+		status = ScheduleDone
+	}
+	tag, err := tx.Exec(ctx,
+		`UPDATE schedules SET last_fired=$2, status=$3, fire_at=COALESCE($4, fire_at), delivery_claimed_at=NULL
+		 WHERE id=$1 AND delivery_claimed_at=$5`, sc.ID, firedAt, status, nextFireAt, *sc.DeliveryClaimedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
+}
+
+// DueScheduleDeliveries 原子认领逐接收人投递。processing 租约过期会重领；
+// 达到最大尝试次数后置 failed，不再无限轰炸。
+func (s *Store) DueScheduleDeliveries(ctx context.Context, now time.Time) ([]*ScheduleDelivery, error) {
+	stale := now.Add(-scheduleRecipientLease)
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE schedule_deliveries SET status='failed', claimed_at=NULL,
+		        last_error=CASE WHEN last_error='' THEN 'retry budget exhausted after interrupted claim' ELSE last_error END
+		  WHERE attempts >= $1 AND ((status='pending' AND available_at <= $2)
+		    OR (status='processing' AND claimed_at <= $3))`, scheduleRecipientMaxAttempts, now, stale); err != nil {
+		return nil, err
+	}
+	rows, err := s.pool.Query(ctx,
+		`WITH due AS (
+		   SELECT id FROM schedule_deliveries
+		    WHERE attempts < $3 AND available_at <= $1
+		      AND (status = 'pending' OR (status = 'processing' AND claimed_at <= $2))
+		    ORDER BY available_at, id LIMIT $4 FOR UPDATE SKIP LOCKED
+		 )
+		 UPDATE schedule_deliveries d
+		    SET status='processing', claimed_at=$1, attempts=attempts+1
+		   FROM due WHERE d.id=due.id
+		 RETURNING `+scheduleDeliveryColsWithAlias("d"), now, stale, scheduleRecipientMaxAttempts, scheduleRecipientBatch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*ScheduleDelivery
+	for rows.Next() {
+		d, err := scanScheduleDelivery(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+func scheduleDeliveryColsWithAlias(alias string) string {
+	parts := strings.Split(scheduleDeliveryCols, ", ")
+	for i := range parts {
+		parts[i] = alias + "." + parts[i]
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (s *Store) MarkScheduleDeliveryDelivered(ctx context.Context, id int64, claimAt, deliveredAt time.Time) error {
+	return s.execOne(ctx,
+		`UPDATE schedule_deliveries SET status='delivered', delivered_at=$3, claimed_at=NULL, last_error=''
+		 WHERE id=$1 AND status='processing' AND claimed_at=$2`, id, claimAt, deliveredAt)
+}
+
+// PrepareScheduleDeliveryResult stores the exact AI-generated message before
+// transport. A retry can then resend it without another model turn.
+func (s *Store) PrepareScheduleDeliveryResult(ctx context.Context, id int64, claimAt time.Time, result string) error {
+	return s.execOne(ctx,
+		`UPDATE schedule_deliveries SET result_text=$3, last_error=''
+		 WHERE id=$1 AND status='processing' AND claimed_at=$2`,
+		id, claimAt, truncateRunes(result, 12000))
+}
+
+// MarkScheduleDeliveryFailed records a permanent recipient-specific failure.
+// Callers should reserve RetryScheduleDelivery for transient generation, storage,
+// or transport failures so inactive/deleted recipients do not consume retry slots.
+func (s *Store) MarkScheduleDeliveryFailed(ctx context.Context, id int64, claimAt time.Time, cause string) error {
+	return s.execOne(ctx,
+		`UPDATE schedule_deliveries SET status='failed', claimed_at=NULL, last_error=$3
+		 WHERE id=$1 AND status='processing' AND claimed_at=$2`, id, claimAt, truncateRunes(cause, 500))
+}
+
+func (s *Store) ReleaseScheduleDeliveryClaim(ctx context.Context, id int64, claimAt time.Time) error {
+	return s.execOne(ctx,
+		`UPDATE schedule_deliveries SET status='pending', claimed_at=NULL, attempts=greatest(attempts-1, 0)
+		 WHERE id=$1 AND status='processing' AND claimed_at=$2`, id, claimAt)
+}
+
+func (s *Store) RetryScheduleDelivery(ctx context.Context, id int64, claimAt time.Time, attempts int, cause string) error {
+	if attempts >= scheduleRecipientMaxAttempts {
+		return s.execOne(ctx,
+			`UPDATE schedule_deliveries SET status='failed', claimed_at=NULL, last_error=$3
+			 WHERE id=$1 AND status='processing' AND claimed_at=$2`, id, claimAt, truncateRunes(cause, 500))
+	}
+	delay := time.Duration(1<<min(attempts, 6)) * time.Minute
+	return s.execOne(ctx,
+		`UPDATE schedule_deliveries SET status='pending', claimed_at=NULL, available_at=now()+$3::interval, last_error=$4
+		 WHERE id=$1 AND status='processing' AND claimed_at=$2`, id, claimAt, fmt.Sprintf("%d seconds", int(delay.Seconds())), truncateRunes(cause, 500))
 }
 
 // UpdateScheduleFireAt 修正下次触发时间（daily 的工作日跳过/时区校正）。

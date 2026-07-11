@@ -280,18 +280,11 @@ func jsonMarshalToolSchema(v map[string]any) ([]byte, error) {
 
 var baselineToolNames = []string{
 	"list_capabilities",
-	"query_data", "low_level_db_query",
-	"search_knowledge", "get_knowledge", "list_recent_knowledge",
+	"query_data",
+	"search_knowledge",
 	"search_history", "search_workspace",
-	"search_skills", "load_skill", "propose_learning_candidate",
+	"search_skills", "load_skill",
 	"list_recent_files",
-	"get_my_profile", "update_my_profile", "get_my_infos", "save_my_infos",
-	"get_my_tasks", "get_my_all_tasks", "get_task_detail",
-	"list_workers",
-	"list_roles", "activate_role",
-	"list_workflows",
-	"get_api_token_status",
-	"list_action_turns",
 	"list_system_activity",
 }
 
@@ -315,7 +308,7 @@ var workToolNames = []string{
 	"get_my_projects", "get_my_tasks", "get_my_all_tasks", "get_task_detail", "view_my_task_tree",
 	"update_my_task_status", "get_review_queue", "accept_task", "reject_task",
 	"save_checklist", "toggle_checklist", "add_progress", "attach_to_task",
-	"split_my_task", "get_assigned_tasks", "update_assigned_task", "delete_assigned_task", "reassign_task",
+	"split_my_task", "get_assigned_tasks", "update_assigned_task", "set_task_participants", "cancel_assigned_task", "delete_assigned_task", "reassign_task",
 	"create_project", "list_my_projects", "assign_task", "view_project", "archive_project", "delete_project",
 	"delegate_review",
 	"create_goal", "add_milestone", "decompose_milestone", "update_goal", "close_goal",
@@ -369,7 +362,7 @@ var actionToolNames = []string{
 	"send_message", "send_file", "search_workspace", "delete_file",
 	"schedule_once", "schedule_repeating", "schedule_push", "cancel_schedule",
 	"get_my_tasks", "get_my_all_tasks", "get_task_detail", "get_assigned_tasks", "company_overview",
-	"assign_task", "update_assigned_task", "delete_assigned_task", "reassign_task", "accept_task", "reject_task",
+	"assign_task", "update_assigned_task", "set_task_participants", "cancel_assigned_task", "delete_assigned_task", "reassign_task", "accept_task", "reject_task",
 	"create_project", "archive_project", "delete_project",
 	"update_user_info", "save_infos_on_user", "save_my_infos", "invite_employee",
 	"create_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
@@ -382,7 +375,7 @@ var actionToolNames = []string{
 var peopleRouteKeywords = []string{
 	"员工", "同事", "成员", "人事", "用户", "个人", "档案", "画像", "自我介绍", "评价", "手机号",
 	"电话", "邮箱", "职位", "角色", "组别", "部门", "信息", "资料", "名单", "ceo", "老板",
-	"黄桑", "真人", "邀请", "入职", "加入", "私信", "发给", "通知", "群发", "改名", "重命名",
+	"真人", "邀请", "入职", "加入", "私信", "发给", "通知", "群发", "改名", "重命名",
 	"完善", "补充", "有人", "消息", "发消息", "转发", "推送", "告知",
 	"收集", "采集", "完成率", "待补",
 	"user", "employee", "member", "profile", "invite", "message", "notify", "rename",

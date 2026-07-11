@@ -232,11 +232,34 @@ func (c *Client) Progress(ctx context.Context, taskID int64, claimID, content st
 	return c.post(ctx, "/api/worker/progress", map[string]any{"task_id": taskID, "claim_id": claimID, "content": content})
 }
 
+func (c *Client) UpdateSession(ctx context.Context, taskID int64, claimID string, session SessionInfo, workdir string) error {
+	return c.post(ctx, "/api/worker/session", map[string]any{
+		"task_id": taskID, "claim_id": claimID,
+		"worker_session_id": session.ID, "session_summary": session.Summary,
+		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+	})
+}
+
 // RequestInput asks the task assigner for missing information without marking
-// the task as done. The server keeps the current claim until the assigner
-// updates/reassigns the task, so the worker will not loop on the same blocker.
-func (c *Client) RequestInput(ctx context.Context, taskID int64, claimID, content string) error {
-	return c.post(ctx, "/api/worker/request-input", map[string]any{"task_id": taskID, "claim_id": claimID, "content": content})
+// the task as done. The server pauses the task and releases the claim until the
+// assigner updates or reassigns it, so it cannot be reclaimed as a stale run.
+func (c *Client) RequestInput(ctx context.Context, taskID int64, claimID, content string, session SessionInfo, workdir string) error {
+	return c.post(ctx, "/api/worker/request-input", map[string]any{
+		"task_id": taskID, "claim_id": claimID, "content": content,
+		"worker_session_id": session.ID, "session_summary": "等待补充：" + strings.TrimSpace(content),
+		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+	})
+}
+
+// Fail releases a task claim through the server's durable retry policy. Session
+// metadata is sent as well so a later retry can resume the same native CLI
+// conversation and workspace instead of starting over.
+func (c *Client) Fail(ctx context.Context, taskID int64, claimID, cause string, session SessionInfo, workdir string) error {
+	return c.post(ctx, "/api/worker/fail", map[string]any{
+		"task_id": taskID, "claim_id": claimID, "error": cause,
+		"worker_session_id": session.ID, "session_summary": "最近执行失败：" + strings.TrimSpace(cause),
+		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+	})
 }
 
 // Submit 提交完成，进入验收流；lessons 非空则回流知识库。

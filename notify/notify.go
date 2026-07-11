@@ -43,6 +43,21 @@ func (h *Hub) Set(n Notifier) {
 	h.n = n
 }
 
+// Ready reports whether a concrete notifier is installed and, when supported,
+// whether that channel has completed its external-service handshake.
+func (h *Hub) Ready() bool {
+	h.mu.RLock()
+	n := h.n
+	h.mu.RUnlock()
+	if n == nil {
+		return false
+	}
+	if r, ok := n.(interface{ Ready() bool }); ok {
+		return r.Ready()
+	}
+	return true
+}
+
 // Send 实现 Notifier；未注入时报错。
 func (h *Hub) Send(ctx context.Context, userID int64, text string) error {
 	h.mu.RLock()

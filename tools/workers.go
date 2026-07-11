@@ -234,6 +234,9 @@ type workerCommandTaskArgs struct {
 	Description string
 	Acceptance  string
 	Priority    string
+	ScopeType   string
+	ScopeKey    string
+	ScopeTitle  string
 }
 
 func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args workerCommandTaskArgs) (*store.Task, error) {
@@ -257,11 +260,20 @@ func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args
 	if priority == "" {
 		priority = "high"
 	}
+	scopeType := strings.TrimSpace(args.ScopeType)
+	scopeKey := strings.TrimSpace(args.ScopeKey)
+	scopeTitle := strings.TrimSpace(args.ScopeTitle)
+	if scopeKey == "" {
+		scopeType = "ops"
+		scopeKey = fmt.Sprintf("ops:worker:%d", w.ID)
+		scopeTitle = "Worker operations"
+	}
 	t, err := d.Store.CreateTask(ctx, &store.Task{
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
 		Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
 		Description: description, Acceptance: acceptance, Priority: priority,
 		WorkerCommand: strings.TrimSpace(args.Command), WorkerCommandPTY: args.PTY,
+		WorkerScopeType: scopeType, WorkerScopeKey: scopeKey, WorkerScopeTitle: scopeTitle,
 	})
 	if err != nil {
 		return nil, err

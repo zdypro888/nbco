@@ -186,7 +186,8 @@ func run(configPath string) error {
 		return res.Text, nil
 	}
 
-	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning)
+	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning, time.Duration(cfg.AI.TurnTimeoutMS)*time.Millisecond)
+	go orch.RunMemoryMiner(ctx)
 
 	// AI 催办/周报/事件轮次挂在可用入口渠道上；没有 Telegram 时用 HTTP/API 会话。
 	systemChannel := httpapi.Channel
@@ -196,6 +197,7 @@ func run(configPath string) error {
 	// 系统事件总线：领域事件交 AI 分析决定通知与行动（与调度器共用渠道与并发上限）。
 	bus := events.New(st, orch, hub, systemChannel, cfg.SchedAIConcurrency)
 	eventHub.Set(bus)
+	go bus.Run(ctx)
 
 	// worker 内置智能体的模型管道：与中枢对话共用模型配置，HTTP 层按 provider
 	// 适配 OpenAI 或 Claude/Anthropic 兼容协议。

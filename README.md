@@ -53,6 +53,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
 | `ai.api_key` / `ai.model` | eino 引擎必填 |
 | `ai.timeout_ms` | 单次模型 API 请求超时，默认 `300000`（5 分钟）；长上下文/慢模型可调大 |
+| `ai.turn_timeout_ms` | 一整轮对话总时限（含排队、路由、工具与重试），默认 `600000`（10 分钟），最大 30 分钟 |
 | `ai.stream_reasoning` | 是否在流式回复阶段展示模型推理内容，默认 `false`；超管可通过对话修改，运行时设置优先于配置文件默认值 |
 | `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
 | `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥；仅 `ai.provider=openai` 时空值才回退 `ai.base_url` / `ai.api_key`，Claude/Anthropic 兼容主模型必须显式配置 |
@@ -72,6 +73,27 @@ Docker（中枢服务；AI 员工 worker 仍建议装在真实工作机上）：
 cp nbco.json.example nbco.json   # postgres_dsn 指向 postgres 服务名，listen 用 0.0.0.0:8900
 docker compose up -d
 ```
+
+## 生产反向代理与 TLS
+
+生产环境建议只让反向代理监听公网 `80/443`，nbco 监听回环地址上的纯 HTTP。以 Caddy 为例：
+
+```caddyfile
+nbco.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8900
+}
+```
+
+对应的 nbco 配置应满足：
+
+- `listen` 使用 `127.0.0.1:<内部端口>`，不要直接暴露到公网。
+- `public_base_url` 使用外部完整地址，例如 `https://nbco.example.com`。
+- `tls_cert_file` / `tls_key_file` 留空，由 Caddy 终止 TLS、自动申请和续期证书。
+- 自建 `telegram-bot-api` 必须使用另一个回环端口，并让 `telegram_api_url` 指向它；不能与 nbco 的 `listen` 重合。
+- Caddy 的 `reverse_proxy` 原生支持 Worker WebSocket 和流式 HTTP，不需要单独配置升级头。
+
+DNS 必须先指向服务器，并确保公网 `80/443` 可达，Caddy 才能完成 ACME 验证和自动续期。后端端口只绑定回环地址，因此不需要单独配置证书或开放防火墙。
 
 ## Web 入口与 HTTP API
 
@@ -112,7 +134,8 @@ curl -X POST http://<listen>/api/bootstrap \
 - `POST /api/tasks/{id}/attachments` `{"file_id":123,"caption":"..."}` — 把文件挂到任务
 - `GET /version` — 当前服务版本与 Go 版本（部署脚本会把 git SHA 写进版本号）
 - `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具
-- `GET /healthz`
+- `GET /healthz` — 进程与数据库存活检查
+- `GET /readyz` — 数据库及已配置外部网关就绪检查（部署切流应使用此接口）
 
 ## 任务流转（验收状态机）
 
@@ -126,6 +149,8 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
 - 拆分的任务：子任务**全部验收通过**时父任务自动转入待验收，逐级向上；父任务也是自派的则直达 `accepted`
 - 验收工具：`get_review_queue` / `accept_task` / `reject_task`（限分配者与超管）
 - **依赖编排（流水线）**：`assign_task` 可带 `depends_on`（只能指向已存在任务，天然无环）；前置全部 `accepted` 之前 worker 领不到该任务，验收通过时自动唤醒就绪的下游 worker 并发事件给派活人的 AI——「开发→测试→审查」接力不再人肉盯
+- **一个交付物一个任务 ID**：`assignee_id` 是唯一责任人；同一产出涉及多人时用 `collaborator_ids`（可执行/提交）、`reviewer_ids`（可验收/打回）、`watcher_ids`（只读/接收通知）。等价未终态任务在事务内自动合并，只有确实需要彼此独立产出时才用 `allow_parallel=true`
+- **合并保留审计**：重复任务用 `cancel_assigned_task` 指向保留任务，不物理抹除；旧责任人、参与者、附件和下游依赖原子迁移，旧任务进入历史并记录取消原因与替代任务
 - **智能派工**：`assign_task` 不填 `assignee_id` 时自动派给最合适的 AI 员工（在办最少 → 在线优先 → 通过率高），回复里说明选人理由
 - **两段式审批**：破坏性工具（停用用户、吊销 worker、删项目/角色/字段、底层写库兜底）首次调用只登记待确认动作，AI 须向用户复述并获明确同意后以相同参数再次调用才执行（10 分钟时效、参数哈希匹配、全渠道生效）——防单轮冲动执行与提示注入一击即中
 
@@ -287,7 +312,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 
 ### 系统事件总线（事件 → AI 决策）
 
-领域事件不硬编码「通知谁、说什么」：员工通过邀请加入、AI 员工绑定上线、worker 提交任务待验收等事件统一进 `events` 总线，以事件相关人（邀请人 / 监护人 / 派活人）的身份跑一轮 AI——AI 结合该用户的会话上下文、行为规则与工具，自行决定通知措辞、要不要顺手行动（建任务/设提醒/记档案），不值得打扰就按约定词静默跳过。通知落在用户自己的会话里，接着对话就能直接处理（如「验收通过」）。AI 轮次失败时降级为事件原文推送，事件必达；新事件源只需一行 `bus.Emit(类型, 相关人, 详情)`。
+领域事件不硬编码「通知谁、说什么」：员工通过邀请加入、AI 员工绑定上线、worker 提交任务待验收等事件统一进 `events` 总线，以事件相关人（邀请人 / 监护人 / 派活人）的身份跑一轮 AI——AI 结合该用户的会话上下文、行为规则与工具，自行决定通知措辞、要不要顺手行动（建任务/设提醒/记档案），不值得打扰就按约定词静默跳过。通知落在用户自己的会话里，接着对话就能直接处理（如「验收通过」）。AI 轮次失败时降级为事件原文推送；事件持久化并有限重试，最终失败保留在运行账本中。新事件源只需一行 `bus.Emit(类型, 相关人, 详情)`。
 
 ## 角色 / Skill
 

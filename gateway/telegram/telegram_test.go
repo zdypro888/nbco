@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +24,53 @@ func TestGatewayFormatsTimeInBusinessTimezone(t *testing.T) {
 	utc := time.Date(2026, 7, 9, 17, 30, 0, 0, time.UTC)
 	if got := g.formatTime(utc); got != "2026-07-10 01:30:00 +08:00 (CST)" {
 		t.Fatalf("formatted time = %q", got)
+	}
+}
+
+func TestGatewayTelegramHandshakeRetriesUntilAPIReady(t *testing.T) {
+	attempts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/bot123:secret/getMe" {
+			http.NotFound(w, r)
+			return
+		}
+		attempts++
+		if attempts < 3 {
+			http.Error(w, "starting", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = io.WriteString(w, `{"ok":true,"result":{"id":123,"is_bot":true,"first_name":"nbco","username":"nbco_bot","can_read_all_group_messages":true}}`)
+	}))
+	defer srv.Close()
+
+	g, err := New("123:secret", srv.URL, nil, nil, nil, nil, "", "", "", nil, "", "", time.UTC)
+	if err != nil {
+		t.Fatalf("New must not depend on API readiness: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if !g.waitUntilReady(ctx) || !g.Ready() {
+		t.Fatal("gateway did not become ready")
+	}
+	if attempts != 3 {
+		t.Fatalf("getMe attempts = %d, want 3", attempts)
+	}
+}
+
+func TestOpenTelegramFileSupportsLocalBotAPIAbsolutePath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "voice.ogg")
+	if err := os.WriteFile(path, []byte("voice-data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g := &Gateway{telegramAPIURL: "http://127.0.0.1:8081"}
+	r, _, err := g.openTelegramFile(context.Background(), &models.File{FilePath: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	data, err := io.ReadAll(r)
+	if err != nil || string(data) != "voice-data" {
+		t.Fatalf("read = %q, %v", data, err)
 	}
 }
 
@@ -94,6 +143,20 @@ func TestGroupMonitorRetryDelay(t *testing.T) {
 	}
 }
 
+func TestGroupMonitorLeaseHonorsOtherLiveInstance(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	mon := &store.TelegramGroupMonitor{
+		AnalysisOwner: "another-instance", AnalysisStartedAt: now.Add(-time.Minute), AnalysisThrough: now,
+	}
+	if !groupMonitorLeaseAlive(mon, now) {
+		t.Fatal("a fresh lease owned by another instance must remain authoritative")
+	}
+	mon.AnalysisStartedAt = now.Add(-groupMonitorAnalysisLease)
+	if groupMonitorLeaseAlive(mon, now) {
+		t.Fatal("expired lease must be reclaimable")
+	}
+}
+
 func TestShouldDebouncePlainTextOnly(t *testing.T) {
 	g := &Gateway{}
 	if !g.shouldDebounce(&models.Message{Text: "第一句"}, "第一句") {
@@ -104,6 +167,32 @@ func TestShouldDebouncePlainTextOnly(t *testing.T) {
 	}
 	if g.shouldDebounce(&models.Message{Document: &models.Document{FileID: "f1", FileName: "a.txt"}}, "文件 a.txt") {
 		t.Fatal("structured messages should not debounce")
+	}
+}
+
+func TestImmediateMessageQueuesAfterPendingText(t *testing.T) {
+	const key int64 = 42
+	g := &Gateway{
+		pending: map[int64]*pendingTextMessage{}, dispatchTails: map[int64]chan struct{}{},
+	}
+	timer := time.NewTimer(time.Hour)
+	defer timer.Stop()
+	g.pending[key] = &pendingTextMessage{
+		ctx: context.Background(), lockKey: key, msg: &models.Message{Text: "first"},
+		texts: []string{"first", "second"}, timer: timer,
+	}
+	queued := g.queueMessageAfterPendingLocked(context.Background(), key, false, &models.Message{Text: "/new"})
+	if len(queued) != 2 {
+		t.Fatalf("queued messages = %d", len(queued))
+	}
+	if queued[0].msg.Text != "first\nsecond" || queued[1].msg.Text != "/new" {
+		t.Fatalf("queue order = %q then %q", queued[0].msg.Text, queued[1].msg.Text)
+	}
+	if queued[1].prev != queued[0].done {
+		t.Fatal("immediate message is not chained behind pending text")
+	}
+	if g.pending[key] != nil {
+		t.Fatal("pending text was not atomically detached")
 	}
 }
 

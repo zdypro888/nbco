@@ -19,6 +19,8 @@ type fakeHub struct {
 	progress []string
 	summary  string
 	lessons  string
+	question string
+	failure  string
 }
 
 func (h *fakeHub) handler(t *testing.T) http.Handler {
@@ -58,7 +60,46 @@ func (h *fakeHub) handler(t *testing.T) http.Handler {
 		h.mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	})
+	mux.HandleFunc("POST /api/worker/request-input", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Content string `json:"content"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		h.mu.Lock()
+		h.question = req.Content
+		h.mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("POST /api/worker/fail", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Error string `json:"error"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		h.mu.Lock()
+		h.failure = req.Error
+		h.mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	})
 	return mux
+}
+
+func TestExecuteBuiltinCanRequestInputWithoutSubmitting(t *testing.T) {
+	hub := &fakeHub{script: []chatMessage{
+		callTool("c1", "request_input", `{"question":"请提供仓库 URL 和目标分支"}`),
+	}}
+	srv := httptest.NewServer(hub.handler(t))
+	defer srv.Close()
+
+	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
+	task := &Task{ID: 11, ClaimID: "claim11", Title: "初始化仓库"}
+	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
+
+	if hub.question != "请提供仓库 URL 和目标分支" {
+		t.Fatalf("question = %q", hub.question)
+	}
+	if hub.summary != "" {
+		t.Fatalf("waiting task must not be submitted: %q", hub.summary)
+	}
 }
 
 func callTool(id, name, args string) chatMessage {
@@ -96,7 +137,7 @@ func TestExecuteBuiltinRunsCommandAndSubmits(t *testing.T) {
 	}
 }
 
-// 模型光说不练：提醒 maxNudges 次后把最后发言当总结提交，不死循环。
+// 模型光说不练：提醒 maxNudges 次后按失败退避，不把未验证发言当完成提交。
 func TestExecuteBuiltinNoToolFallback(t *testing.T) {
 	talk := chatMessage{Role: "assistant", Content: "我认为任务已经完成了"}
 	script := make([]chatMessage, 0, maxNudges+1)
@@ -114,8 +155,11 @@ func TestExecuteBuiltinNoToolFallback(t *testing.T) {
 	if hub.llmCalls != maxNudges+1 {
 		t.Fatalf("应在 %d 次后收尾, got %d", maxNudges+1, hub.llmCalls)
 	}
-	if !strings.Contains(hub.summary, "我认为任务已经完成了") {
-		t.Fatalf("应把最后发言当总结提交, got %q", hub.summary)
+	if hub.summary != "" {
+		t.Fatalf("未验证任务不应提交完成, got %q", hub.summary)
+	}
+	if !strings.Contains(hub.failure, "未调用执行或完成工具") {
+		t.Fatalf("应进入失败退避, got %q", hub.failure)
 	}
 }
 

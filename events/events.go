@@ -2,16 +2,16 @@
 // 不再各自硬编码「通知谁、说什么」，而是统一交给 AI 分析——以事件相关人的身份
 // 跑一轮引擎，AI 结合该用户的会话上下文、行为规则与工具，自己决定要不要通知、
 // 通知什么措辞、要不要顺手做点什么（建任务/设提醒/存档），不值得打扰就静默。
-// 代码只保证两件事：事件必达（AI 失败时降级为原文推送）与并发受控。
+// 代码保证事件持久化、有限重试与并发受控；AI 失败时降级为原文推送，最终失败
+// 留在运行账本中供诊断和人工重放，而不是静默丢失。
 package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 
@@ -23,13 +23,15 @@ import (
 // turnTimeout 单个事件 AI 轮次的墙钟上限（脱离触发方请求的生命周期跑）。
 const turnTimeout = 4 * time.Minute
 
+const (
+	eventStateTimeout = 10 * time.Second
+	eventSendTimeout  = 30 * time.Second
+)
+
 // dedupeWindow 完全相同的事件（kind+decider+detail）在该窗口内只处理一次：
 // 防 worker 连接抖动等刷出大量重复事件、每个各烧一次 AI token。不同 detail
-// （如不同任务的提交）互不影响。进程内去重，重启丢失可接受（事件是时效性的）。
+// （如不同任务的提交）互不影响。去重窗口与事件本身都持久化在数据库中。
 const dedupeWindow = 5 * time.Minute
-
-// dedupeCap 触发惰性清理的条目上限：超过则扫描删掉已过期项，防 map 无限增长。
-const dedupeCap = 512
 
 // skipWord AI 判定不值得打扰时约定的完整答复。
 const skipWord = "跳过"
@@ -41,9 +43,7 @@ type Bus struct {
 	notifier notify.Notifier
 	channel  string        // AI 轮次挂在哪个渠道会话上（与调度器一致，保证上下文连续）
 	sem      chan struct{} // AI 轮次限并发，护后端网关
-
-	dedupeMu sync.Mutex
-	dedupe   map[string]time.Time // key=kind|decider|detail -> 最近 emit 时间
+	wake     chan struct{}
 }
 
 // New 创建事件总线。concurrency <=0 取默认 4。
@@ -52,117 +52,172 @@ func New(st *store.Store, orch *chat.Orchestrator, n notify.Notifier, channel st
 		concurrency = 4
 	}
 	return &Bus{store: st, orch: orch, notifier: n, channel: channel,
-		sem: make(chan struct{}, concurrency), dedupe: map[string]time.Time{}}
+		sem: make(chan struct{}, concurrency), wake: make(chan struct{}, 1)}
 }
 
-// Emit 异步处理一个系统事件：decider 是该事件的决策人/利益相关者（邀请人、
-// 派活人、监护人……），AI 以其身份分析并行动。触发方立即返回，不被 AI 拖慢。
-// AI 通道满载时不排队（无界排队会让积压事件几小时后才被处理，早已过时），
-// 直接降级为原文推送——事件必达优先于智能加工。
+// Emit 先把事件写入持久队列再返回。decider 是该事件的决策人/利益相关者。
+// 处理、AI 生成和通知由 Run 驱动；进程重启、通道满载或临时发送失败都不会丢事件。
 func (b *Bus) Emit(kind string, deciderID int64, detail string) {
-	if b == nil {
-		return
-	}
-	// 去重：完全相同的事件（kind+decider+detail）在 dedupeWindow 内只处理一次，
-	// 防 worker 连接抖动等刷出大量重复事件、每个各烧一次 AI token。
-	key := kind + "|" + strconv.FormatInt(deciderID, 10) + "|" + detail
-	b.dedupeMu.Lock()
-	if b.dedupe == nil { // 防御零值 Bus（不经 New 构造）
-		b.dedupe = map[string]time.Time{}
-	}
-	if t, ok := b.dedupe[key]; ok && time.Since(t) < dedupeWindow {
-		b.dedupeMu.Unlock()
-		slog.Debug("事件去重：窗口内重复，跳过", "kind", kind, "user", deciderID)
-		return
-	}
-	if len(b.dedupe) > dedupeCap { // 惰性清理过期项，防 map 无限增长
-		for k, t := range b.dedupe {
-			if time.Since(t) >= dedupeWindow {
-				delete(b.dedupe, k)
-			}
-		}
-	}
-	b.dedupe[key] = time.Now()
-	b.dedupeMu.Unlock()
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				slog.Error("系统事件处理 panic 已恢复", "kind", kind, "user", deciderID, "panic", r)
-			}
-		}()
-		ctx, cancel := context.WithTimeout(context.Background(), turnTimeout)
-		defer cancel()
-		select {
-		case b.sem <- struct{}{}:
-			defer func() { <-b.sem }()
-			b.handle(ctx, kind, deciderID, detail)
-		default:
-			slog.Warn("事件 AI 通道满载，降级原文推送", "kind", kind, "user", deciderID)
-			if u, err := b.store.UserByID(ctx, deciderID); err == nil && u.Status == store.UserActive {
-				b.fallback(ctx, kind, deciderID, detail)
-				b.recordEvent(kind, deciderID, detail, store.EventOutcomeFallback, "")
-			} else {
-				b.recordEvent(kind, deciderID, detail, store.EventOutcomeDropped, "")
-			}
-		}
-	}()
-}
-
-func (b *Bus) handle(ctx context.Context, kind string, deciderID int64, detail string) {
-	outcome := store.EventOutcomeHandled
-	var reply string
-	defer func() { b.recordEvent(kind, deciderID, detail, outcome, reply) }()
-	u, err := b.store.UserByID(ctx, deciderID)
-	if err != nil || u.Status != store.UserActive {
-		slog.Info("事件决策人不可达，事件丢弃", "kind", kind, "user", deciderID, "err", err)
-		outcome = store.EventOutcomeDropped
-		return
-	}
-	if b.orch == nil {
-		b.fallback(ctx, kind, deciderID, detail)
-		outcome = store.EventOutcomeFallback
-		return
-	}
-	reply, err = b.orch.HandleMessage(ctx, u, b.channel, directive(kind, detail))
-	if err != nil {
-		slog.Warn("事件 AI 轮次失败，降级原文推送", "kind", kind, "user", deciderID, "err", err)
-		b.fallback(ctx, kind, deciderID, detail)
-		outcome = store.EventOutcomeFallback
-		return
-	}
-	if strings.TrimSpace(reply) == "" {
-		// 空答复 ≠ 决定静默（可能是引擎只执行了工具没产出文本）：事件必达，降级原文。
-		b.fallback(ctx, kind, deciderID, detail)
-		outcome = store.EventOutcomeFallback
-		return
-	}
-	if ShouldSkip(reply) {
-		slog.Info("事件经 AI 分析后静默", "kind", kind, "user", deciderID)
-		outcome = store.EventOutcomeSkipped
-		return
-	}
-	if err := b.send(ctx, deciderID, reply); err != nil {
-		slog.Warn("事件通知推送失败", "kind", kind, "user", deciderID, "err", err)
-		outcome = store.EventOutcomeSendFailed
-	}
-}
-
-// fallback 降级路径：AI 不可用也保证事件必达（原文、无智能加工）。
-func (b *Bus) fallback(ctx context.Context, kind string, deciderID int64, detail string) {
-	if err := b.send(ctx, deciderID, fmt.Sprintf("🔔 %s：%s", kind, detail)); err != nil {
-		slog.Warn("事件降级推送失败", "kind", kind, "user", deciderID, "err", err)
-	}
-}
-
-// recordEvent 落一条事件处理审计记录（尽力而为：独立短超时，失败只记日志不阻断）。
-func (b *Bus) recordEvent(kind string, deciderID int64, detail, outcome, reply string) {
-	if b.store == nil {
+	if b == nil || b.store == nil || deciderID <= 0 {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := b.store.RecordEvent(ctx, kind, deciderID, detail, outcome, reply); err != nil {
-		slog.Warn("事件审计落库失败", "kind", kind, "user", deciderID, "err", err)
+	_, created, err := b.store.EnqueueEvent(ctx, kind, deciderID, detail, dedupeWindow)
+	if err != nil {
+		slog.Error("系统事件入队失败", "kind", kind, "user", deciderID, "err", err)
+		return
+	}
+	if !created {
+		slog.Debug("事件去重：窗口内重复，跳过", "kind", kind, "user", deciderID)
+		return
+	}
+	select {
+	case b.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Run 持续认领并处理持久事件队列。
+func (b *Bus) Run(ctx context.Context) {
+	if b == nil || b.store == nil {
+		return
+	}
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		b.dispatchDue(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		case <-b.wake:
+		}
+	}
+}
+
+func (b *Bus) dispatchDue(ctx context.Context) {
+	available := cap(b.sem) - len(b.sem)
+	if available <= 0 {
+		return
+	}
+	items, err := b.store.DueEvents(ctx, time.Now().UTC(), available)
+	if err != nil {
+		slog.Error("认领系统事件失败", "err", err)
+		return
+	}
+	for _, event := range items {
+		event := event
+		b.sem <- struct{}{}
+		go func() {
+			defer func() { <-b.sem }()
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("系统事件处理 panic 已恢复", "event", event.ID, "panic", r)
+					b.retry(event, fmt.Sprintf("panic: %v", r))
+				}
+			}()
+			b.handle(ctx, event)
+		}()
+	}
+}
+
+func (b *Bus) handle(parent context.Context, event *store.Event) {
+	if event == nil || event.ClaimedAt == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(parent, turnTimeout)
+	defer cancel()
+	u, err := b.store.UserByID(ctx, event.DeciderID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		b.retry(event, "查询事件决策人失败: "+err.Error())
+		return
+	}
+	if errors.Is(err, store.ErrNotFound) || u.Status != store.UserActive {
+		slog.Info("事件决策人不可达，事件终止", "event", event.ID, "user", event.DeciderID, "err", err)
+		if err := b.completeEvent(parent, event, store.EventOutcomeDropped); err != nil {
+			slog.Warn("事件丢弃 ack 失败", "event", event.ID, "err", err)
+		}
+		return
+	}
+	reply, mode := strings.TrimSpace(event.Reply), event.DeliveryMode
+	if mode == store.EventOutcomeSkipped {
+		if err := b.completeEvent(parent, event, store.EventOutcomeSkipped); err != nil {
+			slog.Warn("事件静默 ack 失败", "event", event.ID, "err", err)
+		}
+		return
+	}
+	if reply == "" {
+		if mode == store.EventDeliveryModeGenerating {
+			// A previous process crossed the durable decision boundary but did not
+			// persist a reply. The AI turn may have run write tools, so replaying it
+			// is unsafe. Deliver the factual event without claiming any action.
+			mode = store.EventOutcomeFallback
+			reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
+		} else {
+			if err := b.store.BeginEventDecision(ctx, event.ID, *event.ClaimedAt); err != nil {
+				b.retry(event, "保存事件决策边界失败: "+err.Error())
+				return
+			}
+			mode = store.EventOutcomeHandled
+			if b.orch != nil {
+				reply, err = b.orch.HandleMessage(ctx, u, b.channel, directive(event.Kind, event.Detail))
+			}
+			if b.orch == nil || err != nil || strings.TrimSpace(reply) == "" {
+				if err != nil {
+					slog.Warn("事件 AI 轮次失败，准备持久化降级消息", "event", event.ID, "err", err)
+				}
+				mode = store.EventOutcomeFallback
+				reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
+			} else if ShouldSkip(reply) {
+				if err := b.prepareEventDelivery(parent, event, store.EventOutcomeSkipped, skipWord); err != nil {
+					b.retry(event, "保存事件静默决定失败: "+err.Error())
+					return
+				}
+				if err := b.completeEvent(parent, event, store.EventOutcomeSkipped); err != nil {
+					slog.Warn("事件静默 ack 失败", "event", event.ID, "err", err)
+				}
+				return
+			}
+		}
+		if err := b.prepareEventDelivery(parent, event, mode, reply); err != nil {
+			b.retry(event, "保存待投递事件内容失败: "+err.Error())
+			return
+		}
+	}
+	sendCtx, sendCancel := context.WithTimeout(parent, eventSendTimeout)
+	err = b.send(sendCtx, event.DeciderID, reply)
+	sendCancel()
+	if err != nil {
+		slog.Warn("事件通知推送失败，等待重试", "event", event.ID, "user", event.DeciderID, "err", err)
+		b.retry(event, err.Error())
+		return
+	}
+	if err := b.completeEvent(parent, event, mode); err != nil {
+		slog.Warn("事件投递成功但 ack 失败", "event", event.ID, "err", err)
+	}
+}
+
+func (b *Bus) prepareEventDelivery(parent context.Context, event *store.Event, mode, reply string) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), eventStateTimeout)
+	defer cancel()
+	return b.store.PrepareEventDelivery(ctx, event.ID, *event.ClaimedAt, mode, reply)
+}
+
+func (b *Bus) completeEvent(parent context.Context, event *store.Event, outcome string) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), eventStateTimeout)
+	defer cancel()
+	return b.store.CompleteEvent(ctx, event.ID, *event.ClaimedAt, outcome)
+}
+
+func (b *Bus) retry(event *store.Event, cause string) {
+	if event == nil || event.ClaimedAt == nil || b.store == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := b.store.RetryEvent(ctx, event.ID, *event.ClaimedAt, event.Attempts, cause); err != nil {
+		slog.Warn("事件重试状态保存失败", "event", event.ID, "err", err)
 	}
 }
 
@@ -184,7 +239,7 @@ func directive(kind, detail string) string {
 
 // ShouldSkip 判断 AI 答复是否为「静默」决定：剥掉标点/空白/表情后必须
 // 精确等于约定词。旧的「短答复包含即算」会把否定回答（「不跳过」）误判成
-// 静默，把本该必达的事件吞掉。空答复不算静默（由调用方降级原文推送）。
+// 静默，把本应通知的事件吞掉。空答复不算静默（由调用方降级原文推送）。
 func ShouldSkip(reply string) bool {
 	var core []rune
 	for _, r := range reply {

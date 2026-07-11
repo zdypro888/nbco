@@ -17,7 +17,7 @@ Environment overrides:
   NBCO_CONFIG=/path/to/nbco.json
   NBCO_SERVICE=nbco
   NBCO_BIN_NAME=<deployed-binary-name>  # default: symlink target of $NBCO_APP_DIR/bin/nbco
-  NBCO_HEALTH_URL=https://host:port/healthz
+  NBCO_HEALTH_URL=https://host:port/readyz
   NBCO_HEALTH_TIMEOUT=60
   NBCO_KEEP_BACKUPS=10
   NBCO_ALLOW_DIRTY=0
@@ -27,6 +27,7 @@ Environment overrides:
   NBCO_UPGRADE_WORKER=auto             # auto|1|0; auto upgrades a detected local worker service
   NBCO_WORKER_SERVICE=nbco-worker
   NBCO_WORKER_BIN=/path/to/nbco-worker # optional; default: detected from worker service ExecStart
+  NBCO_WORKER_RESTART_MARKER=/run/nbco-worker-restart-required
 
 Examples:
   scripts/upgrade-nbco.sh
@@ -57,6 +58,7 @@ require_health_before="${NBCO_REQUIRE_HEALTH_BEFORE:-1}"
 skip_tests="${NBCO_SKIP_TESTS:-0}"
 upgrade_worker="${NBCO_UPGRADE_WORKER:-auto}"
 worker_service="${NBCO_WORKER_SERVICE:-nbco-worker}"
+worker_restart_marker="${NBCO_WORKER_RESTART_MARKER:-/run/nbco-worker-restart-required}"
 
 lock_file="${NBCO_LOCK_FILE:-/var/lock/nbco-upgrade.lock}"
 ts="$(date -u '+%Y%m%d%H%M%S')"
@@ -104,6 +106,46 @@ service_exists() {
 	systemctl cat "$1" >/dev/null 2>&1
 }
 
+valid_service_name() {
+	[[ "$1" =~ ^[A-Za-z0-9_.@:-]+$ ]]
+}
+
+service_main_pid() {
+	systemctl show --property=MainPID --value "$1" 2>/dev/null || true
+}
+
+is_descendant_process() {
+	local pid="$$" ancestor="$1" parent
+	[[ "${ancestor}" =~ ^[1-9][0-9]*$ ]] || return 1
+	while [[ "${pid}" =~ ^[1-9][0-9]*$ ]] && (( pid > 1 )); do
+		[[ "${pid}" == "${ancestor}" ]] && return 0
+		[[ -r "/proc/${pid}/status" ]] || return 1
+		parent="$(awk '/^PPid:/ {print $2; exit}' "/proc/${pid}/status")"
+		[[ "${parent}" =~ ^[0-9]+$ ]] || return 1
+		pid="${parent}"
+	done
+	return 1
+}
+
+defer_worker_restart_if_self() {
+	local main_pid tmp
+	valid_service_name "${worker_service}" || die "invalid NBCO_WORKER_SERVICE: ${worker_service}"
+	main_pid="$(service_main_pid "${worker_service}")"
+	if ! is_descendant_process "${main_pid}"; then
+		return 1
+	fi
+	[[ "${current_worker_bin}" == /* && "${backup_worker_bin}" == /* ]] || die "worker binary and backup paths must be absolute"
+	mkdir -p "$(dirname "${worker_restart_marker}")"
+	tmp="${worker_restart_marker}.$$"
+	if ! (umask 077; printf '%s\n%s\n%s\n%s\n' \
+		"${worker_service}" "${main_pid}" "${current_worker_bin}" "${backup_worker_bin}" >"${tmp}") || \
+		! mv -f "${tmp}" "${worker_restart_marker}"; then
+		rm -f "${tmp}"
+		return 2
+	fi
+	return 0
+}
+
 detect_config_file() {
 	local line rest word prev
 	line="$(systemctl cat "${service}" 2>/dev/null | awk -F= '/^ExecStart=/ {print $2; exit}' || true)"
@@ -134,7 +176,7 @@ derive_health_url() {
 	local cfg="$1" public listen tls scheme host port
 	public="$(json_string_field "${cfg}" public_base_url)"
 	if [[ -n "${public}" ]]; then
-		printf '%s/healthz\n' "${public%/}"
+		printf '%s/readyz\n' "${public%/}"
 		return 0
 	fi
 	listen="$(json_string_field "${cfg}" listen)"
@@ -152,13 +194,27 @@ derive_health_url() {
 		*:*) host="${listen%:*}"; port="${listen##*:}" ;;
 		*) host="127.0.0.1"; port="${listen}" ;;
 	esac
-	printf '%s://%s:%s/healthz\n' "${scheme}" "${host}" "${port}"
+	printf '%s://%s:%s/readyz\n' "${scheme}" "${host}" "${port}"
 }
 
 wait_health() {
-	local deadline=$((SECONDS + health_timeout))
+	local expected_version="${1:-}" deadline=$((SECONDS + health_timeout)) version_url liveness_url body actual
+	version_url="${health_url%/*}/version"
+	liveness_url="${health_url%/*}/healthz"
 	while (( SECONDS < deadline )); do
 		if curl -fsS --max-time 2 "${health_url}" >/dev/null; then
+			if [[ -z "${expected_version}" ]]; then
+				return 0
+			fi
+			body="$(curl -fsS --max-time 2 "${version_url}" 2>/dev/null || true)"
+			actual="$(printf '%s' "${body}" | sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+			if [[ "${actual}" == "${expected_version}" ]]; then
+				return 0
+			fi
+		elif [[ -z "${expected_version}" ]] && curl -fsS --max-time 2 "${liveness_url}" >/dev/null; then
+			# Backward compatibility for the first upgrade from a release that
+			# predates /readyz. Post-upgrade validation always supplies an exact
+			# version and therefore still requires the new readiness endpoint.
 			return 0
 		fi
 		sleep 2
@@ -348,7 +404,7 @@ main() {
 	systemctl restart "${service}" || rollback "systemctl restart ${service} failed"
 
 	log "waiting for health check: ${health_url}"
-	if ! wait_health; then
+	if ! wait_health "${rev}"; then
 		rollback "new service did not become healthy within ${health_timeout}s"
 	fi
 
@@ -360,13 +416,22 @@ main() {
 		cp -p "${current_worker_bin}" "${backup_worker_bin}"
 		log "installing new worker binary"
 		install -m 0755 "${stage_worker_bin}" "${current_worker_bin}"
-		log "restarting ${worker_service}"
-		systemctl restart "${worker_service}" || rollback_worker "systemctl restart ${worker_service} failed"
-		if ! systemctl is-active --quiet "${worker_service}"; then
-			rollback_worker "${worker_service} is not active after restart"
+		if defer_worker_restart_if_self; then
+			log "worker restart deferred until this task result is submitted (${worker_restart_marker})"
+		else
+			defer_status=$?
+			if [[ "${defer_status}" == "2" ]]; then
+				install -m 0755 "${backup_worker_bin}" "${current_worker_bin}" || true
+				die "could not persist deferred worker restart marker; restored previous worker binary"
+			fi
+			log "restarting ${worker_service}"
+			systemctl restart "${worker_service}" || rollback_worker "systemctl restart ${worker_service} failed"
+			if ! systemctl is-active --quiet "${worker_service}"; then
+				rollback_worker "${worker_service} is not active after restart"
+			fi
+			log "worker upgrade succeeded: ${worker_service} is active"
+			journalctl -u "${worker_service}" --since '2 minutes ago' --no-pager | tail -n 40 || true
 		fi
-		log "worker upgrade succeeded: ${worker_service} is active"
-		journalctl -u "${worker_service}" --since '2 minutes ago' --no-pager | tail -n 40 || true
 	fi
 
 	log "pruning old backups, keeping ${keep_backups}"

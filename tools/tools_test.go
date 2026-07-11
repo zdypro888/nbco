@@ -346,7 +346,7 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 		t.Fatal("ListWorkflowTemplates must deep-copy Args")
 	}
 	codePrompt := nbcoCodeChangePrompt("增加天气预报功能", "", "", "", true, true)
-	for _, want := range []string{"增加天气预报功能", "agent session scope", "提交", "healthz", "不要泄露"} {
+	for _, want := range []string{"增加天气预报功能", "agent session scope", "提交", "readyz", "不要泄露"} {
 		if !strings.Contains(codePrompt, want) {
 			t.Fatalf("nbco code change prompt 缺 %q:\n%s", want, codePrompt)
 		}
@@ -663,5 +663,19 @@ func TestApprovalRequiredToolsExist(t *testing.T) {
 		if !names[n] {
 			t.Errorf("approvalRequired 登记了不存在的工具 %s", n)
 		}
+	}
+}
+
+func TestReadOnlyToolsExcludesWritesExecutorsAndUnknownExtensions(t *testing.T) {
+	in := []ai.Tool{
+		{Name: "get_my_tasks", Effect: ai.ToolEffectRead},
+		{Name: "send_message", Effect: ai.ToolEffectWrite},
+		{Name: "score_learning_candidates"},
+		{Name: "custom_executor", Effect: ai.ToolEffectExecute},
+		{Name: "unknown_extension"},
+	}
+	got := ReadOnlyTools(in)
+	if len(got) != 1 || got[0].Name != "get_my_tasks" {
+		t.Fatalf("read-only tools = %v", namesOf(got))
 	}
 }

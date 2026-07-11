@@ -638,7 +638,7 @@ func decode[T any](raw json.RawMessage, v *T) error {
 
 // tool 便捷构造。
 func tool(name, desc string, schema map[string]any, h func(ctx context.Context, args json.RawMessage) (string, error)) ai.Tool {
-	return ai.Tool{Name: name, Description: desc, Effect: ToolEffect(name), InputSchema: schema, Handler: h}
+	return ai.Tool{Name: name, Description: desc, Domain: CapabilityDomain(name), Effect: ToolEffect(name), InputSchema: schema, Handler: h}
 }
 
 // --- 通用小助手 ---

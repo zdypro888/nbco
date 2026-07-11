@@ -123,9 +123,9 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 	// Eino supports model.WithToolChoice/WithAgenticToolChoice, but applying it
 	// to the whole ADK run can also force the final summarization turn to call a
-	// tool. nbco keeps tool choice automatic here and enforces side-effect
-	// discipline in chat/action_plan.go: plan actions, require successful tool
-	// evidence, retry once, then block claims without evidence.
+	// tool. nbco keeps tool choice automatic; the semantic planner may request
+	// one continuation only when an action turn has made no action attempt. A
+	// real success/failure/approval result is never replayed or post-filtered.
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "nbco",
 		Description: "nbco 公司运营中枢",
@@ -353,7 +353,7 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			continue
 		}
 		if event.Err != nil {
-			return nil, event.Err
+			return preservePartialAgentError(res, pending, event.Err)
 		}
 		if event.Output == nil || event.Output.MessageOutput == nil {
 			continue
@@ -364,7 +364,7 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			// 流式：逐块读，助手最终答复的文本增量经 onDelta 实时推出，重组成完整消息。
 			m, err := readStream(mo.MessageStream, mo.Role, onDelta, showReasoning)
 			if err != nil {
-				return nil, err
+				return preservePartialAgentError(res, pending, err)
 			}
 			msg = m
 		}
@@ -409,6 +409,13 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 		}
 	}
 	if finalText == "" {
+		if emptyTurnNeedsRepair(res, maxTokens) {
+			// Preserve completed tool evidence so the orchestrator can run a
+			// tool-free summarization repair. This also covers reasoning models
+			// that spend the whole output budget before emitting visible text.
+			res.OutputLikelyTruncated = true
+			return res, nil
+		}
 		return nil, errors.New("模型未给出最终答复（可能超出 tool 循环上限）")
 	}
 	res.Text = finalText
@@ -416,6 +423,31 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 	if onEvent != nil {
 		onEvent(ai.Step{Kind: ai.StepText, Result: finalText})
 	}
+	return res, nil
+}
+
+func emptyTurnNeedsRepair(res *ai.TurnResult, maxTokens int) bool {
+	if res == nil {
+		return false
+	}
+	return len(res.Steps) > 0 || outputLikelyTruncated(res.Usage, res.FinishReason, maxTokens)
+}
+
+// preservePartialAgentError keeps tool evidence that predates a terminal agent
+// error. Discarding it would make the orchestrator believe nothing happened and
+// a repair/retry could execute an already-completed side effect again.
+func preservePartialAgentError(res *ai.TurnResult, pending map[string]int, err error) (*ai.TurnResult, error) {
+	if res == nil || (len(res.Steps) == 0 && res.Usage.InputTokens == 0 && res.Usage.OutputTokens == 0) {
+		return nil, err
+	}
+	message := textfmt.RedactSecrets(err.Error())
+	for _, idx := range pending {
+		if idx >= 0 && idx < len(res.Steps) && res.Steps[idx].Err == "" {
+			res.Steps[idx].Err = message
+		}
+	}
+	res.FinishReason = "agent_error"
+	res.OutputLikelyTruncated = true
 	return res, nil
 }
 

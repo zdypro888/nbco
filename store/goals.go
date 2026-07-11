@@ -218,7 +218,7 @@ func (s *Store) MilestoneTaskCounts(ctx context.Context, milestoneIDs []int64) (
 	rows, err := s.pool.Query(ctx,
 		`SELECT milestone_id,
 		   count(*) FILTER (WHERE status <> 'split'),
-		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress','awaiting_input')),
 		   count(*) FILTER (WHERE status = 'done'),
 		   count(*) FILTER (WHERE status = 'accepted')
 		 FROM tasks WHERE milestone_id = ANY($1) GROUP BY milestone_id`, milestoneIDs)
@@ -276,7 +276,7 @@ func (s *Store) GoalTaskRollup(ctx context.Context, goalIDs []int64) (map[int64]
 	rows, err := s.pool.Query(ctx,
 		`SELECT m.goal_id,
 		   count(*) FILTER (WHERE t.status <> 'split'),
-		   count(*) FILTER (WHERE t.status IN ('pending','in_progress')),
+		   count(*) FILTER (WHERE t.status IN ('pending','in_progress','awaiting_input')),
 		   count(*) FILTER (WHERE t.status = 'done'),
 		   count(*) FILTER (WHERE t.status = 'accepted')
 		 FROM tasks t JOIN milestones m ON t.milestone_id = m.id

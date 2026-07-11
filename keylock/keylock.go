@@ -1,7 +1,10 @@
 // Package keylock provides reference-counted per-key locks.
 package keylock
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // Map serializes work sharing the same key and removes idle lock entries.
 // The zero value is ready for use.
@@ -11,36 +14,61 @@ type Map[K comparable] struct {
 }
 
 type entry struct {
-	mu   sync.Mutex
-	refs int
+	token chan struct{}
+	refs  int
 }
 
 // Acquire locks key and returns an idempotent release function.
 func (m *Map[K]) Acquire(key K) func() {
+	release, _ := m.AcquireContext(context.Background(), key)
+	return release
+}
+
+// AcquireContext locks key like Acquire, but a caller waiting behind another
+// holder can stop at its request deadline instead of occupying the queue forever.
+func (m *Map[K]) AcquireContext(ctx context.Context, key K) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	m.mu.Lock()
 	if m.entries == nil {
 		m.entries = make(map[K]*entry)
 	}
 	e := m.entries[key]
 	if e == nil {
-		e = &entry{}
+		e = &entry{token: make(chan struct{}, 1)}
+		e.token <- struct{}{}
 		m.entries[key] = e
 	}
 	e.refs++
 	m.mu.Unlock()
 
-	e.mu.Lock()
+	select {
+	case <-ctx.Done():
+		m.dropRef(key, e)
+		return nil, ctx.Err()
+	case <-e.token:
+	}
+	if err := ctx.Err(); err != nil {
+		e.token <- struct{}{}
+		m.dropRef(key, e)
+		return nil, err
+	}
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			e.mu.Unlock()
-			m.mu.Lock()
-			e.refs--
-			if e.refs == 0 && m.entries[key] == e {
-				delete(m.entries, key)
-			}
-			m.mu.Unlock()
+			e.token <- struct{}{}
+			m.dropRef(key, e)
 		})
+	}, nil
+}
+
+func (m *Map[K]) dropRef(key K, e *entry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e.refs--
+	if e.refs == 0 && m.entries[key] == e {
+		delete(m.entries, key)
 	}
 }
 

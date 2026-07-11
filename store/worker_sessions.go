@@ -76,6 +76,31 @@ func (s *Store) UpdateWorkerSession(ctx context.Context, id, workerID, taskID in
 		id, workerID, taskID, summary, engineRef, workdir)
 }
 
+// UpdateWorkerSessionForClaim is the worker-control-plane variant: session
+// continuity is persisted only while the caller still owns the exact task claim.
+// This prevents a stale process from overwriting a newer run's native session.
+func (s *Store) UpdateWorkerSessionForClaim(ctx context.Context, id, workerID, taskID int64, claimID, summary, engineRef, workdir string) error {
+	claimID = strings.TrimSpace(claimID)
+	if claimID == "" {
+		return ErrNotFound
+	}
+	summary = strings.TrimSpace(summary)
+	engineRef = strings.TrimSpace(engineRef)
+	workdir = strings.TrimSpace(workdir)
+	return s.execOne(ctx,
+		`UPDATE worker_sessions ws SET
+		   summary = CASE WHEN $5 <> '' THEN $5 ELSE ws.summary END,
+		   engine_session_ref = CASE WHEN $6 <> '' THEN $6 ELSE ws.engine_session_ref END,
+		   workdir = CASE WHEN $7 <> '' THEN $7 ELSE ws.workdir END,
+		   last_task_id = $3,
+		   updated_at = now()
+		 FROM tasks t
+		 WHERE ws.id = $1 AND ws.worker_id = $2
+		   AND t.id = $3 AND t.assignee_id = $2
+		   AND t.status = 'in_progress' AND t.worker_claim_id = $4`,
+		id, workerID, taskID, claimID, summary, engineRef, workdir)
+}
+
 func normalizeWorkerSessionPart(v, def string) string {
 	v = strings.TrimSpace(strings.ToLower(v))
 	if v == "" {

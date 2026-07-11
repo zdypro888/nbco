@@ -182,14 +182,22 @@ func (s *Store) FileStoragePaths(ctx context.Context) (map[string]bool, error) {
 
 // AddTaskAttachmentFile 把文件挂到任务附件上。
 func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64, caption string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.AddTaskAttachmentFileOnce(ctx, taskID, fileID, caption)
+	return err
+}
+
+// AddTaskAttachmentFileOnce returns true only when a new relationship was
+// created. The database unique index makes this safe across concurrent turns.
+func (s *Store) AddTaskAttachmentFileOnce(ctx context.Context, taskID, fileID int64, caption string) (bool, error) {
+	tag, err := s.pool.Exec(ctx,
 		`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
-		 SELECT $1, 'file', $2, $3, $4
-		 WHERE NOT EXISTS (
-		   SELECT 1 FROM task_attachments WHERE task_id = $1 AND file_id = $4
-		 )`,
+		 VALUES ($1, 'file', $2, $3, $4)
+		 ON CONFLICT DO NOTHING`,
 		taskID, fmt.Sprint(fileID), caption, fileID)
-	return wrapErr(err)
+	if err != nil {
+		return false, wrapErr(err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // TaskFileAttachments 返回任务上的真实文件附件；旧 file_ref-only 附件不在这里返回。
@@ -314,10 +322,18 @@ func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin 
 		    SELECT 1 FROM files WHERE id = $1 AND created_by = $2
 		    UNION ALL
 		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
-		      WHERE a.file_id = $1 AND (t.assigner_id = $2 OR t.assignee_id = $2)
+		      WHERE a.file_id = $1 AND (
+		        t.assigner_id = $2 OR t.assignee_id = $2 OR EXISTS (
+		          SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $2
+		        )
+		      )
 		    UNION ALL
 		    SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
-		      WHERE a.file_id = $1 AND (t.assigner_id = $2 OR t.assignee_id = $2)
+		      WHERE a.file_id = $1 AND (
+		        t.assigner_id = $2 OR t.assignee_id = $2 OR EXISTS (
+		          SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $2
+		        )
+		      )
 		)`, fileID, userID).Scan(&ok)
 	return ok, err
 }

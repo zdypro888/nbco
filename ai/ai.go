@@ -18,6 +18,9 @@ import (
 type Tool struct {
 	Name        string
 	Description string
+	// Domain 是稳定的能力领域标识（people/work/workers/...）。编排器用它做
+	// 语义路由；外部工具未声明时归入 extension。
+	Domain string
 	// Effect 描述工具的外部影响，供路由、审计和动作证据判断使用。
 	// 未声明的第三方工具按 unknown 处理。
 	Effect string

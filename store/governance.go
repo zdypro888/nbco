@@ -389,7 +389,7 @@ func (s *Store) OrphanedTasks(ctx context.Context) ([]*Task, error) {
 	return s.queryTasks(ctx,
 		`SELECT `+taskColsWithAlias("t")+` FROM tasks t
 		 JOIN users u ON u.id = t.assignee_id
-		 WHERE t.status IN ('pending', 'in_progress') AND u.status <> 'active'
+		 WHERE t.status IN ('pending', 'in_progress', 'awaiting_input') AND u.status <> 'active'
 		 ORDER BY t.id`)
 }
 

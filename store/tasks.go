@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,13 +17,16 @@ const (
 )
 
 // 任务状态。流转：pending → in_progress → done（提交待验收）→ accepted（验收通过）。
+// Worker 缺少必要信息时进入 awaiting_input；分配者补充任务内容后回到 pending。
 // 打回：done → in_progress。自派任务（分配者=执行人）提交即 accepted，免自我验收。
 const (
-	TaskPending    = "pending"
-	TaskInProgress = "in_progress"
-	TaskDone       = "done"     // 已提交，等待分配者验收
-	TaskAccepted   = "accepted" // 验收通过（终态）
-	TaskSplit      = "split"    // 已拆分：由子任务承载执行
+	TaskPending       = "pending"
+	TaskInProgress    = "in_progress"
+	TaskAwaitingInput = "awaiting_input" // worker 等待分配者补充信息，不持有执行 claim
+	TaskDone          = "done"           // 已提交，等待分配者验收
+	TaskAccepted      = "accepted"       // 验收通过（终态）
+	TaskSplit         = "split"          // 已拆分：由子任务承载执行
+	TaskCancelled     = "cancelled"      // 已取消（终态，可由 superseded_by 指向替代任务）
 
 	taskReminderClaimLease = 10 * time.Minute
 )
@@ -56,6 +60,14 @@ type Task struct {
 	Acceptance       string
 	WorkerCommand    string
 	WorkerCommandPTY bool
+	// WorkerScope* 是创建任务时明确写入的 CLI 会话作用域。它决定工作目录与
+	// Codex/Claude 原生会话复用；不能从标题或描述关键词猜测。
+	WorkerScopeType  string
+	WorkerScopeKey   string
+	WorkerScopeTitle string
+	WorkerRetryAt    *time.Time
+	WorkerFailures   int
+	WorkerLastError  string
 	Priority         string
 	Deadline         *time.Time
 	Status           string
@@ -66,9 +78,14 @@ type Task struct {
 	DependsOn []int64
 	// MilestoneID 可选：战略里程碑归因（与 ParentID 正交——拆分树是执行转移，
 	// 里程碑是战略标签）。nil = 无归因；删里程碑时 SET NULL，任务留在原项目继续。
-	MilestoneID *int64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	MilestoneID  *int64
+	SubmittedBy  *int64
+	SubmittedAt  *time.Time
+	CancelReason string
+	CancelledAt  *time.Time
+	SupersededBy *int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // ChecklistItem 工作清单条目。
@@ -99,7 +116,7 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, status, nudge_count, worker_claim_id, depends_on, milestone_id, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, worker_retry_at, worker_failures, worker_last_error, priority, deadline, status, nudge_count, worker_claim_id, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
 
 func taskColsWithAlias(alias string) string {
 	cols := strings.Split(taskCols, ", ")
@@ -112,8 +129,12 @@ func taskColsWithAlias(alias string) string {
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
-		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.WorkerCommandPTY, &t.Priority, &t.Deadline,
-		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.DependsOn, &t.MilestoneID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.WorkerCommandPTY,
+		&t.WorkerScopeType, &t.WorkerScopeKey, &t.WorkerScopeTitle,
+		&t.WorkerRetryAt, &t.WorkerFailures, &t.WorkerLastError, &t.Priority, &t.Deadline,
+		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.DependsOn, &t.MilestoneID,
+		&t.SubmittedBy, &t.SubmittedAt, &t.CancelReason, &t.CancelledAt, &t.SupersededBy,
+		&t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &t, nil
@@ -165,8 +186,11 @@ func (s *Store) ProjectsByCreator(ctx context.Context, creatorID int64) ([]Proje
 func (s *Store) ProjectsOfAssignee(ctx context.Context, userID int64) ([]Project, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT DISTINCT p.id, p.name, p.description, p.creator_id, p.status, p.created_at
-		 FROM projects p JOIN tasks t ON t.project_id = p.id
-		 WHERE t.assignee_id = $1 ORDER BY p.id`, userID)
+			 FROM projects p JOIN tasks t ON t.project_id = p.id
+			 WHERE t.assignee_id = $1
+			    OR EXISTS (SELECT 1 FROM task_participants tp
+			               WHERE tp.task_id = t.id AND tp.user_id = $1)
+			 ORDER BY p.id`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -271,15 +295,28 @@ func (s *Store) DeleteProject(ctx context.Context, id int64) error {
 
 // CreateTask 建任务。
 func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
-	deps, ok := normalizeTaskDeps(t.DependsOn)
-	if !ok {
-		return nil, ErrNotFound
-	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	created, err := createTaskTx(ctx, tx, t)
+	if err != nil {
+		return nil, err
+	}
+	return created, tx.Commit(ctx)
+}
+
+func createTaskTx(ctx context.Context, tx pgx.Tx, t *Task) (*Task, error) {
+	normalizeTaskWorkerScope(t)
+	t.Title = strings.TrimSpace(t.Title)
+	t.Goal = strings.TrimSpace(t.Goal)
+	t.Description = strings.TrimSpace(t.Description)
+	t.Acceptance = strings.TrimSpace(t.Acceptance)
+	deps, ok := normalizeTaskDeps(t.DependsOn)
+	if !ok {
+		return nil, ErrNotFound
+	}
 	if len(deps) > 0 {
 		rows, err := tx.Query(ctx,
 			`SELECT id FROM tasks WHERE project_id = $1 AND id = ANY($2) FOR SHARE`,
@@ -306,14 +343,35 @@ func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 		}
 	}
 	row := tx.QueryRow(ctx,
-		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, depends_on, milestone_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING `+taskCols,
-		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
+		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, priority, deadline, depends_on, milestone_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING `+taskCols,
+		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance,
+		t.WorkerCommand, t.WorkerCommandPTY, t.WorkerScopeType, t.WorkerScopeKey, t.WorkerScopeTitle,
+		nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
 	created, err := scanTask(row)
 	if err != nil {
 		return nil, err
 	}
-	return created, tx.Commit(ctx)
+	return created, nil
+}
+
+// normalizeTaskWorkerScope gives every task a deterministic, persisted scope.
+// Domain-specific task creators may provide a narrower scope (repo/materials/skill);
+// ordinary project tasks share their project context without inspecting task text.
+func normalizeTaskWorkerScope(t *Task) {
+	t.WorkerScopeType = strings.TrimSpace(t.WorkerScopeType)
+	t.WorkerScopeKey = strings.TrimSpace(t.WorkerScopeKey)
+	t.WorkerScopeTitle = strings.TrimSpace(t.WorkerScopeTitle)
+	if t.WorkerScopeKey == "" {
+		t.WorkerScopeType = "project"
+		t.WorkerScopeKey = "project:" + strconv.FormatInt(t.ProjectID, 10)
+	}
+	if t.WorkerScopeType == "" {
+		t.WorkerScopeType = "custom"
+	}
+	if t.WorkerScopeTitle == "" {
+		t.WorkerScopeTitle = t.WorkerScopeKey
+	}
 }
 
 func normalizeTaskDeps(in []int64) ([]int64, bool) {
@@ -340,13 +398,22 @@ func (s *Store) TaskByID(ctx context.Context, id int64) (*Task, error) {
 	return scanTask(s.pool.QueryRow(ctx, `SELECT `+taskCols+` FROM tasks WHERE id = $1`, id))
 }
 
-// TasksOfAssignee 某人的任务；openOnly 时只取待办/进行中。
+// TasksOfAssignee 某人的相关任务。openOnly 只返回本人负责/协作的待办；完整列表
+// 还包含其验收和关注的任务，便于从通知之外重新找到只读任务。
 func (s *Store) TasksOfAssignee(ctx context.Context, userID int64, openOnly bool) ([]*Task, error) {
-	sql := `SELECT ` + taskCols + ` FROM tasks WHERE assignee_id = $1`
+	sql := `SELECT ` + taskColsWithAlias("t") + ` FROM tasks t
+			WHERE (t.assignee_id = $1 OR EXISTS (
+			  SELECT 1 FROM task_participants tp
+			  WHERE tp.task_id = t.id AND tp.user_id = $1`
 	if openOnly {
-		sql += ` AND status IN ('pending', 'in_progress')`
+		sql += ` AND tp.role = 'collaborator'`
 	}
-	sql += ` ORDER BY id`
+	sql += `
+			))`
+	if openOnly {
+		sql += ` AND t.status IN ('pending', 'in_progress', 'awaiting_input')`
+	}
+	sql += ` ORDER BY t.id`
 	return s.queryTasks(ctx, sql, userID)
 }
 
@@ -362,31 +429,37 @@ func (s *Store) TasksOfProject(ctx context.Context, projectID int64) ([]*Task, e
 }
 
 // TaskQueue 返回全局任务队列。scope:
-//   - queue/open: pending + in_progress + done（未终态，含待验收）
+//   - queue/open: pending + in_progress + awaiting_input + done（未终态，含待补充/待验收）
+//   - history: accepted + split + cancelled（终态）
 //   - all: 全部
-//   - 具体状态：pending/in_progress/done/accepted/split
+//   - 具体状态：pending/in_progress/awaiting_input/done/accepted/split/cancelled
 func (s *Store) TaskQueue(ctx context.Context, scope string, limit int) ([]*Task, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	where := "status IN ('pending','in_progress','done')"
+	where := "status IN ('pending','in_progress','awaiting_input','done')"
 	switch strings.TrimSpace(scope) {
 	case "", "queue", "open":
+	case "history":
+		where = "status IN ('accepted','split','cancelled')"
 	case "all":
 		where = "true"
-	case TaskPending, TaskInProgress, TaskDone, TaskAccepted, TaskSplit:
+	case TaskPending, TaskInProgress, TaskAwaitingInput, TaskDone, TaskAccepted, TaskSplit, TaskCancelled:
 		where = "status = $2"
 	default:
-		where = "status IN ('pending','in_progress','done')"
+		where = "status IN ('pending','in_progress','awaiting_input','done')"
 	}
 	sql := `SELECT ` + taskCols + ` FROM tasks WHERE ` + where + `
 		ORDER BY
 		  CASE status
 		    WHEN 'done' THEN 0
-		    WHEN 'in_progress' THEN 1
-		    WHEN 'pending' THEN 2
-		    WHEN 'accepted' THEN 3
-		    ELSE 4
+		    WHEN 'awaiting_input' THEN 1
+		    WHEN 'in_progress' THEN 2
+		    WHEN 'pending' THEN 3
+		    WHEN 'accepted' THEN 4
+		    WHEN 'split' THEN 5
+		    WHEN 'cancelled' THEN 6
+		    ELSE 7
 		  END,
 		  COALESCE(deadline, 'infinity'::timestamptz),
 		  updated_at DESC
@@ -406,12 +479,18 @@ func (s *Store) SubTasks(ctx context.Context, parentID int64) ([]*Task, error) {
 func (s *Store) UpdateTaskStatus(ctx context.Context, id int64, status string) (*Task, error) {
 	return scanTask(s.pool.QueryRow(ctx,
 		`UPDATE tasks
-		    SET status = $2,
-		        worker_claimed_by = NULL,
+			    SET status = $2,
+			        submitted_by = NULL,
+			        submitted_at = NULL,
+			        worker_claimed_by = NULL,
 		        worker_claimed_at = NULL,
 		        worker_claim_id = '',
+		        worker_retry_at = NULL,
+		        worker_failures = 0,
+		        worker_last_error = '',
 		        updated_at = now()
-		  WHERE id = $1 RETURNING `+taskCols, id, status))
+		  WHERE id = $1 AND status NOT IN ('accepted','split','cancelled')
+		  RETURNING `+taskCols, id, status))
 }
 
 // ReassignTask 改派：保留 task 行（连带 task_progress/checklist/attachments 历史），换执行人，
@@ -421,13 +500,31 @@ func (s *Store) UpdateTaskStatus(ctx context.Context, id int64, status string) (
 // 仅允许 pending/in_progress（未提交的任务）：done 已在验收队列、accepted/split 是终态，
 // 改派它们会丢失验收记录或破坏拆分树。状态不符返 ErrNotFound（store 层防线，工具层也校验）。
 func (s *Store) ReassignTask(ctx context.Context, id, newAssigneeID int64) (*Task, error) {
-	return scanTask(s.pool.QueryRow(ctx,
+	return s.ReassignTaskWithProgress(ctx, id, newAssigneeID, 0, "")
+}
+
+// ReassignTaskWithProgress performs the ownership change, participant cleanup,
+// and optional audit progress write in one transaction. A participant role is
+// never allowed to survive when that same user becomes the primary assignee:
+// in particular, a former reviewer must not be able to review their own work.
+func (s *Store) ReassignTaskWithProgress(ctx context.Context, id, newAssigneeID, actorID int64, note string) (*Task, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	task, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
-		   assignee_id = $2,
-		   status = 'pending',
+			   assignee_id = $2,
+			   status = 'pending',
+			   submitted_by = NULL,
+			   submitted_at = NULL,
 		   worker_claimed_by = NULL,
 		   worker_claimed_at = NULL,
 		   worker_claim_id = '',
+		   worker_retry_at = NULL,
+		   worker_failures = 0,
+		   worker_last_error = '',
 		   nudge_count = 0,
 		   deadline_reminded_at = NULL,
 		   overdue_notified_at = NULL,
@@ -436,30 +533,76 @@ func (s *Store) ReassignTask(ctx context.Context, id, newAssigneeID int64) (*Tas
 		   overdue_notice_claimed_at = NULL,
 		   nudge_claimed_at = NULL,
 		   updated_at = now()
-		 WHERE id = $1 AND status IN ('pending', 'in_progress') RETURNING `+taskCols, id, newAssigneeID))
+			 WHERE id = $1 AND status IN ('pending', 'in_progress', 'awaiting_input') RETURNING `+taskCols, id, newAssigneeID))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM task_participants WHERE task_id = $1 AND user_id = $2`, id, newAssigneeID); err != nil {
+		return nil, err
+	}
+	if note = strings.TrimSpace(note); note != "" && actorID > 0 {
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO task_progress (task_id, author_id, content)
+			 SELECT $1, id, $3 FROM users WHERE id = $2`,
+			id, actorID, note)
+		if err != nil {
+			return nil, err
+		}
+		if tag.RowsAffected() == 0 {
+			return nil, ErrNotFound
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return task, nil
 }
 
 // UpdateTaskContent 分配者修改任务要素（nil 字段不动）。
 // 截止时间变更时重置提醒标记，让新截止时间重新获得临近提醒与过期通知。
 func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, description, acceptance *string, deadline *time.Time) (*Task, error) {
 	return scanTask(s.pool.QueryRow(ctx,
-		`UPDATE tasks SET
-		   goal = COALESCE($2, goal),
-		   description = COALESCE($3, description),
-		   acceptance = COALESCE($4, acceptance),
-			   deadline = COALESCE($5, deadline),
-			   deadline_reminded_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminded_at END,
-			   overdue_notified_at  = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE overdue_notified_at END,
-			   deadline_reminder_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminder_claimed_at END,
-			   overdue_notice_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE overdue_notice_claimed_at END,
-			   nudge_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE nudge_claimed_at END,
+		`UPDATE tasks t SET
+			   goal = COALESCE($2, t.goal),
+			   description = COALESCE($3, t.description),
+			   acceptance = COALESCE($4, t.acceptance),
+			   status = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL)
+			                         AND (t.status = 'awaiting_input' OR (t.status = 'in_progress' AND u.is_worker))
+			                    THEN 'pending' ELSE t.status END,
+			   worker_claimed_by = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL)
+			                                      AND (t.status = 'awaiting_input' OR (t.status = 'in_progress' AND u.is_worker))
+			                                 THEN NULL ELSE t.worker_claimed_by END,
+			   worker_claimed_at = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL)
+			                                      AND (t.status = 'awaiting_input' OR (t.status = 'in_progress' AND u.is_worker))
+			                                 THEN NULL ELSE t.worker_claimed_at END,
+			   worker_claim_id = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL)
+			                                    AND (t.status = 'awaiting_input' OR (t.status = 'in_progress' AND u.is_worker))
+			                               THEN '' ELSE t.worker_claim_id END,
+			   worker_retry_at = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL) THEN NULL ELSE t.worker_retry_at END,
+			   worker_failures = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL) THEN 0 ELSE t.worker_failures END,
+			   worker_last_error = CASE WHEN ($2::text IS NOT NULL OR $3::text IS NOT NULL OR $4::text IS NOT NULL OR $5::timestamptz IS NOT NULL) THEN '' ELSE t.worker_last_error END,
+			   deadline = COALESCE($5, t.deadline),
+			   deadline_reminded_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.deadline_reminded_at END,
+			   overdue_notified_at  = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.overdue_notified_at END,
+			   deadline_reminder_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.deadline_reminder_claimed_at END,
+			   overdue_notice_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.overdue_notice_claimed_at END,
+			   nudge_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.nudge_claimed_at END,
 			   updated_at = now()
-			 WHERE id = $1 RETURNING `+taskCols, id, goal, description, acceptance, deadline))
+			 FROM users u
+			 WHERE t.id = $1 AND u.id = t.assignee_id
+			   AND t.status IN ('pending', 'in_progress', 'awaiting_input')
+			 RETURNING `+taskColsWithAlias("t"), id, goal, description, acceptance, deadline))
 }
 
-// SubmitTask 执行人提交完成：自派任务（分配者=执行人）免验收直接 accepted 并向上级联；
-// 其余置为 done 等待分配者验收。已验收/已拆分的任务不可提交（ErrNotFound）。
+// SubmitTask 兼容旧调用：按责任人身份提交。
 func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error) {
+	return s.SubmitTaskBy(ctx, id, 0)
+}
+
+// SubmitTaskBy 由责任人或协作者提交完成。自派且没有指定验收人的任务免验收直接
+// accepted 并向上级联；其余置为 done 等待验收。actorID=0 兼容旧调用并按责任人提交。
+func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*Task, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -467,13 +610,36 @@ func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
-			   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
-			   worker_claimed_by = NULL,
+				   status = CASE
+				              WHEN assigner_id = assignee_id
+				               AND NOT EXISTS (
+				                   SELECT 1 FROM task_participants tp
+				                    WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
+				               ) THEN 'accepted'
+				              ELSE 'done'
+				            END,
+				   submitted_by = CASE WHEN $2::bigint > 0 THEN $2 ELSE assignee_id END,
+				   submitted_at = now(),
+				   worker_claimed_by = NULL,
 			   worker_claimed_at = NULL,
 			   worker_claim_id = '',
+			   worker_retry_at = NULL,
+			   worker_failures = 0,
+			   worker_last_error = '',
 			   updated_at = now()
-			 WHERE id = $1 AND status IN ('pending', 'in_progress')
-			 RETURNING `+taskCols, id))
+			 WHERE id = $1
+			   AND status IN ('pending', 'in_progress')
+			   AND (
+			       $2::bigint = 0
+			       OR assignee_id = $2
+			       OR EXISTS (
+			           SELECT 1 FROM task_participants tp
+			            WHERE tp.task_id = tasks.id
+			              AND tp.user_id = $2
+			              AND tp.role = 'collaborator'
+			       )
+			   )
+			 RETURNING `+taskCols, id, actorID))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -500,10 +666,22 @@ func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimI
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
-		   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
-		   worker_claimed_by = NULL,
+			   status = CASE
+			              WHEN assigner_id = assignee_id
+			               AND NOT EXISTS (
+			                   SELECT 1 FROM task_participants tp
+			                    WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
+			               ) THEN 'accepted'
+			              ELSE 'done'
+			            END,
+			   submitted_by = $2,
+			   submitted_at = now(),
+			   worker_claimed_by = NULL,
 		   worker_claimed_at = NULL,
 		   worker_claim_id = '',
+		   worker_retry_at = NULL,
+		   worker_failures = 0,
+		   worker_last_error = '',
 		   updated_at = now()
 		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3
 		 RETURNING `+taskCols, id, workerID, claimID))
@@ -540,6 +718,9 @@ func (s *Store) AcceptTask(ctx context.Context, id int64) (*Task, []*Task, error
 			        worker_claimed_by = NULL,
 			        worker_claimed_at = NULL,
 			        worker_claim_id = '',
+			        worker_retry_at = NULL,
+			        worker_failures = 0,
+			        worker_last_error = '',
 			        updated_at = now()
 			 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
 	if err != nil {
@@ -552,7 +733,8 @@ func (s *Store) AcceptTask(ctx context.Context, id int64) (*Task, []*Task, error
 	return t, chain, tx.Commit(ctx)
 }
 
-// RejectTask 验收打回：done → in_progress，理由写入进度记录。
+// RejectTask 验收打回：真人执行人回 in_progress，worker 回 pending 等待重新领取；
+// 理由写入进度记录。
 // 任务不在待验收状态时返回 ErrNotFound。
 func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason string) (*Task, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -561,13 +743,20 @@ func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason str
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
-		`UPDATE tasks
-			    SET status = 'in_progress',
+		`UPDATE tasks t
+				    SET status = CASE WHEN u.is_worker THEN 'pending' ELSE 'in_progress' END,
+				        submitted_by = NULL,
+				        submitted_at = NULL,
 			        worker_claimed_by = NULL,
 			        worker_claimed_at = NULL,
 			        worker_claim_id = '',
+			        worker_retry_at = NULL,
+			        worker_failures = 0,
+			        worker_last_error = '',
 			        updated_at = now()
-			 WHERE id = $1 AND status = 'done' RETURNING `+taskCols, id))
+			 FROM users u
+			 WHERE t.id = $1 AND t.status = 'done' AND u.id = t.assignee_id
+			 RETURNING `+taskColsWithAlias("t"), id))
 	if err != nil {
 		return nil, err
 	}
@@ -594,13 +783,23 @@ func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error)
 		}
 		p, err := scanTask(tx.QueryRow(ctx,
 			`UPDATE tasks SET
-				   status = CASE WHEN assigner_id = assignee_id THEN 'accepted' ELSE 'done' END,
+				   status = CASE
+				              WHEN assigner_id = assignee_id
+				               AND NOT EXISTS (
+				                   SELECT 1 FROM task_participants tp
+				                    WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
+				               ) THEN 'accepted'
+				              ELSE 'done'
+				            END,
 				   worker_claimed_by = NULL,
 				   worker_claimed_at = NULL,
 				   worker_claim_id = '',
+				   worker_retry_at = NULL,
+				   worker_failures = 0,
+				   worker_last_error = '',
 				   updated_at = now()
 			 WHERE id = $1 AND status = 'split'
-			   AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_id = $1 AND c.status <> 'accepted')
+			   AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.parent_id = $1 AND c.status NOT IN ('accepted','cancelled'))
 			 RETURNING `+taskCols, *parentID))
 		if errors.Is(err, ErrNotFound) {
 			break // 还有未验收的兄弟任务，或父状态不是 split
@@ -620,8 +819,12 @@ func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error)
 // TasksAwaitingReview 我分配出去、已提交待我验收的任务。
 func (s *Store) TasksAwaitingReview(ctx context.Context, assignerID int64) ([]*Task, error) {
 	return s.queryTasks(ctx,
-		`SELECT `+taskCols+` FROM tasks
-		 WHERE assigner_id = $1 AND assignee_id <> $1 AND status = 'done' ORDER BY updated_at`, assignerID)
+		`SELECT `+taskColsWithAlias("t")+` FROM tasks t
+		 WHERE t.status = 'done' AND (
+		   (t.assigner_id = $1 AND t.assignee_id <> $1)
+		   OR EXISTS (SELECT 1 FROM task_participants tp
+		              WHERE tp.task_id = t.id AND tp.user_id = $1 AND tp.role = 'reviewer')
+		 ) ORDER BY t.updated_at`, assignerID)
 }
 
 // DueNudges 原子认领需要 AI 催办的任务：已发过期通知，且距最近一次
@@ -629,40 +832,53 @@ func (s *Store) TasksAwaitingReview(ctx context.Context, assignerID int64) ([]*T
 func (s *Store) DueNudges(ctx context.Context, now time.Time, interval time.Duration) ([]*Task, error) {
 	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
-		`UPDATE tasks SET nudge_claimed_at = $1 WHERE id IN (
+		`WITH due AS (
 		   SELECT t.id FROM tasks t
+		   JOIN users u ON u.id = t.assignee_id
 		   LEFT JOIN LATERAL (
 		     SELECT max(created_at) AS at FROM task_progress p WHERE p.task_id = t.id
 		   ) prog ON TRUE
 		   WHERE t.status IN ('pending', 'in_progress')
+		     AND u.status = 'active' AND NOT u.is_worker
 		     AND t.overdue_notified_at IS NOT NULL
 		     AND (t.nudge_claimed_at IS NULL OR t.nudge_claimed_at <= $3)
 		     AND GREATEST(t.overdue_notified_at,
 		                  COALESCE(t.nudged_at, t.overdue_notified_at),
 		                  COALESCE(prog.at, t.overdue_notified_at)) <= $2
-		 ) RETURNING `+taskCols, now, now.Add(-interval), stale)
+		   ORDER BY t.id LIMIT 128 FOR UPDATE OF t SKIP LOCKED
+		 )
+		 UPDATE tasks t SET nudge_claimed_at = $1
+		 FROM due WHERE t.id = due.id RETURNING `+taskColsWithAlias("t"), now, now.Add(-interval), stale)
 }
 
 // DueDeadlineReminders 原子认领「临近截止」提醒：开放任务、截止落在 (now, now+window]、未成功提醒过。
 func (s *Store) DueDeadlineReminders(ctx context.Context, now time.Time, window time.Duration) ([]*Task, error) {
 	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
-		`UPDATE tasks SET deadline_reminder_claimed_at = $1
-		 WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
-		   AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
-		   AND (deadline_reminder_claimed_at IS NULL OR deadline_reminder_claimed_at <= $3)
-		 RETURNING `+taskCols, now, now.Add(window), stale)
+		`WITH due AS (
+		   SELECT id FROM tasks
+		    WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
+		      AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
+		      AND (deadline_reminder_claimed_at IS NULL OR deadline_reminder_claimed_at <= $3)
+		    ORDER BY deadline, id LIMIT 128 FOR UPDATE SKIP LOCKED
+		 )
+		 UPDATE tasks t SET deadline_reminder_claimed_at = $1
+		 FROM due WHERE t.id = due.id RETURNING `+taskColsWithAlias("t"), now, now.Add(window), stale)
 }
 
 // DueOverdueNotices 原子认领「已过期」通知：开放任务、截止已过、未成功通知过。
 func (s *Store) DueOverdueNotices(ctx context.Context, now time.Time) ([]*Task, error) {
 	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
-		`UPDATE tasks SET overdue_notice_claimed_at = $1
-		 WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
-		   AND overdue_notified_at IS NULL AND deadline <= $1
-		   AND (overdue_notice_claimed_at IS NULL OR overdue_notice_claimed_at <= $2)
-		 RETURNING `+taskCols, now, stale)
+		`WITH due AS (
+		   SELECT id FROM tasks
+		    WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
+		      AND overdue_notified_at IS NULL AND deadline <= $1
+		      AND (overdue_notice_claimed_at IS NULL OR overdue_notice_claimed_at <= $2)
+		    ORDER BY deadline, id LIMIT 128 FOR UPDATE SKIP LOCKED
+		 )
+		 UPDATE tasks t SET overdue_notice_claimed_at = $1
+		 FROM due WHERE t.id = due.id RETURNING `+taskColsWithAlias("t"), now, stale)
 }
 
 func (s *Store) MarkDeadlineReminderSent(ctx context.Context, id int64, sentAt time.Time) error {
@@ -685,10 +901,11 @@ func (s *Store) MarkNudgeSent(ctx context.Context, id int64, sentAt time.Time) e
 
 // TaskStats 全局任务统计（老板摘要用）。
 type TaskStats struct {
-	Open      int64 // 待处理 + 进行中
-	Overdue   int64 // 其中已过截止时间
-	Awaiting  int64 // 已提交待验收
-	DoneSince int64 // 自给定时刻以来验收通过
+	Open          int64 // 待处理 + 进行中 + 待补充信息
+	AwaitingInput int64 // 其中等待分配者补充信息
+	Overdue       int64 // 开放任务中已过截止时间
+	Awaiting      int64 // 已提交待验收
+	DoneSince     int64 // 自给定时刻以来验收通过
 }
 
 // GlobalTaskStats 全局任务统计。
@@ -696,11 +913,12 @@ func (s *Store) GlobalTaskStats(ctx context.Context, doneSince time.Time) (*Task
 	var st TaskStats
 	err := s.pool.QueryRow(ctx,
 		`SELECT
-		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
-		   count(*) FILTER (WHERE status IN ('pending','in_progress') AND deadline IS NOT NULL AND deadline < now()),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress','awaiting_input')),
+		   count(*) FILTER (WHERE status = 'awaiting_input'),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress','awaiting_input') AND deadline IS NOT NULL AND deadline < now()),
 		   count(*) FILTER (WHERE status = 'done'),
 		   count(*) FILTER (WHERE status = 'accepted' AND updated_at >= $1)
-		 FROM tasks`, doneSince).Scan(&st.Open, &st.Overdue, &st.Awaiting, &st.DoneSince)
+		 FROM tasks`, doneSince).Scan(&st.Open, &st.AwaitingInput, &st.Overdue, &st.Awaiting, &st.DoneSince)
 	return &st, err
 }
 
@@ -719,8 +937,8 @@ func (s *Store) StatsOfAssignee(ctx context.Context, userID int64) (*AssigneeSta
 	var st AssigneeStats
 	err := s.pool.QueryRow(ctx,
 		`SELECT
-		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
-		   count(*) FILTER (WHERE status IN ('pending','in_progress') AND deadline IS NOT NULL AND deadline < now()),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress','awaiting_input')),
+		   count(*) FILTER (WHERE status IN ('pending','in_progress','awaiting_input') AND deadline IS NOT NULL AND deadline < now()),
 		   count(*) FILTER (WHERE status = 'done'),
 		   count(*) FILTER (WHERE status = 'accepted'),
 		   count(*) FILTER (WHERE status = 'accepted' AND deadline IS NOT NULL),
@@ -741,7 +959,7 @@ type ProjectCounts struct {
 func (s *Store) ProjectTaskCounts(ctx context.Context) (map[int64]ProjectCounts, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT project_id,
-		   count(*) FILTER (WHERE status IN ('pending','in_progress')),
+			   count(*) FILTER (WHERE status IN ('pending','in_progress','awaiting_input')),
 		   count(*) FILTER (WHERE status = 'done'),
 		   count(*) FILTER (WHERE status = 'accepted')
 		 FROM tasks GROUP BY project_id`)
@@ -765,7 +983,7 @@ func (s *Store) ProjectTaskCounts(ctx context.Context) (map[int64]ProjectCounts,
 func (s *Store) OverdueTasks(ctx context.Context, limit int) ([]*Task, error) {
 	return s.queryTasks(ctx,
 		`SELECT `+taskCols+` FROM tasks
-		 WHERE status IN ('pending','in_progress') AND deadline IS NOT NULL AND deadline < now()
+		 WHERE status IN ('pending','in_progress','awaiting_input') AND deadline IS NOT NULL AND deadline < now()
 		 ORDER BY deadline LIMIT $1`, limit)
 }
 
@@ -777,21 +995,30 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	tag, err := tx.Exec(ctx,
-		`UPDATE tasks SET status = 'split', worker_claimed_by = NULL, worker_claimed_at = NULL, worker_claim_id = '', updated_at = now()
-			 WHERE id = $1 AND status IN ('pending', 'in_progress')`, parentID)
+	var parentScopeType, parentScopeKey, parentScopeTitle string
+	err = tx.QueryRow(ctx,
+		`UPDATE tasks SET status = 'split', worker_claimed_by = NULL, worker_claimed_at = NULL, worker_claim_id = '',
+		        worker_retry_at = NULL, worker_failures = 0, worker_last_error = '', updated_at = now()
+			 WHERE id = $1 AND status IN ('pending', 'in_progress', 'awaiting_input')
+			 RETURNING worker_scope_type, worker_scope_key, worker_scope_title`, parentID).
+		Scan(&parentScopeType, &parentScopeKey, &parentScopeTitle)
 	if err != nil {
 		return nil, wrapErr(err)
 	}
-	if tag.RowsAffected() == 0 {
-		return nil, ErrNotFound
-	}
 	created := make([]*Task, 0, len(subs))
 	for _, t := range subs {
+		if strings.TrimSpace(t.WorkerScopeKey) == "" {
+			t.WorkerScopeType = parentScopeType
+			t.WorkerScopeKey = parentScopeKey
+			t.WorkerScopeTitle = parentScopeTitle
+		}
+		normalizeTaskWorkerScope(t)
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, priority, deadline, milestone_id)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+taskCols,
-			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, t.MilestoneID)
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, priority, deadline, milestone_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING `+taskCols,
+			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance,
+			t.WorkerCommand, t.WorkerCommandPTY, t.WorkerScopeType, t.WorkerScopeKey, t.WorkerScopeTitle,
+			nonEmpty(t.Priority, "normal"), t.Deadline, t.MilestoneID)
 		ct, err := scanTask(row)
 		if err != nil {
 			return nil, err
@@ -823,6 +1050,188 @@ func (s *Store) DeleteTask(ctx context.Context, id int64) error {
 		return ErrNotFound
 	}
 	return tx.Commit(ctx)
+}
+
+// CancelTask keeps the task and its history while removing it from active
+// queues. When supersededBy is set, downstream dependencies are atomically
+// rewired to the replacement task; otherwise the cancelled prerequisite is
+// removed. Accepted and split tasks cannot be cancelled.
+func (s *Store) CancelTask(ctx context.Context, id int64, reason string, supersededBy *int64) (*Task, []*Task, error) {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, nil, ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	task, err := scanTask(tx.QueryRow(ctx, `SELECT `+taskCols+` FROM tasks WHERE id = $1 FOR UPDATE`, id))
+	if err != nil {
+		return nil, nil, err
+	}
+	if task.Status == TaskAccepted || task.Status == TaskSplit || task.Status == TaskCancelled {
+		return nil, nil, ErrNotFound
+	}
+	if supersededBy != nil {
+		if *supersededBy <= 0 || *supersededBy == task.ID {
+			return nil, nil, ErrConflict
+		}
+		replacement, err := scanTask(tx.QueryRow(ctx,
+			`SELECT `+taskCols+` FROM tasks WHERE id = $1 FOR SHARE`, *supersededBy))
+		if err != nil {
+			return nil, nil, err
+		}
+		if replacement.ProjectID != task.ProjectID || replacement.Status == TaskCancelled ||
+			nullableIDKey(replacement.ParentID) != nullableIDKey(task.ParentID) {
+			return nil, nil, ErrConflict
+		}
+		// Preserve the replacement task's existing roles, then carry over active
+		// human participants and the old human owner. Worker ownership remains an
+		// independent execution unit and is never converted into collaboration.
+		existingRows, err := tx.Query(ctx, `SELECT user_id FROM task_participants WHERE task_id = $1`, replacement.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		existing := map[int64]bool{}
+		for existingRows.Next() {
+			var userID int64
+			if err := existingRows.Scan(&userID); err != nil {
+				existingRows.Close()
+				return nil, nil, err
+			}
+			existing[userID] = true
+		}
+		if err := existingRows.Err(); err != nil {
+			existingRows.Close()
+			return nil, nil, err
+		}
+		existingRows.Close()
+
+		participantRows, err := tx.Query(ctx,
+			`SELECT p.user_id, p.role
+			   FROM task_participants p
+			   JOIN users u ON u.id = p.user_id
+			  WHERE p.task_id = $1 AND u.status = 'active' AND NOT u.is_worker`, task.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		var migrated []TaskParticipantInput
+		for participantRows.Next() {
+			var input TaskParticipantInput
+			if err := participantRows.Scan(&input.UserID, &input.Role); err != nil {
+				participantRows.Close()
+				return nil, nil, err
+			}
+			if !existing[input.UserID] {
+				existing[input.UserID] = true
+				migrated = append(migrated, input)
+			}
+		}
+		if err := participantRows.Err(); err != nil {
+			participantRows.Close()
+			return nil, nil, err
+		}
+		participantRows.Close()
+		if task.AssigneeID != replacement.AssigneeID && !existing[task.AssigneeID] {
+			var activeHuman bool
+			if err := tx.QueryRow(ctx,
+				`SELECT status = 'active' AND NOT is_worker FROM users WHERE id = $1`, task.AssigneeID).Scan(&activeHuman); err != nil {
+				return nil, nil, wrapErr(err)
+			}
+			if activeHuman {
+				migrated = append(migrated, TaskParticipantInput{UserID: task.AssigneeID, Role: TaskParticipantCollaborator})
+			}
+		}
+		if _, err := upsertTaskParticipantsTx(ctx, tx, replacement, migrated, task.AssignerID); err != nil {
+			if !errors.Is(err, ErrWorkerTaskParticipant) {
+				return nil, nil, err
+			}
+			// A worker-owned replacement cannot share collaborators. Preserve
+			// reviewer/watcher roles while leaving human execution on its old record.
+			filtered := migrated[:0]
+			for _, input := range migrated {
+				if input.Role != TaskParticipantCollaborator {
+					filtered = append(filtered, input)
+				}
+			}
+			if _, err := upsertTaskParticipantsTx(ctx, tx, replacement, filtered, task.AssignerID); err != nil {
+				return nil, nil, err
+			}
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
+			 SELECT $2, kind, file_ref, caption, file_id FROM task_attachments WHERE task_id = $1
+			 ON CONFLICT DO NOTHING`, task.ID, replacement.ID); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	rows, err := tx.Query(ctx, `SELECT id, depends_on FROM tasks WHERE $1 = ANY(depends_on) FOR UPDATE`, task.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	type dependent struct {
+		id   int64
+		deps []int64
+	}
+	var dependents []dependent
+	for rows.Next() {
+		var item dependent
+		if err := rows.Scan(&item.id, &item.deps); err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+		dependents = append(dependents, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, nil, err
+	}
+	rows.Close()
+	for _, item := range dependents {
+		deps := make([]int64, 0, len(item.deps))
+		for _, dep := range item.deps {
+			if dep != task.ID {
+				deps = append(deps, dep)
+				continue
+			}
+			if supersededBy != nil && *supersededBy != item.id {
+				// Dependencies are constrained to older task IDs. Preserve that
+				// invariant while rewiring so replacement cannot create a cycle.
+				if *supersededBy >= item.id {
+					return nil, nil, ErrConflict
+				}
+				deps = append(deps, *supersededBy)
+			}
+		}
+		deps, ok := normalizeTaskDeps(deps)
+		if !ok {
+			return nil, nil, ErrConflict
+		}
+		if _, err := tx.Exec(ctx, `UPDATE tasks SET depends_on = $2, updated_at = now() WHERE id = $1`, item.id, deps); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	cancelled, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks SET
+		   status = 'cancelled', cancel_reason = $2, cancelled_at = now(), superseded_by = $3,
+		   worker_claimed_by = NULL, worker_claimed_at = NULL, worker_claim_id = '',
+		   worker_retry_at = NULL, worker_failures = 0, worker_last_error = '', updated_at = now()
+		 WHERE id = $1
+		 RETURNING `+taskCols, task.ID, reason, supersededBy))
+	if err != nil {
+		return nil, nil, err
+	}
+	chain, err := cascadeUp(ctx, tx, task.ParentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, err
+	}
+	return cancelled, chain, nil
 }
 
 func (s *Store) queryTasks(ctx context.Context, sql string, args ...any) ([]*Task, error) {
@@ -915,6 +1324,45 @@ func (s *Store) AddWorkerProgress(ctx context.Context, taskID, workerID int64, c
 	return nil
 }
 
+// RequestWorkerInput 原子地暂停一次 worker claim 并记录待补充问题。任务不再被
+// ClaimNextTask 的超时回收逻辑重新领取；只有分配者更新任务内容或显式改派后才会继续。
+func (s *Store) RequestWorkerInput(ctx context.Context, taskID, workerID int64, claimID, content string) (*Task, error) {
+	claimID = strings.TrimSpace(claimID)
+	content = strings.TrimSpace(content)
+	if claimID == "" || content == "" {
+		return nil, ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	t, err := scanTask(tx.QueryRow(ctx,
+		`UPDATE tasks
+		    SET status = 'awaiting_input',
+		        worker_claimed_by = NULL,
+		        worker_claimed_at = NULL,
+		        worker_claim_id = '',
+		        worker_retry_at = NULL,
+		        worker_failures = 0,
+		        worker_last_error = '',
+		        updated_at = now()
+		  WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3
+		  RETURNING `+taskCols, taskID, workerID, claimID))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO task_progress (task_id, author_id, content) VALUES ($1, $2, $3)`,
+		taskID, workerID, "❓ 需要补充信息："+content); err != nil {
+		return nil, wrapErr(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
 // ProgressOf 取任务进度记录。
 func (s *Store) ProgressOf(ctx context.Context, taskID int64) ([]Progress, error) {
 	rows, err := s.pool.Query(ctx,
@@ -936,15 +1384,20 @@ func (s *Store) ProgressOf(ctx context.Context, taskID int64) ([]Progress, error
 
 // AddAttachment 挂附件。
 func (s *Store) AddAttachment(ctx context.Context, a Attachment) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.AddAttachmentOnce(ctx, a)
+	return err
+}
+
+func (s *Store) AddAttachmentOnce(ctx context.Context, a Attachment) (bool, error) {
+	tag, err := s.pool.Exec(ctx,
 		`INSERT INTO task_attachments (task_id, kind, file_ref, caption)
-		 SELECT $1, $2, $3, $4
-		 WHERE NOT EXISTS (
-		   SELECT 1 FROM task_attachments
-		   WHERE task_id = $1 AND kind = $2 AND file_ref = $3 AND file_id IS NULL
-		 )`,
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT DO NOTHING`,
 		a.TaskID, a.Kind, a.FileRef, a.Caption)
-	return wrapErr(err)
+	if err != nil {
+		return false, wrapErr(err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // AttachmentsOf 取任务附件。

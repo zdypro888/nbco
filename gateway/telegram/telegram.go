@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -46,6 +47,7 @@ const Provider = "telegram"
 // 自动补的重开/闭合标签，避免长格式消息被补标签顶过上限后降级纯文本。
 const chunkLimit = 3200
 const textDebounceWindow = 900 * time.Millisecond
+const telegramMessageTimeout = 15 * time.Minute
 const groupMonitorDebounce = 20 * time.Second
 const groupMonitorMaxWait = 2 * time.Minute
 const groupMonitorAnalysisLease = 4 * time.Minute
@@ -86,6 +88,15 @@ type pendingTextMessage struct {
 	timer   *time.Timer
 }
 
+type queuedTelegramMessage struct {
+	ctx     context.Context
+	msg     *models.Message
+	isGroup bool
+	lockKey int64
+	prev    <-chan struct{}
+	done    chan struct{}
+}
+
 // Gateway Telegram 网关。
 type Gateway struct {
 	bot            *bot.Bot
@@ -107,9 +118,13 @@ type Gateway struct {
 	self              *models.User       // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
 	pending           map[int64]*pendingTextMessage
 	pendingSeq        int64
+	dispatchTails     map[int64]chan struct{}
 	monitorTimers     map[int64]*time.Timer
 	monitorGeneration map[int64]uint64
 	monitorInstanceID string
+	runCtx            context.Context
+	ready             atomic.Bool
+	privacyWarned     atomic.Bool
 }
 
 // New 创建网关。
@@ -128,6 +143,7 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 		telegramAPIURL:    strings.TrimRight(strings.TrimSpace(telegramAPIURL), "/"),
 		tz:                orLocalTimeZone(tz),
 		pending:           map[int64]*pendingTextMessage{},
+		dispatchTails:     map[int64]chan struct{}{},
 		monitorTimers:     map[int64]*time.Timer{},
 		monitorGeneration: map[int64]uint64{},
 		monitorInstanceID: newGroupMonitorInstanceID(),
@@ -136,6 +152,9 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 		g.superadmins[id] = true
 	}
 	options := []bot.Option{
+		// Construction must not depend on Telegram network readiness. The gateway
+		// performs a retrying GetMe handshake in Run while HTTP/worker APIs stay up.
+		bot.WithSkipGetMe(),
 		bot.WithDefaultHandler(g.handle),
 		bot.WithAllowedUpdates(bot.AllowedUpdates{
 			models.AllowedUpdateMessage,
@@ -166,31 +185,94 @@ func newGroupMonitorInstanceID() string {
 	return hex.EncodeToString(sum[:8])
 }
 
-// Run 长轮询直到 ctx 结束。启动时缓存 bot 身份并按作用域注册命令菜单
-// （私聊菜单与群菜单各自只列有意义的命令）。
+// Ready reports whether the Telegram API handshake is currently healthy.
+func (g *Gateway) Ready() bool { return g != nil && g.ready.Load() }
+
+// Run 长轮询直到 ctx 结束。Telegram API 尚未就绪时持续退避重试，不影响
+// HTTP/MCP/worker 等核心入口继续运行。
 func (g *Gateway) Run(ctx context.Context) {
-	if me, err := g.bot.GetMe(ctx); err == nil {
-		g.mu.Lock()
-		g.self = me
-		g.mu.Unlock()
-		if strings.TrimSpace(me.Username) != "" {
-			if err := g.store.SetKV(ctx, store.KVTelegramBotUsername, me.Username); err != nil {
-				slog.Warn("缓存 Telegram bot username 失败", "err", err)
-			}
-		}
-		// 群内纯文本 @提及要送达 bot 必须关闭 privacy mode（BotFather /setprivacy →
-		// Disable）。CanReadAllGroupMessages=false 表示仍开着，@提及流程会静默失效。
-		if !me.CanReadAllGroupMessages {
-			slog.Warn("Telegram bot 处于 privacy mode：群内纯 @提及收不到，只有『回复 bot 消息』能触发；" +
-				"如需 @提及生效，请在 @BotFather 用 /setprivacy 对本 bot 选 Disable")
-		}
-	} else {
-		slog.Warn("GetMe 失败，群内 @提及识别不可用", "err", err)
+	if !g.waitUntilReady(ctx) {
+		return
 	}
+	defer g.ready.Store(false)
+	g.mu.Lock()
+	g.runCtx = ctx
+	g.mu.Unlock()
+	defer func() {
+		g.mu.Lock()
+		g.runCtx = nil
+		g.mu.Unlock()
+	}()
 	g.setupCommands(ctx)
 	g.resumeGroupMonitors(ctx)
 	defer g.stopGroupMonitorTimers()
+	go g.monitorReadiness(ctx)
 	g.bot.Start(ctx)
+}
+
+func (g *Gateway) waitUntilReady(ctx context.Context) bool {
+	backoff := 250 * time.Millisecond
+	for ctx.Err() == nil {
+		attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		me, err := g.bot.GetMe(attemptCtx)
+		cancel()
+		if err == nil {
+			g.setBotIdentity(ctx, me)
+			g.ready.Store(true)
+			return true
+		}
+		g.ready.Store(false)
+		slog.Warn("Telegram API 尚未就绪，将重试", "retry_in", backoff, "err", err)
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false
+		case <-timer.C:
+		}
+		backoff = min(backoff*2, 10*time.Second)
+	}
+	return false
+}
+
+func (g *Gateway) setBotIdentity(ctx context.Context, me *models.User) {
+	g.mu.Lock()
+	g.self = me
+	g.mu.Unlock()
+	if username := strings.TrimSpace(me.Username); username != "" && g.store != nil {
+		if err := g.store.SetKV(ctx, store.KVTelegramBotUsername, username); err != nil {
+			slog.Warn("缓存 Telegram bot username 失败", "err", err)
+		}
+	}
+	// 群内纯文本 @提及要送达 bot 必须关闭 privacy mode（BotFather /setprivacy → Disable）。
+	if !me.CanReadAllGroupMessages && g.privacyWarned.CompareAndSwap(false, true) {
+		slog.Warn("Telegram bot 处于 privacy mode：群内纯 @提及收不到，只有『回复 bot 消息』能触发；" +
+			"如需 @提及生效，请在 @BotFather 用 /setprivacy 对本 bot 选 Disable")
+	} else if me.CanReadAllGroupMessages {
+		g.privacyWarned.Store(false)
+	}
+}
+
+func (g *Gateway) monitorReadiness(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			g.ready.Store(false)
+			return
+		case <-ticker.C:
+			pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			me, err := g.bot.GetMe(pingCtx)
+			cancel()
+			g.ready.Store(err == nil)
+			if err == nil {
+				g.setBotIdentity(ctx, me)
+			} else {
+				slog.Warn("Telegram API 就绪检查失败", "err", err)
+			}
+		}
+	}
 }
 
 // setupCommands 按作用域注册命令菜单：群命令（如 /listen）只出现在群里，
@@ -335,7 +417,7 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 		g.enqueueTextMessage(ctx, lockKey, isGroup, msg, text)
 		return
 	}
-	g.dispatchMessage(ctx, lockKey, isGroup, msg)
+	g.dispatchMessageAfterPending(ctx, lockKey, isGroup, msg)
 }
 
 func (g *Gateway) shouldDebounce(msg *models.Message, text string) bool {
@@ -355,6 +437,7 @@ func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup
 	clone.Text = strings.TrimSpace(text)
 	clone.Caption = ""
 
+	var queued []*queuedTelegramMessage
 	g.mu.Lock()
 	if cur := g.pending[lockKey]; cur != nil && cur.isGroup == isGroup && cur.fromID == fromID && cur.msg.Chat.ID == msg.Chat.ID {
 		cur.texts = append(cur.texts, clone.Text)
@@ -365,7 +448,7 @@ func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup
 	if cur := g.pending[lockKey]; cur != nil {
 		cur.timer.Stop()
 		delete(g.pending, lockKey)
-		go g.dispatchPendingText(cur)
+		queued = append(queued, g.queuePendingTextLocked(cur))
 	}
 	g.pendingSeq++
 	id := g.pendingSeq
@@ -376,6 +459,7 @@ func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup
 	p.timer = time.AfterFunc(textDebounceWindow, func() { g.flushPendingText(lockKey, id) })
 	g.pending[lockKey] = p
 	g.mu.Unlock()
+	g.startQueuedMessages(queued)
 }
 
 func (g *Gateway) flushPendingText(lockKey, id int64) {
@@ -386,37 +470,104 @@ func (g *Gateway) flushPendingText(lockKey, id int64) {
 		return
 	}
 	delete(g.pending, lockKey)
+	queued := g.queuePendingTextLocked(p)
 	g.mu.Unlock()
-	g.dispatchPendingText(p)
+	g.startQueuedMessage(queued)
 }
 
-func (g *Gateway) dispatchPendingText(p *pendingTextMessage) {
+func (g *Gateway) queuePendingTextLocked(p *pendingTextMessage) *queuedTelegramMessage {
 	if p == nil || p.msg == nil {
-		return
+		return nil
 	}
 	merged := *p.msg
 	merged.Text = strings.Join(p.texts, "\n")
-	g.dispatchMessage(p.ctx, p.lockKey, p.isGroup, &merged)
+	return g.queueMessageLocked(p.ctx, p.lockKey, p.isGroup, &merged)
 }
 
-func (g *Gateway) dispatchMessage(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) {
+func (g *Gateway) dispatchMessageAfterPending(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) {
+	g.mu.Lock()
+	queued := g.queueMessageAfterPendingLocked(ctx, lockKey, isGroup, msg)
+	g.mu.Unlock()
+	g.startQueuedMessages(queued)
+}
+
+func (g *Gateway) queueMessageAfterPendingLocked(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) []*queuedTelegramMessage {
+	queued := make([]*queuedTelegramMessage, 0, 2)
+	if pending := g.pending[lockKey]; pending != nil {
+		pending.timer.Stop()
+		delete(g.pending, lockKey)
+		queued = append(queued, g.queuePendingTextLocked(pending))
+	}
+	queued = append(queued, g.queueMessageLocked(ctx, lockKey, isGroup, msg))
+	return queued
+}
+
+func (g *Gateway) queueMessageLocked(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) *queuedTelegramMessage {
+	if msg == nil {
+		return nil
+	}
+	if g.dispatchTails == nil {
+		g.dispatchTails = map[int64]chan struct{}{}
+	}
+	done := make(chan struct{})
+	queued := &queuedTelegramMessage{
+		ctx: ctx, msg: msg, isGroup: isGroup, lockKey: lockKey,
+		prev: g.dispatchTails[lockKey], done: done,
+	}
+	g.dispatchTails[lockKey] = done
+	return queued
+}
+
+func (g *Gateway) startQueuedMessages(messages []*queuedTelegramMessage) {
+	for _, message := range messages {
+		g.startQueuedMessage(message)
+	}
+}
+
+func (g *Gateway) startQueuedMessage(queued *queuedTelegramMessage) {
+	if queued == nil {
+		return
+	}
 	go func() {
+		defer g.finishQueuedMessage(queued)
 		defer func() {
 			if r := recover(); r != nil {
-				slog.Error("Telegram 消息处理 panic 已恢复", "chat", lockKey, "panic", r)
+				slog.Error("Telegram 消息处理 panic 已恢复", "chat", queued.lockKey, "panic", r)
 			}
 		}()
-		release := g.locks.Acquire(lockKey)
-		defer release()
-		if isGroup {
-			g.processGroup(ctx, msg)
+		if queued.prev != nil {
+			select {
+			case <-queued.prev:
+			case <-queued.ctx.Done():
+				return
+			}
+		}
+		handleCtx, cancel := context.WithTimeout(queued.ctx, telegramMessageTimeout)
+		defer cancel()
+		release, err := g.locks.AcquireContext(handleCtx, queued.lockKey)
+		if err != nil {
+			slog.Warn("Telegram 消息等待同会话处理超时，已放弃", "chat", queued.lockKey, "err", err)
 			return
 		}
-		if msg.Chat.Type != models.ChatTypePrivate {
+		defer release()
+		if queued.isGroup {
+			g.processGroup(handleCtx, queued.msg)
+			return
+		}
+		if queued.msg.Chat.Type != models.ChatTypePrivate {
 			return // channel 等场景不处理
 		}
-		g.process(ctx, msg)
+		g.process(handleCtx, queued.msg)
 	}()
+}
+
+func (g *Gateway) finishQueuedMessage(queued *queuedTelegramMessage) {
+	close(queued.done)
+	g.mu.Lock()
+	if g.dispatchTails[queued.lockKey] == queued.done {
+		delete(g.dispatchTails, queued.lockKey)
+	}
+	g.mu.Unlock()
 }
 
 func (g *Gateway) handleChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
@@ -706,6 +857,16 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	if len(intakeResults) > 0 {
 		saved, failed := splitTelegramFileIntakes(intakeResults)
 		if len(saved) == 0 || fileInstruction == "" {
+			if len(saved) > 0 {
+				// A file-only mention still belongs to this shared conversation.
+				// Persist the system file IDs without running the model, so a later
+				// "处理刚才的文件" can resolve them without exposing private uploads.
+				if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
+					slog.Warn("建立群文件上下文失败", "chat", chatID, "user", u.ID, "err", err)
+				} else {
+					g.orch.RecordGroupMessage(ctx, channel, u.Name, savedFilesPrompt(saved))
+				}
+			}
 			g.replyFileIntakeResults(ctx, chatID, saved, failed, false)
 			return
 		}
@@ -937,6 +1098,10 @@ func (g *Gateway) scheduleGroupMonitorAfter(chatID int64, delay time.Duration) {
 		delay = 0
 	}
 	g.mu.Lock()
+	if g.runCtx != nil && g.runCtx.Err() != nil {
+		g.mu.Unlock()
+		return
+	}
 	if timer := g.monitorTimers[chatID]; timer != nil {
 		timer.Stop()
 	}
@@ -956,17 +1121,22 @@ func (g *Gateway) flushGroupMonitor(chatID int64, generation uint64) {
 	delete(g.monitorGeneration, chatID)
 	g.mu.Unlock()
 
-	release := g.locks.Acquire(chatID)
-	defer release()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	parent := g.monitorContext()
+	ctx, cancel := context.WithTimeout(parent, 2*time.Minute)
 	defer cancel()
+	release, err := g.locks.AcquireContext(ctx, chatID)
+	if err != nil {
+		slog.Warn("群监控等待会话锁超时", "chat", chatID, "err", err)
+		return
+	}
+	defer release()
 	mon, err := g.store.TelegramGroupMonitor(ctx, chatID)
 	if err != nil || mon == nil || !mon.Enabled {
 		return
 	}
 	now := time.Now()
 	if !mon.AnalysisThrough.IsZero() {
-		leaseAlive := mon.AnalysisOwner == g.monitorInstanceID && !mon.AnalysisStartedAt.IsZero() && now.Sub(mon.AnalysisStartedAt) < groupMonitorAnalysisLease
+		leaseAlive := groupMonitorLeaseAlive(mon, now)
 		if leaseAlive {
 			g.scheduleGroupMonitorAfter(chatID, groupMonitorDebounce)
 			return
@@ -1072,7 +1242,25 @@ func (g *Gateway) flushGroupMonitor(chatID int64, generation uint64) {
 		return
 	}
 	snapshot := *mon
-	go g.evaluateGroupMonitor(context.Background(), snapshot, lines, to)
+	go g.evaluateGroupMonitor(parent, snapshot, lines, to)
+}
+
+func (g *Gateway) monitorContext() context.Context {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.runCtx != nil {
+		return g.runCtx
+	}
+	return context.Background()
+}
+
+func groupMonitorLeaseAlive(mon *store.TelegramGroupMonitor, now time.Time) bool {
+	if mon == nil || strings.TrimSpace(mon.AnalysisOwner) == "" || mon.AnalysisThrough.IsZero() || mon.AnalysisStartedAt.IsZero() {
+		return false
+	}
+	// A slightly future timestamp can occur with host clock skew; it is safer to
+	// honor that lease than to run the same analysis twice.
+	return now.Before(mon.AnalysisStartedAt.Add(groupMonitorAnalysisLease))
 }
 
 func (g *Gateway) resumeGroupMonitors(ctx context.Context) {
@@ -1182,10 +1370,14 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 }
 
 func (g *Gateway) finishGroupMonitorAnalysis(chatID int64, through time.Time, success, notified bool) {
-	release := g.locks.Acquire(chatID)
-	defer release()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	release, err := g.locks.AcquireContext(ctx, chatID)
+	if err != nil {
+		slog.Warn("群监控收尾等待会话锁超时", "chat", chatID, "err", err)
+		return
+	}
+	defer release()
 	now := time.Now()
 	updated, err := g.store.UpdateTelegramGroupMonitor(ctx, chatID, func(mon *store.TelegramGroupMonitor) error {
 		if mon.AnalysisOwner != g.monitorInstanceID || !mon.AnalysisThrough.Equal(through) {
@@ -1875,35 +2067,39 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		return
 	}
 
+	key, ok := inviteTokenFromText(text, g.botUsername())
+	if ok {
+		// An explicit token always wins over an older group-issued pending invite.
+		// This lets the user recover by presenting a newly issued credential.
+		u, invitedBy, err := g.store.BindUserWithKey(ctx, key, name, ident)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				g.reply(ctx, chatID, "员工邀请链接或邀请码无效、已使用或已过期，请向管理员重新索取。")
+				return
+			}
+			slog.Error("绑定失败", "err", err)
+			g.reply(ctx, chatID, "绑定失败，请稍后再试。")
+			return
+		}
+		if err := g.store.ClearTelegramPendingEmployeeInvite(ctx, msg.From.ID); err != nil {
+			slog.Warn("清理已被显式邀请覆盖的待领取记录失败", "tg_user", msg.From.ID, "err", err)
+		}
+		g.reply(ctx, chatID, bindSuccessMessage(u.Name))
+		g.bus.Emit("员工加入", invitedBy,
+			fmt.Sprintf("新员工「%s」刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name))
+		return
+	}
+
 	if g.consumePendingEmployeeInvite(ctx, msg.From.ID, chatID, name, ident) {
 		return
 	}
 
-	key, ok := inviteTokenFromText(text, g.botUsername())
-	if !ok {
-		hasSuperadmin, err := g.store.HasSuperadmin(ctx)
-		if err != nil {
-			slog.Warn("查询超管状态失败", "err", err)
-			hasSuperadmin = true
-		}
-		g.reply(ctx, chatID, unboundHelpMessage(!hasSuperadmin))
-		return
-	}
-	// 单事务绑定：Key 无效不会留下半开账号。
-	u, invitedBy, err := g.store.BindUserWithKey(ctx, key, name, ident)
+	hasSuperadmin, err := g.store.HasSuperadmin(ctx)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			g.reply(ctx, chatID, "员工邀请链接或邀请码无效、已使用或已过期，请向管理员重新索取。")
-			return
-		}
-		slog.Error("绑定失败", "err", err)
-		g.reply(ctx, chatID, "绑定失败，请稍后再试。")
-		return
+		slog.Warn("查询超管状态失败", "err", err)
+		hasSuperadmin = true
 	}
-	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
-	// 入职事件交邀请人的 AI 分析：通知措辞、要不要安排入职跟进，都由 AI 定。
-	g.bus.Emit("员工加入", invitedBy,
-		fmt.Sprintf("新员工「%s」刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name))
+	g.reply(ctx, chatID, unboundHelpMessage(!hasSuperadmin))
 }
 
 func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, chatID int64, name string, ident store.Identity) bool {
@@ -1918,15 +2114,20 @@ func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, ch
 		name = inv.Name
 	}
 	u, invitedBy, err := g.store.BindUserWithKey(ctx, inv.Key, name, ident)
-	_ = g.store.ClearTelegramPendingEmployeeInvite(ctx, tgUserID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
+			if clearErr := g.store.ClearTelegramPendingEmployeeInvite(ctx, tgUserID); clearErr != nil {
+				slog.Warn("清理已失效待领取邀请失败", "tg_user", tgUserID, "err", clearErr)
+			}
 			g.reply(ctx, chatID, "这枚待领取邀请已失效，请让管理员重新授权。")
 			return true
 		}
 		slog.Error("待领取邀请绑定失败", "tg_user", tgUserID, "err", err)
 		g.reply(ctx, chatID, "绑定失败，请稍后再试。")
 		return true
+	}
+	if clearErr := g.store.ClearTelegramPendingEmployeeInvite(ctx, tgUserID); clearErr != nil {
+		slog.Warn("清理已领取邀请失败", "tg_user", tgUserID, "err", clearErr)
 	}
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
 	g.bus.Emit("员工加入", invitedBy,
@@ -1998,7 +2199,7 @@ func (g *Gateway) sendTyping(ctx context.Context, chatID int64) {
 // EnsureTelegramGroupSession 在采集能力报告成功前建立持久消息落点。
 func (g *Gateway) EnsureTelegramGroupSession(ctx context.Context, chatID int64, ownerID int64) error {
 	if g == nil || g.orch == nil || g.store == nil || chatID == 0 || ownerID <= 0 {
-		return errors.New("Telegram 群会话参数无效")
+		return errors.New("telegram 群会话参数无效")
 	}
 	u, err := g.store.UserByID(ctx, ownerID)
 	if err != nil {
@@ -2565,35 +2766,51 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 		}
 		return nil, newTelegramFileIntakeError("telegram_get_file_failed", "Telegram 未提供可下载的文件信息，请稍后重试。", err)
 	}
-	if filepath.IsAbs(tf.FilePath) {
-		local, err := os.Open(tf.FilePath)
-		if err != nil {
-			return nil, newTelegramFileIntakeError("local_bot_api_file_failed", "本机 Telegram 文件服务未能打开该文件，请稍后重试。", err)
-		}
-		defer local.Close()
-		f, err := g.persistTelegramFile(ctx, userID, in, local, in.mime)
-		if err != nil {
-			return nil, wrapTelegramFileStorageError(err)
-		}
-		return f, nil
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.bot.FileDownloadLink(tf), nil)
+	src, contentType, err := g.openTelegramFile(ctx, tf)
 	if err != nil {
-		return nil, newTelegramFileIntakeError("telegram_download_failed", "无法建立 Telegram 文件下载请求，请稍后重试。", err)
+		code := "telegram_download_failed"
+		message := "Telegram 文件下载失败，请稍后重试。"
+		if filepath.IsAbs(tf.FilePath) {
+			code = "local_bot_api_file_failed"
+			message = "本机 Telegram 文件服务未能打开该文件，请稍后重试。"
+		}
+		return nil, newTelegramFileIntakeError(code, message, err)
 	}
-	resp, err := voiceHTTP.Do(req)
-	if err != nil {
-		return nil, newTelegramFileIntakeError("telegram_download_failed", "Telegram 文件下载失败，请稍后重试。", err)
+	defer src.Close()
+	if contentType == "" {
+		contentType = in.mime
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, newTelegramFileIntakeError("telegram_download_failed", "Telegram 文件下载失败，请稍后重试。", fmt.Errorf("下载状态: %d", resp.StatusCode))
-	}
-	f, err := g.persistTelegramFile(ctx, userID, in, resp.Body, resp.Header.Get("Content-Type"))
+	f, err := g.persistTelegramFile(ctx, userID, in, src, contentType)
 	if err != nil {
 		return nil, wrapTelegramFileStorageError(err)
 	}
 	return f, nil
+}
+
+func (g *Gateway) openTelegramFile(ctx context.Context, file *models.File) (io.ReadCloser, string, error) {
+	if file == nil || strings.TrimSpace(file.FilePath) == "" {
+		return nil, "", errors.New("telegram file path is empty")
+	}
+	if filepath.IsAbs(file.FilePath) {
+		if g.usesTelegramCloudAPI() {
+			return nil, "", errors.New("cloud Bot API returned an absolute file path")
+		}
+		local, err := os.Open(file.FilePath)
+		return local, "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.bot.FileDownloadLink(file), nil)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := telegramFileHTTP.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		_ = resp.Body.Close()
+		return nil, "", fmt.Errorf("download status: %d", resp.StatusCode)
+	}
+	return resp.Body, resp.Header.Get("Content-Type"), nil
 }
 
 func (g *Gateway) usesTelegramCloudAPI() bool {
@@ -2801,7 +3018,10 @@ func formatTelegramBytes(n int64) string { return textfmt.FormatBytes(n) }
 
 // transcribeVoice 下载 Telegram 语音并经 STT 服务转写。任何失败返回空串，
 // 调用方回退为占位提示——语音是增强，不该让消息处理失败。
-var voiceHTTP = &http.Client{Timeout: 2 * time.Minute}
+// File downloads share the same upper bound as saveTelegramFile. The previous
+// voice-only two-minute client timeout also covered 200MB local Bot API files
+// and could abort a valid transfer before its five-minute operation deadline.
+var telegramFileHTTP = &http.Client{Timeout: 5 * time.Minute}
 
 func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
 	if g.stt == nil {
@@ -2816,21 +3036,13 @@ func (g *Gateway) transcribeVoice(ctx context.Context, fileID string) string {
 		slog.Warn("语音文件信息获取失败", "err", err)
 		return ""
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.bot.FileDownloadLink(f), nil)
-	if err != nil {
-		return ""
-	}
-	resp, err := voiceHTTP.Do(req)
+	src, _, err := g.openTelegramFile(ctx, f)
 	if err != nil {
 		slog.Warn("语音下载失败", "err", err)
 		return ""
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		slog.Warn("语音下载非 200", "status", resp.StatusCode)
-		return ""
-	}
-	text, err := g.stt.Transcribe(ctx, "voice.ogg", io.LimitReader(resp.Body, voiceDownloadLimit))
+	defer src.Close()
+	text, err := g.stt.Transcribe(ctx, "voice.ogg", io.LimitReader(src, voiceDownloadLimit))
 	if err != nil {
 		slog.Warn("语音转写失败", "err", err)
 		return ""

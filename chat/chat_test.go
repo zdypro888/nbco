@@ -188,18 +188,12 @@ func TestParseSkillRouterSelection(t *testing.T) {
 	}
 }
 
-func TestShouldMineMemory(t *testing.T) {
-	if shouldMineMemory("嗯", "收到") {
-		t.Fatal("短寒暄不应触发后台学习")
-	}
-	if !shouldMineMemory("以后不要把 worker token 发出来", "记住了") {
-		t.Fatal("明确持久要求应触发后台学习")
-	}
-	if !shouldMineMemory("这两个文件是公司员工资料，整理成人事信息", "我会分析资料") {
-		t.Fatal("资料/公司类长期信息应触发后台学习")
-	}
-	if !shouldMineMemory("客户甲的付款周期是每月 25 日对账，月底结算。", "已记录。") {
-		t.Fatal("没有触发词但有长期价值的信息也应交给 miner 判断")
+func TestSemanticLearningDecisionPreserved(t *testing.T) {
+	plan, ok := normalizeSemanticToolPlan(semanticToolPlan{
+		Mode: "answer", LearnExplicit: true,
+	}, []ai.Tool{{Name: "read", Domain: "data"}})
+	if !ok || !plan.Learn || !plan.LearnExplicit {
+		t.Fatalf("explicit semantic learning decision = %+v, ok=%v", plan, ok)
 	}
 }
 
@@ -258,19 +252,6 @@ func TestVerifiedMemoryToolEvidence(t *testing.T) {
 	for _, bad := range []string{"不能采用", "assistant-only", "0123456789abcdef0123456789abcdef"} {
 		if strings.Contains(got, bad) {
 			t.Fatalf("verified tool evidence leaked %q: %s", bad, got)
-		}
-	}
-}
-
-func TestExplicitMemoryCommit(t *testing.T) {
-	for _, text := range []string{"以后不要把 token 发出来", "记住这个要求", "默认派给我的 worker", "save as a rule"} {
-		if !explicitMemoryCommit(text) {
-			t.Fatalf("explicit memory instruction not recognized: %q", text)
-		}
-	}
-	for _, text := range []string{"能看懂这个吗？", "有人完善吗", "你不能分配任务去做？"} {
-		if explicitMemoryCommit(text) {
-			t.Fatalf("ordinary question/complaint must remain reviewable: %q", text)
 		}
 	}
 }
@@ -382,6 +363,13 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 	}
 	if needsVisibleReplyRepair(ok) {
 		t.Fatal("complete non-trivial visible reply should not be repaired")
+	}
+	explicit := &ai.TurnResult{
+		Text:                  "这是一段很长、看起来基本完整但服务端明确标记达到输出上限的答复。",
+		OutputLikelyTruncated: true, FinishReason: "max_tokens",
+	}
+	if !needsVisibleReplyRepair(explicit) {
+		t.Fatal("explicit max_tokens finish must be repaired regardless of visible length")
 	}
 	normal := &ai.TurnResult{Text: "of", OutputLikelyTruncated: false}
 	if needsVisibleReplyRepair(normal) {
@@ -608,7 +596,7 @@ func TestCompactionCycle(t *testing.T) {
 	}
 
 	eng := &fakeEngine{}
-	o := New(s, eng, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false)
+	o := New(s, eng, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, time.Minute)
 
 	// 每轮落 2 条消息；compactAfter=30 → 15 轮后触发后台压缩。
 	for i := 0; i < compactAfter/2+1; i++ {

@@ -2,8 +2,6 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
 	"sort"
 	"strings"
@@ -75,6 +73,40 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 		SuccessEvidence: []string{"写入/执行工具成功返回，或工具明确返回待确认/失败状态"},
 		Confidence:      0.5,
 		Source:          "audit_heuristic",
+	}
+}
+
+func buildActionAuditPlanWithSemantic(text string, toolset []ai.Tool, res *ai.TurnResult, semantic semanticToolPlan) *actionPlan {
+	if semantic.Mode == "" {
+		return buildActionAuditPlan(text, toolset, res)
+	}
+	byName := toolDefinitionsByName(toolset)
+	actualAction := false
+	for _, step := range res.Steps {
+		if step.Kind == ai.StepToolCall && toolCanProveAction(step.ToolName, byName) {
+			actualAction = true
+			break
+		}
+	}
+	if !semantic.RequiresAction() && !actualAction {
+		return nil
+	}
+	expected := make([]string, 0, len(semantic.Tools))
+	for _, name := range semantic.Tools {
+		if t, ok := byName[name]; ok && nbtools.ToolCanProveActionTool(t) {
+			expected = append(expected, name)
+		}
+	}
+	if len(expected) == 0 {
+		expected = inferActionToolsForText(text, toolset, 8)
+	}
+	return &actionPlan{
+		RequiresAction:  true,
+		Intent:          strings.TrimSpace(semantic.Reason),
+		ExpectedTools:   expected,
+		SuccessEvidence: []string{"语义规划选中的写入/执行工具成功返回，或工具明确返回待确认/失败状态"},
+		Confidence:      0.85,
+		Source:          "semantic_router",
 	}
 }
 
@@ -434,56 +466,6 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		SuccessToolCount: successToolCount,
 	}); err != nil {
 		slog.Warn("动作轮次记录失败", "session", sess.ID, "user", u.ID, "err", err)
-	}
-}
-
-func (o *Orchestrator) maybeRecordActionFailureLearning(ctx context.Context, u *store.User, channel, userText, replyText string, sessionID, userMsgID, assistantMsgID int64, plan *actionPlan, res *ai.TurnResult) {
-	if o == nil || o.store == nil || u == nil || plan == nil || !plan.RequiresAction {
-		return
-	}
-	outcome := actionTurnOutcome(plan, res)
-	switch outcome {
-	case "evidence_ok", "no_action", "pending_approval":
-		return
-	}
-	intent := strings.TrimSpace(plan.Intent)
-	if intent == "" {
-		intent = "需要系统动作的请求"
-	}
-	title := "动作失败样本：" + textfmt.TruncateRunes(intent, 48)
-	if ok, err := o.store.LearningCandidateExists(ctx, store.LearningKindSummary, title, store.LearningStatusPending, store.LearningStatusPublished); err != nil {
-		slog.Warn("动作失败学习候选去重失败", "title", title, "err", err)
-	} else if ok {
-		return
-	}
-	evidence, _ := json.Marshal(map[string]any{
-		"source":       "action_audit",
-		"channel":      channel,
-		"session_id":   sessionID,
-		"user_msg_id":  userMsgID,
-		"reply_msg_id": assistantMsgID,
-		"outcome":      outcome,
-		"expected":     plan.ExpectedTools,
-		"user_text":    textfmt.TruncateRunes(userText, 600),
-		"reply_text":   textfmt.TruncateRunes(replyText, 600),
-	})
-	content := fmt.Sprintf("本轮用户请求需要系统动作，但最终结果为 %s。复盘时请判断是否缺工具、缺权限、路由没暴露工具、提示词误导，或模型没有按工具优先原则执行。\n\n用户请求：%s\n\n助手回复：%s",
-		outcome, textfmt.TruncateRunes(userText, 800), textfmt.TruncateRunes(replyText, 800))
-	createdBy := u.ID
-	if _, err := o.store.CreateLearningCandidate(ctx, store.LearningCandidateInput{
-		Kind:       store.LearningKindSummary,
-		Scope:      "global",
-		Title:      title,
-		Content:    content,
-		Tags:       []string{"action_failure", "feedback_loop", "outcome:" + outcome},
-		Evidence:   evidence,
-		Confidence: 0.55,
-		Status:     store.LearningStatusPending,
-		SourceType: "action_audit",
-		SourceRef:  fmt.Sprintf("session:%d/message:%d", sessionID, userMsgID),
-		CreatedBy:  &createdBy,
-	}); err != nil {
-		slog.Warn("动作失败学习候选记录失败", "title", title, "err", err)
 	}
 }
 

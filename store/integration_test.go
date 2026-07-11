@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -44,7 +45,8 @@ func openTestStore(t *testing.T) *Store {
 		conn.Release()
 	})
 	if _, err := s.pool.Exec(ctx,
-		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields, ai_usage, pending_approvals, goals RESTART IDENTITY CASCADE`); err != nil {
+		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields,
+		 ai_usage, pending_approvals, goals, automation_runs RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
@@ -238,6 +240,422 @@ func TestTaskQueue(t *testing.T) {
 	}
 	if len(all) < 3 {
 		t.Fatalf("all 应包含终态任务, got %d", len(all))
+	}
+}
+
+func TestTaskCollaborationDeduplicatesOneDeliverable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	bob := mkUser(t, s, "bob", false)
+	reviewer := mkUser(t, s, "reviewer", false)
+	watcher := mkUser(t, s, "watcher", false)
+	outsider := mkUser(t, s, "outsider", false)
+	pj := mkProject(t, s, boss.ID)
+
+	type result struct {
+		value *TaskCreateResult
+		err   error
+	}
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for _, ownerID := range []int64{alice.ID, bob.ID} {
+		wg.Add(1)
+		go func(ownerID int64) {
+			defer wg.Done()
+			value, err := s.CreateOrMergeTask(ctx, &Task{
+				ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: ownerID,
+				Title: "整理同一份值日表", Description: "核对并发布最终版本", Acceptance: "一份可发布文件",
+			}, []TaskParticipantInput{
+				{UserID: reviewer.ID, Role: TaskParticipantReviewer},
+				{UserID: watcher.ID, Role: TaskParticipantWatcher},
+			}, boss.ID, false)
+			results <- result{value: value, err: err}
+		}(ownerID)
+	}
+	wg.Wait()
+	close(results)
+	var taskID int64
+	created := 0
+	for result := range results {
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		if taskID == 0 {
+			taskID = result.value.Task.ID
+		} else if result.value.Task.ID != taskID {
+			t.Fatalf("并发派发同一交付物应返回同一任务: %d != %d", result.value.Task.ID, taskID)
+		}
+		if result.value.Created {
+			created++
+		}
+	}
+	if created != 1 {
+		t.Fatalf("应且只应创建一次，实际 created=%d", created)
+	}
+	projectTasks, err := s.TasksOfProject(ctx, pj.ID)
+	if err != nil || len(projectTasks) != 1 {
+		t.Fatalf("项目内应只有一条任务: tasks=%+v err=%v", projectTasks, err)
+	}
+	task := projectTasks[0]
+	collaboratorID := alice.ID
+	if task.AssigneeID == alice.ID {
+		collaboratorID = bob.ID
+	}
+	participants, err := s.TaskParticipants(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := map[int64]string{}
+	for _, participant := range participants {
+		roles[participant.UserID] = participant.Role
+	}
+	if roles[collaboratorID] != TaskParticipantCollaborator || roles[reviewer.ID] != TaskParticipantReviewer || roles[watcher.ID] != TaskParticipantWatcher {
+		t.Fatalf("第二责任人应合并为协作者，并保留验收人: %+v", participants)
+	}
+	watcherOpen, err := s.TasksOfAssignee(ctx, watcher.ID, true)
+	if err != nil || len(watcherOpen) != 0 {
+		t.Fatalf("关注任务不应变成关注人的待办: %+v err=%v", watcherOpen, err)
+	}
+	watcherAll, err := s.TasksOfAssignee(ctx, watcher.ID, false)
+	if err != nil || len(watcherAll) != 1 || watcherAll[0].ID != task.ID {
+		t.Fatalf("关注人应能重新找到相关任务: %+v err=%v", watcherAll, err)
+	}
+	watcherProjects, err := s.ProjectsOfAssignee(ctx, watcher.ID)
+	if err != nil || len(watcherProjects) != 1 || watcherProjects[0].ID != pj.ID {
+		t.Fatalf("关注人应能找到相关项目: %+v err=%v", watcherProjects, err)
+	}
+	access, err := s.TaskAccessForUser(ctx, task, collaboratorID, false)
+	if err != nil || !access.CanView || !access.CanContribute || access.CanManage {
+		t.Fatalf("协作者权限错误: %+v err=%v", access, err)
+	}
+	fileOwner := boss.ID
+	file, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "shared.txt", MIMEType: "text/plain", SizeBytes: 1,
+		SHA256: strings.Repeat("d", 64), StoragePath: "dd/shared", CreatedBy: &fileOwner,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inserted, err := s.AddTaskAttachmentFileOnce(ctx, task.ID, file.ID, "共享输入"); err != nil || !inserted {
+		t.Fatalf("共享附件写入失败: inserted=%v err=%v", inserted, err)
+	}
+	for _, userID := range []int64{collaboratorID, reviewer.ID, watcher.ID} {
+		if ok, err := s.UserCanAccessFile(ctx, userID, false, file.ID); err != nil || !ok {
+			t.Fatalf("任务参与者 %d 应可读取附件: ok=%v err=%v", userID, ok, err)
+		}
+	}
+	for _, source := range []string{"projects", "tasks", "files"} {
+		field := map[string]string{"projects": "project_id", "tasks": "task_id", "files": "file_id"}[source]
+		id := map[string]int64{"projects": pj.ID, "tasks": task.ID, "files": file.ID}[source]
+		rows, err := s.ReadData(ctx, watcher.ID, false, DataReadQuery{
+			Source: source, Filters: map[string]string{field: strconv.FormatInt(id, 10)}, Limit: 5,
+		})
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("participant ReadData(%s) = %s err=%v", source, rows, err)
+		}
+	}
+	for _, tc := range []struct {
+		kind string
+		term string
+		id   int64
+	}{{"task", task.Title, task.ID}, {"file", file.OriginalName, file.ID}, {"project", pj.Name, pj.ID}} {
+		matches, err := s.WorkspaceCandidates(ctx, watcher.ID, false, WorkspaceCandidateFilter{
+			Kinds: []string{tc.kind}, Terms: []string{tc.term}, Limit: 5,
+		})
+		if err != nil || len(matches) != 1 || matches[0].ID != tc.id {
+			t.Fatalf("participant workspace %s = %+v err=%v", tc.kind, matches, err)
+		}
+	}
+	if ok, err := s.UserCanAccessFile(ctx, outsider.ID, false, file.ID); err != nil || ok {
+		t.Fatalf("任务外用户不应读取附件: ok=%v err=%v", ok, err)
+	}
+
+	submitted, _, err := s.SubmitTaskBy(ctx, task.ID, collaboratorID)
+	if err != nil || submitted.Status != TaskDone || submitted.SubmittedBy == nil || *submitted.SubmittedBy != collaboratorID || submitted.SubmittedAt == nil {
+		t.Fatalf("协作者提交归属错误: task=%+v err=%v", submitted, err)
+	}
+	reviewQueue, err := s.TasksAwaitingReview(ctx, reviewer.ID)
+	if err != nil || len(reviewQueue) != 1 || reviewQueue[0].ID != task.ID {
+		t.Fatalf("指定验收人应看到待验收任务: %+v err=%v", reviewQueue, err)
+	}
+	if _, _, err := s.AcceptTask(ctx, task.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	parallel, err := s.CreateOrMergeTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID,
+		Title: "整理同一份值日表", Description: "核对并发布最终版本", Acceptance: "一份可发布文件",
+	}, nil, boss.ID, true)
+	if err != nil || !parallel.Created || parallel.Task.ID == task.ID {
+		t.Fatalf("allow_parallel 应显式创建独立交付: %+v err=%v", parallel, err)
+	}
+	otherManager := mkUser(t, s, "other-manager", true)
+	other, err := s.CreateOrMergeTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: otherManager.ID, AssigneeID: bob.ID,
+		Title: "整理同一份值日表", Description: "核对并发布最终版本", Acceptance: "一份可发布文件",
+	}, nil, otherManager.ID, false)
+	if err != nil || !other.Created {
+		t.Fatalf("不同分配者的业务责任不能被静默吞并: %+v err=%v", other, err)
+	}
+
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateOrMergeTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "Worker 独立产出", Description: "生成文件",
+	}, []TaskParticipantInput{{UserID: alice.ID, Role: TaskParticipantCollaborator}}, boss.ID, false); !errors.Is(err, ErrWorkerTaskParticipant) {
+		t.Fatalf("worker 任务不应被转成人机共享执行: %v", err)
+	}
+}
+
+func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	reviewer := mkUser(t, s, "reviewer", false)
+	alice := mkUser(t, s, "alice", false)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+
+	workerTask := mkTask(t, s, pj.ID, worker.ID, worker.ID, "worker self task", nil)
+	if _, err := s.ReplaceTaskParticipants(ctx, workerTask.ID, boss.ID,
+		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != workerTask.ID {
+		t.Fatalf("worker claim = %+v err=%v", claimed, err)
+	}
+	submitted, _, err := s.SubmitWorkerTask(ctx, workerTask.ID, worker.ID, claimed.WorkerClaimID, "done")
+	if err != nil || submitted.Status != TaskDone {
+		t.Fatalf("explicit reviewer must keep worker task awaiting review: %+v err=%v", submitted, err)
+	}
+
+	parent := mkTask(t, s, pj.ID, boss.ID, boss.ID, "self-assigned parent", nil)
+	if _, err := s.ReplaceTaskParticipants(ctx, parent.ID, boss.ID,
+		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+	children, err := s.SplitTask(ctx, parent.ID, []*Task{{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID, Title: "child",
+	}})
+	if err != nil || len(children) != 1 {
+		t.Fatalf("SplitTask = %+v err=%v", children, err)
+	}
+	if _, _, err := s.SubmitTaskBy(ctx, children[0].ID, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, chain, err := s.AcceptTask(ctx, children[0].ID)
+	if err != nil || len(chain) != 1 || chain[0].ID != parent.ID || chain[0].Status != TaskDone {
+		t.Fatalf("reviewed parent must stop at done: chain=%+v err=%v", chain, err)
+	}
+	queue, err := s.TasksAwaitingReview(ctx, reviewer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundParent := false
+	for _, task := range queue {
+		foundParent = foundParent || task.ID == parent.ID
+	}
+	if !foundParent {
+		t.Fatalf("explicit reviewer queue missing cascaded parent: %+v", queue)
+	}
+}
+
+func TestReassignTaskRemovesConflictingRoleAndWritesAuditAtomically(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	bob := mkUser(t, s, "bob", false)
+	pj := mkProject(t, s, boss.ID)
+	task := mkTask(t, s, pj.ID, boss.ID, alice.ID, "handoff", nil)
+	if _, err := s.ReplaceTaskParticipants(ctx, task.ID, boss.ID,
+		[]TaskParticipantInput{{UserID: bob.ID, Role: TaskParticipantReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.ReassignTaskWithProgress(ctx, task.ID, bob.ID, 999999, "must roll back"); err == nil {
+		t.Fatal("invalid audit author must roll back the whole reassignment")
+	}
+	unchanged, err := s.TaskByID(ctx, task.ID)
+	if err != nil || unchanged.AssigneeID != alice.ID {
+		t.Fatalf("failed reassignment leaked ownership change: %+v err=%v", unchanged, err)
+	}
+
+	reassigned, err := s.ReassignTaskWithProgress(ctx, task.ID, bob.ID, boss.ID, "ownership changed")
+	if err != nil || reassigned.AssigneeID != bob.ID {
+		t.Fatalf("ReassignTaskWithProgress = %+v err=%v", reassigned, err)
+	}
+	participants, err := s.TaskParticipants(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, participant := range participants {
+		if participant.UserID == bob.ID {
+			t.Fatalf("new primary assignee retained participant role: %+v", participants)
+		}
+	}
+	access, err := s.TaskAccessForUser(ctx, reassigned, bob.ID, false)
+	if err != nil || !access.CanContribute || access.CanReview {
+		t.Fatalf("new assignee access = %+v err=%v", access, err)
+	}
+	progress, err := s.ProgressOf(ctx, task.ID)
+	if err != nil || len(progress) != 1 || progress[0].Content != "ownership changed" {
+		t.Fatalf("atomic reassignment audit = %+v err=%v", progress, err)
+	}
+}
+
+func TestCreateOrMergeTaskMergesOperationalConstraints(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	bob := mkUser(t, s, "bob", false)
+	pj := mkProject(t, s, boss.ID)
+	dependency := mkTask(t, s, pj.ID, boss.ID, alice.ID, "prerequisite", nil)
+	later := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
+	earlier := later.Add(-24 * time.Hour)
+	first, err := s.CreateOrMergeTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID,
+		Title: "same deliverable", Description: "one output", Priority: "normal", Deadline: &later,
+	}, nil, boss.ID, false)
+	if err != nil || !first.Created {
+		t.Fatalf("first task = %+v err=%v", first, err)
+	}
+	merged, err := s.CreateOrMergeTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: bob.ID,
+		Title: "same deliverable", Description: "one output", Priority: "high", Deadline: &earlier,
+		DependsOn: []int64{dependency.ID},
+	}, nil, boss.ID, false)
+	if err != nil || merged.Created || merged.Task.ID != first.Task.ID {
+		t.Fatalf("merged task = %+v err=%v", merged, err)
+	}
+	if merged.Task.Priority != "high" || merged.Task.Deadline == nil || !merged.Task.Deadline.Equal(earlier) ||
+		len(merged.Task.DependsOn) != 1 || merged.Task.DependsOn[0] != dependency.ID {
+		t.Fatalf("merged constraints were lost: %+v", merged.Task)
+	}
+	updated := map[string]bool{}
+	for _, field := range merged.UpdatedFields {
+		updated[field] = true
+	}
+	for _, field := range []string{"priority", "deadline", "depends_on"} {
+		if !updated[field] {
+			t.Fatalf("updated fields missing %s: %+v", field, merged.UpdatedFields)
+		}
+	}
+
+	newer := mkTask(t, s, pj.ID, boss.ID, alice.ID, "newer dependency", nil)
+	if _, err := s.CreateOrMergeTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID,
+		Title: "same deliverable", Description: "one output", Priority: "high", Deadline: &earlier,
+		DependsOn: []int64{newer.ID},
+	}, nil, boss.ID, false); !errors.Is(err, ErrConflict) {
+		t.Fatalf("newer dependency must not create a merge cycle risk: %v", err)
+	}
+}
+
+func TestCancelTaskMergesPeopleAttachmentsAndDependencies(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	bob := mkUser(t, s, "bob", false)
+	reviewer := mkUser(t, s, "reviewer", false)
+	pj := mkProject(t, s, boss.ID)
+	replacement := mkTask(t, s, pj.ID, boss.ID, alice.ID, "保留任务", nil)
+	obsolete := mkTask(t, s, pj.ID, boss.ID, bob.ID, "重复任务", nil)
+	if _, err := s.ReplaceTaskParticipants(ctx, obsolete.ID, boss.ID,
+		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+	dependent, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID,
+		Title: "后续任务", DependsOn: []int64{obsolete.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fileOwner := boss.ID
+	file, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "input.txt", MIMEType: "text/plain", SizeBytes: 1,
+		SHA256: strings.Repeat("c", 64), StoragePath: "cc/input", CreatedBy: &fileOwner,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inserted, err := s.AddTaskAttachmentFileOnce(ctx, obsolete.ID, file.ID, "输入")
+	if err != nil || !inserted {
+		t.Fatalf("首次附件写入失败: inserted=%v err=%v", inserted, err)
+	}
+	if inserted, err = s.AddTaskAttachmentFileOnce(ctx, obsolete.ID, file.ID, "重复说明"); err != nil || inserted {
+		t.Fatalf("重复附件应幂等: inserted=%v err=%v", inserted, err)
+	}
+
+	cancelled, _, err := s.CancelTask(ctx, obsolete.ID, "与保留任务重复", &replacement.ID)
+	if err != nil || cancelled.Status != TaskCancelled || cancelled.SupersededBy == nil || *cancelled.SupersededBy != replacement.ID {
+		t.Fatalf("取消合并失败: task=%+v err=%v", cancelled, err)
+	}
+	participants, err := s.TaskParticipants(ctx, replacement.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := map[int64]string{}
+	for _, participant := range participants {
+		roles[participant.UserID] = participant.Role
+	}
+	if roles[bob.ID] != TaskParticipantCollaborator || roles[reviewer.ID] != TaskParticipantReviewer {
+		t.Fatalf("旧责任人与参与者应迁移到保留任务: %+v", participants)
+	}
+	files, err := s.TaskFileAttachments(ctx, replacement.ID)
+	if err != nil || len(files) != 1 || files[0].ID != file.ID {
+		t.Fatalf("旧任务附件应迁移且不重复: %+v err=%v", files, err)
+	}
+	dependent, err = s.TaskByID(ctx, dependent.ID)
+	if err != nil || len(dependent.DependsOn) != 1 || dependent.DependsOn[0] != replacement.ID {
+		t.Fatalf("下游依赖应重连到保留任务: %+v err=%v", dependent, err)
+	}
+	queue, err := s.TaskQueue(ctx, "queue", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, task := range queue {
+		if task.ID == obsolete.ID {
+			t.Fatalf("已取消重复任务不应留在活跃队列: %+v", queue)
+		}
+	}
+	history, err := s.TaskQueue(ctx, "history", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, task := range history {
+		found = found || task.ID == obsolete.ID
+	}
+	if !found {
+		t.Fatalf("已取消任务必须留在历史队列: %+v", history)
+	}
+	parent := mkTask(t, s, pj.ID, boss.ID, alice.ID, "父任务", nil)
+	childParentID := parent.ID
+	child, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, ParentID: &childParentID, AssignerID: boss.ID, AssigneeID: bob.ID, Title: "子任务",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.CancelTask(ctx, child.ID, "错误层级合并", &replacement.ID); !errors.Is(err, ErrConflict) {
+		t.Fatalf("子任务不能合并到顶层任务: %v", err)
+	}
+	stillOpen, err := s.TaskByID(ctx, child.ID)
+	if err != nil || stillOpen.Status != TaskPending {
+		t.Fatalf("失败的合并必须完整回滚: %+v err=%v", stillOpen, err)
 	}
 }
 
@@ -551,6 +969,212 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	}
 }
 
+func TestWorkerConcurrentPollersHoldOnlyOneClaim(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	mkTask(t, s, pj.ID, boss.ID, worker.ID, "任务一", nil)
+	mkTask(t, s, pj.ID, boss.ID, worker.ID, "任务二", nil)
+
+	start := make(chan struct{})
+	type result struct {
+		task *Task
+		err  error
+	}
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			task, err := s.ClaimNextTask(ctx, worker.ID)
+			results <- result{task: task, err: err}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	successes, empty := 0, 0
+	var claimed *Task
+	for result := range results {
+		switch {
+		case result.err == nil:
+			successes++
+			claimed = result.task
+		case errors.Is(result.err, ErrNotFound):
+			empty++
+		default:
+			t.Fatalf("concurrent claim error: %v", result.err)
+		}
+	}
+	if successes != 1 || empty != 1 || claimed == nil {
+		t.Fatalf("concurrent claims success=%d empty=%d claimed=%+v", successes, empty, claimed)
+	}
+	if err := s.ReleaseWorkerTaskClaim(ctx, claimed.ID, worker.ID, claimed.WorkerClaimID); err != nil {
+		t.Fatal(err)
+	}
+	next, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || next.ID != claimed.ID {
+		t.Fatalf("released delivery should be immediately reclaimable: next=%+v err=%v", next, err)
+	}
+	if next.WorkerClaimID == "" || next.WorkerClaimID == claimed.WorkerClaimID {
+		t.Fatalf("reclaim should issue a fresh claim id: old=%q new=%q", claimed.WorkerClaimID, next.WorkerClaimID)
+	}
+}
+
+func TestWorkerRequestInputPausesUntilTaskUpdate(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID, Title: "分析仓库",
+		WorkerScopeType: "repo", WorkerScopeKey: "repo:example", WorkerScopeTitle: "Example repository",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiting, err := s.RequestWorkerInput(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "请提供仓库地址")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if waiting.Status != TaskAwaitingInput || waiting.WorkerClaimID != "" {
+		t.Fatalf("request input result = %+v", waiting)
+	}
+	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("awaiting_input task must not be reclaimed: %v", err)
+	}
+	// Even an old timestamp cannot turn a paused task into a stale execution claim.
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE tasks SET updated_at = now() - interval '12 hours' WHERE id = $1`, tk.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("old awaiting_input task must stay paused: %v", err)
+	}
+	unchanged, err := s.UpdateTaskContent(ctx, tk.ID, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Status != TaskAwaitingInput {
+		t.Fatalf("empty update must not resume waiting task: %q", unchanged.Status)
+	}
+	description := "仓库地址：https://example.invalid/repo.git"
+	updated, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != TaskPending {
+		t.Fatalf("updated waiting task status = %q, want pending", updated.Status)
+	}
+	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || reclaimed.ID != tk.ID {
+		t.Fatalf("updated task should be claimable: %+v err=%v", reclaimed, err)
+	}
+	if reclaimed.WorkerScopeType != "repo" || reclaimed.WorkerScopeKey != "repo:example" {
+		t.Fatalf("worker scope was not persisted: %+v", reclaimed)
+	}
+}
+
+func TestWorkerFailureBackoffAndPause(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "会失败的任务", nil)
+
+	for attempt := 1; attempt <= workerMaxFailures; attempt++ {
+		if attempt > 1 {
+			if _, err := s.pool.Exec(ctx, `UPDATE tasks SET worker_retry_at=now()-interval '1 second' WHERE id=$1`, tk.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+		claimed, err := s.ClaimNextTask(ctx, worker.ID)
+		if err != nil {
+			t.Fatalf("attempt %d claim: %v", attempt, err)
+		}
+		failed, err := s.FailWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "agent unavailable")
+		if err != nil {
+			t.Fatalf("attempt %d fail: %v", attempt, err)
+		}
+		if failed.WorkerFailures != attempt || failed.WorkerLastError != "agent unavailable" {
+			t.Fatalf("attempt %d state = %+v", attempt, failed)
+		}
+		if attempt < workerMaxFailures {
+			if failed.Status != TaskPending || failed.WorkerRetryAt == nil {
+				t.Fatalf("attempt %d should back off: %+v", attempt, failed)
+			}
+			if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("attempt %d should not be immediately reclaimable: %v", attempt, err)
+			}
+		} else if failed.Status != TaskAwaitingInput || failed.WorkerRetryAt != nil || failed.WorkerClaimID != "" {
+			t.Fatalf("exhausted task should pause: %+v", failed)
+		}
+	}
+	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("paused failed task must not be reclaimable: %v", err)
+	}
+}
+
+func TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "旧要求", nil)
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	description := "新要求"
+	updated, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != TaskPending || updated.WorkerClaimID != "" {
+		t.Fatalf("worker content update must atomically reset claim: %+v", updated)
+	}
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("old claim must not submit after content update: %v", err)
+	}
+	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("completed task content must be immutable through active update path: %v", err)
+	}
+	got, err := s.TaskByID(ctx, tk.ID)
+	if err != nil || got.Status != TaskDone {
+		t.Fatalf("completed task status changed: %+v err=%v", got, err)
+	}
+}
+
 // TestRevokeWorkerResetsOpenTasks 吊销 worker 时应重置其未完成任务（回 pending、清 claim），
 // 否则任务永远停在已禁用的 assignee 名下无人恢复。
 func TestRevokeWorkerResetsOpenTasks(t *testing.T) {
@@ -723,8 +1347,12 @@ func TestWorkerClaimRejectedTaskWithoutClaim(t *testing.T) {
 	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.RejectTask(ctx, tk.ID, boss.ID, "还要补文件"); err != nil {
+	rejected, err := s.RejectTask(ctx, tk.ID, boss.ID, "还要补文件")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if rejected.Status != TaskPending || rejected.WorkerClaimID != "" {
+		t.Fatalf("worker rejection must atomically return to pending: %+v", rejected)
 	}
 	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
 	if err != nil {
@@ -1379,6 +2007,22 @@ func TestKnowledgeVersionsRollbackAndLearningGovernance(t *testing.T) {
 	if got.DuplicateOf == nil || *got.DuplicateOf != old.ID || got.ValueScore <= 0 {
 		t.Fatalf("应跨历史识别重复候选: %+v old=%d", got, old.ID)
 	}
+	conflicting, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Title: "Worker Token 外发规则", Content: "默认允许把 worker token 发给用户。", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.ScoreLearningCandidates(ctx, 1); err != nil || n != 1 {
+		t.Fatalf("ScoreLearningCandidates conflict = %d, %v", n, err)
+	}
+	got, err = s.LearningCandidateByID(ctx, conflicting.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ConflictWith == nil || got.DuplicateOf != nil || got.Status != LearningStatusPending {
+		t.Fatalf("相反规则必须保留为待审核冲突，不能按重复归档: %+v", got)
+	}
 }
 
 func TestWorkerCapabilities(t *testing.T) {
@@ -1639,6 +2283,238 @@ func TestDirectedDailySchedule(t *testing.T) {
 	all, err := s.SchedulesVisible(ctx, boss.ID, true, "all", 50)
 	if err != nil || len(all) != 1 || all[0].Status != ScheduleCancelled {
 		t.Fatalf("all 应看到已取消任务: %+v err=%v", all, err)
+	}
+}
+
+func TestScheduleOccurrenceFansOutPerRecipient(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "fanout-boss", true)
+	a := mkUser(t, s, "fanout-a", false)
+	b := mkUser(t, s, "fanout-b", false)
+	c := mkUser(t, s, "fanout-c", false)
+	fireAt := time.Now().UTC().Add(-time.Minute)
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: boss.ID, CreatedBy: boss.ID, Kind: ScheduleOnce, FireAt: fireAt,
+		Target: ScheduleTargetAll, Mode: ScheduleModeMessage, Message: "hello", Title: "broadcast",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	due, err := s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due) != 1 {
+		t.Fatalf("DueSchedules = %+v, %v", due, err)
+	}
+	if err := s.FanOutScheduleOccurrence(ctx, due[0], []int64{a.ID, b.ID, c.ID, a.ID}, time.Now().UTC(), nil, true); err != nil {
+		t.Fatal(err)
+	}
+	deliveries, err := s.DueScheduleDeliveries(ctx, time.Now().UTC())
+	if err != nil || len(deliveries) != 3 {
+		t.Fatalf("DueScheduleDeliveries = %+v, %v", deliveries, err)
+	}
+	if deliveries[0].ClaimedAt == nil || deliveries[1].ClaimedAt == nil || deliveries[2].ClaimedAt == nil {
+		t.Fatal("recipient deliveries must carry independent claims")
+	}
+	if err := s.PrepareScheduleDeliveryResult(ctx, deliveries[1].ID, *deliveries[1].ClaimedAt, "durable generated message"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkScheduleDeliveryDelivered(ctx, deliveries[0].ID, *deliveries[0].ClaimedAt, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryScheduleDelivery(ctx, deliveries[1].ID, *deliveries[1].ClaimedAt, deliveries[1].Attempts, "temporary"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkScheduleDeliveryFailed(ctx, deliveries[2].ID, *deliveries[2].ClaimedAt, "recipient disabled"); err != nil {
+		t.Fatal(err)
+	}
+	var delivered, pending, failed int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FILTER (WHERE status='delivered'), count(*) FILTER (WHERE status='pending'),
+		        count(*) FILTER (WHERE status='failed') FROM schedule_deliveries WHERE schedule_id=$1`, sc.ID).
+		Scan(&delivered, &pending, &failed); err != nil {
+		t.Fatal(err)
+	}
+	if delivered != 1 || pending != 1 || failed != 1 {
+		t.Fatalf("delivery states = delivered:%d pending:%d failed:%d", delivered, pending, failed)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE schedule_deliveries SET available_at=now() WHERE id=$1`, deliveries[1].ID); err != nil {
+		t.Fatal(err)
+	}
+	reclaimed, err := s.DueScheduleDeliveries(ctx, time.Now().UTC())
+	if err != nil || len(reclaimed) != 1 || reclaimed[0].ID != deliveries[1].ID {
+		t.Fatalf("reclaimed delivery = %+v, %v", reclaimed, err)
+	}
+	if reclaimed[0].ResultText != "durable generated message" {
+		t.Fatalf("schedule retry lost generated message: %+v", reclaimed[0])
+	}
+}
+
+func TestDurableEventAndAutomationRunClaims(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "event-owner", true)
+	id, created, err := s.EnqueueEvent(ctx, "task_ready", u.ID, "task 7", 5*time.Minute)
+	if err != nil || !created {
+		t.Fatalf("EnqueueEvent = %d %v %v", id, created, err)
+	}
+	id2, created, err := s.EnqueueEvent(ctx, "task_ready", u.ID, "task 7", 5*time.Minute)
+	if err != nil || created || id2 != id {
+		t.Fatalf("dedupe event = %d %v %v", id2, created, err)
+	}
+	events, err := s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(events) != 1 || events[0].ClaimedAt == nil {
+		t.Fatalf("DueEvents = %+v %v", events, err)
+	}
+	event := events[0]
+	if err := s.BeginEventDecision(ctx, event.ID, *event.ClaimedAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareEventDelivery(ctx, event.ID, *event.ClaimedAt, EventOutcomeHandled, "prepared"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryEvent(ctx, event.ID, *event.ClaimedAt, event.Attempts, "temporary"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE events SET available_at=now() WHERE id=$1`, event.ID); err != nil {
+		t.Fatal(err)
+	}
+	events, err = s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(events) != 1 || events[0].Reply != "prepared" {
+		t.Fatalf("retried event = %+v %v", events, err)
+	}
+	if err := s.CompleteEvent(ctx, events[0].ID, *events[0].ClaimedAt, EventOutcomeHandled); err != nil {
+		t.Fatal(err)
+	}
+
+	interruptedID, _, err := s.EnqueueEvent(ctx, "worker_online", u.ID, "worker 9", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	interrupted, err := s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(interrupted) != 1 || interrupted[0].ID != interruptedID {
+		t.Fatalf("interrupted claim = %+v %v", interrupted, err)
+	}
+	if err := s.BeginEventDecision(ctx, interruptedID, *interrupted[0].ClaimedAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryEvent(ctx, interruptedID, *interrupted[0].ClaimedAt, interrupted[0].Attempts, "process interrupted"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE events SET available_at=now() WHERE id=$1`, interruptedID); err != nil {
+		t.Fatal(err)
+	}
+	interrupted, err = s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(interrupted) != 1 || interrupted[0].DeliveryMode != EventDeliveryModeGenerating || interrupted[0].Reply != "" {
+		t.Fatalf("reclaimed event must preserve decision boundary = %+v %v", interrupted, err)
+	}
+
+	now := time.Now().UTC()
+	run, err := s.ClaimAutomationRun(ctx, "daily", "2026-07-10", u.ID, now)
+	if err != nil || run.ClaimedAt == nil {
+		t.Fatalf("ClaimAutomationRun = %+v %v", run, err)
+	}
+	if _, err := s.ClaimAutomationRun(ctx, "daily", "2026-07-10", u.ID, now); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("active automation claim must be exclusive: %v", err)
+	}
+	if err := s.BeginAutomationAction(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareAutomationResult(ctx, run, "durable report"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryAutomationRun(ctx, run, "temporary"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE automation_runs SET available_at=now() WHERE automation_key='daily' AND occurrence_key='2026-07-10' AND subject_id=$1`, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	run, err = s.ClaimAutomationRun(ctx, "daily", "2026-07-10", u.ID, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !run.ActionStarted || run.ResultText != "durable report" {
+		t.Fatalf("automation retry lost no-replay boundary or report: %+v", run)
+	}
+	if err := s.CompleteAutomationRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ClaimAutomationRun(ctx, "daily", "2026-07-10", u.ID, time.Now().UTC()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("completed automation must remain deduplicated: %v", err)
+	}
+}
+
+func TestExhaustedInterruptedClaimsReachTerminalState(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "lease-owner", true)
+
+	eventID, _, err := s.EnqueueEvent(ctx, "interrupted", u.ID, "event", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE events SET status='processing', attempts=$2, claimed_at=now()-interval '1 hour' WHERE id=$1`, eventID, eventMaxAttempts)
+	if events, err := s.DueEvents(ctx, time.Now().UTC(), 4); err != nil || len(events) != 0 {
+		t.Fatalf("exhausted event was reclaimed: %+v %v", events, err)
+	}
+	var eventStatus string
+	if err := s.pool.QueryRow(ctx, `SELECT status FROM events WHERE id=$1`, eventID).Scan(&eventStatus); err != nil || eventStatus != "failed" {
+		t.Fatalf("event status=%q err=%v", eventStatus, err)
+	}
+
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: u.ID, CreatedBy: u.ID, Kind: ScheduleOnce, FireAt: time.Now().UTC(),
+		Target: ScheduleTargetSelf, Mode: ScheduleModeMessage, Message: "x",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deliveryID int64
+	if err := s.pool.QueryRow(ctx,
+		`INSERT INTO schedule_deliveries (schedule_id, occurrence_at, user_id, mode, message, status, attempts, claimed_at)
+		 VALUES ($1,now(),$2,'message','x','processing',$3,now()-interval '1 hour') RETURNING id`,
+		sc.ID, u.ID, scheduleRecipientMaxAttempts).Scan(&deliveryID); err != nil {
+		t.Fatal(err)
+	}
+	if deliveries, err := s.DueScheduleDeliveries(ctx, time.Now().UTC()); err != nil || len(deliveries) != 0 {
+		t.Fatalf("exhausted delivery was reclaimed: %+v %v", deliveries, err)
+	}
+	var deliveryStatus string
+	if err := s.pool.QueryRow(ctx, `SELECT status FROM schedule_deliveries WHERE id=$1`, deliveryID).Scan(&deliveryStatus); err != nil || deliveryStatus != "failed" {
+		t.Fatalf("delivery status=%q err=%v", deliveryStatus, err)
+	}
+
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userMessageID, _ := s.AppendMessage(ctx, sess.ID, "user", "stable fact")
+	assistantMessageID, _ := s.AppendMessage(ctx, sess.ID, "assistant", "ok")
+	if err := s.EnqueueMemoryMiningJob(ctx, u.ID, "telegram", sess.ID, userMessageID, assistantMessageID, "", false); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE memory_mining_jobs SET status='processing', attempts=$2, claimed_at=now()-interval '1 hour' WHERE session_id=$1`, sess.ID, memoryMiningMaxAttempts)
+	if jobs, err := s.DueMemoryMiningJobs(ctx, 4); err != nil || len(jobs) != 0 {
+		t.Fatalf("exhausted memory job was reclaimed: %+v %v", jobs, err)
+	}
+	var memoryStatus string
+	if err := s.pool.QueryRow(ctx, `SELECT status FROM memory_mining_jobs WHERE session_id=$1`, sess.ID).Scan(&memoryStatus); err != nil || memoryStatus != "failed" {
+		t.Fatalf("memory status=%q err=%v", memoryStatus, err)
+	}
+
+	if _, err := s.ClaimAutomationRun(ctx, "exhausted", "once", u.ID, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE automation_runs SET status='processing', attempts=$4, claimed_at=now()-interval '1 hour'
+		WHERE automation_key=$1 AND occurrence_key=$2 AND subject_id=$3`, "exhausted", "once", u.ID, automationRunMaxAttempts)
+	if _, err := s.ClaimAutomationRun(ctx, "exhausted", "once", u.ID, time.Now().UTC()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("exhausted automation claim = %v", err)
+	}
+	var automationStatus string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT status FROM automation_runs WHERE automation_key='exhausted' AND occurrence_key='once' AND subject_id=$1`, u.ID).
+		Scan(&automationStatus); err != nil || automationStatus != "failed" {
+		t.Fatalf("automation status=%q err=%v", automationStatus, err)
 	}
 }
 
@@ -1992,6 +2868,18 @@ func TestWorkerSessionClaimAndUpdate(t *testing.T) {
 	if ws2.ID != ws.ID || ws2.UseCount != 2 {
 		t.Fatalf("session should be reused and counted: first=%+v second=%+v", ws, ws2)
 	}
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, task.ID, claimed.WorkerClaimID,
+		"执行中", "early-native-ref", "/root/src/nbco"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, task.ID, "stale-claim",
+		"stale", "stale-ref", "/tmp/stale"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stale claim must not overwrite worker session: %v", err)
+	}
 	if err := s.UpdateWorkerSession(ctx, ws.ID, worker.ID, task.ID, "完成了路由", "native-ref", "/root/src/nbco"); err != nil {
 		t.Fatal(err)
 	}
@@ -2282,17 +3170,20 @@ func TestScriptTools(t *testing.T) {
 	if tool.Enabled {
 		t.Fatal("新脚本工具默认应未启用")
 	}
-	if err := s.SetScriptToolEnabled(ctx, tool.ID, true); err != nil {
+	if err := s.SetScriptToolEnabled(ctx, tool.ID, true); !errors.Is(err, ErrConflict) {
+		t.Fatalf("untested script must not enable: %v", err)
+	}
+	if err := s.RecordScriptToolTest(ctx, tool.ID, tool.Source, "ok", true); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetScriptToolTestResult(ctx, tool.ID, "ok"); err != nil {
+	if err := s.SetScriptToolEnabled(ctx, tool.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.ScriptToolByName(ctx, "format_roster")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Enabled || got.LastTestResult != "ok" || got.RequiredAction != "create_project" {
+	if !got.Enabled || !got.LastTestOK || got.TestedSourceHash != ScriptToolSourceHash(got.Source) || got.LastTestResult != "ok" || got.RequiredAction != "create_project" {
 		t.Fatalf("ScriptToolByName = %+v", got)
 	}
 	list, err := s.ListScriptTools(ctx, true, 10)
@@ -2310,8 +3201,51 @@ func TestScriptTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Name != "format_roster_v2" || updated.RequiredAction != "" {
+	if updated.Name != "format_roster_v2" || updated.RequiredAction != "" || updated.Enabled || updated.LastTestOK || updated.TestedSourceHash != "" {
 		t.Fatalf("UpdateScriptTool = %+v", updated)
+	}
+	if err := s.SetScriptToolEnabled(ctx, tool.ID, true); !errors.Is(err, ErrConflict) {
+		t.Fatalf("updated source must be retested before enable: %v", err)
+	}
+	if err := s.RecordScriptToolTest(ctx, tool.ID, tool.Source, "stale", true); !errors.Is(err, ErrConflict) {
+		t.Fatalf("stale test result must not certify updated source: %v", err)
+	}
+}
+
+func TestMemoryMiningQueueIsDurableAndIdempotent(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "memory-owner", true)
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userMessageID, err := s.AppendMessage(ctx, sess.ID, "user", "以后默认不展示推理过程")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assistantMessageID, err := s.AppendMessage(ctx, sess.ID, "assistant", "已记录")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := s.EnqueueMemoryMiningJob(ctx, u.ID, "telegram", sess.ID, userMessageID, assistantMessageID, "[tool] ok", true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	jobs, err := s.DueMemoryMiningJobs(ctx, 4)
+	if err != nil || len(jobs) != 1 {
+		t.Fatalf("DueMemoryMiningJobs = %+v, %v", jobs, err)
+	}
+	job := jobs[0]
+	if job.ClaimedAt == nil || !job.ExplicitCommit || job.ToolEvidence != "[tool] ok" || job.Attempts != 1 {
+		t.Fatalf("claimed job = %+v", job)
+	}
+	if err := s.CompleteMemoryMiningJob(ctx, job.ID, *job.ClaimedAt); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, err := s.DueMemoryMiningJobs(ctx, 4); err != nil || len(jobs) != 0 {
+		t.Fatalf("completed job was reclaimed: %+v, %v", jobs, err)
 	}
 }
 

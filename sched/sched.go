@@ -1,6 +1,7 @@
 // Package sched 是 DB 驱动的调度器：定时提醒投递、任务截止提醒/过期通知、
 // AI 催办、每日待办汇总 + 超管全局日报、AI 周报。
-// 状态全在库里（schedules 表 + tasks 发送标记/短租约 + kv_state），进程随时可重启。
+// 状态全在库里（schedules、schedule_deliveries、automation_runs 与任务短租约），
+// 进程随时可重启。
 //
 // 两级主动性：模板消息（提醒/通知/日报，确定性）与 AI 轮次（催办/周报——
 // 调度器把系统指令注入用户会话跑一轮引擎，产出个性化内容后经 Notifier 推送）。
@@ -41,6 +42,7 @@ const (
 	orphanNoticeLimit = 10
 	// sendConcurrency 模板类推送/查询的并发上限（廉价、网络受限，可高于 AI）。
 	sendConcurrency = 16
+	messageTimeout  = 30 * time.Second
 )
 
 // Scheduler 调度器。
@@ -74,15 +76,40 @@ func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, bus *events
 // AI 调度停摆、用户对话冻结。
 const aiTurnTimeout = 4 * time.Minute
 
-// runAIAndSend 同步执行一轮系统触发的 AI 生成 + 推送，返回是否完整成功。
-func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, prefix, label string) bool {
-	tctx, cancel := context.WithTimeout(ctx, aiTurnTimeout)
+func (s *Scheduler) runAIReply(ctx context.Context, u *store.User, directive, label string, readOnly bool) (string, error) {
+	turnCtx, cancel := context.WithTimeout(ctx, aiTurnTimeout)
 	defer cancel()
-	reply, err := s.orch.HandleMessage(tctx, u, s.channel, directive)
+	var (
+		reply string
+		err   error
+	)
+	if readOnly {
+		reply, err = s.orch.HandleReadOnlyMessage(turnCtx, u, s.channel, directive)
+	} else {
+		reply, err = s.orch.HandleMessage(turnCtx, u, s.channel, directive)
+	}
 	if err != nil {
 		slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
+		return "", err
+	}
+	return strings.TrimSpace(reply), nil
+}
+
+// runAIAndSend executes a read-only system report and then delivers it. It is
+// safe to regenerate after a transient failure because the turn cannot mutate
+// business state.
+func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, prefix, label string) bool {
+	reply, err := s.runAIReply(ctx, u, directive, label, true)
+	if err != nil {
 		return false
 	}
+	if reply == "" {
+		slog.Warn("定时 AI 轮次返回空内容", "kind", label, "user", u.ID)
+		return false
+	}
+	// Generation may consume nearly all of aiTurnTimeout. Delivery gets its own
+	// bounded window so a valid result is not retried merely because only a few
+	// milliseconds remained on the model context.
 	return s.send(ctx, u.ID, prefix+reply)
 }
 
@@ -96,11 +123,107 @@ func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, directive, pr
 	})
 }
 
+func (s *Scheduler) dispatchAutomationAI(ctx context.Context, run *store.AutomationRun, u *store.User, directive, prefix, label string) {
+	if !s.aiPool.trySubmit(ctx, func() {
+		reply := strings.TrimSpace(run.ResultText)
+		if reply == "" {
+			var err error
+			reply, err = s.runAIReply(ctx, u, directive, label, true)
+			if err != nil {
+				s.retryAutomation(ctx, run, label+"生成失败: "+err.Error())
+				return
+			}
+			if reply = textfmt.TruncateRunes(strings.TrimSpace(reply), 12000); reply == "" {
+				s.retryAutomation(ctx, run, label+"未生成可投递内容")
+				return
+			}
+			if err := s.store.PrepareAutomationResult(ctx, run, reply); err != nil {
+				s.retryAutomation(ctx, run, "保存"+label+"结果失败: "+err.Error())
+				return
+			}
+			run.ResultText = reply
+		}
+		if !s.send(ctx, u.ID, prefix+reply) {
+			s.retryAutomation(ctx, run, label+"投递失败")
+			return
+		}
+		s.completeAutomation(ctx, run)
+	}) {
+		s.retryAutomation(ctx, run, "AI 执行池满载")
+	}
+}
+
+// dispatchAutomationAction runs a scheduled maintenance agent that is allowed
+// to write. The action boundary and generated report are durable: after the
+// boundary a crash can only trigger a read-only state reconstruction, and a
+// notification failure only resends the stored report.
+func (s *Scheduler) dispatchAutomationAction(ctx context.Context, run *store.AutomationRun, u *store.User, directive, prefix, label string) {
+	if !s.aiPool.trySubmit(ctx, func() {
+		reply := strings.TrimSpace(run.ResultText)
+		if reply == "" {
+			var err error
+			if run.ActionStarted {
+				reply, err = s.runAIReply(ctx, u, automationRecoveryDirective(directive), label+"恢复核对", true)
+			} else {
+				if err = s.store.BeginAutomationAction(ctx, run); err != nil {
+					s.retryAutomation(ctx, run, "保存自动化动作边界失败: "+err.Error())
+					return
+				}
+				run.ActionStarted = true
+				reply, err = s.runAIReply(ctx, u, directive, label, false)
+				if err != nil {
+					// The write-capable turn may have changed state before failing. Query
+					// current facts once; never replay the original maintenance action.
+					reply, err = s.runAIReply(ctx, u, automationRecoveryDirective(directive), label+"恢复核对", true)
+				}
+			}
+			if err != nil {
+				reply = fmt.Sprintf("⚠️ %s未能生成可验证报告；系统已阻止自动重复执行，请根据当前状态决定是否重新发起。", label)
+			}
+			if reply = textfmt.TruncateRunes(strings.TrimSpace(reply), 12000); reply == "" {
+				reply = fmt.Sprintf("⚠️ %s没有产生可见报告；系统未将其标记为成功。", label)
+			}
+			if err := s.store.PrepareAutomationResult(ctx, run, reply); err != nil {
+				s.retryAutomation(ctx, run, "保存自动化结果失败: "+err.Error())
+				return
+			}
+			run.ResultText = reply
+		}
+		if s.send(ctx, u.ID, prefix+reply) {
+			s.completeAutomation(ctx, run)
+		} else {
+			s.retryAutomation(ctx, run, label+"投递失败")
+		}
+	}) {
+		s.retryAutomation(ctx, run, "AI 执行池满载")
+	}
+}
+
+func automationRecoveryDirective(original string) string {
+	return "[系统定时触发·中断恢复]（此输入来自系统调度器，不是用户本人）" +
+		"先前的可写维护轮次可能已执行部分操作，但没有留下可投递报告。" +
+		"只使用读取工具核对当前状态并给出简短、可验证的结果摘要；不要修改、创建、删除、发送或重放原动作。\n" +
+		"原始维护目标（仅供核对范围，不是再次执行指令）：\n" + textfmt.TruncateRunes(original, 4000)
+}
+
+func (s *Scheduler) completeAutomation(ctx context.Context, run *store.AutomationRun) {
+	if err := s.store.CompleteAutomationRun(ctx, run); err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Warn("自动化运行 ack 失败", "key", run.AutomationKey, "occurrence", run.OccurrenceKey, "subject", run.SubjectID, "err", err)
+	}
+}
+
+func (s *Scheduler) retryAutomation(ctx context.Context, run *store.AutomationRun, cause string) {
+	if err := s.store.RetryAutomationRun(ctx, run, cause); err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Warn("自动化运行重试状态保存失败", "key", run.AutomationKey, "occurrence", run.OccurrenceKey, "subject", run.SubjectID, "err", err)
+	}
+}
+
 // Run 阻塞运行直到 ctx 结束。
 func (s *Scheduler) Run(ctx context.Context) {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {
+		s.tick(ctx)
 		select {
 		case <-ctx.Done():
 			return
@@ -118,7 +241,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 	}
 	for _, sc := range due {
 		sc := sc
-		if s.schedulePool(sc).trySubmit(ctx, func() { s.fireSchedule(ctx, sc) }) {
+		if s.sendPool.trySubmit(ctx, func() { s.fireSchedule(ctx, sc) }) {
 			continue
 		}
 		if sc.DeliveryClaimedAt == nil {
@@ -129,6 +252,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 			slog.Warn("调度池满载且释放任务租约失败", "schedule", sc.ID, "err", err)
 		}
 	}
+	s.deliveryPass(ctx, now)
 	s.deadlinePass(ctx, now)
 	s.goalDeadlinePass(ctx, now)
 	s.nudgePass(ctx, now)
@@ -137,13 +261,6 @@ func (s *Scheduler) tick(ctx context.Context) {
 	s.maybeWeeklyReport(ctx)
 	s.maybeProfileRefresh(ctx)
 	s.maybeKnowledgeRefresh(ctx)
-}
-
-func (s *Scheduler) schedulePool(sc *store.Schedule) *pool {
-	if sc.Mode == store.ScheduleModeAI && s.orch != nil {
-		return s.aiPool
-	}
-	return s.sendPool
 }
 
 // fireSchedule 触发一条定时任务：展开目标 → 按模式投递（原文或 AI 轮次）。
@@ -162,7 +279,7 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 		n := store.NextDailyFire(now, sc.DailyAt, sc.Weekdays, s.tz)
 		next = &n
 		// 今天不在工作日过滤内（比如补跑/时钟漂移落到周末）：只校正不投递。
-		if !store.WeekdayAllowed(now.In(s.tz).Weekday(), sc.Weekdays) {
+		if !dailyDeliveryAllowed(now, sc.Weekdays, s.tz) {
 			if err := s.store.MarkScheduleDelivered(ctx, sc.ID, claimAt, now, next, false); err != nil {
 				slog.Warn("daily 定时跳过校正失败", "schedule", sc.ID, "err", err)
 			}
@@ -178,44 +295,119 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 		slog.Warn("定时任务目标解析失败，保留租约等待重试", "schedule", sc.ID, "err", err)
 		return
 	}
-	sent, failed := 0, 0
+	userIDs := make([]int64, 0, len(targets))
 	for _, u := range targets {
-		var one bool
-		switch sc.Mode {
-		case store.ScheduleModeAI:
-			if s.orch == nil {
-				one = s.send(ctx, u.ID, "⏰ "+sc.Message)
-				break
-			}
-			directive := fmt.Sprintf(
-				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
-					"需要事实（如其今日待办、任务状态）先用工具查询，个性化、简洁、不编造：\n%s\n"+
-					"你的回复会作为主动消息直接推送给该用户。", sc.Message)
-			one = s.runAIAndSend(ctx, u, directive, "", "定时推送")
-		default:
-			one = s.send(ctx, u.ID, "⏰ 提醒："+sc.Message)
+		userIDs = append(userIDs, u.ID)
+	}
+	if err := s.store.FanOutScheduleOccurrence(ctx, sc, userIDs, now, next, done); err != nil {
+		slog.Warn("定时任务逐接收人扇出失败，保留日程租约等待重试", "schedule", sc.ID, "err", err)
+		return
+	}
+	slog.Info("定时任务已生成逐接收人投递", "schedule", sc.ID, "targets", len(userIDs), "occurrence", sc.FireAt)
+	// fireSchedule 在 sendPool 中异步执行，当前 tick 的 deliveryPass 往往已经
+	// 扫完；立即再扫一次，避免每次固定多等一个 30 秒轮询周期。
+	s.deliveryPass(ctx, time.Now().UTC())
+}
+
+func dailyDeliveryAllowed(deliveryAt time.Time, weekdays string, tz *time.Location) bool {
+	if tz == nil {
+		tz = time.Local
+	}
+	return store.WeekdayAllowed(deliveryAt.In(tz).Weekday(), weekdays)
+}
+
+func (s *Scheduler) deliveryPass(ctx context.Context, now time.Time) {
+	deliveries, err := s.store.DueScheduleDeliveries(ctx, now)
+	if err != nil {
+		slog.Error("取逐接收人定时投递失败", "err", err)
+		return
+	}
+	for _, d := range deliveries {
+		d := d
+		if d.ClaimedAt == nil {
+			continue
 		}
-		if one {
-			sent++
-		} else {
-			failed++
+		pool := s.deliveryPool(d.Mode)
+		if pool.trySubmit(ctx, func() { s.deliverScheduleRecipient(ctx, d) }) {
+			continue
+		}
+		if err := s.store.ReleaseScheduleDeliveryClaim(ctx, d.ID, *d.ClaimedAt); err != nil && !errors.Is(err, store.ErrNotFound) {
+			slog.Warn("投递池满载且释放接收人租约失败", "delivery", d.ID, "err", err)
 		}
 	}
-	// ack 语义：只要不是「全员失败」就推进。全成功才 ack 的旧语义下，多目标
-	// 任务里任一永久不可达用户（受邀未绑 TG、拉黑 bot）会让 fire_at 永不推进、
-	// 租约过期后对所有可达用户无限重发——once 变永动机，AI 模式还重复烧 token。
-	// 部分失败者本次丢失该条推送（记日志），比无限轰炸其他人代价小得多。
-	if sent > 0 || len(targets) == 0 {
-		if failed > 0 {
-			slog.Warn("定时任务部分目标投递失败（不重试，避免对已达目标重复推送）",
-				"schedule", sc.ID, "sent", sent, "failed", failed)
-		}
-		if err := s.store.MarkScheduleDelivered(ctx, sc.ID, claimAt, now, next, done); err != nil {
-			slog.Warn("定时任务 ack 失败", "schedule", sc.ID, "err", err)
+}
+
+func (s *Scheduler) deliveryPool(mode string) *pool {
+	if mode == store.ScheduleModeAI && s.orch != nil {
+		return s.aiPool
+	}
+	return s.sendPool
+}
+
+func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.ScheduleDelivery) {
+	if d == nil || d.ClaimedAt == nil {
+		return
+	}
+	u, err := s.store.UserByID(ctx, d.UserID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			s.failScheduleRecipient(ctx, d, "接收人不存在")
+		} else {
+			s.retryScheduleRecipient(ctx, d, "读取接收人失败: "+err.Error())
 		}
 		return
 	}
-	slog.Warn("定时任务全部目标投递失败，等待租约过期后重试", "schedule", sc.ID, "targets", len(targets))
+	if !humanRecipient(u) {
+		s.failScheduleRecipient(ctx, d, "接收人已停用或不是人员用户")
+		return
+	}
+	message := d.Message
+	if d.Mode == store.ScheduleModeAI {
+		message = strings.TrimSpace(d.ResultText)
+		if message == "" && s.orch != nil {
+			directive := fmt.Sprintf(
+				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
+					"需要事实先用工具查询，个性化、简洁、不编造：\n%s\n你的回复会作为主动消息直接推送给该用户。", d.Message)
+			message, err = s.runAIReply(ctx, u, directive, "定时推送", true)
+			if err != nil {
+				s.retryScheduleRecipient(ctx, d, "生成定时推送失败: "+err.Error())
+				return
+			}
+			if message = textfmt.TruncateRunes(strings.TrimSpace(message), 12000); message == "" {
+				s.retryScheduleRecipient(ctx, d, "未生成可投递内容")
+				return
+			}
+			if err := s.store.PrepareScheduleDeliveryResult(ctx, d.ID, *d.ClaimedAt, message); err != nil {
+				s.retryScheduleRecipient(ctx, d, "保存定时推送结果失败: "+err.Error())
+				return
+			}
+			d.ResultText = message
+		}
+		if message == "" {
+			message = "⏰ 提醒：" + d.Message
+		}
+	} else {
+		message = "⏰ 提醒：" + message
+	}
+	if !s.send(ctx, u.ID, message) {
+		s.retryScheduleRecipient(ctx, d, "通知投递失败")
+		return
+	}
+	if err := s.store.MarkScheduleDeliveryDelivered(ctx, d.ID, *d.ClaimedAt, time.Now().UTC()); err != nil {
+		slog.Warn("接收人投递成功但 ack 失败", "delivery", d.ID, "err", err)
+	}
+}
+
+func (s *Scheduler) retryScheduleRecipient(ctx context.Context, d *store.ScheduleDelivery, cause string) {
+	if err := s.store.RetryScheduleDelivery(ctx, d.ID, *d.ClaimedAt, d.Attempts, cause); err != nil {
+		slog.Warn("接收人投递重试状态保存失败", "delivery", d.ID, "err", err)
+	}
+}
+
+func (s *Scheduler) failScheduleRecipient(ctx context.Context, d *store.ScheduleDelivery, cause string) {
+	if err := s.store.MarkScheduleDeliveryFailed(ctx, d.ID, *d.ClaimedAt, cause); err != nil {
+		slog.Warn("接收人永久失败状态保存失败", "delivery", d.ID, "err", err)
+	}
 }
 
 func nextRepeatFire(fireAt, now time.Time, interval time.Duration) time.Time {
@@ -229,7 +421,8 @@ func nextRepeatFire(fireAt, now time.Time, interval time.Duration) time.Time {
 	return now.Add(interval - elapsed%interval).UTC()
 }
 
-// resolveTargets 展开定时任务的目标为具体用户（活跃、非 worker）。
+// resolveTargets 展开定时任务目标。全员目标只快照活跃真人；定向目标即使后来
+// 停用也保留，由 recipient delivery 记录明确的永久失败。
 func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) ([]*store.User, error) {
 	switch sc.Target {
 	case store.ScheduleTargetAll:
@@ -252,9 +445,10 @@ func (s *Scheduler) resolveTargets(ctx context.Context, sc *store.Schedule) ([]*
 			}
 			return nil, fmt.Errorf("读取接收人 %d: %w", sc.UserID, err)
 		}
-		if !humanRecipient(u) {
-			return nil, nil
-		}
+		// Preserve a recipient-level failed delivery for a user that became
+		// inactive or changed type after the schedule was created. Silently
+		// returning an empty target set would mark a one-shot schedule done with
+		// no observable explanation.
 		return []*store.User{u}, nil
 	}
 }
@@ -314,21 +508,9 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 func (s *Scheduler) orphanTaskPass(ctx context.Context) {
 	local := time.Now().In(s.tz)
 	today := local.Format("2006-01-02")
-	last, err := s.store.GetKV(ctx, kvOrphanNotice)
-	if err != nil {
-		slog.Error("读孤儿任务提醒状态失败", "err", err)
-		return
-	}
-	if last == today {
-		return
-	}
 	orphaned, err := s.store.OrphanedTasks(ctx)
 	if err != nil {
 		slog.Error("查询孤儿任务失败", "err", err)
-		return
-	}
-	if err := s.store.SetKV(ctx, kvOrphanNotice, today); err != nil {
-		slog.Error("写孤儿任务提醒状态失败", "err", err)
 		return
 	}
 	if len(orphaned) == 0 {
@@ -347,8 +529,16 @@ func (s *Scheduler) orphanTaskPass(ctx context.Context) {
 		}
 	}
 	for ownerID, tasks := range byAssigner {
+		run, err := s.store.ClaimAutomationRun(ctx, kvOrphanNotice, today, ownerID, time.Now().UTC())
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				slog.Warn("认领孤儿任务提醒失败", "owner", ownerID, "err", err)
+			}
+			continue
+		}
 		owner, err := s.store.UserByID(ctx, ownerID)
 		if err != nil || owner.Status != store.UserActive || owner.IsWorker {
+			s.completeAutomation(ctx, run)
 			continue
 		}
 		names := map[int64]string{}
@@ -357,7 +547,15 @@ func (s *Scheduler) orphanTaskPass(ctx context.Context) {
 		}
 		msg := renderOrphanNotice(tasks, names)
 		ownerID := ownerID
-		s.sendPool.submit(ctx, func() { s.send(ctx, ownerID, msg) })
+		if !s.sendPool.trySubmit(ctx, func() {
+			if s.send(ctx, ownerID, msg) {
+				s.completeAutomation(ctx, run)
+			} else {
+				s.retryAutomation(ctx, run, "孤儿任务提醒投递失败")
+			}
+		}) {
+			s.retryAutomation(ctx, run, "通知执行池满载")
+		}
 	}
 }
 
@@ -374,18 +572,6 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		return
 	}
 	month := local.Format("2006-01")
-	last, err := s.store.GetKV(ctx, kvProfileRefresh)
-	if err != nil {
-		slog.Error("读画像盘点状态失败", "err", err)
-		return
-	}
-	if last == month {
-		return
-	}
-	if err := s.store.SetKV(ctx, kvProfileRefresh, month); err != nil {
-		slog.Error("写画像盘点状态失败", "err", err)
-		return
-	}
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		slog.Error("画像盘点取用户失败", "err", err)
@@ -400,7 +586,14 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
-		s.dispatchAI(ctx, u, directive, "🧭 月度人员盘点\n", "画像盘点", nil)
+		run, err := s.store.ClaimAutomationRun(ctx, kvProfileRefresh, month, u.ID, time.Now().UTC())
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				slog.Warn("认领画像盘点失败", "user", u.ID, "err", err)
+			}
+			continue
+		}
+		s.dispatchAutomationAction(ctx, run, u, directive, "🧭 月度人员盘点\n", "画像盘点")
 	}
 }
 
@@ -417,23 +610,6 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		return
 	}
 	month := local.Format("2006-01")
-	last, err := s.store.GetKV(ctx, kvKnowledgeRefresh)
-	if err != nil {
-		slog.Error("读知识盘点状态失败", "err", err)
-		return
-	}
-	if last == month {
-		return
-	}
-	if err := s.store.SetKV(ctx, kvKnowledgeRefresh, month); err != nil {
-		slog.Error("写知识盘点状态失败", "err", err)
-		return
-	}
-	if n, err := s.store.ScoreLearningCandidates(ctx, 500); err != nil {
-		slog.Warn("学习候选治理评分失败", "err", err)
-	} else if n > 0 {
-		slog.Info("学习候选治理评分完成", "count", n)
-	}
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		slog.Error("知识盘点取用户失败", "err", err)
@@ -449,13 +625,25 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
-		s.dispatchAI(ctx, u, directive, "📚 月度知识盘点\n", "知识盘点", nil)
+		run, err := s.store.ClaimAutomationRun(ctx, kvKnowledgeRefresh, month, 0, time.Now().UTC())
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				slog.Warn("认领知识盘点失败", "err", err)
+			}
+			return
+		}
+		if n, err := s.store.ScoreLearningCandidates(ctx, 500); err != nil {
+			slog.Warn("学习候选治理评分失败", "err", err)
+		} else if n > 0 {
+			slog.Info("学习候选治理评分完成", "count", n)
+		}
+		s.dispatchAutomationAction(ctx, run, u, directive, "📚 月度知识盘点\n", "知识盘点")
 		break // 知识库是全公司共享资产，一位超管盘一次即可，不必每位都跑
 	}
 }
 
 // maybeWeeklyReport 每周一在配置小时，让 AI 用真实数据给每位超管写周报。
-// kv_state 记 ISO 周号，重启不重发。
+// automation_runs 以 ISO 周号和用户去重，重启不重发。
 func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 	if s.dailyHour < 0 || s.orch == nil {
 		return
@@ -466,19 +654,6 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 	}
 	year, week := local.ISOWeek()
 	key := fmt.Sprintf("%d-W%02d", year, week)
-	last, err := s.store.GetKV(ctx, kvWeeklyReport)
-	if err != nil {
-		slog.Error("读周报状态失败", "err", err)
-		return
-	}
-	if last == key {
-		return
-	}
-	// 先写状态再发送：宁可漏发一周，不可无限重发。
-	if err := s.store.SetKV(ctx, kvWeeklyReport, key); err != nil {
-		slog.Error("写周报状态失败", "err", err)
-		return
-	}
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		slog.Error("周报取用户失败", "err", err)
@@ -488,7 +663,14 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 		if !u.IsSuperadmin || !humanRecipient(u) {
 			continue
 		}
-		s.dispatchAI(ctx, u, s.weeklyReportDirective(local, u), "📈 每周汇总\n", "周报", nil)
+		run, err := s.store.ClaimAutomationRun(ctx, kvWeeklyReport, key, u.ID, time.Now().UTC())
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				slog.Warn("认领周报失败", "user", u.ID, "err", err)
+			}
+			continue
+		}
+		s.dispatchAutomationAI(ctx, run, u, s.weeklyReportDirective(local, u), "📈 每周汇总\n", "周报")
 	}
 }
 
@@ -738,7 +920,7 @@ func (s *Scheduler) milestoneOwner(ctx context.Context, goalID int64) (int64, st
 
 // maybeDailySummary 每天在配置小时给每个有待办的用户推送任务清单；
 // 超管额外收到全局日报（老板视角：不追问也能掌握全局）。
-// 用 kv_state 记录最后发送日，重启不重发。
+// automation_runs 按日期和用户去重，重启不重发。
 func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 	if s.dailyHour < 0 {
 		return
@@ -748,19 +930,6 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 		return
 	}
 	today := local.Format("2006-01-02")
-	last, err := s.store.GetKV(ctx, kvDailySummary)
-	if err != nil {
-		slog.Error("读每日汇总状态失败", "err", err)
-		return
-	}
-	if last == today {
-		return
-	}
-	// 先写状态再发送：宁可漏发一天，不可无限重发。
-	if err := s.store.SetKV(ctx, kvDailySummary, today); err != nil {
-		slog.Error("写每日汇总状态失败", "err", err)
-		return
-	}
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
 		slog.Error("每日汇总取用户失败", "err", err)
@@ -774,19 +943,35 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 			continue
 		}
 		u := u
-		s.sendPool.submit(ctx, func() {
+		run, err := s.store.ClaimAutomationRun(ctx, kvDailySummary, today, u.ID, time.Now().UTC())
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				slog.Warn("认领每日汇总失败", "user", u.ID, "err", err)
+			}
+			continue
+		}
+		if !s.sendPool.trySubmit(ctx, func() {
 			tasks, err := s.store.TasksOfAssignee(ctx, u.ID, true)
 			if err != nil {
 				slog.Warn("每日汇总取任务失败", "user", u.ID, "err", err)
+				s.retryAutomation(ctx, run, err.Error())
 				return
 			}
+			var parts []string
 			if len(tasks) > 0 {
-				s.send(ctx, u.ID, renderTodos(tasks, s.tz))
+				parts = append(parts, renderTodos(tasks, s.tz))
 			}
 			if u.IsSuperadmin && digest != "" {
-				s.send(ctx, u.ID, digest)
+				parts = append(parts, digest)
 			}
-		})
+			if len(parts) == 0 || s.send(ctx, u.ID, strings.Join(parts, "\n\n")) {
+				s.completeAutomation(ctx, run)
+			} else {
+				s.retryAutomation(ctx, run, "每日汇总投递失败")
+			}
+		}) {
+			s.retryAutomation(ctx, run, "通知执行池满载")
+		}
 	}
 }
 
@@ -872,7 +1057,9 @@ func renderOrphanNotice(tasks []*store.Task, names map[int64]string) string {
 }
 
 func (s *Scheduler) send(ctx context.Context, userID int64, text string) bool {
-	if err := s.notifier.Send(ctx, userID, text); err != nil {
+	sendCtx, cancel := context.WithTimeout(ctx, messageTimeout)
+	defer cancel()
+	if err := s.notifier.Send(sendCtx, userID, text); err != nil {
 		slog.Warn("调度消息投递失败", "user", userID, "err", err)
 		return false
 	}

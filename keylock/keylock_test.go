@@ -1,9 +1,45 @@
 package keylock
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"testing"
 )
+
+func TestMapAcquireContextStopsWaiting(t *testing.T) {
+	var locks Map[string]
+	release := locks.Acquire("same")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := locks.AcquireContext(ctx, "same"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("AcquireContext error = %v", err)
+	}
+	if got := locks.Len(); got != 1 {
+		t.Fatalf("cancelled waiter leaked a ref: len=%d", got)
+	}
+	release()
+	if got := locks.Len(); got != 0 {
+		t.Fatalf("released lock leaked: len=%d", got)
+	}
+}
+
+func TestMapAcquireContextRejectsAlreadyCancelledFreeLock(t *testing.T) {
+	var locks Map[string]
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for range 100 {
+		if release, err := locks.AcquireContext(ctx, "free"); !errors.Is(err, context.Canceled) {
+			if release != nil {
+				release()
+			}
+			t.Fatalf("cancelled context acquired a free lock: %v", err)
+		}
+	}
+	if locks.Len() != 0 {
+		t.Fatalf("cancelled acquisitions leaked lock entries: %d", locks.Len())
+	}
+}
 
 func TestMapSerializesSameKeyAndEvicts(t *testing.T) {
 	var locks Map[string]
