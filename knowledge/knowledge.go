@@ -573,7 +573,8 @@ func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afte
 	for _, k := range ks {
 		docs = append(docs, knowledgeDocument(k))
 	}
-	if _, err := svc.semantic.UpsertDocuments(ctx, docs); err != nil {
+	indexed, err := svc.semantic.UpsertDocuments(ctx, docs)
+	if err != nil {
 		return res, err
 	}
 	tag, _, err := svc.semantic.CurrentModel(ctx)
@@ -584,8 +585,8 @@ func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afte
 		if err := svc.store.MarkKnowledgeVectorIndexed(ctx, k.ID, tag); err != nil {
 			return res, err
 		}
-		res.Embedded++
 	}
+	res.Embedded = indexed
 	return res, nil
 }
 

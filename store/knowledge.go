@@ -288,8 +288,10 @@ func (s *Store) SetKnowledgeEmbedding(ctx context.Context, id int64, model strin
 // MarkKnowledgeVectorIndexed records successful external-vector indexing
 // without retaining a duplicate vector in PostgreSQL.
 func (s *Store) MarkKnowledgeVectorIndexed(ctx context.Context, id int64, model string) error {
-	return s.execOne(ctx,
-		`UPDATE knowledge SET embedding = NULL, embed_model = $2 WHERE id = $1`, id, model)
+	_, err := s.pool.Exec(ctx,
+		`UPDATE knowledge SET embedding = NULL, embed_model = $2
+		  WHERE id = $1 AND (embedding IS NOT NULL OR embed_model IS DISTINCT FROM $2)`, id, model)
+	return wrapErr(err)
 }
 
 // ClearLegacyKnowledgeEmbeddings removes vector payloads left by the legacy

@@ -6,16 +6,24 @@ package embed
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"strings"
 	"time"
 
 	einoembed "github.com/cloudwego/eino-ext/components/embedding/openai"
+	openai "github.com/meguminnnnnnnnn/go-openai"
 
 	"github.com/zdypro888/nbco/config"
 )
 
-const defaultEmbedHTTPTimeout = 5 * time.Minute
+const (
+	defaultEmbedHTTPTimeout = 5 * time.Minute
+	embedMaxAttempts        = 3
+	embedRetryBaseDelay     = 250 * time.Millisecond
+)
 
 // Client 实现 ai.Embedder，内部委托 eino 的 openai embedding 组件。
 type Client struct {
@@ -67,7 +75,24 @@ func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	vecs, err := c.emb.EmbedStrings(ctx, texts)
+	var (
+		vecs [][]float64
+		err  error
+	)
+	for attempt := range embedMaxAttempts {
+		vecs, err = c.emb.EmbedStrings(ctx, texts)
+		if err == nil || !retryableEmbeddingError(ctx, err) || attempt == embedMaxAttempts-1 {
+			break
+		}
+		delay := embedRetryBaseDelay * time.Duration(1<<attempt)
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -86,4 +111,26 @@ func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 		out[i] = f32
 	}
 	return out, nil
+}
+
+func retryableEmbeddingError(ctx context.Context, err error) bool {
+	if err == nil || ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var apiErr *openai.APIError
+	if errors.As(err, &apiErr) {
+		return retryableHTTPStatus(apiErr.HTTPStatusCode)
+	}
+	var requestErr *openai.RequestError
+	if errors.As(err, &requestErr) {
+		return retryableHTTPStatus(requestErr.HTTPStatusCode) || requestErr.HTTPStatusCode == 0
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary())
+}
+
+func retryableHTTPStatus(status int) bool {
+	return status == http.StatusRequestTimeout || status == http.StatusConflict ||
+		status == http.StatusTooEarly || status == http.StatusTooManyRequests ||
+		status >= http.StatusInternalServerError
 }

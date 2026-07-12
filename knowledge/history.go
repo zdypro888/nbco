@@ -231,7 +231,8 @@ func (svc *Service) backfillQdrantMessages(ctx context.Context, batch int, after
 	for _, message := range messages {
 		docs = append(docs, messageDocument(message))
 	}
-	if _, err := svc.semantic.UpsertDocuments(ctx, docs); err != nil {
+	indexed, err := svc.semantic.UpsertDocuments(ctx, docs)
+	if err != nil {
 		return res, err
 	}
 	tag, _, err := svc.semantic.CurrentModel(ctx)
@@ -242,8 +243,8 @@ func (svc *Service) backfillQdrantMessages(ctx context.Context, batch int, after
 		if err := svc.store.MarkMessageVectorIndexed(ctx, message.ID, tag); err != nil {
 			return res, err
 		}
-		res.Embedded++
 	}
+	res.Embedded = indexed
 	return res, nil
 }
 

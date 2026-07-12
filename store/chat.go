@@ -160,8 +160,10 @@ func (s *Store) SetMessageEmbedding(ctx context.Context, id int64, model string,
 // MarkMessageVectorIndexed records successful external-vector indexing while
 // keeping PostgreSQL free of duplicate vector payloads.
 func (s *Store) MarkMessageVectorIndexed(ctx context.Context, id int64, model string) error {
-	return s.execOne(ctx,
-		`UPDATE chat_messages SET embedding = NULL, embed_model = $2 WHERE id = $1`, id, model)
+	_, err := s.pool.Exec(ctx,
+		`UPDATE chat_messages SET embedding = NULL, embed_model = $2
+		  WHERE id = $1 AND (embedding IS NOT NULL OR embed_model IS DISTINCT FROM $2)`, id, model)
+	return wrapErr(err)
 }
 
 // ClearLegacyMessageEmbeddings removes vector payloads left by the legacy
