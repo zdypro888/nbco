@@ -2,8 +2,10 @@ package einoengine
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/zdypro888/nbco/ai"
@@ -43,4 +45,57 @@ func TestSmokeRealChat(t *testing.T) {
 		t.Errorf("流式增量块数=%d（<2，可能没走流式）", deltas)
 	}
 	t.Logf("chat 流式冒烟通过：%d 块增量，最终 %q", deltas, res.Text)
+}
+
+// 真端点工具循环冒烟：验证当前模型能完成 Eino 原生的
+// tool_search -> deferred tool -> final response，不产生任何外部副作用。
+func TestSmokeRealToolLoop(t *testing.T) {
+	if os.Getenv("NBCO_SMOKE_TOOL") == "" {
+		t.Skip("设 NBCO_SMOKE_TOOL=1 + NBCO_SMOKE_* 跑真端点工具循环")
+	}
+	cfg := config.AIConfig{
+		Engine:   "eino",
+		Provider: os.Getenv("NBCO_SMOKE_PROVIDER"),
+		APIKey:   os.Getenv("NBCO_SMOKE_KEY"),
+		BaseURL:  os.Getenv("NBCO_SMOKE_BASE"),
+		Model:    os.Getenv("NBCO_SMOKE_MODEL"),
+	}
+	engine, err := New(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		System:   "你是工具循环测试助手。用户要求验证时，必须先搜索并调用对应工具，再根据真实结果简短回答。",
+		UserText: "请使用当前可用的无副作用验证能力，把值 EINO_OK 送入测试探针并告诉我真实结果。",
+		Tools: []ai.Tool{{
+			Name:        "echo_probe",
+			Description: "无副作用地回显 value，用于验证 agent 工具调用链。",
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"value": map[string]any{"type": "string"}},
+				"required":   []string{"value"},
+			},
+			Handler: func(_ context.Context, raw json.RawMessage) (string, error) {
+				calls.Add(1)
+				return `{"ok":true,"echo":"EINO_OK"}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("echo_probe calls=%d steps=%+v", calls.Load(), result.Steps)
+	}
+	found := false
+	for _, step := range result.Steps {
+		if step.ToolName == "echo_probe" && strings.Contains(step.Result, "EINO_OK") {
+			found = true
+		}
+	}
+	if !found || strings.TrimSpace(result.Text) == "" {
+		t.Fatalf("tool loop incomplete: text=%q steps=%+v", result.Text, result.Steps)
+	}
+	t.Logf("real Eino tool loop passed: %q", result.Text)
 }

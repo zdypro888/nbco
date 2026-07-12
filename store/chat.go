@@ -15,7 +15,7 @@ type ChatSession struct {
 	UserID    int64
 	Channel   string
 	Engine    string
-	EngineRef string // 引擎侧会话标识（当前保留字段）
+	EngineRef string // Eino managed session 标识；能力权限变化时由引擎轮换
 	Active    bool
 	CreatedAt time.Time
 	// 滚动摘要压缩：Summary 是较早对话的压缩摘要，SummaryUpto 是已折叠的

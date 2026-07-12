@@ -5,7 +5,8 @@
 //     eino、HTTP MCP 各自做薄适配。
 //   - Engine 的抽象层级是「跑完一轮对话」（含 tool 循环），而非单次补全——
 //     这样可保持后续替换模型框架时的边界稳定。
-//   - 会话历史由调用方（chat 编排器）落库管理；eino 引擎重放 History。
+//   - 产品聊天记录由调用方落库；支持持久会话的引擎自行管理完整 agent 轨迹，
+//     History 只用于首次建立引擎会话时的种子上下文。
 package ai
 
 import (
@@ -57,6 +58,14 @@ type Message struct {
 	Content string
 }
 
+// Skill 是本轮与目标相关、可由 agent 按需加载的执行方法。候选检索和作用域
+// 校验属于业务层，实际选择与加载交给 agent 框架。
+type Skill struct {
+	Name        string
+	Description string
+	Content     string
+}
+
 // StepKind 轨迹条目类型。
 type StepKind string
 
@@ -84,8 +93,16 @@ type Usage struct {
 type TurnRequest struct {
 	// SessionID 是 nbco 侧会话 ID（落库主键），引擎可用它做日志关联。
 	SessionID string
-	// EngineSession 是引擎侧会话标识；当前 eino 引擎忽略。空表示新会话。
+	// EngineSession 是引擎侧持久会话标识。空表示由引擎创建；调用方应保存
+	// TurnResult 返回值并在下一轮传回。
 	EngineSession string
+	// DisableSession disables engine-managed history for channels whose context
+	// can receive out-of-band messages (for example passive group listening).
+	DisableSession bool
+	// SessionCapability identifies the stable permission-scoped capability set.
+	// It may be broader than Tools for a transient read-only turn, preventing
+	// unnecessary session rotation while handlers still enforce the narrower set.
+	SessionCapability string
 	// System 系统提示，由 chat 编排器组装（身份、角色、当前时间等）。
 	System string
 	// History 本会话既往文本消息（不含本轮），按时间升序。
@@ -96,6 +113,9 @@ type TurnRequest struct {
 	Model string
 	// Tools 本轮可用工具集（已按用户权限裁剪）。
 	Tools []Tool
+	// Skills 是已按语义相关性和用户/渠道作用域裁剪的候选执行方法。
+	// 引擎只暴露元数据，由模型按需加载完整 Content。
+	Skills []Skill
 	// ShouldDisableTools 在工具循环期间动态报告是否应进入最终答复阶段。
 	// 引擎应在下一次模型调用前撤下工具，而不是只靠工具结果文本劝模型停手。
 	ShouldDisableTools func() bool

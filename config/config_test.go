@@ -43,6 +43,10 @@ func TestLoadDefaults(t *testing.T) {
 		t.Errorf("MaxTokens/MaxTurns/TimeoutMS/TurnTimeoutMS 默认值 = %d/%d/%d/%d",
 			cfg.AI.MaxTokens, cfg.AI.MaxTurns, cfg.AI.TimeoutMS, cfg.AI.TurnTimeoutMS)
 	}
+	if cfg.AI.SummarizeAfterTokens != 24000 || cfg.AI.SummarizeAfterMessages != 80 {
+		t.Errorf("Eino 摘要阈值默认值 = %d tokens/%d messages",
+			cfg.AI.SummarizeAfterTokens, cfg.AI.SummarizeAfterMessages)
+	}
 	if cfg.AI.MaxCompletionTokens != 0 || cfg.AI.ReasoningEffort != "" {
 		t.Errorf("reasoning 默认配置 = max_completion_tokens:%d reasoning_effort:%q", cfg.AI.MaxCompletionTokens, cfg.AI.ReasoningEffort)
 	}

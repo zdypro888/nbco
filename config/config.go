@@ -48,6 +48,10 @@ type AIConfig struct {
 	// retries and time spent waiting behind the same user's previous turn.
 	TurnTimeoutMS int `json:"turn_timeout_ms"` // 默认 600000ms，最大 1800000ms
 	MaxTurns      int `json:"max_turns"`       // tool 循环上限，默认 16
+	// Eino 原生 summarization 的触发阈值。任一阈值达到即压缩 agent 上下文；
+	// 与产品聊天记录分离，不删除审计历史。
+	SummarizeAfterTokens   int `json:"summarize_after_tokens"`   // 默认 24000
+	SummarizeAfterMessages int `json:"summarize_after_messages"` // 默认 80
 	// StreamReasoning 控制流式阶段是否把模型推理内容展示给用户；默认 false。
 	StreamReasoning bool `json:"stream_reasoning"`
 	// 语义检索的 embedding 配置（可选）。EmbedModel 空=不启用，知识检索回退词法。
@@ -154,6 +158,12 @@ func (c *Config) applyDefaults() {
 	if c.AI.MaxTurns <= 0 {
 		c.AI.MaxTurns = 16
 	}
+	if c.AI.SummarizeAfterTokens <= 0 {
+		c.AI.SummarizeAfterTokens = 24000
+	}
+	if c.AI.SummarizeAfterMessages <= 0 {
+		c.AI.SummarizeAfterMessages = 80
+	}
 	if c.LogLevel == "" {
 		c.LogLevel = "info"
 	}
@@ -217,6 +227,12 @@ func (c *Config) validate() error {
 		}
 		if c.AI.MaxTurns < 2 {
 			errs = append(errs, errors.New("ai.max_turns 至少为 2（工具调用后需要一轮最终答复）"))
+		}
+		if c.AI.SummarizeAfterTokens < 4096 {
+			errs = append(errs, errors.New("ai.summarize_after_tokens 至少为 4096"))
+		}
+		if c.AI.SummarizeAfterMessages < 20 {
+			errs = append(errs, errors.New("ai.summarize_after_messages 至少为 20"))
 		}
 		if c.AI.TurnTimeoutMS < 30000 || c.AI.TurnTimeoutMS > 1800000 {
 			errs = append(errs, errors.New("ai.turn_timeout_ms 必须在 30000 到 1800000 之间"))

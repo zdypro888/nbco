@@ -76,40 +76,6 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 	}
 }
 
-func buildActionAuditPlanWithSemantic(text string, toolset []ai.Tool, res *ai.TurnResult, semantic semanticToolPlan) *actionPlan {
-	if semantic.Mode == "" {
-		return buildActionAuditPlan(text, toolset, res)
-	}
-	byName := toolDefinitionsByName(toolset)
-	actualAction := false
-	for _, step := range res.Steps {
-		if step.Kind == ai.StepToolCall && toolCanProveAction(step.ToolName, byName) {
-			actualAction = true
-			break
-		}
-	}
-	if !semantic.RequiresAction() && !actualAction {
-		return nil
-	}
-	expected := make([]string, 0, len(semantic.Tools))
-	for _, name := range semantic.Tools {
-		if t, ok := byName[name]; ok && nbtools.ToolCanProveActionTool(t) {
-			expected = append(expected, name)
-		}
-	}
-	if len(expected) == 0 {
-		expected = inferActionToolsForText(text, toolset, 8)
-	}
-	return &actionPlan{
-		RequiresAction:  true,
-		Intent:          strings.TrimSpace(semantic.Reason),
-		ExpectedTools:   expected,
-		SuccessEvidence: []string{"语义规划选中的写入/执行工具成功返回，或工具明确返回待确认/失败状态"},
-		Confidence:      0.85,
-		Source:          "semantic_router",
-	}
-}
-
 func looksLikeAuditableActionRequest(text string) bool {
 	return !looksLikeActionStatusQuestion(text) && (looksLikeSideEffectRequest(text) || looksLikeHeavyExecutionRequest(text))
 }
@@ -151,7 +117,7 @@ func looksLikeActionStatusQuestion(text string) bool {
 		"worker", "任务", "工具", "操作",
 		"send", "sent", "created", "updated", "deleted", "deployed", "scheduled", "executed", "ran", "cloned",
 	}
-	if !routeHasAny(s, actionTerms) {
+	if !containsAnyTerm(s, actionTerms) {
 		return false
 	}
 	questionTerms := []string{
@@ -160,7 +126,7 @@ func looksLikeActionStatusQuestion(text string) bool {
 		"发出去没", "执行了吗", "执行没", "clone了吗", "clone 了吗",
 		"status", "done", "success",
 	}
-	return routeHasAny(s, questionTerms)
+	return containsAnyTerm(s, questionTerms)
 }
 
 func toolNames(toolset []ai.Tool) map[string]bool {
@@ -217,7 +183,7 @@ func looksLikeMaterialActionIntent(intent string) bool {
 	if s == "" {
 		return false
 	}
-	return routeHasAny(s, []string{
+	return containsAnyTerm(s, []string{
 		"文件", "附件", "上传", "pdf", "xlsx", "excel", "图片", "照片", "资料", "材料",
 		"读取", "解析", "分析", "file", "attachment", "material", "document",
 	})

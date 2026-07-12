@@ -4,6 +4,7 @@ package einoengine
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,9 +21,12 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/adk/middlewares/dynamictool/toolsearch"
+	skillmw "github.com/cloudwego/eino/adk/middlewares/skill"
+	"github.com/cloudwego/eino/adk/middlewares/summarization"
+	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/jsonschema"
 
@@ -36,21 +42,49 @@ type Engine struct {
 	defaultModel string
 	mu           sync.Mutex
 	models       map[string]einomodel.ToolCallingChatModel
+	runtime      RuntimeStore
+}
+
+// Option customizes the Eino runtime without coupling the ai.Engine interface to
+// a concrete persistence implementation.
+type Option func(*Engine)
+
+// WithRuntimeStore enables Eino-managed durable sessions and checkpoints.
+func WithRuntimeStore(store RuntimeStore) Option {
+	return func(engine *Engine) { engine.runtime = store }
 }
 
 // New 按配置创建模型。
-func New(ctx context.Context, cfg config.AIConfig) (*Engine, error) {
+func New(ctx context.Context, cfg config.AIConfig, opts ...Option) (*Engine, error) {
+	if err := adk.SetLanguage(adk.LanguageChinese); err != nil {
+		return nil, fmt.Errorf("设置 Eino 内置提示语言: %w", err)
+	}
+	if cfg.MaxTurns <= 0 {
+		cfg.MaxTurns = 16
+	}
+	if cfg.SummarizeAfterTokens <= 0 {
+		cfg.SummarizeAfterTokens = 24000
+	}
+	if cfg.SummarizeAfterMessages <= 0 {
+		cfg.SummarizeAfterMessages = 80
+	}
 	m, err := newChatModel(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	model := strings.TrimSpace(cfg.Model)
-	return &Engine{
+	engine := &Engine{
 		cfg:          cfg,
 		maxTurns:     cfg.MaxTurns,
 		defaultModel: model,
 		models:       map[string]einomodel.ToolCallingChatModel{model: m},
-	}, nil
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(engine)
+		}
+	}
+	return engine, nil
 }
 
 func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCallingChatModel, error) {
@@ -108,40 +142,94 @@ func chatHTTPTimeout(ms int) time.Duration {
 // Name 实现 ai.Engine。
 func (e *Engine) Name() string { return config.EngineEino }
 
-// RunTurn 实现 ai.Engine：构建带用户工具集的 agent，重放历史 + 本轮输入，收集事件直到最终答复。
+// RunTurn builds one Eino DeepAgent with framework-native planning, deferred
+// tool discovery, skill loading, summarization, and durable session replay.
 func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+	if req == nil {
+		return nil, errors.New("turn request is nil")
+	}
 	model, err := e.modelFor(ctx, req.Model)
 	if err != nil {
 		return nil, err
 	}
-	tools := make([]tool.BaseTool, 0, len(req.Tools))
+	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
 	for _, t := range req.Tools {
-		tools = append(tools, &einoTool{t: t})
+		dynamicTools = append(dynamicTools, &einoTool{t: t})
 	}
-	handlers := []adk.TypedChatModelAgentMiddleware[*schema.Message]{
-		&toolBudgetMiddleware{shouldDisable: req.ShouldDisableTools, maxIterations: e.maxTurns},
+	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
+	if len(dynamicTools) > 0 {
+		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
+		if err != nil {
+			return nil, fmt.Errorf("构建 Eino 动态工具检索: %w", err)
+		}
+		handlers = append(handlers, middleware)
 	}
-	// Eino supports model.WithToolChoice/WithAgenticToolChoice, but applying it
-	// to the whole ADK run can also force the final summarization turn to call a
-	// tool. nbco keeps tool choice automatic; the semantic planner may request
-	// one continuation only when an action turn has made no action attempt. A
-	// real success/failure/approval result is never replayed or post-filtered.
-	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
-		Name:        "nbco",
-		Description: "nbco 公司运营中枢",
-		Instruction: req.System,
-		Model:       model,
-		ToolsConfig: adk.ToolsConfig{
-			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
+	if len(req.Skills) > 0 {
+		middleware, err := skillmw.NewMiddleware(ctx, &skillmw.Config{
+			Backend: newTurnSkillBackend(req.Skills),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("构建 Eino skill 中间件: %w", err)
+		}
+		handlers = append(handlers, middleware)
+	}
+	summaryTokens := e.cfg.SummarizeAfterTokens
+	if summaryTokens <= 0 {
+		summaryTokens = 24000
+	}
+	summaryMessages := e.cfg.SummarizeAfterMessages
+	if summaryMessages <= 0 {
+		summaryMessages = 80
+	}
+	var summaryUsage ai.Usage
+	summaryMiddleware, err := summarization.New(ctx, &summarization.Config{
+		Model: model,
+		Trigger: &summarization.TriggerCondition{
+			ContextTokens:   summaryTokens,
+			ContextMessages: summaryMessages,
 		},
-		MaxIterations:    e.maxTurns,
-		ModelRetryConfig: modelRetryConfig(),
-		Handlers:         handlers,
+		Finalize: func(ctx context.Context, original []*schema.Message, summary *schema.Message) ([]*schema.Message, error) {
+			if summary != nil && summary.ResponseMeta != nil && summary.ResponseMeta.Usage != nil {
+				summaryUsage.InputTokens += int64(summary.ResponseMeta.Usage.PromptTokens)
+				summaryUsage.OutputTokens += int64(summary.ResponseMeta.Usage.CompletionTokens)
+			}
+			return summarization.DefaultFinalize(ctx, original, summary)
+		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("构建 agent: %w", err)
+		return nil, fmt.Errorf("构建 Eino 上下文摘要: %w", err)
+	}
+	handlers = append(handlers, summaryMiddleware)
+	handlers = append(handlers, &toolBudgetMiddleware{
+		shouldDisable: req.ShouldDisableTools,
+		maxIterations: e.maxTurns,
+	})
+
+	agent, err := deep.New(ctx, &deep.Config{
+		Name:                   "nbco",
+		Description:            "nbco 公司运营中枢",
+		Instruction:            req.System,
+		ChatModel:              model,
+		MaxIteration:           e.maxTurns,
+		WithoutWriteTodos:      len(dynamicTools) == 0,
+		WithoutGeneralSubAgent: true,
+		Handlers:               handlers,
+		ModelRetryConfig:       modelRetryConfig(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
 	}
 
+	engineSession := e.engineSessionID(req)
+	managedSession := engineSession != "" && e.runtime != nil
+	includeHistory := true
+	if managedSession {
+		hasEvents, err := e.sessionHasEvents(ctx, engineSession)
+		if err != nil {
+			return nil, fmt.Errorf("读取 Eino 会话状态: %w", err)
+		}
+		includeHistory = !hasEvents
+	}
 	msgs := make([]*schema.Message, 0, len(req.History)+1)
 	// 引擎失败的轮次历史里只有 user 消息，重放会出现同角色相邻，
 	// 部分 API 要求角色严格交替：相邻同角色合并为一条。
@@ -152,21 +240,125 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		}
 		msgs = append(msgs, m)
 	}
-	for _, m := range req.History {
-		switch m.Role {
-		case ai.RoleUser:
-			push(schema.UserMessage(m.Content))
-		case ai.RoleAssistant:
-			push(schema.AssistantMessage(m.Content, nil))
+	if includeHistory {
+		for _, m := range req.History {
+			switch m.Role {
+			case ai.RoleUser:
+				push(schema.UserMessage(m.Content))
+			case ai.RoleAssistant:
+				push(schema.AssistantMessage(m.Content, nil))
+			}
 		}
+		msgs = dropLeadingNonUser(msgs)
 	}
-	msgs = dropLeadingNonUser(msgs)
 	push(schema.UserMessage(req.UserText))
 
-	// 开启流式：ADK 把助手消息以 StreamReader 逐块吐出，collect 逐块读、把最终
-	// 答复的文本增量经 OnDelta 实时推给网关（本地模型慢，用户能看到边冒字）。
-	runner := adk.NewRunner(ctx, adk.RunnerConfig{Agent: agent, EnableStreaming: true})
-	return collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning, e.outputTokenLimit())
+	runnerConfig := adk.RunnerConfig{Agent: agent, EnableStreaming: true}
+	if managedSession {
+		runnerConfig.SessionID = engineSession
+		runnerConfig.SessionStore = e.runtime
+		runnerConfig.CheckPointStore = e.runtime
+	}
+	runner := adk.NewRunner(ctx, runnerConfig)
+	result, err := collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning, e.outputTokenLimit())
+	if err != nil && managedSession {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
+		cancel()
+		if rollbackErr != nil {
+			slog.Error("Eino 失败会话回滚失败", "session", engineSession, "err", rollbackErr)
+		}
+	}
+	if result != nil {
+		result.Usage.InputTokens += summaryUsage.InputTokens
+		result.Usage.OutputTokens += summaryUsage.OutputTokens
+		if managedSession {
+			result.EngineSession = engineSession
+		}
+	}
+	return result, err
+}
+
+type sessionResetter interface {
+	DeleteSession(context.Context, string) error
+}
+
+func (e *Engine) rollbackFailedSession(ctx context.Context, sessionID string) error {
+	result, err := e.runtime.LoadEvents(ctx, sessionID, &adk.LoadSessionEventsRequest{
+		Reverse: true,
+		Kinds:   []adk.SessionEventKind{adk.SessionEventSessionStatusIdle},
+	})
+	if err != nil {
+		return err
+	}
+	sawCommitted := false
+	if result != nil {
+		for _, event := range result.Events {
+			if event == nil || event.Lifecycle == nil || event.Lifecycle.StopReason == nil ||
+				event.Lifecycle.StopReason.Type != "end_turn" {
+				continue
+			}
+			sawCommitted = true
+			err := adk.RollbackSession(ctx, e.runtime, sessionID, event.EventID,
+				adk.WithRollbackSessionCheckPointStore[*schema.Message](e.runtime))
+			if errors.Is(err, adk.ErrRollbackTargetInactive) || errors.Is(err, adk.ErrInvalidRollbackTarget) ||
+				errors.Is(err, adk.ErrRollbackTargetNotFound) {
+				continue
+			}
+			return err
+		}
+	}
+	if sawCommitted {
+		return errors.New("Eino session has committed history but no active rollback target")
+	}
+	if resetter, ok := e.runtime.(sessionResetter); ok {
+		return resetter.DeleteSession(ctx, sessionID)
+	}
+	return errors.New("Eino session has no committed boundary and runtime store cannot reset it")
+}
+
+func (e *Engine) sessionHasEvents(ctx context.Context, sessionID string) (bool, error) {
+	result, err := e.runtime.LoadEvents(ctx, sessionID, &adk.LoadSessionEventsRequest{Limit: 1})
+	if err != nil {
+		return false, err
+	}
+	return result != nil && len(result.Events) > 0, nil
+}
+
+func (e *Engine) engineSessionID(req *ai.TurnRequest) string {
+	if e.runtime == nil || req.DisableSession || !persistentChatSessionID(req.SessionID) {
+		return ""
+	}
+	fingerprint := capabilityFingerprint(req.Tools, req.SessionCapability)
+	prefix := "eino:chat:" + req.SessionID + ":" + fingerprint + ":"
+	if strings.HasPrefix(req.EngineSession, prefix) {
+		return req.EngineSession
+	}
+	generation := "initial"
+	if req.EngineSession != "" {
+		sum := sha256.Sum256([]byte(req.EngineSession))
+		generation = fmt.Sprintf("%x", sum[:6])
+	}
+	return prefix + generation
+}
+
+func persistentChatSessionID(id string) bool {
+	n, err := strconv.ParseInt(strings.TrimSpace(id), 10, 64)
+	return err == nil && n > 0
+}
+
+func capabilityFingerprint(tools []ai.Tool, stableScope string) string {
+	if stableScope != "" {
+		sum := sha256.Sum256([]byte(stableScope))
+		return fmt.Sprintf("%x", sum[:8])
+	}
+	names := make([]string, 0, len(tools))
+	for _, item := range tools {
+		names = append(names, item.Name)
+	}
+	sort.Strings(names)
+	sum := sha256.Sum256([]byte(strings.Join(names, "\x00")))
+	return fmt.Sprintf("%x", sum[:8])
 }
 
 func (e *Engine) outputTokenLimit() int {
@@ -343,6 +535,7 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
 	var finalText string
+	var terminalErr error
 
 	for {
 		event, ok := iter.Next()
@@ -353,7 +546,12 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			continue
 		}
 		if event.Err != nil {
-			return preservePartialAgentError(res, pending, event.Err)
+			if terminalErr == nil {
+				terminalErr = event.Err
+			}
+			// Drain the iterator so Runner can flush the durable idle/error boundary
+			// and release its managed-session handle before rollback or retry.
+			continue
 		}
 		if event.Output == nil || event.Output.MessageOutput == nil {
 			continue
@@ -407,6 +605,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 				onEvent(res.Steps[idx])
 			}
 		}
+	}
+	if terminalErr != nil {
+		return preservePartialAgentError(res, pending, terminalErr)
 	}
 	if finalText == "" {
 		if emptyTurnNeedsRepair(res, maxTokens) {

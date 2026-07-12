@@ -743,6 +743,7 @@ function workerOptions(onlyAdmin) {
 function opsTable() {
   const ops = state.ops || {};
   const engine = ops.engine || {};
+  const eino = ops.eino_runtime || {};
   const engineFails = Number(engine.consecutive_fails || 0);
   return `
     <table class="data-table">
@@ -751,6 +752,8 @@ function opsTable() {
         <tr><th>Go</th><td>${esc(ops.go || "")}</td></tr>
         <tr><th>AI 引擎</th><td>${engine.configured ? (engineFails ? `<span class="pill red">连续失败 ${engineFails}</span>` : `<span class="pill green">正常</span>`) : `<span class="pill amber">未配置</span>`}</td></tr>
         <tr><th>最近错误</th><td>${esc(engine.last_error || "无")}</td></tr>
+        <tr><th>Eino 会话</th><td>${Number(eino.sessions || 0)} 个 · ${Number(eino.events || 0)} 条事件 · ${fmtBytes(eino.storage_bytes)}</td></tr>
+        <tr><th>待恢复检查点</th><td>${Number(eino.checkpoints || 0)}${eino.last_event_at ? ` · 最近事件 ${fmtTime(eino.last_event_at)}` : ""}</td></tr>
         <tr><th>迁移</th><td>${esc((ops.migrations || []).join(", "))}</td></tr>
       </tbody>
     </table>`;

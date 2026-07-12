@@ -14,7 +14,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 │  sched（DB 驱动定时·截止提醒·每日汇总/日报）│
 ├─ AI 引擎（可换）─────────────────────────────┤
 │  ai.Engine 接口                               │
-│   └─ einoengine：eino ADK 直调 API（claude/openai）│
+│   └─ einoengine：DeepAgent·原生 session/skill/tool search│
 ├─ 领域层 ─────────────────────────────────────┤
 │  tools（工具即权限边界·全量审计）         │
 │  perm（双维度权限纯逻辑·单测覆盖）        │
@@ -27,6 +27,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 
 - **自有 Tool 抽象**（`ai.Tool`：名称 + JSON Schema + handler），不绑任何框架。eino、对外 MCP、HTTP API 都是同一套工具的薄适配。
 - **中枢只走 API 引擎**：`eino` 引擎直调模型 API（客户自带 key 的产品路径）。本机 CLI 只允许由 `nbco-worker` 通过交互式 PTY 驱动，严禁 `claude -p` / `codex exec` 这类 headless 入口。
+- **Eino 原生 Agent Loop**：主对话使用 `DeepAgent`；`write_todos` 负责复杂目标的轮内计划，`tool_search` 延迟发现权限内工具，skill middleware 按需加载完整流程，summarization 管理长上下文。会话事件和 interrupt/cancel checkpoint 持久化到 PostgreSQL，服务重启后继续使用同一 agent 上下文。
 - **工具即权限边界**：每个工具 handler 内部做权限校验（超管专属工具只组装给超管），每次调用写审计日志。
 - **分渠道排版**：系统提示按会话渠道注入格式指引——Telegram 用其 HTML 子集（粗体/代码/引用）+ emoji，网关先按 HTML 发送、格式非法自动降级纯文本；Web/API 输出纯文本。
 
@@ -54,6 +55,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.api_key` / `ai.model` | eino 引擎必填 |
 | `ai.timeout_ms` | 单次模型 API 请求超时，默认 `300000`（5 分钟）；长上下文/慢模型可调大 |
 | `ai.turn_timeout_ms` | 一整轮对话总时限（含排队、路由、工具与重试），默认 `600000`（10 分钟），最大 30 分钟 |
+| `ai.summarize_after_tokens` / `ai.summarize_after_messages` | Eino 原生上下文摘要触发阈值，任一达到即压缩 agent 上下文；默认 `24000` tokens / `80` messages，不删除产品聊天或审计记录 |
 | `ai.stream_reasoning` | 是否在流式回复阶段展示模型推理内容，默认 `false`；超管可通过对话修改，运行时设置优先于配置文件默认值 |
 | `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
 | `ai.embed_base_url` / `ai.embed_api_key` | embedding 端点地址/密钥；仅 `ai.provider=openai` 时空值才回退 `ai.base_url` / `ai.api_key`，Claude/Anthropic 兼容主模型必须显式配置 |
@@ -288,9 +290,11 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 - **/new**（超管）：重置本群会话
 - 系统提示注入群纪律：回复全员可见，涉及隐私（画像/Token/私人任务）引导私聊，不主动插话
 
-## 会话上下文压缩（eino 的"auto-compact"）
+## 会话与上下文压缩
 
-eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：未折叠消息达到阈值（30 条或 16KB）时，后台把「除最近 12 条外」的消息连同既有摘要压缩成新摘要存进会话（`summary` / `summary_upto`）；每轮重放 = 摘要 + 位点后消息。早期的决定、承诺不再随硬截断（40 条上限）静默丢失。压缩轮次无工具、异步执行，不增加用户等待；失败下轮重试。
+私聊使用 Eino managed session：完整模型消息、工具调用与结果写入 append-only `eino_session_events`，Eino summarization 达到配置阈值后生成 `messages_replaced` 事件。`chat_messages` 仍保存面向产品的可读历史与检索数据，两者职责分离；进程重启不需要手工拼接 agent 轨迹。
+
+Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 AI 时写入共享会话，Eino 无法凭空感知这种外部写入，因此群聊不启用 managed session，继续使用 nbco 的滚动摘要（`summary` / `summary_upto`）和近期消息重放。这是数据入口差异，不是两套 agent loop。
 
 ## 主动运营（AI 主动，人被动）
 
@@ -324,7 +328,7 @@ eino 直连 API 没有 CLI 那种自动压缩，中枢自建**滚动摘要**：�
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 说「以后不要…」「默认…」这类持久性要求时，AI 用 `save_rule` 存成规则（与知识同表，`kind=policy`；作用域 `scope:global/telegram/api/worker/user:<id>` 用标签表达）。少数 `pinned` 底线规则每轮常驻系统提示；其余规则每轮用当前输入做语义检索、按作用域过滤后注入「本轮相关规则」，worker 领活时同样注入适用 worker 场景的规则——规则可以无限多，系统提示不会随之膨胀。管理工具：`save_rule` / `list_rules` / `set_rule_pinned`（改正文/删除复用 `update_knowledge` / `delete_knowledge`）
-- **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」——滚动摘要丢掉的细节找得回来。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
+- **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`ai.provider=openai` 时 `embed_base_url`/`embed_api_key` 空才回退主引擎，Claude/Anthropic 兼容主模型必须显式配置 embedding 端点）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
@@ -349,7 +353,7 @@ nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把
 - **资料实体库**：worker 资料分析可同时输出客户、项目、合同、制度、联系人等结构化实体，入 `material_entities`，再由 `list_material_entities` 检索
 - **对话回归用例**：`create_eval_case` / `list_eval_cases` 保存格式、隐私、工具纪律等红线用例，作为后续自动评测入口
 
-这层是“智能学习”的治理面：长期规则、执行方法、公司事实可以越来越多，但每轮对话只由规则/skill/知识检索器按需加载，不靠无限拉长系统提示。
+这层是“智能学习”的治理面：长期规则、执行方法、公司事实可以越来越多；业务检索层只召回有权限的少量 skill 元数据，再由 Eino skill middleware 让主 Agent 判断是否加载完整内容，不靠无限拉长系统提示，也不额外运行一轮 Skill Router。
 
 ## 公司资料分析与 worker 归属
 

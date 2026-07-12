@@ -426,6 +426,11 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取迁移状态失败"})
 		return
 	}
+	einoRuntime, err := s.store.EinoRuntimeStats(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 Eino 运行状态失败"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version":    Version,
 		"go":         runtime.Version(),
@@ -433,7 +438,8 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		"workers": map[string]any{
 			"hub_configured": s.deps.Workers != nil,
 		},
-		"engine": s.engineHealth(),
+		"engine":       s.engineHealth(),
+		"eino_runtime": einoRuntime,
 	})
 }
 

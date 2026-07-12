@@ -120,23 +120,25 @@ func TestStyleFor(t *testing.T) {
 	}
 }
 
-func TestFirstSkills(t *testing.T) {
-	cands := []*store.Knowledge{
-		{ID: 10, Title: "A", Kind: store.KnowledgeKindSkill},
-		{ID: 20, Title: "B", Kind: store.KnowledgeKindSkill},
-		{ID: 30, Title: "C", Kind: store.KnowledgeKindSkill},
+func TestCapabilityScopeTracksAuthorizationNotToolCatalog(t *testing.T) {
+	owner := int64(9)
+	user := &store.User{ID: 2, IsWorker: true, OwnerID: &owner}
+	grants := []store.Grant{
+		{Kind: store.KindPassive, Action: "irrelevant", Target: "_all"},
+		{Kind: store.KindActive, Action: "send_message", Target: "7"},
+		{Kind: store.KindActive, Action: "create_task", Target: "_all"},
 	}
-	if got := firstSkills(cands, 2); len(got) != 2 || got[0].ID != 10 || got[1].ID != 20 {
-		t.Fatalf("firstSkills 取前 N 不对: %+v", got)
+	first := capabilityScopeForGrants(user, grants)
+	grants[1], grants[2] = grants[2], grants[1]
+	if got := capabilityScopeForGrants(user, grants); got != first {
+		t.Fatalf("grant ordering changed capability scope: got=%q want=%q", got, first)
 	}
-	if got := firstSkills(cands, 10); len(got) != 3 {
-		t.Fatalf("limit 超过候选数应返回全部: %+v", got)
+	grants = append(grants, store.Grant{Kind: store.KindActive, Action: "invite_employee", Target: "_all"})
+	if got := capabilityScopeForGrants(user, grants); got == first {
+		t.Fatal("an active permission change did not rotate capability scope")
 	}
-	if got := firstSkills(cands, 0); got != nil {
-		t.Fatalf("limit<=0 应返回 nil: %+v", got)
-	}
-	if got := firstSkills(nil, 3); got != nil {
-		t.Fatalf("空候选应返回 nil: %+v", got)
+	if got := capabilityScopeForGrants(&store.User{ID: 1, IsSuperadmin: true}, grants); got != "superadmin" {
+		t.Fatalf("superadmin scope should be stable across catalog/grant changes: %q", got)
 	}
 }
 
@@ -176,37 +178,6 @@ func TestRenderPromptUserInfoSkipsSensitiveFields(t *testing.T) {
 		if strings.Contains(got, bad) {
 			t.Fatalf("敏感字段不应进入提示信息 %q: %s", bad, got)
 		}
-	}
-}
-
-func TestParseSkillRouterSelection(t *testing.T) {
-	cands := []*store.Knowledge{
-		{ID: 10, Title: "A", Kind: store.KnowledgeKindSkill},
-		{ID: 20, Title: "B", Kind: store.KnowledgeKindSkill},
-		{ID: 30, Title: "C", Kind: store.KnowledgeKindSkill},
-	}
-	got, ok := parseSkillRouterSelection(`{"ids":[30,999,10,30]}`, cands, 2)
-	if !ok || len(got) != 2 || got[0].ID != 30 || got[1].ID != 10 {
-		t.Fatalf("selector 应按模型选择顺序去重并忽略未知 ID: ok=%v got=%+v", ok, got)
-	}
-	got, ok = parseSkillRouterSelection(`{"ids":[]}`, cands, 2)
-	if !ok || got != nil {
-		t.Fatalf("空选择应有效且返回 nil: ok=%v got=%+v", ok, got)
-	}
-	if _, ok := parseSkillRouterSelection(`not json`, cands, 2); ok {
-		t.Fatal("坏 JSON 不应视为有效选择")
-	}
-	if _, ok := parseSkillRouterSelection(`{"ids":[999]}`, cands, 2); ok {
-		t.Fatal("只返回未知 ID 应回退原始排序")
-	}
-}
-
-func TestSemanticLearningDecisionPreserved(t *testing.T) {
-	plan, ok := normalizeSemanticToolPlan(semanticToolPlan{
-		Mode: "answer", LearnExplicit: true,
-	}, []ai.Tool{{Name: "read", Domain: "data"}})
-	if !ok || !plan.Learn || !plan.LearnExplicit {
-		t.Fatalf("explicit semantic learning decision = %+v, ok=%v", plan, ok)
 	}
 }
 
@@ -557,9 +528,6 @@ func (f *fakeEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.TurnRe
 	if req.SessionID == "memory-miner" {
 		return &ai.TurnResult{Text: `{"rules":[],"skills":[],"knowledge":[]}`}, nil
 	}
-	if req.SessionID == "skill-router" {
-		return &ai.TurnResult{Text: `{"ids":[]}`}, nil
-	}
 	f.mu.Lock()
 	f.reqs = append(f.reqs, req)
 	f.mu.Unlock()
@@ -578,8 +546,8 @@ func (f *fakeEngine) lastReq() *ai.TurnRequest {
 	return f.reqs[len(f.reqs)-1]
 }
 
-// TestCompactionCycle 端到端压缩闭环（需要 NBCO_TEST_PG_DSN）：
-// 连续对话触发阈值 → 后台压缩落库 → 下一轮系统提示带摘要、历史只含位点之后。
+// TestCompactionCycle 验证群聊旁听兼容路径：群消息可在 agent loop 外进入，
+// 因此继续使用产品层滚动摘要；私聊改由 Eino managed session 负责压缩。
 func TestCompactionCycle(t *testing.T) {
 	dsn := os.Getenv("NBCO_TEST_PG_DSN")
 	if dsn == "" {
@@ -613,14 +581,15 @@ func TestCompactionCycle(t *testing.T) {
 
 	eng := &fakeEngine{}
 	o := New(s, eng, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, time.Minute)
+	channel := fmt.Sprintf("telegram:group:-%d", time.Now().UnixNano())
 
 	// 每轮落 2 条消息；compactAfter=30 → 15 轮后触发后台压缩。
 	for i := 0; i < compactAfter/2+1; i++ {
-		if _, err := o.HandleMessage(ctx, u, "api", fmt.Sprintf("第 %d 句话", i)); err != nil {
+		if _, err := o.HandleGroupMessage(ctx, u, channel, u.Name, fmt.Sprintf("第 %d 句话", i)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	sess, err := s.ActiveSession(ctx, u.ID, "api")
+	sess, err := s.ActiveSessionByChannel(ctx, channel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -644,7 +613,7 @@ func TestCompactionCycle(t *testing.T) {
 	}
 
 	// 下一轮：系统提示带摘要，历史只含位点之后的消息。
-	if _, err := o.HandleMessage(ctx, u, "api", "压缩之后再说一句"); err != nil {
+	if _, err := o.HandleGroupMessage(ctx, u, channel, u.Name, "压缩之后再说一句"); err != nil {
 		t.Fatal(err)
 	}
 	req := eng.lastReq()

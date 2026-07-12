@@ -145,7 +145,7 @@ func run(configPath string) error {
 		slog.Info("外接 MCP 工具已接入", "server", srv.Name, "tools", len(ext))
 	}
 
-	engine, err := buildEngine(ctx, cfg)
+	engine, err := buildEngine(ctx, cfg, st)
 	if err != nil {
 		return err
 	}
@@ -250,9 +250,10 @@ func run(configPath string) error {
 }
 
 // buildEngine 按配置构建 AI 引擎。中枢只走 API 引擎；CLI 只允许在 worker 端用交互式 PTY。
-func buildEngine(ctx context.Context, cfg *config.Config) (ai.Engine, error) {
+func buildEngine(ctx context.Context, cfg *config.Config, st *store.Store) (ai.Engine, error) {
 	if cfg.AI.Engine == config.EngineEino {
-		eng, err := einoengine.New(ctx, cfg.AI)
+		eng, err := einoengine.New(ctx, cfg.AI,
+			einoengine.WithRuntimeStore(einoengine.NewPostgresRuntimeStore(st.Pool())))
 		return eng, err
 	}
 	return nil, fmt.Errorf("不支持的 ai.engine: %q（中枢只支持 eino；CLI 自动干活请用 nbco-worker 交互式 PTY）", cfg.AI.Engine)
