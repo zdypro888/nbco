@@ -292,6 +292,13 @@ func (s *Store) MarkKnowledgeVectorIndexed(ctx context.Context, id int64, model 
 		`UPDATE knowledge SET embedding = NULL, embed_model = $2 WHERE id = $1`, id, model)
 }
 
+// ClearLegacyKnowledgeEmbeddings removes vector payloads left by the legacy
+// PostgreSQL index after a complete external-index reconciliation.
+func (s *Store) ClearLegacyKnowledgeEmbeddings(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `UPDATE knowledge SET embedding = NULL WHERE embedding IS NOT NULL`)
+	return wrapErr(err)
+}
+
 // KnowledgeVec 一条知识的 id + 向量（语义检索候选）。
 type KnowledgeVec struct {
 	ID        int64
@@ -362,7 +369,7 @@ func (s *Store) KnowledgeNeedingEmbedding(ctx context.Context, model string, lim
 // 回填驱动用游标顺序扫描整库，避免某个失败行长期挡住它后面的知识。
 func (s *Store) KnowledgeNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,
-		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 AND id > $2 ORDER BY id LIMIT $3`, model, afterID, limit)
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE (embed_model <> $1 OR embedding IS NULL) AND id > $2 ORDER BY id LIMIT $3`, model, afterID, limit)
 }
 
 // KnowledgeAfter scans every knowledge row for external-index reconciliation.

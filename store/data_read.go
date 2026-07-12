@@ -411,7 +411,7 @@ func (s *Store) SemanticDocuments(ctx context.Context, source string, offset, li
 		offset = 0
 	}
 	rows, err := s.pool.Query(ctx,
-		fmt.Sprintf(`WITH visible AS (%s)
+		fmt.Sprintf(`WITH caller AS (SELECT $1::bigint AS user_id, $2::boolean AS is_superadmin), visible AS (%s)
 		 SELECT item FROM visible ORDER BY sort_id ASC, sort_at ASC NULLS LAST LIMIT $3 OFFSET $4`, def.query),
 		int64(0), true, limit, offset)
 	if err != nil {

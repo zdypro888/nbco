@@ -164,6 +164,13 @@ func (s *Store) MarkMessageVectorIndexed(ctx context.Context, id int64, model st
 		`UPDATE chat_messages SET embedding = NULL, embed_model = $2 WHERE id = $1`, id, model)
 }
 
+// ClearLegacyMessageEmbeddings removes vector payloads left by the legacy
+// PostgreSQL index after a complete external-index reconciliation.
+func (s *Store) ClearLegacyMessageEmbeddings(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `UPDATE chat_messages SET embedding = NULL WHERE embedding IS NOT NULL`)
+	return wrapErr(err)
+}
+
 // MessageSemanticDocument carries the permission scope needed as Qdrant
 // payload metadata. Message content remains authoritative in PostgreSQL.
 type MessageSemanticDocument struct {
@@ -231,7 +238,7 @@ func (s *Store) MemorableMessageIDs(ctx context.Context) ([]int64, error) {
 func (s *Store) MessagesNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]ChatMessage, error) {
 	return s.queryMessages(ctx,
 		`SELECT id, session_id, role, content, created_at FROM chat_messages
-		 WHERE embed_model <> $1 AND id > $2 AND length(content) >= $3
+		 WHERE (embed_model <> $1 OR embedding IS NULL) AND id > $2 AND length(content) >= $3
 		 ORDER BY id LIMIT $4`, model, afterID, minMemorableLen, limit)
 }
 

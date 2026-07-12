@@ -1675,6 +1675,13 @@ func TestReadDataAllSourcesCompile(t *testing.T) {
 			})
 		}
 	}
+	for _, source := range SemanticDataSources() {
+		t.Run("semantic/"+source, func(t *testing.T) {
+			if _, err := s.SemanticDocuments(ctx, source, 0, 1); err != nil {
+				t.Fatalf("semantic source %s: %v", source, err)
+			}
+		})
+	}
 }
 
 func TestSelfAssignedSkipsReview(t *testing.T) {
@@ -2742,6 +2749,22 @@ func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
 	if !hasK2 || hasK1 {
 		t.Fatalf("待回填应含 k2 不含 k1: need=%+v", need)
 	}
+	// 外部索引只保留模型标签、不保留 PostgreSQL 向量；切回本地索引时
+	// embedding IS NULL 必须让同模型记录重新进入回填队列。
+	if err := s.MarkKnowledgeVectorIndexed(ctx, k1.ID, "test-model"); err != nil {
+		t.Fatal(err)
+	}
+	need, err = s.KnowledgeNeedingEmbedding(ctx, "test-model", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasK1 = false
+	for _, k := range need {
+		hasK1 = hasK1 || k.ID == k1.ID
+	}
+	if !hasK1 {
+		t.Fatal("同模型但 PostgreSQL 向量为空的知识应重新回填")
+	}
 	k3, err := s.CreateKnowledge(ctx, "前端踩坑", "按钮态要覆盖 loading", []string{"project:9", "worker:7"}, author.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -2752,6 +2775,12 @@ func TestKnowledgeEmbeddingAndSearch(t *testing.T) {
 	tagScoped, err := s.EmbeddedKnowledgeByTag(ctx, "test-model", "project:9")
 	if err != nil || len(tagScoped) != 1 || tagScoped[0].ID != k3.ID {
 		t.Fatalf("按标签取向量候选 = %+v err=%v", tagScoped, err)
+	}
+	if err := s.ClearLegacyKnowledgeEmbeddings(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if cands, err := s.EmbeddedKnowledge(ctx, "test-model"); err != nil || len(cands) != 0 {
+		t.Fatalf("旧知识向量应已清理: %+v err=%v", cands, err)
 	}
 	byAuthor, err := s.SearchKnowledgeByAuthor(ctx, author.ID, "按钮", 5)
 	if err != nil || len(byAuthor) == 0 || byAuthor[0].Title != "前端踩坑" {
@@ -3335,6 +3364,29 @@ func TestEpisodicMessageSearch(t *testing.T) {
 		if m.ID == id1 {
 			t.Fatal("已嵌入消息不应再进队列")
 		}
+	}
+	if err := s.MarkMessageVectorIndexed(ctx, id1, "m:2"); err != nil {
+		t.Fatal(err)
+	}
+	need, err = s.MessagesNeedingEmbeddingAfter(ctx, "m:2", 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hasID1 bool
+	for _, m := range need {
+		hasID1 = hasID1 || m.ID == id1
+	}
+	if !hasID1 {
+		t.Fatal("同模型但 PostgreSQL 向量为空的消息应重新回填")
+	}
+	if err := s.SetMessageEmbedding(ctx, id1, "m:2", []float32{1, 0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClearLegacyMessageEmbeddings(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if vecs, err := s.EmbeddedMessagesOfUser(ctx, "m:2", boss.ID); err != nil || len(vecs) != 0 {
+		t.Fatalf("旧消息向量应已清理: %+v err=%v", vecs, err)
 	}
 }
 

@@ -3,8 +3,10 @@ package semantic
 import (
 	"context"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/vectorstore"
@@ -23,6 +25,7 @@ func (e *testEmbedder) Embed(_ context.Context, texts []string) ([][]float32, er
 }
 
 type memoryVectors struct {
+	mu     sync.Mutex
 	points map[string]vectorstore.Point
 }
 
@@ -31,6 +34,8 @@ func newMemoryVectors() *memoryVectors {
 }
 
 func (m *memoryVectors) Upsert(_ context.Context, _ string, points []vectorstore.Point) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for _, point := range points {
 		m.points[point.Ref.Key()] = point
 	}
@@ -38,6 +43,8 @@ func (m *memoryVectors) Upsert(_ context.Context, _ string, points []vectorstore
 }
 
 func (m *memoryVectors) Search(_ context.Context, _ string, vector []float32, filter vectorstore.Filter, limit int, minScore float32) ([]vectorstore.Hit, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var hits []vectorstore.Hit
 	for _, point := range m.points {
 		if source, ok := filter.Must[vectorstore.PayloadSource].(string); ok && point.Source != source {
@@ -56,6 +63,8 @@ func (m *memoryVectors) Search(_ context.Context, _ string, vector []float32, fi
 }
 
 func (m *memoryVectors) Hashes(_ context.Context, _ string, _ int, refs []vectorstore.Ref) (map[string]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	out := make(map[string]string, len(refs))
 	for _, ref := range refs {
 		if point, ok := m.points[ref.Key()]; ok {
@@ -66,6 +75,8 @@ func (m *memoryVectors) Hashes(_ context.Context, _ string, _ int, refs []vector
 }
 
 func (m *memoryVectors) List(_ context.Context, _ string, _ int, source string) ([]vectorstore.Metadata, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var out []vectorstore.Metadata
 	for _, point := range m.points {
 		if point.Source == source {
@@ -76,6 +87,8 @@ func (m *memoryVectors) List(_ context.Context, _ string, _ int, source string) 
 }
 
 func (m *memoryVectors) Delete(_ context.Context, _ string, _ int, refs []vectorstore.Ref) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for _, ref := range refs {
 		delete(m.points, ref.Key())
 	}
@@ -150,5 +163,74 @@ func TestQueryVectorCache(t *testing.T) {
 	second, err := service.QueryVector(ctx, "同一件事情的另一种说法")
 	if err != nil || len(second) != len(first) || embedder.calls.Load() != 1 {
 		t.Fatalf("查询向量缓存失效: calls=%d err=%v", embedder.calls.Load(), err)
+	}
+}
+
+type measuredEmbedder struct {
+	inFlight atomic.Int32
+	max      atomic.Int32
+	maxBatch atomic.Int32
+}
+
+func (*measuredEmbedder) Model() string { return "measured" }
+
+func (e *measuredEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	current := e.inFlight.Add(1)
+	defer e.inFlight.Add(-1)
+	recordMax(&e.max, current)
+	recordMax(&e.maxBatch, int32(len(texts)))
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(5 * time.Millisecond):
+	}
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i] = []float32{1, 1}
+	}
+	return out, nil
+}
+
+func recordMax(dst *atomic.Int32, value int32) {
+	for current := dst.Load(); value > current && !dst.CompareAndSwap(current, value); current = dst.Load() {
+	}
+}
+
+func TestBulkEmbeddingsAreSerializedAndBounded(t *testing.T) {
+	ctx := context.Background()
+	embedder := &measuredEmbedder{}
+	service := New(nil, embedder, newMemoryVectors())
+	if _, _, err := service.CurrentModel(ctx); err != nil {
+		t.Fatal(err)
+	}
+	embedder.max.Store(0)
+	embedder.maxBatch.Store(0)
+
+	documents := func(source string) []Document {
+		out := make([]Document, 17)
+		for i := range out {
+			out[i] = Document{
+				Ref:     vectorstore.Ref{Source: source, EntityID: string(rune('A' + i))},
+				Content: "semantic document",
+			}
+		}
+		return out
+	}
+	var wg sync.WaitGroup
+	for _, source := range []string{"tasks", "profiles"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := service.UpsertDocuments(ctx, documents(source)); err != nil {
+				t.Errorf("UpsertDocuments(%s): %v", source, err)
+			}
+		}()
+	}
+	wg.Wait()
+	if got := embedder.max.Load(); got != 1 {
+		t.Fatalf("后台 embedding 并发 = %d，期望 1", got)
+	}
+	if got := embedder.maxBatch.Load(); got > embedBatchSize {
+		t.Fatalf("embedding 批量 = %d，超过上限 %d", got, embedBatchSize)
 	}
 }

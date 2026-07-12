@@ -264,6 +264,15 @@ func (svc *Service) CleanupMessageIndex(ctx context.Context) error {
 	return err
 }
 
+// ClearLegacyMessageVectors drops PostgreSQL vector payloads only when Qdrant
+// is the active semantic index. Model markers remain useful for diagnostics.
+func (svc *Service) ClearLegacyMessageVectors(ctx context.Context) error {
+	if svc.semantic == nil {
+		return nil
+	}
+	return svc.store.ClearLegacyMessageEmbeddings(ctx)
+}
+
 func messageDocument(message store.MessageSemanticDocument) semantic.Document {
 	return semantic.Document{
 		Ref: vectorstore.Ref{

@@ -609,6 +609,15 @@ func (svc *Service) CleanupKnowledgeIndex(ctx context.Context) error {
 	return err
 }
 
+// ClearLegacyKnowledgeVectors drops PostgreSQL vector payloads only when
+// Qdrant is the active semantic index.
+func (svc *Service) ClearLegacyKnowledgeVectors(ctx context.Context) error {
+	if svc.semantic == nil {
+		return nil
+	}
+	return svc.store.ClearLegacyKnowledgeEmbeddings(ctx)
+}
+
 // embedText 拼向量化文本：标题权重高（重复一次），加正文。
 func embedText(title, content string) string {
 	return title + "\n" + title + "\n" + content

@@ -313,6 +313,7 @@ func runBackfillLoop(ctx context.Context, name string, interval time.Duration, r
 func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 	const batch = 64
 	total := 0
+	complete := false
 	var cursor int64
 	for ctx.Err() == nil {
 		res, err := kb.Backfill(ctx, batch, cursor)
@@ -325,6 +326,7 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 			cursor = res.LastID
 		}
 		if res.Attempted == 0 || !res.HasMore {
+			complete = true
 			break // 已扫完
 		}
 		select {
@@ -336,6 +338,11 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 	if total > 0 {
 		slog.Info("知识 embedding 回填完成", "count", total)
 	}
+	if complete {
+		if err := kb.ClearLegacyKnowledgeVectors(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("知识 PostgreSQL 旧向量清理失败", "err", err)
+		}
+	}
 	if err := kb.CleanupKnowledgeIndex(ctx); err != nil && ctx.Err() == nil {
 		slog.Warn("知识 Qdrant 孤儿索引清理失败", "err", err)
 	}
@@ -345,6 +352,7 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 func backfillMessages(ctx context.Context, kb *knowledge.Service) {
 	const batch = 64
 	total := 0
+	complete := false
 	var cursor int64
 	for ctx.Err() == nil {
 		res, err := kb.BackfillMessages(ctx, batch, cursor)
@@ -357,6 +365,7 @@ func backfillMessages(ctx context.Context, kb *knowledge.Service) {
 			cursor = res.LastID
 		}
 		if res.Attempted == 0 || !res.HasMore {
+			complete = true
 			break
 		}
 		select {
@@ -367,6 +376,11 @@ func backfillMessages(ctx context.Context, kb *knowledge.Service) {
 	}
 	if total > 0 {
 		slog.Info("消息 embedding 回填完成", "count", total)
+	}
+	if complete {
+		if err := kb.ClearLegacyMessageVectors(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("消息 PostgreSQL 旧向量清理失败", "err", err)
+		}
 	}
 	if err := kb.CleanupMessageIndex(ctx); err != nil && ctx.Err() == nil {
 		slog.Warn("消息 Qdrant 孤儿索引清理失败", "err", err)

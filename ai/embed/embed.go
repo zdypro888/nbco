@@ -15,7 +15,7 @@ import (
 	"github.com/zdypro888/nbco/config"
 )
 
-const embedHTTPTimeout = 60 * time.Second
+const defaultEmbedHTTPTimeout = 5 * time.Minute
 
 // Client 实现 ai.Embedder，内部委托 eino 的 openai embedding 组件。
 type Client struct {
@@ -44,11 +44,15 @@ func New(cfg config.AIConfig) (*Client, error) {
 	if key == "" && cfg.Provider == config.ProviderOpenAI {
 		key = cfg.APIKey
 	}
+	timeout := defaultEmbedHTTPTimeout
+	if cfg.TimeoutMS > 0 {
+		timeout = time.Duration(cfg.TimeoutMS) * time.Millisecond
+	}
 	emb, err := einoembed.NewEmbedder(context.Background(), &einoembed.EmbeddingConfig{
 		APIKey:  key,
 		BaseURL: base, // 非 Azure：acl 拼 {base}/embeddings（base 含 /v1 与 chat 一致）
 		Model:   model,
-		Timeout: embedHTTPTimeout,
+		Timeout: timeout,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("构建 embedder: %w", err)

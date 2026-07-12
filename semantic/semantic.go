@@ -25,9 +25,10 @@ const (
 	SourceKnowledge   = "knowledge"
 	SourceChatMessage = "chat_messages"
 
-	embedBatchSize       = 32
+	embedBatchSize       = 8
 	syncPageSize         = 100
 	semanticCallTimeout  = 60 * time.Second
+	semanticBulkTimeout  = 5 * time.Minute
 	queryCacheTTL        = 2 * time.Minute
 	queryCacheLimit      = 256
 	queryFailureCooldown = 3 * time.Second
@@ -77,6 +78,10 @@ type Service struct {
 
 	statusMu sync.RWMutex
 	status   Status
+	// Bulk reconciliation is serialized so knowledge, history, and structured
+	// data cannot overload a shared embedding endpoint during startup. Online
+	// query embeddings remain independent and responsive.
+	bulkEmbed chan struct{}
 
 	missingMu sync.Mutex
 	missing   map[string]int
@@ -88,6 +93,7 @@ func New(s *store.Store, embedder ai.Embedder, vectors vectorstore.Store) *Servi
 		queryCache: make(map[string]queryCacheEntry),
 		status:     Status{Configured: embedder != nil && vectors != nil},
 		missing:    make(map[string]int),
+		bulkEmbed:  make(chan struct{}, 1),
 	}
 }
 
@@ -235,9 +241,7 @@ func (s *Service) UpsertDocuments(ctx context.Context, docs []Document) (int, er
 		for i := range batch {
 			texts[i] = batch[i].Content
 		}
-		embedCtx, cancel := context.WithTimeout(ctx, semanticCallTimeout)
-		vectors, embedErr := s.embedder.Embed(embedCtx, texts)
-		cancel()
+		vectors, embedErr := s.embedBulk(ctx, texts)
 		if embedErr != nil {
 			s.recordFailure(embedErr)
 			return indexed, embedErr
@@ -263,6 +267,18 @@ func (s *Service) UpsertDocuments(ctx context.Context, docs []Document) (int, er
 	}
 	s.recordAvailable()
 	return indexed, nil
+}
+
+func (s *Service) embedBulk(ctx context.Context, texts []string) ([][]float32, error) {
+	select {
+	case s.bulkEmbed <- struct{}{}:
+		defer func() { <-s.bulkEmbed }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	embedCtx, cancel := context.WithTimeout(ctx, semanticBulkTimeout)
+	defer cancel()
+	return s.embedder.Embed(embedCtx, texts)
 }
 
 func (s *Service) Search(ctx context.Context, query string, filter vectorstore.Filter, limit int, minScore float32) ([]vectorstore.Hit, error) {
