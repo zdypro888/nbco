@@ -8,6 +8,7 @@ FROM node:24.18.0-trixie-slim
 
 ARG SERVER
 ARG WORKER_BIN=nbco-worker-linux-amd64
+ARG NPM_VERSION=12.0.1
 ARG CODEX_VERSION=0.144.1
 ARG CLAUDE_CODE_VERSION=2.1.207
 
@@ -18,7 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # CLI agent：固定已验证版本保证镜像可复现。运行时某个 CLI 不可用时，
 # nbco-worker 仍会按配置选择另一 CLI 或回退内置智能体。
-RUN npm install -g \
+RUN npm install -g "npm@${NPM_VERSION}" \
+    && npm install -g \
     "@openai/codex@${CODEX_VERSION}" \
     "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
