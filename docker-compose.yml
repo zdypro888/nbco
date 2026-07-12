@@ -5,7 +5,9 @@
 #   listen 用 0.0.0.0:8900（容器内监听）
 services:
   postgres:
-    image: postgres:17-alpine
+    # Keep the deployed major version stable; 17.10 is the latest PostgreSQL
+    # 17 security/bug-fix release. Major upgrades require pg_upgrade/dump-restore.
+    image: postgres:17.10-alpine
     environment:
       POSTGRES_USER: nbco
       POSTGRES_PASSWORD: nbco

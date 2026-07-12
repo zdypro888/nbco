@@ -4,18 +4,23 @@
 #
 # 构建（worker 二进制从中枢下载，SERVER 传你的 public_base_url）：
 #   docker build --build-arg SERVER=https://your-nbco-host:8443 -t nbco-worker .
-FROM node:22-bookworm-slim
+FROM node:24.17.0-trixie-slim
 
 ARG SERVER
 ARG WORKER_BIN=nbco-worker-linux-amd64
+ARG CODEX_VERSION=0.144.1
+ARG CLAUDE_CODE_VERSION=2.1.207
 
 # 常用工具：worker 干活要 git/构建链；按需增删。
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates build-essential python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# claude CLI（可选）：不装也能干活——nbco-worker 会自动回退内置智能体。
-RUN npm install -g @anthropic-ai/claude-code || true
+# CLI agent：固定已验证版本保证镜像可复现。运行时某个 CLI 不可用时，
+# nbco-worker 仍会按配置选择另一 CLI 或回退内置智能体。
+RUN npm install -g \
+    "@openai/codex@${CODEX_VERSION}" \
+    "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
 RUN useradd -m -u 10001 worker
 
