@@ -127,7 +127,9 @@ func run(configPath string) error {
 			}
 		}()
 		semanticService = semantic.New(st, embedder, qdrantStore)
-		go semanticService.Run(ctx, time.Duration(cfg.Qdrant.SyncIntervalSeconds)*time.Second)
+		go semanticService.Run(ctx,
+			time.Duration(cfg.Qdrant.SyncIntervalSeconds)*time.Second,
+			time.Duration(cfg.Qdrant.SyncTimeoutSeconds)*time.Second)
 		slog.Info("Qdrant 统一语义索引已配置", "url", cfg.Qdrant.URL, "collection_prefix", cfg.Qdrant.CollectionPrefix)
 	}
 	kb := knowledge.New(st, embedder, semanticService)

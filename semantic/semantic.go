@@ -429,12 +429,15 @@ func (s *Service) syncStructuredSource(ctx context.Context, source string) (int,
 	return total, nil
 }
 
-func (s *Service) Run(ctx context.Context, interval time.Duration) {
+func (s *Service) Run(ctx context.Context, interval, syncTimeout time.Duration) {
 	if !s.Enabled() || interval <= 0 {
 		return
 	}
+	if syncTimeout <= 0 {
+		syncTimeout = time.Hour
+	}
 	for ctx.Err() == nil {
-		syncCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		syncCtx, cancel := context.WithTimeout(ctx, syncTimeout)
 		err := s.SyncStructured(syncCtx)
 		cancel()
 		if err != nil && ctx.Err() == nil {

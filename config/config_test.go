@@ -76,7 +76,8 @@ func TestLoadQdrantConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Qdrant.URL != "http://127.0.0.1:6334" || cfg.Qdrant.CollectionPrefix != "nbco_semantic" || cfg.Qdrant.SyncIntervalSeconds != 120 {
+	if cfg.Qdrant.URL != "http://127.0.0.1:6334" || cfg.Qdrant.CollectionPrefix != "nbco_semantic" ||
+		cfg.Qdrant.SyncIntervalSeconds != 120 || cfg.Qdrant.SyncTimeoutSeconds != 3600 {
 		t.Fatalf("Qdrant 默认配置异常: %+v", cfg.Qdrant)
 	}
 }
@@ -176,6 +177,9 @@ func TestLoadValidation(t *testing.T) {
 		{"Qdrant 同步间隔过短",
 			`{"postgres_dsn":"d","qdrant":{"url":"http://127.0.0.1:6334","sync_interval_seconds":5},"ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge"}}`,
 			"qdrant.sync_interval_seconds"},
+		{"Qdrant 单轮同步超时过短",
+			`{"postgres_dsn":"d","qdrant":{"url":"http://127.0.0.1:6334","sync_timeout_seconds":300},"ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge"}}`,
+			"qdrant.sync_timeout_seconds"},
 		{"embedding 运行策略版本非法",
 			`{"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge","embed_revision":"ctx 8192"}}`,
 			"ai.embed_revision"},

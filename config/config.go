@@ -94,6 +94,9 @@ type QdrantConfig struct {
 	CollectionPrefix string `json:"collection_prefix"`
 	// SyncIntervalSeconds 是结构化数据与删除记录的周期对账间隔。
 	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+	// SyncTimeoutSeconds 是单轮完整对账的最长运行时间。大数据集或本地
+	// CPU embedding 需要比普通 HTTP 请求更长的预算。
+	SyncTimeoutSeconds int `json:"sync_timeout_seconds"`
 }
 
 func (c QdrantConfig) Enabled() bool { return strings.TrimSpace(c.URL) != "" }
@@ -202,6 +205,9 @@ func (c *Config) applyDefaults() {
 		if c.Qdrant.SyncIntervalSeconds <= 0 {
 			c.Qdrant.SyncIntervalSeconds = 120
 		}
+		if c.Qdrant.SyncTimeoutSeconds <= 0 {
+			c.Qdrant.SyncTimeoutSeconds = 3600
+		}
 	}
 	for i := range c.MCPServers {
 		c.MCPServers[i].RequiredAction = strings.TrimSpace(c.MCPServers[i].RequiredAction)
@@ -253,6 +259,9 @@ func (c *Config) validate() error {
 		}
 		if c.Qdrant.SyncIntervalSeconds < 30 || c.Qdrant.SyncIntervalSeconds > 86400 {
 			errs = append(errs, errors.New("qdrant.sync_interval_seconds 必须在 30 到 86400 之间"))
+		}
+		if c.Qdrant.SyncTimeoutSeconds < 600 || c.Qdrant.SyncTimeoutSeconds > 86400 {
+			errs = append(errs, errors.New("qdrant.sync_timeout_seconds 必须在 600 到 86400 之间"))
 		}
 		if !mcpServerNameRE.MatchString(c.Qdrant.CollectionPrefix) {
 			errs = append(errs, errors.New("qdrant.collection_prefix 只能使用字母、数字、下划线和连字符，且最长 64 字符"))

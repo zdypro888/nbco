@@ -18,7 +18,8 @@
     "url": "http://127.0.0.1:6334",
     "api_key": "replace-with-a-random-secret",
     "collection_prefix": "nbco_semantic",
-    "sync_interval_seconds": 120
+    "sync_interval_seconds": 120,
+    "sync_timeout_seconds": 3600
   },
   "ai": {
     "engine": "eino",
