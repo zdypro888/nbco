@@ -114,10 +114,14 @@ func (q *Qdrant) Upsert(ctx context.Context, modelTag string, points []Point) er
 		payload[PayloadSource] = point.Source
 		payload[PayloadEntityID] = point.EntityID
 		payload[PayloadContentHash] = point.ContentHash
+		valueMap, err := payloadValueMap(payload)
+		if err != nil {
+			return fmt.Errorf("qdrant upsert payload %s: %w", point.Ref.Key(), err)
+		}
 		qpoints = append(qpoints, &qdrant.PointStruct{
 			Id:      qdrant.NewIDUUID(pointUUID(point.Ref)),
 			Vectors: qdrant.NewVectors(point.Vector...),
-			Payload: qdrant.NewValueMap(payload),
+			Payload: valueMap,
 		})
 	}
 	wait := true
@@ -126,6 +130,39 @@ func (q *Qdrant) Upsert(ctx context.Context, modelTag string, points []Point) er
 		return fmt.Errorf("qdrant upsert %s: %w", collection, err)
 	}
 	return nil
+}
+
+func payloadValueMap(payload map[string]any) (map[string]*qdrant.Value, error) {
+	normalized := make(map[string]any, len(payload))
+	for key, value := range payload {
+		normalized[key] = normalizePayloadValue(value)
+	}
+	return qdrant.TryValueMap(normalized)
+}
+
+func normalizePayloadValue(value any) any {
+	switch values := value.(type) {
+	case []string:
+		out := make([]any, len(values))
+		for i := range values {
+			out[i] = values[i]
+		}
+		return out
+	case []any:
+		out := make([]any, len(values))
+		for i := range values {
+			out[i] = normalizePayloadValue(values[i])
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(values))
+		for key, item := range values {
+			out[key] = normalizePayloadValue(item)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 func (q *Qdrant) Search(ctx context.Context, modelTag string, vector []float32, filter Filter, limit int, minScore float32) ([]Hit, error) {

@@ -16,7 +16,8 @@ func TestQdrantIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	client, err := NewQdrant(QdrantConfig{
-		URL: url, CollectionPrefix: fmt.Sprintf("nbco_test_%d", time.Now().UnixNano()),
+		URL: url, APIKey: os.Getenv("NBCO_TEST_QDRANT_KEY"),
+		CollectionPrefix: fmt.Sprintf("nbco_test_%d", time.Now().UnixNano()),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -26,7 +27,7 @@ func TestQdrantIntegration(t *testing.T) {
 	t.Cleanup(func() { _ = client.client.DeleteCollection(context.Background(), client.collectionName(model)) })
 
 	points := []Point{
-		{Ref: Ref{Source: "tasks", EntityID: "1"}, Vector: []float32{1, 0, 0}, ContentHash: "a", Payload: map[string]any{"author_id": int64(7)}},
+		{Ref: Ref{Source: "tasks", EntityID: "1"}, Vector: []float32{1, 0, 0}, ContentHash: "a", Payload: map[string]any{"author_id": int64(7), "tags": []string{"finance", "policy"}}},
 		{Ref: Ref{Source: "tasks", EntityID: "2"}, Vector: []float32{0, 1, 0}, ContentHash: "b", Payload: map[string]any{"author_id": int64(8)}},
 		{Ref: Ref{Source: "projects", EntityID: "1"}, Vector: []float32{1, 0, 0}, ContentHash: "c"},
 	}
@@ -41,6 +42,12 @@ func TestQdrantIntegration(t *testing.T) {
 	}
 	if len(hits) != 1 || hits[0].EntityID != "1" || hits[0].Source != "tasks" {
 		t.Fatalf("filtered hits = %+v", hits)
+	}
+	hits, err = client.Search(ctx, model, []float32{1, 0, 0}, Filter{Must: map[string]any{
+		PayloadSource: "tasks", "tags": "policy",
+	}}, 5, 0.5)
+	if err != nil || len(hits) != 1 || hits[0].EntityID != "1" {
+		t.Fatalf("array payload hits = %+v, %v", hits, err)
 	}
 	hashes, err := client.Hashes(ctx, model, 3, []Ref{{Source: "tasks", EntityID: "1"}, {Source: "tasks", EntityID: "9"}})
 	if err != nil || hashes[Ref{Source: "tasks", EntityID: "1"}.Key()] != "a" {

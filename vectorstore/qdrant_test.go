@@ -1,6 +1,8 @@
 package vectorstore
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestPointUUIDStableAndNamespaced(t *testing.T) {
 	a := pointUUID(Ref{Source: "tasks", EntityID: "42"})
@@ -41,5 +43,21 @@ func TestBuildFilterSupportsTypedPredicates(t *testing.T) {
 	}
 	if _, err := buildFilter(Filter{Must: map[string]any{"bad": 1.25}}); err == nil {
 		t.Fatal("不支持的过滤值类型应报错")
+	}
+}
+
+func TestQdrantPayloadConversionSupportsStringSlicesWithoutPanic(t *testing.T) {
+	payload, err := payloadValueMap(map[string]any{
+		"tags": []string{"finance", "policy"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := payload["tags"].GetListValue().GetValues()
+	if len(values) != 2 || values[0].GetStringValue() != "finance" || values[1].GetStringValue() != "policy" {
+		t.Fatalf("tags payload = %+v", values)
+	}
+	if _, err := payloadValueMap(map[string]any{"unsupported": make(chan int)}); err == nil {
+		t.Fatal("不支持的 payload 类型必须返回错误，不能 panic")
 	}
 }
