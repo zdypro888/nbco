@@ -19,6 +19,7 @@ import (
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
+	"github.com/zdypro888/nbco/semantic"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/workerhub"
@@ -32,6 +33,9 @@ type Deps struct {
 	// Knowledge 知识库服务（语义+词法混合检索）。可为 nil（测试场景），
 	// 此时知识工具回退到直接走 store 的词法检索。
 	Knowledge *knowledge.Service
+	// Semantic 是 Qdrant 统一语义索引。它只返回稳定ID；工具读取内容时仍
+	// 必须经 Store 的权限感知读模型复核。
+	Semantic *semantic.Service
 	// Workers worker 实时通道（可为 nil）：派活时唤醒在线 worker 秒领任务、
 	// 删任务时取消执行、展示真实在线状态。任务队列仍以数据库为准。
 	Workers *workerhub.Hub

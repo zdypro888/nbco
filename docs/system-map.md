@@ -131,6 +131,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 对候选做审核、去重、冲突评分、发布和回滚。
 - 把相关 rule/skill/knowledge 按需注入系统提示，避免提示词无限膨胀。
 - 同一轮知识、规则、skill 和历史检索复用查询向量；embedding 短时故障会限流并回退词法检索。
+- PostgreSQL 是唯一事实源；Qdrant 是可重建索引。Qdrant 只返回 `source + entity_id + score`，任何正文都必须回 PostgreSQL 经过当前用户的行级和字段级权限复核。
+- 文本型结构化数据由统一同步器按内容哈希增量写入 Qdrant；语义召回与 PostgreSQL 词法召回通过 RRF 融合，同一事实换一种说法仍可命中。
 
 关键工具：
 

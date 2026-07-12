@@ -22,14 +22,19 @@ type DataReadQuery struct {
 	Source  string
 	Terms   []string
 	Filters map[string]string
-	Limit   int
-	Offset  int
+	// EntityIDs 是语义索引返回的稳定 ID 候选。它只用于内部回读；权限条件
+	// 仍在 source query 内先执行，不能借此读取不可见记录。
+	EntityIDs []string
+	Limit     int
+	Offset    int
 }
 
 type dataSourceDef struct {
 	DataSource
-	query string
-	order string
+	query          string
+	order          string
+	semanticID     string
+	semanticFields []string
 }
 
 var dataSourceOrder = []string{
@@ -57,6 +62,9 @@ var dataSourceDefs = map[string]dataSourceDef{
 			) THEN u.info ELSE '{}'::jsonb END,
 			'created_at', u.created_at
 		) AS item, u.created_at AS sort_at, u.id AS sort_id FROM users u`,
+		// info 具有字段级可见性，不能进入全局向量；否则普通用户可能通过
+		// 语义命中顺序推断隐藏手机号等字段与某个公开姓名的关联。
+		semanticID: "user_id", semanticFields: []string{"name", "status"},
 	},
 	"identities": {
 		DataSource: DataSource{
@@ -91,6 +99,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			    AND g.action IN ('view_profile:_all', 'view_profile:' || p.author_id::text)
 			    AND g.target IN ('_all', $1::text)
 		   )`,
+		semanticID: "profile_id", semanticFields: []string{"position", "content"},
 	},
 	"permissions": {
 		DataSource: DataSource{
@@ -115,6 +124,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'last_seen', u.worker_last_seen, 'created_at', u.created_at
 		) AS item, COALESCE(u.worker_last_seen, u.created_at) AS sort_at, u.id AS sort_id
 		FROM users u WHERE u.is_worker AND ($2 OR u.owner_id = $1 OR u.id = $1)`,
+		semanticID: "worker_id", semanticFields: []string{"name", "status"},
 	},
 	"projects": {
 		DataSource: DataSource{
@@ -132,6 +142,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 				       WHERE tp.task_id = t.id AND tp.user_id = $1
 				 ))
 			)`,
+		semanticID: "project_id", semanticFields: []string{"name", "description", "status"},
 	},
 	"tasks": {
 		DataSource: DataSource{
@@ -149,6 +160,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			FROM tasks t WHERE $2 OR t.assigner_id = $1 OR t.assignee_id = $1
 			 OR EXISTS (SELECT 1 FROM task_participants tp
 			             WHERE tp.task_id = t.id AND tp.user_id = $1)`,
+		semanticID: "task_id", semanticFields: []string{"title", "goal", "description", "acceptance", "priority", "status"},
 	},
 	"files": {
 		DataSource: DataSource{
@@ -173,6 +185,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			                 SELECT 1 FROM task_participants tp
 			                  WHERE tp.task_id = t.id AND tp.user_id = $1
 			               )))`,
+		semanticID: "file_id", semanticFields: []string{"original_name", "mime_type", "source"},
 	},
 	"schedules": {
 		DataSource: DataSource{
@@ -187,7 +200,8 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'source_kind', s.source_kind, 'source_key', s.source_key, 'created_at', s.created_at
 		) AS item, s.fire_at AS sort_at, s.id AS sort_id
 		FROM schedules s WHERE $2 OR s.user_id = $1 OR s.created_by = $1`,
-		order: "ASC",
+		order: "ASC", semanticID: "schedule_id",
+		semanticFields: []string{"title", "kind", "message", "status", "target", "mode", "source_kind"},
 	},
 	"knowledge": {
 		DataSource: DataSource{
@@ -200,6 +214,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'pinned', k.pinned, 'created_at', k.created_at, 'updated_at', k.updated_at
 		) AS item, k.updated_at AS sort_at, k.id AS sort_id
 		FROM knowledge k WHERE $2 OR k.kind <> 'policy'`,
+		semanticID: "knowledge_id",
 	},
 	"goals": {
 		DataSource: DataSource{
@@ -215,6 +230,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			SELECT 1 FROM milestones m JOIN tasks t ON t.milestone_id = m.id
 			 WHERE m.goal_id = g.id AND (t.assigner_id = $1 OR t.assignee_id = $1)
 		)`,
+		semanticID: "goal_id", semanticFields: []string{"title", "description", "status"},
 	},
 	"milestones": {
 		DataSource: DataSource{
@@ -231,6 +247,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			SELECT 1 FROM tasks t WHERE t.milestone_id = m.id
 			 AND (t.assigner_id = $1 OR t.assignee_id = $1)
 		)`,
+		semanticID: "milestone_id", semanticFields: []string{"title", "description", "status"},
 	},
 	"campaigns": {
 		DataSource: DataSource{
@@ -249,6 +266,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			SELECT 1 FROM data_collection_campaign_targets x
 			 WHERE x.campaign_id = c.id AND x.user_id = $1
 		)`,
+		semanticID: "campaign_id", semanticFields: []string{"title", "instruction", "required_fields", "status"},
 	},
 	"decisions": {
 		DataSource: DataSource{
@@ -262,6 +280,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'created_at', d.created_at, 'updated_at', d.updated_at
 		) AS item, d.updated_at AS sort_at, d.id AS sort_id
 		FROM decision_items d WHERE $2 OR d.owner_id = $1`,
+		semanticID: "decision_id", semanticFields: []string{"kind", "title", "detail", "ref_type", "status"},
 	},
 	"action_turns": {
 		DataSource: DataSource{
@@ -277,6 +296,8 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'success_tool_count', a.success_tool_count, 'created_at', a.created_at
 		) AS item, a.created_at AS sort_at, a.id AS sort_id
 		FROM action_turns a WHERE $2 OR a.user_id = $1`,
+		semanticID:     "turn_id",
+		semanticFields: []string{"user_text", "reply", "intent", "expected_tools", "evidence", "outcome"},
 	},
 	"telegram_groups": {
 		DataSource: DataSource{
@@ -288,6 +309,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			COALESCE((k.value::jsonb ->> 'updated_at')::timestamptz, now()) AS sort_at,
 			COALESCE((k.value::jsonb ->> 'chat_id')::bigint, 0) AS sort_id
 		FROM kv_state k WHERE $2 AND k.key LIKE 'telegram.group:%' AND k.value <> ''`,
+		semanticID: "chat_id", semanticFields: []string{"title", "type", "status"},
 	},
 	"material_entities": {
 		DataSource: DataSource{
@@ -302,6 +324,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'created_at', e.created_at, 'updated_at', e.updated_at
 		) AS item, e.updated_at AS sort_at, e.id AS sort_id
 		FROM material_entities e WHERE $2`,
+		semanticID: "entity_id", semanticFields: []string{"entity_type", "name", "content", "evidence"},
 	},
 	"audit_activity": {
 		DataSource: DataSource{
@@ -315,6 +338,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			'ok', a.ok, 'created_at', a.created_at
 		) AS item, a.created_at AS sort_at, a.id AS sort_id
 		FROM audit_log a WHERE $2`,
+		semanticID: "audit_id", semanticFields: []string{"tool", "args", "result", "ok"},
 	},
 }
 
@@ -330,6 +354,129 @@ func DataSources(isSuperadmin bool) []DataSource {
 	return out
 }
 
+// SemanticDocument is a curated, non-secret representation used only to build
+// the external semantic index. Source rows remain authoritative in PostgreSQL.
+type SemanticDocument struct {
+	Source   string
+	EntityID string
+	Content  string
+}
+
+// SemanticDataSources lists text-bearing curated read models. Exact-only data
+// such as identity bindings and permission edges deliberately stays in SQL.
+func SemanticDataSources() []string {
+	out := make([]string, 0, len(dataSourceOrder))
+	for _, name := range dataSourceOrder {
+		if def := dataSourceDefs[name]; def.semanticID != "" && len(def.semanticFields) > 0 {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// DataSourceIDField returns the stable ID field for semantic round-tripping.
+func DataSourceIDField(source string) (string, bool) {
+	def, ok := dataSourceDefs[strings.TrimSpace(source)]
+	return def.semanticID, ok && def.semanticID != ""
+}
+
+// DataRowEntityID extracts the stable entity ID without decoding JSON numbers
+// through float64 (Telegram chat IDs and future IDs may exceed 53 bits).
+func DataRowEntityID(source string, row json.RawMessage) (string, bool) {
+	field, ok := DataSourceIDField(source)
+	if !ok {
+		return "", false
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(row, &object); err != nil {
+		return "", false
+	}
+	return semanticJSONScalar(object[field])
+}
+
+// SemanticDocuments returns one stable page from a superadmin-visible curated
+// read model. The exported content contains only fields already allowed by the
+// AI read catalog; credentials, storage paths, hashes, and migration state are
+// never part of these definitions.
+func (s *Store) SemanticDocuments(ctx context.Context, source string, offset, limit int) ([]SemanticDocument, error) {
+	name := strings.TrimSpace(source)
+	def, ok := dataSourceDefs[name]
+	if !ok || def.semanticID == "" || len(def.semanticFields) == 0 {
+		return nil, ErrNotFound
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := s.pool.Query(ctx,
+		fmt.Sprintf(`WITH visible AS (%s)
+		 SELECT item FROM visible ORDER BY sort_id ASC, sort_at ASC NULLS LAST LIMIT $3 OFFSET $4`, def.query),
+		int64(0), true, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]SemanticDocument, 0, limit)
+	for rows.Next() {
+		var raw json.RawMessage
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		id, ok := DataRowEntityID(name, raw)
+		if !ok || id == "" {
+			continue
+		}
+		content, err := semanticDocumentText(raw, def.semanticFields)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, SemanticDocument{Source: name, EntityID: id, Content: content})
+	}
+	return out, rows.Err()
+}
+
+func semanticDocumentText(raw json.RawMessage, fields []string) (string, error) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for _, field := range fields {
+		value := object[field]
+		if len(value) == 0 || string(value) == "null" || string(value) == `""` || string(value) == "{}" || string(value) == "[]" {
+			continue
+		}
+		text := strings.TrimSpace(string(value))
+		var decoded string
+		if err := json.Unmarshal(value, &decoded); err == nil {
+			text = strings.TrimSpace(decoded)
+		}
+		if text == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "%s: %s\n", field, text)
+	}
+	return strings.TrimSpace(b.String()), nil
+}
+
+func semanticJSONScalar(raw json.RawMessage) (string, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", false
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		text = strings.TrimSpace(text)
+		return text, text != ""
+	}
+	text = strings.TrimSpace(string(raw))
+	if text == "" || strings.ContainsAny(text, "{}[]") {
+		return "", false
+	}
+	return text, true
+}
+
 // ReadData executes a structured query over one curated read model. Visibility
 // is embedded in each source query before search and filters are applied, so a
 // filter cannot turn into a side channel for hidden rows or fields.
@@ -340,8 +487,18 @@ func (s *Store) ReadData(ctx context.Context, userID int64, isSuperadmin bool, q
 		return nil, ErrNotFound
 	}
 	q.Terms = cleanWorkspaceFilterValues(q.Terms, nil, 8)
-	if q.Limit <= 0 || q.Limit > 100 {
+	q.EntityIDs = cleanWorkspaceFilterValues(q.EntityIDs, nil, 500)
+	if len(q.EntityIDs) > 0 && def.semanticID == "" {
+		return nil, fmt.Errorf("数据源 %s 不支持稳定ID候选回读", name)
+	}
+	maxLimit := 100
+	if len(q.EntityIDs) > 0 {
+		maxLimit = 500
+	}
+	if q.Limit <= 0 {
 		q.Limit = 30
+	} else if q.Limit > maxLimit {
+		q.Limit = maxLimit
 	}
 	if q.Offset < 0 {
 		q.Offset = 0
@@ -369,9 +526,13 @@ func (s *Store) ReadData(ctx context.Context, userID int64, isSuperadmin bool, q
 	var sql strings.Builder
 	fmt.Fprintf(&sql, "WITH caller AS (SELECT $1::bigint AS user_id, $2::boolean AS is_superadmin), visible AS (%s) SELECT item FROM visible WHERE ", def.query)
 	sql.WriteString(`(cardinality($3::text[]) = 0 OR EXISTS (
-		SELECT 1 FROM unnest($3::text[]) AS q(term)
+		 SELECT 1 FROM unnest($3::text[]) AS q(term)
 		 WHERE strpos(lower(visible.item::text), lower(q.term)) > 0
 	))`)
+	if len(q.EntityIDs) > 0 {
+		args = append(args, q.EntityIDs)
+		fmt.Fprintf(&sql, " AND visible.item ->> '%s' = ANY($%d::text[])", def.semanticID, len(args))
+	}
 	for _, key := range filterKeys {
 		value := q.Filters[key]
 		if runes := []rune(value); len(runes) > 1000 {

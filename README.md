@@ -2,7 +2,7 @@
 
 让几十人规模、没有职业中层的公司，靠 AI 运转起来。AI 是每个员工的直属经理 + 老板的参谋部；IM、Web 都只是它的接口。规划见 [PLAN.md](PLAN.md)，能力地图见 [docs/system-map.md](docs/system-map.md)。
 
-Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有运行状态（用户、权限、任务、会话、真人员工一次性邀请、Worker Access Token、定时任务、审计）落 PostgreSQL，随时可杀可重启。
+Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑在一个进程里；进程完全无状态，所有业务事实（用户、权限、任务、会话、真人员工一次性邀请、Worker Access Token、定时任务、审计）落 PostgreSQL。Qdrant 只保存可从 PostgreSQL 重建的语义索引，任一进程都可随时重启。
 
 ## 架构
 
@@ -19,7 +19,8 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 │  tools（工具即权限边界·全量审计）         │
 │  perm（双维度权限纯逻辑·单测覆盖）        │
 ├─ 存储层 ─────────────────────────────────────┤
-│  store（pgx·内嵌迁移）→ PostgreSQL       │
+│  store（pgx·内嵌迁移）→ PostgreSQL（事实源）│
+│  semantic/vectorstore → Qdrant（可重建语义索引）│
 └──────────────────────────────────────────────┘
 ```
 
@@ -41,6 +42,10 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `telegram_api_url` | 可选的自建 `telegram-bot-api` 基地址；为空使用 Telegram 云端。云端只能下载不超过 20MB 的文件，本机服务可接收更大的 Telegram 文件 |
 | `superadmins` | Telegram 用户 ID 列表（启用 Telegram 时可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |
 | `postgres_dsn` | PostgreSQL 连接串（首次启动自动建表） |
+| `qdrant.url` | Qdrant gRPC 地址，例如 `http://127.0.0.1:6334`；空值禁用并回退 PostgreSQL 旧向量/词法路径 |
+| `qdrant.api_key` | 自托管 Qdrant API Key；仅回环网络可留空 |
+| `qdrant.collection_prefix` | collection 前缀，默认 `nbco_semantic`；模型与维度哈希自动追加 |
+| `qdrant.sync_interval_seconds` | 项目、任务、文件、画像等结构化数据与 Qdrant 周期对账间隔，默认 120 秒 |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
 | `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 只记录消息长度与短哈希，不记录对话/工具明文） |
 | `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释 |
@@ -331,7 +336,7 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 - **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
-- **语义检索**（可选）：配 `ai.embed_model`（指向任意 OpenAI 兼容 embeddings 端点，如自建本地 embedding 服务；`ai.provider=openai` 时 `embed_base_url`/`embed_api_key` 空才回退主引擎，Claude/Anthropic 兼容主模型必须显式配置 embedding 端点）后，知识检索走「语义（cosine）+ 词法」混合召回，措辞不同也能命中；worker 领活时也据任务标题+描述语义召回相关经验。存知识时自动向量化，启动时后台回填存量。**未配则优雅回退到改进版词法检索**（多词打分 + 标签 + 近因），零外部依赖。向量存 `real[]`，nbco 规模下应用层暴力 cosine 足够，无需 pgvector 扩展
+- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，知识、规则、Skill、历史消息、用户画像、项目、任务、文件、日程、决策和资料实体统一进入 Qdrant。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。语义结果与 PostgreSQL 词法结果用 RRF 融合；Qdrant 暂时不可用时自动保留词法路径。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除实体；模型或维度变化自动使用新的物理 collection
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 脚本工具（让 nbco 长出新工具）

@@ -14,6 +14,12 @@
   "daily_summary_hour": 9,
   "sched_ai_concurrency": 4,
   "mcp_servers": [],
+  "qdrant": {
+    "url": "http://127.0.0.1:6334",
+    "api_key": "replace-with-a-random-secret",
+    "collection_prefix": "nbco_semantic",
+    "sync_interval_seconds": 120
+  },
   "ai": {
     "engine": "eino",
     "provider": "claude",
@@ -27,8 +33,8 @@
     "summarize_after_tokens": 24000,
     "summarize_after_messages": 80,
     "stream_reasoning": false,
-    "embed_model": "",
-    "embed_base_url": "",
+    "embed_model": "bge-m3",
+    "embed_base_url": "https://embedding.example.com/v1",
     "embed_api_key": "",
     "stt_model": "",
     "stt_base_url": "",

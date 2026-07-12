@@ -78,6 +78,21 @@ type MCPServer struct {
 	AllowInGroups  bool              `json:"allow_in_groups"` // 仅明确确认无敏感影响时开启
 }
 
+// QdrantConfig 配置可重建的语义索引。业务事实仍在 PostgreSQL；URL 为空时
+// 不启用 Qdrant，并保留原有 PostgreSQL 向量/词法兼容路径。
+type QdrantConfig struct {
+	// URL 是 Qdrant gRPC 地址，默认端口为 6334，例如 http://127.0.0.1:6334。
+	URL string `json:"url"`
+	// APIKey 可为空（仅限回环网络）；远程或共享网络必须配置。
+	APIKey string `json:"api_key"`
+	// CollectionPrefix 是物理 collection 前缀；模型和维度哈希会自动追加。
+	CollectionPrefix string `json:"collection_prefix"`
+	// SyncIntervalSeconds 是结构化数据与删除记录的周期对账间隔。
+	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+}
+
+func (c QdrantConfig) Enabled() bool { return strings.TrimSpace(c.URL) != "" }
+
 // Config 全量配置。
 type Config struct {
 	TelegramToken string `json:"telegram_token"`
@@ -95,8 +110,9 @@ type Config struct {
 	TLSKeyFile         string `json:"tls_key_file"`  // 可选；PEM bundle 可与 tls_cert_file 指向同一文件
 	// PublicBaseURL 对外基地址（如 https://nbco.example.com）：worker 安装指引等面向
 	// 用户的文案用它拼真实地址；为空时文案用占位符。也保留给外部回调集成。
-	PublicBaseURL string   `json:"public_base_url"`
-	AI            AIConfig `json:"ai"`
+	PublicBaseURL string       `json:"public_base_url"`
+	AI            AIConfig     `json:"ai"`
+	Qdrant        QdrantConfig `json:"qdrant"`
 	// MCPServers 外接 MCP 工具服务列表（可选）。
 	MCPServers []MCPServer `json:"mcp_servers"`
 	// DailySummaryHour 每日待办汇总的本地小时（0-23），-1 关闭。默认 9。
@@ -173,6 +189,15 @@ func (c *Config) applyDefaults() {
 	if c.WorkerDownloadPath == "" {
 		c.WorkerDownloadPath = "downloads"
 	}
+	if c.Qdrant.Enabled() {
+		c.Qdrant.URL = strings.TrimRight(strings.TrimSpace(c.Qdrant.URL), "/")
+		if strings.TrimSpace(c.Qdrant.CollectionPrefix) == "" {
+			c.Qdrant.CollectionPrefix = "nbco_semantic"
+		}
+		if c.Qdrant.SyncIntervalSeconds <= 0 {
+			c.Qdrant.SyncIntervalSeconds = 120
+		}
+	}
 	for i := range c.MCPServers {
 		c.MCPServers[i].RequiredAction = strings.TrimSpace(c.MCPServers[i].RequiredAction)
 		if c.MCPServers[i].RequiredAction == "" {
@@ -211,6 +236,22 @@ func (c *Config) validate() error {
 	}
 	if (strings.TrimSpace(c.TLSCertFile) == "") != (strings.TrimSpace(c.TLSKeyFile) == "") {
 		errs = append(errs, errors.New("tls_cert_file 与 tls_key_file 必须同时配置"))
+	}
+	if c.Qdrant.Enabled() {
+		parsed, err := url.Parse(c.Qdrant.URL)
+		if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+			errs = append(errs, errors.New("qdrant.url 必须是无凭据、路径和查询参数的 http/https gRPC 地址"))
+		}
+		if strings.TrimSpace(c.AI.EmbedModel) == "" {
+			errs = append(errs, errors.New("启用 qdrant 时必须配置 ai.embed_model"))
+		}
+		if c.Qdrant.SyncIntervalSeconds < 30 || c.Qdrant.SyncIntervalSeconds > 86400 {
+			errs = append(errs, errors.New("qdrant.sync_interval_seconds 必须在 30 到 86400 之间"))
+		}
+		if !mcpServerNameRE.MatchString(c.Qdrant.CollectionPrefix) {
+			errs = append(errs, errors.New("qdrant.collection_prefix 只能使用字母、数字、下划线和连字符，且最长 64 字符"))
+		}
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":

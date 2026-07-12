@@ -48,8 +48,8 @@ func openKnowledgeTestStore(t *testing.T) (*store.Store, context.Context) {
 func TestMerge(t *testing.T) {
 	k := func(id int64) *store.Knowledge { return &store.Knowledge{ID: id} }
 	out := merge([]*store.Knowledge{k(1), k(2)}, []*store.Knowledge{k(2), k(3)}, 3)
-	if len(out) != 3 || out[0].ID != 1 || out[1].ID != 2 || out[2].ID != 3 {
-		t.Fatalf("语义在前、去重、补足: %+v", out)
+	if len(out) != 3 || out[0].ID != 2 || out[1].ID != 1 || out[2].ID != 3 {
+		t.Fatalf("RRF 应优先语义和词法共同命中的条目: %+v", out)
 	}
 	if l := merge([]*store.Knowledge{k(1), k(2), k(3)}, nil, 2); len(l) != 2 {
 		t.Fatalf("应截到 limit: %d", len(l))

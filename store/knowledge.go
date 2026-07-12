@@ -285,6 +285,13 @@ func (s *Store) SetKnowledgeEmbedding(ctx context.Context, id int64, model strin
 		`UPDATE knowledge SET embedding = $2, embed_model = $3 WHERE id = $1`, id, vec, model)
 }
 
+// MarkKnowledgeVectorIndexed records successful external-vector indexing
+// without retaining a duplicate vector in PostgreSQL.
+func (s *Store) MarkKnowledgeVectorIndexed(ctx context.Context, id int64, model string) error {
+	return s.execOne(ctx,
+		`UPDATE knowledge SET embedding = NULL, embed_model = $2 WHERE id = $1`, id, model)
+}
+
 // KnowledgeVec 一条知识的 id + 向量（语义检索候选）。
 type KnowledgeVec struct {
 	ID        int64
@@ -356,6 +363,31 @@ func (s *Store) KnowledgeNeedingEmbedding(ctx context.Context, model string, lim
 func (s *Store) KnowledgeNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,
 		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 AND id > $2 ORDER BY id LIMIT $3`, model, afterID, limit)
+}
+
+// KnowledgeAfter scans every knowledge row for external-index reconciliation.
+// Unlike KnowledgeNeedingEmbeddingAfter it does not trust PostgreSQL markers:
+// Qdrant may have been restored, cleared, or rebuilt independently.
+func (s *Store) KnowledgeAfter(ctx context.Context, afterID int64, limit int) ([]*Knowledge, error) {
+	return s.queryKnowledge(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE id > $1 ORDER BY id LIMIT $2`, afterID, limit)
+}
+
+func (s *Store) KnowledgeIDs(ctx context.Context) ([]int64, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id FROM knowledge ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // RecentKnowledge 最近的知识条目。

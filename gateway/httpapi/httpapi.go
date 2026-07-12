@@ -431,6 +431,12 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 Eino 运行状态失败"})
 		return
 	}
+	semanticStatus := map[string]any{"configured": false}
+	if s.deps.Semantic != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		semanticStatus = structToMap(s.deps.Semantic.Health(ctx))
+		cancel()
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version":    Version,
 		"go":         runtime.Version(),
@@ -438,9 +444,22 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		"workers": map[string]any{
 			"hub_configured": s.deps.Workers != nil,
 		},
-		"engine":       s.engineHealth(),
-		"eino_runtime": einoRuntime,
+		"engine":         s.engineHealth(),
+		"eino_runtime":   einoRuntime,
+		"semantic_index": semanticStatus,
 	})
+}
+
+func structToMap(value any) map[string]any {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return map[string]any{"configured": true, "error": err.Error()}
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return map[string]any{"configured": true, "error": err.Error()}
+	}
+	return out
 }
 
 func (s *Server) handleAdminCapabilities(w http.ResponseWriter, r *http.Request) {

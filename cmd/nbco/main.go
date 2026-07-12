@@ -27,8 +27,10 @@ import (
 	"github.com/zdypro888/nbco/mcptools"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/sched"
+	"github.com/zdypro888/nbco/semantic"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
+	"github.com/zdypro888/nbco/vectorstore"
 	"github.com/zdypro888/nbco/workerhub"
 )
 
@@ -110,7 +112,25 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
-	kb := knowledge.New(st, embedder)
+	var semanticService *semantic.Service
+	if cfg.Qdrant.Enabled() {
+		qdrantStore, err := vectorstore.NewQdrant(vectorstore.QdrantConfig{
+			URL: cfg.Qdrant.URL, APIKey: cfg.Qdrant.APIKey,
+			CollectionPrefix: cfg.Qdrant.CollectionPrefix,
+		})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := qdrantStore.Close(); err != nil {
+				slog.Warn("关闭 Qdrant 客户端失败", "err", err)
+			}
+		}()
+		semanticService = semantic.New(st, embedder, qdrantStore)
+		go semanticService.Run(ctx, time.Duration(cfg.Qdrant.SyncIntervalSeconds)*time.Second)
+		slog.Info("Qdrant 统一语义索引已配置", "url", cfg.Qdrant.URL, "collection_prefix", cfg.Qdrant.CollectionPrefix)
+	}
+	kb := knowledge.New(st, embedder, semanticService)
 	if embedder != nil {
 		slog.Info("语义检索已启用", "embed_model", embedder.Model())
 		go runBackfillLoop(ctx, "knowledge", 10*time.Minute, func(ctx context.Context) {
@@ -126,6 +146,7 @@ func run(configPath string) error {
 		Notifier:                 hub,
 		TZ:                       tz,
 		Knowledge:                kb,
+		Semantic:                 semanticService,
 		Workers:                  workerhub.New(),
 		AIStreamReasoningDefault: cfg.AI.StreamReasoning,
 		PublicBaseURL:            cfg.PublicBaseURL,
@@ -315,6 +336,9 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 	if total > 0 {
 		slog.Info("知识 embedding 回填完成", "count", total)
 	}
+	if err := kb.CleanupKnowledgeIndex(ctx); err != nil && ctx.Err() == nil {
+		slog.Warn("知识 Qdrant 孤儿索引清理失败", "err", err)
+	}
 }
 
 // backfillMessages 给存量会话消息补 embedding（情景记忆），节奏同知识回填。
@@ -343,5 +367,8 @@ func backfillMessages(ctx context.Context, kb *knowledge.Service) {
 	}
 	if total > 0 {
 		slog.Info("消息 embedding 回填完成", "count", total)
+	}
+	if err := kb.CleanupMessageIndex(ctx); err != nil && ctx.Err() == nil {
+		slog.Warn("消息 Qdrant 孤儿索引清理失败", "err", err)
 	}
 }

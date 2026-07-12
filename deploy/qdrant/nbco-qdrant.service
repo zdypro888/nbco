@@ -1,0 +1,17 @@
+[Unit]
+Description=nbco Qdrant semantic index
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/nbco/qdrant
+EnvironmentFile=/root/nbco/qdrant/qdrant.env
+ExecStart=/usr/local/bin/qdrant --config-path /root/nbco/qdrant/qdrant.yaml --disable-telemetry
+Restart=always
+RestartSec=3
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

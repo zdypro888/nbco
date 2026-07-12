@@ -157,6 +157,75 @@ func (s *Store) SetMessageEmbedding(ctx context.Context, id int64, model string,
 		`UPDATE chat_messages SET embedding = $2, embed_model = $3 WHERE id = $1`, id, vec, model)
 }
 
+// MarkMessageVectorIndexed records successful external-vector indexing while
+// keeping PostgreSQL free of duplicate vector payloads.
+func (s *Store) MarkMessageVectorIndexed(ctx context.Context, id int64, model string) error {
+	return s.execOne(ctx,
+		`UPDATE chat_messages SET embedding = NULL, embed_model = $2 WHERE id = $1`, id, model)
+}
+
+// MessageSemanticDocument carries the permission scope needed as Qdrant
+// payload metadata. Message content remains authoritative in PostgreSQL.
+type MessageSemanticDocument struct {
+	ChatMessage
+	UserID  int64
+	Channel string
+}
+
+func (s *Store) MessageSemanticDocumentByID(ctx context.Context, id int64) (*MessageSemanticDocument, error) {
+	var doc MessageSemanticDocument
+	err := s.pool.QueryRow(ctx,
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel
+		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		  WHERE m.id = $1`, id).
+		Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel)
+	if err != nil {
+		return nil, wrapErr(err)
+	}
+	return &doc, nil
+}
+
+// SemanticMessagesAfter scans all memorable messages for Qdrant reconciliation
+// rather than trusting the legacy embed_model marker.
+func (s *Store) SemanticMessagesAfter(ctx context.Context, afterID int64, limit int) ([]MessageSemanticDocument, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel
+		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		  WHERE m.id > $1 AND length(m.content) >= $2
+		  ORDER BY m.id LIMIT $3`, afterID, minMemorableLen, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MessageSemanticDocument
+	for rows.Next() {
+		var doc MessageSemanticDocument
+		if err := rows.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel); err != nil {
+			return nil, err
+		}
+		out = append(out, doc)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) MemorableMessageIDs(ctx context.Context) ([]int64, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id FROM chat_messages WHERE length(content) >= $1 ORDER BY id`, minMemorableLen)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // MessagesNeedingEmbeddingAfter 从 id 游标后取尚未按当前模型嵌入的消息（回填用）。
 // 只嵌有记忆价值的：长度达标即可，user/assistant 都要（决定可能出现在任一侧）。
 func (s *Store) MessagesNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]ChatMessage, error) {

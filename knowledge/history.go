@@ -6,9 +6,12 @@ import (
 	"context"
 	"log/slog"
 	"sort"
+	"strconv"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/semantic"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/vectorstore"
 )
 
 // embedSem 消息嵌入的并发上限：群旁听刷屏时每条消息一个 embed 请求，不设限
@@ -37,6 +40,25 @@ func (svc *Service) EmbedMessageAsync(id int64, content string) {
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), embedTimeout)
 		defer cancel()
+		if svc.semantic != nil {
+			doc, err := svc.store.MessageSemanticDocumentByID(ctx, id)
+			if err != nil {
+				slog.Debug("读取消息语义作用域失败", "id", id, "err", err)
+				return
+			}
+			if _, err := svc.semantic.UpsertDocuments(ctx, []semantic.Document{messageDocument(*doc)}); err != nil {
+				slog.Debug("消息向量写入 Qdrant 失败", "id", id, "err", err)
+				return
+			}
+			tag, _, err := svc.semantic.CurrentModel(ctx)
+			if err == nil {
+				err = svc.store.MarkMessageVectorIndexed(ctx, id, tag)
+			}
+			if err != nil {
+				slog.Debug("消息 Qdrant 索引标记失败", "id", id, "err", err)
+			}
+			return
+		}
 		vecs, err := svc.embedder.Embed(ctx, []string{content})
 		if err != nil || len(vecs) != 1 || len(vecs[0]) == 0 {
 			slog.Debug("消息向量化失败（回填兜底）", "id", id, "err", err)
@@ -74,6 +96,23 @@ func (svc *Service) semanticHistory(ctx context.Context, userID int64, query str
 	if err != nil {
 		return nil, err
 	}
+	if svc.semantic != nil {
+		hits, err := svc.semantic.SearchVector(ctx, qv, vectorstore.Filter{Must: map[string]any{
+			vectorstore.PayloadSource: semantic.SourceChatMessage,
+			"session_user_id":         userID,
+		}}, limit*semanticCandidateMul, 0)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]int64, 0, len(hits))
+		for _, hit := range hits {
+			id, err := strconv.ParseInt(hit.EntityID, 10, 64)
+			if err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		return svc.store.MessagesByIDs(ctx, ids)
+	}
 	tag := modelTag(svc.embedder.Model(), len(qv))
 	cands, err := svc.store.EmbeddedMessagesOfUser(ctx, tag, userID)
 	if err != nil || len(cands) == 0 {
@@ -100,16 +139,42 @@ func (svc *Service) semanticHistory(ctx context.Context, userID int64, query str
 }
 
 func mergeMessages(primary, secondary []store.ChatMessage, limit int) []store.ChatMessage {
-	seen := map[int64]bool{}
-	out := make([]store.ChatMessage, 0, limit)
+	type fused struct {
+		item     store.ChatMessage
+		score    float64
+		bestRank int
+	}
+	byID := make(map[int64]*fused, len(primary)+len(secondary))
 	for _, list := range [][]store.ChatMessage{primary, secondary} {
-		for _, m := range list {
-			if seen[m.ID] || len(out) >= limit {
-				continue
+		for rank, item := range list {
+			entry := byID[item.ID]
+			if entry == nil {
+				entry = &fused{item: item, bestRank: rank}
+				byID[item.ID] = entry
 			}
-			seen[m.ID] = true
-			out = append(out, m)
+			entry.score += 1 / float64(60+rank+1)
+			entry.bestRank = min(entry.bestRank, rank)
 		}
+	}
+	items := make([]*fused, 0, len(byID))
+	for _, item := range byID {
+		items = append(items, item)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].score != items[j].score {
+			return items[i].score > items[j].score
+		}
+		if items[i].bestRank != items[j].bestRank {
+			return items[i].bestRank < items[j].bestRank
+		}
+		return items[i].item.ID > items[j].item.ID
+	})
+	if limit > len(items) {
+		limit = len(items)
+	}
+	out := make([]store.ChatMessage, 0, max(0, limit))
+	for _, item := range items[:max(0, limit)] {
+		out = append(out, item.item)
 	}
 	return out
 }
@@ -118,6 +183,9 @@ func mergeMessages(primary, secondary []store.ChatMessage, limit int) []store.Ch
 func (svc *Service) BackfillMessages(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
 	if svc.embedder == nil {
 		return BackfillResult{}, nil
+	}
+	if svc.semantic != nil {
+		return svc.backfillQdrantMessages(ctx, batch, afterID)
 	}
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	probe, perr := svc.embedder.Embed(ectx, []string{"nbco"})
@@ -147,4 +215,66 @@ func (svc *Service) BackfillMessages(ctx context.Context, batch int, afterID int
 		cancel()
 	}
 	return res, nil
+}
+
+func (svc *Service) backfillQdrantMessages(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
+	messages, err := svc.store.SemanticMessagesAfter(ctx, afterID, batch)
+	if err != nil {
+		return BackfillResult{}, err
+	}
+	res := BackfillResult{Attempted: len(messages), HasMore: len(messages) == batch}
+	if len(messages) == 0 {
+		return res, nil
+	}
+	res.LastID = messages[len(messages)-1].ID
+	docs := make([]semantic.Document, 0, len(messages))
+	for _, message := range messages {
+		docs = append(docs, messageDocument(message))
+	}
+	if _, err := svc.semantic.UpsertDocuments(ctx, docs); err != nil {
+		return res, err
+	}
+	tag, _, err := svc.semantic.CurrentModel(ctx)
+	if err != nil {
+		return res, err
+	}
+	for _, message := range messages {
+		if err := svc.store.MarkMessageVectorIndexed(ctx, message.ID, tag); err != nil {
+			return res, err
+		}
+		res.Embedded++
+	}
+	return res, nil
+}
+
+func (svc *Service) CleanupMessageIndex(ctx context.Context) error {
+	if svc.semantic == nil {
+		return nil
+	}
+	ids, err := svc.store.MemorableMessageIDs(ctx)
+	if err != nil {
+		return err
+	}
+	valid := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		ref := vectorstore.Ref{Source: semantic.SourceChatMessage, EntityID: strconv.FormatInt(id, 10)}
+		valid[ref.Key()] = true
+	}
+	_, err = svc.semantic.DeleteMissing(ctx, semantic.SourceChatMessage, valid)
+	return err
+}
+
+func messageDocument(message store.MessageSemanticDocument) semantic.Document {
+	return semantic.Document{
+		Ref: vectorstore.Ref{
+			Source: semantic.SourceChatMessage, EntityID: strconv.FormatInt(message.ID, 10),
+		},
+		Content: message.Content,
+		Payload: map[string]any{
+			vectorstore.PayloadKind: "message",
+			"session_user_id":       message.UserID,
+			"channel":               message.Channel,
+			"role":                  message.Role,
+		},
+	}
 }

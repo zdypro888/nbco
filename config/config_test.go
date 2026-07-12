@@ -62,6 +62,23 @@ func TestLoadDefaults(t *testing.T) {
 	if got := cfg.MCPServers[0].RequiredAction; got != "superadmin" {
 		t.Errorf("MCP required_action 默认值 = %q", got)
 	}
+	if cfg.Qdrant.Enabled() {
+		t.Error("未配置 qdrant.url 时不应启用 Qdrant")
+	}
+}
+
+func TestLoadQdrantConfig(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{
+		"postgres_dsn":"postgres://x",
+		"qdrant":{"url":"http://127.0.0.1:6334/"},
+		"ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge-m3"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Qdrant.URL != "http://127.0.0.1:6334" || cfg.Qdrant.CollectionPrefix != "nbco_semantic" || cfg.Qdrant.SyncIntervalSeconds != 120 {
+		t.Fatalf("Qdrant 默认配置异常: %+v", cfg.Qdrant)
+	}
 }
 
 func TestLoadDailySummaryOff(t *testing.T) {
@@ -150,6 +167,15 @@ func TestLoadValidation(t *testing.T) {
 		{"Claude provider 下 stt 必须显式 base_url",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"claude","api_key":"k","base_url":"https://anthropic.example","model":"m","stt_model":"whisper"}}`,
 			"ai.stt_base_url"},
+		{"Qdrant 缺 embedding",
+			`{"postgres_dsn":"d","qdrant":{"url":"http://127.0.0.1:6334"},"ai":{"api_key":"k","model":"m"}}`,
+			"ai.embed_model"},
+		{"Qdrant URL 含路径",
+			`{"postgres_dsn":"d","qdrant":{"url":"http://127.0.0.1:6334/path"},"ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge"}}`,
+			"qdrant.url"},
+		{"Qdrant 同步间隔过短",
+			`{"postgres_dsn":"d","qdrant":{"url":"http://127.0.0.1:6334","sync_interval_seconds":5},"ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge"}}`,
+			"qdrant.sync_interval_seconds"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

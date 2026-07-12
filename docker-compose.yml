@@ -1,6 +1,7 @@
 # 一键部署：docker compose up -d
 # 准备：复制 nbco.json.example 为 nbco.json，
 #   postgres_dsn 用 postgres://nbco:nbco@postgres:5432/nbco?sslmode=disable
+#   qdrant.url 用 http://qdrant:6334，qdrant.api_key 与 QDRANT_API_KEY 一致
 #   listen 用 0.0.0.0:8900（容器内监听）
 services:
   postgres:
@@ -18,11 +19,22 @@ services:
       retries: 10
     restart: unless-stopped
 
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?set QDRANT_API_KEY in .env}
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - qdrantdata:/qdrant/storage
+    restart: unless-stopped
+
   nbco:
     build: .
     depends_on:
       postgres:
         condition: service_healthy
+      qdrant:
+        condition: service_started
     volumes:
       - ./nbco.json:/etc/nbco/nbco.json:ro
     ports:
@@ -31,3 +43,4 @@ services:
 
 volumes:
   pgdata:
+  qdrantdata:

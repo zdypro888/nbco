@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/semantic"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/vectorstore"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -46,6 +48,7 @@ type queryVectorCacheEntry struct {
 type Service struct {
 	store      *store.Store
 	embedder   ai.Embedder
+	semantic   *semantic.Service
 	embedSem   chan struct{}
 	querySem   chan struct{}
 	queryGroup singleflight.Group
@@ -55,14 +58,18 @@ type Service struct {
 	failErr    error
 }
 
-func New(s *store.Store, embedder ai.Embedder) *Service {
-	return &Service{
+func New(s *store.Store, embedder ai.Embedder, semanticService ...*semantic.Service) *Service {
+	service := &Service{
 		store:      s,
 		embedder:   embedder,
 		embedSem:   make(chan struct{}, asyncEmbedConcurrency),
 		querySem:   make(chan struct{}, queryEmbedConcurrency),
 		queryCache: make(map[string]queryVectorCacheEntry),
 	}
+	if len(semanticService) > 0 && semanticService[0] != nil && semanticService[0].Enabled() {
+		service.semantic = semanticService[0]
+	}
+	return service
 }
 
 // queryVector deduplicates the same semantic query across knowledge, rules,
@@ -70,6 +77,9 @@ func New(s *store.Store, embedder ai.Embedder) *Service {
 // retrieval budget so later consumers can reuse its result; callers can still
 // stop waiting immediately through their own context.
 func (svc *Service) queryVector(ctx context.Context, query string) ([]float32, error) {
+	if svc.semantic != nil {
+		return svc.semantic.QueryVector(ctx, query)
+	}
 	if svc.embedder == nil {
 		return nil, fmt.Errorf("embedding 未启用")
 	}
@@ -208,6 +218,22 @@ func (svc *Service) embedOne(ctx context.Context, k *store.Knowledge) bool {
 	if svc.embedder == nil {
 		return false
 	}
+	if svc.semantic != nil {
+		_, err := svc.semantic.UpsertDocuments(ctx, []semantic.Document{knowledgeDocument(k)})
+		if err != nil {
+			slog.Warn("知识向量写入 Qdrant 失败", "id", k.ID, "err", err)
+			return false
+		}
+		tag, _, err := svc.semantic.CurrentModel(ctx)
+		if err != nil {
+			return false
+		}
+		if err := svc.store.MarkKnowledgeVectorIndexed(ctx, k.ID, tag); err != nil {
+			slog.Warn("知识 Qdrant 索引标记落库失败", "id", k.ID, "err", err)
+			return false
+		}
+		return true
+	}
 	vecs, err := svc.embedder.Embed(ctx, []string{embedText(k.Title, k.Content)})
 	if err != nil || len(vecs) != 1 || len(vecs[0]) == 0 {
 		slog.Warn("知识向量化失败（内容已存，回填时补）", "id", k.ID, "err", err)
@@ -229,7 +255,11 @@ func modelTag(model string, dim int) string {
 
 // Search 混合检索：有 embedder 则语义 cosine + 词法融合，否则纯词法。
 func (svc *Service) Search(ctx context.Context, query string, limit int) ([]*store.Knowledge, error) {
-	return svc.search(ctx, query, limit, svc.store.SearchKnowledge, svc.store.EmbeddedKnowledge)
+	return svc.search(ctx, query, limit, svc.store.SearchKnowledge, svc.store.EmbeddedKnowledge,
+		vectorstore.Filter{Must: map[string]any{
+			vectorstore.PayloadSource: semantic.SourceKnowledge,
+			vectorstore.PayloadKind:   store.KnowledgeKindFact,
+		}})
 }
 
 // SaveRule 存一条行为规则（kind=policy）并异步 embedding，路径同 Save。
@@ -264,7 +294,14 @@ func (svc *Service) SearchRules(ctx context.Context, query string, limit int) ([
 	if svc.embedder == nil {
 		return lexical, nil
 	}
-	ranked, serr := svc.semantic(ctx, query, limit, svc.store.EmbeddedRules, ruleSemanticMinScore)
+	ranked, serr := svc.semanticRank(ctx, query, limit, svc.store.EmbeddedRules, ruleSemanticMinScore,
+		vectorstore.Filter{
+			Must: map[string]any{
+				vectorstore.PayloadSource: semantic.SourceKnowledge,
+				vectorstore.PayloadKind:   store.KnowledgeKindPolicy,
+			},
+			MustNot: map[string]any{"pinned": true},
+		})
 	if serr != nil {
 		slog.Warn("规则语义检索失败，回退词法", "err", serr)
 		return lexical, nil
@@ -284,7 +321,11 @@ func (svc *Service) SearchSkills(ctx context.Context, query string, limit int) (
 	if svc.embedder == nil {
 		return lexical, nil
 	}
-	ranked, serr := svc.semantic(ctx, query, limit, svc.store.EmbeddedSkills, skillSemanticMinScore)
+	ranked, serr := svc.semanticRank(ctx, query, limit, svc.store.EmbeddedSkills, skillSemanticMinScore,
+		vectorstore.Filter{Must: map[string]any{
+			vectorstore.PayloadSource: semantic.SourceKnowledge,
+			vectorstore.PayloadKind:   store.KnowledgeKindSkill,
+		}})
 	if serr != nil {
 		slog.Warn("skill 语义检索失败，回退词法", "err", serr)
 		return lexical, nil
@@ -324,7 +365,11 @@ func (svc *Service) SearchByAuthor(ctx context.Context, authorID int64, query st
 		},
 		func(ctx context.Context, model string) ([]store.KnowledgeVec, error) {
 			return svc.store.EmbeddedKnowledgeByAuthor(ctx, model, authorID)
-		})
+		}, vectorstore.Filter{Must: map[string]any{
+			vectorstore.PayloadSource: semantic.SourceKnowledge,
+			vectorstore.PayloadKind:   store.KnowledgeKindFact,
+			"author_id":               authorID,
+		}})
 }
 
 // SearchByTag 在指定标签的知识内做混合检索，用于项目/worker 经验。
@@ -335,7 +380,11 @@ func (svc *Service) SearchByTag(ctx context.Context, tag, query string, limit in
 		},
 		func(ctx context.Context, model string) ([]store.KnowledgeVec, error) {
 			return svc.store.EmbeddedKnowledgeByTag(ctx, model, tag)
-		})
+		}, vectorstore.Filter{Must: map[string]any{
+			vectorstore.PayloadSource: semantic.SourceKnowledge,
+			vectorstore.PayloadKind:   store.KnowledgeKindFact,
+			"tags":                    tag,
+		}})
 }
 
 func (svc *Service) search(
@@ -344,6 +393,7 @@ func (svc *Service) search(
 	limit int,
 	lexicalSearch func(context.Context, string, int) ([]*store.Knowledge, error),
 	semanticCandidates func(context.Context, string) ([]store.KnowledgeVec, error),
+	externalFilter vectorstore.Filter,
 ) ([]*store.Knowledge, error) {
 	if limit <= 0 {
 		limit = 5
@@ -355,7 +405,7 @@ func (svc *Service) search(
 	if svc.embedder == nil {
 		return lexical, nil
 	}
-	ranked, serr := svc.semantic(ctx, query, limit, semanticCandidates, 0)
+	ranked, serr := svc.semanticRank(ctx, query, limit, semanticCandidates, 0, externalFilter)
 	if serr != nil {
 		slog.Warn("语义检索失败，回退词法", "err", serr)
 		return lexical, nil
@@ -365,10 +415,24 @@ func (svc *Service) search(
 
 // semantic 查询向量化 → 与「同模型同维度」的已嵌入知识做 cosine → 取 topN。
 // 按 modelTag（含维度）取候选：维度变更后旧向量自动排除，绝不用零余弦污染结果。
-func (svc *Service) semantic(ctx context.Context, query string, limit int, candidates func(context.Context, string) ([]store.KnowledgeVec, error), minScore float32) ([]*store.Knowledge, error) {
+func (svc *Service) semanticRank(ctx context.Context, query string, limit int, candidates func(context.Context, string) ([]store.KnowledgeVec, error), minScore float32, externalFilter vectorstore.Filter) ([]*store.Knowledge, error) {
 	qv, err := svc.queryVector(ctx, query)
 	if err != nil {
 		return nil, err
+	}
+	if svc.semantic != nil {
+		hits, err := svc.semantic.SearchVector(ctx, qv, externalFilter, limit*semanticCandidateMul, minScore)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]int64, 0, len(hits))
+		for _, hit := range hits {
+			id, err := strconv.ParseInt(hit.EntityID, 10, 64)
+			if err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		return svc.store.KnowledgeByIDs(ctx, ids)
 	}
 	tag := modelTag(svc.embedder.Model(), len(qv))
 	cands, err := candidates(ctx, tag)
@@ -405,18 +469,45 @@ func (svc *Service) semantic(ctx context.Context, query string, limit int, candi
 	return svc.store.KnowledgeByIDs(ctx, ids)
 }
 
-// merge 语义结果在前、词法结果补足，按 id 去重，截到 limit。
+// merge uses Reciprocal Rank Fusion so exact lexical matches and semantic
+// paraphrases reinforce each other without comparing incompatible raw scores.
 func merge(primary, secondary []*store.Knowledge, limit int) []*store.Knowledge {
-	seen := map[int64]bool{}
-	out := make([]*store.Knowledge, 0, limit)
+	type fused struct {
+		item     *store.Knowledge
+		score    float64
+		bestRank int
+	}
+	byID := make(map[int64]*fused, len(primary)+len(secondary))
 	for _, list := range [][]*store.Knowledge{primary, secondary} {
-		for _, k := range list {
-			if seen[k.ID] || len(out) >= limit {
-				continue
+		for rank, item := range list {
+			entry := byID[item.ID]
+			if entry == nil {
+				entry = &fused{item: item, bestRank: rank}
+				byID[item.ID] = entry
 			}
-			seen[k.ID] = true
-			out = append(out, k)
+			entry.score += 1 / float64(60+rank+1)
+			entry.bestRank = min(entry.bestRank, rank)
 		}
+	}
+	items := make([]*fused, 0, len(byID))
+	for _, item := range byID {
+		items = append(items, item)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].score != items[j].score {
+			return items[i].score > items[j].score
+		}
+		if items[i].bestRank != items[j].bestRank {
+			return items[i].bestRank < items[j].bestRank
+		}
+		return items[i].item.ID > items[j].item.ID
+	})
+	if limit > len(items) {
+		limit = len(items)
+	}
+	out := make([]*store.Knowledge, 0, max(0, limit))
+	for _, item := range items[:max(0, limit)] {
+		out = append(out, item.item)
 	}
 	return out
 }
@@ -436,6 +527,9 @@ type BackfillResult struct {
 func (svc *Service) Backfill(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
 	if svc.embedder == nil {
 		return BackfillResult{}, nil
+	}
+	if svc.semantic != nil {
+		return svc.backfillQdrantKnowledge(ctx, batch, afterID)
 	}
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	probe, perr := svc.embedder.Embed(ectx, []string{"nbco"})
@@ -465,7 +559,72 @@ func (svc *Service) Backfill(ctx context.Context, batch int, afterID int64) (Bac
 	return res, nil
 }
 
+func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
+	ks, err := svc.store.KnowledgeAfter(ctx, afterID, batch)
+	if err != nil {
+		return BackfillResult{}, err
+	}
+	res := BackfillResult{Attempted: len(ks), HasMore: len(ks) == batch}
+	if len(ks) == 0 {
+		return res, nil
+	}
+	res.LastID = ks[len(ks)-1].ID
+	docs := make([]semantic.Document, 0, len(ks))
+	for _, k := range ks {
+		docs = append(docs, knowledgeDocument(k))
+	}
+	if _, err := svc.semantic.UpsertDocuments(ctx, docs); err != nil {
+		return res, err
+	}
+	tag, _, err := svc.semantic.CurrentModel(ctx)
+	if err != nil {
+		return res, err
+	}
+	for _, k := range ks {
+		if err := svc.store.MarkKnowledgeVectorIndexed(ctx, k.ID, tag); err != nil {
+			return res, err
+		}
+		res.Embedded++
+	}
+	return res, nil
+}
+
+// CleanupKnowledgeIndex removes Qdrant points whose PostgreSQL source row was
+// deleted. Search already re-reads PostgreSQL, so this is hygiene rather than a
+// permission boundary.
+func (svc *Service) CleanupKnowledgeIndex(ctx context.Context) error {
+	if svc.semantic == nil {
+		return nil
+	}
+	ids, err := svc.store.KnowledgeIDs(ctx)
+	if err != nil {
+		return err
+	}
+	valid := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		ref := vectorstore.Ref{Source: semantic.SourceKnowledge, EntityID: strconv.FormatInt(id, 10)}
+		valid[ref.Key()] = true
+	}
+	_, err = svc.semantic.DeleteMissing(ctx, semantic.SourceKnowledge, valid)
+	return err
+}
+
 // embedText 拼向量化文本：标题权重高（重复一次），加正文。
 func embedText(title, content string) string {
 	return title + "\n" + title + "\n" + content
+}
+
+func knowledgeDocument(k *store.Knowledge) semantic.Document {
+	return semantic.Document{
+		Ref: vectorstore.Ref{
+			Source: semantic.SourceKnowledge, EntityID: strconv.FormatInt(k.ID, 10),
+		},
+		Content: embedText(k.Title, k.Content),
+		Payload: map[string]any{
+			vectorstore.PayloadKind: k.Kind,
+			"author_id":             k.AuthorID,
+			"tags":                  k.Tags,
+			"pinned":                k.Pinned,
+		},
+	}
 }

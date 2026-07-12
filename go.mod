@@ -14,9 +14,11 @@ require (
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
+	github.com/qdrant/go-client v1.18.3
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
+	google.golang.org/grpc v1.82.0
 )
 
 require (
@@ -103,7 +105,6 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/api v0.287.1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
-	google.golang.org/grpc v1.82.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
