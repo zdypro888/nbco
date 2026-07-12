@@ -46,6 +46,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `qdrant.api_key` | 自托管 Qdrant API Key；仅回环网络可留空 |
 | `qdrant.collection_prefix` | collection 前缀，默认 `nbco_semantic`；模型、维度与实际输出指纹的哈希自动追加 |
 | `qdrant.sync_interval_seconds` | 项目、任务、文件、画像等结构化数据与 Qdrant 周期对账间隔，默认 120 秒 |
+| `ai.embed_revision` | 可选的 embedding 运行策略版本；上下文长度、池化方式等改变但模型名不变时更新它，强制使用新 collection |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
 | `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 只记录消息长度与短哈希，不记录对话/工具明文） |
 | `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释 |

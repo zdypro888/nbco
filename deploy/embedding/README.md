@@ -14,7 +14,8 @@
   "ai": {
     "embed_model": "bge-m3",
     "embed_base_url": "http://127.0.0.1:11434/v1",
-    "embed_api_key": "ollama-local"
+    "embed_api_key": "ollama-local",
+    "embed_revision": "ollama-0.31.2-bge-m3-daec91ff-ctx8192"
   }
 }
 ```

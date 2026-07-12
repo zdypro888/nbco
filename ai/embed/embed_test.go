@@ -54,6 +54,36 @@ func TestNewDisabledWhenNoModel(t *testing.T) {
 	}
 }
 
+func TestEmbedRevisionChangesIdentityButNotRequestModel(t *testing.T) {
+	var requestedModel string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		requestedModel = body.Model
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"object": "list", "model": body.Model,
+			"data":  []map[string]any{{"object": "embedding", "index": 0, "embedding": []float64{0.1, 0.2}}},
+			"usage": map[string]any{"prompt_tokens": 1, "total_tokens": 1},
+		})
+	}))
+	defer srv.Close()
+	c, err := New(config.AIConfig{
+		EmbedModel: "bge-m3", EmbedRevision: "ollama-ctx8192-v1",
+		EmbedBaseURL: srv.URL + "/v1", EmbedAPIKey: "k",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Embed(context.Background(), []string{"test"}); err != nil {
+		t.Fatal(err)
+	}
+	if c.Model() != "bge-m3@ollama-ctx8192-v1" || requestedModel != "bge-m3" {
+		t.Fatalf("identity=%q requested=%q", c.Model(), requestedModel)
+	}
+}
+
 func TestEmbedRetriesTransientServerErrors(t *testing.T) {
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

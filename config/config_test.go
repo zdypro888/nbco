@@ -176,6 +176,9 @@ func TestLoadValidation(t *testing.T) {
 		{"Qdrant 同步间隔过短",
 			`{"postgres_dsn":"d","qdrant":{"url":"http://127.0.0.1:6334","sync_interval_seconds":5},"ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge"}}`,
 			"qdrant.sync_interval_seconds"},
+		{"embedding 运行策略版本非法",
+			`{"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","base_url":"https://ai.example/v1","model":"m","embed_model":"bge","embed_revision":"ctx 8192"}}`,
+			"ai.embed_revision"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

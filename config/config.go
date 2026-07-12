@@ -17,6 +17,7 @@ import (
 var (
 	mcpServerNameRE  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 	permissionNameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+	embedRevisionRE  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 )
 
 // AI 引擎类型。
@@ -60,6 +61,10 @@ type AIConfig struct {
 	EmbedModel   string `json:"embed_model"`
 	EmbedBaseURL string `json:"embed_base_url"`
 	EmbedAPIKey  string `json:"embed_api_key"`
+	// EmbedRevision identifies runtime settings that a short output probe cannot
+	// detect, such as context length or pooling policy. Changing it rebuilds the
+	// external semantic collection without changing the provider model name.
+	EmbedRevision string `json:"embed_revision"`
 	// 语音转写配置（可选，OpenAI 兼容 /audio/transcriptions，如本地 whisper）。
 	// STTModel 空=不启用，Telegram 语音消息会提示改用文字。
 	// STTBaseURL / STTAPIKey 空时回退 BaseURL / APIKey。
@@ -291,6 +296,9 @@ func (c *Config) validate() error {
 			strings.TrimSpace(c.AI.EmbedBaseURL) == "" &&
 			(c.AI.Provider != ProviderOpenAI || strings.TrimSpace(c.AI.BaseURL) == "") {
 			errs = append(errs, errors.New("ai.embed_model 已配置时，provider=claude 必须显式配置 ai.embed_base_url"))
+		}
+		if revision := strings.TrimSpace(c.AI.EmbedRevision); revision != "" && !embedRevisionRE.MatchString(revision) {
+			errs = append(errs, errors.New("ai.embed_revision 只能使用字母、数字、点、冒号、下划线和连字符，且最长 128 字符"))
 		}
 		if strings.TrimSpace(c.AI.STTModel) != "" &&
 			strings.TrimSpace(c.AI.STTBaseURL) == "" &&

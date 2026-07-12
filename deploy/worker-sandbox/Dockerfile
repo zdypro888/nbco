@@ -4,7 +4,7 @@
 #
 # 构建（worker 二进制从中枢下载，SERVER 传你的 public_base_url）：
 #   docker build --build-arg SERVER=https://your-nbco-host:8443 -t nbco-worker .
-FROM node:24.17.0-trixie-slim
+FROM node:24.18.0-trixie-slim
 
 ARG SERVER
 ARG WORKER_BIN=nbco-worker-linux-amd64

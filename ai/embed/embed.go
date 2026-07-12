@@ -28,8 +28,9 @@ const (
 
 // Client 实现 ai.Embedder，内部委托 eino 的 openai embedding 组件。
 type Client struct {
-	model string
-	emb   *einoembed.Embedder
+	model    string
+	identity string
+	emb      *einoembed.Embedder
 }
 
 // New 按配置建 embedder。主引擎为 OpenAI 兼容时，embed_base_url / embed_api_key
@@ -66,10 +67,16 @@ func New(cfg config.AIConfig) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("构建 embedder: %w", err)
 	}
-	return &Client{model: model, emb: emb}, nil
+	identity := model
+	if revision := strings.TrimSpace(cfg.EmbedRevision); revision != "" {
+		identity += "@" + revision
+	}
+	return &Client{model: model, identity: identity, emb: emb}, nil
 }
 
-func (c *Client) Model() string { return c.model }
+// Model returns the semantic-index identity. API requests still use model;
+// revision only separates collections when runtime policy changes.
+func (c *Client) Model() string { return c.identity }
 
 // Embed 批量向量化，返回与 texts 一一对应的向量（float64→float32，存 real[] 更省）。
 func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error) {
