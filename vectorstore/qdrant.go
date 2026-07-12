@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"sort"
 	"strconv"
@@ -100,6 +101,9 @@ func (q *Qdrant) Upsert(ctx context.Context, modelTag string, points []Point) er
 		if len(point.Vector) != dim {
 			return fmt.Errorf("qdrant upsert: 批次向量维度不一致")
 		}
+		if err := validQdrantVector(point.Vector); err != nil {
+			return fmt.Errorf("qdrant upsert %s: %w", point.Ref.Key(), err)
+		}
 	}
 	collection, err := q.ensure(ctx, modelTag, dim)
 	if err != nil {
@@ -169,6 +173,9 @@ func (q *Qdrant) Search(ctx context.Context, modelTag string, vector []float32, 
 	if len(vector) == 0 {
 		return nil, nil
 	}
+	if err := validQdrantVector(vector); err != nil {
+		return nil, fmt.Errorf("qdrant query: %w", err)
+	}
 	if limit <= 0 {
 		limit = 10
 	}
@@ -208,6 +215,15 @@ func (q *Qdrant) Search(ctx context.Context, modelTag string, vector []float32, 
 		out = append(out, Hit{Ref: ref, Score: point.Score})
 	}
 	return out, nil
+}
+
+func validQdrantVector(vector []float32) error {
+	for i, value := range vector {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return fmt.Errorf("向量第 %d 维不是有限数", i)
+		}
+	}
+	return nil
 }
 
 func (q *Qdrant) Hashes(ctx context.Context, modelTag string, dimension int, refs []Ref) (map[string]string, error) {

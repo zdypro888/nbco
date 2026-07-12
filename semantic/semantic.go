@@ -6,11 +6,13 @@ package semantic
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +34,7 @@ const (
 	queryCacheTTL        = 2 * time.Minute
 	queryCacheLimit      = 256
 	queryFailureCooldown = 3 * time.Second
+	modelProbeTTL        = 10 * time.Minute
 )
 
 // Document is a transient indexing input. Content is sent to the embedder but
@@ -69,6 +72,7 @@ type Service struct {
 	modelMu    sync.Mutex
 	modelTag   string
 	dimension  int
+	modelAt    time.Time
 
 	queryGroup singleflight.Group
 	queryMu    sync.Mutex
@@ -109,7 +113,11 @@ func (s *Service) QueryVector(ctx context.Context, query string) ([]float32, err
 	if query == "" {
 		return nil, fmt.Errorf("语义查询不能为空")
 	}
-	key := s.embedder.Model() + "\x00" + query
+	tag, dimension, err := s.CurrentModel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	key := tag + "\x00" + query
 	if vector, err, ok := s.queryState(key, time.Now()); ok {
 		return vector, err
 	}
@@ -123,11 +131,16 @@ func (s *Service) QueryVector(ctx context.Context, query string) ([]float32, err
 		if err == nil && (len(vectors) != 1 || len(vectors[0]) == 0) {
 			err = fmt.Errorf("embedding 查询返回无效向量")
 		}
+		if err == nil {
+			err = validateVector(vectors[0])
+		}
+		if err == nil && len(vectors[0]) != dimension {
+			err = fmt.Errorf("embedding 查询维度为 %d，模型探针维度为 %d", len(vectors[0]), dimension)
+		}
 		if err != nil {
 			s.recordFailure(err)
 			return nil, err
 		}
-		s.recordModel(len(vectors[0]))
 		s.recordQuerySuccess(key, vectors[0])
 		return vectors[0], nil
 	})
@@ -153,7 +166,7 @@ func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 		return "", 0, fmt.Errorf("qdrant 语义索引未启用")
 	}
 	s.modelMu.Lock()
-	if s.modelTag != "" && s.dimension > 0 {
+	if s.modelTag != "" && s.dimension > 0 && time.Since(s.modelAt) < modelProbeTTL {
 		tag, dim := s.modelTag, s.dimension
 		s.modelMu.Unlock()
 		return tag, dim, nil
@@ -161,7 +174,7 @@ func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 	s.modelMu.Unlock()
 	result := s.modelGroup.DoChan("model", func() (any, error) {
 		s.modelMu.Lock()
-		if s.modelTag != "" && s.dimension > 0 {
+		if s.modelTag != "" && s.dimension > 0 && time.Since(s.modelAt) < modelProbeTTL {
 			info := struct {
 				tag string
 				dim int
@@ -180,11 +193,17 @@ func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 			s.recordFailure(err)
 			return nil, err
 		}
-		s.recordModel(len(vectors[0]))
+		if err := validateVector(vectors[0]); err != nil {
+			s.recordFailure(err)
+			return nil, err
+		}
+		fingerprint := vectorFingerprint(vectors[0])
+		tag := modelTag(s.embedder.Model(), len(vectors[0]), fingerprint)
+		s.recordModel(tag, len(vectors[0]))
 		return struct {
 			tag string
 			dim int
-		}{modelTag(s.embedder.Model(), len(vectors[0])), len(vectors[0])}, nil
+		}{tag, len(vectors[0])}, nil
 	})
 	select {
 	case <-ctx.Done():
@@ -254,6 +273,9 @@ func (s *Service) UpsertDocuments(ctx context.Context, docs []Document) (int, er
 			if len(vector) != dim {
 				return indexed, fmt.Errorf("embedding 维度从 %d 变为 %d，请重启后建立新 collection", dim, len(vector))
 			}
+			if err := validateVector(vector); err != nil {
+				return indexed, fmt.Errorf("embedding 第 %d 条: %w", i, err)
+			}
 			points = append(points, vectorstore.Point{
 				Ref: batch[i].Ref, Vector: vector,
 				ContentHash: hashes[batch[i].Ref.Key()], Payload: batch[i].Payload,
@@ -293,7 +315,13 @@ func (s *Service) SearchVector(ctx context.Context, vector []float32, filter vec
 	if !s.Enabled() {
 		return nil, fmt.Errorf("qdrant 语义索引未启用")
 	}
-	tag := modelTag(s.embedder.Model(), len(vector))
+	tag, dimension, err := s.CurrentModel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(vector) != dimension {
+		return nil, fmt.Errorf("查询向量维度为 %d，当前模型维度为 %d", len(vector), dimension)
+	}
 	hits, err := s.vectors.Search(ctx, tag, vector, filter, limit, minScore)
 	if err != nil {
 		s.recordFailure(err)
@@ -488,11 +516,11 @@ func (s *Service) recordAvailable() {
 	s.statusMu.Unlock()
 }
 
-func (s *Service) recordModel(dim int) {
-	tag := modelTag(s.embedder.Model(), dim)
+func (s *Service) recordModel(tag string, dim int) {
 	s.modelMu.Lock()
 	s.modelTag = tag
 	s.dimension = dim
+	s.modelAt = time.Now()
 	s.modelMu.Unlock()
 	s.statusMu.Lock()
 	s.status.ModelTag = tag
@@ -520,6 +548,33 @@ func documentHash(doc Document) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func modelTag(model string, dimension int) string {
-	return fmt.Sprintf("%s:%d", strings.TrimSpace(model), dimension)
+func modelTag(model string, dimension int, fingerprint string) string {
+	return fmt.Sprintf("%s:%d:%s", strings.TrimSpace(model), dimension, fingerprint)
+}
+
+// vectorFingerprint identifies the actual model output rather than trusting a
+// provider-supplied model label. Quantization absorbs insignificant float noise
+// across equivalent inference workers while changing when model weights or
+// routing materially change.
+func vectorFingerprint(vector []float32) string {
+	hash := sha256.New()
+	var buf [4]byte
+	for _, value := range vector {
+		quantized := int32(math.Round(float64(value) * 10_000))
+		binary.LittleEndian.PutUint32(buf[:], uint32(quantized))
+		_, _ = hash.Write(buf[:])
+	}
+	return hex.EncodeToString(hash.Sum(nil)[:6])
+}
+
+func validateVector(vector []float32) error {
+	if len(vector) == 0 {
+		return fmt.Errorf("向量不能为空")
+	}
+	for i, value := range vector {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return fmt.Errorf("向量第 %d 维不是有限数", i)
+		}
+	}
+	return nil
 }

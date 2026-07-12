@@ -44,7 +44,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `postgres_dsn` | PostgreSQL 连接串（首次启动自动建表） |
 | `qdrant.url` | Qdrant gRPC 地址，例如 `http://127.0.0.1:6334`；空值禁用并回退 PostgreSQL 旧向量/词法路径 |
 | `qdrant.api_key` | 自托管 Qdrant API Key；仅回环网络可留空 |
-| `qdrant.collection_prefix` | collection 前缀，默认 `nbco_semantic`；模型与维度哈希自动追加 |
+| `qdrant.collection_prefix` | collection 前缀，默认 `nbco_semantic`；模型、维度与实际输出指纹的哈希自动追加 |
 | `qdrant.sync_interval_seconds` | 项目、任务、文件、画像等结构化数据与 Qdrant 周期对账间隔，默认 120 秒 |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
 | `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 只记录消息长度与短哈希，不记录对话/工具明文） |
@@ -336,7 +336,7 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 - **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
-- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，知识、规则、Skill、历史消息、用户画像、项目、任务、文件、日程、决策和资料实体统一进入 Qdrant。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。语义结果与 PostgreSQL 词法结果用 RRF 融合；Qdrant 暂时不可用时自动保留词法路径。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除实体；模型或维度变化自动使用新的物理 collection
+- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，知识、规则、Skill、历史消息、用户画像、项目、任务、文件、日程、决策和资料实体统一进入 Qdrant。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。语义结果与 PostgreSQL 词法结果用 RRF 融合；Qdrant 暂时不可用时自动保留词法路径。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 脚本工具（让 nbco 长出新工具）

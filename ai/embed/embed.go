@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -100,12 +101,19 @@ func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 		return nil, fmt.Errorf("embeddings 返回 %d 条，期望 %d", len(vecs), len(texts))
 	}
 	out := make([][]float32, len(vecs))
+	dimension := len(vecs[0])
 	for i, v := range vecs {
 		if len(v) == 0 {
 			return nil, fmt.Errorf("embeddings 第 %d 条为空", i)
 		}
+		if len(v) != dimension {
+			return nil, fmt.Errorf("embeddings 第 %d 条维度为 %d，期望 %d", i, len(v), dimension)
+		}
 		f32 := make([]float32, len(v))
 		for j, x := range v {
+			if math.IsNaN(x) || math.IsInf(x, 0) || x > math.MaxFloat32 || x < -math.MaxFloat32 {
+				return nil, fmt.Errorf("embeddings 第 %d 条第 %d 维不是有效 float32", i, j)
+			}
 			f32[j] = float32(x)
 		}
 		out[i] = f32

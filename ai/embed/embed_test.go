@@ -94,6 +94,27 @@ func TestEmbedDoesNotRetryClientErrors(t *testing.T) {
 	}
 }
 
+func TestEmbedRejectsInconsistentDimensions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"object": "list", "model": "m",
+			"data": []map[string]any{
+				{"object": "embedding", "index": 0, "embedding": []float64{0.1, 0.2}},
+				{"object": "embedding", "index": 1, "embedding": []float64{0.3}},
+			},
+			"usage": map[string]any{"prompt_tokens": 2, "total_tokens": 2},
+		})
+	}))
+	defer srv.Close()
+	c, err := New(config.AIConfig{EmbedModel: "m", EmbedBaseURL: srv.URL + "/v1", EmbedAPIKey: "k"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Embed(context.Background(), []string{"one", "two"}); err == nil {
+		t.Fatal("维度不一致的批量响应必须被拒绝")
+	}
+}
+
 // 真 exo 冒烟：设 NBCO_SMOKE_EMBED_BASE / _MODEL / _KEY 时打真实端点，验证
 // eino 组件对 base_url(含 /v1) 的拼接与真服务连通。默认跳过。
 func TestSmokeRealEmbed(t *testing.T) {

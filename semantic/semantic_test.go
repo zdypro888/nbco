@@ -2,6 +2,7 @@ package semantic
 
 import (
 	"context"
+	"math"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -161,8 +162,31 @@ func TestQueryVectorCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	second, err := service.QueryVector(ctx, "同一件事情的另一种说法")
-	if err != nil || len(second) != len(first) || embedder.calls.Load() != 1 {
+	if err != nil || len(second) != len(first) || embedder.calls.Load() != 2 {
 		t.Fatalf("查询向量缓存失效: calls=%d err=%v", embedder.calls.Load(), err)
+	}
+}
+
+func TestVectorFingerprintTracksActualModelOutput(t *testing.T) {
+	first := vectorFingerprint([]float32{0.12341, -0.45671, 0.77771})
+	equivalent := vectorFingerprint([]float32{0.123409, -0.456709, 0.777709})
+	different := vectorFingerprint([]float32{0.22341, -0.45671, 0.77771})
+	if first == "" || first != equivalent || first == different {
+		t.Fatalf("fingerprints = %q %q %q", first, equivalent, different)
+	}
+	if tag := modelTag("model", 3, first); tag != "model:3:"+first {
+		t.Fatalf("model tag = %q", tag)
+	}
+}
+
+func TestValidateVectorRejectsNonFiniteValues(t *testing.T) {
+	if err := validateVector([]float32{1, 2}); err != nil {
+		t.Fatal(err)
+	}
+	for _, vector := range [][]float32{{}, {float32(math.NaN())}, {float32(math.Inf(1))}} {
+		if err := validateVector(vector); err == nil {
+			t.Fatalf("应拒绝向量 %v", vector)
+		}
 	}
 }
 

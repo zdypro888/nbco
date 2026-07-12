@@ -1,6 +1,7 @@
 package vectorstore
 
 import (
+	"math"
 	"testing"
 )
 
@@ -59,5 +60,16 @@ func TestQdrantPayloadConversionSupportsStringSlicesWithoutPanic(t *testing.T) {
 	}
 	if _, err := payloadValueMap(map[string]any{"unsupported": make(chan int)}); err == nil {
 		t.Fatal("不支持的 payload 类型必须返回错误，不能 panic")
+	}
+}
+
+func TestValidQdrantVectorRejectsNonFiniteValues(t *testing.T) {
+	if err := validQdrantVector([]float32{1, 2}); err != nil {
+		t.Fatal(err)
+	}
+	for _, vector := range [][]float32{{float32(math.NaN())}, {float32(math.Inf(-1))}} {
+		if err := validQdrantVector(vector); err == nil {
+			t.Fatalf("应拒绝向量 %v", vector)
+		}
 	}
 }
