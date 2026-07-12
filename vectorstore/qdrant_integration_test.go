@@ -22,9 +22,13 @@ func TestQdrantIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
 	model := "integration:3"
-	t.Cleanup(func() { _ = client.client.DeleteCollection(context.Background(), client.collectionName(model)) })
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		_ = client.client.DeleteCollection(cleanupCtx, client.collectionName(model))
+		_ = client.Close()
+	})
 
 	points := []Point{
 		{Ref: Ref{Source: "tasks", EntityID: "1"}, Vector: []float32{1, 0, 0}, ContentHash: "a", Payload: map[string]any{"author_id": int64(7), "tags": []string{"finance", "policy"}}},
