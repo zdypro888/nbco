@@ -3,8 +3,8 @@
 // 设计原则（接口皆可换，中枢不可换）：
 //   - 核心自持有 Tool 定义（名称 + JSON Schema + handler），不依赖任何框架类型；
 //     eino、HTTP MCP 各自做薄适配。
-//   - Engine 的抽象层级是「跑完一轮对话」（含 tool 循环），而非单次补全——
-//     这样可保持后续替换模型框架时的边界稳定。
+//   - Engine 的抽象层级是「跑完一次明确模式的模型任务」：Deep 可含完整
+//     tool 循环，OneShot 是受控单次生成；这样可保持替换模型框架时的边界稳定。
 //   - 产品聊天记录由调用方落库；支持持久会话的引擎自行管理完整 agent 轨迹，
 //     History 只用于首次建立引擎会话时的种子上下文。
 package ai
@@ -89,8 +89,23 @@ type Usage struct {
 	OutputTokens int64
 }
 
+// TurnMode defines the orchestration contract for a model call. It is selected
+// by the call site, never inferred from user wording.
+type TurnMode string
+
+const (
+	// TurnModeDeep enables the full autonomous agent loop. It is also the default
+	// for the zero value so product conversations cannot silently lose capability.
+	TurnModeDeep TurnMode = "deep"
+	// TurnModeOneShot performs exactly one tool-free model generation for bounded
+	// internal transformations such as extraction, summarization, and rendering.
+	TurnModeOneShot TurnMode = "one_shot"
+)
+
 // TurnRequest 一轮对话请求。
 type TurnRequest struct {
+	// Mode selects the orchestration profile. Empty defaults to TurnModeDeep.
+	Mode TurnMode
 	// SessionID 是 nbco 侧会话 ID（落库主键），引擎可用它做日志关联。
 	SessionID string
 	// EngineSession 是引擎侧持久会话标识。空表示由引擎创建；调用方应保存

@@ -167,6 +167,7 @@ func run(configPath string) error {
 			model = strings.TrimSpace(runtimeModel)
 		}
 		res, err := engine.RunTurn(actx, &ai.TurnRequest{
+			Mode:      ai.TurnModeOneShot,
 			SessionID: "subcall:" + purpose,
 			System:    "你是 nbco 内部的受控 AI 子调用。只完成指定的单一分析任务，不调用工具，不输出无关解释。",
 			UserText:  fmt.Sprintf("调用者：%s\n\n%s", name, prompt),

@@ -31,6 +31,7 @@ func TestSmokeRealChat(t *testing.T) {
 	}
 	var deltas int
 	res, err := eng.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode:     ai.TurnModeOneShot,
 		System:   "你是测试助手，简短回答。",
 		UserText: "用一句话介绍你自己",
 		OnDelta:  func(string) { deltas++ },
@@ -66,6 +67,7 @@ func TestSmokeRealToolLoop(t *testing.T) {
 	}
 	var calls atomic.Int32
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode:     ai.TurnModeDeep,
 		System:   "你是工具循环测试助手。用户要求验证时，必须先搜索并调用对应工具，再根据真实结果简短回答。",
 		UserText: "请使用当前可用的无副作用验证能力，把值 EINO_OK 送入测试探针并告诉我真实结果。",
 		Tools: []ai.Tool{{

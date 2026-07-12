@@ -506,6 +506,42 @@ func TestMissingToolNameFromEngineErr(t *testing.T) {
 	}
 }
 
+func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
+	engine := &fakeEngine{}
+	orchestrator := &Orchestrator{engine: engine}
+	first := &ai.TurnResult{
+		EngineSession:         "eino:chat:1:scope:initial",
+		OutputLikelyTruncated: true,
+		Steps:                 []ai.Step{{Kind: ai.StepToolCall, ToolName: "write", Result: `{"ok":true}`}},
+	}
+	request := &ai.TurnRequest{
+		Mode:          ai.TurnModeDeep,
+		SessionID:     "1",
+		EngineSession: first.EngineSession,
+		System:        "system",
+		UserText:      "perform work",
+		Tools:         []ai.Tool{{Name: "write"}},
+		Skills:        []ai.Skill{{Name: "procedure"}},
+		ShouldDisableTools: func() bool {
+			return false
+		},
+	}
+	if _, err := orchestrator.repairDegenerateTurn(context.Background(), request, first, nil); err != nil {
+		t.Fatal(err)
+	}
+	retry := engine.lastReq()
+	if retry == nil || retry.Mode != ai.TurnModeOneShot {
+		t.Fatalf("repair mode = %v", retry)
+	}
+	if len(retry.Tools) != 0 || len(retry.Skills) != 0 || retry.ShouldDisableTools != nil {
+		t.Fatalf("repair retained agent capabilities: tools=%d skills=%d budget=%v",
+			len(retry.Tools), len(retry.Skills), retry.ShouldDisableTools != nil)
+	}
+	if retry.EngineSession != first.EngineSession {
+		t.Fatalf("repair session = %q want %q", retry.EngineSession, first.EngineSession)
+	}
+}
+
 func containsString(list []string, target string) bool {
 	for _, s := range list {
 		if s == target {
@@ -544,6 +580,12 @@ func (f *fakeEngine) lastReq() *ai.TurnRequest {
 		return nil
 	}
 	return f.reqs[len(f.reqs)-1]
+}
+
+func (f *fakeEngine) requests() []*ai.TurnRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]*ai.TurnRequest(nil), f.reqs...)
 }
 
 // TestCompactionCycle 验证群聊旁听兼容路径：群消息可在 agent loop 外进入，
@@ -611,12 +653,27 @@ func TestCompactionCycle(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	foundOneShotCompaction := false
+	for _, request := range eng.requests() {
+		if request.System == compactSystem {
+			foundOneShotCompaction = true
+			if request.Mode != ai.TurnModeOneShot {
+				t.Fatalf("compaction mode = %q", request.Mode)
+			}
+		}
+	}
+	if !foundOneShotCompaction {
+		t.Fatal("compaction request was not recorded")
+	}
 
 	// 下一轮：系统提示带摘要，历史只含位点之后的消息。
 	if _, err := o.HandleGroupMessage(ctx, u, channel, u.Name, "压缩之后再说一句"); err != nil {
 		t.Fatal(err)
 	}
 	req := eng.lastReq()
+	if req.Mode != ai.TurnModeDeep {
+		t.Fatalf("product conversation mode = %q", req.Mode)
+	}
 	if !strings.Contains(req.System, "浓缩摘要") {
 		t.Error("压缩后系统提示应携带摘要")
 	}

@@ -142,86 +142,51 @@ func chatHTTPTimeout(ms int) time.Duration {
 // Name 实现 ai.Engine。
 func (e *Engine) Name() string { return config.EngineEino }
 
-// RunTurn builds one Eino DeepAgent with framework-native planning, deferred
-// tool discovery, skill loading, summarization, and durable session replay.
+// RunTurn selects an explicit Eino execution profile. Product conversations use
+// DeepAgent; bounded internal transformations use a plain ChatModelAgent.
 func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
 	if req == nil {
 		return nil, errors.New("turn request is nil")
+	}
+	mode, err := normalizeTurnMode(req.Mode)
+	if err != nil {
+		return nil, err
+	}
+	if mode == ai.TurnModeOneShot {
+		if err := validateOneShotRequest(req); err != nil {
+			return nil, err
+		}
 	}
 	model, err := e.modelFor(ctx, req.Model)
 	if err != nil {
 		return nil, err
 	}
-	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
-	for _, t := range req.Tools {
-		dynamicTools = append(dynamicTools, &einoTool{t: t})
-	}
-	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
-	if len(dynamicTools) > 0 {
-		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
-		if err != nil {
-			return nil, fmt.Errorf("构建 Eino 动态工具检索: %w", err)
-		}
-		handlers = append(handlers, middleware)
-	}
-	if len(req.Skills) > 0 {
-		middleware, err := skillmw.NewMiddleware(ctx, &skillmw.Config{
-			Backend: newTurnSkillBackend(req.Skills),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("构建 Eino skill 中间件: %w", err)
-		}
-		handlers = append(handlers, middleware)
-	}
-	summaryTokens := e.cfg.SummarizeAfterTokens
-	if summaryTokens <= 0 {
-		summaryTokens = 24000
-	}
-	summaryMessages := e.cfg.SummarizeAfterMessages
-	if summaryMessages <= 0 {
-		summaryMessages = 80
-	}
 	var summaryUsage ai.Usage
-	summaryMiddleware, err := summarization.New(ctx, &summarization.Config{
-		Model: model,
-		Trigger: &summarization.TriggerCondition{
-			ContextTokens:   summaryTokens,
-			ContextMessages: summaryMessages,
-		},
-		Finalize: func(ctx context.Context, original []*schema.Message, summary *schema.Message) ([]*schema.Message, error) {
-			if summary != nil && summary.ResponseMeta != nil && summary.ResponseMeta.Usage != nil {
-				summaryUsage.InputTokens += int64(summary.ResponseMeta.Usage.PromptTokens)
-				summaryUsage.OutputTokens += int64(summary.ResponseMeta.Usage.CompletionTokens)
-			}
-			return summarization.DefaultFinalize(ctx, original, summary)
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("构建 Eino 上下文摘要: %w", err)
+	var agent adk.Agent
+	switch mode {
+	case ai.TurnModeDeep:
+		agent, err = e.newDeepAgent(ctx, model, req, &summaryUsage)
+	case ai.TurnModeOneShot:
+		agent, err = newOneShotAgent(ctx, model, req)
 	}
-	handlers = append(handlers, summaryMiddleware)
-	handlers = append(handlers, &toolBudgetMiddleware{
-		shouldDisable: req.ShouldDisableTools,
-		maxIterations: e.maxTurns,
-	})
-
-	agent, err := deep.New(ctx, &deep.Config{
-		Name:                   "nbco",
-		Description:            "nbco 公司运营中枢",
-		Instruction:            req.System,
-		ChatModel:              model,
-		MaxIteration:           e.maxTurns,
-		WithoutWriteTodos:      len(dynamicTools) == 0,
-		WithoutGeneralSubAgent: true,
-		Handlers:               handlers,
-		ModelRetryConfig:       modelRetryConfig(),
-	})
 	if err != nil {
-		return nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
+		return nil, err
 	}
 
-	engineSession := e.engineSessionID(req)
+	// Deep creates durable product sessions. OneShot normally stays stateless,
+	// but may append a rendering closure to an already-existing Deep session.
+	engineSession := ""
+	if mode == ai.TurnModeDeep {
+		engineSession = e.engineSessionID(req)
+	} else if strings.TrimSpace(req.EngineSession) != "" {
+		engineSession = e.engineSessionID(req)
+		if engineSession != req.EngineSession {
+			return nil, errors.New("one-shot Eino turn cannot create or rotate a managed session")
+		}
+	}
 	managedSession := engineSession != "" && e.runtime != nil
+	slog.Debug("Eino 执行模式", "mode", mode, "session", req.SessionID,
+		"managed_session", managedSession, "tools", len(req.Tools), "skills", len(req.Skills))
 	includeHistory := true
 	if managedSession {
 		hasEvents, err := e.sessionHasEvents(ctx, engineSession)
@@ -277,6 +242,157 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		}
 	}
 	return result, err
+}
+
+func normalizeTurnMode(mode ai.TurnMode) (ai.TurnMode, error) {
+	switch mode {
+	case "", ai.TurnModeDeep:
+		return ai.TurnModeDeep, nil
+	case ai.TurnModeOneShot:
+		return ai.TurnModeOneShot, nil
+	default:
+		return "", fmt.Errorf("unsupported Eino turn mode %q", mode)
+	}
+}
+
+func validateOneShotRequest(req *ai.TurnRequest) error {
+	if len(req.Tools) > 0 {
+		return errors.New("one-shot Eino turn cannot expose tools")
+	}
+	if len(req.Skills) > 0 {
+		return errors.New("one-shot Eino turn cannot expose skills")
+	}
+	if req.ShouldDisableTools != nil {
+		return errors.New("one-shot Eino turn cannot configure a tool budget")
+	}
+	if strings.TrimSpace(req.EngineSession) != "" && strings.TrimSpace(req.SessionCapability) == "" {
+		return errors.New("one-shot Eino session continuation requires a capability scope")
+	}
+	return nil
+}
+
+func newOneShotAgent(ctx context.Context, model einomodel.ToolCallingChatModel, req *ai.TurnRequest) (adk.Agent, error) {
+	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:             "nbco",
+		Description:      "nbco 受控单次模型任务",
+		Instruction:      req.System,
+		Model:            model,
+		MaxIterations:    1,
+		Handlers:         []adk.TypedChatModelAgentMiddleware[*schema.Message]{&oneShotMiddleware{}},
+		ModelRetryConfig: modelRetryConfig(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("构建 Eino OneShot Agent: %w", err)
+	}
+	return agent, nil
+}
+
+const einoToolSearchReminderKey = "__toolsearch_reminder__"
+
+// oneShotMiddleware keeps a plain generation tool-free even when it closes an
+// existing Deep session. Eino's tool-search middleware persists its deferred
+// tool catalog as an internally marked user message; replaying that hard
+// requirement without tool_search would give the model contradictory input.
+type oneShotMiddleware struct {
+	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
+}
+
+func (*oneShotMiddleware) BeforeModelRewriteState(
+	ctx context.Context,
+	state *adk.TypedChatModelAgentState[*schema.Message],
+	_ *adk.TypedModelContext[*schema.Message],
+) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
+	if state == nil {
+		return ctx, state, nil
+	}
+	state.ToolInfos = nil
+	state.DeferredToolInfos = nil
+	messages := make([]*schema.Message, 0, len(state.Messages))
+	for _, message := range state.Messages {
+		if message != nil && message.Extra != nil {
+			if marked, _ := message.Extra[einoToolSearchReminderKey].(bool); marked {
+				continue
+			}
+		}
+		messages = append(messages, message)
+	}
+	state.Messages = messages
+	return ctx, state, nil
+}
+
+func (e *Engine) newDeepAgent(
+	ctx context.Context,
+	model einomodel.ToolCallingChatModel,
+	req *ai.TurnRequest,
+	summaryUsage *ai.Usage,
+) (adk.Agent, error) {
+	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
+	for _, t := range req.Tools {
+		dynamicTools = append(dynamicTools, &einoTool{t: t})
+	}
+	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
+	if len(dynamicTools) > 0 {
+		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
+		if err != nil {
+			return nil, fmt.Errorf("构建 Eino 动态工具检索: %w", err)
+		}
+		handlers = append(handlers, middleware)
+	}
+	if len(req.Skills) > 0 {
+		middleware, err := skillmw.NewMiddleware(ctx, &skillmw.Config{
+			Backend: newTurnSkillBackend(req.Skills),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("构建 Eino skill 中间件: %w", err)
+		}
+		handlers = append(handlers, middleware)
+	}
+	summaryTokens := e.cfg.SummarizeAfterTokens
+	if summaryTokens <= 0 {
+		summaryTokens = 24000
+	}
+	summaryMessages := e.cfg.SummarizeAfterMessages
+	if summaryMessages <= 0 {
+		summaryMessages = 80
+	}
+	summaryMiddleware, err := summarization.New(ctx, &summarization.Config{
+		Model: model,
+		Trigger: &summarization.TriggerCondition{
+			ContextTokens:   summaryTokens,
+			ContextMessages: summaryMessages,
+		},
+		Finalize: func(ctx context.Context, original []*schema.Message, summary *schema.Message) ([]*schema.Message, error) {
+			if summaryUsage != nil && summary != nil && summary.ResponseMeta != nil && summary.ResponseMeta.Usage != nil {
+				summaryUsage.InputTokens += int64(summary.ResponseMeta.Usage.PromptTokens)
+				summaryUsage.OutputTokens += int64(summary.ResponseMeta.Usage.CompletionTokens)
+			}
+			return summarization.DefaultFinalize(ctx, original, summary)
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("构建 Eino 上下文摘要: %w", err)
+	}
+	handlers = append(handlers, summaryMiddleware)
+	handlers = append(handlers, &toolBudgetMiddleware{
+		shouldDisable: req.ShouldDisableTools,
+		maxIterations: e.maxTurns,
+	})
+
+	agent, err := deep.New(ctx, &deep.Config{
+		Name:                   "nbco",
+		Description:            "nbco 公司运营中枢",
+		Instruction:            req.System,
+		ChatModel:              model,
+		MaxIteration:           e.maxTurns,
+		WithoutWriteTodos:      len(dynamicTools) == 0,
+		WithoutGeneralSubAgent: true,
+		Handlers:               handlers,
+		ModelRetryConfig:       modelRetryConfig(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
+	}
+	return agent, nil
 }
 
 type sessionResetter interface {

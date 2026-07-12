@@ -264,6 +264,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
 
 	req := &ai.TurnRequest{
+		Mode:               ai.TurnModeDeep,
 		SessionID:          fmt.Sprintf("%d", sess.ID),
 		EngineSession:      sess.EngineRef,
 		DisableSession:     isGroupChannel(channel),
@@ -489,6 +490,7 @@ func missingToolNameFromEngineErr(err error) string {
 
 func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {
 	retry := *req
+	retry.Mode = ai.TurnModeOneShot
 	if first.EngineSession != "" {
 		// The original user input and tool evidence already exist in the managed
 		// session. Add one internal closure instruction instead of replaying the
@@ -729,6 +731,7 @@ func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, src memory
 		u.Name, src.Channel, messageTime(src.OccurredAt, o.tz), src.UserText, toolEvidence, src.AssistantText)
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
+		Mode:      ai.TurnModeOneShot,
 		SessionID: "memory-miner",
 		System:    memoryMinerSystem,
 		UserText:  input,
@@ -1174,6 +1177,7 @@ func channelKind(channel string) string {
 func (o *Orchestrator) Summarize(ctx context.Context, userID int64, kind, system, text string) (string, error) {
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
+		Mode:      ai.TurnModeOneShot,
 		SessionID: kind,
 		System:    system,
 		UserText:  text,
@@ -1271,6 +1275,7 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 	cut := msgs[:foldCount]
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
+		Mode:      ai.TurnModeOneShot,
 		SessionID: fmt.Sprintf("compact-%d", sessionID),
 		System:    compactSystem,
 		UserText:  buildCompactInput(sess.Summary, cut, o.tz),

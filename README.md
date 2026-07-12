@@ -14,7 +14,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 │  sched（DB 驱动定时·截止提醒·每日汇总/日报）│
 ├─ AI 引擎（可换）─────────────────────────────┤
 │  ai.Engine 接口                               │
-│   └─ einoengine：DeepAgent·原生 session/skill/tool search│
+│   └─ einoengine：DeepAgent + OneShot·原生 session/skill/tool search│
 ├─ 领域层 ─────────────────────────────────────┤
 │  tools（工具即权限边界·全量审计）         │
 │  perm（双维度权限纯逻辑·单测覆盖）        │
@@ -27,7 +27,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 
 - **自有 Tool 抽象**（`ai.Tool`：名称 + JSON Schema + handler），不绑任何框架。eino、对外 MCP、HTTP API 都是同一套工具的薄适配。
 - **中枢只走 API 引擎**：`eino` 引擎直调模型 API（客户自带 key 的产品路径）。本机 CLI 只允许由 `nbco-worker` 通过交互式 PTY 驱动，严禁 `claude -p` / `codex exec` 这类 headless 入口。
-- **Eino 原生 Agent Loop**：主对话使用 `DeepAgent`；`write_todos` 负责复杂目标的轮内计划，`tool_search` 延迟发现权限内工具，skill middleware 按需加载完整流程，summarization 管理长上下文。会话事件和 interrupt/cancel checkpoint 持久化到 PostgreSQL，服务重启后继续使用同一 agent 上下文。
+- **Eino 双执行模式**：主对话和可能产生动作的系统轮次使用 `DeepAgent`；`write_todos` 负责复杂目标的轮内计划，`tool_search` 延迟发现权限内工具，skill middleware 按需加载完整流程，summarization 管理长上下文。Memory Miner、摘要压缩和受控内部分析使用普通 `ChatModelAgent` 的 `OneShot` 模式，严格禁止工具和 skill，只做一次生成。模式由调用场景显式指定，不根据用户措辞做关键词路由或额外模型分类。Deep 会话事件和 interrupt/cancel checkpoint 持久化到 PostgreSQL，服务重启后继续使用同一 agent 上下文；OneShot 只在输出修复时允许收尾既有 Deep 会话，不自行创建持久会话。
 - **工具即权限边界**：每个工具 handler 内部做权限校验（超管专属工具只组装给超管），每次调用写审计日志。
 - **分渠道排版**：系统提示按会话渠道注入格式指引——Telegram 用其 HTML 子集（粗体/代码/引用）+ emoji，网关先按 HTML 发送、格式非法自动降级纯文本；Web/API 输出纯文本。
 

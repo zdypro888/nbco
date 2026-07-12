@@ -120,6 +120,133 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	}
 }
 
+func TestOneShotUsesOneToolFreeGeneration(t *testing.T) {
+	var calls int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
+		calls++
+		if len(visible) != 0 {
+			return nil, fmt.Errorf("one-shot unexpectedly exposed tools: %v", visible)
+		}
+		users := 0
+		for _, message := range input {
+			if message.Role == schema.User {
+				users++
+			}
+		}
+		return schema.AssistantMessage(fmt.Sprintf("users=%d", users), nil), nil
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, session.NewInMemoryStore[*schema.Message](nil))
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode:      ai.TurnModeOneShot,
+		SessionID: "91",
+		System:    "count",
+		History: []ai.Message{
+			{Role: ai.RoleUser, Content: "first"},
+			{Role: ai.RoleAssistant, Content: "ack"},
+		},
+		UserText: "second",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "users=2" || calls != 1 {
+		t.Fatalf("result=%+v calls=%d", result, calls)
+	}
+	if result.EngineSession != "" {
+		t.Fatalf("one-shot created a durable session: %q", result.EngineSession)
+	}
+}
+
+func TestOneShotRejectsAgentCapabilitiesAndUnknownMode(t *testing.T) {
+	engine := newNativeTestEngine(&scriptedModel{state: &scriptedModelState{
+		fn: func([]*schema.Message, []*schema.ToolInfo) (*schema.Message, error) {
+			return schema.AssistantMessage("unexpected", nil), nil
+		},
+	}}, nil)
+	_, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode:  ai.TurnModeOneShot,
+		Tools: []ai.Tool{{Name: "must_not_run"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "cannot expose tools") {
+		t.Fatalf("one-shot tools error = %v", err)
+	}
+	_, err = engine.RunTurn(context.Background(), &ai.TurnRequest{Mode: ai.TurnMode("guess")})
+	if err == nil || !strings.Contains(err.Error(), "unsupported Eino turn mode") {
+		t.Fatalf("unknown mode error = %v", err)
+	}
+	_, err = engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode: ai.TurnModeOneShot, EngineSession: "existing",
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires a capability scope") {
+		t.Fatalf("missing continuation scope error = %v", err)
+	}
+	engine.runtime = session.NewInMemoryStore[*schema.Message](nil)
+	_, err = engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode: ai.TurnModeOneShot, SessionID: "7", EngineSession: "wrong",
+		SessionCapability: "stable",
+	})
+	if err == nil || !strings.Contains(err.Error(), "cannot create or rotate") {
+		t.Fatalf("one-shot session rotation error = %v", err)
+	}
+}
+
+func TestOneShotCanCloseExistingDeepSession(t *testing.T) {
+	runtime := session.NewInMemoryStore[*schema.Message](nil)
+	var calls int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
+		calls++
+		if calls == 1 {
+			foundSearch := false
+			for _, info := range visible {
+				foundSearch = foundSearch || info.Name == "tool_search"
+			}
+			if !foundSearch {
+				return nil, fmt.Errorf("deep turn did not expose tool_search: %v", visible)
+			}
+			return schema.AssistantMessage("first", nil), nil
+		}
+		if len(visible) != 0 {
+			return nil, fmt.Errorf("one-shot unexpectedly exposed tools: %v", visible)
+		}
+		users := 0
+		for _, message := range input {
+			if message.Extra != nil {
+				if marked, _ := message.Extra[einoToolSearchReminderKey].(bool); marked {
+					return nil, fmt.Errorf("one-shot replayed deferred-tool reminder")
+				}
+			}
+			if message.Role == schema.User {
+				users++
+			}
+		}
+		return schema.AssistantMessage(fmt.Sprintf("users=%d", users), nil), nil
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
+	first, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "92", SessionCapability: "stable", System: "count", UserText: "work",
+		Tools: []ai.Tool{{
+			Name: "probe", Description: "test probe",
+			InputSchema: map[string]any{"type": "object"},
+			Handler:     func(context.Context, json.RawMessage) (string, error) { return "ok", nil },
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode: ai.TurnModeOneShot, SessionID: "92", EngineSession: first.EngineSession,
+		SessionCapability: "stable", System: "count", UserText: "render closure",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closed.Text != "users=2" || closed.EngineSession != first.EngineSession {
+		t.Fatalf("closed=%+v first_session=%q", closed, first.EngineSession)
+	}
+}
+
 func TestManagedSessionReplaysHistoryAcrossEngineInstances(t *testing.T) {
 	runtime := session.NewInMemoryStore[*schema.Message](nil)
 	state := &scriptedModelState{}

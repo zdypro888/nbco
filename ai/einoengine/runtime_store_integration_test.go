@@ -87,6 +87,22 @@ func TestPostgresRuntimeStoreConformance(t *testing.T) {
 	if !strings.Contains(secretEvent.Message.Content, secret) {
 		t.Fatal("persistence redaction mutated the live turn event")
 	}
+	markerStore := &namespacedRuntimeStore{RuntimeStore: runtime, prefix: root + "marker-"}
+	markerMessage := schema.UserMessage("deferred tools")
+	markerMessage.Extra = map[string]any{einoToolSearchReminderKey: true}
+	if err := markerStore.AppendEvents(ctx, "session", []*adk.SessionEvent[*schema.Message]{
+		{EventID: "marker-event", Message: markerMessage},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	markerEvents, err := markerStore.LoadEvents(ctx, "session", nil)
+	if err != nil || markerEvents == nil || len(markerEvents.Events) != 1 {
+		t.Fatalf("load marked event: events=%v err=%v", markerEvents, err)
+	}
+	marked, _ := markerEvents.Events[0].Message.Extra[einoToolSearchReminderKey].(bool)
+	if !marked {
+		t.Fatal("PostgreSQL runtime store lost Eino tool-search reminder metadata")
+	}
 	if stats, err := store.EinoRuntimeStats(ctx); err != nil || stats.Events == 0 || stats.Sessions == 0 || stats.StorageBytes == 0 {
 		t.Fatalf("runtime stats=%+v err=%v", stats, err)
 	}
