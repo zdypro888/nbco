@@ -744,6 +744,9 @@ function opsTable() {
   const ops = state.ops || {};
   const engine = ops.engine || {};
   const eino = ops.eino_runtime || {};
+  const semantic = ops.semantic_index || {};
+  const files = ops.file_index || {};
+  const messages = ops.message_index || {};
   const engineFails = Number(engine.consecutive_fails || 0);
   return `
     <table class="data-table">
@@ -754,6 +757,11 @@ function opsTable() {
         <tr><th>最近错误</th><td>${esc(engine.last_error || "无")}</td></tr>
         <tr><th>Eino 会话</th><td>${Number(eino.sessions || 0)} 个 · ${Number(eino.events || 0)} 条事件 · ${fmtBytes(eino.storage_bytes)}</td></tr>
         <tr><th>待恢复检查点</th><td>${Number(eino.checkpoints || 0)}${eino.last_event_at ? ` · 最近事件 ${fmtTime(eino.last_event_at)}` : ""}</td></tr>
+        <tr><th>语义索引</th><td>${semantic.configured ? (semantic.available ? `<span class="pill green">正常</span>` : `<span class="pill red">不可用</span>`) : `<span class="pill amber">未配置</span>`}${semantic.last_sync_at ? ` · 对账 ${fmtTime(semantic.last_sync_at)} · ${Number(semantic.last_sync_docs || 0)} 条` : ""}</td></tr>
+        <tr><th>聊天索引</th><td>${messages.configured ? `${Number(messages.indexed || 0)}/${Number(messages.total || 0)} 已索引 · ${Number(messages.pending || 0)} 待补齐` : `<span class="pill amber">未配置向量索引</span>`}</td></tr>
+        <tr><th>文件正文索引</th><td>${Number(files.indexed || 0)}/${Number(files.total || 0)} 已索引 · ${Number(files.chunks || 0)} 分块 · ${Number(files.pending || 0)} 待处理 · ${Number(files.processing || 0)} 处理中</td></tr>
+        <tr><th>文件向量索引</th><td>${files.vector_configured ? `${Number(files.vector_indexed || 0)} 已索引 · ${Number(files.vector_pending || 0)} 待处理 · ${Number(files.vector_processing || 0)} 处理中 · ${Number(files.vector_failed || 0)} 失败` : `<span class="pill amber">未配置向量索引</span>`}</td></tr>
+        <tr><th>文件索引异常</th><td>${Number(files.failed || 0)} 失败 · ${Number(files.unsupported || 0)} 无提取器 · ${Number(files.empty || 0)} 无文本 · ${Number(files.truncated || 0)} 截断</td></tr>
         <tr><th>迁移</th><td>${esc((ops.migrations || []).join(", "))}</td></tr>
       </tbody>
     </table>`;

@@ -824,10 +824,19 @@ func TestNewWorkerCustomBusyPattern(t *testing.T) {
 	if w.wait.Busy == nil || !w.wait.Busy.MatchString("... SWARM RUNNING ...") {
 		t.Fatal("自定义 busy_pattern 未生效")
 	}
+	if w.wait.BusyStable <= 0 {
+		t.Fatal("显式 busy_pattern 应启用常驻 harness 的稳定兜底")
+	}
 	// 非法正则回退默认（不 panic、Busy 仍非 nil）。
 	w2 := newWorker(Config{Server: "http://x", Token: "t", BusyPattern: "("})
 	if w2.wait.Busy == nil {
 		t.Fatal("非法 busy_pattern 应回退默认")
+	}
+	if w2.wait.BusyStable != 0 {
+		t.Fatal("非法 busy_pattern 不应启用可能误杀真实交互会话的兜底")
+	}
+	if got := newWorker(Config{Server: "http://x", Token: "t"}).wait.BusyStable; got != 0 {
+		t.Fatalf("默认 PTY 不应按忙碌持续时间猜测完成，got %s", got)
 	}
 }
 

@@ -594,6 +594,16 @@ func TestPlanSemanticSearchUsesAIInsteadOfCodeFuzzyMatching(t *testing.T) {
 	}
 }
 
+func TestPlanSemanticSearchKeepsObjectTermsForRecentIntent(t *testing.T) {
+	d := Deps{SubcallAI: func(context.Context, *store.User, string, string) (string, error) {
+		return `{"terms":["视频项目"],"kinds":["files"],"recent":true}`, nil
+	}}
+	plan := planSemanticSearch(context.Background(), d, &store.User{ID: 1}, "视频项目最新文件", []string{"files", "tasks"})
+	if !plan.Recent || len(plan.Terms) != 1 || plan.Terms[0] != "视频项目" {
+		t.Fatalf("recent object plan = %+v", plan)
+	}
+}
+
 func TestParseSemanticSearchPlanRejectsInventedKindsWithoutTreatingTermsAsSQL(t *testing.T) {
 	plan, ok := parseSemanticSearchPlan(`{"terms":["申请表","%全部%","申请表"],"kinds":["file","secret"],"recent":false}`, []string{"task", "file"})
 	if !ok {
@@ -604,6 +614,14 @@ func TestParseSemanticSearchPlanRejectsInventedKindsWithoutTreatingTermsAsSQL(t 
 	}
 	if len(plan.Kinds) != 1 || plan.Kinds[0] != "file" {
 		t.Fatalf("kinds = %#v", plan.Kinds)
+	}
+}
+
+func TestParseSemanticSearchPlanBoundsBroadSourceSelection(t *testing.T) {
+	allowed := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+	plan, ok := parseSemanticSearchPlan(`{"kinds":["a","b","c","d","e","f","g","h","i","j"]}`, allowed)
+	if !ok || len(plan.Kinds) != 8 {
+		t.Fatalf("plan = %+v, ok=%t", plan, ok)
 	}
 }
 

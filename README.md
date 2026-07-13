@@ -45,12 +45,12 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `qdrant.url` | Qdrant gRPC 地址，例如 `http://127.0.0.1:6334`；空值禁用并回退 PostgreSQL 旧向量/词法路径 |
 | `qdrant.api_key` | 自托管 Qdrant API Key；仅回环网络可留空 |
 | `qdrant.collection_prefix` | collection 前缀，默认 `nbco_semantic`；模型、维度与实际输出指纹的哈希自动追加 |
-| `qdrant.sync_interval_seconds` | 项目、任务、文件、画像等结构化数据与 Qdrant 周期对账间隔，默认 120 秒 |
+| `qdrant.sync_interval_seconds` | 项目、任务、文件元数据、画像等结构化数据与 Qdrant 增量同步间隔，默认 120 秒；完整删除对账每 6 小时执行 |
 | `qdrant.sync_timeout_seconds` | 单轮完整对账最长时间，默认 3600 秒；慢速本地 embedding 或大数据集可调高 |
 | `ai.embed_revision` | 可选的 embedding 运行策略版本；上下文长度、池化方式等改变但模型名不变时更新它，强制使用新 collection |
 | `listen` | HTTP 监听地址，默认 `127.0.0.1:8900` |
 | `log_level` | `debug` / `info` / `warn` / `error`，默认 `info`（debug 只记录消息长度与短哈希，不记录对话/工具明文） |
-| `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释 |
+| `file_store_path` | 文件存储目录，默认 `files`；相对路径按进程工作目录解释。上传后始终异步提取正文并保存 PostgreSQL 分块；启用 Qdrant 后再异步建立向量索引 |
 | `worker_download_path` | `nbco-worker` 多平台发行物目录，默认 `downloads`；服务端通过 `/downloads/worker/...` 提供下载 |
 | `public_base_url` | 外部可访问的 HTTPS 基地址；Telegram Mini App 文件中心等入口需要配置 |
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
@@ -335,10 +335,11 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 说「以后不要…」「默认…」这类持久性要求时，AI 用 `save_rule` 存成规则（与知识同表，`kind=policy`；作用域 `scope:global/telegram/api/worker/user:<id>` 用标签表达）。少数 `pinned` 底线规则每轮常驻系统提示；其余规则每轮用当前输入做语义检索、按作用域过滤后注入「本轮相关规则」，worker 领活时同样注入适用 worker 场景的规则——规则可以无限多，系统提示不会随之膨胀。管理工具：`save_rule` / `list_rules` / `set_rule_pinned`（改正文/删除复用 `update_knowledge` / `delete_knowledge`）
-- **情景记忆（Episodic Memory）**：消息级 embedding + `search_history` 跨会话检索「我们之前聊过/定过什么」。只搜提问者名下的会话，不跨权限；短寒暄不入库，存量消息启动时后台回填
+- **情景记忆（Episodic Memory）**：每条非空聊天消息都做 embedding，`search_history` 可跨会话检索「我们之前聊过/定过什么」。短确认也会索引，并携带上一条消息作为向量上下文，避免「就这个」脱离语境；存量消息启动及周期后台回填。普通用户只搜自己名下会话，超级管理员还可通过 `query_data` 按权限跨会话调查
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
-- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，知识、规则、Skill、历史消息、用户画像、项目、任务、文件、日程、决策和资料实体统一进入 Qdrant。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。语义结果与 PostgreSQL 词法结果用 RRF 融合；Qdrant 暂时不可用时自动保留词法路径。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
+- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，知识、规则、Skill、已进入会话事实流的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
+- **文件正文索引**：上传请求只负责可靠落盘，后台持久队列再提取文本并按重叠窗口分块；PostgreSQL 正文提取与 Qdrant 向量写入分别记录状态和重试。TXT/CSV/JSON/源码和 DOCX/XLSX/PPTX/ODF 使用确定性提取；PDF 优先读取文本层，无文本层时受控 OCR，图片使用 `tesseract`（命令不可用时文件名和元数据仍可搜索，安装新提取器后会自动重试）。该流程限制 Office 解压规模与 OCR 页数，只建立搜索索引，不执行文件内容，也不会自动发布成知识、规则或 Skill
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 脚本工具（让 nbco 长出新工具）

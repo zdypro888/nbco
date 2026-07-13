@@ -33,6 +33,13 @@ type ChatMessage struct {
 	CreatedAt time.Time
 }
 
+// IsGroupChannel reports whether a gateway channel uses the shared-group
+// namespace. Gateways may vary by provider; the ":group:" segment is the
+// stable protocol contract used by sessions and semantic permission scopes.
+func IsGroupChannel(channel string) bool {
+	return strings.Contains(strings.TrimSpace(channel), ":group:")
+}
+
 func (s *Store) ChatMessageByID(ctx context.Context, id int64) (*ChatMessage, error) {
 	var m ChatMessage
 	if err := s.pool.QueryRow(ctx,
@@ -148,9 +155,6 @@ func (s *Store) AppendMessage(ctx context.Context, sessionID int64, role, conten
 
 // --- 会话情景记忆（episodic memory）：消息级语义检索 ---
 
-// minMemorableLen 短于该字节数的消息不值得嵌入（「在」「好的」之类寒暄）。
-const minMemorableLen = 8
-
 // SetMessageEmbedding 落一条消息的向量与模型标签。
 func (s *Store) SetMessageEmbedding(ctx context.Context, id int64, model string, vec []float32) error {
 	return s.execOne(ctx,
@@ -177,31 +181,73 @@ func (s *Store) ClearLegacyMessageEmbeddings(ctx context.Context) error {
 // payload metadata. Message content remains authoritative in PostgreSQL.
 type MessageSemanticDocument struct {
 	ChatMessage
-	UserID  int64
-	Channel string
+	UserID          int64
+	Channel         string
+	PreviousRole    string
+	PreviousContent string
+}
+
+// ContextContent is the retrieval representation of a message. PostgreSQL
+// keeps the original message untouched; only semantic hits receive the nearby
+// context that made them match in the first place.
+func (m MessageSemanticDocument) ContextContent() string {
+	current := strings.TrimSpace(m.Content)
+	previous := strings.TrimSpace(m.PreviousContent)
+	if previous == "" {
+		return current
+	}
+	return fmt.Sprintf("current_%s: %s\nprevious_%s: %s",
+		strings.TrimSpace(m.Role), current,
+		strings.TrimSpace(m.PreviousRole), previous)
 }
 
 func (s *Store) MessageSemanticDocumentByID(ctx context.Context, id int64) (*MessageSemanticDocument, error) {
 	var doc MessageSemanticDocument
 	err := s.pool.QueryRow(ctx,
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
+		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		   LEFT JOIN LATERAL (
+		       SELECT p.role, p.content FROM chat_messages p
+		        WHERE p.session_id = m.session_id AND p.id < m.id
+		        ORDER BY p.id DESC LIMIT 1
+		   ) prev ON TRUE
 		  WHERE m.id = $1`, id).
-		Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel)
+		Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel,
+			&doc.PreviousRole, &doc.PreviousContent)
 	if err != nil {
 		return nil, wrapErr(err)
 	}
 	return &doc, nil
 }
 
-// SemanticMessagesAfter scans all memorable messages for Qdrant reconciliation
-// rather than trusting the legacy embed_model marker.
+// SemanticMessagesAfter scans every non-empty message for Qdrant
+// reconciliation rather than trusting the legacy embed_model marker. Even a
+// one-character acknowledgement can be relevant when reconstructing a
+// decision or delivery timeline.
 func (s *Store) SemanticMessagesAfter(ctx context.Context, afterID int64, limit int) ([]MessageSemanticDocument, error) {
+	return s.querySemanticMessages(ctx, `m.id > $1`, afterID, limit)
+}
+
+// SemanticMessagesNeedingIndexAfter consumes the durable external-index
+// marker. A separate periodic reconciliation intentionally ignores this marker
+// so a restored or cleared Qdrant collection still self-heals.
+func (s *Store) SemanticMessagesNeedingIndexAfter(ctx context.Context, marker string, afterID int64, limit int) ([]MessageSemanticDocument, error) {
+	return s.querySemanticMessages(ctx, `m.embed_model <> $1 AND m.id > $2`, marker, afterID, limit)
+}
+
+func (s *Store) querySemanticMessages(ctx context.Context, predicate string, args ...any) ([]MessageSemanticDocument, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
+		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
-		  WHERE m.id > $1 AND length(m.content) >= $2
-		  ORDER BY m.id LIMIT $3`, afterID, minMemorableLen, limit)
+		   LEFT JOIN LATERAL (
+		       SELECT p.role, p.content FROM chat_messages p
+		        WHERE p.session_id = m.session_id AND p.id < m.id
+		        ORDER BY p.id DESC LIMIT 1
+		   ) prev ON TRUE
+		  WHERE `+predicate+` AND btrim(m.content) <> ''
+		  ORDER BY m.id LIMIT $`+fmt.Sprint(len(args)), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +255,8 @@ func (s *Store) SemanticMessagesAfter(ctx context.Context, afterID int64, limit 
 	var out []MessageSemanticDocument
 	for rows.Next() {
 		var doc MessageSemanticDocument
-		if err := rows.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel); err != nil {
+		if err := rows.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel,
+			&doc.PreviousRole, &doc.PreviousContent); err != nil {
 			return nil, err
 		}
 		out = append(out, doc)
@@ -217,9 +264,9 @@ func (s *Store) SemanticMessagesAfter(ctx context.Context, afterID int64, limit 
 	return out, rows.Err()
 }
 
-func (s *Store) MemorableMessageIDs(ctx context.Context) ([]int64, error) {
+func (s *Store) SemanticMessageIDs(ctx context.Context) ([]int64, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id FROM chat_messages WHERE length(content) >= $1 ORDER BY id`, minMemorableLen)
+		`SELECT id FROM chat_messages WHERE btrim(content) <> '' ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -235,19 +282,33 @@ func (s *Store) MemorableMessageIDs(ctx context.Context) ([]int64, error) {
 	return ids, rows.Err()
 }
 
-// MessagesNeedingEmbeddingAfter 从 id 游标后取尚未按当前模型嵌入的消息（回填用）。
-// 只嵌有记忆价值的：长度达标即可，user/assistant 都要（决定可能出现在任一侧）。
-func (s *Store) MessagesNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]ChatMessage, error) {
-	return s.queryMessages(ctx,
-		`SELECT id, session_id, role, content, created_at FROM chat_messages
-		 WHERE (embed_model <> $1 OR embedding IS NULL) AND id > $2 AND length(content) >= $3
-		 ORDER BY id LIMIT $4`, model, afterID, minMemorableLen, limit)
+// MessagesNeedingEmbeddingAfter 从 id 游标后取尚未按当前模型嵌入的非空消息
+// （回填用）。user/assistant 都要，事实和确认可能出现在任一侧。
+func (s *Store) MessagesNeedingEmbeddingAfter(ctx context.Context, model string, afterID int64, limit int) ([]MessageSemanticDocument, error) {
+	return s.querySemanticMessages(ctx,
+		`(m.embed_model <> $1 OR m.embedding IS NULL) AND m.id > $2`, model, afterID, limit)
 }
 
 // MessageVec 一条消息的 id + 向量（语义检索候选）。
 type MessageVec struct {
 	ID        int64
 	Embedding []float32
+}
+
+type ChatMessageIndexStats struct {
+	Total   int64 `json:"total"`
+	Indexed int64 `json:"indexed"`
+	Pending int64 `json:"pending"`
+}
+
+func (s *Store) ChatMessageIndexStats(ctx context.Context, marker string) (ChatMessageIndexStats, error) {
+	var stats ChatMessageIndexStats
+	err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FILTER (WHERE btrim(content) <> ''),
+		        count(*) FILTER (WHERE btrim(content) <> '' AND embed_model = $1)
+		   FROM chat_messages`, marker).Scan(&stats.Total, &stats.Indexed)
+	stats.Pending = max(0, stats.Total-stats.Indexed)
+	return stats, err
 }
 
 // embeddedMessagesCap 单次语义检索加载的向量上限（最近优先）：消息随年月无限
@@ -261,7 +322,8 @@ func (s *Store) EmbeddedMessagesOfUser(ctx context.Context, model string, userID
 	rows, err := s.pool.Query(ctx,
 		`SELECT m.id, m.embedding FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND m.embed_model = $2 AND m.embedding IS NOT NULL
+		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0
+		   AND m.embed_model = $2 AND m.embedding IS NOT NULL
 		 ORDER BY m.id DESC LIMIT $3`, userID, model, embeddedMessagesCap)
 	if err != nil {
 		return nil, err
@@ -294,7 +356,27 @@ func (s *Store) SearchMessagesOfUser(ctx context.Context, userID int64, query st
 	return s.queryMessages(ctx, fmt.Sprintf(
 		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND (%s)
+		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0 AND (%s)
+		 ORDER BY m.id DESC LIMIT $%d`, strings.Join(conds, " OR "), len(args)), args...)
+}
+
+// SearchMessagesOfChannel is the lexical side of shared-group retrieval.
+func (s *Store) SearchMessagesOfChannel(ctx context.Context, channel, query string, limit int) ([]ChatMessage, error) {
+	terms := searchTerms(query)
+	if len(terms) == 0 || !IsGroupChannel(channel) {
+		return nil, nil
+	}
+	args := []any{strings.TrimSpace(channel)}
+	var conds []string
+	for _, term := range terms {
+		args = append(args, "%"+escapeLike(term)+"%")
+		conds = append(conds, fmt.Sprintf("m.content ILIKE $%d", len(args)))
+	}
+	args = append(args, limit)
+	return s.queryMessages(ctx, fmt.Sprintf(
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
+		 JOIN chat_sessions cs ON cs.id = m.session_id
+		 WHERE cs.channel = $1 AND (%s)
 		 ORDER BY m.id DESC LIMIT $%d`, strings.Join(conds, " OR "), len(args)), args...)
 }
 
@@ -303,14 +385,15 @@ func (s *Store) MessagesByIDs(ctx context.Context, ids []int64) ([]ChatMessage, 
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	ms, err := s.queryMessages(ctx,
-		`SELECT id, session_id, role, content, created_at FROM chat_messages WHERE id = ANY($1)`, ids)
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, "")
 	if err != nil {
 		return nil, err
 	}
-	byID := make(map[int64]ChatMessage, len(ms))
-	for _, m := range ms {
-		byID[m.ID] = m
+	byID := make(map[int64]ChatMessage, len(docs))
+	for _, doc := range docs {
+		message := doc.ChatMessage
+		message.Content = doc.ContextContent()
+		byID[message.ID] = message
 	}
 	out := make([]ChatMessage, 0, len(ids))
 	for _, id := range ids {
@@ -319,6 +402,89 @@ func (s *Store) MessagesByIDs(ctx context.Context, ids []int64) ([]ChatMessage, 
 		}
 	}
 	return out, nil
+}
+
+// MessagesByIDsForUser re-checks ownership and the private-session scope after
+// a vector hit. Group sessions keep their creator in user_id for attribution,
+// so ownership alone is not enough to authorize private-memory retrieval.
+func (s *Store) MessagesByIDsForUser(ctx context.Context, userID int64, ids []int64) ([]ChatMessage, error) {
+	if len(ids) == 0 || userID <= 0 {
+		return nil, nil
+	}
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, userID, "")
+	if err != nil {
+		return nil, err
+	}
+	return orderedContextMessages(ids, docs), nil
+}
+
+// MessagesByIDsForChannel re-checks the shared channel after a vector hit.
+func (s *Store) MessagesByIDsForChannel(ctx context.Context, channel string, ids []int64) ([]ChatMessage, error) {
+	if len(ids) == 0 || !IsGroupChannel(channel) {
+		return nil, nil
+	}
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, strings.TrimSpace(channel))
+	if err != nil {
+		return nil, err
+	}
+	return orderedContextMessages(ids, docs), nil
+}
+
+func orderedContextMessages(ids []int64, docs []MessageSemanticDocument) []ChatMessage {
+	byID := make(map[int64]ChatMessage, len(docs))
+	for _, doc := range docs {
+		message := doc.ChatMessage
+		message.Content = doc.ContextContent()
+		byID[message.ID] = message
+	}
+	out := make([]ChatMessage, 0, len(ids))
+	for _, id := range ids {
+		if message, ok := byID[id]; ok {
+			out = append(out, message)
+		}
+	}
+	return out
+}
+
+func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, userID int64, channel string) ([]MessageSemanticDocument, error) {
+	args := []any{ids}
+	predicates := make([]string, 0, 2)
+	if userID > 0 {
+		args = append(args, userID)
+		predicates = append(predicates, fmt.Sprintf("cs.user_id = $%d AND strpos(cs.channel, ':group:') = 0", len(args)))
+	}
+	if channel != "" {
+		args = append(args, channel)
+		predicates = append(predicates, fmt.Sprintf("cs.channel = $%d", len(args)))
+	}
+	scopePredicate := ""
+	if len(predicates) > 0 {
+		scopePredicate = " AND " + strings.Join(predicates, " AND ")
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
+		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
+		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		   LEFT JOIN LATERAL (
+		       SELECT p.role, p.content FROM chat_messages p
+		        WHERE p.session_id = m.session_id AND p.id < m.id
+		        ORDER BY p.id DESC LIMIT 1
+		   ) prev ON TRUE
+		  WHERE m.id = ANY($1)`+scopePredicate, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MessageSemanticDocument
+	for rows.Next() {
+		var doc MessageSemanticDocument
+		if err := rows.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt,
+			&doc.UserID, &doc.Channel, &doc.PreviousRole, &doc.PreviousContent); err != nil {
+			return nil, err
+		}
+		out = append(out, doc)
+	}
+	return out, rows.Err()
 }
 
 // ListChannelMessages 按渠道读取 [from, to) 范围内的消息，返回最新 limit 条并按

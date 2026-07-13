@@ -17,7 +17,12 @@ func TestDataRowEntityIDPreservesLargeAndNegativeIDs(t *testing.T) {
 
 func TestSemanticDataSourcesOnlyIncludeCuratedTextModels(t *testing.T) {
 	sources := SemanticDataSources()
-	for _, required := range []string{"users", "projects", "tasks", "files", "schedules", "material_entities"} {
+	for _, required := range []string{
+		"users", "worker_sessions", "worker_capabilities", "roles", "org_groups",
+		"projects", "tasks", "task_updates", "files", "file_intakes",
+		"schedules", "deliveries", "learning_candidates", "events", "material_entities",
+		"script_tools", "eval_cases",
+	} {
 		if !slices.Contains(sources, required) {
 			t.Errorf("缺少语义数据源 %s", required)
 		}
@@ -27,10 +32,25 @@ func TestSemanticDataSourcesOnlyIncludeCuratedTextModels(t *testing.T) {
 			t.Errorf("%s 应由专用索引或精确SQL处理", exactOnly)
 		}
 	}
+	if slices.Contains(sources, "chat_messages") {
+		t.Fatal("chat_messages 由实时消息管道索引，不应被结构化对账覆盖作用域 payload")
+	}
+	if slices.Contains(sources, "file_chunks") {
+		t.Fatal("file_chunks 由持久文件向量队列索引，不应被通用对账重复覆盖")
+	}
+	if field, ok := DataSourceIDField("file_chunks"); !ok || field != "chunk_id" {
+		t.Fatalf("file_chunks 稳定 ID = %q, %t", field, ok)
+	}
+	if field, ok := DataSourceIDField("chat_messages"); !ok || field != "chat_message_id" {
+		t.Fatalf("chat_messages 稳定 ID = %q, %t", field, ok)
+	}
 	for _, source := range sources {
 		def := dataSourceDefs[source]
 		joined := strings.Join(def.semanticFields, ",")
-		for _, forbidden := range []string{"api_key", "token", "storage_path", "postgres_dsn", "embed_model"} {
+		for _, forbidden := range []string{
+			"api_key", "token", "storage_path", "postgres_dsn", "embed_model",
+			"engine_session_ref", "workdir", "hostname", "sha256", "tested_source_hash", "source_code",
+		} {
 			if strings.Contains(joined, forbidden) {
 				t.Errorf("数据源 %s 语义字段包含敏感字段 %s", source, forbidden)
 			}

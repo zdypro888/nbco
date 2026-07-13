@@ -382,6 +382,14 @@ func (s *Store) KnowledgeAfter(ctx context.Context, afterID int64, limit int) ([
 		`SELECT `+knowledgeCols+` FROM knowledge WHERE id > $1 ORDER BY id LIMIT $2`, afterID, limit)
 }
 
+// KnowledgeNeedingExternalIndexAfter uses only the durable model marker.
+// External Qdrant points deliberately leave the legacy embedding column NULL.
+func (s *Store) KnowledgeNeedingExternalIndexAfter(ctx context.Context, marker string, afterID int64, limit int) ([]*Knowledge, error) {
+	return s.queryKnowledge(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE embed_model <> $1 AND id > $2 ORDER BY id LIMIT $3`,
+		marker, afterID, limit)
+}
+
 func (s *Store) KnowledgeIDs(ctx context.Context) ([]int64, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id FROM knowledge ORDER BY id`)
 	if err != nil {

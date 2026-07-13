@@ -905,6 +905,11 @@ func TestAutomationScheduleUpsertIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	mustExec(t, s, `UPDATE schedules SET updated_at = now() - interval '1 hour' WHERE id = $1`, first.ID)
+	var staleUpdatedAt time.Time
+	if err := s.pool.QueryRow(ctx, `SELECT updated_at FROM schedules WHERE id = $1`, first.ID).Scan(&staleUpdatedAt); err != nil {
+		t.Fatal(err)
+	}
 	base.DailyAt = "19:00"
 	base.Title = "项目群 晚间摘要"
 	base.FireAt = time.Now().Add(2 * time.Hour)
@@ -914,6 +919,13 @@ func TestAutomationScheduleUpsertIsIdempotent(t *testing.T) {
 	}
 	if second.ID != first.ID || second.DailyAt != "19:00" || second.Title != "项目群 晚间摘要" {
 		t.Fatalf("automation upsert should update one row: first=%+v second=%+v", first, second)
+	}
+	var refreshedUpdatedAt time.Time
+	if err := s.pool.QueryRow(ctx, `SELECT updated_at FROM schedules WHERE id = $1`, first.ID).Scan(&refreshedUpdatedAt); err != nil {
+		t.Fatal(err)
+	}
+	if !refreshedUpdatedAt.After(staleUpdatedAt) {
+		t.Fatalf("automation upsert must refresh semantic timestamp: stale=%s refreshed=%s", staleUpdatedAt, refreshedUpdatedAt)
 	}
 	active, err := s.HasActiveAutomationSchedule(ctx, base.SourceKind, base.SourceKey)
 	if err != nil || !active {
@@ -1489,6 +1501,148 @@ func TestFileIntakeLifecycle(t *testing.T) {
 	}
 }
 
+func TestFileContentIndexLifecycleAndVisibility(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "file-index-owner", false)
+	other := mkUser(t, s, "file-index-other", false)
+	f, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "员工资料.txt", MIMEType: "text/plain",
+		SizeBytes: 20, SHA256: strings.Repeat("e", 64), StoragePath: "ee/file", CreatedBy: &owner.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := s.ClaimFilesForContentIndex(ctx, 2, "test-v1")
+	if err != nil || len(jobs) != 1 || jobs[0].ID != f.ID || jobs[0].ClaimToken == "" || jobs[0].Attempts != 1 {
+		t.Fatalf("claims = %+v, %v", jobs, err)
+	}
+	stale := jobs[0]
+	stale.ClaimToken += "-stale"
+	if _, err := s.CompleteFileContentIndex(ctx, stale, "test", []string{"不应写入"}, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stale claim = %v", err)
+	}
+	chunks, err := s.CompleteFileContentIndex(ctx, jobs[0], "test", []string{"黄桑是产品经理", "手机号由本人维护"}, false)
+	if err != nil || len(chunks) != 2 || chunks[0].ChunkIndex != 0 || chunks[1].FileID != f.ID {
+		t.Fatalf("chunks = %+v, %v", chunks, err)
+	}
+	stats, err := s.FileContentIndexStats(ctx)
+	if err != nil || stats.Total != 1 || stats.Indexed != 1 || stats.Chunks != 2 || stats.Pending != 0 || stats.VectorPending != 1 {
+		t.Fatalf("index stats = %+v, %v", stats, err)
+	}
+	if jobs, err := s.ClaimFilesForContentIndex(ctx, 2, "test-v1"); err != nil || len(jobs) != 0 {
+		t.Fatalf("completed file reclaimed: %+v, %v", jobs, err)
+	}
+	vectorJobs, err := s.ClaimFilesForVectorIndex(ctx, 2, "embedding-v1")
+	if err != nil || len(vectorJobs) != 1 || len(vectorJobs[0].Chunks) != 2 || vectorJobs[0].ClaimToken == "" {
+		t.Fatalf("vector claims = %+v, %v", vectorJobs, err)
+	}
+	staleVector := vectorJobs[0]
+	staleVector.ClaimToken += "-stale"
+	if err := s.CompleteFileVectorIndex(ctx, staleVector); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stale vector claim = %v", err)
+	}
+	if err := s.CompleteFileVectorIndex(ctx, vectorJobs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, err := s.ClaimFilesForVectorIndex(ctx, 2, "embedding-v1"); err != nil || len(jobs) != 0 {
+		t.Fatalf("same model reclaimed: %+v, %v", jobs, err)
+	}
+	// A model/fingerprint change maps to a new Qdrant collection, so every
+	// completed file must be durably reclaimed for the new model.
+	vectorJobs, err = s.ClaimFilesForVectorIndex(ctx, 2, "embedding-v2")
+	if err != nil || len(vectorJobs) != 1 || vectorJobs[0].Attempts != 1 || vectorJobs[0].VectorModel != "embedding-v2" {
+		t.Fatalf("new-model claims = %+v, %v", vectorJobs, err)
+	}
+	if err := s.CompleteFileVectorIndex(ctx, vectorJobs[0]); err != nil {
+		t.Fatal(err)
+	}
+	chunkIDs, err := s.FileTextChunkIDs(ctx)
+	if err != nil || len(chunkIDs) != 2 || chunkIDs[0] != chunks[0].ID || chunkIDs[1] != chunks[1].ID {
+		t.Fatalf("chunk IDs = %v, %v", chunkIDs, err)
+	}
+	ownerRows, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{Source: "file_chunks", Terms: []string{"产品经理"}, Limit: 10})
+	if err != nil || len(ownerRows) != 1 || !strings.Contains(string(ownerRows[0]), "黄桑") {
+		t.Fatalf("owner rows = %s, %v", ownerRows, err)
+	}
+	otherRows, err := s.ReadData(ctx, other.ID, false, DataReadQuery{Source: "file_chunks", Limit: 10})
+	if err != nil || len(otherRows) != 0 {
+		t.Fatalf("other rows leaked = %s, %v", otherRows, err)
+	}
+}
+
+func TestUnsupportedFileRetriesOnlyWhenExtractorCapabilitiesChange(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "extractor-revision-owner", false)
+	if _, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "scan.bin", MIMEType: "application/octet-stream",
+		SizeBytes: 1, SHA256: strings.Repeat("a", 64), StoragePath: "aa/scan", CreatedBy: &owner.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := s.ClaimFilesForContentIndex(ctx, 1, "cap-v1")
+	if err != nil || len(jobs) != 1 {
+		t.Fatalf("first claim = %+v, %v", jobs, err)
+	}
+	if err := s.FailFileContentIndex(ctx, jobs[0], errors.New("unsupported"), false); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, err := s.ClaimFilesForContentIndex(ctx, 1, "cap-v1"); err != nil || len(jobs) != 0 {
+		t.Fatalf("same capabilities reclaimed terminal file: %+v, %v", jobs, err)
+	}
+	jobs, err = s.ClaimFilesForContentIndex(ctx, 1, "cap-v2")
+	if err != nil || len(jobs) != 1 || jobs[0].Attempts != 1 || jobs[0].ExtractorRevision != "cap-v2" {
+		t.Fatalf("changed capabilities claim = %+v, %v", jobs, err)
+	}
+}
+
+func TestFileIndexAbandonedClaimsStopAndRecoverAfterRuntimeChange(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "abandoned-file-index-owner", false)
+	file, err := s.CreateFile(ctx, &File{
+		Source: "test", OriginalName: "abandoned.txt", MIMEType: "text/plain",
+		SizeBytes: 1, SHA256: strings.Repeat("b", 64), StoragePath: "bb/abandoned", CreatedBy: &owner.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE file_content_indexes
+		SET status='processing', attempts=$2, extractor_revision='extract-v1',
+		    claim_token='dead', claimed_at=now()-interval '1 hour'
+		WHERE file_id=$1`, file.ID, fileIndexMaxAttempts)
+	if jobs, err := s.ClaimFilesForContentIndex(ctx, 1, "extract-v1"); err != nil || len(jobs) != 0 {
+		t.Fatalf("exhausted extraction claim = %+v, %v", jobs, err)
+	}
+	var status string
+	if err := s.pool.QueryRow(ctx, `SELECT status FROM file_content_indexes WHERE file_id=$1`, file.ID).Scan(&status); err != nil || status != "failed" {
+		t.Fatalf("exhausted extraction status = %q, %v", status, err)
+	}
+	jobs, err := s.ClaimFilesForContentIndex(ctx, 1, "extract-v2")
+	if err != nil || len(jobs) != 1 || jobs[0].Attempts != 1 {
+		t.Fatalf("changed extractor recovery = %+v, %v", jobs, err)
+	}
+	if _, err := s.CompleteFileContentIndex(ctx, jobs[0], "test", []string{"recoverable"}, false); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE file_content_indexes
+		SET vector_status='processing', vector_attempts=$2, vector_model='embed-v1',
+		    vector_claim_token='dead', vector_claimed_at=now()-interval '1 hour'
+		WHERE file_id=$1`, file.ID, fileIndexMaxAttempts)
+	if jobs, err := s.ClaimFilesForVectorIndex(ctx, 1, "embed-v1"); err != nil || len(jobs) != 0 {
+		t.Fatalf("exhausted vector claim = %+v, %v", jobs, err)
+	}
+	var vectorStatus string
+	if err := s.pool.QueryRow(ctx, `SELECT vector_status FROM file_content_indexes WHERE file_id=$1`, file.ID).Scan(&vectorStatus); err != nil || vectorStatus != "failed" {
+		t.Fatalf("exhausted vector status = %q, %v", vectorStatus, err)
+	}
+	vectorJobs, err := s.ClaimFilesForVectorIndex(ctx, 1, "embed-v2")
+	if err != nil || len(vectorJobs) != 1 || vectorJobs[0].Attempts != 1 {
+		t.Fatalf("changed model recovery = %+v, %v", vectorJobs, err)
+	}
+}
+
 func TestWorkspaceCandidatesAndDeleteFile(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -1677,7 +1831,7 @@ func TestReadDataAllSourcesCompile(t *testing.T) {
 	}
 	for _, source := range SemanticDataSources() {
 		t.Run("semantic/"+source, func(t *testing.T) {
-			if _, err := s.SemanticDocuments(ctx, source, 0, 1); err != nil {
+			if _, err := s.SemanticDocuments(ctx, source, nil, nil, 1); err != nil {
 				t.Fatalf("semantic source %s: %v", source, err)
 			}
 		})
@@ -3349,21 +3503,27 @@ func TestEpisodicMessageSearch(t *testing.T) {
 	if vecs, _ := s.EmbeddedMessagesOfUser(ctx, "m:2", other.ID); len(vecs) != 0 {
 		t.Fatalf("他人不应见到该向量: %+v", vecs)
 	}
-	// 回填游标：短消息（<8字节）不进队列。
-	if _, err := s.AppendMessage(ctx, sess.ID, "user", "在"); err != nil {
+	// 回填游标：短确认也是完整聊天事实，必须进入索引队列。
+	shortID, err := s.AppendMessage(ctx, sess.ID, "user", "在")
+	if err != nil {
 		t.Fatal(err)
 	}
 	need, err := s.MessagesNeedingEmbeddingAfter(ctx, "m:2", 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
+	var hasShort bool
 	for _, m := range need {
-		if m.Content == "在" {
-			t.Fatal("寒暄短消息不应进嵌入队列")
+		hasShort = hasShort || m.ID == shortID
+		if m.ID == shortID && !strings.Contains(m.PreviousContent, "PostgreSQL") {
+			t.Fatalf("short message must carry previous context: %+v", m)
 		}
 		if m.ID == id1 {
 			t.Fatal("已嵌入消息不应再进队列")
 		}
+	}
+	if !hasShort {
+		t.Fatal("短消息也应进入嵌入队列")
 	}
 	if err := s.MarkMessageVectorIndexed(ctx, id1, "m:2"); err != nil {
 		t.Fatal(err)
@@ -3387,6 +3547,99 @@ func TestEpisodicMessageSearch(t *testing.T) {
 	}
 	if vecs, err := s.EmbeddedMessagesOfUser(ctx, "m:2", boss.ID); err != nil || len(vecs) != 0 {
 		t.Fatalf("旧消息向量应已清理: %+v err=%v", vecs, err)
+	}
+}
+
+func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "group-history-owner", false)
+	first, err := s.StartGroupSession(ctx, owner.ID, "telegram:group:-1001", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstID, err := s.AppendMessage(ctx, first.ID, "user", "视频项目本周发布路线图")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.StartGroupSession(ctx, owner.ID, "telegram:group:-1002", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondID, err := s.AppendMessage(ctx, second.ID, "user", "另一个群的视频项目路线图")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.SearchMessagesOfChannel(ctx, "telegram:group:-1001", "路线图", 10)
+	if err != nil || len(rows) != 1 || rows[0].ID != firstID {
+		t.Fatalf("exact group search = %+v, %v", rows, err)
+	}
+	if rows, err := s.SearchMessagesOfChannel(ctx, "telegram", "路线图", 10); err != nil || len(rows) != 0 {
+		t.Fatalf("private channel must not enter shared-group search: %+v, %v", rows, err)
+	}
+	rows, err = s.SearchMessagesOfUser(ctx, owner.ID, "路线图", 10)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("private lexical history leaked group messages = %+v, %v", rows, err)
+	}
+	rows, err = s.MessagesByIDsForChannel(ctx, "telegram:group:-1001", []int64{secondID, firstID})
+	if err != nil || len(rows) != 1 || rows[0].ID != firstID {
+		t.Fatalf("group SQL reauthorization = %+v, %v", rows, err)
+	}
+	rows, err = s.MessagesByIDsForUser(ctx, owner.ID, []int64{firstID, secondID})
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("private semantic reauthorization leaked group messages = %+v, %v", rows, err)
+	}
+	dataRows, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{
+		Source: "chat_messages", EntityIDs: []string{fmt.Sprint(firstID), fmt.Sprint(secondID)}, Limit: 10,
+	})
+	if err != nil || len(dataRows) != 0 {
+		t.Fatalf("ordinary query_data leaked group messages = %s, %v", dataRows, err)
+	}
+	dataRows, err = s.ReadData(ctx, owner.ID, true, DataReadQuery{
+		Source: "chat_messages", EntityIDs: []string{fmt.Sprint(firstID), fmt.Sprint(secondID)}, Limit: 10,
+	})
+	if err != nil || len(dataRows) != 2 {
+		t.Fatalf("superadmin query_data group messages = %s, %v", dataRows, err)
+	}
+	doc, err := s.MessageSemanticDocumentByID(ctx, firstID)
+	if err != nil || doc.Channel != "telegram:group:-1001" || doc.UserID != owner.ID {
+		t.Fatalf("semantic group document = %+v, %v", doc, err)
+	}
+	pending, err := s.SemanticMessagesNeedingIndexAfter(ctx, "model@revision", 0, 10)
+	if err != nil || len(pending) != 2 {
+		t.Fatalf("pending semantic messages = %+v, %v", pending, err)
+	}
+	if err := s.MarkMessageVectorIndexed(ctx, firstID, "model@revision"); err != nil {
+		t.Fatal(err)
+	}
+	pending, err = s.SemanticMessagesNeedingIndexAfter(ctx, "model@revision", 0, 10)
+	if err != nil || len(pending) != 1 || pending[0].ID != secondID {
+		t.Fatalf("durable message marker = %+v, %v", pending, err)
+	}
+}
+
+func TestSemanticMessageLookupIncludesImmediateContext(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "semantic-context-owner", false)
+	session, err := s.StartSession(ctx, owner.ID, "telegram:private:semantic-context", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendMessage(ctx, session.ID, "assistant", "需要把视频项目的发布日期调整到周五吗？"); err != nil {
+		t.Fatal(err)
+	}
+	answerID, err := s.AppendMessage(ctx, session.ID, "user", "就这个")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.MessagesByIDsForUser(ctx, owner.ID, []int64{answerID})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("semantic context rows = %+v, %v", rows, err)
+	}
+	if !strings.Contains(rows[0].Content, "current_user: 就这个") ||
+		!strings.Contains(rows[0].Content, "previous_assistant: 需要把视频项目的发布日期调整到周五吗？") {
+		t.Fatalf("semantic context content = %q", rows[0].Content)
 	}
 }
 

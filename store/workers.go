@@ -368,7 +368,7 @@ func (s *Store) RevokeWorker(ctx context.Context, workerID int64) (int64, error)
 		return 0, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	tag, err := tx.Exec(ctx, `UPDATE users SET status = 'disabled' WHERE id = $1 AND is_worker`, workerID)
+	tag, err := tx.Exec(ctx, `UPDATE users SET status = 'disabled', updated_at = now() WHERE id = $1 AND is_worker`, workerID)
 	if err != nil {
 		return 0, wrapErr(err)
 	}

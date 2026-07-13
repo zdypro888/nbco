@@ -159,7 +159,8 @@ func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Sc
 		   title = EXCLUDED.title,
 		   source_message_id = COALESCE(EXCLUDED.source_message_id, schedules.source_message_id),
 		   last_fired = NULL,
-		   delivery_claimed_at = NULL
+		   delivery_claimed_at = NULL,
+		   updated_at = now()
 		 RETURNING `+scheduleCols,
 		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
 		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
@@ -197,7 +198,7 @@ func (s *Store) CancelAutomationSchedule(ctx context.Context, createdBy int64, s
 	defer func() { _ = tx.Rollback(ctx) }()
 	var id int64
 	if err := tx.QueryRow(ctx,
-		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL
+		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL, updated_at = now()
 		 WHERE created_by = $1 AND source_kind = $2 AND source_key = $3 AND status = 'active'
 		 RETURNING id`, createdBy, strings.TrimSpace(sourceKind), strings.TrimSpace(sourceKey)).Scan(&id); err != nil {
 		return wrapErr(err)
@@ -301,7 +302,7 @@ func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	tag, err := tx.Exec(ctx,
-		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL
+		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL, updated_at = now()
 		 WHERE id = $1 AND (user_id = $2 OR created_by = $2) AND status = 'active'`, id, userID)
 	if err != nil {
 		return wrapErr(err)
@@ -365,7 +366,8 @@ func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, claimAt, fi
 		   last_fired = $2,
 		   status = $3,
 		   fire_at = COALESCE($4, fire_at),
-		   delivery_claimed_at = NULL
+		   delivery_claimed_at = NULL,
+		   updated_at = now()
 		 WHERE id = $1 AND delivery_claimed_at = $5`, id, firedAt, status, nextFireAt, claimAt)
 }
 
@@ -396,7 +398,8 @@ func (s *Store) FanOutScheduleOccurrence(ctx context.Context, sc *Schedule, user
 		status = ScheduleDone
 	}
 	tag, err := tx.Exec(ctx,
-		`UPDATE schedules SET last_fired=$2, status=$3, fire_at=COALESCE($4, fire_at), delivery_claimed_at=NULL
+		`UPDATE schedules SET last_fired=$2, status=$3, fire_at=COALESCE($4, fire_at),
+		 updated_at=now(), delivery_claimed_at=NULL
 		 WHERE id=$1 AND delivery_claimed_at=$5`, sc.ID, firedAt, status, nextFireAt, *sc.DeliveryClaimedAt)
 	if err != nil {
 		return err
@@ -497,7 +500,7 @@ func (s *Store) RetryScheduleDelivery(ctx context.Context, id int64, claimAt tim
 // UpdateScheduleFireAt 修正下次触发时间（daily 的工作日跳过/时区校正）。
 func (s *Store) UpdateScheduleFireAt(ctx context.Context, id int64, fireAt time.Time) error {
 	return s.execOne(ctx,
-		`UPDATE schedules SET fire_at = $2 WHERE id = $1 AND status = 'active'`, id, fireAt)
+		`UPDATE schedules SET fire_at = $2, updated_at = now() WHERE id = $1 AND status = 'active'`, id, fireAt)
 }
 
 // NextDailyFire 计算 after 之后、时刻为 dailyAt（HH:MM，tz 时区）、且落在

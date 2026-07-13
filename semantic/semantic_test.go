@@ -2,8 +2,10 @@ package semantic
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -13,16 +15,46 @@ import (
 	"github.com/zdypro888/nbco/vectorstore"
 )
 
-type testEmbedder struct{ calls atomic.Int32 }
+type poisonEmbedder struct{}
+
+func (*poisonEmbedder) Model() string { return "poison-test" }
+
+func (*poisonEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	for _, text := range texts {
+		if strings.Contains(text, "POISON") {
+			return nil, errors.New("input rejected")
+		}
+	}
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i] = []float32{1, float32(i + 1)}
+	}
+	return out, nil
+}
+
+type testEmbedder struct {
+	calls atomic.Int32
+	mu    sync.Mutex
+	texts []string
+}
 
 func (e *testEmbedder) Model() string { return "test-embed" }
 func (e *testEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
 	e.calls.Add(1)
+	e.mu.Lock()
+	e.texts = append(e.texts, texts...)
+	e.mu.Unlock()
 	out := make([][]float32, len(texts))
 	for i, text := range texts {
 		out[i] = []float32{float32(len(text)), 1}
 	}
 	return out, nil
+}
+
+func (e *testEmbedder) embeddedTexts() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]string(nil), e.texts...)
 }
 
 type memoryVectors struct {
@@ -132,6 +164,78 @@ func TestUpsertDocumentsSkipsUnchangedAndStoresNoContent(t *testing.T) {
 	}
 }
 
+func TestSemanticBoundaryRedactsDocumentsQueriesAndPayloads(t *testing.T) {
+	ctx := context.Background()
+	embedder := &testEmbedder{}
+	vectors := newMemoryVectors()
+	service := New(nil, embedder, vectors)
+	secret := "sk-test-0123456789abcdef0123456789abcdef"
+	doc := Document{
+		Ref:     vectorstore.Ref{Source: "files", EntityID: "7"},
+		Content: "deployment api_key=" + secret,
+		Payload: map[string]any{
+			"token": secret,
+			"note":  "Bearer " + secret,
+			"metadata": map[string]string{
+				"api_key": secret,
+				"summary": "credential " + secret,
+			},
+		},
+	}
+	if _, err := service.UpsertDocuments(ctx, []Document{doc}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.QueryVector(ctx, "find token="+secret); err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range embedder.embeddedTexts() {
+		if strings.Contains(text, secret) {
+			t.Fatalf("embedding input leaked secret: %q", text)
+		}
+	}
+	point := vectors.points[doc.Ref.Key()]
+	if point.Payload["token"] != "[redacted]" || strings.Contains(point.Payload["note"].(string), secret) {
+		t.Fatalf("vector payload leaked secret: %#v", point.Payload)
+	}
+	metadata, ok := point.Payload["metadata"].(map[string]any)
+	if !ok || metadata["api_key"] != "[redacted]" || strings.Contains(metadata["summary"].(string), secret) {
+		t.Fatalf("nested vector payload leaked secret: %#v", point.Payload)
+	}
+}
+
+func TestUpsertDocumentsIsolatesRejectedInput(t *testing.T) {
+	ctx := context.Background()
+	vectors := newMemoryVectors()
+	service := New(nil, &poisonEmbedder{}, vectors)
+	docs := []Document{
+		{Ref: vectorstore.Ref{Source: "tasks", EntityID: "1"}, Content: "healthy one"},
+		{Ref: vectorstore.Ref{Source: "tasks", EntityID: "2"}, Content: "POISON"},
+		{Ref: vectorstore.Ref{Source: "tasks", EntityID: "3"}, Content: "healthy three"},
+	}
+	report, err := service.UpsertDocumentsDetailed(ctx, docs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Indexed != 2 || len(report.Failed) != 1 || !report.Succeeded[docs[0].Ref.Key()] ||
+		!report.Succeeded[docs[2].Ref.Key()] || report.Succeeded[docs[1].Ref.Key()] {
+		t.Fatalf("report = %+v", report)
+	}
+	if len(vectors.points) != 2 {
+		t.Fatalf("points = %+v", vectors.points)
+	}
+}
+
+func TestCompactEmbeddingContentHonorsHardLimitAndKeepsTail(t *testing.T) {
+	content := strings.Repeat("头", maxEmbeddingRunes) + "TAIL-EVIDENCE"
+	got := compactEmbeddingContent(content)
+	if len([]rune(got)) > maxEmbeddingRunes {
+		t.Fatalf("compacted runes = %d", len([]rune(got)))
+	}
+	if !strings.Contains(got, "内容过长") || !strings.HasSuffix(got, "TAIL-EVIDENCE") {
+		t.Fatalf("compacted content = %q", got)
+	}
+}
+
 func TestDeleteMissing(t *testing.T) {
 	ctx := context.Background()
 	service := New(nil, &testEmbedder{}, newMemoryVectors())
@@ -150,6 +254,23 @@ func TestDeleteMissing(t *testing.T) {
 	deleted, err = service.DeleteMissing(ctx, "tasks", valid)
 	if err != nil || deleted != 1 {
 		t.Fatalf("连续两次缺失后应删除: %d, %v", deleted, err)
+	}
+}
+
+func TestStructuredSyncForcesFullOnModelChange(t *testing.T) {
+	now := time.Now()
+	farFuture := now.Add(time.Hour)
+	if !structuredSyncNeedsFull(now, farFuture, "", "model-a") {
+		t.Fatal("first sync must be full")
+	}
+	if !structuredSyncNeedsFull(now, farFuture, "model-a", "model-b") {
+		t.Fatal("model change must force a full sync")
+	}
+	if structuredSyncNeedsFull(now, farFuture, "model-a", "model-a") {
+		t.Fatal("stable model before deadline should remain incremental")
+	}
+	if !structuredSyncNeedsFull(now, now, "model-a", "model-a") {
+		t.Fatal("full-sync deadline must force a full sync")
 	}
 }
 

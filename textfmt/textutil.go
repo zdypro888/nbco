@@ -57,8 +57,11 @@ var (
 	secretJSONAssignmentRe = regexp.MustCompile(`(?i)("?(?:api[_-]?key|api[_-]?hash|access[_-]?token|worker[_-]?access[_-]?token|token|secret|password)"?\s*:\s*")([^"]{8,})(")`)
 	secretKVAssignmentRe   = regexp.MustCompile(`(?i)\b((?:api[_-]?key|api[_-]?hash|access[_-]?token|worker[_-]?access[_-]?token|token|secret|password)\s*[:=]\s*["']?)([^"'\s<]{8,})(["']?)`)
 	secretPatterns         = []*regexp.Regexp{
+		regexp.MustCompile(`(?is)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`),
 		regexp.MustCompile(`(?i)\bbearer\s+[a-z0-9._~+/=-]{12,}`),
 		regexp.MustCompile(`(?i)\bsk-[a-z0-9][a-z0-9._-]{12,}`),
+		regexp.MustCompile(`(?i)\b(?:gh[pousr]_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})\b`),
+		regexp.MustCompile(`\b(?:AKIA|ASIA)[A-Z0-9]{16}\b`),
 		regexp.MustCompile(`(?i)\b[0-9]{6,14}:[a-z0-9_-]{20,}\b`),
 		regexp.MustCompile(`(?i)\b[a-z0-9]{24,}\.[a-z0-9_-]{12,}\b`),
 		regexp.MustCompile(`(?i)\b[a-f0-9]{48,}\b`),
@@ -159,6 +162,83 @@ func StripHistoryMetadata(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// NormalizeEscapedLineBreaks repairs presentation text whose producer escaped
+// line breaks twice, leaving visible "\\n" sequences after JSON decoding. It
+// only acts when at least two layout escapes occur outside code spans, which
+// avoids changing ordinary prose such as "use \\n as the separator". Code and
+// preformatted regions keep their literal escape sequences.
+func NormalizeEscapedLineBreaks(s string) string {
+	if !strings.Contains(s, `\n`) && !strings.Contains(s, `\r`) {
+		return s
+	}
+
+	var b strings.Builder
+	b.Grow(len(s))
+	escapedBreaks := 0
+	inFence, inInlineCode := false, false
+	htmlCodeDepth := 0
+
+	for i := 0; i < len(s); {
+		if !inInlineCode && strings.HasPrefix(s[i:], "```") {
+			inFence = !inFence
+			b.WriteString("```")
+			i += 3
+			continue
+		}
+		if !inFence && s[i] == '`' {
+			inInlineCode = !inInlineCode
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		if !inFence && !inInlineCode && s[i] == '<' {
+			if relEnd := strings.IndexByte(s[i:], '>'); relEnd >= 0 {
+				end := i + relEnd
+				tag := strings.TrimSpace(s[i+1 : end])
+				closing := strings.HasPrefix(tag, "/")
+				tag = strings.TrimSpace(strings.TrimPrefix(tag, "/"))
+				fields := strings.Fields(tag)
+				if len(fields) > 0 {
+					name := strings.ToLower(strings.TrimSuffix(fields[0], "/"))
+					if name == "code" || name == "pre" {
+						if closing {
+							htmlCodeDepth = max(0, htmlCodeDepth-1)
+						} else if !strings.HasSuffix(tag, "/") {
+							htmlCodeDepth++
+						}
+						b.WriteString(s[i : end+1])
+						i = end + 1
+						continue
+					}
+				}
+			}
+		}
+
+		protected := inFence || inInlineCode || htmlCodeDepth > 0
+		standaloneSlash := i == 0 || s[i-1] != '\\'
+		if !protected && standaloneSlash && s[i] == '\\' {
+			switch {
+			case strings.HasPrefix(s[i:], `\r\n`):
+				b.WriteByte('\n')
+				escapedBreaks++
+				i += len(`\r\n`)
+				continue
+			case strings.HasPrefix(s[i:], `\n`), strings.HasPrefix(s[i:], `\r`):
+				b.WriteByte('\n')
+				escapedBreaks++
+				i += 2
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	if escapedBreaks < 2 {
+		return s
+	}
+	return b.String()
+}
+
 // SanitizeVisibleReply removes tool-only references and user identity internals
 // from text that is about to be shown to end users. Tool handlers may expose
 // user_id in their own outputs so the model can chain calls; this final display
@@ -173,5 +253,6 @@ func SanitizeVisibleReply(s string) string {
 	s = userIDKVRe.ReplaceAllString(s, "用户标识")
 	s = userInternalRefRe.ReplaceAllString(s, "$1标识")
 	s = userIDLabelRe.ReplaceAllString(s, "$1标识")
+	s = NormalizeEscapedLineBreaks(s)
 	return strings.TrimSpace(s)
 }

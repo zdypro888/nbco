@@ -12,9 +12,11 @@ func TestRedactSecrets(t *testing.T) {
 	apiKey := "sk-test-0123456789abcdef0123456789abcdef"
 	apiHash := "0123456789abcdef0123456789abcdef"
 	modelKey := "0123456789abcdef0123456789abcdef.fakeModelKey123"
-	in := `{"token":"` + workerToken + `","api_hash":"` + apiHash + `","note":"` + botToken + ` ` + apiKey + ` ` + modelKey + `"}`
+	githubToken := "ghp_0123456789abcdefghijklmnopqrstuvwxyz"
+	privateKey := "-----BEGIN PRIVATE KEY-----\n0123456789abcdef\n-----END PRIVATE KEY-----"
+	in := `{"token":"` + workerToken + `","api_hash":"` + apiHash + `","note":"` + botToken + ` ` + apiKey + ` ` + modelKey + ` ` + githubToken + ` ` + privateKey + `"}`
 	out := RedactSecrets(in)
-	for _, leak := range []string{botToken, workerToken, apiKey, apiHash, modelKey} {
+	for _, leak := range []string{botToken, workerToken, apiKey, apiHash, modelKey, githubToken, privateKey} {
 		if strings.Contains(out, leak) {
 			t.Fatalf("secret leaked after redaction: %s in %s", leak, out)
 		}
@@ -82,6 +84,36 @@ func TestSanitizeVisibleReplyHidesInternalMarkers(t *testing.T) {
 	if got != "请基于已有结果回答。" {
 		t.Fatalf("internal marker leaked: %q", got)
 	}
+}
+
+func TestNormalizeEscapedLineBreaks(t *testing.T) {
+	t.Run("double escaped layout", func(t *testing.T) {
+		in := "💬 来自 黄桑：\n<b>标题</b>\\n\\n• 第一项\\r\\n• 第二项"
+		want := "💬 来自 黄桑：\n<b>标题</b>\n\n• 第一项\n• 第二项"
+		if got := NormalizeEscapedLineBreaks(in); got != want {
+			t.Fatalf("NormalizeEscapedLineBreaks() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("single notation remains literal", func(t *testing.T) {
+		in := `Go 字符串可用 \n 表示换行`
+		if got := NormalizeEscapedLineBreaks(in); got != in {
+			t.Fatalf("single notation changed: %q", got)
+		}
+	})
+
+	t.Run("code regions remain literal", func(t *testing.T) {
+		in := "说明\\n\\n`a\\nb`\n<code>c\\nd</code>\n<pre>e\\nf</pre>\n```go\n" + `g := "x\n"` + "\n```"
+		got := NormalizeEscapedLineBreaks(in)
+		if !strings.HasPrefix(got, "说明\n\n") {
+			t.Fatalf("layout was not normalized: %q", got)
+		}
+		for _, want := range []string{`a\nb`, `c\nd`, `e\nf`, `x\n`} {
+			if !strings.Contains(got, want) {
+				t.Fatalf("protected code lost %q: %q", want, got)
+			}
+		}
+	})
 }
 
 func TestStripHistoryMetadata(t *testing.T) {

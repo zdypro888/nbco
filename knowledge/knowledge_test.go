@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/vectorstore"
 )
 
 const testDBLockKey = 7767002
@@ -53,6 +54,52 @@ func TestMerge(t *testing.T) {
 	}
 	if l := merge([]*store.Knowledge{k(1), k(2), k(3)}, nil, 2); len(l) != 2 {
 		t.Fatalf("应截到 limit: %d", len(l))
+	}
+}
+
+func TestMessageDocumentKeepsCurrentAndPreviousContext(t *testing.T) {
+	doc := messageDocument(store.MessageSemanticDocument{
+		ChatMessage:     store.ChatMessage{ID: 7, Role: "user", Content: "就这个"},
+		UserID:          1,
+		Channel:         "telegram",
+		PreviousRole:    "assistant",
+		PreviousContent: "你希望把员工资料整理成可检索档案吗？",
+	})
+	for _, want := range []string{"previous_assistant", "员工资料", "current_user", "就这个"} {
+		if !strings.Contains(doc.Content, want) {
+			t.Fatalf("message document missing %q: %s", want, doc.Content)
+		}
+	}
+	if doc.Payload[vectorstore.PayloadConversationScope] != "private" {
+		t.Fatalf("private scope = %#v", doc.Payload)
+	}
+	group := messageDocument(store.MessageSemanticDocument{
+		ChatMessage: store.ChatMessage{ID: 8, Role: "user", Content: "群内决定"},
+		UserID:      1, Channel: "telegram:group:-42",
+	})
+	if group.Payload[vectorstore.PayloadConversationScope] != "group" ||
+		group.Payload[vectorstore.PayloadChannel] != "telegram:group:-42" {
+		t.Fatalf("group scope = %#v", group.Payload)
+	}
+}
+
+func TestFilterAuthoritativeKnowledgeRejectsStaleVectorScopes(t *testing.T) {
+	rows := []*store.Knowledge{
+		{ID: 1, Kind: store.KnowledgeKindPolicy, Pinned: false, AuthorID: 7, Tags: []string{"project:1"}},
+		{ID: 2, Kind: store.KnowledgeKindPolicy, Pinned: true, AuthorID: 7, Tags: []string{"project:1"}},
+		{ID: 3, Kind: store.KnowledgeKindFact, Pinned: false, AuthorID: 7, Tags: []string{"project:1"}},
+		{ID: 4, Kind: store.KnowledgeKindPolicy, Pinned: false, AuthorID: 8, Tags: []string{"project:2"}},
+	}
+	filter := vectorstore.Filter{
+		Must: map[string]any{
+			vectorstore.PayloadSource: "knowledge", vectorstore.PayloadKind: store.KnowledgeKindPolicy,
+			"author_id": int64(7), "tags": "project:1",
+		},
+		MustNot: map[string]any{"pinned": true},
+	}
+	got := filterAuthoritativeKnowledge(rows, filter)
+	if len(got) != 1 || got[0].ID != 1 {
+		t.Fatalf("authoritative filter = %+v", got)
 	}
 }
 
@@ -252,6 +299,23 @@ type failEmbedder struct{}
 func (failEmbedder) Model() string { return "fail" }
 func (failEmbedder) Embed(context.Context, []string) ([][]float32, error) {
 	return nil, context.DeadlineExceeded
+}
+
+type emptyEmbedder struct{}
+
+func (emptyEmbedder) Model() string { return "empty" }
+func (emptyEmbedder) Embed(context.Context, []string) ([][]float32, error) {
+	return nil, nil
+}
+
+func TestBackfillsRejectEmptyEmbeddingProbe(t *testing.T) {
+	svc := New(nil, emptyEmbedder{})
+	if _, err := svc.Backfill(context.Background(), 10, 0); err == nil || strings.Contains(err.Error(), "%!w") {
+		t.Fatalf("knowledge probe error = %v", err)
+	}
+	if _, err := svc.BackfillMessages(context.Background(), 10, 0); err == nil || strings.Contains(err.Error(), "%!w") {
+		t.Fatalf("message probe error = %v", err)
+	}
 }
 
 type selectiveEmbedder struct{}

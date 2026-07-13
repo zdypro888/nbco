@@ -94,7 +94,7 @@ func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, s
 }
 
 // isGroupChannel 群共享会话的渠道值约定（telegram:group:<chatID>）。
-func isGroupChannel(channel string) bool { return strings.Contains(channel, ":group:") }
+func isGroupChannel(channel string) bool { return store.IsGroupChannel(channel) }
 
 // HandleMessage 处理用户在某渠道的一轮输入，返回给用户的答复。
 // 系统触发的轮次（催办/周报）同样走这里：调度器把系统指令作为输入传入。
@@ -1544,12 +1544,16 @@ func (o *Orchestrator) retrievalContext(ctx context.Context, u *store.User, chan
 		ks = nil
 	}
 
-	// 历史对话 top-N：仅非群渠道（search_history 在 groupSensitive 名单内，
-	// 群里注入等于把发言人私聊塞进全员重放的系统提示）。
+	// 历史对话 top-N：私聊按用户作用域，群聊按当前共享 channel 作用域。
+	// 两者使用不同 Qdrant payload 和 SQL 复核，绝不把发言人私聊注入群里。
 	var ms []store.ChatMessage
 	if shouldFetchHistory(channel) {
 		var herr error
-		if o.deps.Knowledge != nil {
+		if isGroupChannel(channel) && o.deps.Knowledge != nil {
+			ms, herr = o.deps.Knowledge.SearchGroupHistory(rctx, channel, text, retrievalHistoryLimit)
+		} else if isGroupChannel(channel) {
+			ms, herr = o.store.SearchMessagesOfChannel(rctx, channel, text, retrievalHistoryLimit)
+		} else if o.deps.Knowledge != nil {
 			ms, herr = o.deps.Knowledge.SearchHistory(rctx, u.ID, text, retrievalHistoryLimit)
 		} else {
 			ms, herr = o.store.SearchMessagesOfUser(rctx, u.ID, text, retrievalHistoryLimit)
@@ -1566,8 +1570,7 @@ func (o *Orchestrator) retrievalContext(ctx context.Context, u *store.User, chan
 	return renderRetrievalBlock(ks, ms, o.tz)
 }
 
-// shouldFetchHistory 历史预取是否允许：群共享会话禁用（隐私守护，便于单测）。
-func shouldFetchHistory(channel string) bool { return !isGroupChannel(channel) }
+func shouldFetchHistory(channel string) bool { return strings.TrimSpace(channel) != "" }
 
 // renderRetrievalBlock 渲染预取块（纯函数，便于单测）。知识按相关度、历史按时间，
 // 每条内容按字符截断到 retrievalSnippetChars。

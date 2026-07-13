@@ -6,10 +6,13 @@ package vectorstore
 import "context"
 
 const (
-	PayloadSource      = "source"
-	PayloadEntityID    = "entity_id"
-	PayloadKind        = "kind"
-	PayloadContentHash = "content_hash"
+	PayloadSource            = "source"
+	PayloadEntityID          = "entity_id"
+	PayloadKind              = "kind"
+	PayloadContentHash       = "content_hash"
+	PayloadSessionUser       = "session_user_id"
+	PayloadChannel           = "channel_scope"
+	PayloadConversationScope = "conversation_scope"
 )
 
 // Ref identifies one authoritative record without depending on its mutable

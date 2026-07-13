@@ -58,7 +58,7 @@ func defaultWaitOpts() waitOpts {
 		Settle:     30 * time.Second,
 		Stuck:      10 * time.Minute,
 		Busy:       busyRe,
-		BusyStable: 2 * time.Minute,
+		BusyStable: 0,
 	}
 }
 

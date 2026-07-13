@@ -141,7 +141,7 @@ func retryableEmbeddingError(ctx context.Context, err error) bool {
 		return retryableHTTPStatus(requestErr.HTTPStatusCode) || requestErr.HTTPStatusCode == 0
 	}
 	var netErr net.Error
-	return errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary())
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func retryableHTTPStatus(status int) bool {

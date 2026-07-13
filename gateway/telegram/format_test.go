@@ -19,6 +19,14 @@ func TestToTelegramHTMLPlainUnchanged(t *testing.T) {
 	}
 }
 
+func TestToTelegramHTMLRestoresDoubleEscapedLayout(t *testing.T) {
+	in := `<b>标题</b>\n\n• 第一项\n• 第二项`
+	want := "<b>标题</b>\n\n• 第一项\n• 第二项"
+	if got := toTelegramHTML(in); got != want {
+		t.Fatalf("double-escaped layout = %q, want %q", got, want)
+	}
+}
+
 func TestToTelegramHTMLMarkdown(t *testing.T) {
 	got := toTelegramHTML("# 标题\n\n**重点**内容，代码 `go build`：\n- 甲\n* 乙\n[官网](https://example.com)")
 	for _, want := range []string{

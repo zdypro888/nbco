@@ -87,6 +87,7 @@ func newWorker(cfg Config) *Worker {
 			log.Printf("busy_pattern %q 非法，沿用默认: %v", p, err)
 		} else {
 			wait.Busy = re // 自定义 harness 的「工作中」状态行
+			wait.BusyStable = 2 * time.Minute
 		}
 	}
 	return &Worker{

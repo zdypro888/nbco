@@ -39,7 +39,7 @@ func (w *Worker) cliInvocationFor(session SessionInfo, dir string) cliInvocation
 		inv.Args = append(inv.Args, ref)
 		inv.ResumeRef = ref
 	case "claude":
-		inv.Args = append(base, "--resume", ref)
+		inv.Args = append(append([]string(nil), base...), "--resume", ref)
 		inv.ResumeRef = ref
 	}
 	return inv

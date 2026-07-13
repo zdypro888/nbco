@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,6 +33,24 @@ func TestRunBackfillLoopRepeatsRecoversAndStops(t *testing.T) {
 	}
 	if got := calls.Load(); got != 3 {
 		t.Fatalf("回填次数 = %d, want 3", got)
+	}
+}
+
+func TestRunBackfillExclusiveUnlocksAfterPanic(t *testing.T) {
+	var mu sync.Mutex
+	func() {
+		defer func() { _ = recover() }()
+		runBackfillExclusive(&mu, func() { panic("test") })
+	}()
+	done := make(chan struct{})
+	go func() {
+		runBackfillExclusive(&mu, func() {})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("exclusive backfill lock remained held after panic")
 	}
 }
 

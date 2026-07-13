@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -432,7 +433,11 @@ func (svc *Service) semanticRank(ctx context.Context, query string, limit int, c
 				ids = append(ids, id)
 			}
 		}
-		return svc.store.KnowledgeByIDs(ctx, ids)
+		rows, err := svc.store.KnowledgeByIDs(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		return filterAuthoritativeKnowledge(rows, externalFilter), nil
 	}
 	tag := modelTag(svc.embedder.Model(), len(qv))
 	cands, err := candidates(ctx, tag)
@@ -467,6 +472,74 @@ func (svc *Service) semanticRank(ctx context.Context, query string, limit int, c
 		ids = append(ids, s.id)
 	}
 	return svc.store.KnowledgeByIDs(ctx, ids)
+}
+
+// Qdrant metadata is a routing hint, never the authority for mutable scope
+// fields. Re-check every payload predicate represented by the PostgreSQL row
+// so tag/pinned changes take effect before asynchronous reindexing completes.
+func filterAuthoritativeKnowledge(rows []*store.Knowledge, filter vectorstore.Filter) []*store.Knowledge {
+	out := make([]*store.Knowledge, 0, len(rows))
+	for _, row := range rows {
+		if row != nil && knowledgeMatchesPayload(row, filter.Must) && !knowledgeMatchesAnyPayload(row, filter.MustNot) {
+			out = append(out, row)
+		}
+	}
+	return out
+}
+
+func knowledgeMatchesPayload(row *store.Knowledge, predicates map[string]any) bool {
+	for key, value := range predicates {
+		if key == vectorstore.PayloadSource {
+			if source, ok := value.(string); !ok || source != semantic.SourceKnowledge {
+				return false
+			}
+			continue
+		}
+		if !knowledgePayloadValueMatches(row, key, value) {
+			return false
+		}
+	}
+	return true
+}
+
+func knowledgeMatchesAnyPayload(row *store.Knowledge, predicates map[string]any) bool {
+	for key, value := range predicates {
+		if knowledgePayloadValueMatches(row, key, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func knowledgePayloadValueMatches(row *store.Knowledge, key string, value any) bool {
+	switch key {
+	case vectorstore.PayloadKind:
+		kind, ok := value.(string)
+		return ok && row.Kind == kind
+	case "author_id":
+		switch author := value.(type) {
+		case int64:
+			return row.AuthorID == author
+		case int:
+			return row.AuthorID == int64(author)
+		default:
+			return false
+		}
+	case "tags":
+		switch tags := value.(type) {
+		case string:
+			return slices.Contains(row.Tags, tags)
+		case []string:
+			return slices.ContainsFunc(tags, func(tag string) bool { return slices.Contains(row.Tags, tag) })
+		default:
+			return false
+		}
+	case "pinned":
+		pinned, ok := value.(bool)
+		return ok && row.Pinned == pinned
+	default:
+		return false
+	}
 }
 
 // merge uses Reciprocal Rank Fusion so exact lexical matches and semantic
@@ -529,13 +602,16 @@ func (svc *Service) Backfill(ctx context.Context, batch int, afterID int64) (Bac
 		return BackfillResult{}, nil
 	}
 	if svc.semantic != nil {
-		return svc.backfillQdrantKnowledge(ctx, batch, afterID)
+		return svc.backfillQdrantKnowledge(ctx, batch, afterID, false)
 	}
 	ectx, cancel := context.WithTimeout(ctx, embedTimeout)
 	probe, perr := svc.embedder.Embed(ectx, []string{"nbco"})
 	cancel()
-	if perr != nil || len(probe) != 1 || len(probe[0]) == 0 {
+	if perr != nil {
 		return BackfillResult{}, fmt.Errorf("embedding 服务探测失败: %w", perr)
+	}
+	if len(probe) != 1 || len(probe[0]) == 0 {
+		return BackfillResult{}, fmt.Errorf("embedding 服务探测返回无效向量")
 	}
 	tag := modelTag(svc.embedder.Model(), len(probe[0]))
 	ks, err := svc.store.KnowledgeNeedingEmbeddingAfter(ctx, tag, afterID, batch)
@@ -559,8 +635,26 @@ func (svc *Service) Backfill(ctx context.Context, batch int, afterID int64) (Bac
 	return res, nil
 }
 
-func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
-	ks, err := svc.store.KnowledgeAfter(ctx, afterID, batch)
+// ReconcileKnowledge ignores PostgreSQL completion markers and verifies the
+// external derived index from the authoritative rows.
+func (svc *Service) ReconcileKnowledge(ctx context.Context, batch int, afterID int64) (BackfillResult, error) {
+	if svc.semantic == nil {
+		return svc.Backfill(ctx, batch, afterID)
+	}
+	return svc.backfillQdrantKnowledge(ctx, batch, afterID, true)
+}
+
+func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afterID int64, reconcile bool) (BackfillResult, error) {
+	tag, _, err := svc.semantic.CurrentModel(ctx)
+	if err != nil {
+		return BackfillResult{}, err
+	}
+	var ks []*store.Knowledge
+	if reconcile {
+		ks, err = svc.store.KnowledgeAfter(ctx, afterID, batch)
+	} else {
+		ks, err = svc.store.KnowledgeNeedingExternalIndexAfter(ctx, tag, afterID, batch)
+	}
 	if err != nil {
 		return BackfillResult{}, err
 	}
@@ -573,20 +667,20 @@ func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afte
 	for _, k := range ks {
 		docs = append(docs, knowledgeDocument(k))
 	}
-	indexed, err := svc.semantic.UpsertDocuments(ctx, docs)
-	if err != nil {
-		return res, err
-	}
-	tag, _, err := svc.semantic.CurrentModel(ctx)
+	report, err := svc.semantic.UpsertDocumentsDetailed(ctx, docs)
 	if err != nil {
 		return res, err
 	}
 	for _, k := range ks {
+		ref := vectorstore.Ref{Source: semantic.SourceKnowledge, EntityID: strconv.FormatInt(k.ID, 10)}
+		if !report.Succeeded[ref.Key()] {
+			continue
+		}
 		if err := svc.store.MarkKnowledgeVectorIndexed(ctx, k.ID, tag); err != nil {
 			return res, err
 		}
 	}
-	res.Embedded = indexed
+	res.Embedded = report.Indexed
 	return res, nil
 }
 

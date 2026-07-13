@@ -19,6 +19,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/vectorstore"
 	"golang.org/x/sync/singleflight"
 )
@@ -26,9 +27,13 @@ import (
 const (
 	SourceKnowledge   = "knowledge"
 	SourceChatMessage = "chat_messages"
+	SourceFileChunk   = "file_chunks"
 
 	embedBatchSize       = 8
+	maxEmbeddingRunes    = 6000
 	syncPageSize         = 100
+	fullSyncInterval     = 6 * time.Hour
+	incrementalOverlap   = 30 * time.Second
 	semanticCallTimeout  = 60 * time.Second
 	semanticBulkTimeout  = 5 * time.Minute
 	queryCacheTTL        = 2 * time.Minute
@@ -43,6 +48,15 @@ type Document struct {
 	Ref     vectorstore.Ref
 	Content string
 	Payload map[string]any
+}
+
+// UpsertReport distinguishes authoritative documents that are already/currently
+// indexed from records rejected by the embedding provider. Callers doing a
+// backfill can advance past a bad record while leaving only that record pending.
+type UpsertReport struct {
+	Indexed   int
+	Succeeded map[string]bool
+	Failed    map[string]error
 }
 
 type queryCacheEntry struct {
@@ -109,7 +123,7 @@ func (s *Service) QueryVector(ctx context.Context, query string) ([]float32, err
 	if !s.Enabled() {
 		return nil, fmt.Errorf("qdrant 语义索引未启用")
 	}
-	query = strings.TrimSpace(query)
+	query = strings.TrimSpace(textfmt.RedactSecrets(query))
 	if query == "" {
 		return nil, fmt.Errorf("语义查询不能为空")
 	}
@@ -159,8 +173,8 @@ func (s *Service) QueryVector(ctx context.Context, query string) ([]float32, err
 	}
 }
 
-// CurrentModel probes the embedding endpoint once per process and returns the
-// model+dimension collection tag used by Qdrant.
+// CurrentModel periodically probes the embedding endpoint and returns the
+// model, dimension, and quantized-output collection tag used by Qdrant.
 func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 	if !s.Enabled() {
 		return "", 0, fmt.Errorf("qdrant 语义索引未启用")
@@ -224,12 +238,43 @@ func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 // read from Qdrant first, making startup reconciliation cheap after the first
 // successful backfill and self-healing after a Qdrant restore or data loss.
 func (s *Service) UpsertDocuments(ctx context.Context, docs []Document) (int, error) {
+	report, err := s.UpsertDocumentsDetailed(ctx, docs)
+	if err != nil {
+		return report.Indexed, err
+	}
+	if len(report.Failed) > 0 {
+		return report.Indexed, fmt.Errorf("%d 条文档 embedding 失败", len(report.Failed))
+	}
+	return report.Indexed, nil
+}
+
+// UpsertDocumentsDetailed embeds only missing or changed records and isolates
+// input-specific failures. A failed document is omitted from Succeeded so
+// durable backfill cursors can continue without falsely marking it complete.
+func (s *Service) UpsertDocumentsDetailed(ctx context.Context, docs []Document) (UpsertReport, error) {
+	report := UpsertReport{Succeeded: make(map[string]bool), Failed: make(map[string]error)}
 	if !s.Enabled() || len(docs) == 0 {
-		return 0, nil
+		return report, nil
+	}
+	// The embedding provider and Qdrant are derived indexes, not credential
+	// stores. Apply one mandatory boundary here so every producer (knowledge,
+	// chat, files, and future read models) gets the same protection.
+	safeDocs := make([]Document, 0, len(docs))
+	for _, doc := range docs {
+		doc.Content = compactEmbeddingContent(textfmt.RedactSecrets(doc.Content))
+		if doc.Content == "" {
+			continue
+		}
+		doc.Payload = sanitizePayload(doc.Payload)
+		safeDocs = append(safeDocs, doc)
+	}
+	docs = safeDocs
+	if len(docs) == 0 {
+		return report, nil
 	}
 	tag, dim, err := s.CurrentModel(ctx)
 	if err != nil {
-		return 0, err
+		return report, err
 	}
 	refs := make([]vectorstore.Ref, 0, len(docs))
 	hashes := make(map[string]string, len(docs))
@@ -243,52 +288,174 @@ func (s *Service) UpsertDocuments(ctx context.Context, docs []Document) (int, er
 	existing, err := s.vectors.Hashes(ctx, tag, dim, refs)
 	if err != nil {
 		s.recordFailure(err)
-		return 0, err
+		return report, err
 	}
 	changed := make([]Document, 0, len(docs))
 	for _, doc := range docs {
 		hash := hashes[doc.Ref.Key()]
-		if hash != "" && existing[doc.Ref.Key()] != hash {
+		if hash != "" && existing[doc.Ref.Key()] == hash {
+			report.Succeeded[doc.Ref.Key()] = true
+		} else if hash != "" {
 			changed = append(changed, doc)
 		}
 	}
-	indexed := 0
 	for start := 0; start < len(changed); start += embedBatchSize {
 		end := min(start+embedBatchSize, len(changed))
 		batch := changed[start:end]
-		texts := make([]string, len(batch))
-		for i := range batch {
-			texts[i] = batch[i].Content
+		vectors, failures, embedErr := s.embedBatchResilient(ctx, batch, dim)
+		for key, failure := range failures {
+			report.Failed[key] = failure
 		}
-		vectors, embedErr := s.embedBulk(ctx, texts)
 		if embedErr != nil {
 			s.recordFailure(embedErr)
-			return indexed, embedErr
-		}
-		if len(vectors) != len(batch) {
-			return indexed, fmt.Errorf("embedding 返回 %d 条，期望 %d", len(vectors), len(batch))
+			return report, embedErr
 		}
 		points := make([]vectorstore.Point, 0, len(batch))
 		for i, vector := range vectors {
-			if len(vector) != dim {
-				return indexed, fmt.Errorf("embedding 维度从 %d 变为 %d，请重启后建立新 collection", dim, len(vector))
-			}
-			if err := validateVector(vector); err != nil {
-				return indexed, fmt.Errorf("embedding 第 %d 条: %w", i, err)
+			if vector == nil {
+				continue
 			}
 			points = append(points, vectorstore.Point{
 				Ref: batch[i].Ref, Vector: vector,
 				ContentHash: hashes[batch[i].Ref.Key()], Payload: batch[i].Payload,
 			})
 		}
+		if len(points) == 0 {
+			continue
+		}
 		if err := s.vectors.Upsert(ctx, tag, points); err != nil {
 			s.recordFailure(err)
-			return indexed, err
+			return report, err
 		}
-		indexed += len(points)
+		for _, point := range points {
+			report.Succeeded[point.Ref.Key()] = true
+		}
+		report.Indexed += len(points)
 	}
-	s.recordAvailable()
-	return indexed, nil
+	if len(report.Failed) == 0 {
+		s.recordAvailable()
+	}
+	return report, nil
+}
+
+func compactEmbeddingContent(content string) string {
+	content = strings.TrimSpace(content)
+	runes := []rune(content)
+	if len(runes) <= maxEmbeddingRunes {
+		return content
+	}
+	const marker = "\n[...内容过长，已保留首尾用于语义检索...]\n"
+	budget := maxEmbeddingRunes - len([]rune(marker))
+	tail := budget / 4
+	head := budget - tail
+	return strings.TrimSpace(string(runes[:head])) + marker +
+		strings.TrimSpace(string(runes[len(runes)-tail:]))
+}
+
+func (s *Service) embedBatchResilient(ctx context.Context, batch []Document, dim int) ([][]float32, map[string]error, error) {
+	texts := make([]string, len(batch))
+	for i := range batch {
+		texts[i] = batch[i].Content
+	}
+	vectors, err := s.embedBulk(ctx, texts)
+	if err == nil && len(vectors) == len(batch) {
+		failures := make(map[string]error)
+		for i, vector := range vectors {
+			if len(vector) != dim {
+				failures[batch[i].Ref.Key()] = fmt.Errorf("embedding 维度从 %d 变为 %d", dim, len(vector))
+				vectors[i] = nil
+				continue
+			}
+			if validationErr := validateVector(vector); validationErr != nil {
+				failures[batch[i].Ref.Key()] = validationErr
+				vectors[i] = nil
+			}
+		}
+		return vectors, failures, nil
+	}
+	if len(batch) == 1 {
+		if err == nil {
+			err = fmt.Errorf("embedding 返回 %d 条，期望 1", len(vectors))
+		}
+		return [][]float32{nil}, map[string]error{batch[0].Ref.Key(): err}, nil
+	}
+	if ctx.Err() != nil {
+		return nil, nil, ctx.Err()
+	}
+	batchErr := err
+	if batchErr == nil {
+		batchErr = fmt.Errorf("embedding 返回 %d 条，期望 %d", len(vectors), len(batch))
+	}
+
+	// A provider may reject one oversized/malformed input by failing the entire
+	// batch. Retry each document once so healthy neighbours still advance.
+	out := make([][]float32, len(batch))
+	failures := make(map[string]error)
+	succeeded := 0
+	for i := range batch {
+		one, oneErr := s.embedBulk(ctx, []string{batch[i].Content})
+		switch {
+		case oneErr != nil:
+			failures[batch[i].Ref.Key()] = oneErr
+		case len(one) != 1 || len(one[0]) != dim:
+			failures[batch[i].Ref.Key()] = fmt.Errorf("embedding 单条返回维度/数量无效")
+		case validateVector(one[0]) != nil:
+			failures[batch[i].Ref.Key()] = fmt.Errorf("embedding 单条向量无效")
+		default:
+			out[i] = one[0]
+			succeeded++
+		}
+	}
+	if succeeded == 0 {
+		return out, failures, fmt.Errorf("embedding 批次及所有单条重试均失败: %w", batchErr)
+	}
+	return out, failures, nil
+}
+
+func sanitizePayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(payload))
+	for key, value := range payload {
+		normalized := strings.ToLower(strings.NewReplacer("-", "", "_", "", " ", "").Replace(key))
+		switch normalized {
+		case "apikey", "apihash", "accesstoken", "workeraccesstoken", "token", "secret", "password", "authorization":
+			out[key] = "[redacted]"
+		default:
+			out[key] = sanitizePayloadValue(value)
+		}
+	}
+	return out
+}
+
+func sanitizePayloadValue(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return textfmt.RedactSecrets(typed)
+	case []string:
+		out := make([]string, len(typed))
+		for i := range typed {
+			out[i] = textfmt.RedactSecrets(typed[i])
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i := range typed {
+			out[i] = sanitizePayloadValue(typed[i])
+		}
+		return out
+	case map[string]any:
+		return sanitizePayload(typed)
+	case map[string]string:
+		converted := make(map[string]any, len(typed))
+		for key, item := range typed {
+			converted[key] = item
+		}
+		return sanitizePayload(converted)
+	default:
+		return value
+	}
 }
 
 func (s *Service) embedBulk(ctx context.Context, texts []string) ([][]float32, error) {
@@ -348,15 +515,16 @@ func (s *Service) DeleteMissing(ctx context.Context, source string, valid map[st
 	s.missingMu.Lock()
 	for _, item := range items {
 		key := item.Ref.Key()
+		counterKey := tag + "\x00" + key
 		if valid[key] {
-			delete(s.missing, key)
+			delete(s.missing, counterKey)
 			continue
 		}
-		s.missing[key]++
+		s.missing[counterKey]++
 		// A point must be absent from two complete scans before deletion. This
 		// prevents a concurrent insert/delete shifting a paged SQL scan from
 		// causing a healthy point to disappear temporarily.
-		if s.missing[key] >= 2 {
+		if s.missing[counterKey] >= 2 {
 			stale = append(stale, item.Ref)
 		}
 	}
@@ -366,7 +534,7 @@ func (s *Service) DeleteMissing(ctx context.Context, source string, valid map[st
 	}
 	s.missingMu.Lock()
 	for _, ref := range stale {
-		delete(s.missing, ref.Key())
+		delete(s.missing, tag+"\x00"+ref.Key())
 	}
 	s.missingMu.Unlock()
 	return len(stale), nil
@@ -376,13 +544,17 @@ func (s *Service) DeleteMissing(ctx context.Context, source string, valid map[st
 // and chat messages are reconciled by the knowledge service because they carry
 // additional author/session filters.
 func (s *Service) SyncStructured(ctx context.Context) error {
+	return s.syncStructured(ctx, nil, true)
+}
+
+func (s *Service) syncStructured(ctx context.Context, changedSince *time.Time, deleteMissing bool) error {
 	if !s.Enabled() || s.store == nil {
 		return nil
 	}
 	total := 0
 	var syncErrors []error
 	for _, source := range store.SemanticDataSources() {
-		count, err := s.syncStructuredSource(ctx, source)
+		count, err := s.syncStructuredSource(ctx, source, changedSince, deleteMissing)
 		total += count
 		if err != nil {
 			syncErrors = append(syncErrors, err)
@@ -393,11 +565,13 @@ func (s *Service) SyncStructured(ctx context.Context) error {
 	return err
 }
 
-func (s *Service) syncStructuredSource(ctx context.Context, source string) (int, error) {
+func (s *Service) syncStructuredSource(ctx context.Context, source string, changedSince *time.Time, deleteMissing bool) (int, error) {
 	valid := make(map[string]bool)
 	total := 0
-	for offset := 0; ; offset += syncPageSize {
-		docs, err := s.store.SemanticDocuments(ctx, source, offset, syncPageSize)
+	failed := 0
+	var cursor *store.SemanticCursor
+	for {
+		docs, err := s.store.SemanticDocuments(ctx, source, cursor, changedSince, syncPageSize)
 		if err != nil {
 			return total, fmt.Errorf("同步语义数据源 %s: %w", source, err)
 		}
@@ -413,8 +587,13 @@ func (s *Service) syncStructuredSource(ctx context.Context, source string) (int,
 				Payload: map[string]any{vectorstore.PayloadKind: doc.Source},
 			})
 		}
-		if _, err := s.UpsertDocuments(ctx, batch); err != nil {
+		report, err := s.UpsertDocumentsDetailed(ctx, batch)
+		if err != nil {
 			return total, fmt.Errorf("写入语义数据源 %s: %w", source, err)
+		}
+		if len(report.Failed) > 0 {
+			failed += len(report.Failed)
+			slog.Warn("部分语义文档已隔离，继续同步后续记录", "source", source, "failed", len(report.Failed))
 		}
 		total += len(batch)
 		// docs counts source rows, including intentionally non-indexable empty
@@ -422,9 +601,19 @@ func (s *Service) syncStructuredSource(ctx context.Context, source string) (int,
 		if len(docs) < syncPageSize {
 			break
 		}
+		last := docs[len(docs)-1]
+		cursor = &store.SemanticCursor{SortAt: last.SortAt, SortID: last.SortID}
 	}
-	if _, err := s.DeleteMissing(ctx, source, valid); err != nil {
-		return total, fmt.Errorf("清理语义数据源 %s: %w", source, err)
+	if deleteMissing {
+		if _, err := s.DeleteMissing(ctx, source, valid); err != nil {
+			return total, fmt.Errorf("清理语义数据源 %s: %w", source, err)
+		}
+	}
+	if failed > 0 {
+		// Do not advance the incremental watermark past rejected rows. Healthy
+		// documents are skipped by content hash on the retry, while failed rows
+		// remain eligible instead of waiting for the next six-hour full scan.
+		return total, fmt.Errorf("语义数据源 %s 有 %d 条文档待重试", source, failed)
 	}
 	return total, nil
 }
@@ -436,12 +625,32 @@ func (s *Service) Run(ctx context.Context, interval, syncTimeout time.Duration) 
 	if syncTimeout <= 0 {
 		syncTimeout = time.Hour
 	}
+	lastIncremental := time.Now().Add(-incrementalOverlap)
+	nextFull := time.Now()
+	lastModelTag := ""
 	for ctx.Err() == nil {
+		scanStarted := time.Now()
 		syncCtx, cancel := context.WithTimeout(ctx, syncTimeout)
-		err := s.SyncStructured(syncCtx)
+		modelTag, _, modelErr := s.CurrentModel(syncCtx)
+		full := structuredSyncNeedsFull(scanStarted, nextFull, lastModelTag, modelTag)
+		var err error
+		if modelErr != nil {
+			err = modelErr
+		} else if full {
+			err = s.SyncStructured(syncCtx)
+		} else {
+			since := lastIncremental.Add(-incrementalOverlap)
+			err = s.syncStructured(syncCtx, &since, false)
+		}
 		cancel()
 		if err != nil && ctx.Err() == nil {
 			slog.Warn("Qdrant 结构化语义索引同步失败，保留 PostgreSQL 词法降级", "err", err)
+		} else if err == nil {
+			lastIncremental = scanStarted
+			lastModelTag = modelTag
+			if full {
+				nextFull = scanStarted.Add(fullSyncInterval)
+			}
 		}
 		timer := time.NewTimer(interval)
 		select {
@@ -451,6 +660,10 @@ func (s *Service) Run(ctx context.Context, interval, syncTimeout time.Duration) 
 		case <-timer.C:
 		}
 	}
+}
+
+func structuredSyncNeedsFull(now, nextFull time.Time, previousModel, currentModel string) bool {
+	return !now.Before(nextFull) || previousModel == "" || currentModel != previousModel
 }
 
 func (s *Service) Health(ctx context.Context) Status {

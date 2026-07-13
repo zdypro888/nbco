@@ -17,7 +17,7 @@ const (
 	TaskParticipantWatcher      = "watcher"
 )
 
-var ErrWorkerTaskParticipant = errors.New("AI Worker 不能作为共享任务参与者")
+var ErrWorkerTaskParticipant = errors.New("ai worker 不能作为共享任务参与者")
 
 type TaskParticipantInput struct {
 	UserID int64

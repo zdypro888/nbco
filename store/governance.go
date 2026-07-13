@@ -476,11 +476,21 @@ func (s *Store) AddOrgGroupMember(ctx context.Context, groupID, userID int64, ro
 	if role == "" {
 		role = "member"
 	}
-	_, err := s.pool.Exec(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO org_group_members (group_id, user_id, role) VALUES ($1,$2,$3)
 		 ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
-		groupID, userID, role)
-	return err
+		groupID, userID, role); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE org_groups SET updated_at = now() WHERE id = $1`, groupID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) BindTelegramGroupProject(ctx context.Context, chatID, projectID, boundBy int64, note string) error {

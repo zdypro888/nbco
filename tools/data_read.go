@@ -6,14 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/semantic"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/vectorstore"
+	"golang.org/x/sync/errgroup"
 )
 
 // dataReadTools exposes one broad read surface instead of requiring the model
@@ -61,14 +65,19 @@ func dataReadTools(d Deps, u *store.User) []ai.Tool {
 				}
 				plan := semanticSearchPlan{}
 				if strings.TrimSpace(args.Search) != "" {
-					plan = planSemanticSearch(ctx, d, u, args.Search, nil)
+					var allowedSources []string
+					if args.Source == "*" {
+						allowedSources = semanticSourcesForUser(u.IsSuperadmin)
+					}
+					plan = planSemanticSearch(ctx, d, u, args.Search, allowedSources)
 				}
 				limit := args.Limit
 				if limit <= 0 || limit > 100 {
 					limit = 30
 				}
+				offset := min(max(0, args.Offset), 10_000)
 				if args.Source == "*" {
-					rows, err := queryAllVisibleData(ctx, d, u, strings.TrimSpace(args.Search), plan, limit, max(0, args.Offset))
+					rows, err := queryAllVisibleData(ctx, d, u, strings.TrimSpace(args.Search), plan, limit, offset)
 					if err != nil {
 						return "", err
 					}
@@ -78,7 +87,7 @@ func dataReadTools(d Deps, u *store.User) []ai.Tool {
 				defer cancel()
 				lexical, err := d.Store.ReadData(readCtx, u.ID, u.IsSuperadmin, store.DataReadQuery{
 					Source: args.Source, Terms: plan.Terms, Filters: filters,
-					Limit: args.Limit, Offset: args.Offset,
+					Limit: limit, Offset: offset,
 				})
 				if err != nil {
 					if errors.Is(err, store.ErrNotFound) {
@@ -89,9 +98,9 @@ func dataReadTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				semanticRows := semanticRowsForSource(ctx, d, u, args.Source, strings.TrimSpace(args.Search), filters, limit, max(0, args.Offset))
+				semanticRows := semanticRowsForSource(ctx, d, u, args.Source, strings.TrimSpace(args.Search), filters, limit, offset)
 				rows := mergeRankedDataRows(args.Source, semanticRows, lexical, limit)
-				return renderDataRows(args.Source, plan, filters, args.Offset, rows), nil
+				return renderDataRows(args.Source, plan, filters, offset, rows), nil
 			}),
 	}
 }
@@ -115,9 +124,7 @@ func semanticRowsForSource(ctx context.Context, d Deps, u *store.User, source, q
 	defer cancel()
 	wanted := min(limit+offset, 500)
 	overfetch := min(max(wanted*10, 100), 500)
-	hits, err := d.Semantic.Search(searchCtx, query, vectorstore.Filter{Must: map[string]any{
-		vectorstore.PayloadSource: source,
-	}}, overfetch, 0)
+	hits, err := d.Semantic.Search(searchCtx, query, dataSemanticFilter(source, u), overfetch, 0)
 	if err != nil {
 		slog.Warn("Qdrant 数据检索失败，保留 PostgreSQL 词法结果", "source", source, "err", err)
 		return nil
@@ -162,7 +169,15 @@ func semanticRowsForSource(ctx context.Context, d Deps, u *store.User, source, q
 
 func queryAllVisibleData(ctx context.Context, d Deps, u *store.User, query string, plan semanticSearchPlan, limit, offset int) ([]rankedDataRow, error) {
 	sources := semanticSourcesForUser(u.IsSuperadmin)
+	if len(plan.Kinds) > 0 {
+		sources = slices.DeleteFunc(sources, func(source string) bool { return !slices.Contains(plan.Kinds, source) })
+	}
 	if len(sources) == 0 {
+		return nil, nil
+	}
+	// Cross-source ranking is intentionally bounded to the top 500 candidates;
+	// reject deeper pages before arithmetic or database work.
+	if offset >= 500 {
 		return nil, nil
 	}
 	wanted := min(limit+offset, 500)
@@ -171,41 +186,140 @@ func queryAllVisibleData(ctx context.Context, d Deps, u *store.User, query strin
 		searchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		overfetch := min(max(wanted*12, 120), 500)
-		hits, err := d.Semantic.Search(searchCtx, query, vectorstore.Filter{Must: map[string]any{
-			vectorstore.PayloadSource: sources,
-		}}, overfetch, 0)
+		hits, err := searchVisibleSemanticSources(searchCtx, d, u, query, sources, overfetch)
 		if err == nil {
 			semanticCandidates = visibleRowsForHits(searchCtx, d, u, hits, min(overfetch, 500))
 		} else {
 			slog.Warn("Qdrant 跨数据源检索失败，回退词法", "err", err)
 		}
 	}
-	// Always run the bounded lexical side as well. RRF boosts records found by
-	// both exact wording and semantic paraphrase without comparing raw scores.
-	var lexicalCandidates []rankedDataRow
-	lexicalCap := min(max(wanted*10, 100), 500)
-	for _, source := range sources {
-		rows, err := d.Store.ReadData(ctx, u.ID, u.IsSuperadmin, store.DataReadQuery{
-			Source: source, Terms: plan.Terms, Limit: min(max(wanted, 20), 100),
-		})
-		if err != nil {
-			continue
-		}
-		for _, row := range rows {
-			lexicalCandidates = append(lexicalCandidates, rankedDataRow{Source: source, Row: row})
-			if len(lexicalCandidates) == lexicalCap {
-				break
-			}
-		}
-		if len(lexicalCandidates) == lexicalCap {
-			break
-		}
+	// Lexical RRF remains useful for exact wording and must cover every source
+	// selected by the planner. Qdrant hits cannot safely prune lexical recall.
+	lexicalCandidates, lexicalErr := lexicalRowsAcrossSources(ctx, d, u, plan.Terms, sources, wanted, plan.Recent)
+	if lexicalErr != nil {
+		return nil, lexicalErr
 	}
 	combined := mergeCrossRankedDataRows(semanticCandidates, lexicalCandidates, wanted)
 	if offset >= len(combined) {
 		return nil, nil
 	}
 	return combined[offset:min(offset+limit, len(combined))], nil
+}
+
+func searchVisibleSemanticSources(ctx context.Context, d Deps, u *store.User, query string, sources []string, limit int) ([]vectorstore.Hit, error) {
+	queryVector, err := d.Semantic.QueryVector(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	perSource := min(max(limit/max(1, len(sources))*4, 24), 160)
+	// Sources with row-level ACLs cannot express their full permission graph in
+	// Qdrant. Non-admin searches therefore overfetch each source, reauthorize in
+	// PostgreSQL, and only then apply the global result limit.
+	if !u.IsSuperadmin {
+		perSource = max(perSource, 80)
+	}
+	var hits []vectorstore.Hit
+	var searchErrors []error
+	var successful int
+	var mu sync.Mutex
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(6)
+	for _, source := range sources {
+		source := source
+		group.Go(func() error {
+			items, searchErr := d.Semantic.SearchVector(groupCtx, queryVector, dataSemanticFilter(source, u), perSource, 0)
+			if searchErr != nil {
+				mu.Lock()
+				searchErrors = append(searchErrors, fmt.Errorf("%s: %w", source, searchErr))
+				mu.Unlock()
+				return nil
+			}
+			mu.Lock()
+			successful++
+			hits = append(hits, items...)
+			mu.Unlock()
+			return nil
+		})
+	}
+	_ = group.Wait()
+	if successful == 0 && len(searchErrors) > 0 {
+		return nil, errors.Join(searchErrors...)
+	}
+	sort.SliceStable(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
+	return hits, nil
+}
+
+func dataSemanticFilter(source string, user *store.User) vectorstore.Filter {
+	filter := vectorstore.Filter{Must: map[string]any{vectorstore.PayloadSource: source}}
+	if user == nil || user.IsSuperadmin {
+		return filter
+	}
+	if source == semantic.SourceChatMessage {
+		filter.Must[vectorstore.PayloadSessionUser] = user.ID
+		filter.Must[vectorstore.PayloadConversationScope] = "private"
+	}
+	if source == semantic.SourceKnowledge {
+		filter.MustNot = map[string]any{vectorstore.PayloadKind: store.KnowledgeKindPolicy}
+	}
+	return filter
+}
+
+func lexicalRowsAcrossSources(ctx context.Context, d Deps, u *store.User, terms, sources []string, wanted int, recent bool) ([]rankedDataRow, error) {
+	if (len(terms) == 0 && !recent) || len(sources) == 0 {
+		return nil, nil
+	}
+	perSource := min(max(wanted, 12), 60)
+	rowsBySource := make(map[string][]json.RawMessage, len(sources))
+	var readErrors []error
+	var mu sync.Mutex
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(6)
+	for _, source := range sources {
+		source := source
+		group.Go(func() error {
+			rows, err := d.Store.ReadData(groupCtx, u.ID, u.IsSuperadmin, store.DataReadQuery{
+				Source: source, Terms: terms, Limit: perSource,
+			})
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				readErrors = append(readErrors, fmt.Errorf("%s: %w", source, err))
+			} else {
+				rowsBySource[source] = rows
+			}
+			return nil
+		})
+	}
+	_ = group.Wait()
+	if len(readErrors) > 0 {
+		return nil, errors.Join(readErrors...)
+	}
+	capRows := min(max(wanted*6, 60), 500)
+	return interleaveLexicalRows(sources, rowsBySource, capRows), nil
+}
+
+func interleaveLexicalRows(sources []string, rowsBySource map[string][]json.RawMessage, limit int) []rankedDataRow {
+	if limit <= 0 {
+		return nil
+	}
+	out := make([]rankedDataRow, 0, limit)
+	for rank := 0; ; rank++ {
+		added := false
+		for _, source := range sources {
+			rows := rowsBySource[source]
+			if rank >= len(rows) {
+				continue
+			}
+			out = append(out, rankedDataRow{Source: source, Row: rows[rank]})
+			added = true
+			if len(out) == limit {
+				return out
+			}
+		}
+		if !added {
+			return out
+		}
+	}
 }
 
 func semanticSourcesForUser(isSuperadmin bool) []string {
@@ -224,22 +338,32 @@ func visibleRowsForHits(ctx context.Context, d Deps, u *store.User, hits []vecto
 		bySource[hit.Source] = append(bySource[hit.Source], hit.EntityID)
 	}
 	visible := make(map[string]json.RawMessage)
+	var mu sync.Mutex
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(6)
 	for source, ids := range bySource {
+		source, ids := source, ids
 		if _, ok := store.DataSourceIDField(source); !ok {
 			continue
 		}
-		rows, err := d.Store.ReadData(ctx, u.ID, u.IsSuperadmin, store.DataReadQuery{
-			Source: source, EntityIDs: ids, Limit: min(len(ids), 500),
-		})
-		if err != nil {
-			continue
-		}
-		for _, row := range rows {
-			if id, ok := store.DataRowEntityID(source, row); ok {
-				visible[source+"\x00"+id] = row
+		group.Go(func() error {
+			rows, err := d.Store.ReadData(groupCtx, u.ID, u.IsSuperadmin, store.DataReadQuery{
+				Source: source, EntityIDs: ids, Limit: min(len(ids), 500),
+			})
+			if err != nil {
+				return nil
 			}
-		}
+			mu.Lock()
+			defer mu.Unlock()
+			for _, row := range rows {
+				if id, ok := store.DataRowEntityID(source, row); ok {
+					visible[source+"\x00"+id] = row
+				}
+			}
+			return nil
+		})
 	}
+	_ = group.Wait()
 	out := make([]rankedDataRow, 0, min(limit, len(visible)))
 	for _, hit := range hits {
 		key := hit.Source + "\x00" + hit.EntityID
@@ -308,6 +432,7 @@ func mergeCrossRankedDataRows(primary, secondary []rankedDataRow, limit int) []r
 		bestRank int
 	}
 	items := make(map[string]*fused, len(primary)+len(secondary))
+	facts := make(map[string]string)
 	for _, rows := range [][]rankedDataRow{primary, secondary} {
 		for rank, row := range rows {
 			id, ok := store.DataRowEntityID(row.Source, row.Row)
@@ -315,10 +440,24 @@ func mergeCrossRankedDataRows(primary, secondary []rankedDataRow, limit int) []r
 			if !ok {
 				key = row.Source + "\x00" + string(row.Row)
 			}
+			factKeys := crossSourceFactKeys(row)
+			for _, factKey := range factKeys {
+				if existingKey := facts[factKey]; existingKey != "" {
+					if existing := items[existingKey]; existing != nil && existing.item.Source != row.Source {
+						key = existingKey
+						break
+					}
+				}
+			}
 			item := items[key]
 			if item == nil {
 				item = &fused{item: row, key: key, bestRank: rank}
 				items[key] = item
+			}
+			for _, factKey := range factKeys {
+				if facts[factKey] == "" {
+					facts[factKey] = key
+				}
 			}
 			item.score += 1 / float64(60+rank+1)
 			item.bestRank = min(item.bestRank, rank)
@@ -341,8 +480,75 @@ func mergeCrossRankedDataRows(primary, secondary []rankedDataRow, limit int) []r
 		limit = len(ranked)
 	}
 	out := make([]rankedDataRow, 0, max(0, limit))
-	for _, item := range ranked[:max(0, limit)] {
+	selected := make(map[*fused]bool, max(0, limit))
+	perSource := make(map[string]int)
+	sourceQuota := max(2, (limit+2)/3)
+	for _, item := range ranked {
+		if len(out) == limit {
+			break
+		}
+		if perSource[item.item.Source] >= sourceQuota {
+			continue
+		}
+		selected[item] = true
+		perSource[item.item.Source]++
 		out = append(out, item.item)
+	}
+	// Diversity is a ranking preference, not a hard result cap. If the query
+	// genuinely matches only one source, fill the remaining slots from it.
+	for _, item := range ranked {
+		if len(out) == limit {
+			break
+		}
+		if !selected[item] {
+			out = append(out, item.item)
+		}
+	}
+	return out
+}
+
+func crossSourceFactKeys(row rankedDataRow) []string {
+	switch row.Source {
+	case "chat_messages", "action_turns", "audit_activity", "events", "deliveries":
+	default:
+		return nil
+	}
+	var value any
+	if json.Unmarshal(row.Row, &value) != nil {
+		return nil
+	}
+	var candidates []string
+	var collect func(any)
+	collect = func(value any) {
+		switch typed := value.(type) {
+		case string:
+			normalized := strings.ToLower(strings.Join(strings.Fields(typed), " "))
+			if len([]rune(normalized)) >= 20 {
+				candidates = append(candidates, normalized)
+			}
+		case []any:
+			for _, item := range typed {
+				collect(item)
+			}
+		case map[string]any:
+			for _, item := range typed {
+				collect(item)
+			}
+		}
+	}
+	collect(value)
+	sort.SliceStable(candidates, func(i, j int) bool { return len([]rune(candidates[i])) > len([]rune(candidates[j])) })
+	seen := make(map[string]bool)
+	out := make([]string, 0, min(4, len(candidates)))
+	for _, candidate := range candidates {
+		if seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		out = append(out, candidate)
+		if len(out) == 4 {
+			break
+		}
 	}
 	return out
 }

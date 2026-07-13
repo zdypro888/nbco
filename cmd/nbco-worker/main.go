@@ -139,7 +139,6 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 		cfg.Engine = "claude"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	path := configPath(cfgFile)
 	redeemed := false
 	if isBindCode(token) {
@@ -148,17 +147,20 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 		// 就退出，token 只在内存里，这台机器（连同原 worker）就被彻底废掉了。
 		res, err := newClient(cfg.Server, "").RedeemBindCode(ctx, token)
 		if err != nil {
+			cancel()
 			log.Fatalf("绑定码兑换失败: %v", err)
 		}
 		cfg.Token = res.Token
 		cfg.WorkerID = res.WorkerID
 		cfg.WorkerName = res.WorkerName
 		if err := saveConfig(path, cfg); err != nil {
+			cancel()
 			log.Fatalf("绑定码已兑换，但写配置失败: %v\n为避免泄露，Worker Access Token 不会打印到终端；请在 nbco 里给该 worker 补发一次性绑定码后重新绑定。", err)
 		}
 		redeemed = true
 	}
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
+	cancel()
 	if err != nil {
 		if redeemed {
 			// token 已安全落盘，校验失败只是网络问题：提示直接上线即可，绝不 Fatal 丢绑定。
@@ -208,17 +210,18 @@ func once(args []string) {
 	_ = fs.Parse(args)
 	cfg, _ := loadConfigForRun(*cfgFile, *engine, *bin)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 	ident := waitForWorkerIdentity(ctx, cfg)
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name
 	ok, err := newWorker(cfg).RunOnce(ctx)
 	if err != nil {
+		stop()
 		log.Fatalf("单次执行失败: %v", err)
 	}
 	if !ok {
 		log.Println("当前没有可领取任务。")
 	}
+	stop()
 }
 
 func loadConfigForRun(cfgFile, engine, bin string) (Config, string) {
@@ -258,8 +261,8 @@ func status(args []string) {
 	_ = fs.Parse(args)
 	cfg, path := loadConfigForRun(*cfgFile, "", "")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	ident, err := newClient(cfg.Server, cfg.Token).Me(ctx)
+	cancel()
 	if err != nil {
 		log.Fatalf("服务端身份校验失败: %v", err)
 	}

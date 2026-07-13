@@ -1,10 +1,44 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"testing"
+
+	"github.com/zdypro888/nbco/semantic"
+	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/vectorstore"
 )
+
+func TestLexicalRowsAcrossSourcesDoesNotTurnDatabaseFailureIntoEmptyResult(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := lexicalRowsAcrossSources(ctx, Deps{Store: s}, &store.User{ID: 1, IsSuperadmin: true},
+		[]string{"任务"}, []string{"tasks", "projects"}, 10, false)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestDataSemanticFilterAppliesCoarsePrivateScopes(t *testing.T) {
+	user := &store.User{ID: 42}
+	chat := dataSemanticFilter(semantic.SourceChatMessage, user)
+	if chat.Must[vectorstore.PayloadSessionUser] != int64(42) ||
+		chat.Must[vectorstore.PayloadConversationScope] != "private" {
+		t.Fatalf("chat filter = %+v", chat)
+	}
+	knowledge := dataSemanticFilter(semantic.SourceKnowledge, user)
+	if knowledge.MustNot[vectorstore.PayloadKind] != store.KnowledgeKindPolicy {
+		t.Fatalf("knowledge filter = %+v", knowledge)
+	}
+	admin := dataSemanticFilter(semantic.SourceChatMessage, &store.User{ID: 1, IsSuperadmin: true})
+	if len(admin.Must) != 1 || len(admin.MustNot) != 0 {
+		t.Fatalf("admin filter = %+v", admin)
+	}
+}
 
 func TestMergeRankedDataRowsUsesRRF(t *testing.T) {
 	row := func(id int) json.RawMessage {
@@ -18,6 +52,19 @@ func TestMergeRankedDataRowsUsesRRF(t *testing.T) {
 	}
 }
 
+func TestInterleaveLexicalRowsDoesNotStarveLaterSources(t *testing.T) {
+	sources := []string{"tasks", "projects", "files"}
+	rows := map[string][]json.RawMessage{
+		"tasks":    {json.RawMessage(`{"task_id":1}`), json.RawMessage(`{"task_id":2}`)},
+		"projects": {json.RawMessage(`{"project_id":1}`)},
+		"files":    {json.RawMessage(`{"file_id":1}`)},
+	}
+	out := interleaveLexicalRows(sources, rows, 3)
+	if len(out) != 3 || out[0].Source != "tasks" || out[1].Source != "projects" || out[2].Source != "files" {
+		t.Fatalf("interleaved rows = %+v", out)
+	}
+}
+
 func TestMergeCrossRankedDataRowsUsesSourceAndID(t *testing.T) {
 	task1 := rankedDataRow{Source: "tasks", Row: json.RawMessage(`{"task_id":1}`)}
 	task2 := rankedDataRow{Source: "tasks", Row: json.RawMessage(`{"task_id":2}`)}
@@ -28,5 +75,27 @@ func TestMergeCrossRankedDataRowsUsesSourceAndID(t *testing.T) {
 	)
 	if len(out) != 3 || string(out[0].Row) != string(task2.Row) || out[0].Source != "tasks" {
 		t.Fatalf("跨源 RRF 应按 source+稳定ID 去重并优先双路命中: %+v", out)
+	}
+}
+
+func TestMergeCrossRankedDataRowsCollapsesExactCrossSourceFacts(t *testing.T) {
+	fact := "已通知全体员工完善手机号职位和组别资料信息"
+	chat := rankedDataRow{Source: "chat_messages", Row: json.RawMessage(`{"chat_message_id":1,"content":"` + fact + `"}`)}
+	action := rankedDataRow{Source: "action_turns", Row: json.RawMessage(`{"turn_id":2,"reply":"` + fact + `"}`)}
+	out := mergeCrossRankedDataRows([]rankedDataRow{chat}, []rankedDataRow{action}, 10)
+	if len(out) != 1 {
+		t.Fatalf("exact fact should collapse: %+v", out)
+	}
+}
+
+func TestMergeCrossRankedDataRowsPreservesSourceDiversity(t *testing.T) {
+	var tasks []rankedDataRow
+	for id := 1; id <= 5; id++ {
+		tasks = append(tasks, rankedDataRow{Source: "tasks", Row: json.RawMessage(`{"task_id":` + strconv.Itoa(id) + `}`)})
+	}
+	project := rankedDataRow{Source: "projects", Row: json.RawMessage(`{"project_id":9}`)}
+	out := mergeCrossRankedDataRows(append(tasks, project), nil, 3)
+	if len(out) != 3 || out[2].Source != "projects" {
+		t.Fatalf("source diversity = %+v", out)
 	}
 }

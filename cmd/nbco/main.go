@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/zdypro888/nbco/ai/stt"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/config"
+	"github.com/zdypro888/nbco/documentindex"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/gateway/httpapi"
 	"github.com/zdypro888/nbco/gateway/telegram"
@@ -135,12 +137,24 @@ func run(configPath string) error {
 	kb := knowledge.New(st, embedder, semanticService)
 	if embedder != nil {
 		slog.Info("语义检索已启用", "embed_model", embedder.Model())
+		var knowledgeBackfillMu, messageBackfillMu sync.Mutex
 		go runBackfillLoop(ctx, "knowledge", 10*time.Minute, func(ctx context.Context) {
-			backfillKnowledge(ctx, kb)
+			runBackfillExclusive(&knowledgeBackfillMu, func() { backfillKnowledge(ctx, kb, false) })
 		})
 		go runBackfillLoop(ctx, "messages", 10*time.Minute, func(ctx context.Context) {
-			backfillMessages(ctx, kb) // 情景记忆：存量消息补向量
+			runBackfillExclusive(&messageBackfillMu, func() { backfillMessages(ctx, kb, false) }) // 情景记忆：只消费未完成标记
 		})
+		if semanticService != nil {
+			go runBackfillLoop(ctx, "semantic_reconciliation", 6*time.Hour, func(ctx context.Context) {
+				runBackfillExclusive(&knowledgeBackfillMu, func() { backfillKnowledge(ctx, kb, true) })
+				runBackfillExclusive(&messageBackfillMu, func() { backfillMessages(ctx, kb, true) })
+			})
+		}
+	}
+	fileIndexer := documentindex.New(st, semanticService, cfg.FileStorePath)
+	if fileIndexer.Enabled() {
+		go fileIndexer.Run(ctx, 0)
+		slog.Info("文件正文后台索引已启用", "file_store_path", cfg.FileStorePath)
 	}
 
 	deps := tools.Deps{
@@ -308,17 +322,29 @@ func runBackfillLoop(ctx context.Context, name string, interval time.Duration, r
 	}
 }
 
+func runBackfillExclusive(mu *sync.Mutex, run func()) {
+	mu.Lock()
+	defer mu.Unlock()
+	run()
+}
+
 // backfillKnowledge 分批给存量知识补 embedding（首次启用语义检索、换模型或
 // 热路径限流漏嵌入时）。
 // 收敛与防死循环：探测/DB 出错即停；用 id 游标扫描整库，单条内容失败只跳过
 // 本轮，不挡住后续知识；拉不满一批即停（已扫完）；批间小憩，不打爆本地服务。
-func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
+func backfillKnowledge(ctx context.Context, kb *knowledge.Service, reconcile bool) {
 	const batch = 64
 	total := 0
 	complete := false
 	var cursor int64
 	for ctx.Err() == nil {
-		res, err := kb.Backfill(ctx, batch, cursor)
+		var res knowledge.BackfillResult
+		var err error
+		if reconcile {
+			res, err = kb.ReconcileKnowledge(ctx, batch, cursor)
+		} else {
+			res, err = kb.Backfill(ctx, batch, cursor)
+		}
 		if err != nil {
 			slog.Warn("知识 embedding 本轮回填中止（服务不可用，稍后重试）", "err", err)
 			break
@@ -345,19 +371,27 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service) {
 			slog.Warn("知识 PostgreSQL 旧向量清理失败", "err", err)
 		}
 	}
-	if err := kb.CleanupKnowledgeIndex(ctx); err != nil && ctx.Err() == nil {
-		slog.Warn("知识 Qdrant 孤儿索引清理失败", "err", err)
+	if reconcile {
+		if err := kb.CleanupKnowledgeIndex(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("知识 Qdrant 孤儿索引清理失败", "err", err)
+		}
 	}
 }
 
 // backfillMessages 给存量会话消息补 embedding（情景记忆），节奏同知识回填。
-func backfillMessages(ctx context.Context, kb *knowledge.Service) {
+func backfillMessages(ctx context.Context, kb *knowledge.Service, reconcile bool) {
 	const batch = 64
 	total := 0
 	complete := false
 	var cursor int64
 	for ctx.Err() == nil {
-		res, err := kb.BackfillMessages(ctx, batch, cursor)
+		var res knowledge.BackfillResult
+		var err error
+		if reconcile {
+			res, err = kb.ReconcileMessages(ctx, batch, cursor)
+		} else {
+			res, err = kb.BackfillMessages(ctx, batch, cursor)
+		}
 		if err != nil {
 			slog.Warn("消息 embedding 本轮回填中止（服务不可用，稍后重试）", "err", err)
 			break
@@ -384,7 +418,9 @@ func backfillMessages(ctx context.Context, kb *knowledge.Service) {
 			slog.Warn("消息 PostgreSQL 旧向量清理失败", "err", err)
 		}
 	}
-	if err := kb.CleanupMessageIndex(ctx); err != nil && ctx.Err() == nil {
-		slog.Warn("消息 Qdrant 孤儿索引清理失败", "err", err)
+	if reconcile {
+		if err := kb.CleanupMessageIndex(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("消息 Qdrant 孤儿索引清理失败", "err", err)
+		}
 	}
 }

@@ -2,9 +2,13 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"strings"
 	"time"
 )
+
+const fileIndexMaxAttempts = 8
 
 // File 是 nbco 管理的文件实体。storage_path 是相对文件存储根目录的路径。
 type File struct {
@@ -54,6 +58,50 @@ type Artifact struct {
 	CreatedAt time.Time
 }
 
+// FileContentIndexJob is one durably claimed file awaiting deterministic text
+// extraction. ClaimToken prevents a stale process from completing a lease that
+// another process reclaimed after a restart.
+type FileContentIndexJob struct {
+	File
+	Attempts          int
+	ClaimToken        string
+	ExtractorRevision string
+}
+
+type FileVectorIndexJob struct {
+	File
+	Chunks      []FileTextChunk
+	Attempts    int
+	ClaimToken  string
+	VectorModel string
+}
+
+// FileTextChunk is an authoritative searchable fragment. Qdrant stores only
+// its stable ID and vector; content remains permission-protected in PostgreSQL.
+type FileTextChunk struct {
+	ID         int64
+	FileID     int64
+	ChunkIndex int
+	Content    string
+	CreatedAt  time.Time
+}
+
+type FileContentIndexStats struct {
+	Total            int64 `json:"total"`
+	Pending          int64 `json:"pending"`
+	Processing       int64 `json:"processing"`
+	Indexed          int64 `json:"indexed"`
+	Empty            int64 `json:"empty"`
+	Unsupported      int64 `json:"unsupported"`
+	Failed           int64 `json:"failed"`
+	Truncated        int64 `json:"truncated"`
+	Chunks           int64 `json:"chunks"`
+	VectorPending    int64 `json:"vector_pending"`
+	VectorProcessing int64 `json:"vector_processing"`
+	VectorIndexed    int64 `json:"vector_indexed"`
+	VectorFailed     int64 `json:"vector_failed"`
+}
+
 func scanFile(row interface{ Scan(...any) error }) (*File, error) {
 	var f File
 	if err := row.Scan(&f.ID, &f.Source, &f.OriginalName, &f.MIMEType, &f.SizeBytes,
@@ -65,11 +113,373 @@ func scanFile(row interface{ Scan(...any) error }) (*File, error) {
 
 // CreateFile 记录一个已落到文件存储里的文件。
 func (s *Store) CreateFile(ctx context.Context, f *File) (*File, error) {
-	return scanFile(s.pool.QueryRow(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	created, err := scanFile(tx.QueryRow(ctx,
 		`INSERT INTO files (source, original_name, mime_type, size_bytes, sha256, storage_path, created_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at`,
 		f.Source, f.OriginalName, f.MIMEType, f.SizeBytes, f.SHA256, f.StoragePath, f.CreatedBy))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO file_content_indexes (file_id) VALUES ($1)`, created.ID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return created, nil
+}
+
+// ClaimFilesForContentIndex discovers new immutable files and claims a bounded
+// batch. Failed jobs retry with backoff; abandoned processing leases are
+// reclaimable so a service restart cannot strand data forever.
+func (s *Store) ClaimFilesForContentIndex(ctx context.Context, limit int, extractorRevision string) ([]FileContentIndexJob, error) {
+	if limit <= 0 || limit > 16 {
+		limit = 2
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	extractorRevision = strings.TrimSpace(extractorRevision)
+	if _, err := tx.Exec(ctx,
+		`UPDATE file_content_indexes
+		    SET status = 'failed',
+		        last_error = CASE WHEN last_error = '' THEN '索引进程中断且重试次数耗尽' ELSE last_error END,
+		        claim_token = '', claimed_at = NULL, updated_at = now()
+		  WHERE status = 'processing' AND claimed_at < now() - interval '15 minutes'
+		    AND attempts >= $1 AND extractor_revision = $2`, fileIndexMaxAttempts, extractorRevision); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx,
+		`SELECT f.id, f.source, f.original_name, f.mime_type, f.size_bytes,
+		        f.sha256, f.storage_path, f.created_by, f.created_at,
+		        i.attempts, i.extractor_revision
+		   FROM file_content_indexes i JOIN files f ON f.id = i.file_id
+			  WHERE ((i.status IN ('pending', 'failed') AND i.available_at <= now()
+			          AND (i.attempts < $3 OR i.extractor_revision <> $2))
+			     OR (i.status = 'unsupported' AND i.extractor_revision <> $2)
+			     OR (i.status = 'processing' AND i.claimed_at < now() - interval '15 minutes'
+			         AND (i.attempts < $3 OR i.extractor_revision <> $2)))
+		  ORDER BY i.file_id
+		  FOR UPDATE OF i SKIP LOCKED
+				  LIMIT $1`, limit, extractorRevision, fileIndexMaxAttempts)
+	if err != nil {
+		return nil, err
+	}
+	var jobs []FileContentIndexJob
+	for rows.Next() {
+		var job FileContentIndexJob
+		var previousRevision string
+		if err := rows.Scan(&job.ID, &job.Source, &job.OriginalName, &job.MIMEType,
+			&job.SizeBytes, &job.SHA256, &job.StoragePath, &job.CreatedBy, &job.CreatedAt,
+			&job.Attempts, &previousRevision); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		job.ClaimToken = rand.Text()
+		job.ExtractorRevision = extractorRevision
+		if previousRevision != extractorRevision {
+			job.Attempts = 0
+		}
+		jobs = append(jobs, job)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range jobs {
+		if _, err := tx.Exec(ctx,
+			`UPDATE file_content_indexes
+				    SET status = 'processing', attempts = $3,
+				        claim_token = $2, claimed_at = now(), extractor_revision = $4, updated_at = now()
+				  WHERE file_id = $1`, jobs[i].ID, jobs[i].ClaimToken, jobs[i].Attempts+1, extractorRevision); err != nil {
+			return nil, err
+		}
+		jobs[i].Attempts++
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
+
+// CompleteFileContentIndex atomically replaces extracted chunks and completes
+// the matching lease. Empty is a successful terminal state, distinct from an
+// extractor failure or unsupported binary format.
+func (s *Store) CompleteFileContentIndex(ctx context.Context, job FileContentIndexJob, extractor string, contents []string, truncated bool) ([]FileTextChunk, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var locked int64
+	if err := tx.QueryRow(ctx,
+		`SELECT file_id FROM file_content_indexes
+		  WHERE file_id = $1 AND status = 'processing' AND claim_token = $2
+		  FOR UPDATE`, job.ID, job.ClaimToken).Scan(&locked); err != nil {
+		return nil, wrapErr(err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM file_text_chunks WHERE file_id = $1`, job.ID); err != nil {
+		return nil, err
+	}
+	chunks := make([]FileTextChunk, 0, len(contents))
+	for i, content := range contents {
+		content = strings.TrimSpace(content)
+		if content == "" {
+			continue
+		}
+		var chunk FileTextChunk
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO file_text_chunks (file_id, chunk_index, content)
+			 VALUES ($1, $2, $3)
+			 RETURNING id, file_id, chunk_index, content, created_at`,
+			job.ID, i, content).Scan(&chunk.ID, &chunk.FileID, &chunk.ChunkIndex, &chunk.Content, &chunk.CreatedAt); err != nil {
+			return nil, err
+		}
+		chunks = append(chunks, chunk)
+	}
+	status := "indexed"
+	if len(chunks) == 0 {
+		status = "empty"
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE file_content_indexes
+		    SET status = $3, extractor = $4, extractor_revision = $7,
+		        chunk_count = $5, truncated = $6,
+		        last_error = '', claim_token = '', claimed_at = NULL,
+		        indexed_at = now(),
+		        vector_status = CASE WHEN $5 = 0 THEN 'indexed' ELSE 'pending' END,
+		        vector_error = '', vector_attempts = 0, vector_claim_token = '', vector_claimed_at = NULL,
+		        vector_available_at = now(), vector_indexed_at = CASE WHEN $5 = 0 THEN now() ELSE NULL END,
+		        updated_at = now()
+		  WHERE file_id = $1 AND claim_token = $2`,
+		job.ID, job.ClaimToken, status, strings.TrimSpace(extractor), len(chunks), truncated, job.ExtractorRevision); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return chunks, nil
+}
+
+// FailFileContentIndex records a bounded retry or a terminal unsupported
+// result. Metadata remains searchable even when no deterministic text
+// extractor is available.
+func (s *Store) FailFileContentIndex(ctx context.Context, job FileContentIndexJob, cause error, retry bool) error {
+	status := "unsupported"
+	availableAt := time.Now()
+	if retry {
+		status = "failed"
+		if job.Attempts < fileIndexMaxAttempts {
+			shift := min(job.Attempts, 6)
+			availableAt = availableAt.Add(time.Minute * time.Duration(1<<shift))
+		}
+	}
+	message := ""
+	if cause != nil {
+		message = cause.Error()
+	}
+	if len(message) > 2000 {
+		message = message[:2000]
+	}
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE file_content_indexes
+		    SET status = $3, last_error = $4, extractor_revision = $6,
+		        claim_token = '', claimed_at = NULL,
+		        vector_status = CASE WHEN $3 = 'unsupported' THEN 'unavailable' ELSE vector_status END,
+		        vector_error = CASE WHEN $3 = 'unsupported' THEN $4 ELSE vector_error END,
+		        available_at = $5, updated_at = now()
+		  WHERE file_id = $1 AND status = 'processing' AND claim_token = $2`,
+		job.ID, job.ClaimToken, status, message, availableAt, job.ExtractorRevision)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) ClaimFilesForVectorIndex(ctx context.Context, limit int, model string) ([]FileVectorIndexJob, error) {
+	if limit <= 0 || limit > 16 {
+		limit = 2
+	}
+	model = strings.TrimSpace(model)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
+		`UPDATE file_content_indexes
+		    SET vector_status = 'failed',
+		        vector_error = CASE WHEN vector_error = '' THEN '向量索引进程中断且重试次数耗尽' ELSE vector_error END,
+		        vector_claim_token = '', vector_claimed_at = NULL, updated_at = now()
+		  WHERE vector_status = 'processing' AND vector_claimed_at < now() - interval '15 minutes'
+		    AND vector_attempts >= $1 AND vector_model = $2`, fileIndexMaxAttempts, model); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx,
+		`SELECT f.id, f.source, f.original_name, f.mime_type, f.size_bytes,
+		        f.sha256, f.storage_path, f.created_by, f.created_at,
+		        i.vector_attempts, i.vector_model
+		   FROM file_content_indexes i JOIN files f ON f.id = i.file_id
+		  WHERE i.status = 'indexed' AND i.chunk_count > 0 AND (
+			        (i.vector_status IN ('pending', 'failed', 'unavailable') AND i.vector_available_at <= now()
+			         AND (i.vector_attempts < $3 OR i.vector_model <> $2))
+			     OR (i.vector_status = 'indexed' AND i.vector_model <> $2)
+			     OR (i.vector_status = 'processing' AND i.vector_claimed_at < now() - interval '15 minutes'
+			         AND (i.vector_attempts < $3 OR i.vector_model <> $2)))
+			  ORDER BY i.file_id FOR UPDATE OF i SKIP LOCKED LIMIT $1`, limit, model, fileIndexMaxAttempts)
+	if err != nil {
+		return nil, err
+	}
+	var jobs []FileVectorIndexJob
+	for rows.Next() {
+		var job FileVectorIndexJob
+		var previousModel string
+		if err := rows.Scan(&job.ID, &job.Source, &job.OriginalName, &job.MIMEType, &job.SizeBytes,
+			&job.SHA256, &job.StoragePath, &job.CreatedBy, &job.CreatedAt, &job.Attempts, &previousModel); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if previousModel != model {
+			job.Attempts = 0
+		}
+		job.ClaimToken = rand.Text()
+		job.VectorModel = model
+		jobs = append(jobs, job)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for i := range jobs {
+		if _, err := tx.Exec(ctx,
+			`UPDATE file_content_indexes SET vector_status = 'processing', vector_attempts = $3,
+			 vector_claim_token = $2, vector_claimed_at = now(), vector_model = $4, updated_at = now()
+			 WHERE file_id = $1`, jobs[i].ID, jobs[i].ClaimToken, jobs[i].Attempts+1, model); err != nil {
+			return nil, err
+		}
+		jobs[i].Attempts++
+		chunkRows, err := tx.Query(ctx,
+			`SELECT id, file_id, chunk_index, content, created_at FROM file_text_chunks
+			  WHERE file_id = $1 ORDER BY chunk_index`, jobs[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		for chunkRows.Next() {
+			var chunk FileTextChunk
+			if err := chunkRows.Scan(&chunk.ID, &chunk.FileID, &chunk.ChunkIndex, &chunk.Content, &chunk.CreatedAt); err != nil {
+				chunkRows.Close()
+				return nil, err
+			}
+			jobs[i].Chunks = append(jobs[i].Chunks, chunk)
+		}
+		if err := chunkRows.Err(); err != nil {
+			chunkRows.Close()
+			return nil, err
+		}
+		chunkRows.Close()
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
+
+func (s *Store) CompleteFileVectorIndex(ctx context.Context, job FileVectorIndexJob) error {
+	return s.execOne(ctx,
+		`UPDATE file_content_indexes SET vector_status = 'indexed', vector_error = '',
+		 vector_claim_token = '', vector_claimed_at = NULL, vector_indexed_at = now(), updated_at = now()
+		 WHERE file_id = $1 AND vector_status = 'processing' AND vector_claim_token = $2`,
+		job.ID, job.ClaimToken)
+}
+
+func (s *Store) FailFileVectorIndex(ctx context.Context, job FileVectorIndexJob, cause error) error {
+	availableAt := time.Now().Add(time.Minute * time.Duration(1<<min(job.Attempts, 6)))
+	message := ""
+	if cause != nil {
+		message = cause.Error()
+	}
+	if len(message) > 2000 {
+		message = message[:2000]
+	}
+	return s.execOne(ctx,
+		`UPDATE file_content_indexes SET vector_status = 'failed', vector_error = $3,
+		 vector_claim_token = '', vector_claimed_at = NULL, vector_available_at = $4, updated_at = now()
+		 WHERE file_id = $1 AND vector_status = 'processing' AND vector_claim_token = $2`,
+		job.ID, job.ClaimToken, message, availableAt)
+}
+
+func (s *Store) FileTextChunksByFile(ctx context.Context, fileID int64) ([]FileTextChunk, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, file_id, chunk_index, content, created_at
+		   FROM file_text_chunks WHERE file_id = $1 ORDER BY chunk_index`, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var chunks []FileTextChunk
+	for rows.Next() {
+		var chunk FileTextChunk
+		if err := rows.Scan(&chunk.ID, &chunk.FileID, &chunk.ChunkIndex, &chunk.Content, &chunk.CreatedAt); err != nil {
+			return nil, err
+		}
+		chunks = append(chunks, chunk)
+	}
+	return chunks, rows.Err()
+}
+
+// FileTextChunkIDs returns the authoritative ID set used to remove Qdrant
+// points left behind after a file or a replaced extraction is deleted.
+func (s *Store) FileTextChunkIDs(ctx context.Context) ([]int64, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id FROM file_text_chunks ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Store) FileContentIndexStats(ctx context.Context) (FileContentIndexStats, error) {
+	var stats FileContentIndexStats
+	err := s.pool.QueryRow(ctx,
+		`SELECT count(f.id),
+		        count(*) FILTER (WHERE i.file_id IS NULL OR i.status = 'pending'),
+		        count(*) FILTER (WHERE i.status = 'processing'),
+		        count(*) FILTER (WHERE i.status = 'indexed'),
+		        count(*) FILTER (WHERE i.status = 'empty'),
+		        count(*) FILTER (WHERE i.status = 'unsupported'),
+		        count(*) FILTER (WHERE i.status = 'failed'),
+		        count(*) FILTER (WHERE i.truncated),
+		        COALESCE(sum(i.chunk_count), 0),
+		        count(*) FILTER (WHERE i.status = 'indexed' AND i.vector_status IN ('pending', 'unavailable')),
+		        count(*) FILTER (WHERE i.status = 'indexed' AND i.vector_status = 'processing'),
+		        count(*) FILTER (WHERE i.status = 'indexed' AND i.vector_status = 'indexed'),
+		        count(*) FILTER (WHERE i.status = 'indexed' AND i.vector_status = 'failed')
+		   FROM files f LEFT JOIN file_content_indexes i ON i.file_id = f.id`).
+		Scan(&stats.Total, &stats.Pending, &stats.Processing, &stats.Indexed,
+			&stats.Empty, &stats.Unsupported, &stats.Failed, &stats.Truncated, &stats.Chunks,
+			&stats.VectorPending, &stats.VectorProcessing, &stats.VectorIndexed, &stats.VectorFailed)
+	return stats, err
 }
 
 // FileByID 取文件元数据。

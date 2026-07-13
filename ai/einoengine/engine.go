@@ -425,12 +425,12 @@ func (e *Engine) rollbackFailedSession(ctx context.Context, sessionID string) er
 		}
 	}
 	if sawCommitted {
-		return errors.New("Eino session has committed history but no active rollback target")
+		return errors.New("eino session has committed history but no active rollback target")
 	}
 	if resetter, ok := e.runtime.(sessionResetter); ok {
 		return resetter.DeleteSession(ctx, sessionID)
 	}
-	return errors.New("Eino session has no committed boundary and runtime store cannot reset it")
+	return errors.New("eino session has no committed boundary and runtime store cannot reset it")
 }
 
 func (e *Engine) sessionHasEvents(ctx context.Context, sessionID string) (bool, error) {

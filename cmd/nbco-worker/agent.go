@@ -27,7 +27,7 @@ const (
 	// 全量累积会撑爆（本地）模型上下文，超预算时压缩早期工具输出。
 	agentTranscriptBudget = 48 << 10
 	// agentKeepRecentTools 压缩时保留完整原文的最近工具输出条数
-	//（模型决策主要依赖任务说明与近期结果，早期原文价值低）。
+	// （模型决策主要依赖任务说明与近期结果，早期原文价值低）。
 	agentKeepRecentTools = 4
 	// agentLLMRetries 模型调用瞬时失败（网关抖动/上游超时）的重试次数。
 	agentLLMRetries = 2

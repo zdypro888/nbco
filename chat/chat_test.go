@@ -288,11 +288,13 @@ func TestRenderRetrievalBlock(t *testing.T) {
 }
 
 func TestShouldFetchHistory(t *testing.T) {
-	if !shouldFetchHistory("api") || !shouldFetchHistory("telegram") {
-		t.Error("非群渠道应允许历史预取")
+	for _, channel := range []string{"api", "telegram", "telegram:group:-42"} {
+		if !shouldFetchHistory(channel) {
+			t.Errorf("有效渠道 %q 应允许按自身权限域预取历史", channel)
+		}
 	}
-	if shouldFetchHistory("telegram:group:-42") {
-		t.Error("群渠道应禁止历史预取（隐私守护）")
+	if shouldFetchHistory("  ") {
+		t.Error("空渠道不应预取历史")
 	}
 }
 

@@ -431,6 +431,25 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取 Eino 运行状态失败"})
 		return
 	}
+	fileIndex, err := s.store.FileContentIndexStats(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取文件索引状态失败"})
+		return
+	}
+	fileIndexStatus := structToMap(fileIndex)
+	fileIndexStatus["vector_configured"] = s.deps.Semantic != nil && s.deps.Semantic.Enabled()
+	messageIndex := map[string]any{"configured": false}
+	if s.deps.Knowledge != nil && s.deps.Semantic != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		stats, statsErr := s.deps.Knowledge.MessageIndexStats(ctx)
+		cancel()
+		if statsErr != nil {
+			messageIndex = map[string]any{"configured": true, "error": statsErr.Error()}
+		} else {
+			messageIndex = structToMap(stats)
+			messageIndex["configured"] = true
+		}
+	}
 	semanticStatus := map[string]any{"configured": false}
 	if s.deps.Semantic != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
@@ -447,6 +466,8 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		"engine":         s.engineHealth(),
 		"eino_runtime":   einoRuntime,
 		"semantic_index": semanticStatus,
+		"file_index":     fileIndexStatus,
+		"message_index":  messageIndex,
 	})
 }
 
@@ -458,6 +479,9 @@ func structToMap(value any) map[string]any {
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return map[string]any{"configured": true, "error": err.Error()}
+	}
+	if out == nil {
+		return make(map[string]any)
 	}
 	return out
 }

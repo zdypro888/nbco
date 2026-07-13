@@ -359,7 +359,9 @@ func (q *Qdrant) ensurePayloadIndexes(ctx context.Context, collection string) er
 		{PayloadEntityID, qdrant.FieldType_FieldTypeKeyword},
 		{PayloadKind, qdrant.FieldType_FieldTypeKeyword},
 		{"author_id", qdrant.FieldType_FieldTypeInteger},
-		{"session_user_id", qdrant.FieldType_FieldTypeInteger},
+		{PayloadSessionUser, qdrant.FieldType_FieldTypeInteger},
+		{PayloadChannel, qdrant.FieldType_FieldTypeKeyword},
+		{PayloadConversationScope, qdrant.FieldType_FieldTypeKeyword},
 		{"tags", qdrant.FieldType_FieldTypeKeyword},
 		{"pinned", qdrant.FieldType_FieldTypeBool},
 	}
