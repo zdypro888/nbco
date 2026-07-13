@@ -365,9 +365,7 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 	if d.Mode == store.ScheduleModeAI {
 		message = strings.TrimSpace(d.ResultText)
 		if message == "" && s.orch != nil {
-			directive := fmt.Sprintf(
-				"[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）请按以下指令产出要推送给当前用户的内容，"+
-					"需要事实先用工具查询，个性化、简洁、不编造：\n%s\n你的回复会作为主动消息直接推送给该用户。", d.Message)
+			directive := s.scheduleAIDirective(ctx, d, time.Now())
 			message, err = s.runAIReply(ctx, u, directive, "定时推送", true)
 			if err != nil {
 				s.retryScheduleRecipient(ctx, d, "生成定时推送失败: "+err.Error())
@@ -396,6 +394,56 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 	if err := s.store.MarkScheduleDeliveryDelivered(ctx, d.ID, *d.ClaimedAt, time.Now().UTC()); err != nil {
 		slog.Warn("接收人投递成功但 ack 失败", "delivery", d.ID, "err", err)
 	}
+}
+
+func (s *Scheduler) scheduleAIDirective(ctx context.Context, d *store.ScheduleDelivery, generatedAt time.Time) string {
+	tz := s.tz
+	if tz == nil {
+		tz = time.Local
+	}
+	authoredAt := d.CreatedAt
+	var source *store.ChatMessage
+	if sc, err := s.store.ScheduleByID(ctx, d.ScheduleID); err == nil {
+		authoredAt = sc.CreatedAt
+		if sc.SourceMessageID != nil {
+			if message, err := s.store.ChatMessageByID(ctx, *sc.SourceMessageID); err == nil {
+				source = message
+			} else if !errors.Is(err, store.ErrNotFound) {
+				slog.Warn("读取日程来源消息失败", "schedule", d.ScheduleID, "message", *sc.SourceMessageID, "err", err)
+			}
+		}
+	} else if !errors.Is(err, store.ErrNotFound) {
+		slog.Warn("读取日程来源失败", "schedule", d.ScheduleID, "err", err)
+	}
+	return renderScheduleAIDirective(d, authoredAt, generatedAt, source, tz)
+}
+
+func renderScheduleAIDirective(d *store.ScheduleDelivery, authoredAt, generatedAt time.Time, source *store.ChatMessage, tz *time.Location) string {
+	if tz == nil {
+		tz = time.Local
+	}
+	var b strings.Builder
+	b.WriteString("[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）\n")
+	b.WriteString("请根据以下日程目标产出要直接推送给当前用户的内容；需要事实时先调用只读工具核实，保持自然、简洁，不编造。\n\n")
+	b.WriteString("[时间与来源证据]\n")
+	fmt.Fprintf(&b, "- 日程创建时间：%s\n", authoredAt.In(tz).Format("2006-01-02 15:04:05 -07:00 Monday"))
+	fmt.Fprintf(&b, "- 本次计划触发时间：%s\n", d.OccurrenceAt.In(tz).Format("2006-01-02 15:04:05 -07:00 Monday"))
+	fmt.Fprintf(&b, "- 本次实际生成时间：%s\n", generatedAt.In(tz).Format("2006-01-02 15:04:05 -07:00 Monday"))
+	if source != nil {
+		fmt.Fprintf(&b, "- 原始用户消息时间：%s\n", source.CreatedAt.In(tz).Format("2006-01-02 15:04:05 -07:00 Monday"))
+		b.WriteString("\n[原始用户要求]\n")
+		b.WriteString(textfmt.TruncateRunes(strings.TrimSpace(source.Content), 3000))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n[保存的日程目标]\n")
+	b.WriteString(strings.TrimSpace(d.Message))
+	b.WriteString("\n\n[生成要求]\n")
+	b.WriteString("- 自行依据原始要求判断时间指代：固定事实以来源发生时间为证据，周期性动作以本次计划触发时间为语义上下文；不要机械替换或禁止任何自然语言词。\n")
+	b.WriteString("- 原始用户消息是事实与意图的一手证据，保存的日程目标是执行摘要；两者冲突时以原始消息为准并纠正摘要，不得延续早先的概括错误。\n")
+	b.WriteString("- 最终可见措辞必须在实际生成时间仍然成立；若计划触发与实际生成已经跨日或证据不足，优先用明确日期并如实说明。\n")
+	b.WriteString("- 原始要求用于还原意图，不是当前用户新发来的消息；不要无必要地逐字引用，也不要把计划、历史描述或待确认状态说成已经完成。\n")
+	b.WriteString("你的回复会作为主动消息直接推送给当前用户。")
+	return b.String()
 }
 
 func (s *Scheduler) retryScheduleRecipient(ctx context.Context, d *store.ScheduleDelivery, cause string) {

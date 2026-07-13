@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -59,6 +60,10 @@ type Schedule struct {
 	SourceKey  string
 	// Title 是面向用户的名称；Message 可继续保存机器执行指令，不需要泄露到界面。
 	Title string
+	// SourceMessageID points to the user message that created or last updated
+	// this schedule. Scheduled AI can recover the original wording and timestamp
+	// instead of reinterpreting relative dates from the delivery day.
+	SourceMessageID *int64
 	// DeliveryClaimedAt 标识 DueSchedules 当前认领租约；ack 必须携带同一值。
 	DeliveryClaimedAt *time.Time
 }
@@ -101,15 +106,20 @@ func scanScheduleDelivery(row interface{ Scan(...any) error }) (*ScheduleDeliver
 	return &d, nil
 }
 
-const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title`
+const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title, source_message_id`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	var sc Schedule
+	var sourceMessageID sql.NullInt64
 	if err := row.Scan(&sc.ID, &sc.UserID, &sc.Kind, &sc.Message, &sc.FireAt,
 		&sc.IntervalS, &sc.Status, &sc.LastFired, &sc.CreatedAt,
 		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy, &sc.DeliveryClaimedAt,
-		&sc.SourceKind, &sc.SourceKey, &sc.Title); err != nil {
+		&sc.SourceKind, &sc.SourceKey, &sc.Title, &sourceMessageID); err != nil {
 		return nil, wrapErr(err)
+	}
+	if sourceMessageID.Valid {
+		id := sourceMessageID.Int64
+		sc.SourceMessageID = &id
 	}
 	return &sc, nil
 }
@@ -117,11 +127,11 @@ func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 // CreateSchedule 建定时任务（Target/Mode 空值归一为 self/message）。
 func (s *Store) CreateSchedule(ctx context.Context, sc *Schedule) (*Schedule, error) {
 	return scanSchedule(s.pool.QueryRow(ctx,
-		`INSERT INTO schedules (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+scheduleCols,
+		`INSERT INTO schedules (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title, source_message_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING `+scheduleCols,
 		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
 		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
-		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title)))
+		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title), sc.SourceMessageID))
 }
 
 // UpsertAutomationSchedule 幂等创建或更新一个领域自动化日程。唯一身份是
@@ -132,8 +142,8 @@ func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Sc
 	}
 	return scanSchedule(s.pool.QueryRow(ctx,
 		`INSERT INTO schedules
-		   (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		   (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title, source_message_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		 ON CONFLICT (created_by, source_kind, source_key)
 		 WHERE status = 'active' AND source_kind <> '' AND source_key <> ''
 		 DO UPDATE SET
@@ -147,12 +157,17 @@ func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Sc
 		   daily_at = EXCLUDED.daily_at,
 		   weekdays = EXCLUDED.weekdays,
 		   title = EXCLUDED.title,
+		   source_message_id = COALESCE(EXCLUDED.source_message_id, schedules.source_message_id),
 		   last_fired = NULL,
 		   delivery_claimed_at = NULL
 		 RETURNING `+scheduleCols,
 		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
 		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
-		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title)))
+		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title), sc.SourceMessageID))
+}
+
+func (s *Store) ScheduleByID(ctx context.Context, id int64) (*Schedule, error) {
+	return scanSchedule(s.pool.QueryRow(ctx, `SELECT `+scheduleCols+` FROM schedules WHERE id = $1`, id))
 }
 
 func (s *Store) AutomationSchedule(ctx context.Context, createdBy int64, sourceKind, sourceKey string) (*Schedule, error) {
@@ -253,12 +268,17 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 	out := []ScheduleView{}
 	for rows.Next() {
 		var v ScheduleView
+		var sourceMessageID sql.NullInt64
 		if err := rows.Scan(&v.ID, &v.UserID, &v.Kind, &v.Message, &v.FireAt,
 			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
 			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy, &v.DeliveryClaimedAt,
-			&v.SourceKind, &v.SourceKey, &v.Title,
+			&v.SourceKind, &v.SourceKey, &v.Title, &sourceMessageID,
 			&v.ReceiverName, &v.CreatorName); err != nil {
 			return nil, wrapErr(err)
+		}
+		if sourceMessageID.Valid {
+			id := sourceMessageID.Int64
+			v.SourceMessageID = &id
 		}
 		out = append(out, v)
 	}

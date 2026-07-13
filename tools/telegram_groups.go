@@ -414,7 +414,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					Target: store.ScheduleTargetSelf, Mode: store.ScheduleModeAI, DailyAt: dailyAt,
 					Weekdays: weekdays, CreatedBy: u.ID,
 					SourceKind: telegramGroupDigestSourceKind, SourceKey: sourceKey,
-					Title: telegramGroupTitle(*g) + " 每日摘要",
+					Title: telegramGroupTitle(*g) + " 每日摘要", SourceMessageID: sourceMessageID(ctx),
 				})
 				if err != nil {
 					return "", err
