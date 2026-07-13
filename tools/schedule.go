@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,21 +31,43 @@ func hasActiveAll(ctx context.Context, d Deps, userID int64, action string) bool
 
 const minRepeatInterval = 60 // 秒
 
+// Persisted schedule text must distinguish a fixed historical fact from wording
+// that is intentionally relative to each occurrence. Without that distinction,
+// a daily raw message containing "昨天" remains unchanged for months.
+var relativeScheduleTimeRE = regexp.MustCompile(`(?i)(今天|今日|昨天|昨日|前天|明天|明日|后天|本周|这周|上周|下周|本月|这个月|上月|下月|今年|去年|明年|刚才|刚刚|目前|当前|现在|最近|当时|一昨日|明後日|今週|先週|来週|今月|先月|来月|さっき|現在|最近|\b(?:today|yesterday|tomorrow|now|currently|recently|earlier|later)\b|\b(?:this|last|next)\s+(?:morning|afternoon|evening|night|day|week|month|year)\b)`)
+
+func validateScheduleTimeBasis(content string, relativeToTrigger bool, tz *time.Location) string {
+	if relativeToTrigger || !relativeScheduleTimeRE.MatchString(content) {
+		return ""
+	}
+	if tz == nil {
+		tz = time.Local
+	}
+	return fmt.Sprintf(
+		"提醒内容包含会随日期漂移的相对时间，本次未创建。固定事件请把时间改成绝对日期（当前业务日期 %s）；如果该表达本来就要相对每次触发时刻变化，请设置 relative_to_trigger=true。",
+		time.Now().In(tz).Format("2006-01-02"))
+}
+
 // scheduleTools 定时提醒。
 func scheduleTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("schedule_once", "设置单次定时提醒。时间用 ISO8601（如 2026-07-05T09:00:00+08:00；不带时区按公司时区算）。",
+		tool("schedule_once", "设置单次定时提醒。时间用 ISO8601（如 2026-07-05T09:00:00+08:00；不带时区按公司时区算）。固定事件的提醒正文使用绝对日期；只有正文里的相对时间有意按触发时刻解释时才设 relative_to_trigger=true。",
 			obj(map[string]any{
-				"at":      p("string", "触发时间 ISO8601"),
-				"message": p("string", "提醒内容"),
+				"at":                  p("string", "触发时间 ISO8601"),
+				"message":             p("string", "提醒内容"),
+				"relative_to_trigger": p("boolean", "正文中的相对时间是否有意相对触发时刻解释；固定事实不要设置"),
 			}, "at", "message"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					At      string `json:"at"`
-					Message string `json:"message"`
+					At                string `json:"at"`
+					Message           string `json:"message"`
+					RelativeToTrigger bool   `json:"relative_to_trigger"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
+				}
+				if msg := validateScheduleTimeBasis(args.Message, args.RelativeToTrigger, d.TZ); msg != "" {
+					return msg, nil
 				}
 				at, err := parseDeadline(args.At, d.TZ)
 				if err != nil {
@@ -65,20 +88,25 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已设置提醒（%s）：%s 提醒你「%s」。", internalRef("提醒", sc.ID), fmtTime(sc.FireAt, d.TZ), args.Message), nil
 			}),
 
-		tool("schedule_repeating", "设置循环定时提醒。最小间隔 60 秒。",
+		tool("schedule_repeating", "设置循环定时提醒。最小间隔 60 秒。固定事件的提醒正文使用绝对日期；只有正文里的相对时间有意按每次触发时刻解释时才设 relative_to_trigger=true。",
 			obj(map[string]any{
-				"first_at":         p("string", "首次触发时间 ISO8601"),
-				"interval_seconds": p("integer", "间隔秒数（≥60）"),
-				"message":          p("string", "提醒内容"),
+				"first_at":            p("string", "首次触发时间 ISO8601"),
+				"interval_seconds":    p("integer", "间隔秒数（≥60）"),
+				"message":             p("string", "提醒内容"),
+				"relative_to_trigger": p("boolean", "正文中的相对时间是否有意相对每次触发时刻解释；固定事实不要设置"),
 			}, "first_at", "interval_seconds", "message"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					FirstAt         string `json:"first_at"`
-					IntervalSeconds int64  `json:"interval_seconds"`
-					Message         string `json:"message"`
+					FirstAt           string `json:"first_at"`
+					IntervalSeconds   int64  `json:"interval_seconds"`
+					Message           string `json:"message"`
+					RelativeToTrigger bool   `json:"relative_to_trigger"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
+				}
+				if msg := validateScheduleTimeBasis(args.Message, args.RelativeToTrigger, d.TZ); msg != "" {
+					return msg, nil
 				}
 				if args.IntervalSeconds < minRepeatInterval {
 					return fmt.Sprintf("间隔不能小于 %d 秒。", minRepeatInterval), nil
@@ -103,30 +131,36 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 		tool("schedule_push",
 			"设置定向/周期性智能推送——把运营节奏落成规则：目标可以是自己、某个成员或全体（如上下班问候、例会提醒、周期检查）。"+
 				"mode=ai 时 content 写给 AI 的指令，每次触发会为每位目标现场跑一轮 AI（可结合其当天任务等实时数据）生成个性化内容推送，不是死模板；"+
-				"mode=message 则原文投递。时间二选一：daily_at（每天 HH:MM，可配 weekdays 限工作日）或 once_at（单次）。"+
+				"mode=message 则原文投递。持久内容中的固定事件必须写绝对日期；只有相对时间有意按每次触发时刻解释时才设 relative_to_trigger=true。"+
+				"时间二选一：daily_at（每天 HH:MM，可配 weekdays 限工作日）或 once_at（单次）。"+
 				"给他人/全体设置需要对应 send_msg 权限（超管不限）。",
 			obj(map[string]any{
-				"target":   p("string", "self（默认）| _all（全体成员）| 用户ID"),
-				"mode":     p("string", "ai（AI 现场生成个性化内容，推荐）| message（原文投递）"),
-				"content":  p("string", "mode=ai 时是给 AI 的生成指令；mode=message 时是消息原文"),
-				"daily_at": p("string", "每天触发时刻 HH:MM（公司时区），与 once_at 二选一"),
-				"weekdays": p("string", "限定星期几：如 1,2,3,4,5 表示工作日（1=周一…7=周日），空=每天；仅配合 daily_at"),
-				"once_at":  p("string", "单次触发时间 ISO8601，与 daily_at 二选一"),
+				"target":              p("string", "self（默认）| _all（全体成员）| 用户ID"),
+				"mode":                p("string", "ai（AI 现场生成个性化内容，推荐）| message（原文投递）"),
+				"content":             p("string", "mode=ai 时是给 AI 的生成指令；mode=message 时是消息原文"),
+				"daily_at":            p("string", "每天触发时刻 HH:MM（公司时区），与 once_at 二选一"),
+				"weekdays":            p("string", "限定星期几：如 1,2,3,4,5 表示工作日（1=周一…7=周日），空=每天；仅配合 daily_at"),
+				"once_at":             p("string", "单次触发时间 ISO8601，与 daily_at 二选一"),
+				"relative_to_trigger": p("boolean", "content 中的相对时间是否有意相对每次触发时刻解释；固定事实不要设置"),
 			}, "content"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					Target   string `json:"target"`
-					Mode     string `json:"mode"`
-					Content  string `json:"content"`
-					DailyAt  string `json:"daily_at"`
-					Weekdays string `json:"weekdays"`
-					OnceAt   string `json:"once_at"`
+					Target            string `json:"target"`
+					Mode              string `json:"mode"`
+					Content           string `json:"content"`
+					DailyAt           string `json:"daily_at"`
+					Weekdays          string `json:"weekdays"`
+					OnceAt            string `json:"once_at"`
+					RelativeToTrigger bool   `json:"relative_to_trigger"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
 				if strings.TrimSpace(args.Content) == "" {
 					return "content 不能为空。", nil
+				}
+				if msg := validateScheduleTimeBasis(args.Content, args.RelativeToTrigger, d.TZ); msg != "" {
+					return msg, nil
 				}
 				mode := args.Mode
 				if mode == "" {
