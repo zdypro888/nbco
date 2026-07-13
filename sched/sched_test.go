@@ -135,7 +135,7 @@ func TestHumanRecipientSkipsWorkers(t *testing.T) {
 	}
 }
 
-func TestScheduleAIDirectiveCarriesAllTimeAnchors(t *testing.T) {
+func TestScheduleAIDirectiveCarriesStructuredContext(t *testing.T) {
 	authored := time.Date(2026, 7, 7, 4, 51, 0, 0, time.UTC)
 	occurrence := time.Date(2026, 7, 13, 2, 0, 0, 0, time.UTC)
 	generated := occurrence.Add(3 * time.Minute)
@@ -144,14 +144,13 @@ func TestScheduleAIDirectiveCarriesAllTimeAnchors(t *testing.T) {
 
 	out := renderScheduleAIDirective(delivery, authored, generated, source, tz)
 	for _, want := range []string{
-		"日程创建时间：2026-07-07 12:51:00",
-		"本次计划触发时间：2026-07-13 10:00:00",
-		"本次实际生成时间：2026-07-13 10:03:00",
-		"原始用户消息时间：2026-07-07 12:51:00",
+		`"schedule_created_at":"2026-07-07T12:51:00+08:00"`,
+		`"planned_at":"2026-07-13T10:00:00+08:00"`,
+		`"generated_at":"2026-07-13T10:03:00+08:00"`,
+		`"at":"2026-07-07T12:51:00+08:00"`,
 		"刚才负责人说应用被下架了",
 		"提醒跟进这个事情",
-		"不要机械替换或禁止任何自然语言词",
-		"两者冲突时以原始消息为准",
+		"<schedule_context>",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("directive missing %q:\n%s", want, out)

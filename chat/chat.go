@@ -2031,7 +2031,6 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 只有对应工具成功创建或执行后，才确认外部变更、后台工作或未来承诺；失败、待确认、缺参数、无权限和最终成功要如实区分。\n")
 	b.WriteString("- 工具链内部优先使用稳定业务 ID 和渠道引用，名字只用于展示与消歧；最终回复默认隐藏内部渠道标识、凭据和密钥，用户明确要求且有权查看时除外。\n")
 	b.WriteString("- 相对时间按当前业务时区和记录时间解析，跨日结论优先给出绝对日期。\n")
-	b.WriteString("- 创建日程时保留原始事实与时间语义：需要按来源时间、触发时间或实时状态重新表达的推送使用 AI 模式；只有用户明确要求原文不改写时才使用 message 模式。不要用固定词表替 AI 判断自然语言时间。\n")
 	b.WriteString("- 回复用用户的语言，简洁直接；别输出思考过程。\n\n")
 
 	b.WriteString("[记忆与学习]\n")

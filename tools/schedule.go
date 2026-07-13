@@ -113,7 +113,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 
 		tool("schedule_push",
 			"设置定向/周期性智能推送——把运营节奏落成规则：目标可以是自己、某个成员或全体（如上下班问候、例会提醒、周期检查）。"+
-				"mode=ai 时 content 写目标和事实，每次触发会带上原始用户消息及其时间、日程创建时间、计划触发时间和实际生成时间，由 AI 结合实时数据自行判断时间语义并生成内容；"+
+				"mode=ai 时 content 写目标和事实，每次触发会把原始用户消息及相关时间作为结构化上下文交给 AI，并由 AI 结合实时数据生成内容；"+
 				"mode=message 只用于用户明确要求完全不改写的原文。mode 省略时，自己或超管创建的推送默认 ai；普通用户给他人推送默认 message。"+
 				"时间二选一：daily_at（每天 HH:MM，可配 weekdays 限工作日）或 once_at（单次）。"+
 				"给他人/全体设置需要对应 send_msg 权限（超管不限）。",
