@@ -1,0 +1,153 @@
+schema: 1
+nodes:
+    - id: store/goals_test.go
+      level: file
+      anchor:
+        file: store/goals_test.go
+        hash: sha256:84fdd1d91f3f7e932143b378af4dfb4c4cad496572fcf7ae40f9e7b32479b48c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#mkTaskM
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: mkTaskM
+        hash: sha256:40950d8bed380d60ce068f74c179f0db477f93e5bf15dc05e3e3f4cd643dc450
+        struct_hash: sha256:b819a4a159e4e622b3276733cc8b2a75ba22fa728b65e7ea1ae0c32cbc526dae
+        doc_struct_hash: sha256:33dee879c599fe5503d07fd2ae873b4a7bc94d6f437c381c1714c11baa068eb8
+        lines: [9, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestGoalMilestoneCRUD
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestGoalMilestoneCRUD
+        hash: sha256:59160afb8a591a638ab342d1857f461205466bce28ae55388d1c3771d83348e2
+        struct_hash: sha256:d17805e75bdf2eebd0bbcf5b07ffc2897d736d8d136a62659164aad668462146
+        doc_struct_hash: sha256:d17805e75bdf2eebd0bbcf5b07ffc2897d736d8d136a62659164aad668462146
+        lines: [21, 67]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestMilestoneTaskCounts
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestMilestoneTaskCounts
+        hash: sha256:be4aa781c6bc9a9ade9e7cb657ba9436f8427b2dc382883a4a9d443bc476adac
+        struct_hash: sha256:2f6d0ab27ae7b8f61cd64988c7972f5094d69769b83d97c0536502e9d06fe1aa
+        doc_struct_hash: sha256:2f6d0ab27ae7b8f61cd64988c7972f5094d69769b83d97c0536502e9d06fe1aa
+        lines: [69, 111]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestGoalMilestoneCountsAndRollup
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestGoalMilestoneCountsAndRollup
+        hash: sha256:4ab3729a45278a288591ea77941cfa542b4b51013d9a3530bb76f392593d17b3
+        struct_hash: sha256:c0b82e63cf600e006a873108eed56cf637e1227427f891f8367aea3dfe24732a
+        doc_struct_hash: sha256:c0b82e63cf600e006a873108eed56cf637e1227427f891f8367aea3dfe24732a
+        lines: [113, 136]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestCreateMilestoneTasksAtomic
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestCreateMilestoneTasksAtomic
+        hash: sha256:3f8d2eb8016dcde4ecd1c5b217b700e489e565623664d53eec2180233ccddf2b
+        struct_hash: sha256:f04c06d37362237d64e2856edf2c94d1ff3463a3a8950dd25d1cc66d44a29c0e
+        doc_struct_hash: sha256:f04c06d37362237d64e2856edf2c94d1ff3463a3a8950dd25d1cc66d44a29c0e
+        lines: [138, 174]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestDeleteGoalCascades
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestDeleteGoalCascades
+        hash: sha256:fbf3714f8a1934bb46565d064dc64692e382cc6be96dc9cabcebf162481efaf3
+        struct_hash: sha256:f18db7925ba9f79afcafe120793b2d5a80722506fdd741253898d2e0f956da36
+        doc_struct_hash: sha256:f18db7925ba9f79afcafe120793b2d5a80722506fdd741253898d2e0f956da36
+        lines: [176, 199]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestSetTaskMilestone
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestSetTaskMilestone
+        hash: sha256:d5e35ca71a8365c7acd2957b5c33f001b104cc2d253d4f02c06288ccb807d687
+        struct_hash: sha256:88d9bd964fbda9af2c195e1c746a191837a8eab3d1bcafc5e1447e6f5aea46a2
+        doc_struct_hash: sha256:88d9bd964fbda9af2c195e1c746a191837a8eab3d1bcafc5e1447e6f5aea46a2
+        lines: [201, 223]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestSplitTaskCarriesMilestone
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestSplitTaskCarriesMilestone
+        hash: sha256:7971567f9a3c95927d3d4133d0d65517cb203ffe87624a5f5a52ee41d77a7700
+        struct_hash: sha256:ab08603b8aeda49b114c4f9e95fca941c0eee54314a268e04e989a2bae9b9152
+        doc_struct_hash: sha256:ab08603b8aeda49b114c4f9e95fca941c0eee54314a268e04e989a2bae9b9152
+        lines: [225, 245]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestGoalDeadlineClaims
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestGoalDeadlineClaims
+        hash: sha256:8cc407e582096b6dfbc217a0096a50cbfb88b87639d37ae5357e1a89dd7f1206
+        struct_hash: sha256:8d3de21f4392abc7a9259dec728bf3504f959860e12de762cf095f26198ca00c
+        doc_struct_hash: sha256:b2f59049ad412125daeefea916369269c38ce6898a93ad09f80ca078b2629c99
+        lines: [247, 328]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestMilestoneDeadlineClaims
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestMilestoneDeadlineClaims
+        hash: sha256:ec7c7b765974674a5416eed890b0c837b2d55217f295cf1053114143e135afda
+        struct_hash: sha256:d4a2b34c3eeb9a0b098fa3f3f0960abcc54146be1405452d11312f8ab4605e1e
+        doc_struct_hash: sha256:7f477a36ab2ecf862c57eec5d04d8780527aa7e8ea0d8021b8bc5ecb2bd2a28a
+        lines: [330, 401]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestReassignTaskPreservesHistory
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestReassignTaskPreservesHistory
+        hash: sha256:885d009bb4d827c2683a8b339b4f982d979055e3ea966120746bb48f6aa2d303
+        struct_hash: sha256:0a475ba647ad71de1c914e1e5c249123f18b9b183f83c2b6d2bc2fc29adc93cc
+        doc_struct_hash: sha256:27f8424ece6f7cde2848fc01905d6cb43492c7efce7ecf302fd42a7a064bc95f
+        lines: [403, 449]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestReassignTaskRejectsTerminalStatuses
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestReassignTaskRejectsTerminalStatuses
+        hash: sha256:b0726e27bc9b1f47f31a02c41cb3d8e58242fd2df587640f6d7e08011275abfe
+        struct_hash: sha256:819f9731a7a985bd4db4a0cfc62ab332b109afc2265250da7caf7c53f513b9ef
+        doc_struct_hash: sha256:e11f026e9d6468d569d63f161c5760fb4edf2e80cc6b1bc30b2f90125840bcea
+        lines: [451, 478]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals_test.go#TestAIUsageGoalAttribution
+      level: function
+      anchor:
+        file: store/goals_test.go
+        symbol: TestAIUsageGoalAttribution
+        hash: sha256:3eec2370541b231cb7dbc24ba7761bbfd30a111325734dc497014b49b3f55469
+        struct_hash: sha256:cc11fafff2a8e2e0f2238a51a2c99632c8d910eec77a5c5baab80a4f038cd273
+        doc_struct_hash: sha256:8e495d94e26a71da1772ff604e0e5094e30ee8600e8f5df03dadcb49301bef5b
+        lines: [480, 529]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

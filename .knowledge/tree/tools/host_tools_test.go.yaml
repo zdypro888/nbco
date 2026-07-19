@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/host_tools_test.go
+      level: file
+      anchor:
+        file: tools/host_tools_test.go
+        hash: sha256:d7cae160fc05cbc701b9c1dda9a24119389fc262f750a658ea9e2d81f5f5f9e8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/host_tools_test.go#TestHostToolsFlowThroughCoreGovernance
+      level: function
+      anchor:
+        file: tools/host_tools_test.go
+        symbol: TestHostToolsFlowThroughCoreGovernance
+        hash: sha256:3995bc01bb99691351acac572c134fb68ab49c36b3a10c721d36bc76ebaa2ba7
+        struct_hash: sha256:3af52d719a16c988a0e222e397d236e860956d429b9e13e2ed55a1e83cd41975
+        doc_struct_hash: sha256:3af52d719a16c988a0e222e397d236e860956d429b9e13e2ed55a1e83cd41975
+        lines: [13, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/host_tools_test.go#TestHostToolsCannotShadowCoreTools
+      level: function
+      anchor:
+        file: tools/host_tools_test.go
+        symbol: TestHostToolsCannotShadowCoreTools
+        hash: sha256:19ffb9b0c04f8401150933638e5ea4ca9f8ba47ca8a8804502bbb9da40a5a9d7
+        struct_hash: sha256:20ee0da3c208959ba4b071a547e5fb3d88aaa9d33a412a9e9cdab0d0474405c8
+        doc_struct_hash: sha256:20ee0da3c208959ba4b071a547e5fb3d88aaa9d33a412a9e9cdab0d0474405c8
+        lines: [48, 63]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

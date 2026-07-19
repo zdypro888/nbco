@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/fileutil_windows.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/fileutil_windows.go
+        hash: sha256:648c42a2a48ffbf2bf215ded1c171d76274c010f4e6a5e1da692c8e433d07455
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/fileutil_windows.go#replaceFile
+      level: function
+      anchor:
+        file: cmd/nbco-worker/fileutil_windows.go
+        symbol: replaceFile
+        hash: sha256:0c50fb9eda88ef42df325b70c1e5d452b27b8ddca0a4717263a45fbb411ceba8
+        struct_hash: sha256:01c19bd72c5c9459e1ef5112729531bfed284e11f7a3fbf3985703c85c5a2283
+        doc_struct_hash: sha256:e2288309e602dd0ce49f4916ab2a319d223c1f8d38800f3ac016ac0dd8e8a672
+        lines: [7, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

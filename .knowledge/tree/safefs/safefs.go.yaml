@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: safefs/safefs.go
+      level: file
+      anchor:
+        file: safefs/safefs.go
+        hash: sha256:4a282ab4385afe32a8c77874b576a13822f8130da6b192e1de7933dd5d71a273
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs.go#EnsurePrivateDir
+      level: function
+      anchor:
+        file: safefs/safefs.go
+        symbol: EnsurePrivateDir
+        hash: sha256:d9093752a19252694eeeb773cbca5118de4ef6511a5885dc61c39e9e0c8a786a
+        struct_hash: sha256:1764735a1b986b84e6a529a9d060e09edc500cbe260c6662e3226fcd43cfa31e
+        doc_struct_hash: sha256:561ac00254d4ddb16ad4166eea60df65be950dbf6148b681750f3f389cbae130
+        lines: [14, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs.go#InstallContentFile
+      level: function
+      anchor:
+        file: safefs/safefs.go
+        symbol: InstallContentFile
+        hash: sha256:6cf980779e0b01c3bb9e075c211081dc2f499f43b3b9f77729b435f9ba139b6d
+        struct_hash: sha256:5b1ba8147b66633eb57fe17339278047699a803de0d2988e562c0662bb16e784
+        doc_struct_hash: sha256:a00a6f00745e74afd0334ab5bec999a31865b7a763f9328e2b297b9fee34a89d
+        lines: [23, 53]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs.go#verifyFileSHA256
+      level: function
+      anchor:
+        file: safefs/safefs.go
+        symbol: verifyFileSHA256
+        hash: sha256:c037b02b231270bdbb79f672eb8d3f6fa08730f829f076d7c12495a488da8371
+        struct_hash: sha256:c1240e6f1caaf1fcf2469884ac019a691cddba5288cdd2cfa19122a4d199df81
+        doc_struct_hash: sha256:c1240e6f1caaf1fcf2469884ac019a691cddba5288cdd2cfa19122a4d199df81
+        lines: [55, 69]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs.go#OpenRegular
+      level: function
+      anchor:
+        file: safefs/safefs.go
+        symbol: OpenRegular
+        hash: sha256:5ff2c8d991929c192569c1f127862c3d04faffb71538c9c300dadef81fc3b57a
+        struct_hash: sha256:1eb053125855c11c15ef3d9bdc43f45052cb038f2a0a1479892a743f9d0d2051
+        doc_struct_hash: sha256:3c088705945664f163123dec7d35d747d57ca3e68b62cc5213318dc8cf63b5e8
+        lines: [71, 97]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

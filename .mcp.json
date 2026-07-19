@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "knowledge": {
+      "command": "iknowledge",
+      "args": [
+        "stdio",
+        "--repo",
+        "/Users/zdypro/Documents/src/nbco"
+      ]
+    }
+  }
+}

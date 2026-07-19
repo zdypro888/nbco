@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/profile_test.go
+      level: file
+      anchor:
+        file: tools/profile_test.go
+        hash: sha256:41e33f554da5c54222bb895dcfbb2a3af7d4742926eeb26f6cbb5aa9afe95e14
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile_test.go#TestRenderUserShowsEmployeeIDButNotTelegramID
+      level: function
+      anchor:
+        file: tools/profile_test.go
+        symbol: TestRenderUserShowsEmployeeIDButNotTelegramID
+        hash: sha256:d90573125697d420b47498a1d1cd8115ae1eb34e6af05dc897980e757a073e3e
+        struct_hash: sha256:9e0ecd1c76d29a5d3764aacca32f3ed5731761fa212304788c340a656cf8cfd6
+        doc_struct_hash: sha256:9e0ecd1c76d29a5d3764aacca32f3ed5731761fa212304788c340a656cf8cfd6
+        lines: [10, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile_test.go#TestRenderUserDirectoryIsTelegramFriendlyAndSeparatesWorkers
+      level: function
+      anchor:
+        file: tools/profile_test.go
+        symbol: TestRenderUserDirectoryIsTelegramFriendlyAndSeparatesWorkers
+        hash: sha256:166bc728f9bf07aaec84f8c153673d794479bb89e9be801306859c78b3acb74a
+        struct_hash: sha256:9d8e966e11a8a3211c607b280e533db28f0f21528a06ab2b39b73d0fad2b0503
+        doc_struct_hash: sha256:9d8e966e11a8a3211c607b280e533db28f0f21528a06ab2b39b73d0fad2b0503
+        lines: [30, 74]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

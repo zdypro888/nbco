@@ -1,0 +1,153 @@
+schema: 1
+nodes:
+    - id: store/task_outcomes.go
+      level: file
+      anchor:
+        file: store/task_outcomes.go
+        hash: sha256:b79044b3f2f99d449be3b2ae4016dc815c7add8adfb23482727fbd0d686e9f9c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcomeAccepted
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcomeAccepted
+        hash: sha256:55b5a240e6db87c2944b9740e4f03e565c9ae43aac8baca9e2a996eedefea6c1
+        struct_hash: sha256:d2528d752ad75747360f70452dfd027696cda9f23cfb73a66d08ece91efae203
+        doc_struct_hash: sha256:d2528d752ad75747360f70452dfd027696cda9f23cfb73a66d08ece91efae203
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcomeRejected
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcomeRejected
+        hash: sha256:6e9cf6b6e48ed6908f9382cb32ec06d3b3d0e48329dd3a0ffda1fbb3f20f6cee
+        struct_hash: sha256:db1f9e19d2fdd973a9b007325d93f1474a7fb500207078bff1a209590d431250
+        doc_struct_hash: sha256:db1f9e19d2fdd973a9b007325d93f1474a7fb500207078bff1a209590d431250
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#taskOutcomeReasonMax
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: taskOutcomeReasonMax
+        hash: sha256:e2a6e4a43de913ee468415d3509de9fa3c434d077a4c27305eb5465c062f0dff
+        struct_hash: sha256:e2d3de863548bbaf2db649ada13db70a79b2aafc1ab837d5637314812df2d256
+        doc_struct_hash: sha256:e2d3de863548bbaf2db649ada13db70a79b2aafc1ab837d5637314812df2d256
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcome
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcome
+        hash: sha256:42ae7c871c5085f2f139875ca9dc17a255a066b459d1b38068af13ba82789295
+        struct_hash: sha256:41cb931a3ab5590ba928a8cda916947bd31368d2084df7ea7d734848e07d107b
+        doc_struct_hash: sha256:5f9a5476426247eb03e030118eefed28a4252fe705f56f5e0c81890c88784e08
+        lines: [19, 31]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcomeInput
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcomeInput
+        hash: sha256:4f2b910ca90a6b20690e2fe5b1ae8931176dfb493582c83cba60d7b033457aed
+        struct_hash: sha256:0474c7c9786e8013d2420440b3f20a1ecd2b2a3d0002214ea0da0e7788a7610e
+        doc_struct_hash: sha256:0474c7c9786e8013d2420440b3f20a1ecd2b2a3d0002214ea0da0e7788a7610e
+        lines: [33, 40]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcomeStats
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcomeStats
+        hash: sha256:25e669076ed2ca4143264c56c78a8297d291aa61fd48521326a89ccc0f18b441
+        struct_hash: sha256:00a24d6a98102e56cf54ae9233cb0051d6734639994c8528eefbbed52ebe8ccb
+        doc_struct_hash: sha256:00a24d6a98102e56cf54ae9233cb0051d6734639994c8528eefbbed52ebe8ccb
+        lines: [42, 45]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcomeStats.Total
+      level: function
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcomeStats.Total
+        hash: sha256:22ace214e06ca2ef1f7bf992cca42f1d9ae556f51433eb2bc4026985ead7b114
+        struct_hash: sha256:9c610f44bf0976220d9c2bbda3c1da9565b260266465cc715fb838c1f913bd62
+        doc_struct_hash: sha256:9c610f44bf0976220d9c2bbda3c1da9565b260266465cc715fb838c1f913bd62
+        lines: [47, 47]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#TaskOutcomeStats.PassRate
+      level: function
+      anchor:
+        file: store/task_outcomes.go
+        symbol: TaskOutcomeStats.PassRate
+        hash: sha256:d2adae89b83c23fe9a8a655c2d796334f0227c765196f93f31e07b8197138771
+        struct_hash: sha256:da9a660f84ca35817d069e5157de45a7862f01d03bee292aa5ab2d16af0f165d
+        doc_struct_hash: sha256:da9a660f84ca35817d069e5157de45a7862f01d03bee292aa5ab2d16af0f165d
+        lines: [49, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#Store.RecordTaskOutcome
+      level: function
+      anchor:
+        file: store/task_outcomes.go
+        symbol: Store.RecordTaskOutcome
+        hash: sha256:b78e4ecdac1f11269135e50f73c0dc90c19a3a90d9ac02a990116d9ec4f0d1d2
+        struct_hash: sha256:aa93e4aef9dee9859fb2f72b90eb2b53f6c208c906773e76a70a8e54245df997
+        doc_struct_hash: sha256:e1674b29f87abb33883b89e25d5d7dda8ff92ae019955ec93eab0fa4f427769e
+        lines: [56, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#Store.TaskOutcomeStatsFor
+      level: function
+      anchor:
+        file: store/task_outcomes.go
+        symbol: Store.TaskOutcomeStatsFor
+        hash: sha256:4b8fc4a2b4cc72cde86029ea83d73de56283db3ecc8ca60943820150e52a5948
+        struct_hash: sha256:76ac341100039aceff84a94151f95784caa942f6bf5038af653959b2ee6eb3ec
+        doc_struct_hash: sha256:9f91ff845a3b52e758ab666668c6701e657903329c76f91cf5de6b82b879955c
+        lines: [75, 97]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#taskKindWordRe
+      level: decl
+      anchor:
+        file: store/task_outcomes.go
+        symbol: taskKindWordRe
+        hash: sha256:458b8f2d2628c23dc4a5ef66a6fcd04c68db31f8cefbb833435bdcc8663fe4cf
+        struct_hash: sha256:cb4773009dc02386946eb556aaacb72a09d9c0ec7d77b017b063b138566d7afb
+        doc_struct_hash: sha256:cb4773009dc02386946eb556aaacb72a09d9c0ec7d77b017b063b138566d7afb
+        lines: [99, 99]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#InferTaskKind
+      level: function
+      anchor:
+        file: store/task_outcomes.go
+        symbol: InferTaskKind
+        hash: sha256:77b1ee0caaa4ebe0e1fbe9b6c10d0a37b827ebb259a415fb07b348d3de04f89d
+        struct_hash: sha256:c957f5ce492d6e149c9c47cfe19dfd20fa689b4364ad3304903f4b23b2268081
+        doc_struct_hash: sha256:4b2a566d7f1395277c2a54c7d0d58a53d9214b8e14f4f36dc158f587d9a985fd
+        lines: [101, 140]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/task_outcomes.go#NormalizeTaskKind
+      level: function
+      anchor:
+        file: store/task_outcomes.go
+        symbol: NormalizeTaskKind
+        hash: sha256:60cabdd170964b62e1d6e4369071365856224f6b10ff30362023221591b095c6
+        struct_hash: sha256:5748d5f93810f6a0ab54f03ed5a8f334976640aa6439aa58b32d65aeaf7d276e
+        doc_struct_hash: sha256:5748d5f93810f6a0ab54f03ed5a8f334976640aa6439aa58b32d65aeaf7d276e
+        lines: [142, 152]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

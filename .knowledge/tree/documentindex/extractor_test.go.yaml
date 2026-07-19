@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: documentindex/extractor_test.go
+      level: file
+      anchor:
+        file: documentindex/extractor_test.go
+        hash: sha256:b7c82f06d3ecbc01f646a8105f1e0c34bc9faf44ae2a59dc604dab4b5d0ec500
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestExtractPlainTextAndSplitAllContent
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestExtractPlainTextAndSplitAllContent
+        hash: sha256:42f8a3ebd18dcecde59e84d0ff3717dee817e249d8ad80ce5e3a5c4d8d70a0f8
+        struct_hash: sha256:4c157cb7f5373ec390037ff391acc5a990653cafa21d9daecefdd8facb42e2b5
+        doc_struct_hash: sha256:4c157cb7f5373ec390037ff391acc5a990653cafa21d9daecefdd8facb42e2b5
+        lines: [16, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestExtractOfficeXML
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestExtractOfficeXML
+        hash: sha256:268311e6ca05e8514c8bafb49a19a02c7db152e29cb4edd71d12c2a4d9e60e2d
+        struct_hash: sha256:632871af57bcfd40984029ba8d5d022904b6ce35b4d7d8e3cd9df0876cdcdcd4
+        doc_struct_hash: sha256:632871af57bcfd40984029ba8d5d022904b6ce35b4d7d8e3cd9df0876cdcdcd4
+        lines: [43, 81]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestUnsupportedBinaryIsExplicit
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestUnsupportedBinaryIsExplicit
+        hash: sha256:bc2b89b7e80d0cf36ed0340fa53c02aa40768354dc35876a61bd82ebb4fbc8df
+        struct_hash: sha256:6cb57ca228e50d53cd90a87e160f770bb23eebd78c8c45b644b9af00fef0f2fb
+        doc_struct_hash: sha256:6cb57ca228e50d53cd90a87e160f770bb23eebd78c8c45b644b9af00fef0f2fb
+        lines: [83, 88]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestExtractHonorsCanceledContext
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestExtractHonorsCanceledContext
+        hash: sha256:cf33bd6bc65d7343c70d996d235574ab0b0a4116e17da323c4f3508b7063ef9f
+        struct_hash: sha256:0086a2510c2b5da8ef94970415bf11b4543a9334adc80d7ec389a02d6f0eea45
+        doc_struct_hash: sha256:0086a2510c2b5da8ef94970415bf11b4543a9334adc80d7ec389a02d6f0eea45
+        lines: [90, 102]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestCopyRegularToTempRejectsActualSizeBeyondLimit
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestCopyRegularToTempRejectsActualSizeBeyondLimit
+        hash: sha256:391c4c70cf1bc8e064f38cb228e80ecc49932512a65f712a4811cc154ebc7bd7
+        struct_hash: sha256:7b26145d4410789e25ac98bb134a6db788b10957ac86b8bf16999087cf8b5501
+        doc_struct_hash: sha256:7b26145d4410789e25ac98bb134a6db788b10957ac86b8bf16999087cf8b5501
+        lines: [104, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestPDFPageNumberUsesNumericSuffix
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestPDFPageNumberUsesNumericSuffix
+        hash: sha256:aa61d8193b695feeb049feb2cc19a0aa21cfe5360b1f4a44129b456aa08b7ef0
+        struct_hash: sha256:0fd45d952220efc6922bd7ac93139a26e818cc75483d19cb9b4af93d6b21677e
+        doc_struct_hash: sha256:0fd45d952220efc6922bd7ac93139a26e818cc75483d19cb9b4af93d6b21677e
+        lines: [118, 127]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestOfficeArchiveRejectsExcessiveTextEntries
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestOfficeArchiveRejectsExcessiveTextEntries
+        hash: sha256:934a261182437b744dddcd55a8c7007ff37fe65ae307b8add9fbb9966248c547
+        struct_hash: sha256:2fccb76b84caf2512160e33d66b9d19b830d15b30a127213d196c305d2519d24
+        doc_struct_hash: sha256:2fccb76b84caf2512160e33d66b9d19b830d15b30a127213d196c305d2519d24
+        lines: [129, 158]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#TestScannedPDFFallsBackToOCR
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: TestScannedPDFFallsBackToOCR
+        hash: sha256:587fd159852529e9f49bfdfead358584db26a58620ebd8fc66d4f2962727da11
+        struct_hash: sha256:cc9327df8734ef686309f3d6cda5d47817c7b71951154fd2dc442b523f7f1a05
+        doc_struct_hash: sha256:cc9327df8734ef686309f3d6cda5d47817c7b71951154fd2dc442b523f7f1a05
+        lines: [160, 185]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/extractor_test.go#writeTestCommand
+      level: function
+      anchor:
+        file: documentindex/extractor_test.go
+        symbol: writeTestCommand
+        hash: sha256:5587ce929cddfed90038964b2c81c23954c58ebc58ec34ce7560b8fc3091ca8f
+        struct_hash: sha256:147bf46e06e38da69d78eb3d03bda64e2ac3dceec783646b36bcdeb899fc35e6
+        doc_struct_hash: sha256:147bf46e06e38da69d78eb3d03bda64e2ac3dceec783646b36bcdeb899fc35e6
+        lines: [187, 192]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

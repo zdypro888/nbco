@@ -1,0 +1,186 @@
+schema: 1
+nodes:
+    - id: tools/profile.go
+      level: file
+      anchor:
+        file: tools/profile.go
+        hash: sha256:597fe36f36f70e510813db2015b6c499bdf6c03cb5dd92801e0fb05338c7e88b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#profileTools
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: profileTools
+        hash: sha256:bfe98a45d5c1d9e50d6297bf51800cda833fa77c8068a9d7198caf467a64cee5
+        struct_hash: sha256:2c9ba3bba98b5c5f5d7cd18698747923b4e2223eaf5c93decd2bb184bb10344d
+        doc_struct_hash: sha256:d42466e53c1094805916c6b731c7548c06f358309d4ebe860dd6c7bde61c6a7e
+        lines: [15, 177]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#renderUser
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: renderUser
+        hash: sha256:277b0eb43fb5d082ca0c227472a22857fd14f322b4cdbd1c602cfcdf4af0e248
+        struct_hash: sha256:192aba0336099d756e5582b36a1c6370e681350236f5e548e93e13e5212289d5
+        doc_struct_hash: sha256:192aba0336099d756e5582b36a1c6370e681350236f5e548e93e13e5212289d5
+        lines: [179, 197]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#renderUserStatus
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: renderUserStatus
+        hash: sha256:04eda4893506d938139d8520fdb21e703418c69ab8d34b63baf643abd01edd60
+        struct_hash: sha256:3dea5f82002ebe4c9656fbcce25f6f8fab6daa2130ceff7b63f795a122edcd51
+        doc_struct_hash: sha256:3dea5f82002ebe4c9656fbcce25f6f8fab6daa2130ceff7b63f795a122edcd51
+        lines: [199, 208]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#infoFieldLookup
+      level: decl
+      anchor:
+        file: tools/profile.go
+        symbol: infoFieldLookup
+        hash: sha256:37e9b133beec09a4f4c9b4494d341f240e571d610ce81f393fb6f31c439e31af
+        struct_hash: sha256:5edbc81e0582b255998d1fccadb414400a42561a65e69ea10b1aa9fc52fddf35
+        doc_struct_hash: sha256:5edbc81e0582b255998d1fccadb414400a42561a65e69ea10b1aa9fc52fddf35
+        lines: [210, 214]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#newInfoFieldLookup
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: newInfoFieldLookup
+        hash: sha256:7865a3ae7cc7806273f73f98ddd57022f239b239f0902c98efd500f6e18740c3
+        struct_hash: sha256:c682d34d8f43ca7979a517e7b21df3a819a39d434ee70bca460ba548d6f34550
+        doc_struct_hash: sha256:c682d34d8f43ca7979a517e7b21df3a819a39d434ee70bca460ba548d6f34550
+        lines: [216, 258]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#infoFieldLookup.canonical
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: infoFieldLookup.canonical
+        hash: sha256:8cdd7b5b38efa0c5392c574c82725844d662f78148637a975c34a236404bf201
+        struct_hash: sha256:834456bfb8d55e2cf8163ffbd25579b6cc4e7a2db84bec640580d1e76884ef0d
+        doc_struct_hash: sha256:834456bfb8d55e2cf8163ffbd25579b6cc4e7a2db84bec640580d1e76884ef0d
+        lines: [260, 275]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#normalizeInfoFields
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: normalizeInfoFields
+        hash: sha256:2becfb18ed9c64a675b4f31d088bbdbd43418d32174ce7aa5a17eb1abe374622
+        struct_hash: sha256:16197278fbf492f491435b430952291b1d304a7daaf448036544cc3f1e73fe67
+        doc_struct_hash: sha256:16197278fbf492f491435b430952291b1d304a7daaf448036544cc3f1e73fe67
+        lines: [277, 297]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#infoFieldsSchema
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: infoFieldsSchema
+        hash: sha256:1b40b2d8adb74ef076e0666596bebf984c329b049c86346811c1f6acc8cd1a8c
+        struct_hash: sha256:5086f5248c56417497649c0762b9efcf9c5f19741993ffae2dfffe12b461d37f
+        doc_struct_hash: sha256:5086f5248c56417497649c0762b9efcf9c5f19741993ffae2dfffe12b461d37f
+        lines: [299, 305]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#normalizeInfoFieldsPtr
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: normalizeInfoFieldsPtr
+        hash: sha256:a410cfe4729359c518404f3fc0ede14e7ff19472fed010041305bb7ba93aa23c
+        struct_hash: sha256:4dcc41b4fcf2037fe56c661085efdaf5fc137615c3c08422714f2a8b71e0e8b2
+        doc_struct_hash: sha256:4dcc41b4fcf2037fe56c661085efdaf5fc137615c3c08422714f2a8b71e0e8b2
+        lines: [307, 317]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#normalizeInfoFieldsPtrForWrite
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: normalizeInfoFieldsPtrForWrite
+        hash: sha256:e17329c4b206f435a6312fe99443bfc78c27afdc5b2b4576d0de269353a7d540
+        struct_hash: sha256:aadba12d6033d5351a3abfe252cf1c0fba0375fb4ada0ebb2d99a3b230d5d0c2
+        doc_struct_hash: sha256:aadba12d6033d5351a3abfe252cf1c0fba0375fb4ada0ebb2d99a3b230d5d0c2
+        lines: [319, 344]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#missingInfoFieldNames
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: missingInfoFieldNames
+        hash: sha256:36a103cc3925a340bbf7b4fb056db1d7d366f8466ce8c8944c157efaec6bc260
+        struct_hash: sha256:cf83459e5816cca73e2725e2412c0eedec87880111d21b8f0e61c65ed5f1c0aa
+        doc_struct_hash: sha256:cf83459e5816cca73e2725e2412c0eedec87880111d21b8f0e61c65ed5f1c0aa
+        lines: [346, 367]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#defaultInfoFieldCanonical
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: defaultInfoFieldCanonical
+        hash: sha256:79979bf85959ab692bbfec07321268a9f23b27efe45ba147606be7ef78393ffe
+        struct_hash: sha256:b77f47ce2d5292b4029a1d26537da497903dada78844c06731ac2ae4e695db8c
+        doc_struct_hash: sha256:b77f47ce2d5292b4029a1d26537da497903dada78844c06731ac2ae4e695db8c
+        lines: [369, 387]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#normalizeInfoValue
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: normalizeInfoValue
+        hash: sha256:1dc24015597fbdfead7edc6c2aaba0974a7fedb99772551ce4d39603a265f987
+        struct_hash: sha256:3e9aac021835bbc3782f0d14972e53e765e6bb918247b6e7c702ed51d4355266
+        doc_struct_hash: sha256:3e9aac021835bbc3782f0d14972e53e765e6bb918247b6e7c702ed51d4355266
+        lines: [389, 400]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#splitInfoFieldPrefix
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: splitInfoFieldPrefix
+        hash: sha256:77baee696283ea820b506685dd36d927b3752fa007ed562271d229dbfa912ec5
+        struct_hash: sha256:bf2945d0e2f57e1e395da11205c05e0c125cf21c543be37e83cab980de66ee4c
+        doc_struct_hash: sha256:bf2945d0e2f57e1e395da11205c05e0c125cf21c543be37e83cab980de66ee4c
+        lines: [402, 409]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#isNullishInfoValue
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: isNullishInfoValue
+        hash: sha256:33ea8e648f17d3c1059e927312c1554bb1977391c501585cb82d956969399584
+        struct_hash: sha256:7f352a413f21fa3aee3fbf14f4a8279d492ec1e1aad58cd533be6cb5eec6b2f3
+        doc_struct_hash: sha256:7f352a413f21fa3aee3fbf14f4a8279d492ec1e1aad58cd533be6cb5eec6b2f3
+        lines: [411, 419]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/profile.go#renderProfiles
+      level: function
+      anchor:
+        file: tools/profile.go
+        symbol: renderProfiles
+        hash: sha256:42ff4d67483e2274219be4c3adb37fb77ab346c2743eb3865002818331093a2a
+        struct_hash: sha256:1b124018bd3ca5bd4f7282690b8bddfe308cad3e15f0db9ab919451473d6576c
+        doc_struct_hash: sha256:1b124018bd3ca5bd4f7282690b8bddfe308cad3e15f0db9ab919451473d6576c
+        lines: [421, 430]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

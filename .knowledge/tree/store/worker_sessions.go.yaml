@@ -1,0 +1,98 @@
+schema: 1
+nodes:
+    - id: store/worker_sessions.go
+      level: file
+      anchor:
+        file: store/worker_sessions.go
+        hash: sha256:0d645480e2e73bcc1281015c13b9c0a0d56546b735281e388e9cd3ced73ab617
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#WorkerSession
+      level: decl
+      anchor:
+        file: store/worker_sessions.go
+        symbol: WorkerSession
+        hash: sha256:2a4f0fd26aa7aa1cb69e4dda23f4d52ddefd0a3b4371894f1a86c8e949c34d2d
+        struct_hash: sha256:a672840f16651b027770e6ddfd21124b38a0a16fc4d53040c7c12d04ab0c27db
+        doc_struct_hash: sha256:2500cfd0cc10d3bcefba1bbcdf06786ebf2f362f5043824f36dd2c8cf0aff421
+        lines: [9, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#scanWorkerSession
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: scanWorkerSession
+        hash: sha256:c5297f69c97b9d9be5e53ccff82294d6a754db30c953cde552cc2a2046b66bc0
+        struct_hash: sha256:8f2dabb1e233403eba3ac02456dd2682a7cfdfa7571db962b39bfebde8465c00
+        doc_struct_hash: sha256:8f2dabb1e233403eba3ac02456dd2682a7cfdfa7571db962b39bfebde8465c00
+        lines: [29, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#workerSessionCols
+      level: decl
+      anchor:
+        file: store/worker_sessions.go
+        symbol: workerSessionCols
+        hash: sha256:6ebebc00814b0afee32d7d96f3f06efa5f268878b87ae51e7a451ae5ecf3ea3d
+        struct_hash: sha256:2f7210c200f7db15bbf5d337a42e14e99fe508dd340818741375a5ba5388fffe
+        doc_struct_hash: sha256:2f7210c200f7db15bbf5d337a42e14e99fe508dd340818741375a5ba5388fffe
+        lines: [37, 37]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#Store.ClaimWorkerSession
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: Store.ClaimWorkerSession
+        hash: sha256:1d8ce0a1a5e5df08ccf283be4a5ffe6f466ffa88bfdfa6b7b08cae9ed6be61a9
+        struct_hash: sha256:b651cd2c2e3cab1f13cdb49fdc12c0b0a3cc6bcb4034fd52a4ac5b3c6a421a32
+        doc_struct_hash: sha256:26763d4913576d22fef5cd4e6498a348aee67eeed5efe79e6d691008fbe099b2
+        lines: [39, 60]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#Store.UpdateWorkerSession
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: Store.UpdateWorkerSession
+        hash: sha256:4bb81e8a6117539540f261681531794d5f89488ce3b46007838e17a88ac50cea
+        struct_hash: sha256:a86dfef53762c6ad3632ed16b24a61382858355ba1a59e74355429f9287106b6
+        doc_struct_hash: sha256:558d794621c9444b03da1178511fbd2b00483860c0d81ba2162ba5dcc40a023b
+        lines: [62, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#Store.UpdateWorkerSessionForClaim
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: Store.UpdateWorkerSessionForClaim
+        hash: sha256:cb8e4e5c81c5752dbfd57a9439f8ed1c6f07170fd8793709f707244b24588051
+        struct_hash: sha256:0b32ddcc3df0b2a3f84be668371ef79c842167b1787286073cc15f49f123d61c
+        doc_struct_hash: sha256:b9d548c065416399e59904d739425ac189ec19bde6043d269c9e5964c25f518a
+        lines: [79, 102]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#normalizeWorkerSessionPart
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: normalizeWorkerSessionPart
+        hash: sha256:91dee132cbcd8141df6bc7091ad702786b029edc62bc059acbfc5ccf2ddc6a23
+        struct_hash: sha256:d98d9240505f493f6b822a18e917e140474ae34e0fd96ad3da7acb590ba68b8b
+        doc_struct_hash: sha256:d98d9240505f493f6b822a18e917e140474ae34e0fd96ad3da7acb590ba68b8b
+        lines: [104, 110]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#Store.LatestWorkerTaskID
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: Store.LatestWorkerTaskID
+        hash: sha256:4aa1e9ffa935d5905cc034288fb5f0ee99c83d4c7382ffb4807a18eb21929d8e
+        struct_hash: sha256:b7df5fe8b24cd08e75df32bc7fd89c3d57521fe5c1dc7164cf1d3c57dfd13eb2
+        doc_struct_hash: sha256:5208a9efbfbc570f0bb16e9d6a4208f99d3e9594d1899433214e75b0d9c82fbb
+        lines: [112, 124]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

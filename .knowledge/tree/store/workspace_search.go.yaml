@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: store/workspace_search.go
+      level: file
+      anchor:
+        file: store/workspace_search.go
+        hash: sha256:29885739a13059779e49264f576a762ca951087b63ae0aaf3ff41a7bdacb2986
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/workspace_search.go#WorkspaceResource
+      level: decl
+      anchor:
+        file: store/workspace_search.go
+        symbol: WorkspaceResource
+        hash: sha256:6586fa02b83df3a3dcc5040bacec10e355264e8db02ee53d1df70f52516f2f5d
+        struct_hash: sha256:a8d0c98f568eee7c9708cd60d91dc2aa27aa11f2a2dac7ce3f318de6014ea93c
+        doc_struct_hash: sha256:11bd9b33598c8f59652dcb26a57c5e1e160055a40a0bfef268a0f8fe04108741
+        lines: [9, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/workspace_search.go#WorkspaceCandidateFilter
+      level: decl
+      anchor:
+        file: store/workspace_search.go
+        symbol: WorkspaceCandidateFilter
+        hash: sha256:0e76c49c2633a370a9ee5b5dd8b751ab4fc0a3d0d6ce04be459ebecb82963878
+        struct_hash: sha256:b576c2bbe2ace071312c2a46c926383fea6dbc9719a0b13a83d063745231e655
+        doc_struct_hash: sha256:1343f73bc68554198127ee3b7d5728523a198d3fc79e2c2c4c29ce4592666a27
+        lines: [19, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/workspace_search.go#Store.WorkspaceCandidates
+      level: function
+      anchor:
+        file: store/workspace_search.go
+        symbol: Store.WorkspaceCandidates
+        hash: sha256:f2e723ddc3a6fc0ecf2594e6b2799de361869140a47bcfba88da4fe67c3ead11
+        struct_hash: sha256:722946212c5b3ca6a5a58b5d175ac99f114ec83c6fa0164b03b611d87f6ff67b
+        doc_struct_hash: sha256:65c4cf99927643a67c1ff8a16dfd2dd971235f7327a18a5579ccc04cf3d6d230
+        lines: [28, 98]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/workspace_search.go#cleanWorkspaceFilterValues
+      level: function
+      anchor:
+        file: store/workspace_search.go
+        symbol: cleanWorkspaceFilterValues
+        hash: sha256:8123527dcb5fdc29938994db44119878490269b587e960cd5e8a3cdd7a9b4da8
+        struct_hash: sha256:9135058b523e9e09784a6e8d39db04dd0bfa4567717b33bd2fd192db2473da99
+        doc_struct_hash: sha256:9135058b523e9e09784a6e8d39db04dd0bfa4567717b33bd2fd192db2473da99
+        lines: [100, 124]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

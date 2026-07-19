@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: sched/pool_test.go
+      level: file
+      anchor:
+        file: sched/pool_test.go
+        hash: sha256:d3fd93700be1169ec4a62fed609ce1f179306ef6d9712d3617d74f32443a5d9e
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool_test.go#TestPoolBoundsConcurrency
+      level: function
+      anchor:
+        file: sched/pool_test.go
+        symbol: TestPoolBoundsConcurrency
+        hash: sha256:b7bb4a84ea428e4ddf4b8171d099d9757c46051aa75bbb91b4452b4fa0c54c12
+        struct_hash: sha256:9f6cdc93dde4990ef8ae30253fd2df0ee1bd4f8fe98384cae8152d1203e2c352
+        doc_struct_hash: sha256:b1de38499b3286b52b6f6e9270d0c2f090f382f8b6f400c9da80f77e381f6d9f
+        lines: [11, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool_test.go#TestPoolSubmitNonBlocking
+      level: function
+      anchor:
+        file: sched/pool_test.go
+        symbol: TestPoolSubmitNonBlocking
+        hash: sha256:4b50ec3c3d5eb08c74122fe38d20862d3f2838ea6bf8172dd4e7106a81ea3e5a
+        struct_hash: sha256:fd2c1d89a311b7f8a57820e477fc1d4b55efcfd09652901031589be06a7f229b
+        doc_struct_hash: sha256:95d1faf04bd8b292ce6eedc5eec936d91843d718e11899625910719897e0c681
+        lines: [41, 61]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool_test.go#TestPoolRunsAll
+      level: function
+      anchor:
+        file: sched/pool_test.go
+        symbol: TestPoolRunsAll
+        hash: sha256:83ceff24dcc7dac487d9c05c6278c6eedc356bc4e978e8455744cd825276dd0c
+        struct_hash: sha256:9ff81160f01cd1d7ab808240a455c1d53d295cb8626c46faabd330312207cc49
+        doc_struct_hash: sha256:178e58ee0c2efe33f4dd1e4b227fc60dde11f443c88d6c6c3e10179e4220a3af
+        lines: [63, 74]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool_test.go#TestPoolRecoversPanic
+      level: function
+      anchor:
+        file: sched/pool_test.go
+        symbol: TestPoolRecoversPanic
+        hash: sha256:d9440cfa0ffdd60d153063829b894cc3b10fc53c0695a198e965083679d2b5ce
+        struct_hash: sha256:d0bcc668881126d0fabccec415dfb993a9d341bb888953e12fa76427ad696c6f
+        doc_struct_hash: sha256:d0bcc668881126d0fabccec415dfb993a9d341bb888953e12fa76427ad696c6f
+        lines: [76, 85]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool_test.go#TestTrySubmitDoesNotQueueWhenFull
+      level: function
+      anchor:
+        file: sched/pool_test.go
+        symbol: TestTrySubmitDoesNotQueueWhenFull
+        hash: sha256:b9d3feabaae2a8752134e9d39242ffb44640cdedc803364835d6ed3abc36e1f6
+        struct_hash: sha256:2f8c1b42805394c3fc5f0f236fbc004a6967bc8c1728fd8c1acd94f9ca554f08
+        doc_struct_hash: sha256:2f8c1b42805394c3fc5f0f236fbc004a6967bc8c1728fd8c1acd94f9ca554f08
+        lines: [87, 107]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool_test.go#TestPoolRespectsCancel
+      level: function
+      anchor:
+        file: sched/pool_test.go
+        symbol: TestPoolRespectsCancel
+        hash: sha256:ded20a7c87743cf81ba2d59e112b76d7d31d1ae23d6a67366ca5e66040b4e42d
+        struct_hash: sha256:44ad216f83711dab581ced19e496838d0cfea2f8e201ae44ecc21b3baacad5fd
+        doc_struct_hash: sha256:04263064f1a4b30e0b976410404266bd5fcc6944fe0d8b7d702ac8fc9ceeaefa
+        lines: [109, 122]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

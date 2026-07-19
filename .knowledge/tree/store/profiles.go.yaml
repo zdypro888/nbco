@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: store/profiles.go
+      level: file
+      anchor:
+        file: store/profiles.go
+        hash: sha256:dff498b49b99ce5e81994ef31a57939a0b6304d46a37d0168b76da09fe3b4ae6
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/profiles.go#Profile
+      level: decl
+      anchor:
+        file: store/profiles.go
+        symbol: Profile
+        hash: sha256:60c7761f759846d4e3d1900995931d97dcd7b42b893f61d5c99d905b32a29475
+        struct_hash: sha256:21831360eb61d1cd1cb3d26645da9989ff1e4339fd3d987a5be78182d491dbec
+        doc_struct_hash: sha256:93b579875dd9ecba7b4b6da13a8b2dddead88e6d9629b968452c9bee06d77460
+        lines: [8, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/profiles.go#Store.ReplaceProfiles
+      level: function
+      anchor:
+        file: store/profiles.go
+        symbol: Store.ReplaceProfiles
+        hash: sha256:1ac09ffef1309c88a2e6048b5bc59dd89a83b9ed6f928f55b271010a2cbfd61b
+        struct_hash: sha256:289d23a2a6ffccc1230f66780a823fa9a12fbcc44095b9fc79ed97a06ab39f43
+        doc_struct_hash: sha256:bbdadfd29dd0a699c3f29e57faf3d9c02e30b45e9aee727299a84b4d05871241
+        lines: [19, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/profiles.go#Store.ProfilesBy
+      level: function
+      anchor:
+        file: store/profiles.go
+        symbol: Store.ProfilesBy
+        hash: sha256:e8af2b4df81d522ea459882eb56486a3cbb0aa3ce4bc7aea5fbc46169dbb49cf
+        struct_hash: sha256:d1962491375e8e78b87dd8d9f8ad5cd1861d4892dbd88ad6ae22a026083c6de6
+        doc_struct_hash: sha256:7b0d869f5c357526fb2bfba760358dffce2fbd2bef2bf03aeba4a9cc22572b5d
+        lines: [40, 45]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/profiles.go#Store.ProfilesOn
+      level: function
+      anchor:
+        file: store/profiles.go
+        symbol: Store.ProfilesOn
+        hash: sha256:7fc3f076d73117871818340bf4dde452da96f49cbb459d8b7167ccd87a87dc94
+        struct_hash: sha256:00a3edd20013cc30696859c1b0ff974e56937eef51a0148c688c668bb52a1974
+        doc_struct_hash: sha256:196837c8967b652bac0846f2554701123a6c8f84dea61cff0d513ca6287a0151
+        lines: [47, 52]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/profiles.go#Store.queryProfiles
+      level: function
+      anchor:
+        file: store/profiles.go
+        symbol: Store.queryProfiles
+        hash: sha256:102dc4e08732cfabc929c4253e74c844302d2387aca816972c890e9d4f32ef0e
+        struct_hash: sha256:5330bb32648abfa146332181331a8a5237e71241f02e593bc40e77944015a75d
+        doc_struct_hash: sha256:5330bb32648abfa146332181331a8a5237e71241f02e593bc40e77944015a75d
+        lines: [54, 69]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

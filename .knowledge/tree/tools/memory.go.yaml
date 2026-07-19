@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/memory.go
+      level: file
+      anchor:
+        file: tools/memory.go
+        hash: sha256:57857b673b3c0a5f2983767a43406f427f337649ce96aba1ed1d547bfc2256b8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/memory.go#historySearchLimit
+      level: decl
+      anchor:
+        file: tools/memory.go
+        symbol: historySearchLimit
+        hash: sha256:70e122511ed2e81ee075310233010ae5d39408d576506dfe7fbe86ebc118e75c
+        struct_hash: sha256:7d1d12bf09c6e893cb4b9daea5cc34ad743e073d32a04a5b03f66677972590bd
+        doc_struct_hash: sha256:7d1d12bf09c6e893cb4b9daea5cc34ad743e073d32a04a5b03f66677972590bd
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/memory.go#memoryTools
+      level: function
+      anchor:
+        file: tools/memory.go
+        symbol: memoryTools
+        hash: sha256:7012913bc8c19483f5610014d9763f5e56545346d5df6233c02995e5bd6e1549
+        struct_hash: sha256:fabd7a04b6858eeacabec7418521323aa900faa3d606e5a5f035f1722f883f92
+        doc_struct_hash: sha256:71b2f6d5743d7f4b062d9f48200cb41231166abbfa02f462fc3faae0bc84ca67
+        lines: [17, 104]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

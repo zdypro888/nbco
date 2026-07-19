@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: store/perms.go
+      level: file
+      anchor:
+        file: store/perms.go
+        hash: sha256:e04f7747ce7ccfea64f212503cd1ede32e680c4ca941a261e3da7527325333f5
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#Grant
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: Grant
+        hash: sha256:5029efa7e9351c9dcde2ca353f8f541ecb40bce81b7c8689a8ecc2a02d03c956
+        struct_hash: sha256:71c0c10d544ce7ef01c588c9acd25ae3e3e821bc949855c54b7f55b4a014fa6a
+        doc_struct_hash: sha256:b54f07a2bf256b897984f3755bc28b11e1b2d5973c07fa48bd77963142342263
+        lines: [8, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#KindActive
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: KindActive
+        hash: sha256:286d4b1339314caaffb1bd637f61866cdcc506f88da42cf10c7b1de9d530774b
+        struct_hash: sha256:32c3efc8444dafefa1823efcbe2e8eba448941824cf1a83597a78ede19eef8a0
+        doc_struct_hash: sha256:9c21a91b960d5fc488a81803aed303aa2234da451cd1bf6fe517687e79ccc091
+        lines: [25, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#KindPassive
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: KindPassive
+        hash: sha256:7567ebb2d9a77e8a993929e6e2f67d9437a8a7e7cf6d8c7fab78c2bd57546eeb
+        struct_hash: sha256:d01dd90a857b404144f3faeac2d867233beee04843931c747389b7f958a77de9
+        doc_struct_hash: sha256:dd75e57e806becb2229dbec47d9d737787c48e501d38271116ade29b7bc8c622
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#TargetAll
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: TargetAll
+        hash: sha256:eea557cbd159403d5fddb9b1fe68cebfd26d9cf56efb12ad53119dd7776705ee
+        struct_hash: sha256:2421857d9e622ea38c200ff52424e86bf3632b1c765568f862c75a3327993de4
+        doc_struct_hash: sha256:f967958bd4bb3614108527e54aae31a8fdd029bdec2f2cc640780bc418122421
+        lines: [29, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#Store.GrantPerm
+      level: function
+      anchor:
+        file: store/perms.go
+        symbol: Store.GrantPerm
+        hash: sha256:8e5191a104bf94da34473d8b56e31b24ab68cc9929c0d06f2dfba273edb90f86
+        struct_hash: sha256:08ec0edd6b4d22e437a218654dbe1a5f059967a4e2c73da6a3ea8fe69e0f6901
+        doc_struct_hash: sha256:c44743d276c076dcdef10df0c0bf5a047c733951d96eb77e084692e3a64bfcd2
+        lines: [32, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#Store.RevokePerm
+      level: function
+      anchor:
+        file: store/perms.go
+        symbol: Store.RevokePerm
+        hash: sha256:c9655612c051756f7d01d9c9690a9fa4497e0f9c3d403858c1759e3840ddc1dd
+        struct_hash: sha256:3c68fa564a4da8ddbce8bddde0f260977828cc024063f00d55ae646376fc73bc
+        doc_struct_hash: sha256:f322ea9cd57ffcf6230307b2e6f8703f7448c52df089c3af2a37f36fbe33a019
+        lines: [40, 45]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#Store.PermsOf
+      level: function
+      anchor:
+        file: store/perms.go
+        symbol: Store.PermsOf
+        hash: sha256:f40fdb61f2f68c971013c736988368e54771d3e9e01a3d6355b5a0a91b2117b3
+        struct_hash: sha256:b95306fde69ceddd1fb593a496c485f2fa8bfc1b07e30f089a4e64fe144ce2b0
+        doc_struct_hash: sha256:d3a3a1309bd1fc334a5a79b2c33a0c4264f81da9a980be4cf21ad03f5482a56d
+        lines: [47, 52]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#Store.PassivePermsToward
+      level: function
+      anchor:
+        file: store/perms.go
+        symbol: Store.PassivePermsToward
+        hash: sha256:36f0cf132460ac2cf095d6fd138cf111bf820dcf851ba46193c78997127c3a9f
+        struct_hash: sha256:cafaf10fd517fa3eb8c6408bf79d06ba552dfc9d9ec745a90d71721ca71ccd67
+        doc_struct_hash: sha256:034e9e4d6a20a38c3862c463791fc8031d9c3e333ecff47d27492d2e33ee2104
+        lines: [54, 60]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#Store.queryGrants
+      level: function
+      anchor:
+        file: store/perms.go
+        symbol: Store.queryGrants
+        hash: sha256:b04756f05790feb569b77f31e9d1b186ecf8610ad569097bdc4511865dd116bb
+        struct_hash: sha256:1c83356d4d2621c63123cee6764f75b4262990e8e59bfd10b5637a854c8f8784
+        doc_struct_hash: sha256:1c83356d4d2621c63123cee6764f75b4262990e8e59bfd10b5637a854c8f8784
+        lines: [62, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

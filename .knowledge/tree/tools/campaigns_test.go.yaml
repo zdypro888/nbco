@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/campaigns_test.go
+      level: file
+      anchor:
+        file: tools/campaigns_test.go
+        hash: sha256:bafca8ae1fe1a711354e763bd1fb47c233f6141d546d07cde37ff732096fd2c1
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns_test.go#TestRenderDataCampaignListKeepsEvidenceScopesSeparate
+      level: function
+      anchor:
+        file: tools/campaigns_test.go
+        symbol: TestRenderDataCampaignListKeepsEvidenceScopesSeparate
+        hash: sha256:eeaaaea8c4083984e6c9fa59b414b0af9bdb18f8f4f44c49e5b8e276d6067a01
+        struct_hash: sha256:d999ad2ba5675bc4fc772b7ab4c3ba164f8ee38a6913e6351cf65d4e4de6e22e
+        doc_struct_hash: sha256:d999ad2ba5675bc4fc772b7ab4c3ba164f8ee38a6913e6351cf65d4e4de6e22e
+        lines: [11, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns_test.go#TestRenderDataCampaignDetailDistinguishesNotificationFromProgress
+      level: function
+      anchor:
+        file: tools/campaigns_test.go
+        symbol: TestRenderDataCampaignDetailDistinguishesNotificationFromProgress
+        hash: sha256:9eb7a9a8eac26d7647f098db9578bc3e3069586b6796dd7ba9e660c8eee85a61
+        struct_hash: sha256:aadf8a2f53168b5287443d6801cc1a6c29b71c8495945ba4f33222a37cde7b6c
+        doc_struct_hash: sha256:aadf8a2f53168b5287443d6801cc1a6c29b71c8495945ba4f33222a37cde7b6c
+        lines: [34, 50]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

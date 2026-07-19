@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/deferred_restart_linux_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux_test.go
+        hash: sha256:e3976c9bb127fde19796c9b5852a231b56b7e5d1cf357f1fa6ea31d70ee8e1e7
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux_test.go#TestScheduleDeferredWorkerRestartAfterSubmit
+      level: function
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux_test.go
+        symbol: TestScheduleDeferredWorkerRestartAfterSubmit
+        hash: sha256:c07053c3b00b00709a9dbd080c6fe72a3e0ad22f36fb34c903aeccd5de486bb8
+        struct_hash: sha256:3497d1ec0f281709d83c361d09ca22e27547c2e9943cfe47dc03a5fc71ac9f94
+        doc_struct_hash: sha256:3497d1ec0f281709d83c361d09ca22e27547c2e9943cfe47dc03a5fc71ac9f94
+        lines: [13, 43]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux_test.go#TestScheduleDeferredWorkerRestartClearsFulfilledMarker
+      level: function
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux_test.go
+        symbol: TestScheduleDeferredWorkerRestartClearsFulfilledMarker
+        hash: sha256:eac8545cb3a55efd536465ff22af44762822c8fdf8e601e34eceb17efde9c5e5
+        struct_hash: sha256:b84ce5be9afd21c273f8133e324d01f512481a4fc3eba7add8fe9d66f0cbd571
+        doc_struct_hash: sha256:b84ce5be9afd21c273f8133e324d01f512481a4fc3eba7add8fe9d66f0cbd571
+        lines: [45, 70]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco/architecture_test.go
+      level: file
+      anchor:
+        file: cmd/nbco/architecture_test.go
+        hash: sha256:6ccd664de0a14ce8a279250fa1f2b79b8532d7749ae9033372e04dd31a677352
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/architecture_test.go#TestProductionBinaryUsesSharedIHTMLAgent
+      level: function
+      anchor:
+        file: cmd/nbco/architecture_test.go
+        symbol: TestProductionBinaryUsesSharedIHTMLAgent
+        hash: sha256:302e1702e4622221855bb532b0667314d82c5266ea4272e722cc8e6aa6ce65ac
+        struct_hash: sha256:9916a6d198536a5328117e0f19377375b063a573c652034e04100ce2370b20d5
+        doc_struct_hash: sha256:9916a6d198536a5328117e0f19377375b063a573c652034e04100ce2370b20d5
+        lines: [11, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

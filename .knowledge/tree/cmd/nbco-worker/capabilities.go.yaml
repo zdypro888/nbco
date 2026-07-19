@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/capabilities.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/capabilities.go
+        hash: sha256:b0555a4b8ae2bba2483a5a40ad719a2bc0721c35fd09b6f39b3ab52f6336d41d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/capabilities.go#collectCapabilities
+      level: function
+      anchor:
+        file: cmd/nbco-worker/capabilities.go
+        symbol: collectCapabilities
+        hash: sha256:4ca859d422eab32a0bf1e28a83175d2398a468e505e67c1c8fdee4b14eddb1b6
+        struct_hash: sha256:3ca56862cccd0bf9b055710b4346cbdc59446d03b6d9fbd0a29cd0817c0a21af
+        doc_struct_hash: sha256:3ca56862cccd0bf9b055710b4346cbdc59446d03b6d9fbd0a29cd0817c0a21af
+        lines: [13, 55]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/capabilities.go#commandExists
+      level: function
+      anchor:
+        file: cmd/nbco-worker/capabilities.go
+        symbol: commandExists
+        hash: sha256:a7d32bd89c503d2c17ca76122511fee5ca2b447c67d550a22dd1f9242485af54
+        struct_hash: sha256:159d9f5a53b8c45f339eb2dba8eb989ef1a90374897c3444f6fd1a9a7c9536d7
+        doc_struct_hash: sha256:159d9f5a53b8c45f339eb2dba8eb989ef1a90374897c3444f6fd1a9a7c9536d7
+        lines: [57, 60]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/capabilities.go#cliVersion
+      level: function
+      anchor:
+        file: cmd/nbco-worker/capabilities.go
+        symbol: cliVersion
+        hash: sha256:fecfdd779eb946d80f778fe704a54902e5b29e6a2eb66b740afd574b8e6f0e88
+        struct_hash: sha256:1525d466a4b369781468e730de64bb350d09883939c244c18316d11a227ee1c8
+        doc_struct_hash: sha256:1525d466a4b369781468e730de64bb350d09883939c244c18316d11a227ee1c8
+        lines: [62, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/capabilities.go#dedupeStrings
+      level: function
+      anchor:
+        file: cmd/nbco-worker/capabilities.go
+        symbol: dedupeStrings
+        hash: sha256:09c8554fb3b70d517606562e6e448d65e850b850df9e31c8549c34b33cec1abd
+        struct_hash: sha256:0359b8daba466b0aaaf8b2121e23322ab211406576d4a70d0c2312c5a608519d
+        doc_struct_hash: sha256:0359b8daba466b0aaaf8b2121e23322ab211406576d4a70d0c2312c5a608519d
+        lines: [78, 90]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

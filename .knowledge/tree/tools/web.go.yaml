@@ -1,0 +1,120 @@
+schema: 1
+nodes:
+    - id: tools/web.go
+      level: file
+      anchor:
+        file: tools/web.go
+        hash: sha256:545e4acd87f0e24b564ff6a6a7f5b1708c8545dc594e47b738d29ffc07c3432b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#webFetchBodyLimit
+      level: decl
+      anchor:
+        file: tools/web.go
+        symbol: webFetchBodyLimit
+        hash: sha256:25ef647c3715d063a4fe295a501df17daecaa0bdeecf220a47859abf63767163
+        struct_hash: sha256:956abc51458a7bd80afe92ce0e8aa53b4663a2b851e64d957e879b341bdeef58
+        doc_struct_hash: sha256:956abc51458a7bd80afe92ce0e8aa53b4663a2b851e64d957e879b341bdeef58
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#webFetchTimeout
+      level: decl
+      anchor:
+        file: tools/web.go
+        symbol: webFetchTimeout
+        hash: sha256:6f8796570f7a9e871f0e372ada628199ac172437875bfe18722d7fd02d5a81b5
+        struct_hash: sha256:27d49cceb9b9a9ba89e0460a6430908b847b7c50415e578b13d2370f3d449afe
+        doc_struct_hash: sha256:27d49cceb9b9a9ba89e0460a6430908b847b7c50415e578b13d2370f3d449afe
+        lines: [23, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#webTools
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: webTools
+        hash: sha256:807c459d25de1db1af8981e2ea371ef00a6be96e736959a6cd940505eb3484e7
+        struct_hash: sha256:ca353bfe6385a2131f241f520156530b9c178e133f89d89da6da0bc0a5a1c597
+        doc_struct_hash: sha256:ca353bfe6385a2131f241f520156530b9c178e133f89d89da6da0bc0a5a1c597
+        lines: [26, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#fetchPublicURL
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: fetchPublicURL
+        hash: sha256:62db53c1556f69f847c150d99d6e36b0c1b1e290386e5bb6206be2aff4dfd585
+        struct_hash: sha256:532934b446852f06652f52530ebff9e6198ee1ea61531db58cc0191c25e23edd
+        doc_struct_hash: sha256:532934b446852f06652f52530ebff9e6198ee1ea61531db58cc0191c25e23edd
+        lines: [44, 99]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#validatePublicURL
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: validatePublicURL
+        hash: sha256:8315eb6fdd712fff9bebf9e101bb073de1d50a7fe7d3054023a986d4d74f67a4
+        struct_hash: sha256:3882067623cefd3093099a638ce0110ef6a95bed73f278faed17d623596d8812
+        doc_struct_hash: sha256:3882067623cefd3093099a638ce0110ef6a95bed73f278faed17d623596d8812
+        lines: [101, 120]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#publicHTTPClient
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: publicHTTPClient
+        hash: sha256:206e096b0712a67407a625a5b862cc77f0a7873ab9bb2f92f96a707fd6a5916c
+        struct_hash: sha256:7d93cb97df2cd36c4af33d2269a4ec30065651bd3e7b6de0cfb4c94a803b0b4a
+        doc_struct_hash: sha256:7d93cb97df2cd36c4af33d2269a4ec30065651bd3e7b6de0cfb4c94a803b0b4a
+        lines: [122, 161]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#sharedPublicHTTPClient
+      level: decl
+      anchor:
+        file: tools/web.go
+        symbol: sharedPublicHTTPClient
+        hash: sha256:f2b40b529cf44127f55ac6419d83536e9b83edd05afe115a6335a097f068aeb3
+        struct_hash: sha256:c0839edfb73b0f8c6d401e949405a89709a2a52cce149fcb19605ea1669c01ac
+        doc_struct_hash: sha256:c0839edfb73b0f8c6d401e949405a89709a2a52cce149fcb19605ea1669c01ac
+        lines: [163, 163]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#publicIP
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: publicIP
+        hash: sha256:0e050a98118f7f6c86838f2eae89f77bc3d18947fcc077593c5f77f78be8ae75
+        struct_hash: sha256:40799a676736225a73ea9d3c12a797b8f87e18a69936bb7b56a5b68047436bf0
+        doc_struct_hash: sha256:40799a676736225a73ea9d3c12a797b8f87e18a69936bb7b56a5b68047436bf0
+        lines: [165, 168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#readableHTML
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: readableHTML
+        hash: sha256:1294ac25fe8ff8f8cbf99d6e6a8f69d82b486f93daeab705532ab0e17f148b9b
+        struct_hash: sha256:b63b6c09a26c7db90959dbb4ec431a21cabf58f30446b614666d1ae0dfa8d600
+        doc_struct_hash: sha256:b63b6c09a26c7db90959dbb4ec431a21cabf58f30446b614666d1ae0dfa8d600
+        lines: [170, 201]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web.go#collapseDocumentText
+      level: function
+      anchor:
+        file: tools/web.go
+        symbol: collapseDocumentText
+        hash: sha256:4f02736456bd5c54353cc8b72707b51533832a65c5c64d914751946671e8cb4a
+        struct_hash: sha256:a15f9890056105aa83b41506b8ce42670ec294055a23df6272b375c9b00bfeff
+        doc_struct_hash: sha256:a15f9890056105aa83b41506b8ce42670ec294055a23df6272b375c9b00bfeff
+        lines: [203, 213]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/downloads.go
+      level: file
+      anchor:
+        file: gateway/httpapi/downloads.go
+        hash: sha256:5d70b832214e061545d232f3255986806b4c55b5cd8739612c83f371137dc288
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/downloads.go#workerDownloadNames
+      level: decl
+      anchor:
+        file: gateway/httpapi/downloads.go
+        symbol: workerDownloadNames
+        hash: sha256:0b565ba7589b78a5911565acc190c98bdd2a3a039c951e8639bd6f8160874ed1
+        struct_hash: sha256:cb365fc8eaa3a81af548f3ac82039fba269cef0f983babf226698e1eb59fde7d
+        doc_struct_hash: sha256:cb365fc8eaa3a81af548f3ac82039fba269cef0f983babf226698e1eb59fde7d
+        lines: [13, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/downloads.go#Server.handleWorkerDownloadBinary
+      level: function
+      anchor:
+        file: gateway/httpapi/downloads.go
+        symbol: Server.handleWorkerDownloadBinary
+        hash: sha256:21cd84bce29af51d51af326a73ab5a36e2e09c59b0f4fac13632e646094659e1
+        struct_hash: sha256:7cb1b2a90ff86de2efdac46be3869fbfd9aba06c357d5745a563710ecf552ae9
+        doc_struct_hash: sha256:7cb1b2a90ff86de2efdac46be3869fbfd9aba06c357d5745a563710ecf552ae9
+        lines: [24, 57]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

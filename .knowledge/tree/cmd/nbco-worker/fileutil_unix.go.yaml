@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/fileutil_unix.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/fileutil_unix.go
+        hash: sha256:ab6a6a343399ae7a50a2107c7166f0a0d6a5cd47ebeac137c26a336ee86f2269
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/fileutil_unix.go#replaceFile
+      level: function
+      anchor:
+        file: cmd/nbco-worker/fileutil_unix.go
+        symbol: replaceFile
+        hash: sha256:4baaf59be998e2a79dcca88f6904f6acb555be9542c966cc8f0714829da03470
+        struct_hash: sha256:26785a285d72d1fa6aaf11f0c70b8f7eb229a306b321ec6be5df04ae445f8781
+        doc_struct_hash: sha256:26785a285d72d1fa6aaf11f0c70b8f7eb229a306b321ec6be5df04ae445f8781
+        lines: [7, 9]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

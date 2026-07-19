@@ -1,0 +1,175 @@
+schema: 1
+nodes:
+    - id: documentindex/service.go
+      level: file
+      anchor:
+        file: documentindex/service.go
+        hash: sha256:0d6cbfe4f5871b7d7d797fb82318cc8439f82f9cdc94db5e79e1e18fbb9cf2f8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#defaultInterval
+      level: decl
+      anchor:
+        file: documentindex/service.go
+        symbol: defaultInterval
+        hash: sha256:14317fb0bfe56f157a53695d39a77e0230eda557d57d032d392431ee8de139dc
+        struct_hash: sha256:53f957ed1bb5a2156138df581647a35c556b41a329f19fa1a3d33be8e5f74b74
+        doc_struct_hash: sha256:53f957ed1bb5a2156138df581647a35c556b41a329f19fa1a3d33be8e5f74b74
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#extractTimeout
+      level: decl
+      anchor:
+        file: documentindex/service.go
+        symbol: extractTimeout
+        hash: sha256:576f3eca92c40ba30a590f7bc9525d952184da36b99745904b7f1500522a8c18
+        struct_hash: sha256:8ad1fca195d23b82373131134b908f40d4953bdc107b28b57ba3ab299fefd91a
+        doc_struct_hash: sha256:8ad1fca195d23b82373131134b908f40d4953bdc107b28b57ba3ab299fefd91a
+        lines: [19, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#vectorCleanupInterval
+      level: decl
+      anchor:
+        file: documentindex/service.go
+        symbol: vectorCleanupInterval
+        hash: sha256:5fc4d61cba2cbd6e10e49572d8822a3304de934000fbb78b2dc129004be4e371
+        struct_hash: sha256:9c5548fbf098120488783b7ea98c31736438732b279c9e4b36e49b829ef178fc
+        doc_struct_hash: sha256:9c5548fbf098120488783b7ea98c31736438732b279c9e4b36e49b829ef178fc
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#vectorCleanupRetry
+      level: decl
+      anchor:
+        file: documentindex/service.go
+        symbol: vectorCleanupRetry
+        hash: sha256:f0488a76bf49600ea44c286a3e3dfaafa3f621b9952324925e6914f80f17f0bb
+        struct_hash: sha256:18e9b15ec5e40f6a321da7afae4bf4e172539a301b4090d5ad9e0b0b6c1c6f82
+        doc_struct_hash: sha256:18e9b15ec5e40f6a321da7afae4bf4e172539a301b4090d5ad9e0b0b6c1c6f82
+        lines: [21, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service
+      level: decl
+      anchor:
+        file: documentindex/service.go
+        symbol: Service
+        hash: sha256:9713a086e65f71cd866b61b3c60e4f7868366c71a24ebca6c02c2a9938a289df
+        struct_hash: sha256:021173b9d6f39bf3b4ce67a4c63c13d6510149d3e26172208045e0fc8cd705f7
+        doc_struct_hash: sha256:021173b9d6f39bf3b4ce67a4c63c13d6510149d3e26172208045e0fc8cd705f7
+        lines: [24, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#New
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: New
+        hash: sha256:912dd2bc0010be7a067e57d14fd7d411b235f07f04d28304cfe8eef655ef5f50
+        struct_hash: sha256:be938333473eb0f339a8a9950c7de60730e09212cad0901faec16e74f01fe16d
+        doc_struct_hash: sha256:be938333473eb0f339a8a9950c7de60730e09212cad0901faec16e74f01fe16d
+        lines: [31, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.Enabled
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.Enabled
+        hash: sha256:d3012a6fea5047cf0a86fa795413653dbcc8f6d768faea2e4c3f804f3299ae73
+        struct_hash: sha256:07abfa40efb8c7eba520a4eaaa4e5d7b9f204abd0677b3461787ab0d759cd5f2
+        doc_struct_hash: sha256:07abfa40efb8c7eba520a4eaaa4e5d7b9f204abd0677b3461787ab0d759cd5f2
+        lines: [35, 37]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.Run
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.Run
+        hash: sha256:56127ad60dd9b5e9fe0ce52ff2ccc17ace5bd26dd5a59b1afdfe38398fb279c9
+        struct_hash: sha256:bb435b8fceebbb0c31beffa813dd531dd84ecd55a45338e6d43d3e8342e71ba4
+        doc_struct_hash: sha256:b9606e996ecf29e09377e402b29f32f0143114df9cde3553c8401a5b5e842206
+        lines: [39, 58]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.runOnceSafely
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.runOnceSafely
+        hash: sha256:8d524a9845ecd8e3ba3e9dc8d80fa916d7ddbfe30a5d129afd29da19d9d2e98d
+        struct_hash: sha256:1ff817edde547f4f1707b458e6aa11e4385e5dd1dd25919d02b9e832a97aa2e6
+        doc_struct_hash: sha256:1ff817edde547f4f1707b458e6aa11e4385e5dd1dd25919d02b9e832a97aa2e6
+        lines: [60, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.process
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.process
+        hash: sha256:21e2550c947045968a7121cdc0a93deb78da06a764fee0ef2263fda9187e6e74
+        struct_hash: sha256:596fb9895e29d87441c8f3287dab22eacdf3a13fcad402e335ff2cd8ad910d9d
+        doc_struct_hash: sha256:596fb9895e29d87441c8f3287dab22eacdf3a13fcad402e335ff2cd8ad910d9d
+        lines: [84, 114]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.processVectorQueue
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.processVectorQueue
+        hash: sha256:a8c9dfed2ea28b75f45556c121f1ead28be7000eb8d64f031034867a3aabbf28
+        struct_hash: sha256:3c920294351a37dc2f10ca7e8ccd1ab991ca4d55106c9f3b1fc419f3cf95554b
+        doc_struct_hash: sha256:3c920294351a37dc2f10ca7e8ccd1ab991ca4d55106c9f3b1fc419f3cf95554b
+        lines: [116, 140]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.processVector
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.processVector
+        hash: sha256:eadf36d44a347f492ce41fb80d3a6a593ef31cfdf77c3b1b855c6d5cf133774b
+        struct_hash: sha256:ebaf58531985dd568bb006f7a2882160133347daa4b7644d714da6b093d72dc9
+        doc_struct_hash: sha256:ebaf58531985dd568bb006f7a2882160133347daa4b7644d714da6b093d72dc9
+        lines: [142, 171]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.cleanupVectorIndexIfDue
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.cleanupVectorIndexIfDue
+        hash: sha256:cbb1cd0cd8eedce8d6a17f5c14ae729a3b14657e3907d089ae76eeb4d507aad3
+        struct_hash: sha256:c900bff2fa2f43c782c21d6333d0dd09b6aaa6cfcd163a1b6555e4580c20d024
+        doc_struct_hash: sha256:c900bff2fa2f43c782c21d6333d0dd09b6aaa6cfcd163a1b6555e4580c20d024
+        lines: [173, 194]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#isUnsupported
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: isUnsupported
+        hash: sha256:880972688b097f8136609e463e97c602cceee8ff2e06be4865f3c337b50a1f97
+        struct_hash: sha256:300d8366c8b3e7179618639c135c2665916cb6e0fe890cb51665a3ee1a5ecd3d
+        doc_struct_hash: sha256:300d8366c8b3e7179618639c135c2665916cb6e0fe890cb51665a3ee1a5ecd3d
+        lines: [196, 198]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#isTerminalExtractionError
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: isTerminalExtractionError
+        hash: sha256:cd572f6264418b01bc07b8007e8d3729f6f35a1f8c6b2eea48ca57395c3b23da
+        struct_hash: sha256:6acfea58ed0257502177b4024d9778a5aea45582cb9d28916b657fb26642e9ee
+        doc_struct_hash: sha256:6acfea58ed0257502177b4024d9778a5aea45582cb9d28916b657fb26642e9ee
+        lines: [200, 202]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

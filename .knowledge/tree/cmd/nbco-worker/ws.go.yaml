@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/ws.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        hash: sha256:af5c8b051e5effc938931eabb2fdb6501d6afb434437cb816e0a8a0c5dac01d1
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsPingInterval
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsPingInterval
+        hash: sha256:15f15f365421d5e4633a133890eb4427dcb4618df6fd905d2fece3c77492f07b
+        struct_hash: sha256:51e566245cbcc06b101a2bd209c5f37170f1f7b5f7b9d83df4a229c937b4b0db
+        doc_struct_hash: sha256:51e566245cbcc06b101a2bd209c5f37170f1f7b5f7b9d83df4a229c937b4b0db
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsIdleTimeout
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsIdleTimeout
+        hash: sha256:3e8b33071c748edef88996749e033796cdf0f3e80c8dc2393302d64402c1ed48
+        struct_hash: sha256:8b7055f0fdae83964b495b4a264067796092efb2fca0012cb0ef8617db805981
+        doc_struct_hash: sha256:8b7055f0fdae83964b495b4a264067796092efb2fca0012cb0ef8617db805981
+        lines: [21, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsBackoffMin
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsBackoffMin
+        hash: sha256:e79500b0dc6cdfb506dbeda027afd72ec488f9c4a21e06086f1c521b54a8f97c
+        struct_hash: sha256:ff687542c457352693208a423012ef71881e4e4f6394424c1cc5f80200d149c4
+        doc_struct_hash: sha256:ff687542c457352693208a423012ef71881e4e4f6394424c1cc5f80200d149c4
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsBackoffMax
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsBackoffMax
+        hash: sha256:63465a0af877bbc4740cb4738f6b7c87396d662e63be07011d046409b3361d5e
+        struct_hash: sha256:139e495987a2735d8bad01187a50dfba9662b193f8d914e09ca62f651f660df0
+        doc_struct_hash: sha256:139e495987a2735d8bad01187a50dfba9662b193f8d914e09ca62f651f660df0
+        lines: [23, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsLink
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsLink
+        hash: sha256:e12cc8405dbb04de2353bce34a2a316a98f70fa9826376a2b6e387947d8fbc39
+        struct_hash: sha256:d7154a8b6e6d617e5f99e16e930d0a06a9f161e9bc814c0ead9a593ba50f9c8e
+        doc_struct_hash: sha256:d05e00abaa5b12cee1d28260cae2b941837038dc871376006ba0164fbb5ef0bd
+        lines: [26, 31]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#newWSLink
+      level: function
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: newWSLink
+        hash: sha256:6c9addd77818bdb6e2e2817a40fbdf97a8c847f4a9cd4e93c7a4ff866e14e065
+        struct_hash: sha256:fb209da48ab52d17e75fc04941df96071c3ba90cb97bc30907cbcfb448f6c6be
+        doc_struct_hash: sha256:fb209da48ab52d17e75fc04941df96071c3ba90cb97bc30907cbcfb448f6c6be
+        lines: [33, 40]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsLink.run
+      level: function
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsLink.run
+        hash: sha256:50b41b5ea475253aca84bf1c81d747c8b47ee10739e309a41517f8acc898e584
+        struct_hash: sha256:ec0795f0bfa45d55efd5224691e676baf9bedca223e65e95d4514efb66dae8da
+        doc_struct_hash: sha256:0aebe17dbea14b62b0e24a40682d9c50d9d535883abc8fb4e64e62f50ec95d21
+        lines: [42, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsLink.session
+      level: function
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsLink.session
+        hash: sha256:95a6850f725e0aa0b8854cff95ffdbb41ae63d1dda69789901edf615f40f385c
+        struct_hash: sha256:0ce9601f03fc5ebf62e320a88081fb78fe645d2689e07f31846a0e7e2ba006b6
+        doc_struct_hash: sha256:8b8da6edd515f90d921910f887f23c1c0721a03d555f22497c83eee4f9b066bc
+        lines: [66, 123]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/ws.go#wsLink.wsURL
+      level: function
+      anchor:
+        file: cmd/nbco-worker/ws.go
+        symbol: wsLink.wsURL
+        hash: sha256:74ab3e8d0af95c20958398fa1b9bd236e106531512bb11f7c1de065a1b8e1208
+        struct_hash: sha256:826668a4db04ac443f7d4e59b540ac25b8dbe4114983e4bfe196398f5be66e5e
+        doc_struct_hash: sha256:89afaeaefc2d6c0203946e3ebc0d93b477632030298083ddba712ba4a8a01699
+        lines: [125, 135]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

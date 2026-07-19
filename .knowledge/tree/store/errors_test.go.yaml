@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/errors_test.go
+      level: file
+      anchor:
+        file: store/errors_test.go
+        hash: sha256:870239cc8100e48663f1a00099ebc467088eaf0b89a066c6b4984713195e3ccd
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/errors_test.go#TestWrapErr
+      level: function
+      anchor:
+        file: store/errors_test.go
+        symbol: TestWrapErr
+        hash: sha256:ec867038c9bc6b55f6e005600df39488d237caa2e73c4dda6e80fba99f37df2b
+        struct_hash: sha256:ce4713f369dd115cb14e555bbcc4a7c436417fc05c614c1287d03f2ca9edef0b
+        doc_struct_hash: sha256:ce4713f369dd115cb14e555bbcc4a7c436417fc05c614c1287d03f2ca9edef0b
+        lines: [12, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

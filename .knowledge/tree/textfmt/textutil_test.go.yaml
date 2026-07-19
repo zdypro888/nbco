@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: textfmt/textutil_test.go
+      level: file
+      anchor:
+        file: textfmt/textutil_test.go
+        hash: sha256:beb41f282ee49c5657a457f18a54013422062a58f76625c4db6d7cb19e4c3d84
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil_test.go#TestRedactSecrets
+      level: function
+      anchor:
+        file: textfmt/textutil_test.go
+        symbol: TestRedactSecrets
+        hash: sha256:a52772b6321e3eda20e15a95155ada2422acf7a12d0f4fd954f34006a7848bfb
+        struct_hash: sha256:87f388d4a9557693c162e55e7822194caefa4947dbdfd10260f19fbbe451fde4
+        doc_struct_hash: sha256:87f388d4a9557693c162e55e7822194caefa4947dbdfd10260f19fbbe451fde4
+        lines: [9, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil_test.go#TestStripReasoning
+      level: function
+      anchor:
+        file: textfmt/textutil_test.go
+        symbol: TestStripReasoning
+        hash: sha256:9ebdbc51a111e81e7f9181ec87973c7a3ad2805a0e181fe557ce07decdef4a1f
+        struct_hash: sha256:8c39b602ea645157cb43718ff05b984c9353bcff3a9486eddd62f17e37a2f287
+        doc_struct_hash: sha256:8c39b602ea645157cb43718ff05b984c9353bcff3a9486eddd62f17e37a2f287
+        lines: [36, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil_test.go#TestSanitizeVisibleReplyHidesToolOnlyUserRefs
+      level: function
+      anchor:
+        file: textfmt/textutil_test.go
+        symbol: TestSanitizeVisibleReplyHidesToolOnlyUserRefs
+        hash: sha256:c25d040b7a01fbc8c2d426878e0ab57ac384affca56cde9e3421773bc1edffbe
+        struct_hash: sha256:e9f77fa9bbcb806f90c5c19195f6ca5f0722b92e8f2b9ed978edb39677848f19
+        doc_struct_hash: sha256:e9f77fa9bbcb806f90c5c19195f6ca5f0722b92e8f2b9ed978edb39677848f19
+        lines: [58, 80]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil_test.go#TestSanitizeVisibleReplyHidesInternalMarkers
+      level: function
+      anchor:
+        file: textfmt/textutil_test.go
+        symbol: TestSanitizeVisibleReplyHidesInternalMarkers
+        hash: sha256:c37e0854b1e0a52daff62c77c8278840c33cb5e0e20a1ff3ed8da242dc8ed9c5
+        struct_hash: sha256:adb3b61a78748f4a295a52980b722127d8e99472c747fdf835dffadf7ffb7279
+        doc_struct_hash: sha256:adb3b61a78748f4a295a52980b722127d8e99472c747fdf835dffadf7ffb7279
+        lines: [82, 87]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil_test.go#TestNormalizeEscapedLineBreaks
+      level: function
+      anchor:
+        file: textfmt/textutil_test.go
+        symbol: TestNormalizeEscapedLineBreaks
+        hash: sha256:51203d2aaf1ffdc82aabfd38e792bec6b9ac3d21421ff9729d5c343fb9b4745c
+        struct_hash: sha256:7fd37738e354c58ad7ff20d9b1eab1a3b8652510838782126fb87e94422104b3
+        doc_struct_hash: sha256:7fd37738e354c58ad7ff20d9b1eab1a3b8652510838782126fb87e94422104b3
+        lines: [89, 117]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil_test.go#TestStripHistoryMetadata
+      level: function
+      anchor:
+        file: textfmt/textutil_test.go
+        symbol: TestStripHistoryMetadata
+        hash: sha256:64c36c7079f67f553cb14c40f3678aa2e5f6860dbdf0d298bf06a1b7ac4d2b4d
+        struct_hash: sha256:4c4cb32df9b434d490d8b30c919735083b268953dcbb5227f70c97513d61eb77
+        doc_struct_hash: sha256:4c4cb32df9b434d490d8b30c919735083b268953dcbb5227f70c97513d61eb77
+        lines: [119, 140]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: ai/stt/stt.go
+      level: file
+      anchor:
+        file: ai/stt/stt.go
+        hash: sha256:503a32b47f41773bcc8eddf932279e6d84759993f89df45210385c850582d259
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/stt/stt.go#transcribeTimeout
+      level: decl
+      anchor:
+        file: ai/stt/stt.go
+        symbol: transcribeTimeout
+        hash: sha256:b7025347b88f71cc07c960e67b83d267960a2378803fd0a6ea054800c939cf16
+        struct_hash: sha256:333ff8109d980e0bd5f7298ba95c9e652e43afc253ecc427d640af8226889705
+        doc_struct_hash: sha256:8eb3566d359bede651cd73ba31624db461b4b335ff3b3d9719a6b40e6d918fb6
+        lines: [19, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/stt/stt.go#Client
+      level: decl
+      anchor:
+        file: ai/stt/stt.go
+        symbol: Client
+        hash: sha256:9b5e8dd61f8247eb894d8faa7d7ca53250d51ed44b01c80b38a507255c368417
+        struct_hash: sha256:8d2db89413c0973cff42faa599eecb22fa8fcc806a776c514367d6e61d055f09
+        doc_struct_hash: sha256:847e6c3a156f39935e0af0c0635e35e2adbc44b08c703260cfc94bb222fbd8ec
+        lines: [22, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/stt/stt.go#New
+      level: function
+      anchor:
+        file: ai/stt/stt.go
+        symbol: New
+        hash: sha256:960c0cc1d36117995abfe5108ba304c160d87117570c0bdaf9a3c59ec763436a
+        struct_hash: sha256:490e41444df66fd3cb62c3d9b0e31e2f45190694f4532da2e0a96e9eecb85d10
+        doc_struct_hash: sha256:b62d62948668cf0342483923ec47f4dcd29382810ea3ded363be8e8ab96a2eab
+        lines: [30, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/stt/stt.go#Client.Transcribe
+      level: function
+      anchor:
+        file: ai/stt/stt.go
+        symbol: Client.Transcribe
+        hash: sha256:6c380614cfc7e2b49d4068e060ebb51d956791448b65ad8fc0e2206708a0a973
+        struct_hash: sha256:2790593a7b7932472b959c3f2d96652daed9c67e127845749136be6706fc7fb1
+        doc_struct_hash: sha256:5db6c95e43ffb43cb6be822ba7fc4d7ed2a4c0448bc6fca3dfdeb5bb94f1cc35
+        lines: [53, 98]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

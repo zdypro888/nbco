@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/telegram/http_client_test.go
+      level: file
+      anchor:
+        file: gateway/telegram/http_client_test.go
+        hash: sha256:c22669eb0fea25c09861caede58d4210b5e0ab3a7bd47086b2933dd8fddb3068
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/http_client_test.go#TestLocalBotAPIHTTPClientNormalizesEmptyMultipartAndStreamsParameters
+      level: function
+      anchor:
+        file: gateway/telegram/http_client_test.go
+        symbol: TestLocalBotAPIHTTPClientNormalizesEmptyMultipartAndStreamsParameters
+        hash: sha256:1a3c8b6b2abdf7397077f53329529e59b786210df769f1feb44a4eb1862fe847
+        struct_hash: sha256:41722a49214ca3975100b8883e599bf2482913bbe90004cb5eff39b5dbe6f30b
+        doc_struct_hash: sha256:41722a49214ca3975100b8883e599bf2482913bbe90004cb5eff39b5dbe6f30b
+        lines: [16, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/http_client_test.go#TestLocalBotAPIHTTPClientLeavesOtherContentTypesAlone
+      level: function
+      anchor:
+        file: gateway/telegram/http_client_test.go
+        symbol: TestLocalBotAPIHTTPClientLeavesOtherContentTypesAlone
+        hash: sha256:da0d1948d47b06a1751c0b0c3d3535e7e1c4bb315ea8bdad192f55b0f9c64d12
+        struct_hash: sha256:4cc38071cec837f4b2354a57c3a0893ed75a3d0ab9f0abf78e0aac780bc78a07
+        doc_struct_hash: sha256:4cc38071cec837f4b2354a57c3a0893ed75a3d0ab9f0abf78e0aac780bc78a07
+        lines: [66, 86]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,197 @@
+schema: 1
+nodes:
+    - id: tools/campaigns.go
+      level: file
+      anchor:
+        file: tools/campaigns.go
+        hash: sha256:2e3fcc0533d57d170c504cfcdabb5dc26459043eb8d01b7a2fba653f87cec81e
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#campaignTools
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: campaignTools
+        hash: sha256:35850accea350f81620dfe5fffeee7cf3e5e30fefd3184ba146ab8eb6d1b5070
+        struct_hash: sha256:b857ca9dcf8ea31cac4cedbc257103155f7fbd092f9021a3d56aae55a6116e9d
+        doc_struct_hash: sha256:b857ca9dcf8ea31cac4cedbc257103155f7fbd092f9021a3d56aae55a6116e9d
+        lines: [16, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#createDataCampaign
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: createDataCampaign
+        hash: sha256:cf76e71bec7d11380420153aba19423c50897eb7fd6c9bdd5171b0fafb23636a
+        struct_hash: sha256:2d534cb33ddae1291f651b085a042f07298d838a65f23ec258d2731306922baf
+        doc_struct_hash: sha256:2d534cb33ddae1291f651b085a042f07298d838a65f23ec258d2731306922baf
+        lines: [110, 176]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#getDataCampaign
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: getDataCampaign
+        hash: sha256:3a9217ab8305800dda1135ebdb45f2a374ab4a330c9ca7ecc67d6514736b6894
+        struct_hash: sha256:a9da9d1e5bf5b6e34102fbe89acb40d0665b1f874ac91815c2a579619df1b264
+        doc_struct_hash: sha256:a9da9d1e5bf5b6e34102fbe89acb40d0665b1f874ac91815c2a579619df1b264
+        lines: [178, 197]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#remindDataCampaign
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: remindDataCampaign
+        hash: sha256:3f515a7869a8b6363fa197e849a67c1acb4db02ed2849ac0e6eaa9fcb4d9c61d
+        struct_hash: sha256:566661f60a40befa5c09657db1253f2cf9192d9e2b4de44fd292aca28c177343
+        doc_struct_hash: sha256:566661f60a40befa5c09657db1253f2cf9192d9e2b4de44fd292aca28c177343
+        lines: [199, 238]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#closeDataCampaign
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: closeDataCampaign
+        hash: sha256:7c1dd5bdb0645a1470a4a8fe8e9b982434eebbb6da7ea9e318cf4992cc6cceee
+        struct_hash: sha256:d4f95fbb3f25dfba7476b271e629d94fd714ae4f481a4ddd4952a9c301634a38
+        doc_struct_hash: sha256:d4f95fbb3f25dfba7476b271e629d94fd714ae4f481a4ddd4952a9c301634a38
+        lines: [240, 259]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#resolveDataCampaignTargets
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: resolveDataCampaignTargets
+        hash: sha256:a58281d0893da8fe6fcfdd9b86585fe8cc669122f577d734d3d070d306d714fa
+        struct_hash: sha256:05ec30cc0808345960b29b5782db2f33b1ca1d364972e613bcfadbb582a20fe9
+        doc_struct_hash: sha256:05ec30cc0808345960b29b5782db2f33b1ca1d364972e613bcfadbb582a20fe9
+        lines: [261, 322]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#canSendToDataCampaignTarget
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: canSendToDataCampaignTarget
+        hash: sha256:df06849f4a30cddc32ebdb0afdf16aa0528a2b8678789131b39baa4b3bfdd51b
+        struct_hash: sha256:bf4b6aeddaa2fba480ad460857c179be8f6af5bf44e9ec580b1cb87c2745558f
+        doc_struct_hash: sha256:bf4b6aeddaa2fba480ad460857c179be8f6af5bf44e9ec580b1cb87c2745558f
+        lines: [324, 339]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#notifyDataCampaignTargets
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: notifyDataCampaignTargets
+        hash: sha256:643e4cc347bf1c58eedae919d65b76d7e73fd5629e1554486452abe739ae9087
+        struct_hash: sha256:17f37d842ad70dc41c0be8b16234e33a208d5cf2c547b642cad22d2b5ef6a370
+        doc_struct_hash: sha256:17f37d842ad70dc41c0be8b16234e33a208d5cf2c547b642cad22d2b5ef6a370
+        lines: [341, 376]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#dataCampaignTargetName
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: dataCampaignTargetName
+        hash: sha256:f3097f737c4dd9016ef86f16d9234f67284d95312bf312bda4eefaea0d3a9eb2
+        struct_hash: sha256:f22fb4037cecb6d5a27d4649c683ce671f7a1e7f56d7b5fae79ca5c5dcef588b
+        doc_struct_hash: sha256:f22fb4037cecb6d5a27d4649c683ce671f7a1e7f56d7b5fae79ca5c5dcef588b
+        lines: [378, 384]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#dataCampaignMessage
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: dataCampaignMessage
+        hash: sha256:9c7d2a101429fd2fd12769f5a4b486271c9655df593b77e99bc93d18de0c60fe
+        struct_hash: sha256:95ca643252c20bd70a119e76020c86f87dc00f1a531294c8844dbc6f38025b0f
+        doc_struct_hash: sha256:95ca643252c20bd70a119e76020c86f87dc00f1a531294c8844dbc6f38025b0f
+        lines: [386, 403]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#canonicalDataFields
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: canonicalDataFields
+        hash: sha256:02a3c4f96824d82985922af24538f7b106a5936a8d5992ac6735ff4ab3eff229
+        struct_hash: sha256:cb1cdbe16aac9db1d1c7d21c2aed23cf0e8af256ceef71622c65579f248bfbf0
+        doc_struct_hash: sha256:cb1cdbe16aac9db1d1c7d21c2aed23cf0e8af256ceef71622c65579f248bfbf0
+        lines: [405, 418]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#canSeeDataCampaign
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: canSeeDataCampaign
+        hash: sha256:286504030f895f4b849a7c01887471be17e75a61f1d89311616adb2fdab32ff0
+        struct_hash: sha256:36ae0e8fbf5266cb50b6bc09e5e86b3f42a8f34d63c5da89799366f50002b91c
+        doc_struct_hash: sha256:36ae0e8fbf5266cb50b6bc09e5e86b3f42a8f34d63c5da89799366f50002b91c
+        lines: [420, 433]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#canManageDataCampaign
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: canManageDataCampaign
+        hash: sha256:45254ac30a8d2b4df769e611093a56407e3e1b3bf776e9ed8fc84649af7e3ce7
+        struct_hash: sha256:56ba51328ea54c061beaa3383d15d573374cb27d4f3e3e1e68f42004e57a659d
+        doc_struct_hash: sha256:56ba51328ea54c061beaa3383d15d573374cb27d4f3e3e1e68f42004e57a659d
+        lines: [435, 437]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#dataCampaignView
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: dataCampaignView
+        hash: sha256:c667e3d85500ba7898143b8db0ee862076269049bbe15d8edd49bbafc16dc86a
+        struct_hash: sha256:22116428a276b21edd0955e0e7fa20ed9b7a63fb68f040aba7ce98be34923d01
+        doc_struct_hash: sha256:22116428a276b21edd0955e0e7fa20ed9b7a63fb68f040aba7ce98be34923d01
+        lines: [439, 450]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#renderDataCampaignList
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: renderDataCampaignList
+        hash: sha256:8c415c904077edcb8821e9eb46979ad9aee589899f75eec234823524fff7459c
+        struct_hash: sha256:e4384849b0447cb984036f6ba3af750c8f63ae6c2cc5958223950f3505a324d3
+        doc_struct_hash: sha256:e4384849b0447cb984036f6ba3af750c8f63ae6c2cc5958223950f3505a324d3
+        lines: [452, 468]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#renderDataCampaignDetail
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: renderDataCampaignDetail
+        hash: sha256:80bb868f50f39e728f295df96372b0a7f985fa9861361c0048a004bbeb438ad0
+        struct_hash: sha256:f71f1f73279e2cd0f994a1caf83ffcb46c475f783f278c23698e82c7a4373ea4
+        doc_struct_hash: sha256:f71f1f73279e2cd0f994a1caf83ffcb46c475f783f278c23698e82c7a4373ea4
+        lines: [470, 502]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/campaigns.go#dataCampaignStateBoundary
+      level: function
+      anchor:
+        file: tools/campaigns.go
+        symbol: dataCampaignStateBoundary
+        hash: sha256:764bbdac23e7ee76d8d36847a7c7206bd5bc0f1eeedbf7296abdebf7a22b1c47
+        struct_hash: sha256:a0474f8c4517d1246895efd2b48813b1f981f138317d0b4044a1f3940b1042c5
+        doc_struct_hash: sha256:a0474f8c4517d1246895efd2b48813b1f981f138317d0b4044a1f3940b1042c5
+        lines: [504, 506]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: tools/data_read_test.go
+      level: file
+      anchor:
+        file: tools/data_read_test.go
+        hash: sha256:ff9d9a0e1f0e65063581724a78a296631e3a327183b8a42328d9a6e647ce7bbd
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestLexicalRowsAcrossSourcesDoesNotTurnDatabaseFailureIntoEmptyResult
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestLexicalRowsAcrossSourcesDoesNotTurnDatabaseFailureIntoEmptyResult
+        hash: sha256:6e5fce7ad2562bc77e6b7f1ddbd4a21b0e0b8c0691d8f92f03a614412565b72c
+        struct_hash: sha256:18cb07198b1041d0c4590d628d79dcb8c210376d5e228adda8c095035f082830
+        doc_struct_hash: sha256:18cb07198b1041d0c4590d628d79dcb8c210376d5e228adda8c095035f082830
+        lines: [15, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestDataSemanticFilterAppliesCoarsePrivateScopes
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestDataSemanticFilterAppliesCoarsePrivateScopes
+        hash: sha256:0deaae00a251c700e8ded8975df7aecf5256b855001a44db4a31add699e52e3a
+        struct_hash: sha256:5bdb1058a72352b66e0d155e03f6720e94eadfb4cb8b9d473416cfe59f075d57
+        doc_struct_hash: sha256:5bdb1058a72352b66e0d155e03f6720e94eadfb4cb8b9d473416cfe59f075d57
+        lines: [26, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestMergeRankedDataRowsUsesRRF
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestMergeRankedDataRowsUsesRRF
+        hash: sha256:12dd3e57a3de889314d71c62ddb2193cfc9d4642510a6121d75edd5ef975eec0
+        struct_hash: sha256:02a3aad0424f19e5a6c6ed38b5e45c9a5fab9b0a06dfdecc93d5e170971fabf6
+        doc_struct_hash: sha256:02a3aad0424f19e5a6c6ed38b5e45c9a5fab9b0a06dfdecc93d5e170971fabf6
+        lines: [43, 53]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestInterleaveLexicalRowsDoesNotStarveLaterSources
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestInterleaveLexicalRowsDoesNotStarveLaterSources
+        hash: sha256:59e6f0408f9ed107f5c027fc25ce6e377dd71bcb196fe7bbec597ce504364987
+        struct_hash: sha256:b04c4a7828b6d0681cf030383bdd81a2ef5ebe4849cd8904506d6c1c54f41344
+        doc_struct_hash: sha256:b04c4a7828b6d0681cf030383bdd81a2ef5ebe4849cd8904506d6c1c54f41344
+        lines: [55, 66]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestMergeCrossRankedDataRowsUsesSourceAndID
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestMergeCrossRankedDataRowsUsesSourceAndID
+        hash: sha256:4c9004468dd31059001abab651943da0694672814c75c365d7368fa6eea869a5
+        struct_hash: sha256:3a8a37246538afda644d5133a251a8bd3355b2d3871d18e25c06a57d6e34f37b
+        doc_struct_hash: sha256:3a8a37246538afda644d5133a251a8bd3355b2d3871d18e25c06a57d6e34f37b
+        lines: [68, 79]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestMergeCrossRankedDataRowsCollapsesExactCrossSourceFacts
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestMergeCrossRankedDataRowsCollapsesExactCrossSourceFacts
+        hash: sha256:5166137a769ea29e478be23c044f99b3b2b6811d92542fb424410b7ed6d4e17e
+        struct_hash: sha256:ac9b6ac48e37398e6369607696d71fc972c0dbfed53596229b4518a2b2ddea7c
+        doc_struct_hash: sha256:ac9b6ac48e37398e6369607696d71fc972c0dbfed53596229b4518a2b2ddea7c
+        lines: [81, 89]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read_test.go#TestMergeCrossRankedDataRowsPreservesSourceDiversity
+      level: function
+      anchor:
+        file: tools/data_read_test.go
+        symbol: TestMergeCrossRankedDataRowsPreservesSourceDiversity
+        hash: sha256:a12e31d953cee8a014d4c604f023e04642b5a242005e309771071f651ec93988
+        struct_hash: sha256:4888a40f0f52805ab18948438f615f66dc8dc9447ea0834312970ae64e7c5b6c
+        doc_struct_hash: sha256:4888a40f0f52805ab18948438f615f66dc8dc9447ea0834312970ae64e7c5b6c
+        lines: [91, 101]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,362 @@
+schema: 1
+nodes:
+    - id: knowledge/knowledge_test.go
+      level: file
+      anchor:
+        file: knowledge/knowledge_test.go
+        hash: sha256:49e10a60d0498e77684bd329b0864f9dda17c84f3db36b8073842775af919907
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#testDBLockKey
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: testDBLockKey
+        hash: sha256:f04353b62256603ab411640e7a46146996f4f73f653ee6ee2536b6f1d120f882
+        struct_hash: sha256:f1a780a9daedc72a2bb208047aed9c7d68fb349c6431c3db51dfdc63bf734b2b
+        doc_struct_hash: sha256:f1a780a9daedc72a2bb208047aed9c7d68fb349c6431c3db51dfdc63bf734b2b
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#openKnowledgeTestStore
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: openKnowledgeTestStore
+        hash: sha256:60891949d5f7848875ba7b8d4e7e1ad9d9fe32ec773411a4abf8815f73f9baf9
+        struct_hash: sha256:a9831e3b49a806db13492b6828c396cd89dbd8f2d3cd0d15228815d71c2fd778
+        doc_struct_hash: sha256:a9831e3b49a806db13492b6828c396cd89dbd8f2d3cd0d15228815d71c2fd778
+        lines: [19, 47]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestMerge
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestMerge
+        hash: sha256:56502ba31b499c733b8f5189993311cfdf8aab6f60c1107d05f493024275670b
+        struct_hash: sha256:302791241323f9089dbdb82f2f423d03193a9124b4fec52e6b8f45fb1e9032e5
+        doc_struct_hash: sha256:302791241323f9089dbdb82f2f423d03193a9124b4fec52e6b8f45fb1e9032e5
+        lines: [49, 58]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestMessageDocumentKeepsCurrentAndPreviousContext
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestMessageDocumentKeepsCurrentAndPreviousContext
+        hash: sha256:898b3850d1ce2f8009a069d4c8241994cb15a734e7a3ea496a9a3bbb0de48644
+        struct_hash: sha256:1e323a27698497b2a02656c0a126142f2b235d2402722f13858dc5f6e666508d
+        doc_struct_hash: sha256:1e323a27698497b2a02656c0a126142f2b235d2402722f13858dc5f6e666508d
+        lines: [60, 84]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestFilterAuthoritativeKnowledgeRejectsStaleVectorScopes
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestFilterAuthoritativeKnowledgeRejectsStaleVectorScopes
+        hash: sha256:77a64a99276770a38c9fd773d3d1a22b9b43388f0cc5b7e7a188c2c795daa4c7
+        struct_hash: sha256:5920c94b1ecb6a775c1fa8a652f673716c8ee54755046357f46860480dfc74f2
+        doc_struct_hash: sha256:5920c94b1ecb6a775c1fa8a652f673716c8ee54755046357f46860480dfc74f2
+        lines: [86, 105]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#bagEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: bagEmbedder
+        hash: sha256:2e99fdca79bfe3d53fa348dcae919e12d7885b5ccde8a7b5b27f39dce0029dc6
+        struct_hash: sha256:e35eb1970dda95fd4eacd422cbe12512a99f95c092146a7fe4b689eb6b590e34
+        doc_struct_hash: sha256:e6203ae3d96c1541232140d52962388d34f63d62a3a5fb74ebd5dd944e3dcdfa
+        lines: [107, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#bagEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: bagEmbedder.Model
+        hash: sha256:7b016179fe7dc63e91e7bb7e77e20f651ced824551543da32ca0b77f0564a1b2
+        struct_hash: sha256:d48d8739c9187d8ddfcc0ef4dd1d7e15516d280d07817c8d62a06ae3a71f913e
+        doc_struct_hash: sha256:d48d8739c9187d8ddfcc0ef4dd1d7e15516d280d07817c8d62a06ae3a71f913e
+        lines: [110, 110]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#bagEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: bagEmbedder.Embed
+        hash: sha256:966c2d9b9f97959b42dae93be68f1a75ab0c71fd7a0749c26ed6ec240c441b0d
+        struct_hash: sha256:6784557ffd64d3cfcbac8c90370ee3f48c34ef7084a1ce12687c7e1da07cf112
+        doc_struct_hash: sha256:6784557ffd64d3cfcbac8c90370ee3f48c34ef7084a1ce12687c7e1da07cf112
+        lines: [111, 121]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestSemanticSearchRanks
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestSemanticSearchRanks
+        hash: sha256:2328ba336f593d06ed79cca261e0fad024c22f05389be175971a5cf5f835b81b
+        struct_hash: sha256:c6bcbb17e389732193d27970de5a68187bfb8bb8e1d09d2e33ee485c21576c77
+        doc_struct_hash: sha256:c6bcbb17e389732193d27970de5a68187bfb8bb8e1d09d2e33ee485c21576c77
+        lines: [123, 164]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#fixedEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: fixedEmbedder
+        hash: sha256:0a98d3eb42ae02cbc50ab4cc621b77afe9fe7d616ff06deef9b84a4d82fadee3
+        struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        doc_struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        lines: [166, 166]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#fixedEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: fixedEmbedder.Model
+        hash: sha256:baee6ce6a4b14747c51539881fae19bfecf6cbce066fb7de29590af80c3a30fb
+        struct_hash: sha256:4c4f103de7a99b5c2ef4ded1657c6bee3435d86ed81dbb962a9ad14f06dba86c
+        doc_struct_hash: sha256:4c4f103de7a99b5c2ef4ded1657c6bee3435d86ed81dbb962a9ad14f06dba86c
+        lines: [168, 168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#fixedEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: fixedEmbedder.Embed
+        hash: sha256:4ad44b7aedb747bff314f463306b85e567911ef9a45266ed3a4d9d9421e8c5a3
+        struct_hash: sha256:fb68d00f0e78f1558717094725b35f8d3a7bedd54223d4cfff12b977526f1069
+        doc_struct_hash: sha256:fb68d00f0e78f1558717094725b35f8d3a7bedd54223d4cfff12b977526f1069
+        lines: [169, 175]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#countingQueryEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: countingQueryEmbedder
+        hash: sha256:5c6126540433addbc43c769eb71751315c9279c5ba0d9bc1c6d51156e8f0bf74
+        struct_hash: sha256:7eddacf0b5fec5179e6ed51d1079a0f85aada6264d884461db97064686f139e1
+        doc_struct_hash: sha256:7eddacf0b5fec5179e6ed51d1079a0f85aada6264d884461db97064686f139e1
+        lines: [177, 183]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#countingQueryEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: countingQueryEmbedder.Model
+        hash: sha256:ab6e1936f3bd28afc26a6aa87ea63fbc9fac46763928af45892dde59ef4d618d
+        struct_hash: sha256:0b228e936e468dfcf0946688f48d416f4da8a9bdfdea66337884c5fe86c85dd9
+        doc_struct_hash: sha256:0b228e936e468dfcf0946688f48d416f4da8a9bdfdea66337884c5fe86c85dd9
+        lines: [185, 185]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#countingQueryEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: countingQueryEmbedder.Embed
+        hash: sha256:4b980a4f790de0eaae2e25e646f23e19010f174cea01fc55cc5aad8561f8021d
+        struct_hash: sha256:6a4d80dc1a27d9658696678692ba7ca229ba5fef05efb593424ca13bb9d520dd
+        doc_struct_hash: sha256:6a4d80dc1a27d9658696678692ba7ca229ba5fef05efb593424ca13bb9d520dd
+        lines: [187, 203]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestQueryVectorDeduplicatesAndCaches
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestQueryVectorDeduplicatesAndCaches
+        hash: sha256:3b7dd4d8af46c202b403d62bec81539125ffa39a70c66aa7f03266e160d16b69
+        struct_hash: sha256:b454c4dad71d96e93239368c45ff35f9c4f56ccdf155331eab1a3b0398ceb806
+        doc_struct_hash: sha256:b454c4dad71d96e93239368c45ff35f9c4f56ccdf155331eab1a3b0398ceb806
+        lines: [205, 241]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestQueryVectorFailureCooldown
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestQueryVectorFailureCooldown
+        hash: sha256:9a43b79aa167780d8822dfaf331402e5871131a8a5567b939b4e729d750c64ad
+        struct_hash: sha256:1b120a80779d0c289e60835e0d156963c6fda52ce749dfa9d4d85f044ea09e69
+        doc_struct_hash: sha256:1b120a80779d0c289e60835e0d156963c6fda52ce749dfa9d4d85f044ea09e69
+        lines: [243, 255]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestScopedSemanticSearch
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestScopedSemanticSearch
+        hash: sha256:d7ea1921709919ac256faea49f14e996d4679c58b7fadb6befa44dcf7fa89806
+        struct_hash: sha256:e3e001fd64c763883fd4871370ac5bcbb36aab575c0db10e25288c024ec24930
+        doc_struct_hash: sha256:e3e001fd64c763883fd4871370ac5bcbb36aab575c0db10e25288c024ec24930
+        lines: [257, 295]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#failEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: failEmbedder
+        hash: sha256:576684d14dfd190f6902c87fa641d8336852eb1bc2af9e3fd998366200f30941
+        struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        doc_struct_hash: sha256:aaa87bdae1149668fbfaeec52a2c7b2c7d44fbbffc42b7e5ba886ab877ef6858
+        lines: [297, 298]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#failEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: failEmbedder.Model
+        hash: sha256:a6bbae697cd203873cd123091e640392d3081bddf4df6b5ff2a162e4278c3f7d
+        struct_hash: sha256:bb97f869842fef6b6eeeec239199793b6d8a1c3e8eb966004cbd01cffaacb23e
+        doc_struct_hash: sha256:bb97f869842fef6b6eeeec239199793b6d8a1c3e8eb966004cbd01cffaacb23e
+        lines: [300, 300]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#failEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: failEmbedder.Embed
+        hash: sha256:cb9592b597ba3addfb1172d2c07a328bff9f01ea71cfc1080b7ec024571a5de9
+        struct_hash: sha256:7843b7d6dca3617a696dcd9b92488b73c5186aedb4479775b77ab35f2d646584
+        doc_struct_hash: sha256:7843b7d6dca3617a696dcd9b92488b73c5186aedb4479775b77ab35f2d646584
+        lines: [301, 303]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#emptyEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: emptyEmbedder
+        hash: sha256:5724b49f0a2d427f8852615c83563fbe26ec1a1453d0720fcff15a69be296d91
+        struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        doc_struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        lines: [305, 305]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#emptyEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: emptyEmbedder.Model
+        hash: sha256:64d9a7343ea72e01d5587a28fa3ac727d7fcc50a05a691c43797a4edaf9622ca
+        struct_hash: sha256:33379d7dc9881fd9ce8accced414eaeb7711d0a1d4c1bffb476b258520efcc62
+        doc_struct_hash: sha256:33379d7dc9881fd9ce8accced414eaeb7711d0a1d4c1bffb476b258520efcc62
+        lines: [307, 307]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#emptyEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: emptyEmbedder.Embed
+        hash: sha256:0ee79d43b377dd5b0976893f35bcb7c270de8a4762ce320ca2b680cf10857002
+        struct_hash: sha256:fbc11d1065592801671b7bb4ddfa7124657e4f4c3b3c3c391e69baa014b17740
+        doc_struct_hash: sha256:fbc11d1065592801671b7bb4ddfa7124657e4f4c3b3c3c391e69baa014b17740
+        lines: [308, 310]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestBackfillsRejectEmptyEmbeddingProbe
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestBackfillsRejectEmptyEmbeddingProbe
+        hash: sha256:b85510d1509b3cb027570df34957486f31003de1c94c3c1bee3b843a4a01483e
+        struct_hash: sha256:cfed0992e80845291fffc7e8e8415442bc731197022d303ed71372fc2657ce90
+        doc_struct_hash: sha256:cfed0992e80845291fffc7e8e8415442bc731197022d303ed71372fc2657ce90
+        lines: [312, 320]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#selectiveEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: selectiveEmbedder
+        hash: sha256:0305f24b6c8b044eb9d806d310a897c61010ccc8ab7644ff6a5cc8e324b0bbe3
+        struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        doc_struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
+        lines: [322, 322]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#selectiveEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: selectiveEmbedder.Model
+        hash: sha256:b9f16394783bc0174ad9a9d3970417ecc8f161a59f070bfb4caf5ae0c674bead
+        struct_hash: sha256:2091e6456c55464bfa48c606ae8ddef5d18d510f0960158aaf818438f7b2d275
+        doc_struct_hash: sha256:2091e6456c55464bfa48c606ae8ddef5d18d510f0960158aaf818438f7b2d275
+        lines: [324, 324]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#selectiveEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: selectiveEmbedder.Embed
+        hash: sha256:3b4b47fd8de6751c28abb2866d383a297281cd468a362e46a0d560cbf60a7994
+        struct_hash: sha256:65ff5df72d0419c00a8115bade6ef4d0b7018c3997e276309634331b3ee691f3
+        doc_struct_hash: sha256:65ff5df72d0419c00a8115bade6ef4d0b7018c3997e276309634331b3ee691f3
+        lines: [325, 334]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestBackfillSkipsFailedRowsWithoutStarvingLaterKnowledge
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestBackfillSkipsFailedRowsWithoutStarvingLaterKnowledge
+        hash: sha256:9dbf8c0391c5b68ec09066666318699599c2e8b91df3c807fe36a6bb320b5933
+        struct_hash: sha256:347191c7ff80f509172a16883edc764f9bfa24cea0be16dc089f0bdf37157a6c
+        doc_struct_hash: sha256:347191c7ff80f509172a16883edc764f9bfa24cea0be16dc089f0bdf37157a6c
+        lines: [336, 378]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestBackfillStopsWhenServiceDown
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestBackfillStopsWhenServiceDown
+        hash: sha256:ce82f37de93611faa7f743d60fc21130bcc8c5ae5670ab9977f39e84a3f137df
+        struct_hash: sha256:c7d74f130f4eac322aa763b8613b82ebcb89fec4e2245d9f45c329ecddc45c8b
+        doc_struct_hash: sha256:c7d74f130f4eac322aa763b8613b82ebcb89fec4e2245d9f45c329ecddc45c8b
+        lines: [380, 402]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestRuleApplies
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestRuleApplies
+        hash: sha256:cae110e7cd7d2434ce614e2f2b5708f080b97fa9b3cb8c1bdbfaccf854bbab3f
+        struct_hash: sha256:f835d3203d58587199302646c8776d1f27206e7492e043adaa3ee43e8dc24966
+        doc_struct_hash: sha256:f835d3203d58587199302646c8776d1f27206e7492e043adaa3ee43e8dc24966
+        lines: [404, 428]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#TestRulesSemanticSearch
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestRulesSemanticSearch
+        hash: sha256:d3520f0d3e3d000b3942048bdf717a6c8d61620af18ca1fb125743802212cdce
+        struct_hash: sha256:6fec671799ec6085cb75e57ef8ee31dcb32df2a7140a200ebe32f451c5b70c9d
+        doc_struct_hash: sha256:6fec671799ec6085cb75e57ef8ee31dcb32df2a7140a200ebe32f451c5b70c9d
+        lines: [430, 487]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: ai/embed/embed_test.go
+      level: file
+      anchor:
+        file: ai/embed/embed_test.go
+        hash: sha256:386858b8e797370a8b98a765c132d40a42b8650b856a257afa518370f206456d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestEmbedThroughEino
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestEmbedThroughEino
+        hash: sha256:5a9407568e956ee07234e968968a2d9c5fcb1db74dcb50b90dfdc44d1d0fbd1e
+        struct_hash: sha256:23e88f5e40ab2da4ec7fde7a35383fa0bb25556fc0ee5b91617611b6dd0ea52f
+        doc_struct_hash: sha256:910786c98af612de996203fa5a21e1f729e722b7070d1411a5bf0d3b31f83452
+        lines: [15, 48]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestNewDisabledWhenNoModel
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestNewDisabledWhenNoModel
+        hash: sha256:4c4c3a96268c5742f9ce370e5f37f3aa71cfd917dbb7e12b42f2d2ab971c88b8
+        struct_hash: sha256:b6e6df7a5dc4b4a793681fce1084b51835e38cac7ce0f82ed1ed85b2f9482a30
+        doc_struct_hash: sha256:b6e6df7a5dc4b4a793681fce1084b51835e38cac7ce0f82ed1ed85b2f9482a30
+        lines: [50, 55]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestEmbedRevisionChangesIdentityButNotRequestModel
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestEmbedRevisionChangesIdentityButNotRequestModel
+        hash: sha256:c829eb320ae8e855e8fe7cd3658a76c68aabe692435a8c61af9c2ddad4bebd54
+        struct_hash: sha256:3ee693e9952f369536af6cbd833c4d569bd88537946266af717d88a8870cf86c
+        doc_struct_hash: sha256:3ee693e9952f369536af6cbd833c4d569bd88537946266af717d88a8870cf86c
+        lines: [57, 85]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestEmbedRetriesTransientServerErrors
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestEmbedRetriesTransientServerErrors
+        hash: sha256:145f184a756298a2426ce6293b3e8857cb9300954dc2cb1bdf8c2f6eb9609b78
+        struct_hash: sha256:92a6d955294488ab521f274a590825129f155028bd62116f6c26331bfedd75a7
+        doc_struct_hash: sha256:92a6d955294488ab521f274a590825129f155028bd62116f6c26331bfedd75a7
+        lines: [87, 109]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestEmbedDoesNotRetryClientErrors
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestEmbedDoesNotRetryClientErrors
+        hash: sha256:a4de40be0220e439d27ad2cda6a86cfbbb43b2f7871b6c524c341fefc0b28eb7
+        struct_hash: sha256:f2850428603b7c8489497d17c0fff3baac7980b3520e834506d6e58c27e73f2b
+        doc_struct_hash: sha256:f2850428603b7c8489497d17c0fff3baac7980b3520e834506d6e58c27e73f2b
+        lines: [111, 125]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestEmbedRejectsInconsistentDimensions
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestEmbedRejectsInconsistentDimensions
+        hash: sha256:be35d25a035415163f810a7ebfad43fda9dc4c0a76e1433dd872543d204b994e
+        struct_hash: sha256:fc85d96e57b36df64e4356d01fd1676c5cae832b152eb33d1d5e44b5f8fe32cb
+        doc_struct_hash: sha256:fc85d96e57b36df64e4356d01fd1676c5cae832b152eb33d1d5e44b5f8fe32cb
+        lines: [127, 146]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed_test.go#TestSmokeRealEmbed
+      level: function
+      anchor:
+        file: ai/embed/embed_test.go
+        symbol: TestSmokeRealEmbed
+        hash: sha256:ac83bca5ba6e3ce41494e3068e0c60b34492a9d5932de978d95cabb45b94c4c9
+        struct_hash: sha256:83a0e484996b7042cc5c6d399b5a3b3eccf86b24f95209648fed99223ad144c8
+        doc_struct_hash: sha256:67e15d163253675b22e45f6424ad87def3956f72a3b784eab112404f31cc82e1
+        lines: [148, 168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

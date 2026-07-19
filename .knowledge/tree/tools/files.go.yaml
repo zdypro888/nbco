@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: tools/files.go
+      level: file
+      anchor:
+        file: tools/files.go
+        hash: sha256:c1ce22c5140aa1f20ec91f6fc6ca9ff8f55b42fc9f17f764c2d13b0052d82e21
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/files.go#fileTools
+      level: function
+      anchor:
+        file: tools/files.go
+        symbol: fileTools
+        hash: sha256:4cadcfc100ba8797df6cd854668fb53482459843c2f0dd88407b4148eedc1e98
+        struct_hash: sha256:1f4f3c15f5e2ea122a84ae2d3725723dd59a0e54d47797c894b053cc6d6233bb
+        doc_struct_hash: sha256:1f4f3c15f5e2ea122a84ae2d3725723dd59a0e54d47797c894b053cc6d6233bb
+        lines: [17, 172]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/files.go#renderWorkspaceResources
+      level: function
+      anchor:
+        file: tools/files.go
+        symbol: renderWorkspaceResources
+        hash: sha256:2b2f2a00ee97ccdcba90d41d85823c06ca36523d458439793032bf81f7a5d9ac
+        struct_hash: sha256:1f6534808f684b8395a4a18db9dadb62ce45869c35670ef8f7c9476385223233
+        doc_struct_hash: sha256:1f6534808f684b8395a4a18db9dadb62ce45869c35670ef8f7c9476385223233
+        lines: [174, 190]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/files.go#renderFileQueue
+      level: function
+      anchor:
+        file: tools/files.go
+        symbol: renderFileQueue
+        hash: sha256:e1480e1fe12f5fc59d69a53bec8ace835117f493853dc996a16003e40445429a
+        struct_hash: sha256:ceb7fefd03b660211eee66fdfb6d505d8e47ebd88439dffbdd316b67e2b138d9
+        doc_struct_hash: sha256:ceb7fefd03b660211eee66fdfb6d505d8e47ebd88439dffbdd316b67e2b138d9
+        lines: [192, 219]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/files.go#fileIntakeReason
+      level: function
+      anchor:
+        file: tools/files.go
+        symbol: fileIntakeReason
+        hash: sha256:dd7f5b16011c8aaa2fde3cce47eacbd45fa648880fa2b02ae75d2370ab6069b0
+        struct_hash: sha256:7e5ebaa8ff41c8b85ec0b28c2f14e21f1ac9520d88a67d71d6a8b380e22076d4
+        doc_struct_hash: sha256:7e5ebaa8ff41c8b85ec0b28c2f14e21f1ac9520d88a67d71d6a8b380e22076d4
+        lines: [221, 229]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/files.go#renderFileList
+      level: function
+      anchor:
+        file: tools/files.go
+        symbol: renderFileList
+        hash: sha256:d6bad307b42958333ee42b5b620ef63cfd1627d1c11f9f87723a436b964a8f54
+        struct_hash: sha256:405fad1ea60a36a9c5e91fe118346eb5240c2465cc9318711f8b84a4ff08ae26
+        doc_struct_hash: sha256:405fad1ea60a36a9c5e91fe118346eb5240c2465cc9318711f8b84a4ff08ae26
+        lines: [231, 240]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

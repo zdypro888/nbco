@@ -1,0 +1,615 @@
+schema: 1
+nodes:
+    - id: store/chat.go
+      level: file
+      anchor:
+        file: store/chat.go
+        hash: sha256:27e910b524622154351126edb7f1a8929f722c8e75b0733bc353fdcf7b354935
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#ChatSession
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: ChatSession
+        hash: sha256:f79c00f38976450651b83b19825b29871750d13e8b9a09ec3d07338404b5823d
+        struct_hash: sha256:1ab310c58527d9e494037547d8b963260cbeec176096aa9567d0e8a85fda74db
+        doc_struct_hash: sha256:e956bb55224d8e1f85a6a96b52acba1635259350d12b1166e64d4b9a7029d7c1
+        lines: [11, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#ChatMessage
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: ChatMessage
+        hash: sha256:2dea56a94c39eb833acb809c7f59d72a7dfbacc3aba489815d575acca540b392
+        struct_hash: sha256:ec834cba1678cea85959069089e195320797bbeaf2b70eaeede29f76742bc766
+        doc_struct_hash: sha256:6a48bb6c9fb31be31bd16980928583b1f0442a9fead0eeb2c90115081bea09d4
+        lines: [27, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#IsGroupChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: IsGroupChannel
+        hash: sha256:95e2b87ca576213c28a6818fea862237694dc445dade8d5429bfdc17be11a728
+        struct_hash: sha256:2276b05d9547a88c18af217a34ad536a3c461edf752433add9a8dd4075792507
+        doc_struct_hash: sha256:7cebe97b69169743640575dc97935b7ddfadb7f231b141bcc487e360cc9df7fc
+        lines: [36, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#IsInternalChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: IsInternalChannel
+        hash: sha256:d63bf802bc694f70c9bc081365b912bc4210fd0803bfde5bf0a0d5a4b359c1d6
+        struct_hash: sha256:9039bbc487ee0dc5c1b1717d0c5a7bc750d224d1d137b8de3ab4562b08308359
+        doc_struct_hash: sha256:6ab73910e26681426d7f9304f542c52eded83d5ef44028bb5074c40cecdce567
+        lines: [43, 47]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ChatMessageByID
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ChatMessageByID
+        hash: sha256:610486c4f03fe3512934316bdcc9e595960182718e83facff4d49c911416f57b
+        struct_hash: sha256:63749cc43cdc26d80df7798ab376f7f78e94ea7cfcfa08d1897862c5d6eec127
+        doc_struct_hash: sha256:63749cc43cdc26d80df7798ab376f7f78e94ea7cfcfa08d1897862c5d6eec127
+        lines: [49, 57]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#ChannelMessagePage
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: ChannelMessagePage
+        hash: sha256:8f8c6c80659cedb5a8cef91d995b13d89b69cdcab71c5b5dbdda151e40747831
+        struct_hash: sha256:31b33a72448eb873be8895749c3dc39971cab30f8e571c32edf7898bf315c958
+        doc_struct_hash: sha256:109c3d6b35dfee3f2fa36fddd654c73452f0e1984514f91b069f0bb595a4dcac
+        lines: [59, 66]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#sessionCols
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: sessionCols
+        hash: sha256:5c7dc0df8497d811f8da38f3a5c44219bed5a839f15d98d781795294deaf47a6
+        struct_hash: sha256:1019e1ccc9d98d138650db9af4b8b44bfb2e3eae23a4cdb240d8ff1dab40406c
+        doc_struct_hash: sha256:1019e1ccc9d98d138650db9af4b8b44bfb2e3eae23a4cdb240d8ff1dab40406c
+        lines: [68, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#scanSession
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: scanSession
+        hash: sha256:d18481ac869dc5a9dcfd90ecab2adda16ae54553fb1565a8f7a5d0d505fc505d
+        struct_hash: sha256:32489a0a879a29d017ec90daf9e08ddcc7d4d45ae66ab7c2dc8b9dc0215bfbae
+        doc_struct_hash: sha256:32489a0a879a29d017ec90daf9e08ddcc7d4d45ae66ab7c2dc8b9dc0215bfbae
+        lines: [70, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ActiveSession
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ActiveSession
+        hash: sha256:f55eda7caf1a268c601b8b78dd501d5a52308e09cfd8c76aabb1672e9dc89acd
+        struct_hash: sha256:245e06c1daa6db60ff0da2ab30809d74a2304bb176245bb1851096cdab8f7845
+        doc_struct_hash: sha256:1268f807c6819bb54960db7a93788c394b7373f83cbce449f582a9ade7889ef5
+        lines: [79, 83]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.StartSession
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.StartSession
+        hash: sha256:945f6dd6805f666b8b6ded44c005bd8333364f88aac7afd573c61e5f89a91f3a
+        struct_hash: sha256:06715a6953f0d0902ed041a98a7dbb633aad075fae5ac337c5e2a2b72d6b32b5
+        doc_struct_hash: sha256:7418f4978bd5b4716ae3e1173efc04f2089b62576549a40cc258ee799615f7bf
+        lines: [85, 104]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SetSessionEngineRef
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SetSessionEngineRef
+        hash: sha256:4173f06818722a9e02015470c3cb714e7ff330d316f10b665cff7365a3acd01f
+        struct_hash: sha256:e4e4e47555148e1d3419bdec6ee8c25ad695f8f63e8974e8df459a5f10f6d109
+        doc_struct_hash: sha256:e3b6de72f0f9f72d218ff996b636fbf4684751d94b7d9283912f9cacdeaf3572
+        lines: [106, 110]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SessionByID
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SessionByID
+        hash: sha256:dc5bda684c83625e7cc79f10ed3dbbd1c1db4b728ed906fb00818bb4e4703ca1
+        struct_hash: sha256:5a0f2c0e286c5e37dcbc6601f795845d1d6828db20a357d160fb7c062fcd4aa8
+        doc_struct_hash: sha256:09efba65cf210d2fa071064363e1593f64894a5e11f70ba42a749849d993df91
+        lines: [112, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ActiveSessionByChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ActiveSessionByChannel
+        hash: sha256:1dfe14eeda696c80ede345768f2e206613c6470ca0e98b0af56d673ec93c982b
+        struct_hash: sha256:d69b380de9a43bf10e9653702f372b1f097db7001323608d00c65e66ff9db6f0
+        doc_struct_hash: sha256:d48932d6d7a22e7feaa8822762a6276b71103d12a559ad9f8043013cb3849428
+        lines: [118, 122]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.StartGroupSession
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.StartGroupSession
+        hash: sha256:d5550849529f4fc5c063521c3a5362a9993587a2f0b16784475c62edad623722
+        struct_hash: sha256:b72a02d04a7950c10d1ff15955a5e4b66c77f444eb1e13e49dfe2cda4b80f691
+        doc_struct_hash: sha256:96c8715462c8890561db7561e6da85290a2f069cfc15c2ac6e3e4e0cc9ef00d2
+        lines: [124, 144]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.UpdateSessionSummary
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.UpdateSessionSummary
+        hash: sha256:24ae2fd88b7e617519b6cd3c00198065356d6705dff6f3b67cba233e20a214c9
+        struct_hash: sha256:93f1c012d0f40ce6141bc836aa7d04fe8e92193502e9192674c31e478e9a592d
+        doc_struct_hash: sha256:d6ab98a013b3ca7684b3658eb86ebc02449215e57e24aa4907e8575f0fcbdeba
+        lines: [146, 151]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.AppendMessage
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.AppendMessage
+        hash: sha256:f4bbea6eb99862d7a5bb760450c6d2a1a01eb9a002f8a4158faf76935a7af07e
+        struct_hash: sha256:88c07acb32189302ed1ea68443250f9d161e160d6554f5d1e5ca32f99d1bbbd0
+        doc_struct_hash: sha256:0d2be070969c43fe50ab7b8f97f108c2ffc406fab88fb6aafdbc25540b44a4d7
+        lines: [153, 160]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SetMessageEmbedding
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SetMessageEmbedding
+        hash: sha256:963d5492650356435b8fc92f06d699bc855baacb0016314493256085dbe604af
+        struct_hash: sha256:f735ea6889b9c2afdb784aed710f1e0b67432bcd1e6c8668d5669aba3fb8c324
+        doc_struct_hash: sha256:837257c8c6ef3bfb2db2915e9697a85ab7d4bd9a84aaf6448a5d2eb374746ca0
+        lines: [164, 168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MarkMessageVectorIndexed
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MarkMessageVectorIndexed
+        hash: sha256:d1cf7c756a98fe299832a24e1736fae7b04420d471b8aa1c859a284a2391d7dd
+        struct_hash: sha256:9baeb5afd1ba4d1d730ad0c12bafc73ad964e8d3fc96aab3bc34ff0121bb5714
+        doc_struct_hash: sha256:79731f713ea54470afa2032b4fe6bda83646dc5578bb72a36716c8fc3dd96e02
+        lines: [170, 177]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ClearLegacyMessageEmbeddings
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ClearLegacyMessageEmbeddings
+        hash: sha256:49d085ee9728911dcec6ce9d24469d9bb56309651000daa9e84975bdd907ecc2
+        struct_hash: sha256:fe8cda4bd5fc8edbf3b290acc61885a08f3e64e18d4d84e69a6572c5c7e6571a
+        doc_struct_hash: sha256:ae6a505e816eb359aa38f30e50e887b6807ae7d716b569d804a81542bb67da11
+        lines: [179, 184]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#MessageSemanticDocument
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: MessageSemanticDocument
+        hash: sha256:ce5d7810b90ac05316ab283b591c550637367481022c0880eb42c18091b3c517
+        struct_hash: sha256:b0f5e6300b238f70551b97fe4a27276c7b3f2c7c3d242420f5fc813698efb5e0
+        doc_struct_hash: sha256:10f6e26e986668bbe00420c53bed667111fd8b2c3a42270653ef0d1e63964320
+        lines: [186, 194]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#MessageSemanticDocument.ContextContent
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: MessageSemanticDocument.ContextContent
+        hash: sha256:4dd9f61f5b79d052993d6508e979996278d4337a230eb8b7659a6b12d5748c3f
+        struct_hash: sha256:d0e6e7b5474dfdfc32df3780261b60aa0ca5484a043a8123de09c33e2599ff49
+        doc_struct_hash: sha256:6482fe111450e86d399c482b0113aa364f2b7ee2d3d7890a18800e2ad7e1c305
+        lines: [196, 208]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessageSemanticDocumentByID
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessageSemanticDocumentByID
+        hash: sha256:44e2418245e1815a7284f3668b053db7e4c55cb6b21f4ce3ddf46a11d1e0d221
+        struct_hash: sha256:c703bd8b486683699326961c513d732023046fa995c8d71e262e9d16a22f372a
+        doc_struct_hash: sha256:c703bd8b486683699326961c513d732023046fa995c8d71e262e9d16a22f372a
+        lines: [210, 228]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SemanticMessagesAfter
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SemanticMessagesAfter
+        hash: sha256:dd990c02f42dbc88c0f7c801cbb69379696043c2a11de7e2e393c7a507e65911
+        struct_hash: sha256:5ce34321adbf0168c9465ee51fb8ec7746ebdf78b19950d58dd9a48aba84b4e3
+        doc_struct_hash: sha256:799632a6657ebe854f3c47089e0d633be929be8c4897d6f1208a1da2c2bfd436
+        lines: [230, 236]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SemanticMessagesNeedingIndexAfter
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SemanticMessagesNeedingIndexAfter
+        hash: sha256:a6596c87e3c3d343218f0a46d5b971b76199f7642606d42149bcf60f419ceb93
+        struct_hash: sha256:4ce8a87a275aa2f36feb3d74cf0b60b5e7c57c4c5f313adfac7037f7a7eee7c0
+        doc_struct_hash: sha256:8482c6ab3b57088bf9d09156867bab4f1129dc35aca63b2c94eaf5fd0c508af3
+        lines: [238, 243]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.querySemanticMessages
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.querySemanticMessages
+        hash: sha256:7ee289a2fa8e7465a7893ef8b87847660a92dfc053e814ef8c37f6d5099a372c
+        struct_hash: sha256:8f2f60d44a22d4b68ae2bea6db09c4b1a1efb2295534c5d8d83a52d77a799b5c
+        doc_struct_hash: sha256:8f2f60d44a22d4b68ae2bea6db09c4b1a1efb2295534c5d8d83a52d77a799b5c
+        lines: [245, 271]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SemanticMessageIDs
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SemanticMessageIDs
+        hash: sha256:350207f3a31650eca358bc68654636cfb3ea51c407bb319b566235b35af15ff6
+        struct_hash: sha256:5bbc9e83eb13a933d0aa8043dc47a659e36a3609124a03761a2f86a0e74adb7d
+        doc_struct_hash: sha256:5bbc9e83eb13a933d0aa8043dc47a659e36a3609124a03761a2f86a0e74adb7d
+        lines: [273, 290]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesNeedingEmbeddingAfter
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesNeedingEmbeddingAfter
+        hash: sha256:4ed6bfe5e19350772ba26f981113142a91260b8d774fa29b313aa5ad670df1a8
+        struct_hash: sha256:af3b99f65e28cd63212473a36edf26de2d4594a61f772449e118c0e290d3b4ce
+        doc_struct_hash: sha256:4ec6e975d0ef84ee98796ed60fbb9fd20c724a5b4a390c179ddb23f324f8d05b
+        lines: [292, 297]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#MessageVec
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: MessageVec
+        hash: sha256:c9f777661b9b6da5c03a5deb1413b8000fc7ed2dde182e4513b9f822e3783bfd
+        struct_hash: sha256:58fc032e5c5dae691e8a24c600280575ddba612fc2a4a18e982ecb621b17aaa6
+        doc_struct_hash: sha256:86015a0d87689053f00f63b660708ccfc88db6b96aaba1e2a926432fe1b2e527
+        lines: [299, 303]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#ChatMessageIndexStats
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: ChatMessageIndexStats
+        hash: sha256:438931a65f5dba3c70118c3729337f55bb8f818e3abed33b19c4c94e5259b8a8
+        struct_hash: sha256:67587a2ccf5d8c8b992ff1f6f963e46f54c7d15daf20b2249fb7d066d786590d
+        doc_struct_hash: sha256:67587a2ccf5d8c8b992ff1f6f963e46f54c7d15daf20b2249fb7d066d786590d
+        lines: [305, 309]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ChatMessageIndexStats
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ChatMessageIndexStats
+        hash: sha256:2dc0090c915169f9ff5de43b90b5562d1d8e83939534ef5f76950714e4584a25
+        struct_hash: sha256:5c3c5d45011e2ff180c285b6fe979b218313443732423c5f27d8b5e99be6a1ae
+        doc_struct_hash: sha256:5c3c5d45011e2ff180c285b6fe979b218313443732423c5f27d8b5e99be6a1ae
+        lines: [311, 320]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#embeddedMessagesCap
+      level: decl
+      anchor:
+        file: store/chat.go
+        symbol: embeddedMessagesCap
+        hash: sha256:786edafa3b0f6e47d2d2b230287168a67645e28583db59a35b35d737883baff3
+        struct_hash: sha256:0363c746377340653608de96829c1d8b7617848eba040045d36b4fbc4d882b23
+        doc_struct_hash: sha256:5d34bad989fccaea012872bd42a01f90efbd25f02f494e61893e6fdf863d214a
+        lines: [322, 325]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.EmbeddedMessagesOfUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.EmbeddedMessagesOfUser
+        hash: sha256:9324e798dc193ca28bdb9c56b480cc99a3e776dd2cdca5fe00b92e4b062df2fb
+        struct_hash: sha256:57d3b9259b647e267f33488c4ffd3e737b7a1b48605fce1e774cb29cc675f889
+        doc_struct_hash: sha256:c155fd22233a895e606ef82d9a85be6aaf23b4d09efccbf10dd1233d5c164e92
+        lines: [327, 331]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.EmbeddedUserMessagesOfUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.EmbeddedUserMessagesOfUser
+        hash: sha256:0558799d05b92b31cc63afd41ae0c2ef30fb2d11ab442ae093260183090c3c31
+        struct_hash: sha256:72af5a6633775f9027bb5887a83ece176b80bdd46a6df08a5149b1470319f4b0
+        doc_struct_hash: sha256:16aa111a4c568f8fcb8322e0d372c00ed7b53752050a8d208c045a5999d9d039
+        lines: [333, 338]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.embeddedMessagesOfUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.embeddedMessagesOfUser
+        hash: sha256:ca2648afdc949fa4ecaed9deaddb098a98ad7ec77bacf971b21851693b09355b
+        struct_hash: sha256:ce185bd5b891efe57bcfe1d036b9623ee01250107719b5fec269813d1ae69525
+        doc_struct_hash: sha256:ce185bd5b891efe57bcfe1d036b9623ee01250107719b5fec269813d1ae69525
+        lines: [340, 367]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SearchMessagesOfUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SearchMessagesOfUser
+        hash: sha256:bc23b0afe15432987fc1e3f52c16bff85b9149d3d7697b1eb68c75ade4c45544
+        struct_hash: sha256:a4531336b432f4701aafc23501a170397ef1b433ed97b1925cca261c2a862a12
+        doc_struct_hash: sha256:18068a0c317c9c5f9928d13b6d1cf4aff01b96d998413ce931190e907829cf03
+        lines: [369, 372]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SearchUserMessagesOfUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SearchUserMessagesOfUser
+        hash: sha256:e33e15f939e8a9c3e8d1d799e5c3c3c1a92f26565878d358ada96bbaff53902f
+        struct_hash: sha256:5d29d27eb734076493a3c435e8c7968a4d218c5282e2c447834d6209bda07baa
+        doc_struct_hash: sha256:fc3686053f2170e7a4bc4617a7f21913e9c18e925fbfc92eb96e9955be834414
+        lines: [374, 379]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.searchMessagesOfUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.searchMessagesOfUser
+        hash: sha256:22f2d0d35b0df36a4f1d36d67067ed0232c9ee24204445aad67abde82a2da31c
+        struct_hash: sha256:61bc31fdff776e5b3f8684ab970651e8136eb6d24899ad5893141a311783834f
+        doc_struct_hash: sha256:61bc31fdff776e5b3f8684ab970651e8136eb6d24899ad5893141a311783834f
+        lines: [381, 404]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SearchMessagesOfChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SearchMessagesOfChannel
+        hash: sha256:83cc652b3b997c03c485d50e0e6e6ca6c3290ebadb636d1da21310efa26b1711
+        struct_hash: sha256:a6ac7551fa6b3ec2ee1571dbf6976c0fec7319e9805ef6cc27c833e26fb05586
+        doc_struct_hash: sha256:f990775a633bca6e417e5379b0b472b3dc4d9cedfd4c33b2d1b098a80bd9d993
+        lines: [406, 409]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.SearchUserMessagesOfChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.SearchUserMessagesOfChannel
+        hash: sha256:086d51efbded66b98444d8773712a9e930d958c06754a9e81d8ce6f71a7d3328
+        struct_hash: sha256:fa1c3f27707df52aa92b29e4fa07ea1aa951faef4d677012bf590a21e7d5f28d
+        doc_struct_hash: sha256:fa1c3f27707df52aa92b29e4fa07ea1aa951faef4d677012bf590a21e7d5f28d
+        lines: [411, 413]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.searchMessagesOfChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.searchMessagesOfChannel
+        hash: sha256:1a18f2a1b21f8c123e8ce8bbb4189aeb96d44de84c48fab5f17e791b38141741
+        struct_hash: sha256:298650eb4dc80a64696fc7138a3c0836fe55165f93bdd50e3bd5c1b71a1528f6
+        doc_struct_hash: sha256:298650eb4dc80a64696fc7138a3c0836fe55165f93bdd50e3bd5c1b71a1528f6
+        lines: [415, 437]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesByIDs
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesByIDs
+        hash: sha256:e0320078d5aaeba59e5f458e0163f68b85c6144056fb36ead718455ead82ed09
+        struct_hash: sha256:5181c4828b3955e7f8ee9c78f0199640b584f78f10f9632e9aa1384830ac8cf7
+        doc_struct_hash: sha256:38a51a75f246636a5c5706fdd006e1a5398c240937308ef84ce202cd4ebfde99
+        lines: [439, 461]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesByIDsForUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesByIDsForUser
+        hash: sha256:69e0580f6ced08c70e13a4ecad4e93ac9d1e486c35f68bd1f42e79ffdac32fbb
+        struct_hash: sha256:eec75f1595b33bf1852ea03caf76ed0fdaf13f807e0ffac50f683ab42f48f2f7
+        doc_struct_hash: sha256:631167517eeb0fa080d09ca334893c9d468e7a6088fab4ff2a802fb9abeceede
+        lines: [463, 475]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.UserMessagesByIDsForUser
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.UserMessagesByIDsForUser
+        hash: sha256:ad791f928fcb3c060aa0b4cb70d4a6325247912f59911767b12b249cd0360e53
+        struct_hash: sha256:f984a60e384d6759c6b60be12b6daf272bea9fce55ef7189bd180d6b81b6eb59
+        doc_struct_hash: sha256:f984a60e384d6759c6b60be12b6daf272bea9fce55ef7189bd180d6b81b6eb59
+        lines: [477, 486]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesByIDsForChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesByIDsForChannel
+        hash: sha256:59f514cbebbbb82948947a1eb1ad6fa1b65c79ace63c5920b82f0033a43548c5
+        struct_hash: sha256:b4058c7e85c141fe62274217d97ff7ace63da7efbfc72399f767499ef4cb1300
+        doc_struct_hash: sha256:fa1481fd6193351920e075621e4af6181193b21ec7da3df489a3680077f2e605
+        lines: [488, 498]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.UserMessagesByIDsForChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.UserMessagesByIDsForChannel
+        hash: sha256:d091717d39febb8fd10623e8c18b309414d272349676fdbc2c17675fb413b021
+        struct_hash: sha256:44c084def559db83333d819312c98db26377324c278eae826fcda28900ae761a
+        doc_struct_hash: sha256:44c084def559db83333d819312c98db26377324c278eae826fcda28900ae761a
+        lines: [500, 509]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#orderedMessages
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: orderedMessages
+        hash: sha256:acd6c09400868f566ecf830a0853b160f7bbc400368dac320eba9f35a0362457
+        struct_hash: sha256:e069b4c5f76675322533e0844e93bbe361e3b925b3e36d7571ccac6c5414dc84
+        doc_struct_hash: sha256:e069b4c5f76675322533e0844e93bbe361e3b925b3e36d7571ccac6c5414dc84
+        lines: [511, 527]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.messageSemanticDocumentsByIDs
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.messageSemanticDocumentsByIDs
+        hash: sha256:40692cad09204960d616bdedbb69b8452e4f78122b64a63401bf99a88ec1c52e
+        struct_hash: sha256:9718b79c92bcf18e5729d4750846c9ca90a40fff7fbbb8e6eadc38ed6d9fa327
+        doc_struct_hash: sha256:9718b79c92bcf18e5729d4750846c9ca90a40fff7fbbb8e6eadc38ed6d9fa327
+        lines: [529, 569]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ListChannelMessages
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ListChannelMessages
+        hash: sha256:c402d30404f95d1fdfffd4e2a62408679b3923449584eb012d6782bf7365f9e2
+        struct_hash: sha256:e5dffb1c8205efe935ce19e3c4ed003f028ac2aa871794a88870bb1999b65a5b
+        doc_struct_hash: sha256:fac87c512a37b8da13d0487688d2d7ff4c64f7848d6f23e279076cc4b58a0111
+        lines: [571, 575]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ListChannelMessagesPage
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ListChannelMessagesPage
+        hash: sha256:f526f54f029d754e722369562e65d0e8b81a77d5874058434d3583ccfe3f7d23
+        struct_hash: sha256:b5e10eae90bbeb30375ba3489cf06c19fbe1eac0bc9ea77be559805b0fe82ab2
+        doc_struct_hash: sha256:211b4545470cc66b974b2f733c2a3eb0810ccc0d8ef24301ffc8c76dbccb22ee
+        lines: [577, 629]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.queryMessages
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.queryMessages
+        hash: sha256:23807b1f3938549efe2ed3b004075523ab0dfd3f78112494dee4fbbb57726272
+        struct_hash: sha256:f27616cf3ffee7dd3855341e0af319846330be117fa11b321ab5ca3a131b5401
+        doc_struct_hash: sha256:f27616cf3ffee7dd3855341e0af319846330be117fa11b321ab5ca3a131b5401
+        lines: [631, 646]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesOf
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesOf
+        hash: sha256:ae7dc1204a7102da455399f3eb53edfbfe0a636cd6a249ca48a05dd6b58a2aae
+        struct_hash: sha256:83392254fcc5782c0cb6721053989db2b41c7402d0468e023c20ba7f935b05ea
+        doc_struct_hash: sha256:ae305fa1c899d8759b0446dcdac648653beb9289e1e4916958d153e5a8b5ea33
+        lines: [648, 651]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesAfter
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesAfter
+        hash: sha256:d1bc18313e68141d11c27cde1d726159c7b288bef55ef4d072e9d14dcb95f0ef
+        struct_hash: sha256:ecb5415c29fc732ff47bf081a47afe96297939625429b103bf20a98109612ec9
+        doc_struct_hash: sha256:8468c595366ce75993742e39937f4a42e5e04f9d8b3322896e5db2dda51bc9f4
+        lines: [653, 681]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.OldestMessagesAfter
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.OldestMessagesAfter
+        hash: sha256:7e60974173516c65d115f92b87c326f44f20a35eac7dab28b1c6ff3b9a744500
+        struct_hash: sha256:446592d5e21f60029e8a9b092ab209e3a9cf9aae7dc27793da1ea6fd320d93e3
+        doc_struct_hash: sha256:90fc93b6ead3e627f80ec181cec140be93a3b7776467f5f5842402d052352aeb
+        lines: [683, 702]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.CountMessagesAfter
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.CountMessagesAfter
+        hash: sha256:1e88f8ba78ccb56a51443fa26c6e1921607735458ecca195426519e88de009d7
+        struct_hash: sha256:dd87249e7cb26f01cf14f5915baad0c9694bf5b7781316db095b58de4f5a77bc
+        doc_struct_hash: sha256:9d0ef783826a7573571ab01df4950af407292e1d67e597beee5584d3d36a63bf
+        lines: [704, 710]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.Audit
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.Audit
+        hash: sha256:1271c4c799f0d489b6ce091f4840e2b97e5c3e44f2572208dcc1a9490bd31246
+        struct_hash: sha256:aac6ff96a4c55808657f1d873e1d90233ef25e6c3d342449ab489902b45f0ded
+        doc_struct_hash: sha256:7df4136399630feb6a8ec76d8f737c7e3bef144eeb18d9a72ec13f00b3b469cf
+        lines: [714, 720]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

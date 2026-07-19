@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: scripttool/starlark_test.go
+      level: file
+      anchor:
+        file: scripttool/starlark_test.go
+        hash: sha256:03f61aca7dcfa332c275ac0ff17cd6aa66f1d584caa9ab7fed24f7a2c26398dc
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark_test.go#TestRunStarlark
+      level: function
+      anchor:
+        file: scripttool/starlark_test.go
+        symbol: TestRunStarlark
+        hash: sha256:e83cdc719ed687a46c13b3b9ec4a0396b98b384401bef2198c5128dd2721f992
+        struct_hash: sha256:54a0581d28e1e79929f25977a09026a96032a7285369a0327d3b6e6a64f91c17
+        doc_struct_hash: sha256:54a0581d28e1e79929f25977a09026a96032a7285369a0327d3b6e6a64f91c17
+        lines: [10, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark_test.go#TestValidateRequiresRun
+      level: function
+      anchor:
+        file: scripttool/starlark_test.go
+        symbol: TestValidateRequiresRun
+        hash: sha256:bc17c4f703cf26cf8da8aa6e912fcb70e927c64ba44fe65e97843fb9f84486aa
+        struct_hash: sha256:c20e39eb4c49bf3e3216276f146677f9946e949ac1fd50682e38548bdc460cb9
+        doc_struct_hash: sha256:c20e39eb4c49bf3e3216276f146677f9946e949ac1fd50682e38548bdc460cb9
+        lines: [25, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark_test.go#TestRunCancelsOnStepLimit
+      level: function
+      anchor:
+        file: scripttool/starlark_test.go
+        symbol: TestRunCancelsOnStepLimit
+        hash: sha256:2a9cd0385466825908b4a788a20908f7f067d4949cd701b5f1a254fbb373b2bf
+        struct_hash: sha256:24720216858b9c0e4daf7f112ac81d907f20bdebacbf426f14865fcce06a41e7
+        doc_struct_hash: sha256:24720216858b9c0e4daf7f112ac81d907f20bdebacbf426f14865fcce06a41e7
+        lines: [31, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark_test.go#TestJSONEncodeBuiltin
+      level: function
+      anchor:
+        file: scripttool/starlark_test.go
+        symbol: TestJSONEncodeBuiltin
+        hash: sha256:dc659cefbe572841ccee3dfb5518bf344b0a9c35dd8bb222f68ee2f2f5083096
+        struct_hash: sha256:76e36f968edf43f03f6d16bb5f88239d224d71114eb365205fc8024addc835ec
+        doc_struct_hash: sha256:76e36f968edf43f03f6d16bb5f88239d224d71114eb365205fc8024addc835ec
+        lines: [48, 60]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

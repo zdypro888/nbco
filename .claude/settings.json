@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "iknowledge hook",
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|Edit|Write|MultiEdit"
+      }
+    ]
+  }
+}

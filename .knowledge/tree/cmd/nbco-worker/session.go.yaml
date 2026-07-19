@@ -1,0 +1,307 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/session.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/session.go
+        hash: sha256:03b6172a2c16000f3d67dbc55f2945d49232c85267171a0c67f1ae8896a85cc9
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#termCols
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: termCols
+        hash: sha256:07666093acf86a74db0671138a7254510e845b4af22b334e94a946a462744c2f
+        struct_hash: sha256:289f24dbe41d9a6bfdc8e8da16c8215db69e2f1bc7150f5db06548a951d64e75
+        doc_struct_hash: sha256:289f24dbe41d9a6bfdc8e8da16c8215db69e2f1bc7150f5db06548a951d64e75
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#termRows
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: termRows
+        hash: sha256:0dfbcd78932abd38ce51d0ad7d6ebeb3b43730844be7bd5ccb2a9aefbe15b608
+        struct_hash: sha256:88f863fe318b46057b481f236d362678777997efe68240d03f0e796b2f1a21ec
+        doc_struct_hash: sha256:88f863fe318b46057b481f236d362678777997efe68240d03f0e796b2f1a21ec
+        lines: [23, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#maxStartupPromptAnswers
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: maxStartupPromptAnswers
+        hash: sha256:9fbc5ccf2a11126f092aa2eb9cd0c896e13304870ba7adba0f4d296e5ee1d4d7
+        struct_hash: sha256:659821435fbd2cabab2689a16775f7de5c2d578f2014fe35f2590e3ea4c95c39
+        doc_struct_hash: sha256:659821435fbd2cabab2689a16775f7de5c2d578f2014fe35f2590e3ea4c95c39
+        lines: [24, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#submitEnterDelay
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: submitEnterDelay
+        hash: sha256:8c102245c0dfbb6a94aa36c4acb35ad1c6f38c907403cededa1630d63f3fa7fc
+        struct_hash: sha256:2f556523e9236871b691dfb7fd234a16674a4a532e2de05d84b3fc4ce09a4fff
+        doc_struct_hash: sha256:e97d5479942adc59a5960bf9ae3c86042857f067ac721424111df720d24b3462
+        lines: [26, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#waitOpts
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: waitOpts
+        hash: sha256:1b8ecce2f274fb947c80c23fe5f361c8e109da6111b6e29cfc69073288a992b7
+        struct_hash: sha256:a1f492b9ae27ee4dd8c92061eaf024f0435affad32e6942bb7dc746f5a39273e
+        doc_struct_hash: sha256:2bcecd9e906e6c8b7c78f5d51d51ce68adcf81b684559b007f2825bbb0904d72
+        lines: [32, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#busyRe
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: busyRe
+        hash: sha256:bf7089617c575bb4262e6e58ae0d98b7a4a6cba23747c3bedbb23a82e4898d2c
+        struct_hash: sha256:f448742661d46545de7955aeafaf01ceef64c6e2093b5da754b7e7ad44e53b9e
+        doc_struct_hash: sha256:cfd45a3c212ca2b1f2634419a0a10ec2ace1e41dd0bf54387f3d3fc2ba73ff81
+        lines: [51, 52]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#defaultWaitOpts
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: defaultWaitOpts
+        hash: sha256:11eb0c6140067da5e6b1646229f1888d9ff53aaae4c52e9489201430d85184fb
+        struct_hash: sha256:afbca19a6086bf82d18dc2d0fce1b370502ce963c455f93f07342156849ae131
+        doc_struct_hash: sha256:afbca19a6086bf82d18dc2d0fce1b370502ce963c455f93f07342156849ae131
+        lines: [54, 63]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession
+        hash: sha256:6583e60641feb68ff785b41a685fb286a69ea9015d010d4936c1d4eee62242f5
+        struct_hash: sha256:e2fed735e52eba295cdda95eed922dfd68ec0e8274f28a8fcaaf8401487ef045
+        doc_struct_hash: sha256:43b19fd29c5994795d8d9354b6da1f486e490ab91c93685336ca197d052b34cb
+        lines: [65, 75]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#startSession
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: startSession
+        hash: sha256:933a33c21e73f508832715d149e0101619e943bb4e741d25b2c43260d46e6cd7
+        struct_hash: sha256:7cf12cf2e292bdd27fe409dc82488fc59fe00f84b4fb71d4e32ba0cb8906748e
+        doc_struct_hash: sha256:c63f84686de7eec7c4bd7ef321d82b93fe821f68af9775f4ad40209023b75e6e
+        lines: [77, 89]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession.readLoop
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession.readLoop
+        hash: sha256:1959c9747a75fc6e9fe1324a6e0043b7f94740e605782212f994d3f9a753791c
+        struct_hash: sha256:ccdc758a4dc547db7cac4a0d2eafa4040443e0803a29628efebafb62de78eea5
+        doc_struct_hash: sha256:ccdc758a4dc547db7cac4a0d2eafa4040443e0803a29628efebafb62de78eea5
+        lines: [91, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession.Screen
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession.Screen
+        hash: sha256:63bf1a25bebd26950bef682958e40410ce7819d9bdbc0d6dd2898d43955ffb42
+        struct_hash: sha256:7d8e5ea484855eab619ce04855abb73c33161c858f99de863a7d87083e80c110
+        doc_struct_hash: sha256:e4e4d8537d50dd6db4ca9853a2ab0b451c800c9c0dcb4180cfb622b2e8edc8b6
+        lines: [110, 118]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession.Alive
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession.Alive
+        hash: sha256:8e2666467520b0c2944dbbdea49063a4e2c12807f4c53c62182774c4dd4edb6c
+        struct_hash: sha256:54a071b6213bbad380d2292bc465e2300b4559987fb14d56e37c64a7d777dedc
+        doc_struct_hash: sha256:a01e454d55c6f26450ed0e109d24d8ea369fb1972e11412b0b38bc7ce5592ad8
+        lines: [120, 125]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession.Write
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession.Write
+        hash: sha256:67cc11f23680eb418b6aac9197b9c195b3dacaa0d6650a6c5d8fcb54c307d48e
+        struct_hash: sha256:eb7da89c1db5f5b2dff7b8d5e88501dde5018a70149e6b650c19df6f9fe852ab
+        doc_struct_hash: sha256:eb7da89c1db5f5b2dff7b8d5e88501dde5018a70149e6b650c19df6f9fe852ab
+        lines: [127, 130]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession.Kill
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession.Kill
+        hash: sha256:b10c0538778d5380e3eab6e2479a46df979b727a18e10df0055ae60d5a1e272d
+        struct_hash: sha256:5b1f86ffe7251cb9d878957060c43156b40b8eb8831a4669248102ee7f0ef5ec
+        doc_struct_hash: sha256:6d57b927c0025665f35ede02c3cf36fc3fed26a4157177bd24d047c4a9f925c0
+        lines: [132, 139]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#bypassPromptRe
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: bypassPromptRe
+        hash: sha256:a22948d21ec00d6ecd5706f3c29eec0f6aa4bd6eeeb3d318c8e2039521b7259e
+        struct_hash: sha256:fbddf501826541133755c0b09ad3d556495e4ebda5535136c1e6977ce2c46924
+        doc_struct_hash: sha256:e1fc5282fc99eb865b719b6f29576bc948995b6904b19e960a744bc535635ce1
+        lines: [147, 147]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#trustPromptRe
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: trustPromptRe
+        hash: sha256:88dbd60e97440adadca6f6e53877619bdda12db965d7d02abad682c8465a93d6
+        struct_hash: sha256:5ae71a29c4a6526a0a7821e03f353fc1b30d1f570b1e4563d89463183d6927bd
+        doc_struct_hash: sha256:11909de2b6ec46ad19c657b934722531d7225a1b78346d03deb4e59ee8770d1e
+        lines: [148, 148]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#warmup
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: warmup
+        hash: sha256:fee7acb86a134e15b521978af742824f3fc146f1c54c50c9a8c616a221856f54
+        struct_hash: sha256:9341d771fec495a25ffd6772298b340e741d8143005224e8657be83190346962
+        doc_struct_hash: sha256:bacd2406919656c70e66b335402e4bb05f828268d0328ec0695c9b7d73868400
+        lines: [151, 195]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#writePromptTwoStep
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: writePromptTwoStep
+        hash: sha256:2a835b839f27f9e317112d18dcd7d90fb5ad2742417ba81630d8226c68b0bd4b
+        struct_hash: sha256:df4f2c8a4d1daa6058afa1eb8ebcc778444c0ef875c891652e5ea4602b7fa0fe
+        doc_struct_hash: sha256:7712dfa596ae5a24f39d08bad805cd1c6ab7d4ef282b0d43a9a2b6a787d2b094
+        lines: [197, 205]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#cliSession.submitAndWait
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: cliSession.submitAndWait
+        hash: sha256:b307a6ad05173a342867b7155319d6b8219e89affe537098135963d3f59b7e44
+        struct_hash: sha256:c88d70c2ea60611d6f78bed3373a4b2125a8ed2e749adc149ef2bb72dddb54ce
+        doc_struct_hash: sha256:38c123d9e667a818124ea982827a519f8729c2a86c55d22e23d3de65106d2055
+        lines: [207, 215]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#errStuck
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: errStuck
+        hash: sha256:d388fefde3539ec98e7139cdbb5bd6eb3587c638a3359e4ace997445fd20648a
+        struct_hash: sha256:82b6534766dff5470401bfb1dbed9897ad3ca92d1ebedbf57400f92423f2332a
+        doc_struct_hash: sha256:da193c15f3901e20dd475d46241a21d3be4f44412e8e882579cb06d598af1ec3
+        lines: [217, 218]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#errStuck.Error
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: errStuck.Error
+        hash: sha256:843dc5085c273122374a97903b815b6fc4878efb1ba56897968ea6eac6f9ca42
+        struct_hash: sha256:b48cc9a3115d3487dd18388269d3c831e7f79b00ef98c67f54df7cd3860ebe0c
+        doc_struct_hash: sha256:b48cc9a3115d3487dd18388269d3c831e7f79b00ef98c67f54df7cd3860ebe0c
+        lines: [220, 220]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#waitIdle
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: waitIdle
+        hash: sha256:069e722fc3f8a36518b5a9c0f83c41b6cdf8273ab2d6ecbe89a383b1a3acf71d
+        struct_hash: sha256:c0afc6b022c6ed391a5b03827c087e44125efa88f047a8a8a2120f44d04d1202
+        doc_struct_hash: sha256:7cce0d961e39a747c6ae0802bd5b48c507117e0df703a94b32cc9beaeb9fcfd1
+        lines: [222, 292]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#noiseDigitsRe
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: noiseDigitsRe
+        hash: sha256:3611e7d57e1ecf2ac802a32068a3b5340a6d8934a022ef65c550799adcd7227b
+        struct_hash: sha256:2ec5b0a4372d47961dbe2ec4b675048d0e274848ae155c339d6ae791021adf2e
+        doc_struct_hash: sha256:b8c7db1d4b01c2643aaf7c1cc9c87beaa8515afa32756c5b6546c1ae137adbff
+        lines: [298, 298]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#noiseSpinnerRe
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: noiseSpinnerRe
+        hash: sha256:e87a4d6916c80d5021dc36e1a5d3f8320493da7319b9ba06a1ae390c59b2cbd7
+        struct_hash: sha256:d6ef9b053fe51e068c5bb06ca9d3e7baed8209fc3447901e7c558fca4b767442
+        doc_struct_hash: sha256:5d36d8c65a2ffd3a123ed6eb96fa624b3b0dbd31caf6ea421db25147cbbe2666
+        lines: [299, 299]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#denoise
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: denoise
+        hash: sha256:1bc4b3a4c978a5f9779526f890bfd0f379e46dcfe6a72713b081e589e0a4253f
+        struct_hash: sha256:8f27e54ccae07ce6ae1fc86d1007083c1c89a7e6a5a38b972f56f119fb22f5d2
+        doc_struct_hash: sha256:8f27e54ccae07ce6ae1fc86d1007083c1c89a7e6a5a38b972f56f119fb22f5d2
+        lines: [302, 306]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#tailLines
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: tailLines
+        hash: sha256:3ccc0d46512bfc2792cd8b4763a35455ba96cbc4bf554e86b1111135a311c0fb
+        struct_hash: sha256:2c77127182ee4ded024e3271cda0822f41a9ed7a00530a40a031885b8a25430d
+        doc_struct_hash: sha256:03b71bae477e6a3f69e80f2571c0eaf44d3ee37617ac9f4ad6488a0a08801ab5
+        lines: [308, 322]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#isDecorationLine
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: isDecorationLine
+        hash: sha256:dab84376775076de129337d45a57fc2c7ea0fbdcb4a05dbb62fbb392428c4751
+        struct_hash: sha256:ef967f59e59606854a8130c1c4128819c1386a3765f5636758a053215e755aa2
+        doc_struct_hash: sha256:03f4478febd23a94e1a3e3576f68070be948999bd6747d8917732b6881d29dc0
+        lines: [324, 334]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: tools/schedule_test.go
+      level: file
+      anchor:
+        file: tools/schedule_test.go
+        hash: sha256:b66d4b1172194344d529765d4dd2675be292ab66ccb7566fd36a32f02146bf60
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/schedule_test.go#TestNormalizeDailyScheduleFields
+      level: function
+      anchor:
+        file: tools/schedule_test.go
+        symbol: TestNormalizeDailyScheduleFields
+        hash: sha256:1aa950c9d449e364552e9643a30d8c002c3e23996d51bf484c7ea39d8fb06303
+        struct_hash: sha256:5bf1d4973d01cd337a3910e4f923adcd5421ffb4fa6f55f811d717435769c0c0
+        doc_struct_hash: sha256:5bf1d4973d01cd337a3910e4f923adcd5421ffb4fa6f55f811d717435769c0c0
+        lines: [7, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

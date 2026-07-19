@@ -213,5 +213,6 @@ nbco.json
 /nbco
 /nbco-worker
 .vscode
-.claude/
+.claude/*
+!.claude/settings.json
 .zcode/

@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: store/eino_runtime.go
+      level: file
+      anchor:
+        file: store/eino_runtime.go
+        hash: sha256:01c21dc0f53f28ea83e97671d4d85ee428cf8e7cb791696fea77689f0b0b507f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/eino_runtime.go#EinoRuntimeStats
+      level: decl
+      anchor:
+        file: store/eino_runtime.go
+        symbol: EinoRuntimeStats
+        hash: sha256:3f9636e8dd150889fa401acb1660ee90167b4d880ee7891acf5e2ca49697fa47
+        struct_hash: sha256:d7906b12c2d02c3a5b67cedfdb3ce644f602785ad444b897fc373de11b503cd1
+        doc_struct_hash: sha256:826b7ee76a902274a78ef1f7e5ef92981a6a1eb2a4e2f87275917bed4e23138c
+        lines: [8, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/eino_runtime.go#Store.EinoRuntimeStats
+      level: function
+      anchor:
+        file: store/eino_runtime.go
+        symbol: Store.EinoRuntimeStats
+        hash: sha256:335c0884c8fedb845166200ec923b66a2086b8eab96ca24ef810cf7459677020
+        struct_hash: sha256:6db24dc70f21fc931d12155f3c7553d94e31ebda89fe948a565a15c240b53537
+        doc_struct_hash: sha256:6db24dc70f21fc931d12155f3c7553d94e31ebda89fe948a565a15c240b53537
+        lines: [18, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

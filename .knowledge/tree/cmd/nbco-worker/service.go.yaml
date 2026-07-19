@@ -1,0 +1,296 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/service.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/service.go
+        hash: sha256:be7c0bdda94b6322926a17fcff7d877a1e72c308f0fa899efe55b680801d70d2
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installService
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installService
+        hash: sha256:68e17c705cd38375cf4217c6fcc312510d203a544637f5ae807c99b3f05a974b
+        struct_hash: sha256:463f14ec3509ee0bb4335db9285f0e74ababb0efbb2c67f365018b1c047ad461
+        doc_struct_hash: sha256:463f14ec3509ee0bb4335db9285f0e74ababb0efbb2c67f365018b1c047ad461
+        lines: [17, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#uninstallService
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: uninstallService
+        hash: sha256:b5f44efc335222b2eb8d65bed468e0351925fb1a44cc82f83c1064a6deb18c74
+        struct_hash: sha256:1538758f5b1c2fc2a359d6ce9b20b84d35d6bc7bb9b831e160f5377ded45e2f3
+        doc_struct_hash: sha256:1538758f5b1c2fc2a359d6ce9b20b84d35d6bc7bb9b831e160f5377ded45e2f3
+        lines: [31, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#serviceStatus
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: serviceStatus
+        hash: sha256:949f4b76763c12ad32ecb1f34bb9eb6cbe1f8b33a13d331fe4558e450f731953
+        struct_hash: sha256:4e864137d4d69edb0241f1b730da23b9fdc8dcda6ebe82a4a5c8addef340ec7f
+        doc_struct_hash: sha256:4e864137d4d69edb0241f1b730da23b9fdc8dcda6ebe82a4a5c8addef340ec7f
+        lines: [43, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installServiceForConfig
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installServiceForConfig
+        hash: sha256:c199c791ba5a9a02a14785c21da7cafada0481c8f4d2140f174412a0c13edb3f
+        struct_hash: sha256:be9e0bc0ac875ed6a174a12241dfd1d0e38cfab0d89b104e7d5d44b7245a26f2
+        doc_struct_hash: sha256:be9e0bc0ac875ed6a174a12241dfd1d0e38cfab0d89b104e7d5d44b7245a26f2
+        lines: [56, 91]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#loadConfig
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: loadConfig
+        hash: sha256:5085d50e9c4b08ab4291bafcc590aaa8c51fb5f6a5b9ceaa4ab4e28b2826a531
+        struct_hash: sha256:109eae64969064720c079b95dca918cc96667cff8018cd9cd790e9b9b6e8a014
+        doc_struct_hash: sha256:109eae64969064720c079b95dca918cc96667cff8018cd9cd790e9b9b6e8a014
+        lines: [93, 103]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#serviceName
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: serviceName
+        hash: sha256:3d7378c2d2b5f459a046b96c4a06fe289ae865aa29990e518da0866fce5f96a4
+        struct_hash: sha256:7686f9fcdb69f4c5fcc343aae92960b9a7e417deca75348a030988eb692aca59
+        doc_struct_hash: sha256:7686f9fcdb69f4c5fcc343aae92960b9a7e417deca75348a030988eb692aca59
+        lines: [105, 121]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#cleanServiceName
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: cleanServiceName
+        hash: sha256:6d5b08c35b21dde7ebb07a5fab637bb078bfd2895a9d9c7aa9b522b38a885832
+        struct_hash: sha256:d2511ad641d5a9daf08d936ad8bc878e3331bb066de866d7cdf02912f0ca2326
+        doc_struct_hash: sha256:d2511ad641d5a9daf08d936ad8bc878e3331bb066de866d7cdf02912f0ca2326
+        lines: [123, 144]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installPlatformService
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installPlatformService
+        hash: sha256:0e2c450a0a37df5df27071f587064be96bcbc899e4801b37a23c3be91b363714
+        struct_hash: sha256:314c7b9c8318fdffdc8256dcced0e14e79cd468b0f94d7bd8fd07636c7128cdf
+        doc_struct_hash: sha256:314c7b9c8318fdffdc8256dcced0e14e79cd468b0f94d7bd8fd07636c7128cdf
+        lines: [146, 160]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#uninstallPlatformService
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: uninstallPlatformService
+        hash: sha256:722791a347f0d19a2f3d9a825b2666aa1abebf1eb6e16891b515156fc9823389
+        struct_hash: sha256:adf8c726dfc63dbf2701c238ff7c0e3ae76e0d9710f754d2902ce0fcf737f4c7
+        doc_struct_hash: sha256:adf8c726dfc63dbf2701c238ff7c0e3ae76e0d9710f754d2902ce0fcf737f4c7
+        lines: [162, 176]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#platformServiceStatus
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: platformServiceStatus
+        hash: sha256:f3b5f26e9534352241d54b73712fd0d0d537f402022f5663ee6123989a901419
+        struct_hash: sha256:669e64228cf2974b4778228f84bb15b6b1b302500363f21f5fe47fe04c4b5045
+        doc_struct_hash: sha256:669e64228cf2974b4778228f84bb15b6b1b302500363f21f5fe47fe04c4b5045
+        lines: [178, 192]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installLaunchAgent
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installLaunchAgent
+        hash: sha256:9f1a03d5e68ab4d9ca3d91852c9ee5bc65e8a36d20927a088b0b9885f2e9adcc
+        struct_hash: sha256:a48a0fb5ad7742ae14d765e9e33cd89cafca44cc5acd1882bb5694654a72dd59
+        doc_struct_hash: sha256:a48a0fb5ad7742ae14d765e9e33cd89cafca44cc5acd1882bb5694654a72dd59
+        lines: [194, 254]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#uninstallLaunchAgent
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: uninstallLaunchAgent
+        hash: sha256:9ce290fc73d347ed7d98696ff3be25f88904784680b5cfc6e37d6dddf2a53bb5
+        struct_hash: sha256:2dfa8bfa0f3ba1023a5a54c0b934b6a1a0ba009eadfefc56412865bee2c6ec66
+        doc_struct_hash: sha256:2dfa8bfa0f3ba1023a5a54c0b934b6a1a0ba009eadfefc56412865bee2c6ec66
+        lines: [256, 264]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#launchLabel
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: launchLabel
+        hash: sha256:630f5c7e507e284e4061a8189631e96f6fd8bcd2d125ae3307429025559e04e8
+        struct_hash: sha256:1121511c3f4e5ddc46321f4938839c333b850ccb32deed602178f447dc1a4d7a
+        doc_struct_hash: sha256:1121511c3f4e5ddc46321f4938839c333b850ccb32deed602178f447dc1a4d7a
+        lines: [266, 266]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installSystemdUser
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installSystemdUser
+        hash: sha256:802d66b803876ecc8927c2e48b4176eacb80c4bc07ea0e78e13fa3cb1658bf74
+        struct_hash: sha256:15bb66ce16b2b68032d946bc441f7c9fc25b8435417a3321c7f1361952880832
+        doc_struct_hash: sha256:15bb66ce16b2b68032d946bc441f7c9fc25b8435417a3321c7f1361952880832
+        lines: [268, 306]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#uninstallSystemdUser
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: uninstallSystemdUser
+        hash: sha256:a24bd341bbf98163b73a258e580588cb5d4bb1d7245de0f392db8b8d44002803
+        struct_hash: sha256:c344b5724458d16f2ba40521554fdcb55c14f81613dc1596a7b78575739015d8
+        doc_struct_hash: sha256:c344b5724458d16f2ba40521554fdcb55c14f81613dc1596a7b78575739015d8
+        lines: [308, 318]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#systemdUnit
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: systemdUnit
+        hash: sha256:db567dd89fd0f09436f32ab2fb37983eef26045ec5ef602e73367f2d1fac13fe
+        struct_hash: sha256:2485ab21b6f783f8e73083c0f39972ca7edc4a7e8f85e9271742fa64a50c8b7a
+        doc_struct_hash: sha256:2485ab21b6f783f8e73083c0f39972ca7edc4a7e8f85e9271742fa64a50c8b7a
+        lines: [320, 320]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installSystemdSystem
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installSystemdSystem
+        hash: sha256:c4fb2d8993e991d373bbeef9d65b147d4fd5de44ba0775243f1cdfd65150bf8c
+        struct_hash: sha256:e32b0504fc0c22223ebdca433dda3abdc059fbefbacafc7559af7c26b5e3044c
+        doc_struct_hash: sha256:e32b0504fc0c22223ebdca433dda3abdc059fbefbacafc7559af7c26b5e3044c
+        lines: [322, 359]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#uninstallSystemdSystem
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: uninstallSystemdSystem
+        hash: sha256:9cdd56bb44de5a235ecdd483887ce9b6a59201723df15af1f666401b9417cc1f
+        struct_hash: sha256:cdb3103ab360c05dc644627ee26d53f64cd5ee3faba48c86352454d4d0b960db
+        doc_struct_hash: sha256:cdb3103ab360c05dc644627ee26d53f64cd5ee3faba48c86352454d4d0b960db
+        lines: [361, 367]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#systemdQuote
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: systemdQuote
+        hash: sha256:23750035ea3136ea7b09420688fe8b560096f2b6a48933a48e95430300bca593
+        struct_hash: sha256:5ac492751232d72baf8f98463b1cb72980eadc6b30af91fa535f4dafe81c9804
+        doc_struct_hash: sha256:5ac492751232d72baf8f98463b1cb72980eadc6b30af91fa535f4dafe81c9804
+        lines: [369, 374]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#systemdPath
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: systemdPath
+        hash: sha256:97382c7d2714d530554a9634e34888eecbb73f0935d6d9f185219c9a8f7e500f
+        struct_hash: sha256:098e4344efc028e0dead3c1fed2d692c34c7614526e57e8842a0311e96c153d4
+        doc_struct_hash: sha256:098e4344efc028e0dead3c1fed2d692c34c7614526e57e8842a0311e96c153d4
+        lines: [376, 381]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#installWindowsTask
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: installWindowsTask
+        hash: sha256:2c4ff7141893fea0b5a2c02ec18b1ad1fbca2519791c54601fd92f1b78b7c8c1
+        struct_hash: sha256:5dbf283ed576edb9d8a6c25950cffc9955b9ffd9a07de532f443683cbfc20151
+        doc_struct_hash: sha256:5dbf283ed576edb9d8a6c25950cffc9955b9ffd9a07de532f443683cbfc20151
+        lines: [383, 391]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#uninstallWindowsTask
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: uninstallWindowsTask
+        hash: sha256:a56f9b22714a0dc913a9b2c8daf6a6a6a118ced3ada2e61af2b497bad1c9b979
+        struct_hash: sha256:7e2807915b9b0ff40972fa56584533c8268e9e4357b3cc080675dee6911ded04
+        doc_struct_hash: sha256:7e2807915b9b0ff40972fa56584533c8268e9e4357b3cc080675dee6911ded04
+        lines: [393, 399]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#windowsTaskName
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: windowsTaskName
+        hash: sha256:6e4b1ce7d89b1c6c573c3a6fd30ea4bedd899fbe2a611eaf6fb1bb8a8acb6b66
+        struct_hash: sha256:eddec5944f6e6402a1a0e6df1b1b1de7ac10540393fb1b17cbd7092a1a9fe0c5
+        doc_struct_hash: sha256:eddec5944f6e6402a1a0e6df1b1b1de7ac10540393fb1b17cbd7092a1a9fe0c5
+        lines: [401, 401]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#windowsQuote
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: windowsQuote
+        hash: sha256:e823ba6dbd66b8088962564e425c4f0ee20420acd1d8a28bf7a69595975389d1
+        struct_hash: sha256:9c49b0328bf8fc904eda8201d65b30d67c73ef9c3d10bb6434af35adfe2fb4b7
+        doc_struct_hash: sha256:9c49b0328bf8fc904eda8201d65b30d67c73ef9c3d10bb6434af35adfe2fb4b7
+        lines: [403, 405]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#xmlEscape
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: xmlEscape
+        hash: sha256:e9798d47100a2316ee8893843bd3b0ecb13746723e9917930dfa0cb86ae8bdc8
+        struct_hash: sha256:ba81d4d8f31efa540817e146df5521eb41934493b92364cbaf2f7f2f1509060d
+        doc_struct_hash: sha256:ba81d4d8f31efa540817e146df5521eb41934493b92364cbaf2f7f2f1509060d
+        lines: [407, 409]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/service.go#runOutput
+      level: function
+      anchor:
+        file: cmd/nbco-worker/service.go
+        symbol: runOutput
+        hash: sha256:12ddc7211ec0ab49c799ad1f2426e3bd4ab537318e6fc03e042cee52d1b65d20
+        struct_hash: sha256:9e151e6a79d3f05c9922e1a3081122accb8463399f2216d09af3225dcfdb522b
+        doc_struct_hash: sha256:9e151e6a79d3f05c9922e1a3081122accb8463399f2216d09af3225dcfdb522b
+        lines: [411, 414]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

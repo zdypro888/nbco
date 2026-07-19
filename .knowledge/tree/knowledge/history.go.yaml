@@ -1,0 +1,241 @@
+schema: 1
+nodes:
+    - id: knowledge/history.go
+      level: file
+      anchor:
+        file: knowledge/history.go
+        hash: sha256:192124fa1a9c64a8d4c4d66af7a9e17953a33f997e376a4e70782b027a94ca00
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#embedSem
+      level: decl
+      anchor:
+        file: knowledge/history.go
+        symbol: embedSem
+        hash: sha256:5ec336fba5f001403856c5e81b4c6c7546a96e26bdc048e9b9295e245ff68182
+        struct_hash: sha256:2dd6ed771228f84792c6fd7126d0af4e20e1900a87e4b3c2ecbc14e30805fc99
+        doc_struct_hash: sha256:b1325160dfc8fd00cecc022f5f5e3b1978824c991bbac36476735596ff9a0c49
+        lines: [19, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#messageIndexRevision
+      level: decl
+      anchor:
+        file: knowledge/history.go
+        symbol: messageIndexRevision
+        hash: sha256:0cfd645e96bfa4817f0e749b4022e6e8c3e6431a543e6de9eaa62aca40e2f6d3
+        struct_hash: sha256:19e63858908edaae0b8a24aea307a8568ad49f383ed97c1e2874ef47421dd2af
+        doc_struct_hash: sha256:19e63858908edaae0b8a24aea307a8568ad49f383ed97c1e2874ef47421dd2af
+        lines: [24, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.EmbedMessageAsync
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.EmbedMessageAsync
+        hash: sha256:c18ccc890d62cd1be02c09dbd014f61df9f1fb7e021a7e6bf957d2f42851ab6b
+        struct_hash: sha256:796d6e1431632f9dce14c516353a4ce8f2b3afee6b4d387531cabb04459fa656
+        doc_struct_hash: sha256:4c263a6f21c50351caeb6f26e5237289ed103f9a4a9a3843728d74c20300629e
+        lines: [26, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.SearchHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.SearchHistory
+        hash: sha256:ac29cb6a63fde2745c58962129730c8997dbed67d5afcaca7171275d69bd1552
+        struct_hash: sha256:c2c7191ca4f2b4840e7eaa142e409260d8a747ab6a262c7dce1c1fb8161a6c78
+        doc_struct_hash: sha256:4936506c4b493ec7ae25bf5361be79bff9f8effb0e77adba8af47b78f6c7346c
+        lines: [78, 81]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.SearchUserHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.SearchUserHistory
+        hash: sha256:0a8d2224446d1cfaef0d57df05e53d191e5b32b47b808e6f01477b59a567eb1c
+        struct_hash: sha256:b4bc610b5e7d4aef93244dd221892cb60e68a442e49ca6c85a00f720ed78df0b
+        doc_struct_hash: sha256:39e70c95fad55b0af12c3b8e2212b5c393db3d131038cf33e7a4598b1c5bf3b0
+        lines: [83, 88]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.searchHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.searchHistory
+        hash: sha256:12cdb8de9a31bc199389986bc4fa8225d4bb8ed8353e0ce0c04f31551c0f334e
+        struct_hash: sha256:21a122ac0db40302861a473567ae1a567b6e02a77bab260ca8a4c8ceae23a8ae
+        doc_struct_hash: sha256:21a122ac0db40302861a473567ae1a567b6e02a77bab260ca8a4c8ceae23a8ae
+        lines: [90, 113]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.SearchGroupHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.SearchGroupHistory
+        hash: sha256:fab052cfbc304396a2ab8f78f96fb1d6d891dbf2211d2957e47a5716fc89f23d
+        struct_hash: sha256:e6a91905112e346c1a4956d30cd1fbdb8a4d3ae63fba5e38e229085aae390326
+        doc_struct_hash: sha256:80924a532875173dcc16862ca098ca9e6d1235c793c0d6868e77e918a440fafa
+        lines: [115, 119]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.SearchGroupUserHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.SearchGroupUserHistory
+        hash: sha256:5a257025cbcd7f56d97068fe74c56bb693b4f51d3e9300a32466ab0f61f7d221
+        struct_hash: sha256:b1a777be8c0c24fbd9e0b2d4ad53ba3611f81f311090a4a6d021e083ac875484
+        doc_struct_hash: sha256:b1a777be8c0c24fbd9e0b2d4ad53ba3611f81f311090a4a6d021e083ac875484
+        lines: [121, 123]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.searchGroupHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.searchGroupHistory
+        hash: sha256:14633f86c7065fec12901a65a10d295a61e97642d6356040557a1b1a33df7123
+        struct_hash: sha256:cc99174528d08ab1d8a2de127f20bfca331aed68e16bae58d961b48a5eb3db9a
+        doc_struct_hash: sha256:cc99174528d08ab1d8a2de127f20bfca331aed68e16bae58d961b48a5eb3db9a
+        lines: [125, 179]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.semanticHistory
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.semanticHistory
+        hash: sha256:4d1954e000b6e5f317e9749e0058c2657f7f3144cad7dc546ed10218c1534809
+        struct_hash: sha256:ab3d949bccf23ed303988a3d17c1e535409624190371ff141ff0ee2cb29fa37f
+        doc_struct_hash: sha256:ab3d949bccf23ed303988a3d17c1e535409624190371ff141ff0ee2cb29fa37f
+        lines: [181, 242]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#mergeMessages
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: mergeMessages
+        hash: sha256:a4dda38337d28a70ceba115a6e58d45053fd47d879ef160cfef688f8703487e5
+        struct_hash: sha256:38f096c99b8b31c130a4a5f007a369e33f92663eaa5dae0d0322494e511d25ca
+        doc_struct_hash: sha256:38f096c99b8b31c130a4a5f007a369e33f92663eaa5dae0d0322494e511d25ca
+        lines: [244, 283]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.BackfillMessages
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.BackfillMessages
+        hash: sha256:8178f52c8222527f8095d631cff48ea7f71ce000f5a07d3fd8db0efa0dc2a293
+        struct_hash: sha256:2635b55504e949414b5c9ace18d8bbb46487cf6b0c96f65da9bb5668f1666e88
+        doc_struct_hash: sha256:487b06723356ee728ff2ce45cfe482b1057f56ea18015a7cc362a78b331c17af
+        lines: [285, 325]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.ReconcileMessages
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.ReconcileMessages
+        hash: sha256:fab6e709f7965edb25c10a28619e2d4d1b7bcf945e5d0ec1acae975cfcbc0078
+        struct_hash: sha256:a90a189a04e557ffe7207b3c5c30d592329670ccb3dcbe7247888f790ee79bfc
+        doc_struct_hash: sha256:a415078bb0394283b5841effcdd1b7db693f201828f146987b00acfe25ee3176
+        lines: [327, 334]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.backfillQdrantMessages
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.backfillQdrantMessages
+        hash: sha256:5d8e52b2082f7f0e7c2cecce306ce1f063bb1e056b241acf1c7729e8c4f72929
+        struct_hash: sha256:9931a8c21340819f5ba3098e4f03b82a8fdcfabe01d2626041d1fec756c37522
+        doc_struct_hash: sha256:9931a8c21340819f5ba3098e4f03b82a8fdcfabe01d2626041d1fec756c37522
+        lines: [336, 375]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.MessageIndexStats
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.MessageIndexStats
+        hash: sha256:4059cf11b3963e4a14dd69a238445b8decac3d4210fcd96849fcaf93761d7de9
+        struct_hash: sha256:03942e9cc1912262cb783a17243a128763e6e985f34637867444e4581bd33447
+        doc_struct_hash: sha256:03942e9cc1912262cb783a17243a128763e6e985f34637867444e4581bd33447
+        lines: [377, 386]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#messageIndexMarker
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: messageIndexMarker
+        hash: sha256:307e707209346bbff3160de5af841e9894d71382652229e4a3b7f950859382ec
+        struct_hash: sha256:0efc3928e21fa8e8c31e3e328a718b85acf2855ec5aa666f5bca1b8fda06fc03
+        doc_struct_hash: sha256:0efc3928e21fa8e8c31e3e328a718b85acf2855ec5aa666f5bca1b8fda06fc03
+        lines: [388, 390]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.CleanupMessageIndex
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.CleanupMessageIndex
+        hash: sha256:7bda0d1381e0df5555b5ca5d2f7eb5a5e0c5fb1090662c370bf7f4d5bf25036c
+        struct_hash: sha256:9292217c240cc306bf4de700434fd64a38722e8296a27c6cd1af5a5731216907
+        doc_struct_hash: sha256:9292217c240cc306bf4de700434fd64a38722e8296a27c6cd1af5a5731216907
+        lines: [392, 407]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.ClearLegacyMessageVectors
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.ClearLegacyMessageVectors
+        hash: sha256:1567af8aefb775da76fa8d4a096c11a664ab6118ff2bb13bf752d110db420626
+        struct_hash: sha256:db9a2bea3a78c3395d2e9bc4455b14921b7082af148aadf507d1c1de8bb45de2
+        doc_struct_hash: sha256:65cf1463b5130d7b6176c59ed2ded9324ea9b43cd716638169c7eff013b9fd76
+        lines: [409, 416]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#messageDocument
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: messageDocument
+        hash: sha256:51a5c9b37664564eb04e606a839cad507a3eacc4b122e7a5a40df6e8ada8068f
+        struct_hash: sha256:178a867ff875409589dc59afac725d510a34318dc9dd67a6a5a5c35853c810c5
+        doc_struct_hash: sha256:178a867ff875409589dc59afac725d510a34318dc9dd67a6a5a5c35853c810c5
+        lines: [418, 432]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#messagePayload
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: messagePayload
+        hash: sha256:66caf6beceb915678345c490734873349affdb10b299c97c3ac90fc3ff768caa
+        struct_hash: sha256:14b00433482fc76c71380b3bdeafe39bf1bc60a91856bce3d6f3d04658ec073a
+        doc_struct_hash: sha256:14b00433482fc76c71380b3bdeafe39bf1bc60a91856bce3d6f3d04658ec073a
+        lines: [434, 447]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#compactPreviousMessage
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: compactPreviousMessage
+        hash: sha256:dcfef4954300900d66de5949aeecc8431739b4ee12492c5a14f775c25536ba3c
+        struct_hash: sha256:b2874900990f7fa7e0432828dbddd9274c7c139741aa29a30357a384ce7a6f0d
+        doc_struct_hash: sha256:b2874900990f7fa7e0432828dbddd9274c7c139741aa29a30357a384ce7a6f0d
+        lines: [449, 458]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/process_tree_unix.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/process_tree_unix.go
+        hash: sha256:f054fed4a102ae4096b08ffc3e5bb3a307b64ebfdbda33cd978b37c1156e9ffa
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_unix.go#configureProcessTree
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_unix.go
+        symbol: configureProcessTree
+        hash: sha256:5bb47031584f0c6ad2389e3fa7b5cf683ff750c749702fe205a88336025ed9b8
+        struct_hash: sha256:1fb7d20795fc0669156c4da0b4403b963ca9abd6d90c6c2580d41ee4c12bf43c
+        doc_struct_hash: sha256:1fb7d20795fc0669156c4da0b4403b963ca9abd6d90c6c2580d41ee4c12bf43c
+        lines: [12, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_unix.go#configurePTYProcessTree
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_unix.go
+        symbol: configurePTYProcessTree
+        hash: sha256:c9a9ae0d3fdec0ea66d181810a2fbdece3bdf2d601ff8adf1f13bb230e8385de
+        struct_hash: sha256:d84ee5f2b9c6606d9d492e667ef670e46e2bb781d734659b77db729910bb90f2
+        doc_struct_hash: sha256:df435e2a14d376a3d102c25e30c1261125f36aaf77bca5cf209f7faadfcf4928
+        lines: [20, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_unix.go#killProcessTree
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_unix.go
+        symbol: killProcessTree
+        hash: sha256:e02b1c2a76b09a0db8847372f5f2047c471b97902c0de63f7f91417031ed5d46
+        struct_hash: sha256:993dc5283001481bd1796b116b252eb2c3fc3f5c253317b65937b11b500a2193
+        doc_struct_hash: sha256:993dc5283001481bd1796b116b252eb2c3fc3f5c253317b65937b11b500a2193
+        lines: [27, 40]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

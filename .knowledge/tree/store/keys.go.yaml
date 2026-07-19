@@ -1,0 +1,153 @@
+schema: 1
+nodes:
+    - id: store/keys.go
+      level: file
+      anchor:
+        file: store/keys.go
+        hash: sha256:a7362ebfe939c4c5a8b3a9c3f4ffedb8732484fe114cd64c2d171905f64e4641
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#APITokenStatus
+      level: decl
+      anchor:
+        file: store/keys.go
+        symbol: APITokenStatus
+        hash: sha256:5e8714d4367c60ff5b9ec92104669b6e26ac94e84e34a17599a3a9e0efd5f96b
+        struct_hash: sha256:b5b5ea40dbac7f437ec296d0d8508c0e04ddf38437d5b0eae117213687b5c325
+        doc_struct_hash: sha256:b5b5ea40dbac7f437ec296d0d8508c0e04ddf38437d5b0eae117213687b5c325
+        lines: [14, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#BindKey
+      level: decl
+      anchor:
+        file: store/keys.go
+        symbol: BindKey
+        hash: sha256:d74f15893617796aa058d955b631adfacb1c0f81b27adde3ee78654e46338a67
+        struct_hash: sha256:38e5d2a8b8a6639dad87e5b45bf18bd3e01e4494d41e7f41727d960a09e73128
+        doc_struct_hash: sha256:be17debfcef5b32f1518bc15fcb14541637e9762d88a5c95b8d76a996bedd004
+        lines: [19, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.CreateBindKey
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.CreateBindKey
+        hash: sha256:46320bbdb540b437b80c9b88743f42c4c8b3261ab7036ef21edd4789631e03e8
+        struct_hash: sha256:7d14e7c69e76a76abe7dab1e16a68899526c6627a283c69818597f52b8f5aee5
+        doc_struct_hash: sha256:79b0d981915ea8d1609254e21a7d3da345640de8f04aeb8a845718d8f063122e
+        lines: [32, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.CreateBindInvite
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.CreateBindInvite
+        hash: sha256:36955ad27c9cd92c1c6415a862b38136d5c726fab92016c2bc6754d21b2a8b7d
+        struct_hash: sha256:a0fc105b43bbaf66b0923920d286db62b3c68daf7aefe22530d494689bff2285
+        doc_struct_hash: sha256:a9208f3f51264166bf5ac47923159e34f9a4d9ca0bbb979cba0c170d6491cbc6
+        lines: [37, 53]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.BindUserWithKey
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.BindUserWithKey
+        hash: sha256:d60987d009cf4ddb091f2393374980eafcd2118603e7dd14a0de441315c3b05c
+        struct_hash: sha256:552faaa431a05fd25c175766594007bea4c296200dee4f1a68fd6b26a14ae132
+        doc_struct_hash: sha256:45872f91ffb744300405253a2e29c2fae7327ebf09597ed495bcebaca71a089e
+        lines: [55, 94]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#quoteJSONString
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: quoteJSONString
+        hash: sha256:c5fc6302251a2d7ebe3ead442177e452ad14032aa8dc13c259bc5516a7b61947
+        struct_hash: sha256:2c58cdae085dc0bae7413f0bc3cfb1f4163ad5edd47bc8e327aeda24e0b3793a
+        doc_struct_hash: sha256:2c58cdae085dc0bae7413f0bc3cfb1f4163ad5edd47bc8e327aeda24e0b3793a
+        lines: [96, 99]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.CancelBindKeys
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.CancelBindKeys
+        hash: sha256:d5a8123916e918384f8203a547197a55dd72066ba6673a69f74fd2d6856d345f
+        struct_hash: sha256:62349197573ed1c35560986bc435c1ca4743d70730dfa041f5b72c432278022e
+        doc_struct_hash: sha256:4f14dd40983a899e5ca671b41ee22468fa97d387fdcce8d4e03519213b2faebb
+        lines: [101, 106]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.IssueAPIToken
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.IssueAPIToken
+        hash: sha256:ab1f823a84ab00063de550d17920cb2c9468d80b43c7af79ceb52fd6ff4bbe0f
+        struct_hash: sha256:2391e0f59b757f0d9759ea0715449b84c26cbbc8af05d0f7d98ed18a632c360f
+        doc_struct_hash: sha256:f342cc990ab60caa8d0a2df3fe4ca85e591fa94b047af2c991314a2756a099f8
+        lines: [110, 129]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.APITokenStatus
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.APITokenStatus
+        hash: sha256:d84d3e85cc69291e4e732132296c206c72cbef315fa89b288d5699dd1ef94bfd
+        struct_hash: sha256:1fed5d06c5d9d49d277c2c6b3e22aac7dbd61b321ab5d62b28fd71c83f092cf6
+        doc_struct_hash: sha256:745b71beca7f2559e3b9cf2180934ba2ecba46af85ec72707b8c53e566ff4c43
+        lines: [131, 145]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.RevokeAPIToken
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.RevokeAPIToken
+        hash: sha256:2d4cab30c3a218929fbc6c3fcbfd72befc05422d4a5d78464c9854a4dde6b673
+        struct_hash: sha256:fdc58693ffe4a0fbb1ce22c5e40a8f524c64698e3f2dab90d166f2ee5d1de891
+        doc_struct_hash: sha256:72a3c92f70460fcb091cb98b3b8ede18e7ad5adfdbe31d453b5caad11966d5cd
+        lines: [147, 151]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#Store.UserByAPIToken
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: Store.UserByAPIToken
+        hash: sha256:fe049a2268e43d12f520c8c5b0ce3d717bedc865507ac1a784a8726498b103ac
+        struct_hash: sha256:c8ea35511d7387a1d49a0a7712726759487667cc12d5ff59ec5fde4b2c7a3c32
+        doc_struct_hash: sha256:42ac8ec7842401fd8b152ac3b0265def34b1a3e687ea572f1a9975a95ca08484
+        lines: [153, 160]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#hashToken
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: hashToken
+        hash: sha256:ef4f54380f1947e42a997fc3b5db4a7f869ed4a7d7ba222979757e60cfe76ece
+        struct_hash: sha256:8788371923e68f2e521f90ab19182f8280570cddb3b75d05a7f36048c1d437fd
+        doc_struct_hash: sha256:8788371923e68f2e521f90ab19182f8280570cddb3b75d05a7f36048c1d437fd
+        lines: [162, 165]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/keys.go#randomHex
+      level: function
+      anchor:
+        file: store/keys.go
+        symbol: randomHex
+        hash: sha256:f8cd12d9b2b8add0750575bad5cc4222230ea85c07257ba44a7936028032994e
+        struct_hash: sha256:8cec37ccabcc6cf3c411fb729d673f0fdcbddb00c82f98b5aa13b1c069ed69c8
+        doc_struct_hash: sha256:8cec37ccabcc6cf3c411fb729d673f0fdcbddb00c82f98b5aa13b1c069ed69c8
+        lines: [167, 173]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

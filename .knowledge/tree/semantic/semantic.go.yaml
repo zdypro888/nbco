@@ -1,0 +1,549 @@
+schema: 1
+nodes:
+    - id: semantic/semantic.go
+      level: file
+      anchor:
+        file: semantic/semantic.go
+        hash: sha256:040f94fc716bf0cc759995c60f378bd1baaaf5b8a13e502ced29790b0b5a3501
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#SourceKnowledge
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: SourceKnowledge
+        hash: sha256:b39ab870d0fed04f86f995c1b7109ff9e404f38597b21a6644d433e587fd7f7b
+        struct_hash: sha256:f783919cd754ab24db7967b1667148ed1ebbcc1399964eb8e2665d12d99c0aff
+        doc_struct_hash: sha256:f783919cd754ab24db7967b1667148ed1ebbcc1399964eb8e2665d12d99c0aff
+        lines: [28, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#SourceChatMessage
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: SourceChatMessage
+        hash: sha256:97b202be6df7877e632da1421c9bc8d6ed892e94432e028b4975776d1f634e4b
+        struct_hash: sha256:d8b94d367358f7f3f367b656146ce812af91b00c18cade987940a79831126fd8
+        doc_struct_hash: sha256:d8b94d367358f7f3f367b656146ce812af91b00c18cade987940a79831126fd8
+        lines: [29, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#SourceFileChunk
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: SourceFileChunk
+        hash: sha256:16f4e67d741e1eba6f77c2a400bfab392f7cd98c617b5f5bb20717c9bf73b87e
+        struct_hash: sha256:986d568e2d83ac0a24b966b21d58e61f3f56ed835b8a0eee8778171f41914e8b
+        doc_struct_hash: sha256:986d568e2d83ac0a24b966b21d58e61f3f56ed835b8a0eee8778171f41914e8b
+        lines: [30, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#embedBatchSize
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: embedBatchSize
+        hash: sha256:c665cc130588eef43de361270c62d842771bc2561aeb2dc0865afe88ae015b59
+        struct_hash: sha256:235be58add2f5172ff27ce4eb159656f2c6edc23192a20e01f891562b01abd5d
+        doc_struct_hash: sha256:235be58add2f5172ff27ce4eb159656f2c6edc23192a20e01f891562b01abd5d
+        lines: [32, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#maxEmbeddingRunes
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: maxEmbeddingRunes
+        hash: sha256:34f727b1171bf9b6da56ccea92c509ec792bc4e49ab71470382009f048e4ead0
+        struct_hash: sha256:5994e0958a000c7adf3bf83f172c204f93319549f771d7873dfeccdd388f047e
+        doc_struct_hash: sha256:5994e0958a000c7adf3bf83f172c204f93319549f771d7873dfeccdd388f047e
+        lines: [33, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#syncPageSize
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: syncPageSize
+        hash: sha256:36987723603bdac9c99fc58ba6f2d89e39972da53a4ac43828119ab607a250c1
+        struct_hash: sha256:47367804d673e136a3f2d3ab040dcf0741a1be7255c9210bced7d73115151fec
+        doc_struct_hash: sha256:47367804d673e136a3f2d3ab040dcf0741a1be7255c9210bced7d73115151fec
+        lines: [34, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#fullSyncInterval
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: fullSyncInterval
+        hash: sha256:2e8c7b32d0d030a4b8f36d9ae20d7f8fc9f08b0d73daec0b6e9aaa5bc4b36e56
+        struct_hash: sha256:859fb120bb805a0f8059dce5b01c94105822b7b21820548560df0bb21bf79bed
+        doc_struct_hash: sha256:859fb120bb805a0f8059dce5b01c94105822b7b21820548560df0bb21bf79bed
+        lines: [35, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#incrementalOverlap
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: incrementalOverlap
+        hash: sha256:5960a67f5df03697c51c3393591fee478f4c17a8c9c3b74d0511b6dc71985500
+        struct_hash: sha256:aebc1057f34232d318d1ef8d0bdfc85128608fdd34e0d27f7fa3124908f57517
+        doc_struct_hash: sha256:aebc1057f34232d318d1ef8d0bdfc85128608fdd34e0d27f7fa3124908f57517
+        lines: [36, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#semanticCallTimeout
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: semanticCallTimeout
+        hash: sha256:3f1fe3ea2b6ce777c10a937e82fac9b8de25ff417376f40c0ab64e592d09d8e8
+        struct_hash: sha256:136a6d3dc8039a23f708f4e25dbc3d552e650f2a18a4173a29e1f66cb2952959
+        doc_struct_hash: sha256:136a6d3dc8039a23f708f4e25dbc3d552e650f2a18a4173a29e1f66cb2952959
+        lines: [37, 37]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#semanticBulkTimeout
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: semanticBulkTimeout
+        hash: sha256:0d0ee7b65cdee45c107424b9b4dc21a8e0119a9968cbf217fc8036ee292abcc8
+        struct_hash: sha256:585a5236cf1494c704d06f694c40cd502355771283052774dcf1186fdb016c22
+        doc_struct_hash: sha256:585a5236cf1494c704d06f694c40cd502355771283052774dcf1186fdb016c22
+        lines: [38, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#queryCacheTTL
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: queryCacheTTL
+        hash: sha256:d5c0075cbc799bbb326bcab3968d21b0fa32fd37e7e9d908a998d7c996ad35ca
+        struct_hash: sha256:7c921244a9aa7ae12cd57575cd18d8df1755a28c7abdf6a680f3c8244cde7268
+        doc_struct_hash: sha256:7c921244a9aa7ae12cd57575cd18d8df1755a28c7abdf6a680f3c8244cde7268
+        lines: [39, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#queryCacheLimit
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: queryCacheLimit
+        hash: sha256:116d51ce9bd11418f6a2a3ec3aa21d0dababf69f255a8d7c27143c62e71e3ffa
+        struct_hash: sha256:cc6ef36d1f5c54d8cf28bfe44d8df2deda8273b350c03f1425cef01693f71662
+        doc_struct_hash: sha256:cc6ef36d1f5c54d8cf28bfe44d8df2deda8273b350c03f1425cef01693f71662
+        lines: [40, 40]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#queryFailureCooldown
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: queryFailureCooldown
+        hash: sha256:7ee8a786185e6c0268b06ec0e6187d2369178cb3b2356eb75df0082e9a7fde6f
+        struct_hash: sha256:8cfa99b6aa94af90474fd080353fffe55a353c0222906e97f94461c2ba7ce51a
+        doc_struct_hash: sha256:8cfa99b6aa94af90474fd080353fffe55a353c0222906e97f94461c2ba7ce51a
+        lines: [41, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#modelProbeTTL
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: modelProbeTTL
+        hash: sha256:98abeb5bef6db3c85337afd30db6d2bf6e00271336e23c42e4d44a405fc2cc14
+        struct_hash: sha256:db43214a9cf426559673f1c85c2f0b7382e30b5f7a6c55c71680780221217a42
+        doc_struct_hash: sha256:db43214a9cf426559673f1c85c2f0b7382e30b5f7a6c55c71680780221217a42
+        lines: [42, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Document
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: Document
+        hash: sha256:26455a7c70c6c1f448c984f978ab42090fc3b72ff0a759a4dbd0d3da7e5cfd8b
+        struct_hash: sha256:0675098bc04d9d0a1de04aeb9d406f3ce1c1da0ba5ddde1fe1aa0b1363ab570a
+        doc_struct_hash: sha256:9c239f24cdd7636ae43516a4e52230525d011575ee4dcb78f90b9fc21c982429
+        lines: [45, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#UpsertReport
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: UpsertReport
+        hash: sha256:594f027187cb26ae0080d036f97c2d05ebca4e42e61de6d7756fa65cb38f0b74
+        struct_hash: sha256:ce13bc2027553943d4fa73940bc44e9dbc1568402f35bfd34353fb771b7acc2c
+        doc_struct_hash: sha256:b78cebb83cb7ecccb9c83d8398188266b0c533cbb3a7570f6a20172729d1df4c
+        lines: [53, 60]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#queryCacheEntry
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: queryCacheEntry
+        hash: sha256:2fd5f71d6e2a2fe97b369fb6f19a0f3f2d42a071134abe4b28dcf132fb04d2ba
+        struct_hash: sha256:112d7a4a6ab60746811f4bb8726b7b49db32215a11117e90834ddc1b851e4e7d
+        doc_struct_hash: sha256:112d7a4a6ab60746811f4bb8726b7b49db32215a11117e90834ddc1b851e4e7d
+        lines: [62, 65]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Status
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: Status
+        hash: sha256:673b605dfa624e1d2a879b2776ebb2694c08894e7687c0fe4fc7968b2f97e499
+        struct_hash: sha256:6b4ab4d9beeb266446d36db4bfb6fc2687733eebd73250675c39c66955c97055
+        doc_struct_hash: sha256:d22b2931c96bab593c79ed85758b5164b677ba5a7231d9ab770948a846e97114
+        lines: [67, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service
+      level: decl
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service
+        hash: sha256:a6aa8e004fe211b31b5bf99ca0e9dba36d080946f34b10eccf6ef21c4fc23a12
+        struct_hash: sha256:b1d13eb04936dca9be323379c499e8f4661caec008363adaba638210c61a4818
+        doc_struct_hash: sha256:92789169a4a61e5ac6ab52bf2957540dc0abaaaa50f3e9c3cee6d736ca1b88bd
+        lines: [78, 106]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#New
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: New
+        hash: sha256:73d7c14f1487c301f96c4be1e57a5dc34762bcda27d449664c3c65961c2e3edd
+        struct_hash: sha256:24309213537b72acd59e32d40105e4ab9358e2b3bc58ddedbea4aba49fb41058
+        doc_struct_hash: sha256:24309213537b72acd59e32d40105e4ab9358e2b3bc58ddedbea4aba49fb41058
+        lines: [108, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.Enabled
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.Enabled
+        hash: sha256:199af048c4547c750cf0c681901ef6a26c59b5a2cd596b600339426bb0988ea8
+        struct_hash: sha256:058e4a5de18aaec4b02c7b5754c5784b9f22d0707ee00902b9ccf178fe6ae946
+        doc_struct_hash: sha256:058e4a5de18aaec4b02c7b5754c5784b9f22d0707ee00902b9ccf178fe6ae946
+        lines: [118, 118]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.QueryVector
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.QueryVector
+        hash: sha256:4ebf06dda23501937c97a1e2309592f1afec2a26c986a98f9de9a95916ebc521
+        struct_hash: sha256:e8beb014659a4a833077c41e0148355d61e372847edea9eae1134873efef9d16
+        doc_struct_hash: sha256:d3468ba16ac35ddb2cafe0a8e564c300642e2b068d21425f434c69c482e5bbd2
+        lines: [120, 174]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.CurrentModel
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.CurrentModel
+        hash: sha256:52e0d5eb5575306ad075f8c826c8f6fe5487510c1fbd25ab4b11952d6ac491c8
+        struct_hash: sha256:cb1a6c53c74a84e5b48453f03d9fa76a72e1b98c882a860494fae417373d5cc9
+        doc_struct_hash: sha256:b9aaae47b23bd6736d93fcab2e6b3deb4caa5d3d2d0c184c9ac65a7195ecfcf2
+        lines: [176, 235]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.UpsertDocuments
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.UpsertDocuments
+        hash: sha256:f44389c555ef49d6a8bbefb5b58045a1ca7d6f7c4811f3f5d0ebf65d08c1fd7e
+        struct_hash: sha256:10edbdad34f2cf311d154faf6d625f5e7327ae2bba553ef3be78eb271cf3b2c3
+        doc_struct_hash: sha256:b025c12cfe800d3eb9b3b95cf8d4c8d358ddf0f9ccebdb1a7dc910b771c74393
+        lines: [237, 249]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.UpsertDocumentsDetailed
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.UpsertDocumentsDetailed
+        hash: sha256:a0a2fd9c02bcb0fe8956dd60480313cbbf2f82b0fb4978103ecd9d5d057f8978
+        struct_hash: sha256:5b53be7e865288bc1a7ca611d9fdc7c42965538d07795fe07917494adcaa5e01
+        doc_struct_hash: sha256:ae5417b7b93f8cc937b1742ac32416ec58bb0f0f2e8f1c79d907be9f1ee0bd95
+        lines: [251, 339]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#compactEmbeddingContent
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: compactEmbeddingContent
+        hash: sha256:acb6b260436f41e96352dbd9d75b9e4b5daa03b4e82c636d3d82986e813573a1
+        struct_hash: sha256:5af3dcf3d56735919fee25a5a37fbecd0599b041fd0284ef3a8874348909d98b
+        doc_struct_hash: sha256:5af3dcf3d56735919fee25a5a37fbecd0599b041fd0284ef3a8874348909d98b
+        lines: [341, 353]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.embedBatchResilient
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.embedBatchResilient
+        hash: sha256:cdb6a97b24a17baafb27ded5d8137e77f0b6271dce30c30a700d3dc4b3302a01
+        struct_hash: sha256:f3fba2d41ced62c8444e2b0e50b5ebb21f4b41ee1c2234f921f762d2233b9b34
+        doc_struct_hash: sha256:f3fba2d41ced62c8444e2b0e50b5ebb21f4b41ee1c2234f921f762d2233b9b34
+        lines: [355, 413]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#sanitizePayload
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: sanitizePayload
+        hash: sha256:2c950f565f81f7ed8ce5ae675ce45ad0f8318be3b75c84e40fa89f74e974c568
+        struct_hash: sha256:7aa55931248f4fdc9df5e5cd018c513842b5b9e4de0f7aa30c6e41b3bf05f269
+        doc_struct_hash: sha256:7aa55931248f4fdc9df5e5cd018c513842b5b9e4de0f7aa30c6e41b3bf05f269
+        lines: [415, 430]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#sanitizePayloadValue
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: sanitizePayloadValue
+        hash: sha256:d1b7d462066176185022a5458b475ca972bf4c00bda8bed51004dff3585a4232
+        struct_hash: sha256:f83f9df1e93fa2743ce1a4492dd8e97f507c80a9fe4840ab81d47b16428bc134
+        doc_struct_hash: sha256:f83f9df1e93fa2743ce1a4492dd8e97f507c80a9fe4840ab81d47b16428bc134
+        lines: [432, 459]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.embedBulk
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.embedBulk
+        hash: sha256:0b2d82510cc3d890d356ae69df222ae383cb3e186519f26a22b6169ac787dfda
+        struct_hash: sha256:d504ed78086e056c00fcb4d57c71d05d864363ba08dd636d881311589243cbd0
+        doc_struct_hash: sha256:d504ed78086e056c00fcb4d57c71d05d864363ba08dd636d881311589243cbd0
+        lines: [461, 471]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.Search
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.Search
+        hash: sha256:8cbc258245bca7a079126ee04f3c5fbfa036d438079fc01063d853a6535fff2f
+        struct_hash: sha256:53fd3c0f225efd3c61243e2a4602f0a896a33dcdebc87233f7562146438229ec
+        doc_struct_hash: sha256:53fd3c0f225efd3c61243e2a4602f0a896a33dcdebc87233f7562146438229ec
+        lines: [473, 479]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.SearchVector
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.SearchVector
+        hash: sha256:82888831e3f36273323df42a0760fcfbcefb5113286c8e45c58e77541e883cef
+        struct_hash: sha256:d465f21da7a3b5cd16648db0e2f52708802a0b9ad1966247815bf5a5b57b41a6
+        doc_struct_hash: sha256:d465f21da7a3b5cd16648db0e2f52708802a0b9ad1966247815bf5a5b57b41a6
+        lines: [481, 499]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.DeleteMissing
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.DeleteMissing
+        hash: sha256:cbbaf6f5fe7f044034a0a13341d88f817feda567d4cce508d0d6d9ac258ef639
+        struct_hash: sha256:c5d881f51688981eb28ea02da1e4b93d1f773e77ca96389e3da52ba657fb04c5
+        doc_struct_hash: sha256:c4279446f142806fc5e441f505d55f2b8786aefcd6181f4cba5048fdd1569402
+        lines: [501, 541]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.SyncStructured
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.SyncStructured
+        hash: sha256:cd9ac6c7a830a5e16f4baeddf0dd42a191a6a714f6357f5d96dca48fc741e115
+        struct_hash: sha256:a9336ed61ca57bf3b6a536e498715161e2f345bdc3ae8eac9683b8ae8d77ecf2
+        doc_struct_hash: sha256:12ae472292beb7e4503c238f1effb6212443eeb189b44cef0b3a37b4f4204581
+        lines: [543, 548]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.syncStructured
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.syncStructured
+        hash: sha256:e4f5c17aec5c29d0780fbd9dab541906be2429514f8743afa289c9fdea8c8d3b
+        struct_hash: sha256:68e2eb54aa1c31590a2fee8716bbc60959d7b4089c8b52e9deb014978a7a4797
+        doc_struct_hash: sha256:68e2eb54aa1c31590a2fee8716bbc60959d7b4089c8b52e9deb014978a7a4797
+        lines: [550, 566]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.syncStructuredSource
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.syncStructuredSource
+        hash: sha256:00a55a2a164d36529f16f5bf23ce9b2c47955a06971a2c04bb19cd08ce21feb3
+        struct_hash: sha256:3d015cd4861f1226600b1afe3530ec182cd46ec9076be4f2711077fa04adaf01
+        doc_struct_hash: sha256:3d015cd4861f1226600b1afe3530ec182cd46ec9076be4f2711077fa04adaf01
+        lines: [568, 619]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.Run
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.Run
+        hash: sha256:215c6625f16330c0d5dc110d1c200c904a5640ea4ba6427afffd3e79c4d2e8b5
+        struct_hash: sha256:d42c4e933eb97b0c94042e3d9b4a52567842437ec0c5615183208aaec0f063f4
+        doc_struct_hash: sha256:d42c4e933eb97b0c94042e3d9b4a52567842437ec0c5615183208aaec0f063f4
+        lines: [621, 663]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#structuredSyncNeedsFull
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: structuredSyncNeedsFull
+        hash: sha256:74bf75af16262f4d916da16b0fa1c0cd53f48b362a37d9ccc2253187ba0148cb
+        struct_hash: sha256:35c507f651e7fc4eafd320e880844277ebc9b781e989ecb204f518649cbaa21e
+        doc_struct_hash: sha256:35c507f651e7fc4eafd320e880844277ebc9b781e989ecb204f518649cbaa21e
+        lines: [665, 667]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.Health
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.Health
+        hash: sha256:9f496050cd5a1c0789e4f60858c86a550f98fea748c9b72b01b2d496140b3da2
+        struct_hash: sha256:1d3d05e45797ade32310cd37717bc3201d2ffc79ba375ee01120472d294a78d4
+        doc_struct_hash: sha256:1d3d05e45797ade32310cd37717bc3201d2ffc79ba375ee01120472d294a78d4
+        lines: [669, 685]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.queryState
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.queryState
+        hash: sha256:f214acfedcf4059d22f0ef87453239a6c6bc08794ec650f92e3bf7a7574eeeb6
+        struct_hash: sha256:6835f75545e6c6d7714a81b7de127c19771b3aa3fb53de62f2e70ca2d3f9d800
+        doc_struct_hash: sha256:6835f75545e6c6d7714a81b7de127c19771b3aa3fb53de62f2e70ca2d3f9d800
+        lines: [687, 700]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.recordQuerySuccess
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.recordQuerySuccess
+        hash: sha256:20e590f5e55577cb6a6ab4b8692cb1fdbdccd1e278a41a495b6011aab1c0e086
+        struct_hash: sha256:9b6c5e9dab4d41d4a0e757c4a95aca882afa647b7b32e1c23476d4609cb8ff98
+        doc_struct_hash: sha256:9b6c5e9dab4d41d4a0e757c4a95aca882afa647b7b32e1c23476d4609cb8ff98
+        lines: [702, 712]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.recordFailure
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.recordFailure
+        hash: sha256:c1a69e10cef9502902f30652c2dddb3de99d2b93474923456b362800bd5d1cb5
+        struct_hash: sha256:b404d6c4c6a453b5c64f9abc4e835e5eae86594947673b6eb0e817d67bd9ec10
+        doc_struct_hash: sha256:b404d6c4c6a453b5c64f9abc4e835e5eae86594947673b6eb0e817d67bd9ec10
+        lines: [714, 726]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.recordAvailable
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.recordAvailable
+        hash: sha256:a29040c2b50202b20748a7ff6bf87f963e2e0f3c04d3bf955d5bef47a0206e04
+        struct_hash: sha256:ab5f92a93baea838dbb3840b743fe3d16692ff677ff423292ba38e6ec94a9397
+        doc_struct_hash: sha256:ab5f92a93baea838dbb3840b743fe3d16692ff677ff423292ba38e6ec94a9397
+        lines: [728, 733]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.recordModel
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.recordModel
+        hash: sha256:ab850af96a843499feed23afde5feddd612fe0623106a4ad1e7be9a930586556
+        struct_hash: sha256:18e79266809f2e8d8adbd7bdd666baa8aa80d956ce3899558e8a307bb6082576
+        doc_struct_hash: sha256:18e79266809f2e8d8adbd7bdd666baa8aa80d956ce3899558e8a307bb6082576
+        lines: [735, 745]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.recordSync
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.recordSync
+        hash: sha256:86a0f4e32c4cdae007f27f4ac651cf006a5c5135e20f0971ba8a8536ad17204e
+        struct_hash: sha256:6ab59fd62bb6d3d97ead921e5dd108b04a70dcdefa7d65613df8326707d68389
+        doc_struct_hash: sha256:6ab59fd62bb6d3d97ead921e5dd108b04a70dcdefa7d65613df8326707d68389
+        lines: [747, 759]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#documentHash
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: documentHash
+        hash: sha256:1cf473cab67b90e545b035ab24219794aed0cb42f842c1fe82837880c0bd1b6e
+        struct_hash: sha256:1414db337635471b237fd49731e6db2fb5faa8cd76d36bb01c9e9711c35b9a88
+        doc_struct_hash: sha256:1414db337635471b237fd49731e6db2fb5faa8cd76d36bb01c9e9711c35b9a88
+        lines: [761, 765]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#modelTag
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: modelTag
+        hash: sha256:44dcfe7f7ecca7f45fad701ce77e95a9c706d77cbe24cf38b5c17268eb2236e4
+        struct_hash: sha256:f7afd54f341203393b738fbc222ad7aa9d658d509c1c37c90a54b81f90bb6419
+        doc_struct_hash: sha256:f7afd54f341203393b738fbc222ad7aa9d658d509c1c37c90a54b81f90bb6419
+        lines: [767, 769]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#vectorFingerprint
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: vectorFingerprint
+        hash: sha256:ebe856624e3ab293946e857aee280b0c08ed1a9e5c2a6025ccb1fc55d9dcdaf2
+        struct_hash: sha256:c5bd0ada9f90da4d9ee57ed4f663e029348decfadb4ada8666c1a610507ef656
+        doc_struct_hash: sha256:a250d4755df103c42fc05b4a87fb3abe232f71ecdaed78d2edd6a8110d7d3534
+        lines: [771, 784]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#validateVector
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: validateVector
+        hash: sha256:5c6aab0a8858bb474ca84cb93ce229c15a318dc854de7ae12e6819a541cf046e
+        struct_hash: sha256:6230c92c9c9a8f3800074f6679825f819606dc4c78dd71009ffd5ef2a9b27bd7
+        doc_struct_hash: sha256:6230c92c9c9a8f3800074f6679825f819606dc4c78dd71009ffd5ef2a9b27bd7
+        lines: [786, 796]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

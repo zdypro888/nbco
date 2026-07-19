@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: tools/args_test.go
+      level: file
+      anchor:
+        file: tools/args_test.go
+        hash: sha256:f6e6e6e62f4c33c646e10b59d72501c8c46fd603c10f0462b5e8bf14890a8192
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args_test.go#TestNormalizeToolArgsUsesSchemaTypesAndUnambiguousAliases
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestNormalizeToolArgsUsesSchemaTypesAndUnambiguousAliases
+        hash: sha256:879a2de15f2dbe079509b116b9d28f7766c5ee650b775374bea184018d101b35
+        struct_hash: sha256:2753fb7ecd5782f424a33bbe03b9d585ca497240eb177baa827bec1207897383
+        doc_struct_hash: sha256:2753fb7ecd5782f424a33bbe03b9d585ca497240eb177baa827bec1207897383
+        lines: [8, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args_test.go#TestNormalizeToolArgsInternalIDOnlyWhenUnambiguous
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestNormalizeToolArgsInternalIDOnlyWhenUnambiguous
+        hash: sha256:a0d4ec133c7ca2303637e58d1847d2cca387cb4041cf0780a62b74da308a602d
+        struct_hash: sha256:8b422c430e26cf5433973782440f23aaeb1295cfd3732eb97f13d0c202da82c8
+        doc_struct_hash: sha256:8b422c430e26cf5433973782440f23aaeb1295cfd3732eb97f13d0c202da82c8
+        lines: [35, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args_test.go#TestNormalizeToolArgsNestedArray
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestNormalizeToolArgsNestedArray
+        hash: sha256:0661cdf79b7b0600a93c63690ebace758656806affacfd61beb3132d1382941e
+        struct_hash: sha256:7af4d2245e50ed222eec3bc12286135e83bcfe8ce55a0604b98c3b5302f7619f
+        doc_struct_hash: sha256:7af4d2245e50ed222eec3bc12286135e83bcfe8ce55a0604b98c3b5302f7619f
+        lines: [53, 69]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args_test.go#TestNormalizeToolArgsMapsGenericTimeToAt
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestNormalizeToolArgsMapsGenericTimeToAt
+        hash: sha256:6d44312f9afcbefaa8ea53ba74b22c128e3eff8a645f097dd4974e3eba0c0441
+        struct_hash: sha256:0a87ae8c1f03af60c6c076799493e7e2705499c57c74b10c4baada62086685a7
+        doc_struct_hash: sha256:0a87ae8c1f03af60c6c076799493e7e2705499c57c74b10c4baada62086685a7
+        lines: [71, 80]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args_test.go#TestNormalizeToolArgsRejectsFractionalInteger
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestNormalizeToolArgsRejectsFractionalInteger
+        hash: sha256:b1cf2596f86ef778a6d11fc6dad05a4ce3936cb5ae76cb186a051eb44891318e
+        struct_hash: sha256:b033d3c3607b391a0167dcd7840da7015ff4aa43ed3b1c1b7ad0ee68b5103e36
+        doc_struct_hash: sha256:b033d3c3607b391a0167dcd7840da7015ff4aa43ed3b1c1b7ad0ee68b5103e36
+        lines: [82, 88]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

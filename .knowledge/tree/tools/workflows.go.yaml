@@ -1,0 +1,208 @@
+schema: 1
+nodes:
+    - id: tools/workflows.go
+      level: file
+      anchor:
+        file: tools/workflows.go
+        hash: sha256:43a2562a2b99339c79b127a7ff6dfc6896ca5e764fc530a362a05e2b3896ae65
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#WorkflowTemplate
+      level: decl
+      anchor:
+        file: tools/workflows.go
+        symbol: WorkflowTemplate
+        hash: sha256:5fbdee272c4b008b158ef6e67b7fb25591157f480b57c81ee6ac361962296cf1
+        struct_hash: sha256:577b6614ce0726b5efa2d280bc02b82da892a2fb66cfa42e11487977e2ee4f49
+        doc_struct_hash: sha256:577b6614ce0726b5efa2d280bc02b82da892a2fb66cfa42e11487977e2ee4f49
+        lines: [16, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#workflowTemplates
+      level: decl
+      anchor:
+        file: tools/workflows.go
+        symbol: workflowTemplates
+        hash: sha256:50e3beaa44487e50495df7d268c6c4eebc8723bb050f599e1492130dfd6aa00e
+        struct_hash: sha256:2ec5f514ae3d264df872c0df68f2183ced404ccbddd4a881a25421405459f661
+        doc_struct_hash: sha256:2ec5f514ae3d264df872c0df68f2183ced404ccbddd4a881a25421405459f661
+        lines: [25, 71]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#workflowRefRe
+      level: decl
+      anchor:
+        file: tools/workflows.go
+        symbol: workflowRefRe
+        hash: sha256:de336a95afdfe4b0897d35f1e9ecc8404bf953b9b3fbe18d54accf0407044c9a
+        struct_hash: sha256:e03703b4d017ccaad42adae44d31f80bc5dc4bca9620c176ff2fb2ad490fdc20
+        doc_struct_hash: sha256:e03703b4d017ccaad42adae44d31f80bc5dc4bca9620c176ff2fb2ad490fdc20
+        lines: [73, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#workflowTools
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: workflowTools
+        hash: sha256:b999ae4d9994288543489c5b7df7f72a3f79e20e37e8865c1dbe6abf75e0f23c
+        struct_hash: sha256:29b4b6ad343df6d6c99f470b3471364e4d878ba4224417bd08cc5cf373daf9aa
+        doc_struct_hash: sha256:29b4b6ad343df6d6c99f470b3471364e4d878ba4224417bd08cc5cf373daf9aa
+        lines: [75, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#ListWorkflowTemplates
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: ListWorkflowTemplates
+        hash: sha256:e8f99b3ee9ea90f5d6a6fd25211fe0fd38895c15844733ee8fa7474fc6a653b9
+        struct_hash: sha256:5bf2006c69c82bedc1ca8511d6e2a6cbee65ac881781692966fa86d60d100ad9
+        doc_struct_hash: sha256:5bf2006c69c82bedc1ca8511d6e2a6cbee65ac881781692966fa86d60d100ad9
+        lines: [110, 122]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#CanStartWorkflow
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: CanStartWorkflow
+        hash: sha256:f5c49095cc145fea35f8ff9b2bf0dc9190b870ee19338a3584f76827e4332d57
+        struct_hash: sha256:7778976bf81d01a663ae2109a7e7defbfb961bb9395d8ed00535daef3e3217ec
+        doc_struct_hash: sha256:7778976bf81d01a663ae2109a7e7defbfb961bb9395d8ed00535daef3e3217ec
+        lines: [124, 145]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#StartWorkflow
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: StartWorkflow
+        hash: sha256:d8f32ff2ca3b258e205a335f480c5a6b87e732d72b6092e05865b98173b5a3fc
+        struct_hash: sha256:5a17a5cf278c746639291e32308626fe3dd10d449c250d95e98652e8d5840aa8
+        doc_struct_hash: sha256:5a17a5cf278c746639291e32308626fe3dd10d449c250d95e98652e8d5840aa8
+        lines: [147, 162]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#workflowRequiresSuperadmin
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: workflowRequiresSuperadmin
+        hash: sha256:f7cdab671c4ecb2cf5b58e1bf5e2dc32ae87818c4d8b468a6cf2a33e6d75ba74
+        struct_hash: sha256:73ba863d881d851ab120456e0f117adc0e096c924bb9851e1a073f10c63bc8ea
+        doc_struct_hash: sha256:73ba863d881d851ab120456e0f117adc0e096c924bb9851e1a073f10c63bc8ea
+        lines: [164, 171]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#renderWorkflowTemplates
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: renderWorkflowTemplates
+        hash: sha256:204a26362d89af8fe017d50b2ef015eda722e9df8a4bb3aacbed08ae47f6ea00
+        struct_hash: sha256:59ca1bb3f9d31728f612119d66e57949a787030a01ed770f2238bf2c95714d44
+        doc_struct_hash: sha256:59ca1bb3f9d31728f612119d66e57949a787030a01ed770f2238bf2c95714d44
+        lines: [173, 207]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#startMaterialWorkflow
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: startMaterialWorkflow
+        hash: sha256:2b8860a1c7ab42a39b22ef9a4fd71edc1e92e66411677d73c5a9864b550d96df
+        struct_hash: sha256:d1f7d2fb193798fde8767271ab49517452aa54f71268c6389bd4ee8bcaf01306
+        doc_struct_hash: sha256:d1f7d2fb193798fde8767271ab49517452aa54f71268c6389bd4ee8bcaf01306
+        lines: [209, 219]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#startNBCOUpgradeWorkflow
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: startNBCOUpgradeWorkflow
+        hash: sha256:ddac2f387bd549f63103a2c6b72441a4dc8a5541f990661e8f87921d23523092
+        struct_hash: sha256:fd694c262921abb926d7e43b27382acd51538255a30b886ae187e55ddbc04d2f
+        doc_struct_hash: sha256:fd694c262921abb926d7e43b27382acd51538255a30b886ae187e55ddbc04d2f
+        lines: [221, 275]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#startNBCOCodeChangeWorkflow
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: startNBCOCodeChangeWorkflow
+        hash: sha256:7655f049ea5418739d33cc5659a7e408c74b2f18a1b19aeaa0f8a61b6ea1d11b
+        struct_hash: sha256:e89ae90d3de781a0395d18d2c482bd79eb83797a1144d1be384b4425697c9204
+        doc_struct_hash: sha256:e89ae90d3de781a0395d18d2c482bd79eb83797a1144d1be384b4425697c9204
+        lines: [277, 348]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#nbcoCodeChangePrompt
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: nbcoCodeChangePrompt
+        hash: sha256:7675e6e496ae428461f192ae37d0c796477f5430a45347c150693fa2a63a82b4
+        struct_hash: sha256:468ec7e9d55f8eb77d703b4aba78fafccfde8812ccfe87da2a25e42a5b67c29d
+        doc_struct_hash: sha256:468ec7e9d55f8eb77d703b4aba78fafccfde8812ccfe87da2a25e42a5b67c29d
+        lines: [350, 388]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#textTitle
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: textTitle
+        hash: sha256:76944f8fd5a493f5b59d9fd240cc58b4084c68430bd949417dbcd4438e488970
+        struct_hash: sha256:91edb2bab2be867a8a131af7b333e84be37a9dcf076c4e21558e6a2f15fb5b5e
+        doc_struct_hash: sha256:91edb2bab2be867a8a131af7b333e84be37a9dcf076c4e21558e6a2f15fb5b5e
+        lines: [390, 397]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#pickAdminWorkflowWorker
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: pickAdminWorkflowWorker
+        hash: sha256:676265378ee294608eb79b1e4ca455798b52cf6d86b38fe0a02c8fae2c0815f6
+        struct_hash: sha256:7f8f84eec62aa922bf6ad06b1aab8fcf58ce051f68c50abd72bf38c866543d62
+        doc_struct_hash: sha256:7f8f84eec62aa922bf6ad06b1aab8fcf58ce051f68c50abd72bf38c866543d62
+        lines: [399, 428]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#nbcoUpgradeCommand
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: nbcoUpgradeCommand
+        hash: sha256:3f7ff0fcff974bbaa138bf9bb5913b15a866b078e620c8a178aab6944b432176
+        struct_hash: sha256:8910e1622e7b9996691c7b0bc16e9ff75ec8f168fe9e40ccee617b330a6b92bf
+        doc_struct_hash: sha256:8910e1622e7b9996691c7b0bc16e9ff75ec8f168fe9e40ccee617b330a6b92bf
+        lines: [430, 440]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#shellQuote
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: shellQuote
+        hash: sha256:de38ca436a759e398dc2be6e498150ca19ec65748518650d5a18a55bf57ca3fc
+        struct_hash: sha256:ca5b334b74971837a7d2c89229a679ec0ec208fbae3f14bb244ba710a1734e7c
+        doc_struct_hash: sha256:ca5b334b74971837a7d2c89229a679ec0ec208fbae3f14bb244ba710a1734e7c
+        lines: [442, 447]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/workflows.go#workflowTemplateByName
+      level: function
+      anchor:
+        file: tools/workflows.go
+        symbol: workflowTemplateByName
+        hash: sha256:eeb3d2c53d998761ddc778e21f0ef11d690949bf5d117ca2136d89fe4fdd7796
+        struct_hash: sha256:bf4d3a7f04574713e1ff4fdb144b8387617c23935c9a5cbf8235859a6cbfd269
+        doc_struct_hash: sha256:bf4d3a7f04574713e1ff4fdb144b8387617c23935c9a5cbf8235859a6cbfd269
+        lines: [449, 456]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,172 @@
+schema: 1
+nodes:
+    - id: chat/action_plan.go
+      level: file
+      anchor:
+        file: chat/action_plan.go
+        hash: sha256:d0735203601d1b0a3d879e1fb4f37047893bbb17378727f6b3ba6a97b5305b0c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#actionPlan
+      level: decl
+      anchor:
+        file: chat/action_plan.go
+        symbol: actionPlan
+        hash: sha256:e7aae82c12072759b8a04bd1aa87ef6bd98af7b6ca0d2afc5fdc6f1443246522
+        struct_hash: sha256:df993cb82b6449f3c1cfd3c5617e43d898cd58a5b3222d04fdfd737ab2907daf
+        doc_struct_hash: sha256:df993cb82b6449f3c1cfd3c5617e43d898cd58a5b3222d04fdfd737ab2907daf
+        lines: [14, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#buildActionAuditPlan
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: buildActionAuditPlan
+        hash: sha256:095c31fc962c961a667e606635d08bc0cf867d37c0d4e9f9dc7151fca26a9cb9
+        struct_hash: sha256:37ccad5090d8f783fddf9e3585f946fe1db11f73006d288a9838cca7fe9b9018
+        doc_struct_hash: sha256:37ccad5090d8f783fddf9e3585f946fe1db11f73006d288a9838cca7fe9b9018
+        lines: [26, 63]
+      status: fresh
+      since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_e43b8a2c
+          kind: contract
+          text: 当前 action plan 是纯事后 tool-trace 审计：RequiresAction 和 ExpectedTools 仅由已经发生的 write/execute 调用或待审批结果推导。零工具轮次无论用户目标/助手承诺是什么都会得到 RequiresAction=false、ExpectedTools=[]，最终 outcome=answered_without_tool；该账本因此不能充当未闭合目标的可恢复执行状态。
+          confidence: inferred
+          at: 2026-07-19T19:27:16.898859Z
+          author: codex-mcp-client
+        - id: e_d7341080
+          kind: pitfall
+          text: 若要恢复未执行承诺，必须在引擎执行前或结构化终止时建立独立 execution contract；不能从本函数的事后轨迹重建，因为零工具时意图信息已被有意丢弃。
+          confidence: inferred
+          at: 2026-07-19T19:27:16.898925Z
+          author: codex-mcp-client
+      keywords:
+        - action_turns
+        - answered_without_tool
+        - pending execution
+        - 执行契约
+        - expected tools
+    - id: chat/action_plan.go#toolNames
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: toolNames
+        hash: sha256:85b787a795d78baf63ae3595c15a04b82b185cdf8689690c16d81e5fac2a2d22
+        struct_hash: sha256:fb8671c258dfae665eeca6b18d6ac9411aea3333ac4262359b72eb8ed01a466b
+        doc_struct_hash: sha256:fb8671c258dfae665eeca6b18d6ac9411aea3333ac4262359b72eb8ed01a466b
+        lines: [65, 71]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#toolEvidence
+      level: decl
+      anchor:
+        file: chat/action_plan.go
+        symbol: toolEvidence
+        hash: sha256:754129efe101c80ae209ed22ce442cbca1edde186447db1301ad7574bb26918b
+        struct_hash: sha256:c17f1cf02dafff1a288b92676ea59483ccb3e831d54651ee2045d6c4e57bb53c
+        doc_struct_hash: sha256:c17f1cf02dafff1a288b92676ea59483ccb3e831d54651ee2045d6c4e57bb53c
+        lines: [73, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#turnDiagnostics
+      level: decl
+      anchor:
+        file: chat/action_plan.go
+        symbol: turnDiagnostics
+        hash: sha256:84e8de4d4c7aa14eac87cb97866a76941a38a40ba725511e66a5d558e45172fa
+        struct_hash: sha256:38e9550f59ba34b4699d69332802edcafaad5a7124aff301323b44387e7fcca9
+        doc_struct_hash: sha256:38e9550f59ba34b4699d69332802edcafaad5a7124aff301323b44387e7fcca9
+        lines: [79, 94]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#summarizeToolEvidence
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: summarizeToolEvidence
+        hash: sha256:d58f0d88028e995f8b54eefd8d8792c19901b47ace75c27dd67ad49e7d87685d
+        struct_hash: sha256:f791012eafde85387e9c1656f017758b8212fbbef6da8f993dcbe9587409f269
+        doc_struct_hash: sha256:f791012eafde85387e9c1656f017758b8212fbbef6da8f993dcbe9587409f269
+        lines: [96, 114]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#countToolEvidence
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: countToolEvidence
+        hash: sha256:1aa3540ec71c5ca1b646555c164d8bee9732e9fc44a3f9d8cc11bb0670a537c2
+        struct_hash: sha256:63fe0fc6c3e16568188b9046c955193d0031545feb2fec52fd2b3077e49dfbe3
+        doc_struct_hash: sha256:63fe0fc6c3e16568188b9046c955193d0031545feb2fec52fd2b3077e49dfbe3
+        lines: [116, 127]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#toolDefinitionsByName
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: toolDefinitionsByName
+        hash: sha256:fe4705e50c2b8f7725f4370867562b9213b3f1a1f2c7e5d47979375577f04dc8
+        struct_hash: sha256:bbcf9cff7f059bf512bcfadc3af1903e517b5dbb1772b4bae4c52c5b052875ea
+        doc_struct_hash: sha256:bbcf9cff7f059bf512bcfadc3af1903e517b5dbb1772b4bae4c52c5b052875ea
+        lines: [129, 135]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#toolCanProveAction
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: toolCanProveAction
+        hash: sha256:a4beab3aba0aff336463a8cfe3c46b92f05b3dd2e33a32c423411a1dc2c920cf
+        struct_hash: sha256:7bfc052c36684860b7ca80c6a140fffdef4bedbe4f567e350b08cbc49b60a5bc
+        doc_struct_hash: sha256:7bfc052c36684860b7ca80c6a140fffdef4bedbe4f567e350b08cbc49b60a5bc
+        lines: [137, 142]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#toolResultLooksPendingApproval
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: toolResultLooksPendingApproval
+        hash: sha256:6807c7f0c74e2f4237de3675bc48510979acbe305e5078c69309ecd2c3771805
+        struct_hash: sha256:24820672ccbda90e95d56f26a818e56879f4d24ebbd2539e234e6063d3d14acd
+        doc_struct_hash: sha256:24820672ccbda90e95d56f26a818e56879f4d24ebbd2539e234e6063d3d14acd
+        lines: [144, 146]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#firstPendingApprovalStep
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: firstPendingApprovalStep
+        hash: sha256:8fff192bb7b9df6746f674e7dca4411816d558fbe5a63ca5295ee48559d289a6
+        struct_hash: sha256:5f06673e2a6dc1c9ae5d6bf4205e8a32fce7b6bc64b2dfa2955b06fc925f4b96
+        doc_struct_hash: sha256:5f06673e2a6dc1c9ae5d6bf4205e8a32fce7b6bc64b2dfa2955b06fc925f4b96
+        lines: [148, 155]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#Orchestrator.recordActionTurn
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: Orchestrator.recordActionTurn
+        hash: sha256:c053e4533dbcaad3ee74578cb4e08a00795e172890d2d5b42400265bb9cc6c84
+        struct_hash: sha256:f1494a5994491678f3b4f29395b97786f4e3617dc1bc55d3f6250b42e3c8a732
+        doc_struct_hash: sha256:f1494a5994491678f3b4f29395b97786f4e3617dc1bc55d3f6250b42e3c8a732
+        lines: [157, 201]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#actionTurnOutcome
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: actionTurnOutcome
+        hash: sha256:82b22dc231f3e6d3fea272cfc1f97f705888c9eb74ce3162290719da68d295ac
+        struct_hash: sha256:e67f675ddd7b05a58f3e6d8e05a27b7e89f2a17f8245fabaebe2493d841577e8
+        doc_struct_hash: sha256:e67f675ddd7b05a58f3e6d8e05a27b7e89f2a17f8245fabaebe2493d841577e8
+        lines: [203, 231]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

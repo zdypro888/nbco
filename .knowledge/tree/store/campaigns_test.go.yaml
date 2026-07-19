@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/campaigns_test.go
+      level: file
+      anchor:
+        file: store/campaigns_test.go
+        hash: sha256:a24bc8baca3112f4ca519aeeeabcf87b9c806c58980f77a93e640bdced404de1
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns_test.go#TestMissingRequiredFieldsReturnsEmptySlice
+      level: function
+      anchor:
+        file: store/campaigns_test.go
+        symbol: TestMissingRequiredFieldsReturnsEmptySlice
+        hash: sha256:cdd88efb0076282f35dbdf8246904d51d0da5c47644ad55e9a4d72344bc801c0
+        struct_hash: sha256:75d51bdcc40bc1264eee987bdd677041589d45372fbfd8212dea501c6923cbfe
+        doc_struct_hash: sha256:75d51bdcc40bc1264eee987bdd677041589d45372fbfd8212dea501c6923cbfe
+        lines: [5, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

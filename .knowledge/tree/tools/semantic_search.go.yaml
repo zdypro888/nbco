@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: tools/semantic_search.go
+      level: file
+      anchor:
+        file: tools/semantic_search.go
+        hash: sha256:d73dfe486d40bca79f397c3efd0825b00645cb55d64b97c02681e9df467a3ab8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/semantic_search.go#semanticSearchPlan
+      level: decl
+      anchor:
+        file: tools/semantic_search.go
+        symbol: semanticSearchPlan
+        hash: sha256:0517e1a02c6074f9ebd58113924ad671c99c0968026ae3bda882cfc742df0ada
+        struct_hash: sha256:6d3c0f6eb82b193c25cf7f780ea2495d5aecf98084be5f67b8734a0150f4acc4
+        doc_struct_hash: sha256:4d9ad76c8eab8a33f5ea51951507c565436b2a72633a0973f30f61a070a85470
+        lines: [14, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/semantic_search.go#planSemanticSearch
+      level: function
+      anchor:
+        file: tools/semantic_search.go
+        symbol: planSemanticSearch
+        hash: sha256:5db9f98da7e547f53bc91b57572504a195fc26795d84ef2aa3d3e03678d11fab
+        struct_hash: sha256:26f8984660386310769079a9e59cc00cfe56e5af70bbf46b669fbe240b7566c2
+        doc_struct_hash: sha256:26f8984660386310769079a9e59cc00cfe56e5af70bbf46b669fbe240b7566c2
+        lines: [23, 67]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/semantic_search.go#searchPlannerUserID
+      level: function
+      anchor:
+        file: tools/semantic_search.go
+        symbol: searchPlannerUserID
+        hash: sha256:5636d681f3dd02bc1dc20c5c33c4ac22b8bd9960ef16f0d59aa9dcdc943f2fd7
+        struct_hash: sha256:a16ce85e2dc272f4e116b801a23d0c1e66443c423d37b75a4a30e1029177e217
+        doc_struct_hash: sha256:a16ce85e2dc272f4e116b801a23d0c1e66443c423d37b75a4a30e1029177e217
+        lines: [69, 74]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/semantic_search.go#parseSemanticSearchPlan
+      level: function
+      anchor:
+        file: tools/semantic_search.go
+        symbol: parseSemanticSearchPlan
+        hash: sha256:38d42428b46a017d3a18aa7a328e7d629ad841554bd58046904c775fc8353f08
+        struct_hash: sha256:9d990b12dd9c1efbff172204b8e816554b6343f66083f38a1887149070a79d94
+        doc_struct_hash: sha256:9d990b12dd9c1efbff172204b8e816554b6343f66083f38a1887149070a79d94
+        lines: [76, 88]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/semantic_search.go#cleanSearchPlanValues
+      level: function
+      anchor:
+        file: tools/semantic_search.go
+        symbol: cleanSearchPlanValues
+        hash: sha256:b370ef00801a294bde5ca1e31680216609bfafa881539da46c8e0c76e93a2d53
+        struct_hash: sha256:d7cbb4ae6c37450d3cb8269e2d4d81af960349118470a0c90ab7dcdb6ecd5c2b
+        doc_struct_hash: sha256:d7cbb4ae6c37450d3cb8269e2d4d81af960349118470a0c90ab7dcdb6ecd5c2b
+        lines: [90, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/semantic_search.go#extractToolJSONObject
+      level: function
+      anchor:
+        file: tools/semantic_search.go
+        symbol: extractToolJSONObject
+        hash: sha256:6bb2c7c083177a692af0aa513d62d2b3cd38eea07c1d850468a5e609e384cdd5
+        struct_hash: sha256:dce18bf27bb548e7cb9f746b5f8ff308068d3065a44eb0f2787b741f4abee3a9
+        doc_struct_hash: sha256:dce18bf27bb548e7cb9f746b5f8ff308068d3065a44eb0f2787b741f4abee3a9
+        lines: [110, 120]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

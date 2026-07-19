@@ -1,0 +1,98 @@
+schema: 1
+nodes:
+    - id: store/roles.go
+      level: file
+      anchor:
+        file: store/roles.go
+        hash: sha256:40293295f6d91e0191d7d666d4336638feb5b767926249c23894b7f65e734413
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Role
+      level: decl
+      anchor:
+        file: store/roles.go
+        symbol: Role
+        hash: sha256:61b7475ed176f576f15b0025204568191ad7ed86180660b7a42f876f08f89841
+        struct_hash: sha256:01adeeed3c360121bab54cceb667e486c231e5eeff20670454ed21edb753e35c
+        doc_struct_hash: sha256:85ac543476abdbf84af2c1f54957c687251167a55a5a1797d8c87830c5565bb7
+        lines: [8, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.CreateRole
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.CreateRole
+        hash: sha256:23cce757bc54b66eb06ae35732054b9be8ce310940cdfa4a7ba9f9a1e1aa61b5
+        struct_hash: sha256:b8e6c38f4d3aeb56aaebde1fbd84f00083a117f51787f705d12d7cbeb0bded71
+        doc_struct_hash: sha256:dc41d62f70317bf194151c80cf252ac4a6d9433aed7bfb01e477b3dd3a87c343
+        lines: [17, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.UpdateRole
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.UpdateRole
+        hash: sha256:730a983ad322e57c7cb9f267e9f25d977632f2c23449f91fbc4a7861ad9badec
+        struct_hash: sha256:a7355060ad29aecc801ec731f587eda2e555a276077e7c978c47f6aec1c55d15
+        doc_struct_hash: sha256:155b66aacf05b011bb035eef1f17affb3b1264f022a7017f13d4df5f2830014e
+        lines: [27, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.DeleteRole
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.DeleteRole
+        hash: sha256:10a7229c7e58bee192613324d84332294a47396da918540099d7c6f9beb0ae9e
+        struct_hash: sha256:3fd4035df971c8405d97a7a714cf18cd4a77a47235d824c0bc99c5cb3349c7a0
+        doc_struct_hash: sha256:2ef6e14bd6e637465c9479b3998e80ee9038782f927eb266d4e74183d80208dc
+        lines: [36, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.ListRoles
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.ListRoles
+        hash: sha256:1c908309a774f86014a4f861eeeac12e3cae8172d8e130336f6b20119d0261be
+        struct_hash: sha256:763383d0bc2b13fc30438efcdf8ccb2865f5682efc42ba529e225bc0f0b3f9af
+        doc_struct_hash: sha256:95ea523f33e2b043eaf0ab5c18961d49e9bf62111c6a4d31144e4c2809c30999
+        lines: [41, 58]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.ActivateRole
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.ActivateRole
+        hash: sha256:7f86b264b5112715875254e7dc55b6e121be12f887f1837052ee72fd9c993fbe
+        struct_hash: sha256:a83fa1f46f16d437cb5f948da909a18c74227a87c8caaa2c9c945d9706b5f475
+        doc_struct_hash: sha256:9011a3005dab8fe0356a892d429bed243983096711bb4b792b494ed24ac7459b
+        lines: [60, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.DeactivateRole
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.DeactivateRole
+        hash: sha256:40375b6cd80ed852c0019bd282ad69bed2af225a9f463164c17e7677e805890d
+        struct_hash: sha256:9c8b335316a591356f32f622734715e663c465a9e9141eda28da77d28d8d471f
+        doc_struct_hash: sha256:bae74ef34ea26f5cc2bfbc04d2e6cf6cdc3436c5608c33c1b0e8b20105506d57
+        lines: [75, 79]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/roles.go#Store.ActiveRole
+      level: function
+      anchor:
+        file: store/roles.go
+        symbol: Store.ActiveRole
+        hash: sha256:ee715c4317347ae0b9cc244471de8b97d20c74f9db33ebc107158b5a37f2da21
+        struct_hash: sha256:83d9163eb62e7be6703d33eadad60470e9ac72f51642e29ce68064830391984a
+        doc_struct_hash: sha256:48fd067ca5235b47b83e11ddb24db652d14d760d624a45ea52e2b262f506395e
+        lines: [81, 90]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

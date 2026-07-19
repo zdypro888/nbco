@@ -1,0 +1,142 @@
+schema: 1
+nodes:
+    - id: scripttool/starlark.go
+      level: file
+      anchor:
+        file: scripttool/starlark.go
+        hash: sha256:9698838f888817774e5ad18bb6c9caac8d47e21822c17b19308b2b3bccffc72c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#RuntimeStarlark
+      level: decl
+      anchor:
+        file: scripttool/starlark.go
+        symbol: RuntimeStarlark
+        hash: sha256:c899af07858a0a99c7d6fe23238f14dc30ce3bd1136e1c6cd71ecf20b3013d45
+        struct_hash: sha256:e1b96dc2d7d940a15182dd853dc372f914cc8350d85bf1c34c300df815603983
+        doc_struct_hash: sha256:e1b96dc2d7d940a15182dd853dc372f914cc8350d85bf1c34c300df815603983
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#defaultTimeout
+      level: decl
+      anchor:
+        file: scripttool/starlark.go
+        symbol: defaultTimeout
+        hash: sha256:82bafcc6fdb5c444c44b5e13aa6357fbec56dfcb0d2e51563ed726e90b0072a7
+        struct_hash: sha256:7a96a97e7b378dccdfbdb9814a365607acc6cabcc3a3a67c8ebd06976cc835e0
+        doc_struct_hash: sha256:7a96a97e7b378dccdfbdb9814a365607acc6cabcc3a3a67c8ebd06976cc835e0
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#defaultMaxStep
+      level: decl
+      anchor:
+        file: scripttool/starlark.go
+        symbol: defaultMaxStep
+        hash: sha256:022f84e5dc5f19dbe1983cb3baa30bde3109b52a8457a2aecac9a7216b95d6a1
+        struct_hash: sha256:4386c12dfda5f5a2dddb261359cd4d1893a23d637b2f9cc19587a8d890018632
+        doc_struct_hash: sha256:4386c12dfda5f5a2dddb261359cd4d1893a23d637b2f9cc19587a8d890018632
+        lines: [21, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#RunOptions
+      level: decl
+      anchor:
+        file: scripttool/starlark.go
+        symbol: RunOptions
+        hash: sha256:f01a9b3beb967364a881c559f87ed928b2bc2541252e5f4595b1adf9c1b24216
+        struct_hash: sha256:9488fe36f921c397da7e3a95f05771601effc79e9b4bbd6cb296855a8d976a0d
+        doc_struct_hash: sha256:9488fe36f921c397da7e3a95f05771601effc79e9b4bbd6cb296855a8d976a0d
+        lines: [24, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#Run
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: Run
+        hash: sha256:16bd437b3a7442b7307f678bb9cccbe1055d64b7a12dfc584e2b8118c2f216ce
+        struct_hash: sha256:5384bce2ecc328067a660c8f95cf401a13e47a6056c2616af148956ce196ad80
+        doc_struct_hash: sha256:5384bce2ecc328067a660c8f95cf401a13e47a6056c2616af148956ce196ad80
+        lines: [30, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#Validate
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: Validate
+        hash: sha256:04c3be87c0cdd9c91e9db7e1fd1ce108e139a27519c677dd2de8ea72a656e791
+        struct_hash: sha256:3155242e086b1b7e39aa61bb29304548708e194992ae2001e1d71a5d472eec53
+        doc_struct_hash: sha256:3155242e086b1b7e39aa61bb29304548708e194992ae2001e1d71a5d472eec53
+        lines: [84, 119]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#predeclared
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: predeclared
+        hash: sha256:3a3b8cc3f0546a2af46480c1f09c88e81b67e1d3ec63932ac201b363f0293203
+        struct_hash: sha256:a86542278eefa0ca6d585a858ed9fd4e3d1cb1908accfc3e500d20f2b8b636d7
+        doc_struct_hash: sha256:a86542278eefa0ca6d585a858ed9fd4e3d1cb1908accfc3e500d20f2b8b636d7
+        lines: [121, 143]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#FromStarlark
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: FromStarlark
+        hash: sha256:74a530861a92a09c2c7881a998d93a25d24d0d788e64bead277d32c693cab42a
+        struct_hash: sha256:21304aa3dd8dd954420d0fa99e9cca967e3ac88c3fb60ae9fbba5f13cd7d1327
+        doc_struct_hash: sha256:21304aa3dd8dd954420d0fa99e9cca967e3ac88c3fb60ae9fbba5f13cd7d1327
+        lines: [145, 147]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#ToStarlark
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: ToStarlark
+        hash: sha256:6f06259ee920a4cde3362d164f768b18c54c3dd36e1b1e2eaf245e76c600bcfe
+        struct_hash: sha256:1a583b917f890a764a07c0946ebafcfe940bc9c50ae77854198f8985c390af1f
+        doc_struct_hash: sha256:1a583b917f890a764a07c0946ebafcfe940bc9c50ae77854198f8985c390af1f
+        lines: [149, 151]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#toStarlark
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: toStarlark
+        hash: sha256:2d92b84ee0251577c9992171bb30dad4ee507a4a0d3471480197a7e0a464e81b
+        struct_hash: sha256:0f114374755856ef5a94e8c572ada06f955d6761186aa501b634f489993a1712
+        doc_struct_hash: sha256:0f114374755856ef5a94e8c572ada06f955d6761186aa501b634f489993a1712
+        lines: [153, 193]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#fromStarlark
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: fromStarlark
+        hash: sha256:45d0a6d54bbc3b71cb922ff3d3488c43903665bc100f8bde8a7bd42821bc0d1a
+        struct_hash: sha256:cc5195363fd5f0269cf61dd3813354978eb22d61f81029f84dc972ea7ec0713b
+        doc_struct_hash: sha256:cc5195363fd5f0269cf61dd3813354978eb22d61f81029f84dc972ea7ec0713b
+        lines: [195, 240]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: scripttool/starlark.go#renderValue
+      level: function
+      anchor:
+        file: scripttool/starlark.go
+        symbol: renderValue
+        hash: sha256:74221e3442d6a2e8a8ad9bf1fa0ddc677d5a1f163b9b9cf1eefe3da3978076b9
+        struct_hash: sha256:56f130732971fe78616a0b6a37b2b50f248754eed303ff95d095d7bcf05ea6ee
+        doc_struct_hash: sha256:56f130732971fe78616a0b6a37b2b50f248754eed303ff95d095d7bcf05ea6ee
+        lines: [242, 255]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/deferred_restart_linux.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        hash: sha256:2bb6a351562d5fda0b808861ef5bcdf80f52272fd55b7b8de8f0eaceed9e05e4
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#workerRestartMarkerEnv
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: workerRestartMarkerEnv
+        hash: sha256:ddfff8a2e05574ff02227b9c015c588c233b8f26c5cade2bb2fbae43f38bf498
+        struct_hash: sha256:76f63fe634237d7efc70a52f53702c572f72bdf09a1ed3cc1d845c9e3215c693
+        doc_struct_hash: sha256:76f63fe634237d7efc70a52f53702c572f72bdf09a1ed3cc1d845c9e3215c693
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#defaultWorkerRestartMarker
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: defaultWorkerRestartMarker
+        hash: sha256:a9ba8d33809111ce904d092455b8d6559d229109e466b68285d8d0df9f70b1b3
+        struct_hash: sha256:39c7fc2871bb3a1d51e5ad1706a244339887caa1cdbe7c91d08fbb233616b77f
+        doc_struct_hash: sha256:39c7fc2871bb3a1d51e5ad1706a244339887caa1cdbe7c91d08fbb233616b77f
+        lines: [19, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#systemdServiceNameRE
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: systemdServiceNameRE
+        hash: sha256:8a5c8075a785a7159bc731f3cf463b582a6dcd113ce37d2f9c322155fee395cc
+        struct_hash: sha256:62b9b972790929e09d267c535e6833a9f437ed579d88e389267d21902231ebd8
+        doc_struct_hash: sha256:62b9b972790929e09d267c535e6833a9f437ed579d88e389267d21902231ebd8
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#deferredWorkerRestart
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: deferredWorkerRestart
+        hash: sha256:add8d6fc033872768286d2fa91cf2228bd64188f4a25073d30a45d99e13998a6
+        struct_hash: sha256:c59cba29d27b76c5c1c94a465838e0bbf846e79cba2e632d90660987a3dd3df7
+        doc_struct_hash: sha256:c59cba29d27b76c5c1c94a465838e0bbf846e79cba2e632d90660987a3dd3df7
+        lines: [24, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#deferredRestartScript
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: deferredRestartScript
+        hash: sha256:5fb6738683e2b4d642a33bf81bfb41cc52a731b42cb2b6406b7a4b71406d2378
+        struct_hash: sha256:58dfb54b35409c56b2a8d07b76374be27a7c61eb376d8cbac029f8fede347304
+        doc_struct_hash: sha256:58dfb54b35409c56b2a8d07b76374be27a7c61eb376d8cbac029f8fede347304
+        lines: [30, 63]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#runDeferredSystemdRestart
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: runDeferredSystemdRestart
+        hash: sha256:d1c811b25b825ed202ad0e5b63f8b54bf294825c5074157bf72eb15f9b0bd398
+        struct_hash: sha256:98e2c296dc21e6270cf11de24eeee60fa888f84ffc566fb959637dc5513a01a3
+        doc_struct_hash: sha256:98e2c296dc21e6270cf11de24eeee60fa888f84ffc566fb959637dc5513a01a3
+        lines: [65, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_linux.go#scheduleDeferredWorkerRestart
+      level: function
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_linux.go
+        symbol: scheduleDeferredWorkerRestart
+        hash: sha256:180138a7473ed1b3973939718c26f48d4791c7e90e729ff8cacfcf426f43663a
+        struct_hash: sha256:80f71f6461348a8d57ba24fbca934d8892a25ce626bdc342c1c4155afc781a47
+        doc_struct_hash: sha256:80f71f6461348a8d57ba24fbca934d8892a25ce626bdc342c1c4155afc781a47
+        lines: [75, 137]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

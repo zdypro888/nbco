@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: tools/goals.go
+      level: file
+      anchor:
+        file: tools/goals.go
+        hash: sha256:e42800cf3fe2f22680a9617ede65cf94f273e41db54331919579ac0460934bf4
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/goals.go#goalTools
+      level: function
+      anchor:
+        file: tools/goals.go
+        symbol: goalTools
+        hash: sha256:f69e24236118775f7e3bcf273ebeae4f3b3abff12607714bbd9a615cd27717ae
+        struct_hash: sha256:a76dbfcb5adfefbbedfffab06c3eb30af2328e4837b4dbc586a99de7d9e35b7e
+        doc_struct_hash: sha256:a76dbfcb5adfefbbedfffab06c3eb30af2328e4837b4dbc586a99de7d9e35b7e
+        lines: [21, 599]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/goals.go#loadMilestoneWithGoal
+      level: function
+      anchor:
+        file: tools/goals.go
+        symbol: loadMilestoneWithGoal
+        hash: sha256:5e3f9533f3393f443a8426132c037d6c85988ebc75d37d3355cea2d58dd693e2
+        struct_hash: sha256:57be97d66d9ef0b7b4cb092e6efca9df81acb0bb0c8297d11401b948cf84eaf2
+        doc_struct_hash: sha256:7af4397c708208c00f54506ea30de64bfdc7cef77ba71f08706751ce18842cc0
+        lines: [601, 612]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/goals.go#renderGoalHeader
+      level: function
+      anchor:
+        file: tools/goals.go
+        symbol: renderGoalHeader
+        hash: sha256:71d1d677733ba66408acbb3ed1c6d044eb9be063384e260250a2a8311b8e2ff7
+        struct_hash: sha256:4138048846e683c79bcc622574eb8e16dea0a96a7a2a209f2dde4628c34698bc
+        doc_struct_hash: sha256:4138048846e683c79bcc622574eb8e16dea0a96a7a2a209f2dde4628c34698bc
+        lines: [614, 623]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/goals.go#renderMilestoneLine
+      level: function
+      anchor:
+        file: tools/goals.go
+        symbol: renderMilestoneLine
+        hash: sha256:f3253c3364d511a0698737b92e265fe399a56e8bacfc50ebfc89de7af46433f8
+        struct_hash: sha256:01f7b19f733202c3121196ef3dc8e0e9336cdc2a6e8accea48fd671d17dd838b
+        doc_struct_hash: sha256:01f7b19f733202c3121196ef3dc8e0e9336cdc2a6e8accea48fd671d17dd838b
+        lines: [625, 631]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/goals.go#buildGoalClosedDetail
+      level: function
+      anchor:
+        file: tools/goals.go
+        symbol: buildGoalClosedDetail
+        hash: sha256:31baa2d87af946619e2dfe67e7bf579145d1b3c5f5428e4f3485c73e38541642
+        struct_hash: sha256:8b029fc590b24d11bcb476e442a5efc48f8f177a8daff51aa95cd62a0cc5cc0a
+        doc_struct_hash: sha256:0d0fff39137140fc6bc806cf0114147ff605b0b4ccba9e26bf73f278279f5af7
+        lines: [633, 646]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/goals.go#buildMilestoneClosedDetail
+      level: function
+      anchor:
+        file: tools/goals.go
+        symbol: buildMilestoneClosedDetail
+        hash: sha256:46d1bfb25ccf844575fd9a10c213084b31a97abae1389d0580159b7628352878
+        struct_hash: sha256:d5a84e65fe5eb3bce0ba5f428b3da122cfc674304b786d210edda947fc89cacf
+        doc_struct_hash: sha256:54577e0079f3ad00346383dd932ce8c21cb2312a82f9727bd7db01490a8fac55
+        lines: [648, 659]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

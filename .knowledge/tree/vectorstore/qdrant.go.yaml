@@ -1,0 +1,285 @@
+schema: 1
+nodes:
+    - id: vectorstore/qdrant.go
+      level: file
+      anchor:
+        file: vectorstore/qdrant.go
+        hash: sha256:16773cdeddcfe30fb34b16591726ab703c5ed5d01efdf4c21125d93fce347fad
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#defaultQdrantPort
+      level: decl
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: defaultQdrantPort
+        hash: sha256:e9cfabdfc8debedb3cd1e8245c577fd89df4f21644bee0767973d90d8f465a6f
+        struct_hash: sha256:e3763d89af71d4b8d345fd306aa3d578e569b8643ccd02d682dcb05f1352f5a2
+        doc_struct_hash: sha256:e3763d89af71d4b8d345fd306aa3d578e569b8643ccd02d682dcb05f1352f5a2
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#qdrantPageSize
+      level: decl
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: qdrantPageSize
+        hash: sha256:b3557e0129e6c82c4539fac791694975cd86c57ae08b2f6b2e0f8351a5dfa5e9
+        struct_hash: sha256:854f26b9e0111d621cab089d7e5b602a0c338f275b97b917236d692a44c5118b
+        doc_struct_hash: sha256:854f26b9e0111d621cab089d7e5b602a0c338f275b97b917236d692a44c5118b
+        lines: [23, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#QdrantConfig
+      level: decl
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: QdrantConfig
+        hash: sha256:b6e9c5a9a4f9f1dd0cec7766b787f4607adc0274917488eb0895dec1079444e7
+        struct_hash: sha256:7913587271f0edbfab0c9351bc710067fd7604321ede30c9489c9d7d5b1e9ce9
+        doc_struct_hash: sha256:ed61b3a35312cb9e53a9362a4afbd3f6eebe606eff58c0c46a943e6fcabb8a06
+        lines: [26, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant
+      level: decl
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant
+        hash: sha256:ff906ad1c0006f8272e1bed3ecc9ec3377246d3446bdbe35593b096441c1a3a0
+        struct_hash: sha256:f7aa2750bc9a1cfc852ff232cbaf92634c0bd2ae2e2ca2a167c52d3d49ef8f2d
+        doc_struct_hash: sha256:237a8b2d22e01cb795ded89a9939a201efe4b1c3ebb752ca4882c716228704f6
+        lines: [34, 43]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#NewQdrant
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: NewQdrant
+        hash: sha256:f641f58fc523f198d5c72bf1faa35ed7303b9fa34d676cadd81b1498cff32344
+        struct_hash: sha256:d21e4f01cc88af167fe78eadceccaf15b4ce59239f1ee681417da979be05dc27
+        doc_struct_hash: sha256:d21e4f01cc88af167fe78eadceccaf15b4ce59239f1ee681417da979be05dc27
+        lines: [45, 80]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.Close
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.Close
+        hash: sha256:5fe5774215f57559ef40d9d28e5fbbe5576d88cf9fbc9cb88990f14f0205bc70
+        struct_hash: sha256:94187a68ab60144c58ca1c4104563db3c0e7bf809d419aad98b09a093966645c
+        doc_struct_hash: sha256:94187a68ab60144c58ca1c4104563db3c0e7bf809d419aad98b09a093966645c
+        lines: [82, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.Ping
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.Ping
+        hash: sha256:22cf266cbfb8c1f311672dfc1348b11e9b1285ec748d51599966b6ebcf684983
+        struct_hash: sha256:1d3d4e71c8d442b90f562280fe7aaf2649d74cdfbe0c210ea4e4bcb67f4157f8
+        doc_struct_hash: sha256:1d3d4e71c8d442b90f562280fe7aaf2649d74cdfbe0c210ea4e4bcb67f4157f8
+        lines: [84, 87]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.Upsert
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.Upsert
+        hash: sha256:f3743f5bf7c2c43486c25f98ef242569aeeda89819f1814113ce2eeb69ef1c17
+        struct_hash: sha256:836c5a26a673f677fb2eccde1609c61cd3a940806f17dbf1c02896991e0a3c17
+        doc_struct_hash: sha256:836c5a26a673f677fb2eccde1609c61cd3a940806f17dbf1c02896991e0a3c17
+        lines: [89, 137]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#payloadValueMap
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: payloadValueMap
+        hash: sha256:c9683890f3d13907a4700e797d34aa1a2471c765c3640aff8d3fdd7d6162ead7
+        struct_hash: sha256:222a0b86f896dfec7154fd37a00ae9862a3a9b665ca6b7c2d96bef426c88901d
+        doc_struct_hash: sha256:222a0b86f896dfec7154fd37a00ae9862a3a9b665ca6b7c2d96bef426c88901d
+        lines: [139, 145]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#normalizePayloadValue
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: normalizePayloadValue
+        hash: sha256:1f21584f59bfc205afb03d9fbe3a6ea115e4b1f2158465c0a0b0d716a75b5903
+        struct_hash: sha256:c1bf760fca048aab0a79fe8200e73dd4691c10d9888ae78fc8648d59a07d5233
+        doc_struct_hash: sha256:c1bf760fca048aab0a79fe8200e73dd4691c10d9888ae78fc8648d59a07d5233
+        lines: [147, 170]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.Search
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.Search
+        hash: sha256:9cd0ff966cb774ad1dffd648a39435f29b048aac760001b0d42fca9014d7fe9d
+        struct_hash: sha256:8114e6d816629eb1780e0a81eaa67e64fefb629ef739a60aacf07bbbaaf429b9
+        doc_struct_hash: sha256:8114e6d816629eb1780e0a81eaa67e64fefb629ef739a60aacf07bbbaaf429b9
+        lines: [172, 218]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#validQdrantVector
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: validQdrantVector
+        hash: sha256:1aa649c4cdf3a82d9e24a074e1b783d0ce281538176f6118b1487a4776e84f07
+        struct_hash: sha256:d7da19937c028ad552fbe232c41c3ac62b0b22bfdfcf0c94305cedd94ece21a8
+        doc_struct_hash: sha256:d7da19937c028ad552fbe232c41c3ac62b0b22bfdfcf0c94305cedd94ece21a8
+        lines: [220, 227]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.Hashes
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.Hashes
+        hash: sha256:8ee0558968ce5a5560d40fefb0a2081e3f902cbe1da9ebc71edee91b3fcb2598
+        struct_hash: sha256:123f29af85db0af0f458f251a582fbbfb6fbd6b4ef2f287552a900f7a3c24f1f
+        doc_struct_hash: sha256:123f29af85db0af0f458f251a582fbbfb6fbd6b4ef2f287552a900f7a3c24f1f
+        lines: [229, 259]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.List
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.List
+        hash: sha256:a9e7fcbae409cbfcd61ec6a7ba3c3251925e2bae461e0a83ab7bf69f0ece587f
+        struct_hash: sha256:ee8a195fa3f91c343a4a32a34fd54b705fb4cc746e3749b2d2dbc9b850185065
+        doc_struct_hash: sha256:ee8a195fa3f91c343a4a32a34fd54b705fb4cc746e3749b2d2dbc9b850185065
+        lines: [261, 296]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.Delete
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.Delete
+        hash: sha256:24e99a6e80ae915d5116632260d1acffb2e7afc07d059428b919eee35b65a0ea
+        struct_hash: sha256:85c6e49ffbeee3161620ee7519dec54476c82404d07d50e6c1a4bf842279cc28
+        doc_struct_hash: sha256:85c6e49ffbeee3161620ee7519dec54476c82404d07d50e6c1a4bf842279cc28
+        lines: [298, 320]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.ensure
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.ensure
+        hash: sha256:7709140b491d1978d2ba9e42e731356b42c9d3f8449a40c9407e119e32481375
+        struct_hash: sha256:6a2ba49ff75d0505ca4e6172b7927d78a493c1b28cf7e0e310773018721d6ca2
+        doc_struct_hash: sha256:6a2ba49ff75d0505ca4e6172b7927d78a493c1b28cf7e0e310773018721d6ca2
+        lines: [322, 351]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.ensurePayloadIndexes
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.ensurePayloadIndexes
+        hash: sha256:7037787078a27180c8dab462796bb02b027203ad2716281e6015b6abc63f8c9e
+        struct_hash: sha256:eb87d6e57303debc2faa14f49cc5991e8fd7628812ff64a99d43e90820371a51
+        doc_struct_hash: sha256:eb87d6e57303debc2faa14f49cc5991e8fd7628812ff64a99d43e90820371a51
+        lines: [353, 382]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#Qdrant.collectionName
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: Qdrant.collectionName
+        hash: sha256:042a7e0b5f300feceb124b66b4ab91d39db5bc881ca21dc7f8d4f2daaceaf95c
+        struct_hash: sha256:ed9ad97e43c8d30f1a0498d28b9f47af107a2ac07de8ed03f12b26371874338c
+        doc_struct_hash: sha256:ed9ad97e43c8d30f1a0498d28b9f47af107a2ac07de8ed03f12b26371874338c
+        lines: [384, 387]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#pointUUID
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: pointUUID
+        hash: sha256:e8ffd7f4c2428830368fbecdb317c96dedceb3a5c76d72ef06d1b65409d6a701
+        struct_hash: sha256:63bd0508563327f64580a94070c2ed35f499da206019d024b3a80241eb08ec04
+        doc_struct_hash: sha256:63bd0508563327f64580a94070c2ed35f499da206019d024b3a80241eb08ec04
+        lines: [389, 396]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#buildFilter
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: buildFilter
+        hash: sha256:fab91fa11877cbcd75309245e5a912aff4a7a65509aea9422841386c499072a8
+        struct_hash: sha256:991c8b393b7429c9d9c65957289450e23a5705f9a53d4810479a92f2744d57c6
+        doc_struct_hash: sha256:991c8b393b7429c9d9c65957289450e23a5705f9a53d4810479a92f2744d57c6
+        lines: [398, 418]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#filterEntry
+      level: decl
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: filterEntry
+        hash: sha256:cf7d6d76a7397f577b772a5568dfdeac6a55ffa2bb90b778bb6d45330f41736e
+        struct_hash: sha256:acd7c3e45a32c0e49d9fa2130e4dc5bfa6c449b58fbe25fb00b8d60224b57be4
+        doc_struct_hash: sha256:acd7c3e45a32c0e49d9fa2130e4dc5bfa6c449b58fbe25fb00b8d60224b57be4
+        lines: [420, 423]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#sortedFilterEntries
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: sortedFilterEntries
+        hash: sha256:e6e1a0b4fe705205a4dd90c6f5248c8a2bcc13b0cb3c7ba218c072f6d815cf29
+        struct_hash: sha256:4bad2307bdf8b92f8ef7d8658948e4ddbe946d0f1b14ee08cf2ca232b7293271
+        doc_struct_hash: sha256:4bad2307bdf8b92f8ef7d8658948e4ddbe946d0f1b14ee08cf2ca232b7293271
+        lines: [425, 436]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#matchCondition
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: matchCondition
+        hash: sha256:388a3b24268f629c31f73c7c2ff2365c805de5fbb0183c179eb54fe2857d7ccf
+        struct_hash: sha256:08c86f906c32b910c74b3a21156c9ad0a1396e336e29e8c6425c15f71e7f23ac
+        doc_struct_hash: sha256:08c86f906c32b910c74b3a21156c9ad0a1396e336e29e8c6425c15f71e7f23ac
+        lines: [438, 465]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#refFromPayload
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: refFromPayload
+        hash: sha256:de4796dc26f0dbd49e12b7948bae53b774e7dd2d54dd4547308bc9b25fff3ee0
+        struct_hash: sha256:156464b59ff52265520dba27c0111254fc84f4d277531748fad6b96337fa014e
+        doc_struct_hash: sha256:156464b59ff52265520dba27c0111254fc84f4d277531748fad6b96337fa014e
+        lines: [467, 473]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant.go#payloadString
+      level: function
+      anchor:
+        file: vectorstore/qdrant.go
+        symbol: payloadString
+        hash: sha256:3950a8bee2fd273887da13047405b113e72f1347afec4405fd233107c492c92b
+        struct_hash: sha256:27d983b0dca3026cff1e3fe077c5e7b856825c4d7f1ef4742f715d35c2503e47
+        doc_struct_hash: sha256:27d983b0dca3026cff1e3fe077c5e7b856825c4d7f1ef4742f715d35c2503e47
+        lines: [475, 480]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

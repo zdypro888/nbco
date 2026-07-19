@@ -1,0 +1,9 @@
+schema: 1
+nodes:
+    - id: sched/
+      level: dir
+      anchor:
+        file: sched/
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

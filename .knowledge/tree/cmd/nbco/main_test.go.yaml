@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: cmd/nbco/main_test.go
+      level: file
+      anchor:
+        file: cmd/nbco/main_test.go
+        hash: sha256:d097ff980c14a0b15c64f6ce2efc1b5d11ab7d68bdbfb56edcc412dcb544f9a3
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main_test.go#TestRunBackfillLoopRepeatsRecoversAndStops
+      level: function
+      anchor:
+        file: cmd/nbco/main_test.go
+        symbol: TestRunBackfillLoopRepeatsRecoversAndStops
+        hash: sha256:3aeb648df5be22907726eab36fb00f59dd42a14795aa3f93581e58ae519eb0d7
+        struct_hash: sha256:a7810f37302b4da905a903419fe8881e8b38717715dc3f88e4e522fae855f2c9
+        doc_struct_hash: sha256:a7810f37302b4da905a903419fe8881e8b38717715dc3f88e4e522fae855f2c9
+        lines: [12, 37]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main_test.go#TestRunBackfillExclusiveUnlocksAfterPanic
+      level: function
+      anchor:
+        file: cmd/nbco/main_test.go
+        symbol: TestRunBackfillExclusiveUnlocksAfterPanic
+        hash: sha256:767a42674f5e7df68f412c1e13f715e7f1fb585908e01849c09b58bc6e171d86
+        struct_hash: sha256:cf2666549e8c7bfc9df3ca131566d4f97e3f67d6f36dea2077080bdb909f1e68
+        doc_struct_hash: sha256:cf2666549e8c7bfc9df3ca131566d4f97e3f67d6f36dea2077080bdb909f1e68
+        lines: [39, 55]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main_test.go#TestResolveVersion
+      level: function
+      anchor:
+        file: cmd/nbco/main_test.go
+        symbol: TestResolveVersion
+        hash: sha256:5f638ab30aa1589963af81cc2ca8ad13aa9fd860b4d3f22c0a36adc74342db85
+        struct_hash: sha256:7cbe4d375ab99b65c672612d0786542c2427fd42e0db07cfdea186479aa7c287
+        doc_struct_hash: sha256:7cbe4d375ab99b65c672612d0786542c2427fd42e0db07cfdea186479aa7c287
+        lines: [57, 78]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

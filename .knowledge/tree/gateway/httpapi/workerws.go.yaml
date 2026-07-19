@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/workerws.go
+      level: file
+      anchor:
+        file: gateway/httpapi/workerws.go
+        hash: sha256:085fc930960847d57a45fc2f38a39acd9328fd983ab3e385cc1e1f1c5383a3c3
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/workerws.go#wsReadTimeout
+      level: decl
+      anchor:
+        file: gateway/httpapi/workerws.go
+        symbol: wsReadTimeout
+        hash: sha256:e69de5c1f2bd43f9aee086e02ec6290b8e9183e99fa54eff7036871ff02db888
+        struct_hash: sha256:77538d5f75b854dd43e0f222a0d4777ad6948a938c0c615cdd7ce46ab5b73a07
+        doc_struct_hash: sha256:5c21e1456cd9c046c1c718391adbe4be7bbbf87496f9fffc7498568dae89a3b6
+        lines: [23, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/workerws.go#wsConn
+      level: decl
+      anchor:
+        file: gateway/httpapi/workerws.go
+        symbol: wsConn
+        hash: sha256:082a6e46b13c960dbd334edba65b39a5b0a7f2a844ef72e7e5f54f69e1653327
+        struct_hash: sha256:8a377861914546cc7573638ce5c5e640052adca8565c3e5f9bc46d724ef50391
+        doc_struct_hash: sha256:fc3c5b7423f8a0ca50d854dff9c8aca038384e2ec861a65dca2a0072fab9c54a
+        lines: [26, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/workerws.go#wsConn.Send
+      level: function
+      anchor:
+        file: gateway/httpapi/workerws.go
+        symbol: wsConn.Send
+        hash: sha256:af96b3e8e0ea939b38aa40e1083ddd21c00e82a6020734b21f582b83cd5e9850
+        struct_hash: sha256:db2249ffdb7a45f9dd0fb602cf00cba38da5d8b19348101e4e0f3583d773e573
+        doc_struct_hash: sha256:db2249ffdb7a45f9dd0fb602cf00cba38da5d8b19348101e4e0f3583d773e573
+        lines: [32, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/workerws.go#Server.handleWorkerWS
+      level: function
+      anchor:
+        file: gateway/httpapi/workerws.go
+        symbol: Server.handleWorkerWS
+        hash: sha256:1a37ac5f04f723d62c7764e9967561c159a85177acfe67a37bd9494d630b3cd6
+        struct_hash: sha256:e3d3af8690086e20ae8b6b0b6d5f60bec8e0e2bf886ab3da53e394f5fdedc090
+        doc_struct_hash: sha256:fcc8db7108b4b656fe3f090b4ef1ea1a8471d9f3547b414a2309bbcf2c4442cc
+        lines: [40, 84]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/workerws.go#Server.notifyWorkerOffline
+      level: function
+      anchor:
+        file: gateway/httpapi/workerws.go
+        symbol: Server.notifyWorkerOffline
+        hash: sha256:5a17c760b347b0cac4ce5fb8bea3823d69f76a8bc02207dcde1bd73ca1347a34
+        struct_hash: sha256:a17daaa67fbfc941ffe27c1991fcc1c388a15e5339fcec8a9a42cda50879f206
+        doc_struct_hash: sha256:6d1c7050d131a5f265f84020ba5f3a654e7fc037627038ceec80f2e55927bc21
+        lines: [86, 102]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

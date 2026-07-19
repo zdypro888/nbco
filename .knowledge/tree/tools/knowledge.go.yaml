@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: tools/knowledge.go
+      level: file
+      anchor:
+        file: tools/knowledge.go
+        hash: sha256:67c61ec04d5cbacf7c90fec94703c767ae6cd2b710a703f73d8ccbabd480596c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/knowledge.go#knowledgeSearchLimit
+      level: decl
+      anchor:
+        file: tools/knowledge.go
+        symbol: knowledgeSearchLimit
+        hash: sha256:63e5c41331b2c86d348b7967ce4bb25ec56926d04f7edc8b99aa1d0ebb75cfa4
+        struct_hash: sha256:e0ab7284c0afe29b25e01679e621ddcf276d5afa1e90fb61c2c4a53fb658dae7
+        doc_struct_hash: sha256:e0ab7284c0afe29b25e01679e621ddcf276d5afa1e90fb61c2c4a53fb658dae7
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/knowledge.go#knowledgeTools
+      level: function
+      anchor:
+        file: tools/knowledge.go
+        symbol: knowledgeTools
+        hash: sha256:d804b6b39912b9ce5e296cd644bfa38f2c4ffc2a5b26f9ce3be5fadb2dbf8cfd
+        struct_hash: sha256:0aae8d073679496e13d7a104f9b63f477266cdda1b8445091ba95d4ae1d71fe6
+        doc_struct_hash: sha256:d127279d0d709d91a546bce809dee40d3c1cbe884173680215054820499fe4fa
+        lines: [16, 207]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/knowledge.go#renderKnowledgeList
+      level: function
+      anchor:
+        file: tools/knowledge.go
+        symbol: renderKnowledgeList
+        hash: sha256:20d0d9b91c289600745ec4f805e8f71e8ea4f93d6c24768e670bac3fab5d799b
+        struct_hash: sha256:68742aae7ebfe12b4bc1f5e7bfbf0e5349a25fbab2690281700b58295aa46389
+        doc_struct_hash: sha256:68742aae7ebfe12b4bc1f5e7bfbf0e5349a25fbab2690281700b58295aa46389
+        lines: [209, 223]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

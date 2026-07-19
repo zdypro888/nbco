@@ -1,0 +1,98 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ihtml_integration.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        hash: sha256:cec4a2273a1399f92db91b6872e635002d531eb3f4d7d7597d93cc571c96bed5
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#Server.EnableIHTML
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: Server.EnableIHTML
+        hash: sha256:52387b3c755439a866add419051cc6daa9a552f40115d39af394ce91a0b4b9f8
+        struct_hash: sha256:bcf8416c862a330132a939da988ca8545a86c55ebe3a2a2a908dfa435b1613bd
+        doc_struct_hash: sha256:3fffe9430a35502ed4f7b830f5a716df684b8717175262632959c8c82ea4773e
+        lines: [23, 98]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#timeDurationMilliseconds
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: timeDurationMilliseconds
+        hash: sha256:c1e8fddbb4922e10261bd400cf25004927ab76126cedd20f5538954ed57f2bbc
+        struct_hash: sha256:db7dd2de48f439f6af9cb43d90d1b39d9860743dd2aefe7a45833aa971a5db4a
+        doc_struct_hash: sha256:db7dd2de48f439f6af9cb43d90d1b39d9860743dd2aefe7a45833aa971a5db4a
+        lines: [100, 105]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#Server.Close
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: Server.Close
+        hash: sha256:eabfdd03732f1ab1804376edb66678b255ef571934b8037d44ec461ef9b0cf5a
+        struct_hash: sha256:e2f8762c487e39fbacf274d26da0e858fc9207f106827a8cc688c2a2c6fb11c1
+        doc_struct_hash: sha256:e2f8762c487e39fbacf274d26da0e858fc9207f106827a8cc688c2a2c6fb11c1
+        lines: [107, 114]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#Server.ihtmlPageConfig
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: Server.ihtmlPageConfig
+        hash: sha256:6812872162d0495aa80b0094615c0acb5a30747ee74575d81f841a0527a45576
+        struct_hash: sha256:3fc95c1989bbc2d28818b4897fcf19b397adb67bd566571393813d8aefb0a8f2
+        doc_struct_hash: sha256:3fc95c1989bbc2d28818b4897fcf19b397adb67bd566571393813d8aefb0a8f2
+        lines: [116, 129]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#Server.ihtmlAccessPolicy
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: Server.ihtmlAccessPolicy
+        hash: sha256:f344dc0c7ed9c1029f1448b663b275015b2da738b8c5d7be78e253921e184d30
+        struct_hash: sha256:58f75e4a58411c064df4830269460dc06a089d0b501c0ecf66cfa495b3c520dc
+        doc_struct_hash: sha256:58f75e4a58411c064df4830269460dc06a089d0b501c0ecf66cfa495b3c520dc
+        lines: [131, 141]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#Server.auditIHTML
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: Server.auditIHTML
+        hash: sha256:a5aa99daec3480404bd284ff6948f104d6c265322bbc8832716866f3ef8df710
+        struct_hash: sha256:bcc8bf4cd0c42db7fdada59052bf83c355c0f2d92c736299109f1a6154541db2
+        doc_struct_hash: sha256:bcc8bf4cd0c42db7fdada59052bf83c355c0f2d92c736299109f1a6154541db2
+        lines: [143, 156]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#nbcoIHTMLAPIs
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: nbcoIHTMLAPIs
+        hash: sha256:ab93c2755a010c5ed696ecb1261f6e2069f131745be71a39a16d997c527358e1
+        struct_hash: sha256:1d8bd5c12e2156894b4f7c81143ca581d753f2e5f36121805d06435b0ea26210
+        doc_struct_hash: sha256:1d8bd5c12e2156894b4f7c81143ca581d753f2e5f36121805d06435b0ea26210
+        lines: [158, 179]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_integration.go#crossChannelIHTMLSystem
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_integration.go
+        symbol: crossChannelIHTMLSystem
+        hash: sha256:3c15886d333d8d529be0a672d99cf7b723f233e9a6c8ecbbd5c18a848c6e2a41
+        struct_hash: sha256:61d85ae520de5821706575b979340de80e73cccd8b2166cc68e3ff1df71e14b0
+        doc_struct_hash: sha256:61d85ae520de5821706575b979340de80e73cccd8b2166cc68e3ff1df71e14b0
+        lines: [181, 189]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,120 @@
+schema: 1
+nodes:
+    - id: cmd/nbco/main.go
+      level: file
+      anchor:
+        file: cmd/nbco/main.go
+        hash: sha256:f4bb24659ae0a213f0501d1663349c4701822935c7abd490f9406188fe259538
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#version
+      level: decl
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: version
+        hash: sha256:2f2a4def3de7e8afc5bfd6689523b7a7fb531177d2d2a7267a401e9a0df8cf69
+        struct_hash: sha256:2ebf6fe2bd904f0abd223e38bf692f04d11a50bedb77f3d25b557a2425dd1eb1
+        doc_struct_hash: sha256:2ebf6fe2bd904f0abd223e38bf692f04d11a50bedb77f3d25b557a2425dd1eb1
+        lines: [39, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#runtimeVersion
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: runtimeVersion
+        hash: sha256:512255c33f579d5b093c0e6d01a2c9e754974c99d437a441837922bfe3fb6c27
+        struct_hash: sha256:509fc41e30bd1a023c1f5ccd86fa066e6f9ef84553c7e4a04906d974eb21d0b3
+        doc_struct_hash: sha256:509fc41e30bd1a023c1f5ccd86fa066e6f9ef84553c7e4a04906d974eb21d0b3
+        lines: [41, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#resolveVersion
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: resolveVersion
+        hash: sha256:a954d351663bc9458484cc7c432058627819502e0b76eb58de4848cc3f4d7edb
+        struct_hash: sha256:dced1d311ecafed22f9580f95dc69364da38c5337f5d1c1b4719f577f6081d36
+        doc_struct_hash: sha256:dced1d311ecafed22f9580f95dc69364da38c5337f5d1c1b4719f577f6081d36
+        lines: [46, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#main
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: main
+        hash: sha256:76e3ea61b4010dcb0569051b3c7130935bfee73df3e90e7bf97d9dcc8b9499c7
+        struct_hash: sha256:ec6ebf1ca9427b5c4936844448138d78ea6cafcd76e1990a4ec296ceb8e10a2a
+        doc_struct_hash: sha256:ec6ebf1ca9427b5c4936844448138d78ea6cafcd76e1990a4ec296ceb8e10a2a
+        lines: [78, 85]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#run
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: run
+        hash: sha256:c125e88379ca8ee9b0978a3d7978771dbaa629ab003117298e2cd4a4e42b5030
+        struct_hash: sha256:0946c685210d0e34795a7d4840a5390a6d71fce4e587c615c92721e4f10efe68
+        doc_struct_hash: sha256:0946c685210d0e34795a7d4840a5390a6d71fce4e587c615c92721e4f10efe68
+        lines: [87, 297]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#buildEngine
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: buildEngine
+        hash: sha256:85af4a3a1187cbe77d6bdce9f63310924df3c5a8d93465ab15574a86ec8eded8
+        struct_hash: sha256:dfa440a7cf55e3834f57b9636891f9f7c493a2c70148f11175e8d09ff99a8932
+        doc_struct_hash: sha256:a33478ba190e316e0c28ba64213098d1b43df657ef9e42cc38c40e664c2cec5e
+        lines: [299, 307]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#runBackfillLoop
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: runBackfillLoop
+        hash: sha256:b173e1ea0a91a04c0710a23097b0fd809421481fa62cfddaa73d81412515624f
+        struct_hash: sha256:83ac8b0600a1bb15695f92e123353a9d833ba9699e3f9ba5bbf2841f371ca763
+        doc_struct_hash: sha256:9dd1fd90826d9a4ceb90ec3c1247e0291f15322f62b9a81a50e4ccb074ae476e
+        lines: [309, 332]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#runBackfillExclusive
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: runBackfillExclusive
+        hash: sha256:fe7a4672c8570f781b22a4b807b485661bca830cfc84a730f27b6d832d1c9a63
+        struct_hash: sha256:55f141a24597415714b3e2b39dab7a92ccf673c6f496b0c071b911640dc0268d
+        doc_struct_hash: sha256:55f141a24597415714b3e2b39dab7a92ccf673c6f496b0c071b911640dc0268d
+        lines: [334, 338]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#backfillKnowledge
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: backfillKnowledge
+        hash: sha256:47def3e5fdd4e2bf7e0911c9612fa5be3719aef84a8d3205af7fc604b792e07b
+        struct_hash: sha256:2386df86363642d252e2b105725b1bf10a1eefdbaacbed7b244c791602b4cd3c
+        doc_struct_hash: sha256:2840d64bad6000d74c8e74ee35719ff17b14baa7ed0aedd30fad2f190c748ee2
+        lines: [340, 388]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#backfillMessages
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: backfillMessages
+        hash: sha256:afc07838f7aeab62fc33f289b8dac7ab563247932dde813e55dfa0fa8ac06d8a
+        struct_hash: sha256:25d4dee7e2adf7bbc93494090d3e1af024f2e30a91dd520f20534019d054b436
+        doc_struct_hash: sha256:cf222958a99512101494a0a4b7b9e8853eec567745bd59c0daa1e12383eae9e0
+        lines: [390, 435]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

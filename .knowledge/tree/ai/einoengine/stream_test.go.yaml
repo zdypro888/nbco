@@ -1,0 +1,164 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/stream_test.go
+      level: file
+      anchor:
+        file: ai/einoengine/stream_test.go
+        hash: sha256:571e4b4f799288cce2ceca11bee7974ad7f9b26351fabfc040365e3bc335155d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestReadStreamEmitsSnapshotsAndConcats
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestReadStreamEmitsSnapshotsAndConcats
+        hash: sha256:f900acaf9d3cd9ed470cc095466c058c1f9928e851da7c5daa27cb7eacabe2a8
+        struct_hash: sha256:0ee50dadae402f3becdfa3787cc9d4b52b005c9d9702283ae30f4f0b0f5a06ec
+        doc_struct_hash: sha256:932f39bf8e07110c0f3b7c8d28607a2a0824f433ce9a0585760a36ca3039bcb5
+        lines: [15, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestReadStreamHidesReasoningByDefault
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestReadStreamHidesReasoningByDefault
+        hash: sha256:db1ee3c52cccf0814a9276b64c8cae745fa845ed9791e17802da9ff1ef4350e9
+        struct_hash: sha256:7ee8758a76895f2734412e2b36db5a9edda53c634be13b88fc598a5970a08540
+        doc_struct_hash: sha256:7ee8758a76895f2734412e2b36db5a9edda53c634be13b88fc598a5970a08540
+        lines: [38, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestReadStreamStripsThinkTagsFromContentByDefault
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestReadStreamStripsThinkTagsFromContentByDefault
+        hash: sha256:49c63a9b11db5adf6a7673ea49428cf297b15d6b0c33aa4ab70562899f4bea6c
+        struct_hash: sha256:331cf7d4cd91037aaf5a3a96967d421599c54b31d4eb3b6c951b2f2dfa536605
+        doc_struct_hash: sha256:331cf7d4cd91037aaf5a3a96967d421599c54b31d4eb3b6c951b2f2dfa536605
+        lines: [58, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestReadStreamCanEmitReasoning
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestReadStreamCanEmitReasoning
+        hash: sha256:90cb9fab0aa2c98ddeb70c3a0e9acd8f2a77fa8f0c969e97c26cd7da6f5d39e6
+        struct_hash: sha256:9f0a8e2849df1f996db40f83aec4b6488011ba4abe6137dfb844973232e2e762
+        doc_struct_hash: sha256:9f0a8e2849df1f996db40f83aec4b6488011ba4abe6137dfb844973232e2e762
+        lines: [79, 93]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestReadStreamSkipsNonAssistantAndNilDelta
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestReadStreamSkipsNonAssistantAndNilDelta
+        hash: sha256:9a53bfe8eb77be1b2bd6e2b93d54807e09fa0b4e206ed362ecf5c95d863985bb
+        struct_hash: sha256:ada878e94975496a41c61d138b43aa51b0b463f3efef8aece734f4551f508470
+        doc_struct_hash: sha256:a70006f1dd5c72c65f27362071142e0738c50d908254dd23ca71503d005a92a9
+        lines: [95, 109]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestDropLeadingNonUser
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestDropLeadingNonUser
+        hash: sha256:a2042ab748a83ac44dced4b5f195e589608f27cf90dbca8f238aa39b3f189067
+        struct_hash: sha256:881aaa5475da6fad16c9cb0547f25d4152c1e26b5dd7e3ffb36db7c7672b78ec
+        doc_struct_hash: sha256:881aaa5475da6fad16c9cb0547f25d4152c1e26b5dd7e3ffb36db7c7672b78ec
+        lines: [111, 125]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestIsRetryableModelErr
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestIsRetryableModelErr
+        hash: sha256:09b8d2cd7a76caac95705bd7a67dec0ec1a80b1d7e4768cd4687d93dd8c6e733
+        struct_hash: sha256:59451022594017f325ff2e66817bad69d04b803182a7fc46f8de976873482da1
+        doc_struct_hash: sha256:59451022594017f325ff2e66817bad69d04b803182a7fc46f8de976873482da1
+        lines: [127, 154]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestModelRetryBackoff
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestModelRetryBackoff
+        hash: sha256:cc37a85f914d3611c4fc34164ccb4ae6e654d61a1eefd1e7f4d1b321d0bafbd6
+        struct_hash: sha256:203b8db65da0569a6fba35a94b6290ddb4f22f3a4c9e2cb96d3ec755cfaef9ec
+        doc_struct_hash: sha256:203b8db65da0569a6fba35a94b6290ddb4f22f3a4c9e2cb96d3ec755cfaef9ec
+        lines: [156, 160]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestChatHTTPTimeoutDefault
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestChatHTTPTimeoutDefault
+        hash: sha256:99f178d842886fcab0fc6599b08defaaf637565b3a552af8d173cdbe8a6fe3eb
+        struct_hash: sha256:84525dbd0fc1b91a0f585b26aef9fdb8ad9f075637d905aa170136197a9d5098
+        doc_struct_hash: sha256:84525dbd0fc1b91a0f585b26aef9fdb8ad9f075637d905aa170136197a9d5098
+        lines: [162, 169]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestOutputLikelyTruncated
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestOutputLikelyTruncated
+        hash: sha256:335fc7f2783d164d42b48a1ad04514f0d7cf6d0c7600311b81bfde52c7f8c4ac
+        struct_hash: sha256:ab0f4ff3430251c28562fec455f7a26db8a8e9263bedb3b20844893df9082527
+        doc_struct_hash: sha256:ab0f4ff3430251c28562fec455f7a26db8a8e9263bedb3b20844893df9082527
+        lines: [171, 181]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestPreservePartialAgentErrorKeepsCompletedToolEvidence
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestPreservePartialAgentErrorKeepsCompletedToolEvidence
+        hash: sha256:73921de7662e9fcad5fb24fce144b3a980b88bb7b0ee4b17ffbbb9653133bfb8
+        struct_hash: sha256:47ff1ea8707b69d1dcc6c23992d7aeb2c55d6257c5da6fdbc8f07359a0b57dc8
+        doc_struct_hash: sha256:47ff1ea8707b69d1dcc6c23992d7aeb2c55d6257c5da6fdbc8f07359a0b57dc8
+        lines: [183, 201]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestPreservePartialAgentErrorReturnsHardErrorWithoutEvidence
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestPreservePartialAgentErrorReturnsHardErrorWithoutEvidence
+        hash: sha256:3bdf09833e3f5eb68e93585ff6273a4fadc5fd919f8a4489917a26b44f4280ac
+        struct_hash: sha256:e2bf7161b04c8fe9fc9c72e1a52d2eeb7f6f32b2216a79ccb44d6bd64c2f23b5
+        doc_struct_hash: sha256:e2bf7161b04c8fe9fc9c72e1a52d2eeb7f6f32b2216a79ccb44d6bd64c2f23b5
+        lines: [203, 214]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#TestEmptyTurnNeedsRepairWhenReasoningUsesOutputBudget
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: TestEmptyTurnNeedsRepairWhenReasoningUsesOutputBudget
+        hash: sha256:90da3aa5225db59a7a9ccf831b0e81c77a577e22aa1bb63cd656b9dc645b899b
+        struct_hash: sha256:507e3ee8e43521fc111156b6658fce1cde0fb6d7d2f580d2d006aaddf3536ad9
+        doc_struct_hash: sha256:507e3ee8e43521fc111156b6658fce1cde0fb6d7d2f580d2d006aaddf3536ad9
+        lines: [216, 232]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/stream_test.go#usage
+      level: function
+      anchor:
+        file: ai/einoengine/stream_test.go
+        symbol: usage
+        hash: sha256:e9cdb70ec12cdbfc440c6af9f93ee254496e3b04cfa4f3bd1995feefe17c955c
+        struct_hash: sha256:48d2449b49002a8c09c076138ac6bdb2f77d34817e9b239565141826218c7177
+        doc_struct_hash: sha256:48d2449b49002a8c09c076138ac6bdb2f77d34817e9b239565141826218c7177
+        lines: [234, 236]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

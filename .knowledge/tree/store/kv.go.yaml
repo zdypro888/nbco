@@ -1,0 +1,98 @@
+schema: 1
+nodes:
+    - id: store/kv.go
+      level: file
+      anchor:
+        file: store/kv.go
+        hash: sha256:5ea945cd1541c0cf61ede0f75e448db4798b0938d1aeaab12036b42dd70f9a60
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#KVAIStreamReasoning
+      level: decl
+      anchor:
+        file: store/kv.go
+        symbol: KVAIStreamReasoning
+        hash: sha256:e08f9b0c433b5e5f7e76397f723e31940ab7a96938b643a54bbf73f7ef45d2d2
+        struct_hash: sha256:555944725a3cd8dd5b58e84a804c0131e44b7c751abcfd95d613f34f23671996
+        doc_struct_hash: sha256:b4c02482ddec52743ffcb23b3ba8570016dc25d350531604bef0342b1ff4f78c
+        lines: [9, 10]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#KVAIModel
+      level: decl
+      anchor:
+        file: store/kv.go
+        symbol: KVAIModel
+        hash: sha256:3745fba6a30b6db0019f2e7ebddfbdb399fe5d06d8eb8943fa3a47a674ca7b62
+        struct_hash: sha256:0746bdf477fe6c929414ddc3511f949de961639f7ea8c0a0fdcaa0c26a58ec24
+        doc_struct_hash: sha256:8492eb1c158ef0744b2430989c873aeb03fcc7aed99e19a273f426319cdb8daf
+        lines: [11, 12]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#KVTelegramBotUsername
+      level: decl
+      anchor:
+        file: store/kv.go
+        symbol: KVTelegramBotUsername
+        hash: sha256:b92f82254c96c24a5fe4ec4aba052e7158e63574aabf31eb9a8ef1f4b8079096
+        struct_hash: sha256:ef31704db58a07c228af3030c5aa62862a7b1cff6867e878f422e7668686cd40
+        doc_struct_hash: sha256:486da5f57e108b16f2d5d7bf5c5eb7cf6e889df8e945e11fb2b4ed72323e1ad1
+        lines: [13, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#BoolSetting
+      level: function
+      anchor:
+        file: store/kv.go
+        symbol: BoolSetting
+        hash: sha256:df9aabfbbf107b2f92e23916a1ceee714fa198e6a1ce8c58a068d8238eaf01c7
+        struct_hash: sha256:93e6d8b678e941991d196626443e1f58d4783a528a2dcc3def73498845d0a030
+        doc_struct_hash: sha256:72590471cf8abfe2687a3b138d323b017a781a66f8d66b3ad4e2203cc1b35019
+        lines: [17, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#Store.GetKV
+      level: function
+      anchor:
+        file: store/kv.go
+        symbol: Store.GetKV
+        hash: sha256:8f532c6ce427a5aa60da210f694a7e82677ba100894a4953266af0f229605145
+        struct_hash: sha256:d443ad641adcfec0fcc235707836430d2f2202c993388f4aac3ec0d6f2ff02cd
+        doc_struct_hash: sha256:851dd740390418ae871390cc43680d52b80c5631163c75b3972f752803f9bbf3
+        lines: [29, 40]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#Store.SetKV
+      level: function
+      anchor:
+        file: store/kv.go
+        symbol: Store.SetKV
+        hash: sha256:1d8a4241214a4f08214ce82d9208d504c9ab3180824306c35cdb6fe766aca21c
+        struct_hash: sha256:a786a3740dad9cf1a983155c0ad16537697a30f64aa8b189dac9ff5488b889ac
+        doc_struct_hash: sha256:21e3b06619c28935b55f8fdf4004e582413cb9621878501ef28a8b8d986c526c
+        lines: [42, 48]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#KVPair
+      level: decl
+      anchor:
+        file: store/kv.go
+        symbol: KVPair
+        hash: sha256:cd2b312b0af5df6244cb22b971298475da5ab83bb2bd01c7dd2220053168b793
+        struct_hash: sha256:d9dc3e2b9bf097115eb9fb3d92f2f7f5549bc943068be62ea561114946d5cbb5
+        doc_struct_hash: sha256:c450651436db2ce1cf80dd82eaee19743002a1209ae2bc43329543a7654aa44e
+        lines: [50, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#Store.ListKVPrefix
+      level: function
+      anchor:
+        file: store/kv.go
+        symbol: Store.ListKVPrefix
+        hash: sha256:754ddef6c052c7f030689432811e38e39d1ab857d90e394b6b79b0ad63b794a5
+        struct_hash: sha256:c86c9739a2d3f283afed1b7117b2ddbe71c034066d6a4a401805914af1f5af58
+        doc_struct_hash: sha256:3538471cfd07efd5bc025fabd769c69fbf5abc89871c8e7279619599289b7151
+        lines: [56, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

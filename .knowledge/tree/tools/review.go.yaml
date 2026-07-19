@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: tools/review.go
+      level: file
+      anchor:
+        file: tools/review.go
+        hash: sha256:94b7d616f20c1a29679221a9f130a1d638f99fe06720fae7dc6b7256c0bdb299
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/review.go#reviewBriefMaxProgress
+      level: decl
+      anchor:
+        file: tools/review.go
+        symbol: reviewBriefMaxProgress
+        hash: sha256:846fa65ee0ac377836514eb77482fa87410e4f29d588ca04bff6b2f84fdb8286
+        struct_hash: sha256:aae00e5a472b2a70b2c0695a1403c55e9eb7f208c55d76add4617d2149d52f81
+        doc_struct_hash: sha256:38b5bc2a19f41b3874eab8d9c1674f223cbe302f995a35bc5745ae36caeaab5f
+        lines: [19, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/review.go#reviewTools
+      level: function
+      anchor:
+        file: tools/review.go
+        symbol: reviewTools
+        hash: sha256:2968d58af93ba8129dd369851dbb46cdf0a803314915d7767c8cce8d580afda4
+        struct_hash: sha256:9cfc022558fafa4ff422184f975daf14bc8f9a8efa95e93b363d035b6b35f171
+        doc_struct_hash: sha256:9cfc022558fafa4ff422184f975daf14bc8f9a8efa95e93b363d035b6b35f171
+        lines: [22, 105]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/review.go#buildReviewBrief
+      level: function
+      anchor:
+        file: tools/review.go
+        symbol: buildReviewBrief
+        hash: sha256:53a89f49f937d58401ed12046f6cb394b78a16bc15cacf0520aeb0e8acdfb699
+        struct_hash: sha256:cef332c21c1b81a8e6481ea92cfcc9f46befb4675a6864616de3d58f8fbb1d13
+        doc_struct_hash: sha256:dee5c431037460df898c2465544c922bd770410799ae76e807ef64a257d9dd17
+        lines: [107, 146]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

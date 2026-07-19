@@ -1,0 +1,131 @@
+schema: 1
+nodes:
+    - id: store/store.go
+      level: file
+      anchor:
+        file: store/store.go
+        hash: sha256:7aeebb23bac37d03c9a9a88f923b7f68cf032d6c5c34ff388ad73214ebc6c843
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#migrationsFS
+      level: decl
+      anchor:
+        file: store/store.go
+        symbol: migrationsFS
+        hash: sha256:98d3fb014941f061b7df5306e52bd2675f203f4c132fa954f787794e77da2bd7
+        struct_hash: sha256:497b52643e0fead528b507818d47085f542fef04c77e7b3d9a3eb79a5ed758a5
+        doc_struct_hash: sha256:497b52643e0fead528b507818d47085f542fef04c77e7b3d9a3eb79a5ed758a5
+        lines: [21, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#ErrNotFound
+      level: decl
+      anchor:
+        file: store/store.go
+        symbol: ErrNotFound
+        hash: sha256:f90dc3f2f67dbf969dc8e0df38df069b26e98fe1028ca415906c6fc29afd052e
+        struct_hash: sha256:228d6b1f85a2ab5873e1f6c7ec70cf9dd09bdc54e9f8cc5a4ead2b08018113b9
+        doc_struct_hash: sha256:243b6d7023e3c4c95116eadd1658cd9af976c747b0d57978ba54ed9b2631cbba
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#ErrConflict
+      level: decl
+      anchor:
+        file: store/store.go
+        symbol: ErrConflict
+        hash: sha256:7d1115c1440ab26dba7c672104e866fb8d3b592caf738dbd24cf1b71a6dc8632
+        struct_hash: sha256:ba5822fcb81fc789afa9ea28937192bef963538a0893f615f7edc14141333d0b
+        doc_struct_hash: sha256:f5e4d27650def5f91d6ec4db5da876665e2d443218a2b5dbe0a2454278bc937f
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Store
+      level: decl
+      anchor:
+        file: store/store.go
+        symbol: Store
+        hash: sha256:e3e258acc99427652cbc39b241842342ca5f998533f93d7563b8913fef80926c
+        struct_hash: sha256:a5888336ed8989b85b6498ebadedadd50f4930f99b527da9b627ded6275db5a7
+        doc_struct_hash: sha256:ff8b18e58b23768352688db1e443ec4dca0f2e3e9431e46b36e256dcc3cab69d
+        lines: [30, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Store.Pool
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: Store.Pool
+        hash: sha256:2ee4b414ae7a68d16092f23630cadc1e29a07ddbf04f858f4f92288b2b5e2918
+        struct_hash: sha256:c29e60f6342b09f3ecca98018ced108603ea96078d3ca9d663424de07d5042cd
+        doc_struct_hash: sha256:6920c23547830093b7c0a5b0e838deade76482c92e4e188440d4136b5d3673a6
+        lines: [35, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Open
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: Open
+        hash: sha256:2f4003d41176a64de037a1bdd9bdd6f90645f006b8f346befab363131ac9ed11
+        struct_hash: sha256:fc1781a5f3040f235c15a47412cbe3abc5a818b4168d9a9f776b9c037707d5e6
+        doc_struct_hash: sha256:9c93147243ded26438bdbf5383cb8ee811498f1326c36e912eeeac428cdeba70
+        lines: [38, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Store.Close
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: Store.Close
+        hash: sha256:3b4c7d8358b0add8748c93e632d7958fd8c97e69792255b683aff4a3257c0119
+        struct_hash: sha256:f5297f5f47e56de15d1ef9e9ea3583815509a0c8ee10e7c386ce06dc1feb9219
+        doc_struct_hash: sha256:ee49c22f1ee3cb74952f09167dbf9a49994b04c855e8b47bc02bdbec4c78794e
+        lines: [56, 57]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Store.Ping
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: Store.Ping
+        hash: sha256:aee9d7439523aa2cab52f585a5eedb97a0842ac3efa7e29ea2ec00e1ec4f0355
+        struct_hash: sha256:81b392eca3370b19ddf32c2db5ca12c5812c3ceebcffbfe8c8f5735c5157c6c5
+        doc_struct_hash: sha256:44bdbcb3ac4482512f6395d5c43ba97d69fcb60f079de641b3012b92d56f553d
+        lines: [59, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Store.migrate
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: Store.migrate
+        hash: sha256:251869495c2e0182d133b6bd6329b44397a285e3a33d12c91438a1464141d32f
+        struct_hash: sha256:dd35bd29ae797f33c7e51c97ee28a37645b55bbb420e000fa2f495d7e1f12a59
+        doc_struct_hash: sha256:dd35bd29ae797f33c7e51c97ee28a37645b55bbb420e000fa2f495d7e1f12a59
+        lines: [66, 111]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#Store.AppliedMigrations
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: Store.AppliedMigrations
+        hash: sha256:0acc934882f80285b1228de80446299b29f707e18f86a6a89ba0bd70905c2ffe
+        struct_hash: sha256:319213b7a7b563744e4cfb72fa51473092543e8a0d5c6af1ebf9fb389b3c49ca
+        doc_struct_hash: sha256:319213b7a7b563744e4cfb72fa51473092543e8a0d5c6af1ebf9fb389b3c49ca
+        lines: [113, 131]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/store.go#wrapErr
+      level: function
+      anchor:
+        file: store/store.go
+        symbol: wrapErr
+        hash: sha256:c180f75a40b2ac7cd511aa571c54c85f96096eece70419c2dca0b0bbf8ec8af8
+        struct_hash: sha256:3719e33df7342370771a70baffeaa1ca6270f6d158743a3ca5cfef5d1a60af40
+        doc_struct_hash: sha256:31839a3878cde7bd8858272460245e3bf3e44899a68f8389ed139dcb520096f8
+        lines: [133, 146]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: vectorstore/qdrant_integration_test.go
+      level: file
+      anchor:
+        file: vectorstore/qdrant_integration_test.go
+        hash: sha256:d15930abcdc928bbcb07992550cdcd2dc7f915e3e7a657eb365f837c68510ead
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant_integration_test.go#TestQdrantIntegration
+      level: function
+      anchor:
+        file: vectorstore/qdrant_integration_test.go
+        symbol: TestQdrantIntegration
+        hash: sha256:757ad233f0e0621f3d8535ea36cca34d1df22bfaaac094d76d90069316314136
+        struct_hash: sha256:8d20f6b659b7bd580d3d429f62ff50d459ebf7d2c489eaf13b6dbcad9c1355e8
+        doc_struct_hash: sha256:8d20f6b659b7bd580d3d429f62ff50d459ebf7d2c489eaf13b6dbcad9c1355e8
+        lines: [11, 71]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

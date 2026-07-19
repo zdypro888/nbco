@@ -1,0 +1,131 @@
+schema: 1
+nodes:
+    - id: config/config_test.go
+      level: file
+      anchor:
+        file: config/config_test.go
+        hash: sha256:2f40286d8bc1ab3f6f3340d1d9f414dc2e84732f4ee1db4354ae4f13ee18bab3
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#writeConfig
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: writeConfig
+        hash: sha256:0b42be303d8daa9ab11fc4385b94a366f81c28637c68cb788a30dc3d46104397
+        struct_hash: sha256:ad3ca5a5f079d8e56f66a6b1b5f6d62a6b76c944d17cfe57d102cb38d1384d0f
+        doc_struct_hash: sha256:ad3ca5a5f079d8e56f66a6b1b5f6d62a6b76c944d17cfe57d102cb38d1384d0f
+        lines: [10, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadDefaults
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadDefaults
+        hash: sha256:0281ba2f57327689d9d3a90c817e8a80d1a20663d5bef914bc6ab2182117715c
+        struct_hash: sha256:ed8604207bf8591c542f69b35f3ce3723cd71660b29f7e876aa12fe91dfd182b
+        doc_struct_hash: sha256:ed8604207bf8591c542f69b35f3ce3723cd71660b29f7e876aa12fe91dfd182b
+        lines: [19, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadQdrantConfig
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadQdrantConfig
+        hash: sha256:550fe6ae6738086d95de080b739b2452be4f66a87ea9592975331f5cb3fe439a
+        struct_hash: sha256:42d60d5ff73efbb090dd5ca1c69d07bd0f33f8bcbd78de3670be0f62318171c7
+        doc_struct_hash: sha256:42d60d5ff73efbb090dd5ca1c69d07bd0f33f8bcbd78de3670be0f62318171c7
+        lines: [70, 83]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadDailySummaryOff
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadDailySummaryOff
+        hash: sha256:0ea34268d35b9e3fdd798c74ba64b83c51728d72ef0dc8eeb5472d998cb95ddc
+        struct_hash: sha256:05e88ef72513c90f7fd4a67447fae46c4385b03b5e9f0145592cac94e7d458a3
+        doc_struct_hash: sha256:05e88ef72513c90f7fd4a67447fae46c4385b03b5e9f0145592cac94e7d458a3
+        lines: [85, 99]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadReasoningConfig
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadReasoningConfig
+        hash: sha256:ed59002835efdde93a05e6c77b696fdf50298b4b896fe49c8070c2486201ac54
+        struct_hash: sha256:4edb4edc0c9824989c9e578888bf7f7cb26dcb5efa4b656f3467a90d47981cfc
+        doc_struct_hash: sha256:4edb4edc0c9824989c9e578888bf7f7cb26dcb5efa4b656f3467a90d47981cfc
+        lines: [101, 114]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadValidation
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadValidation
+        hash: sha256:b367a2d4947b90479996c5e01cdb7503d8c613fd9256f945f0dd2fb207a8bfaf
+        struct_hash: sha256:5edc14190d99afd78d305725aecabd43a35eb402ddcd3001b746b1113330afcd
+        doc_struct_hash: sha256:5edc14190d99afd78d305725aecabd43a35eb402ddcd3001b746b1113330afcd
+        lines: [116, 198]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestOpenAIProviderAllowsAuxiliaryBaseURLFallback
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestOpenAIProviderAllowsAuxiliaryBaseURLFallback
+        hash: sha256:f720e65fd04b3aef2dafb840eb75da0c0c9b864139eb0e05d3e41ec417ea54b4
+        struct_hash: sha256:9ed13a8cc721af223c67a5b568800e4365679d2370b2fdff02297f3b5177d020
+        doc_struct_hash: sha256:9ed13a8cc721af223c67a5b568800e4365679d2370b2fdff02297f3b5177d020
+        lines: [200, 216]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadEmptySuperadminsAllowed
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadEmptySuperadminsAllowed
+        hash: sha256:0373736f777c1259d936a176dbca9d3eae910f7f58bfd560e3ac593b3dad6232
+        struct_hash: sha256:68933018d5dc41161dcfcc8f0984265a67bcce604435d2490ee40e94ec7f380e
+        doc_struct_hash: sha256:68933018d5dc41161dcfcc8f0984265a67bcce604435d2490ee40e94ec7f380e
+        lines: [218, 227]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadTelegramOptional
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadTelegramOptional
+        hash: sha256:43ad9be528940671141b854aa6f14ffda950fcc7c561ec2f2788839bc26437e8
+        struct_hash: sha256:cc1bef9a27a00c875e0f7c5ebb5041235f3df8722aff4a7c765f9d8db7f173c6
+        doc_struct_hash: sha256:cc1bef9a27a00c875e0f7c5ebb5041235f3df8722aff4a7c765f9d8db7f173c6
+        lines: [229, 236]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadTelegramAPIURL
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadTelegramAPIURL
+        hash: sha256:35f0bf91ad4f66afb6bc11be2e3d77709a5e75b8342314e045b095e393864ace
+        struct_hash: sha256:dca9ba0f490864dd3fd21c715597aee9a3fb4835baf0c4e6e73e94d9de717f10
+        doc_struct_hash: sha256:dca9ba0f490864dd3fd21c715597aee9a3fb4835baf0c4e6e73e94d9de717f10
+        lines: [238, 262]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadRejectsCLIEngines
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadRejectsCLIEngines
+        hash: sha256:e42b5cfe4c2d05536bc65ef7d6e95da837391c6b4b5d8bdcd612ebd48550f351
+        struct_hash: sha256:43a5ef25b71c3f93dec64c6b4e1694264af6113b9397ec3e6f1e70ebd7baae93
+        doc_struct_hash: sha256:43a5ef25b71c3f93dec64c6b4e1694264af6113b9397ec3e6f1e70ebd7baae93
+        lines: [264, 276]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

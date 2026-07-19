@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: tools/approval.go
+      level: file
+      anchor:
+        file: tools/approval.go
+        hash: sha256:f9d0fe562d2ae3a7e6c2d9b37363c198b4fcf7ea11e9052fd979124f6d9a4a47
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#approvalTurnKey
+      level: decl
+      anchor:
+        file: tools/approval.go
+        symbol: approvalTurnKey
+        hash: sha256:3276499740bacb5ada97d70a8724d51f769b2b5a81f612443bfb60b27bbf03a1
+        struct_hash: sha256:afeac27b88785ff37f28f4340b803768db55626d63f4b6694ab1fa59dcd84859
+        doc_struct_hash: sha256:afeac27b88785ff37f28f4340b803768db55626d63f4b6694ab1fa59dcd84859
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#approvalTurn
+      level: decl
+      anchor:
+        file: tools/approval.go
+        symbol: approvalTurn
+        hash: sha256:f9a103d7d07540e7f6296e0b9fdd87f4ede3fb7e6f1c43b3a7aaa785c37ae72c
+        struct_hash: sha256:9e7e4fd8448dbb3c8bccfb20ad3db60eabe6bb9ab528977207bc7c187586e0c9
+        doc_struct_hash: sha256:9e7e4fd8448dbb3c8bccfb20ad3db60eabe6bb9ab528977207bc7c187586e0c9
+        lines: [16, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#PendingApprovalMarker
+      level: decl
+      anchor:
+        file: tools/approval.go
+        symbol: PendingApprovalMarker
+        hash: sha256:2a38b3d554eb0a196e73a8d4361f76b6ba65e067c5a2432dd59409cd05f0fe9c
+        struct_hash: sha256:c47e7409d67ef269752005bd56d6ae18acdf62f4e13bd8899e52ddaec7fa51f6
+        doc_struct_hash: sha256:3656bf1264c2cbb551e8ece88217537a9194957caf2d341288aeb1e241f29a82
+        lines: [21, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#WithApprovalTurn
+      level: function
+      anchor:
+        file: tools/approval.go
+        symbol: WithApprovalTurn
+        hash: sha256:46a42d8b34a9b129188ef382b94b91d5da39e3f4bad9910098b3595cc7c2eff0
+        struct_hash: sha256:13f54c3b10164aa43e059847b50412316fe99afd17b18486864c84f8ca8b1de4
+        doc_struct_hash: sha256:34692824fe36db204ee285b684af9d79d9265c401317580ecb49eb49416e0687
+        lines: [25, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#approvalTurnFromContext
+      level: function
+      anchor:
+        file: tools/approval.go
+        symbol: approvalTurnFromContext
+        hash: sha256:228125404ad316482065d165a3c02a83c5f69037559907ed02e3c3aad34d8d52
+        struct_hash: sha256:1060d8534bb353439cb09a34785bbe34fef64605905a22159526527e71e9092a
+        doc_struct_hash: sha256:1060d8534bb353439cb09a34785bbe34fef64605905a22159526527e71e9092a
+        lines: [34, 37]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#approvalRequired
+      level: decl
+      anchor:
+        file: tools/approval.go
+        symbol: approvalRequired
+        hash: sha256:be3bfceb2d090bb88a86cd6ed6e1fbb738ec43c8814df8727210b63ea4ee46ed
+        struct_hash: sha256:98f882f9c84489f7c0c9881a4c8cf1e61ea02a20f84d0cb9f719515c0e743414
+        doc_struct_hash: sha256:81f9448f066d45fcb0fed23dbcb5f0ca5f41f00a5b9f68ef9b6a127d529b8d5b
+        lines: [39, 55]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#requiresApproval
+      level: function
+      anchor:
+        file: tools/approval.go
+        symbol: requiresApproval
+        hash: sha256:aeb28b9826e616f9c8fa120d1e768b885627ebcd778f7b8ccfa5ce8f87d89e93
+        struct_hash: sha256:0f80c4249b97ea804265f3cf35d11747bb34c4e90c0accf86e298e393e28c239
+        doc_struct_hash: sha256:0f80c4249b97ea804265f3cf35d11747bb34c4e90c0accf86e298e393e28c239
+        lines: [57, 59]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#withApproval
+      level: function
+      anchor:
+        file: tools/approval.go
+        symbol: withApproval
+        hash: sha256:958a5c8844693173248cfa526270dd52cf3419cc355594a9269114a9ba5ba538
+        struct_hash: sha256:83b19214c37fb01c4b98bddae27509992f73b5b753a12c09f6ea799cdfcd9ca1
+        doc_struct_hash: sha256:4f39b29883a9e6d393248412dff229285afa6ccabdce37a43f5b62842fb037a1
+        lines: [61, 97]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/approval.go#canonicalArgsHash
+      level: function
+      anchor:
+        file: tools/approval.go
+        symbol: canonicalArgsHash
+        hash: sha256:8ba0ea6b94a6258d4c07c8e8f932a1772e4061b9181fd1d5ca3d560c5f68ca43
+        struct_hash: sha256:6489ffec409ac34beb58204e7c9ce0d0348bb3a97471d0402c9f2a665309ff86
+        doc_struct_hash: sha256:2d5d985411f4d7c56a40aa33bf717ba89c9f13b5e736725bd137ffe4fc90075d
+        lines: [99, 110]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

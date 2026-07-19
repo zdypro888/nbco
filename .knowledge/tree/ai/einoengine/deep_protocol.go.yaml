@@ -1,0 +1,452 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/deep_protocol.go
+      level: file
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        hash: sha256:e8c23aa02f28ad7a57a7a612bc5aede9190082d3f85a7b91a2a6c29fcab43a5b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T19:53:38.418518Z
+    - id: ai/einoengine/deep_protocol.go#deepAgentProtocolVersion
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepAgentProtocolVersion
+        hash: sha256:c3dd9e39b7b848227f0c990c076fdcfc0fc330678316ba0f39a8348fa11f8844
+        struct_hash: sha256:a708ccb085903519ae8dada586a413178a2ca9004bcb91ee78d33426f59f1871
+        doc_struct_hash: sha256:45c4072ba48890f6c0d25467c4e57af12ac540f00c5576610f93b95e7caa8000
+        lines: [22, 25]
+      status: suspect
+      since: 2026-07-19T20:14:31.588705Z
+    - id: ai/einoengine/deep_protocol.go#finalResponseToolName
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: finalResponseToolName
+        hash: sha256:ec94a2e8fb237ee81f6cbb684485997f486ff351ee2574c3fad60955aa49f62e
+        struct_hash: sha256:b1588b54b085ecebc291cf0accc756ec5259933e40d38eb5c9b67c55a5860a44
+        doc_struct_hash: sha256:b1588b54b085ecebc291cf0accc756ec5259933e40d38eb5c9b67c55a5860a44
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#toolSearchToolName
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: toolSearchToolName
+        hash: sha256:029d01086f5f365b31979e82fae6582f9337e5653fe9e6b1bb18e58f25cf26dc
+        struct_hash: sha256:cf7d6001399c6ffe733a98706030bde43206921afb33be444735dd1ab6ad2eee
+        doc_struct_hash: sha256:cf7d6001399c6ffe733a98706030bde43206921afb33be444735dd1ab6ad2eee
+        lines: [28, 28]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#writeTodosToolName
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: writeTodosToolName
+        hash: sha256:8a572db71cd8c0431d60de7433d70186748e0b3f921d2cdab0529ef04f553678
+        struct_hash: sha256:50cd4a4cbbd0cd6485f2b385ff3fb2d9a991f02b2912634ed7c06d2147502f45
+        doc_struct_hash: sha256:50cd4a4cbbd0cd6485f2b385ff3fb2d9a991f02b2912634ed7c06d2147502f45
+        lines: [29, 29]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepCompletionInstruction
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepCompletionInstruction
+        hash: sha256:3c03e4474525f8686b17aeacf3abd7ccac3d699c6305bf0a78d4a9e227c14352
+        struct_hash: sha256:f9bfe3c6341611e4836752cc7f628645035d2e1711b5d6638307b1c7131a4364
+        doc_struct_hash: sha256:f9bfe3c6341611e4836752cc7f628645035d2e1711b5d6638307b1c7131a4364
+        lines: [31, 35]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#conciseToolSearchDescription
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: conciseToolSearchDescription
+        hash: sha256:8d30e7665e8f26f1e9e34615dfdf1d5b79908dcd4146a1a840c3b9ae2bdc540f
+        struct_hash: sha256:d54b8b332b8448e140054746e62898495bc3e6499b4e152dc133cc91f1655d3e
+        doc_struct_hash: sha256:d54b8b332b8448e140054746e62898495bc3e6499b4e152dc133cc91f1655d3e
+        lines: [37, 37]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#conciseWriteTodosDescription
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: conciseWriteTodosDescription
+        hash: sha256:65e8f93a53a89e28166fdd1b5d3363c0f036783e7ad40fa59e3808bdc8c40b27
+        struct_hash: sha256:aaa3369da931c46b6bf8c5c10a1f4150ca000e3cbd16e241cd834593cc9d15c8
+        doc_struct_hash: sha256:aaa3369da931c46b6bf8c5c10a1f4150ca000e3cbd16e241cd834593cc9d15c8
+        lines: [38, 38]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#structuredRetryInstruction
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: structuredRetryInstruction
+        hash: sha256:82de3dca92a6ff60aed6984681d85800845ed46198a4663ffcea554511805e78
+        struct_hash: sha256:8959bd23bd5acdb303c45c8ac1e008c06ebf62a0fbddadadad130d1b10a80af7
+        doc_struct_hash: sha256:8959bd23bd5acdb303c45c8ac1e008c06ebf62a0fbddadadad130d1b10a80af7
+        lines: [39, 39]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#actionEvidenceRetryInstruction
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: actionEvidenceRetryInstruction
+        hash: sha256:24e960f020aabf4d5cd0b756b466c23a2d5ff6d941fea75de1f8465913a7c86b
+        struct_hash: sha256:4358c067e124b19e333f0543f39f24cea603ebb3436f8107ce577681b98cc956
+        doc_struct_hash: sha256:4358c067e124b19e333f0543f39f24cea603ebb3436f8107ce577681b98cc956
+        lines: [40, 40]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#actionOutcomeRetryInstruction
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: actionOutcomeRetryInstruction
+        hash: sha256:3d36fa3af47ab7c6225037474ba7a493fb76bd16958ac318eb7946758ad738ff
+        struct_hash: sha256:e42323bcac3d2df64795005df756834c1e1d75c18c29c2de812a3a357b6e8a1b
+        doc_struct_hash: sha256:e42323bcac3d2df64795005df756834c1e1d75c18c29c2de812a3a357b6e8a1b
+        lines: [41, 41]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#invalidFinalRetryInstruction
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: invalidFinalRetryInstruction
+        hash: sha256:3d4e3606f4c3444ebc279165723a30aeb55728695a2f84e02b78f5a0ed29ea20
+        struct_hash: sha256:3b10afa1dd7470551657852a6e1a4dd9c680d2b3cdb18efb49cdd30cd6cb54ee
+        doc_struct_hash: sha256:3b10afa1dd7470551657852a6e1a4dd9c680d2b3cdb18efb49cdd30cd6cb54ee
+        lines: [42, 42]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#unknownToolRetryInstruction
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: unknownToolRetryInstruction
+        hash: sha256:b9ba4bf41cc5cb8b0b04230ef99ce0a14826f4605bf5c1ae8b4f6a156d7e12fb
+        struct_hash: sha256:23accb2c7c72e4a348a36eb1a57983d11f9e65e52bf0e8f431fcbc462b5bd2e6
+        doc_struct_hash: sha256:23accb2c7c72e4a348a36eb1a57983d11f9e65e52bf0e8f431fcbc462b5bd2e6
+        lines: [43, 43]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#toolExecution
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: toolExecution
+        hash: sha256:963daee88ec06ce82497990f1d535c6054a1c58c4bf7cf376f8b719310527a46
+        struct_hash: sha256:51220e5c40b31510079d328d4fffe38b9f6ec6a46ffbc87fce072142481aaaa8
+        doc_struct_hash: sha256:51220e5c40b31510079d328d4fffe38b9f6ec6a46ffbc87fce072142481aaaa8
+        lines: [46, 49]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware
+        hash: sha256:7f97d898df6da20d80feefeb1d23ff23719516c07b0ebb7f6816909586d59fbb
+        struct_hash: sha256:a47d3c089320b21bf6aca727631b4c5c5f096249788f8342a494542177935e91
+        doc_struct_hash: sha256:6b2928c3cbe6e32074d64d505653afc44ba2af90d0af434641eddc0be7ef975b
+        lines: [51, 66]
+      status: suspect
+      since: 2026-07-19T19:53:38.418458Z
+      entries:
+        - id: e_cbf9252a
+          kind: contract
+          text: Deep 每轮以 final_response 的 answer/action_result/blocked/clarify 显式收尾；action_result 只接受本轮 Effect=write/execute 且 handler 已返回的业务工具证据，反向地已有动作证据时 answer 也会被 Eino ModelRetry 驳回。
+          confidence: verified
+          at: 2026-07-19T20:14:58.735592Z
+          confirmed_at: 2026-07-19T21:48:08.276888Z
+          author: codex-mcp-client
+        - id: e_681565d5
+          kind: pitfall
+          text: 未知或未声明 Effect 的扩展工具不能证明动作结果；扩展执行能力必须显式声明 write/execute，否则只能按 read/blocked/clarify 语义收尾。
+          confidence: verified
+          at: 2026-07-19T20:14:58.735684Z
+          confirmed_at: 2026-07-19T21:48:08.079435Z
+          author: codex-mcp-client
+      keywords:
+        - completion outcome
+        - action_result evidence
+        - write execute evidence
+        - protocol retry
+        - 口头承诺
+    - id: ai/einoengine/deep_protocol.go#newDeepProtocolMiddleware
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: newDeepProtocolMiddleware
+        hash: sha256:65745983359a0255db47150576ed9f0fc66e8fe842f1cacccbb2aba4880db967
+        struct_hash: sha256:5fc5f6a77a075af1792acb29dd8ea791c076af8c59631be65b32a32b873ebb20
+        doc_struct_hash: sha256:5fc5f6a77a075af1792acb29dd8ea791c076af8c59631be65b32a32b873ebb20
+        lines: [68, 92]
+      status: fresh
+      since: 2026-07-19T20:14:46.590996Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.BeforeAgent
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.BeforeAgent
+        hash: sha256:2db0cb806c891e636bdebac9044620be7d8b48161f5ecf83fa108d3ceb28cc36
+        struct_hash: sha256:5ffa524f1a85c5b0d62e90df9fe0c60cda02f30dda8afa032ec28d6e6f82c89d
+        doc_struct_hash: sha256:5ffa524f1a85c5b0d62e90df9fe0c60cda02f30dda8afa032ec28d6e6f82c89d
+        lines: [94, 121]
+      status: fresh
+      since: 2026-07-19T21:24:43.884634Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.BeforeModelRewriteState
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.BeforeModelRewriteState
+        hash: sha256:f53df68de4e62d3c3ef40f463c83d6cdd0ed24f2791f138244ee32b634ae7e50
+        struct_hash: sha256:28ab8a9525d11195798098c7a0d6cf90527cb27366215289520741d6d787474d
+        doc_struct_hash: sha256:28ab8a9525d11195798098c7a0d6cf90527cb27366215289520741d6d787474d
+        lines: [123, 170]
+      status: fresh
+      since: 2026-07-19T21:24:43.886404Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.modelRetryConfig
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.modelRetryConfig
+        hash: sha256:b26df4b652aacde900307f8e0bdae1005e0774713d47aca2bf1277f17532577e
+        struct_hash: sha256:5e5559cecb8883b1cc309f94ee87158f371bb33040454365ed0b0afcc0a5f352
+        doc_struct_hash: sha256:5e5559cecb8883b1cc309f94ee87158f371bb33040454365ed0b0afcc0a5f352
+        lines: [172, 189]
+      status: fresh
+      since: 2026-07-19T20:14:31.20171Z
+      lineage:
+        - chat/chat.go#Orchestrator.repairMissingToolTurn
+        - chat/chat.go#missingToolNameFromEngineErr
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.unknownToolCall
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.unknownToolCall
+        hash: sha256:c357a1af0ce0b090319110330d1cecded24320f3e93f50d7894cc69889e21e24
+        struct_hash: sha256:944d21319eaeda9da5f811fa2d7f39aab6750d33c72000860db6287bb43cab53
+        doc_struct_hash: sha256:944d21319eaeda9da5f811fa2d7f39aab6750d33c72000860db6287bb43cab53
+        lines: [191, 208]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.invalidCompletion
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.invalidCompletion
+        hash: sha256:303c93347a3c163f9ecea0b80cbdc7e47e2366d0a983e94a688bc06d3b30fe00
+        struct_hash: sha256:f05e6873e33b11d53b26165a22a9720ff9ba6ac1a8b19345576e27b39e046d29
+        doc_struct_hash: sha256:f05e6873e33b11d53b26165a22a9720ff9ba6ac1a8b19345576e27b39e046d29
+        lines: [210, 243]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.protocolRetry
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.protocolRetry
+        hash: sha256:3443a167a5cc789385338b1d010c6eef2a01be1a1297a3afab03f3b2f1b25427
+        struct_hash: sha256:c5e52a4025a2778e672a4f974a0e7713fbdccf4aa810fdaaa451c89addf2af88
+        doc_struct_hash: sha256:c5e52a4025a2778e672a4f974a0e7713fbdccf4aa810fdaaa451c89addf2af88
+        lines: [245, 256]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.hasActionEvidence
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.hasActionEvidence
+        hash: sha256:45515c8ac82f9b3bdd700db47e35dffe8ac3d421b1d3b879ec93ba5228de3899
+        struct_hash: sha256:caf6aafde28336858dd02b3b40bf2845f70f0cafb38efd375e0287277f6bf34e
+        doc_struct_hash: sha256:caf6aafde28336858dd02b3b40bf2845f70f0cafb38efd375e0287277f6bf34e
+        lines: [258, 268]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.AfterModelRewriteState
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.AfterModelRewriteState
+        hash: sha256:d2e3fdb18a15ac85d450b3ad8675a59d49b18e634cf8babd93d4f149d82f5524
+        struct_hash: sha256:e4de932d4612e9b62ca52852942fbd0079aaff0665035d18a82aa3287b1eb296
+        doc_struct_hash: sha256:7d5e8c8d765da30f7e2cb70e49830b861f0ea2b6f956c30447debe466dd710bb
+        lines: [270, 307]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.WrapModel
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.WrapModel
+        hash: sha256:a190b4d85261d471b1fbe904e327d7d4552705115be86b34e0b42615945f63e3
+        struct_hash: sha256:52eb15153bc6d751a8581eac089d34fd41d655aac3ffff27dceb57bb683b6017
+        doc_struct_hash: sha256:52eb15153bc6d751a8581eac089d34fd41d655aac3ffff27dceb57bb683b6017
+        lines: [309, 315]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.WrapInvokableToolCall
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.WrapInvokableToolCall
+        hash: sha256:349bd2365008086f1dfe34505d918c95d86ec053d8425a65561a5dc4a6ffab13
+        struct_hash: sha256:8e4ade94b85281a4ab547c5ac317d33589597690030520fe8e128bc94f16e24c
+        doc_struct_hash: sha256:8e4ade94b85281a4ab547c5ac317d33589597690030520fe8e128bc94f16e24c
+        lines: [317, 339]
+      status: fresh
+      since: 2026-07-19T20:14:31.203309Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.recordModelCall
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.recordModelCall
+        hash: sha256:17d753775e4347c5406a08f326c8a82496cdbba8847b636d439e445e81ecb64b
+        struct_hash: sha256:267febd47f1b29ecbf7d9517e542f6dbd3ab10aff2ccb5eef971f01234867c4d
+        doc_struct_hash: sha256:267febd47f1b29ecbf7d9517e542f6dbd3ab10aff2ccb5eef971f01234867c4d
+        lines: [341, 348]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.rememberCurrentTurnSelections
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.rememberCurrentTurnSelections
+        hash: sha256:1b18e012da82a13dd2b17853bb1f027fb4fa764d054511274c1d6821fd45e506
+        struct_hash: sha256:2572e56a5570d0ecc6365fc48eb546fbe71fef16502ad1255c5cbc1a0ac72e0e
+        doc_struct_hash: sha256:2572e56a5570d0ecc6365fc48eb546fbe71fef16502ad1255c5cbc1a0ac72e0e
+        lines: [350, 382]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#isToolSearchReminder
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: isToolSearchReminder
+        hash: sha256:5138a21196675949cfbe14447aac2e11d3fb816138fe88c7c5ebb5067d11d228
+        struct_hash: sha256:e559af640534b993810e19bf410fe10d2c997d39b6fee4a6c48c39a594a08dff
+        doc_struct_hash: sha256:e559af640534b993810e19bf410fe10d2c997d39b6fee4a6c48c39a594a08dff
+        lines: [384, 390]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.selectedSnapshot
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.selectedSnapshot
+        hash: sha256:8a48084d2210f79f1e3b0ef76315b18f233e08798e2bf8041d8ed612edd5705b
+        struct_hash: sha256:906839ec00aa26e18030338caa292e06a931d31f367607c13bd15794cecd9e49
+        doc_struct_hash: sha256:906839ec00aa26e18030338caa292e06a931d31f367607c13bd15794cecd9e49
+        lines: [392, 396]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#deepProtocolMiddleware.observe
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: deepProtocolMiddleware.observe
+        hash: sha256:b890684f28685e5c299460982a4bced8109aab619f41530164fd232c313b8910
+        struct_hash: sha256:59e7dcff8c3f369d158b0c3ca4c89560a298cae5d1b6bf5537af61b019fc0d5f
+        doc_struct_hash: sha256:59e7dcff8c3f369d158b0c3ca4c89560a298cae5d1b6bf5537af61b019fc0d5f
+        lines: [398, 425]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#forcedToolChoiceModel
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: forcedToolChoiceModel
+        hash: sha256:800ab359b3aced20cb1dab593954b333bb9cedea8827f9171b83bcdb81c29b31
+        struct_hash: sha256:6e418bc2905fb84e7af5c557c2b19b1e6f4dee3fe00b81eae58ad8d7633531f1
+        doc_struct_hash: sha256:6e418bc2905fb84e7af5c557c2b19b1e6f4dee3fe00b81eae58ad8d7633531f1
+        lines: [427, 430]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#forcedToolChoiceModel.Generate
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: forcedToolChoiceModel.Generate
+        hash: sha256:b76d3a0a14fc724b32d5c8cca04322f7a73dac02a93add64c8a1b992e5c8a693
+        struct_hash: sha256:e91d6ef22d14e3670d0a34a22037d1f608addaf8ae7b55c253e8cec855764ba9
+        doc_struct_hash: sha256:e91d6ef22d14e3670d0a34a22037d1f608addaf8ae7b55c253e8cec855764ba9
+        lines: [432, 438]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#forcedToolChoiceModel.Stream
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: forcedToolChoiceModel.Stream
+        hash: sha256:b86b5b88bc772dfecd43523293caa2813ba4e04004a20ddbd4cb2c068a370e41
+        struct_hash: sha256:23863a8b7572bee8c0921726b119ddc7135b0e96860cb6ff01fa4aae66e40eb9
+        doc_struct_hash: sha256:23863a8b7572bee8c0921726b119ddc7135b0e96860cb6ff01fa4aae66e40eb9
+        lines: [440, 446]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#finalResponseArgs
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: finalResponseArgs
+        hash: sha256:8c142206836a2d5a5687755c928206ef869782ea1b542a9c6dbd548bd1623c94
+        struct_hash: sha256:cbf3e429611a667fa223665cbf3973522fc17c1fd4c28207fb879626152efe57
+        doc_struct_hash: sha256:cbf3e429611a667fa223665cbf3973522fc17c1fd4c28207fb879626152efe57
+        lines: [448, 451]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#finalResponseTool
+      level: decl
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: finalResponseTool
+        hash: sha256:add9c8b68696c72828a9fc8bf56beecf495743eb6ca82d888390852a992ab692
+        struct_hash: sha256:6f7d5b96554f62a5a580ff94f2f23e59bc8ea3feca1b1af8c524b2b841251795
+        doc_struct_hash: sha256:6f7d5b96554f62a5a580ff94f2f23e59bc8ea3feca1b1af8c524b2b841251795
+        lines: [453, 453]
+      status: fresh
+      since: 2026-07-19T19:53:38.420983Z
+    - id: ai/einoengine/deep_protocol.go#finalResponseTool.Info
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: finalResponseTool.Info
+        hash: sha256:ca6ebde754698bf0420376fcc917b7627bb149da852a426a616f9a1ec2b5e2f2
+        struct_hash: sha256:9a02983ebfdfdd7b5c27af37b39d5d42d310b26e04ebb8be15e3d9d07c42e2f7
+        doc_struct_hash: sha256:9a02983ebfdfdd7b5c27af37b39d5d42d310b26e04ebb8be15e3d9d07c42e2f7
+        lines: [455, 485]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#finalResponseTool.InvokableRun
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: finalResponseTool.InvokableRun
+        hash: sha256:4873910ae49c7275b87b3717bc57fa106bcba54be36e33101f46bc81ffe13cfa
+        struct_hash: sha256:daab0c4e9d6760ab0b8ac0c7f6c5f50d77e083c3d91a40f24c5c606bcc8eb8d3
+        doc_struct_hash: sha256:daab0c4e9d6760ab0b8ac0c7f6c5f50d77e083c3d91a40f24c5c606bcc8eb8d3
+        lines: [487, 493]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: ai/einoengine/deep_protocol.go#parseFinalResponseArguments
+      level: function
+      anchor:
+        file: ai/einoengine/deep_protocol.go
+        symbol: parseFinalResponseArguments
+        hash: sha256:7d256d70961813ae54b286ad101530535f1784479ccadb9b1b851611abd8020c
+        struct_hash: sha256:07b76d578ca61463321f39fb5effd139d606e16abb500a52c9e62525b2b95df5
+        doc_struct_hash: sha256:07b76d578ca61463321f39fb5effd139d606e16abb500a52c9e62525b2b95df5
+        lines: [495, 511]
+      status: fresh
+      since: 2026-07-19T20:14:31.207824Z

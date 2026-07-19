@@ -1,0 +1,175 @@
+schema: 1
+nodes:
+    - id: vectorstore/vectorstore.go
+      level: file
+      anchor:
+        file: vectorstore/vectorstore.go
+        hash: sha256:b77ec609138f5080e01dcea77c405d351455667a184530d93af03a0a79b163f1
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadSource
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadSource
+        hash: sha256:ce7c0405e807abbde9737b9d9cff42debb53cbebbede6f51529f4f3139d46d30
+        struct_hash: sha256:faf8e0c1356ce3f6816b053b24b62bd805755aba441358856c693b0fce26e60b
+        doc_struct_hash: sha256:faf8e0c1356ce3f6816b053b24b62bd805755aba441358856c693b0fce26e60b
+        lines: [9, 9]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadEntityID
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadEntityID
+        hash: sha256:bcafcdd1880de6f2156aba8734a7f2ec1af72ef7557e35343612d40921662e6d
+        struct_hash: sha256:dd10fce52c4154ed1befcb967695558c66ba38d5114a3f4f7b8ee63dd41549dc
+        doc_struct_hash: sha256:dd10fce52c4154ed1befcb967695558c66ba38d5114a3f4f7b8ee63dd41549dc
+        lines: [10, 10]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadKind
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadKind
+        hash: sha256:63c79d00085661dc542f0f918665bb0fc89b43561457b1db4e40d8c72a8a7ec3
+        struct_hash: sha256:4085751cc6a65e078a28b7f4dac158ef08ecb886c6a50ea9cd09abd1aff9fa31
+        doc_struct_hash: sha256:4085751cc6a65e078a28b7f4dac158ef08ecb886c6a50ea9cd09abd1aff9fa31
+        lines: [11, 11]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadContentHash
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadContentHash
+        hash: sha256:5ae7b28d32e94c31906f22d2653f26905ef60e8363a82e66eb48cdaee3773c8b
+        struct_hash: sha256:39f64f168f3b67a8d57bcc90073dc369a7d116fcb663b1c6335a6f8827583538
+        doc_struct_hash: sha256:39f64f168f3b67a8d57bcc90073dc369a7d116fcb663b1c6335a6f8827583538
+        lines: [12, 12]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadSessionUser
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadSessionUser
+        hash: sha256:d6dc1d437e5c1266fe496e5e546afb54610cc6e1296c46edb8a1e57b0b9ccb1d
+        struct_hash: sha256:39f42be5dd6e4317f7c6cefbd92e38633df1627cb925036e5b231746de1fd758
+        doc_struct_hash: sha256:39f42be5dd6e4317f7c6cefbd92e38633df1627cb925036e5b231746de1fd758
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadChannel
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadChannel
+        hash: sha256:b8bd48089c3610a75d0ebb0b7c651eba71aa77cdf85f7ff109c1b16439697860
+        struct_hash: sha256:59cb97e0e25c43a4c379abd33b0b50c57975042dc94575059a85a7b1e67bbf5a
+        doc_struct_hash: sha256:59cb97e0e25c43a4c379abd33b0b50c57975042dc94575059a85a7b1e67bbf5a
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadConversationScope
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadConversationScope
+        hash: sha256:c370484f875ffe3a163294fdbcdda93827097300fbdf1d6c52cb915fbca29d33
+        struct_hash: sha256:6056a54489f86f7f1e7ecbd2c4fa08c905d6bf3db4893f06a254e702926cddf6
+        doc_struct_hash: sha256:6056a54489f86f7f1e7ecbd2c4fa08c905d6bf3db4893f06a254e702926cddf6
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#PayloadRole
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: PayloadRole
+        hash: sha256:50037e02c8fb1be381f399c7566dc8379d3ad5db377f2270a8436392f974ab4c
+        struct_hash: sha256:19f723dbbe051b4d9be178728a9990803db58ba36ca13a80fe62b46ef6f61d6b
+        doc_struct_hash: sha256:19f723dbbe051b4d9be178728a9990803db58ba36ca13a80fe62b46ef6f61d6b
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Ref
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Ref
+        hash: sha256:f096237aa3e8aa9ed3c1f754e44dbfe0a5849a7ea90fe8ad62a148a9e6035d5a
+        struct_hash: sha256:de858b18f9f443800a267a19846ae97dc3a8b7f3f24303910049d614dce693bc
+        doc_struct_hash: sha256:af5629d1ca9e1ee8ced6dee8e177701d1aa3a7157103b119a28e2d903f1c94e5
+        lines: [19, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Ref.Key
+      level: function
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Ref.Key
+        hash: sha256:22e7c286ef8cb2a774719895e388de1e5d6706abbe7fc60bf5d96e0c342d7a23
+        struct_hash: sha256:8966e49d16e32f5dfc294726a7def628dde7a4b4d5daf00572066d03bfc3be49
+        doc_struct_hash: sha256:8966e49d16e32f5dfc294726a7def628dde7a4b4d5daf00572066d03bfc3be49
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Point
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Point
+        hash: sha256:bfa45df6e090f19604d2bc9e1a5f46f8a407a9d910063154624277904881ee56
+        struct_hash: sha256:51232de7a410bdae611f650285c295dd3712185e0d9bd574563e1d550625653f
+        doc_struct_hash: sha256:e687dff21724fbda3528257d95d472b685e7aa7298509d589047058eaf4d9734
+        lines: [28, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Filter
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Filter
+        hash: sha256:70263a3253aaeb495a58bdd82314d3dacdfcea983f7a317e416f59e20a152e23
+        struct_hash: sha256:ce9601ac14dd0c85a3d1474a01747445d25c17d0fbe6bed91daafb0c6afd4d7e
+        doc_struct_hash: sha256:84a9546f2012a266e00f630b23c814b2931d308c3299708cf7fcada6b46e9ff5
+        lines: [37, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Hit
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Hit
+        hash: sha256:71add2778c0e7f6324a2834a5be53b071ded063f8dbab74fe3a30a88aebaae54
+        struct_hash: sha256:7f4ef4eb47603993e2e3db003fab59295b30451edc294cd2e68f7cd5335f8bd2
+        doc_struct_hash: sha256:5a0e4f4feb056ffa61c2834d0b26d3129e0d8843e9066e7284ebd6e2ec1b7c02
+        lines: [44, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Metadata
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Metadata
+        hash: sha256:c80ba277d01c57625037dfd2bcfbdd9cf870bbf5e42ec92cb31071bae036dc57
+        struct_hash: sha256:6477bc6184a1e0335dcf0a804979aab6863605f37145eca53d687176c39400bb
+        doc_struct_hash: sha256:b42c018d96e66dde67e4d4702461b918f304687fcf14542dbe1ecb7ca31b0d82
+        lines: [51, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/vectorstore.go#Store
+      level: decl
+      anchor:
+        file: vectorstore/vectorstore.go
+        symbol: Store
+        hash: sha256:3c048565b8022cb53986f5ecf4e3e655aef3ec05c224463dcb98102e9003c1eb
+        struct_hash: sha256:8a059a0f4668f225feafc1b44c3c9bf4a5064c3ca93e5d8a145088271bfb441b
+        doc_struct_hash: sha256:8333dfecf9c54a4036de125073edbba1f3dad5f7bf67983db97800b1a1a917df
+        lines: [58, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

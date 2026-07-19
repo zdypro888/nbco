@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: store/audit.go
+      level: file
+      anchor:
+        file: store/audit.go
+        hash: sha256:c1210669a66ad5e3a85fb5d2ef855733dc9c632ff57dff1eccf3a82b5c37b6ac
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/audit.go#AuditActivity
+      level: decl
+      anchor:
+        file: store/audit.go
+        symbol: AuditActivity
+        hash: sha256:d59d0c71fcb584e43a0329c321f74c3a84033092922aa932e7cd01126e4870d2
+        struct_hash: sha256:5e90b5363ac2ce5d1227ab58939c6df443e634aab328750daaf8f7617127e6f7
+        doc_struct_hash: sha256:919f5a3cf80492f40ec2123bf0da6b5a6e2dae115ac1f239c4db9fc05ad76e5c
+        lines: [11, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/audit.go#AuditActivityFilter
+      level: decl
+      anchor:
+        file: store/audit.go
+        symbol: AuditActivityFilter
+        hash: sha256:985cf971c17fe3b580513b1c23af11c48f59e63fe365c6f33f3757c3be222d07
+        struct_hash: sha256:8249852a6607485e7b2f8251ad2989d2b6e5679c1ec0b65acba07f4bdd51e2c8
+        doc_struct_hash: sha256:8249852a6607485e7b2f8251ad2989d2b6e5679c1ec0b65acba07f4bdd51e2c8
+        lines: [27, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/audit.go#Store.ListAuditActivity
+      level: function
+      anchor:
+        file: store/audit.go
+        symbol: Store.ListAuditActivity
+        hash: sha256:934247eec348ee20aff0f0c23124ea38d3538b103a47e222d13e1b8d81f48c85
+        struct_hash: sha256:729eae32a62bf795bc32b1ce57515a19fb4f84c0336b18754db512d2873bcf73
+        doc_struct_hash: sha256:edeaa1966c35d10d508b8f70e6664fced0390273eec73eeb8256b5bc07e4914f
+        lines: [36, 89]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,439 @@
+schema: 1
+nodes:
+    - id: store/goals.go
+      level: file
+      anchor:
+        file: store/goals.go
+        hash: sha256:867d5f67e6d42147f7c534b08716072834256cf5a408517d3a97d5d5400207b0
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#GoalActive
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: GoalActive
+        hash: sha256:41fc9d090f26a87c8e955f67bafb3e7b9c33fca816280a2116b707925c5054d5
+        struct_hash: sha256:32c3efc8444dafefa1823efcbe2e8eba448941824cf1a83597a78ede19eef8a0
+        doc_struct_hash: sha256:c6ad65d4467075e3120845e214b7d761114306806ba7d16e46bdc852ab718aae
+        lines: [12, 12]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#GoalAchieved
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: GoalAchieved
+        hash: sha256:2216b7c37beda8435a5546a64b2e79374ec20c17813267703289083106861cec
+        struct_hash: sha256:c8d8dff9002ea0456d21660aa28661823342f2d01cfab9954f5a391b9490514b
+        doc_struct_hash: sha256:cbcac45fd9fcee01754435c5d3e66544fb15adc2dfd16c767ca1d6f2a1025ef2
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#GoalArchived
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: GoalArchived
+        hash: sha256:7298bcf16faa9e00bb626634a264ca94aa71fdb8899e0f5c620314864c337295
+        struct_hash: sha256:c6ee49e31df1067eecae24fa15f9d27a3c4773e5dd0b842a391a47b1362ed5c6
+        doc_struct_hash: sha256:9407ccfa2983ef69662272ca0afef78b482b084bd28dde26691777c2b2860cf8
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Goal
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: Goal
+        hash: sha256:e45d91848981078950e4bf3ffa8f329e722a538a26f5dc3d2d56086c9544aedc
+        struct_hash: sha256:2c65aebf6d50a7188a65bf0a21b340c065087a5d15f3da64e6211b3cfa9dc0fa
+        doc_struct_hash: sha256:33168bc2e1c20a80caff21ca6cfd2870ba26c3db312231c52d19c8d51cd6f08a
+        lines: [17, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Milestone
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: Milestone
+        hash: sha256:a16b4591afc1bd775d2f7ef9872b0f46c1315a79e314ce744b0d28f45af65f29
+        struct_hash: sha256:cdd5ee564aec45b9fc2b61631177e25bd70aeceb1ff7a769c6ef4ee4b6229a14
+        doc_struct_hash: sha256:116b809e828b414fe15b075dab6e36bfa7762294c3d2aee2f7be1bbda3eb33cd
+        lines: [29, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#goalCols
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: goalCols
+        hash: sha256:d6b3f36eb04bb5ad70080bec047ecff67fac3b9d87e799078216e0ce86b3a614
+        struct_hash: sha256:a85f589398e744202761dcd57e1149c3191c862bac616b999aa433fa366a2a44
+        doc_struct_hash: sha256:a85f589398e744202761dcd57e1149c3191c862bac616b999aa433fa366a2a44
+        lines: [41, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#scanGoal
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: scanGoal
+        hash: sha256:b226090a0d7d9c3b24bc6b67dece8fb1425f487644da1af6c86355084e5352ad
+        struct_hash: sha256:7ad2db99d2444f399743f4194e90bfa5e53f35ba798a18701d00c47f034b14f5
+        doc_struct_hash: sha256:7ad2db99d2444f399743f4194e90bfa5e53f35ba798a18701d00c47f034b14f5
+        lines: [43, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#milestoneCols
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: milestoneCols
+        hash: sha256:d4e8cef7d5f5666321b5de3fbefde0a67148a62e67266113d2d72dc4811388c1
+        struct_hash: sha256:ae9b70cba284560f55a98ef0ef1e4df990f883523f0cd67e5edacfbfc784486d
+        doc_struct_hash: sha256:ae9b70cba284560f55a98ef0ef1e4df990f883523f0cd67e5edacfbfc784486d
+        lines: [51, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#scanMilestone
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: scanMilestone
+        hash: sha256:2378d8a6cf2950bb7462d652cb63d2fc171f32ed5d334f6c33bfb3aaf2ea5ed9
+        struct_hash: sha256:7ade466e6e680ab2a6aa2ead8972cfec87934aa3382cea69b4102c0af0d60f86
+        doc_struct_hash: sha256:7ade466e6e680ab2a6aa2ead8972cfec87934aa3382cea69b4102c0af0d60f86
+        lines: [53, 59]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.CreateGoal
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.CreateGoal
+        hash: sha256:31c3f5a8ddff23e133b6edf11a22be04419055942fe5b705a48c1995c0502564
+        struct_hash: sha256:e1cc48bcc91f9b7b08f97710e019a2dd10b6b92f799aa5ede889668a6f19563f
+        doc_struct_hash: sha256:adc5e48485a57b97437daedee404a0b44036e57e3ea8a7e1fc638172b714d9be
+        lines: [63, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.GoalByID
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.GoalByID
+        hash: sha256:cea3d2aff255b0316b948db69fe52b2962c01a9d6791898abe729dfb053c125e
+        struct_hash: sha256:04226a141df99d40c06fb681c9a03e39f4cf12b8fca5c3c9d47b78f42af57cc9
+        doc_struct_hash: sha256:b1a931fe2a647ea5e5e3b4e28308b45ba10b9b3c8b9a208844cc19f4daffc580
+        lines: [70, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.ListGoals
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.ListGoals
+        hash: sha256:d3d9204378348d5bb93c4288f7308295576534a8da63310b3ba261ee6dcd230a
+        struct_hash: sha256:f0b32de94de424fc81f0b12dce7b0d2a30cfec51cf51a621bb2176468b56a24b
+        doc_struct_hash: sha256:b20ca41b1610290c29ea0d5b115ac19a8ddf3e0daf9650c0c2e9517e14431e8a
+        lines: [75, 96]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.GoalsOfOwner
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.GoalsOfOwner
+        hash: sha256:8eef6e5030949f86847c1a95a48ebe7fbe761eed8f6330f0e706df10dd6fe259
+        struct_hash: sha256:78d4d430156a9d6183384c559d31c2c199c08795da0e82422cdeaa59851650d6
+        doc_struct_hash: sha256:5d3a4823debce6a2202bf6d0aa00251928e8a9cd18abd19ba318e5f38533b0ff
+        lines: [98, 114]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.UpdateGoal
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.UpdateGoal
+        hash: sha256:f527b38e065e19abdbc086e9f3c40d1d8eedbb8015a79e54a7e64aaf24582b38
+        struct_hash: sha256:91299c6fe14b57d2213b5903b2bc7e045ccccce8b69ea57d5cd404b8294c54c8
+        doc_struct_hash: sha256:94d5ed3fb3f29431d5b40971a6db6e85ccb53a258fd4bc67ceafd222d9342b3d
+        lines: [116, 131]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.SetGoalStatus
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.SetGoalStatus
+        hash: sha256:03fc0ea8e7f3235fc153f8968b214b525f3c94e9bb3161127622dd584a9c2429
+        struct_hash: sha256:28ebcc7bf2977d80f703e530b967a88a5ba859ad4223e06d7096a489ee1a2477
+        doc_struct_hash: sha256:cbda2bb2794f9839596eee2b74fbc20d6196a893d92caac34a024243b837aa20
+        lines: [133, 136]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.CreateMilestone
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.CreateMilestone
+        hash: sha256:132213a1f4603c8560cb544442c519c281657f0f152395e4edf00f5ef9ad236e
+        struct_hash: sha256:a4182f98dd2ad6b703234f1056354706bba4ff084b9ab80af3f207c7cc96a808
+        doc_struct_hash: sha256:a4182f98dd2ad6b703234f1056354706bba4ff084b9ab80af3f207c7cc96a808
+        lines: [140, 144]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MilestoneByID
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MilestoneByID
+        hash: sha256:efbf28513cd0b0b4f34a02ffea8447dee1a502adc196db66e53fb057597d6b20
+        struct_hash: sha256:6fe5dc1d1cd4bb1aa52a246b419f7ffea06641be7c59bf3c54a3fca7cae387bf
+        doc_struct_hash: sha256:6fe5dc1d1cd4bb1aa52a246b419f7ffea06641be7c59bf3c54a3fca7cae387bf
+        lines: [146, 148]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MilestonesOfGoal
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MilestonesOfGoal
+        hash: sha256:91742f405b0c9b922bd41266ec2dfce566f29de88aefdff410e2b809e3f3250d
+        struct_hash: sha256:9bea19527486cae3d0c9c5bbf20aabbc1fbab97ccf2c5864240f3654d73995cc
+        doc_struct_hash: sha256:e19f48efda2702e64e2c0a5765c82d7449bb5b5330791e0e264d04445fa35764
+        lines: [150, 166]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.UpdateMilestone
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.UpdateMilestone
+        hash: sha256:3d701fec17951a15cc4cc2267f6d58ab0e6a5cbc8695799ab4e6a48c74d49e8b
+        struct_hash: sha256:c0673a06df50f16bc2761ff462efe5e1325e95354e019f4c745465d591d83427
+        doc_struct_hash: sha256:b2dc82cafad22ba83e2456ea827ba9218813cf9f735da416bd7232be1ab0ccca
+        lines: [168, 183]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.SetMilestoneStatus
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.SetMilestoneStatus
+        hash: sha256:84b996969f0d874eddb743bc9c93cef9034bef33db836e5df8b8bad161c0b9c2
+        struct_hash: sha256:4e53a3036b4f739a9e34a74477c9149f4b0ae98f9d5ab52fd3d06be0a7b4814e
+        doc_struct_hash: sha256:4e53a3036b4f739a9e34a74477c9149f4b0ae98f9d5ab52fd3d06be0a7b4814e
+        lines: [185, 187]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.TasksOfMilestone
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.TasksOfMilestone
+        hash: sha256:b1333f6598943abf0167a6458c94fea5d8363bb17eadd51c3c9adc201d7e3383
+        struct_hash: sha256:e50c3527d7a50920e00cc5caa61d33ddbf0e42264af84f094c0498cb82f63dac
+        doc_struct_hash: sha256:3117d871f58cceea50af8f5fd5da610e21231bd03fdc82dc47f551886f883226
+        lines: [191, 194]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.SetTaskMilestone
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.SetTaskMilestone
+        hash: sha256:3fd2fc80b4197ce9e403497e1facfa827c5a14436090336ad32d3ec37dab4e46
+        struct_hash: sha256:3196fa774672af1d529fdb3e9fba5a403b2f3fcace702c1c8eff853cb496cba7
+        doc_struct_hash: sha256:538f0cd63e3b9cd70bdcb211e400d14f5193790d800c22f15196667d5861dd9c
+        lines: [196, 199]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#MilestoneProgress
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: MilestoneProgress
+        hash: sha256:d6667ecbef918f872c1fef4e212e200d948da8fbdef07cf6f8a3cfb6d6442580
+        struct_hash: sha256:18ea19ca421a4e8aad7b5c2ba09d73829751eff54f748400607201c3e6bff3c3
+        doc_struct_hash: sha256:66b8ec19ec633dee8ffcc8cbd3ae4a3d4db4338ddc64528929797adde21ce7b3
+        lines: [203, 210]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MilestoneTaskCounts
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MilestoneTaskCounts
+        hash: sha256:fd21186e72bb22d44856f36cd96923f5f86736a5adfaec8d380f3c94d86d2fb7
+        struct_hash: sha256:e7b6018f9d7707b56cea07e33935a87b077dee70c78fae6a52b7c485294fbcad
+        doc_struct_hash: sha256:858f5821d4b44994378529267711da96fc83a529347459643dff50d2cc5f8e25
+        lines: [212, 238]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#GoalMilestoneCounts
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: GoalMilestoneCounts
+        hash: sha256:8e85cc5e37ff2c9e35f26ba94910c0c31d57fe0e11cb323d571b8b551e0c965b
+        struct_hash: sha256:3d6602c7ffa1b94fde0fa5feb6590580f0d19102f478d514329cebff7f1c6a62
+        doc_struct_hash: sha256:741fe3cf2dcd4930fff7eec1490f43e53d2c599269e5ae9b4eb3f90c75cd41eb
+        lines: [240, 244]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.GoalMilestoneCounts
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.GoalMilestoneCounts
+        hash: sha256:458b82626d25d4c9f71c1a988d068e39f2d62132d04923091b822aefaee9928f
+        struct_hash: sha256:fb9bc01d71bddccbc13f51ae38277ff19c6adb00fed6da8011f755ad33778206
+        doc_struct_hash: sha256:fb9bc01d71bddccbc13f51ae38277ff19c6adb00fed6da8011f755ad33778206
+        lines: [246, 267]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.GoalTaskRollup
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.GoalTaskRollup
+        hash: sha256:e502048d83f4c77253eb60b936a7a81d957b1243821c627e0fadfb7bef3a99f7
+        struct_hash: sha256:00de258a70f81e588cf54c27ce2a749b4123a51a55f0cbb64aaa41b439ec9426
+        doc_struct_hash: sha256:b7ca7c89134cd1a089bc8dbfbef25cd936fa7b8eb184fcdb7cdfd9179f1be39c
+        lines: [269, 297]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#goalReminderClaimLease
+      level: decl
+      anchor:
+        file: store/goals.go
+        symbol: goalReminderClaimLease
+        hash: sha256:6652170d310b7013221fc0ec9d30c8cc2d16fe675c71b99ed67c7b0b9034dd3b
+        struct_hash: sha256:9f35e94209cee5abb337bb88f38f4d3d84bde9787d22f6de37a17624fcdc49ae
+        doc_struct_hash: sha256:1ce93a23449a7237573d0003e37ef1cdb394d631c79f7d5327a57fa0681f021d
+        lines: [301, 303]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.queryGoals
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.queryGoals
+        hash: sha256:3da3bb4582464b0b5d2e09fcce3e7891b82ef00dcc95b7119ede3f2ddac00cc1
+        struct_hash: sha256:0aafe89dfd799cabe9e88458cc4266fbb4f5c9523935232300eb518ef87b89cb
+        doc_struct_hash: sha256:0aafe89dfd799cabe9e88458cc4266fbb4f5c9523935232300eb518ef87b89cb
+        lines: [305, 320]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.DueGoalDeadlineReminders
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.DueGoalDeadlineReminders
+        hash: sha256:bad78763f3b1f29cd023b5e619d8bd8463d0002e5c21b17313d17f5ae329099d
+        struct_hash: sha256:168c8593c83bb75a38254b2da177a7ad1ee04fabc49700fb9d4ccad04bb943b5
+        doc_struct_hash: sha256:badd5de5f9a2c1277e135a9252a67a02deca9bd829f09fc6592b42dc6413196a
+        lines: [322, 331]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.DueGoalOverdueNotices
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.DueGoalOverdueNotices
+        hash: sha256:1a4c700ac097cfdfc500c16ef4091c39949e270ee67505eff6c92b067c0141ae
+        struct_hash: sha256:b5a902838961385f4656f1943a34bba454c1675972a299696711025e8619cce8
+        doc_struct_hash: sha256:12a6d60e4c810f18188c33b59b814744d9079f110ea5d8f4a5c1b2bc34c615e9
+        lines: [333, 342]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MarkGoalDeadlineReminderSent
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MarkGoalDeadlineReminderSent
+        hash: sha256:ea18bdcff4b267dc3d3059d8d98572012dcae19b7423a8cb592f5b75707bc30b
+        struct_hash: sha256:e481235516d7543884f0dbd3a715615e5f0416ae1f399cfcd9f8cd58958d4fa3
+        doc_struct_hash: sha256:3a4959e9c6f7f3b0ad078f2a3115d5af2901c82d3ee81738bb060d8e2aca99e7
+        lines: [344, 349]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MarkGoalOverdueNoticeSent
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MarkGoalOverdueNoticeSent
+        hash: sha256:3b44a25baef8937454918fc9123c124b59873de2876dbbb0329bf73079f87ff8
+        struct_hash: sha256:e92e92e4adccd334ab99f505342701315e0c017002933e08226c285fb56fb9c6
+        doc_struct_hash: sha256:57381ca376880bf9408fafd5dc8768a56b708643579cebc531f595b8cbe8b7ac
+        lines: [351, 356]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.queryMilestones
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.queryMilestones
+        hash: sha256:a658fd6dad995f5c386dae120e44999dd5023794f5733c7767f0ac3b99c6a8ab
+        struct_hash: sha256:02573d6798502f6da687c8b5586720a28f6ce8089cd141b243d0f62675ed0595
+        doc_struct_hash: sha256:02573d6798502f6da687c8b5586720a28f6ce8089cd141b243d0f62675ed0595
+        lines: [361, 376]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.DueMilestoneDeadlineReminders
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.DueMilestoneDeadlineReminders
+        hash: sha256:ca74937d9d69011335b4fe3e59ae669dc0478d6272554b4e7beef17b8adaf12f
+        struct_hash: sha256:2c3e05fc614fadd99b11a6822ccb50174fb26a6ec64685a14dff3c26f3953f4e
+        doc_struct_hash: sha256:4833664eefa643778cbfed6a455dd273ac87bdf92eed020a44cf06e68ed958cd
+        lines: [378, 387]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.DueMilestoneOverdueNotices
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.DueMilestoneOverdueNotices
+        hash: sha256:6802dd37d838d3567bee3311c2f074a43fd757efd3986b96ba86a39845ae7b95
+        struct_hash: sha256:5b9ce0ec7a39ace5646feb33d12fa975cfdc780bdf0956be6a77d5bc338f0f75
+        doc_struct_hash: sha256:6a8695c274b06330e0d8afb08db32066216dc1c9736492abdfa42df93e7e70be
+        lines: [389, 398]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MarkMilestoneDeadlineReminderSent
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MarkMilestoneDeadlineReminderSent
+        hash: sha256:55802c3501e02a1d34de3a5ed9db3146e81906de63eb52c116479b4e9ab188fe
+        struct_hash: sha256:56e01e890ecf3aad3da22eafa6ae07cf6d54d688c59799b336f746273c8eac3c
+        doc_struct_hash: sha256:56e01e890ecf3aad3da22eafa6ae07cf6d54d688c59799b336f746273c8eac3c
+        lines: [400, 404]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MarkMilestoneOverdueNoticeSent
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MarkMilestoneOverdueNoticeSent
+        hash: sha256:6a485c51792e31488e24b738aec299b3682da17304e6d38ce1c2e2cc5e366fdb
+        struct_hash: sha256:828c767254b031d0fab76db3818c752951e9bda5f3c496e357fc10415dad044b
+        doc_struct_hash: sha256:828c767254b031d0fab76db3818c752951e9bda5f3c496e357fc10415dad044b
+        lines: [406, 410]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.CreateMilestoneTasks
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.CreateMilestoneTasks
+        hash: sha256:be5e378cbedf40c7c817d0f83f6f2a866fe5a2b94d0beab1f05282388991434b
+        struct_hash: sha256:dd611cf1a7bd7d792d68ed421f485a543aca79010101c40303a8508aa5481032
+        doc_struct_hash: sha256:ab02eefe67c16f3ee66d01fe741488f494af1911576722df69f59626ea32eae8
+        lines: [414, 465]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

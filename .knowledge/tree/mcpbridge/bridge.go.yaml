@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: mcpbridge/bridge.go
+      level: file
+      anchor:
+        file: mcpbridge/bridge.go
+        hash: sha256:f50f10372dbf5bf24e4ac9ecac0a3b886cdc6497eb314c3abd134256edec00fa
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcpbridge/bridge.go#NewServer
+      level: function
+      anchor:
+        file: mcpbridge/bridge.go
+        symbol: NewServer
+        hash: sha256:36330243f6cd4739671f470bb557f50107f075a1bf6e4e2cc18a9f9c8ae981e5
+        struct_hash: sha256:0c19f63af0808ce5f86430851000d511fa77c4c1369fbb92a63330162cf256fb
+        doc_struct_hash: sha256:fc6072f9535f9ef2cf7137456bef1aed98dced6470836cd14b7484489d9f96e1
+        lines: [14, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcpbridge/bridge.go#rawArguments
+      level: function
+      anchor:
+        file: mcpbridge/bridge.go
+        symbol: rawArguments
+        hash: sha256:8791fa218248e308250f28cb10b4a7003cc93c9f33e3b36cacf302683d63d128
+        struct_hash: sha256:b814a848f00ceb729248e3121b10bdb246dabac6ed2d844c8653204f601fca6a
+        doc_struct_hash: sha256:b814a848f00ceb729248e3121b10bdb246dabac6ed2d844c8653204f601fca6a
+        lines: [43, 55]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcpbridge/bridge.go#errResult
+      level: function
+      anchor:
+        file: mcpbridge/bridge.go
+        symbol: errResult
+        hash: sha256:2e750ef945d164b35555fe7f149219aa31fd4b8df41e06867d1ea365ec672366
+        struct_hash: sha256:e112e40ae6e3f275cf5b74d9b002c51b357e0467a81cea71cd02295debdc72a1
+        doc_struct_hash: sha256:e112e40ae6e3f275cf5b74d9b002c51b357e0467a81cea71cd02295debdc72a1
+        lines: [57, 62]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

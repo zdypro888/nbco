@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/web_test.go
+      level: file
+      anchor:
+        file: tools/web_test.go
+        hash: sha256:bc7cd86e920c45780eaa0cd567426b32d92c9f4ffc2ecb146cc5ebff5e3657e9
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web_test.go#TestValidatePublicURL
+      level: function
+      anchor:
+        file: tools/web_test.go
+        symbol: TestValidatePublicURL
+        hash: sha256:fb8c59aeddf2c4d94457e44ea350b914c030907fbcaf7bdfaf79fdc3dda8f646
+        struct_hash: sha256:b7bf282c5f3938021e9de88395e7f35fff46377977e0a5ecafc4a2bb80bcd7b7
+        doc_struct_hash: sha256:b7bf282c5f3938021e9de88395e7f35fff46377977e0a5ecafc4a2bb80bcd7b7
+        lines: [8, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/web_test.go#TestReadableHTML
+      level: function
+      anchor:
+        file: tools/web_test.go
+        symbol: TestReadableHTML
+        hash: sha256:e430a13e58288e8d7afc86465ed5cf7d7645de435625b0f1a885962a34637f7b
+        struct_hash: sha256:faea25584f33fa36af6118419b57b28b6fda1bee7ffd7f158c6a522645fa4c76
+        doc_struct_hash: sha256:faea25584f33fa36af6118419b57b28b6fda1bee7ffd7f158c6a522645fa4c76
+        lines: [25, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

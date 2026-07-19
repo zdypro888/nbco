@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ai_settings.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        hash: sha256:c8be225c77053fed713eef79d8c27cd8dc9937f3c8f1cbca7937655f0e73e6e5
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ai_settings.go#Server.handleAdminAISettings
+      level: function
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        symbol: Server.handleAdminAISettings
+        hash: sha256:2fb8925c90809afc3fab0addca78265dd66614b68f90080aac2cf4b1811e93ec
+        struct_hash: sha256:7a5beb20dd32addb8394f2ea51c8ff0d05f4d73ec799d50f5e255a1d378be80e
+        doc_struct_hash: sha256:7a5beb20dd32addb8394f2ea51c8ff0d05f4d73ec799d50f5e255a1d378be80e
+        lines: [17, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ai_settings.go#Server.handleAdminSetAISettings
+      level: function
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        symbol: Server.handleAdminSetAISettings
+        hash: sha256:df9f257b234abde7dcdd9ec2d5265708c2735c723af177f2be3e45cf6f8457ae
+        struct_hash: sha256:32a0916ec4d373302e4ebd56b798ea63f209baa223c888fad7d466014ead1ce5
+        doc_struct_hash: sha256:32a0916ec4d373302e4ebd56b798ea63f209baa223c888fad7d466014ead1ce5
+        lines: [25, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ai_settings.go#Server.aiSettingsPayload
+      level: function
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        symbol: Server.aiSettingsPayload
+        hash: sha256:4e86caa2cb6097d85bfba92fd4fa56f4f214e942b11b888e99413d50d30fdfcc
+        struct_hash: sha256:5a4caf284a9d54d820e8e0244fcec084f54791e6dbab57604dda37f4a146bc97
+        doc_struct_hash: sha256:5a4caf284a9d54d820e8e0244fcec084f54791e6dbab57604dda37f4a146bc97
+        lines: [75, 109]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ai_settings.go#Server.loadedRuntimeModels
+      level: function
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        symbol: Server.loadedRuntimeModels
+        hash: sha256:3c3204fe8622989af981dde83d68b82090c14cfd8c72512fdb054c2abcc323b9
+        struct_hash: sha256:96b5f07c1f406b78b035e8b9ae9e81aea9012ec7370f182d80f61a6a2e1c6326
+        doc_struct_hash: sha256:96b5f07c1f406b78b035e8b9ae9e81aea9012ec7370f182d80f61a6a2e1c6326
+        lines: [111, 164]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ai_settings.go#runtimeModelInList
+      level: function
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        symbol: runtimeModelInList
+        hash: sha256:ab3c95ee63c2acabbb1aea1150150aa4d838bf4eeff5d724ae1697944239af98
+        struct_hash: sha256:c986e6ed766949f678ae0ed0a00fb9d3baa2596dc969757dd61047b5542cd23a
+        doc_struct_hash: sha256:c986e6ed766949f678ae0ed0a00fb9d3baa2596dc969757dd61047b5542cd23a
+        lines: [166, 173]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ai_settings.go#validRuntimeModelName
+      level: function
+      anchor:
+        file: gateway/httpapi/ai_settings.go
+        symbol: validRuntimeModelName
+        hash: sha256:1c64309d01c9d285625c9613745862856bf5a1bbedc8444ebea8bd27087521d9
+        struct_hash: sha256:fe3332b2a1af2e81b954797a09616d2c9b8b4991db2db0c40d6fea7fc4ee87fc
+        doc_struct_hash: sha256:fe3332b2a1af2e81b954797a09616d2c9b8b4991db2db0c40d6fea7fc4ee87fc
+        lines: [175, 186]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

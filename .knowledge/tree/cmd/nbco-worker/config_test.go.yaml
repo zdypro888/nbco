@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/config_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/config_test.go
+        hash: sha256:fe10884743dd217b996fde4a7fcb1f73b3ea6f7337ebed5be85c1befa02c1e78
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/config_test.go#TestConfigPathOverrideAndEnv
+      level: function
+      anchor:
+        file: cmd/nbco-worker/config_test.go
+        symbol: TestConfigPathOverrideAndEnv
+        hash: sha256:cc24ca0c9f62feb143611dba13297154b3c8ef8d0c1a7d2a95490270b1053bff
+        struct_hash: sha256:97263714ea9146257ced9b4ce9342d8f43f3dfe991116de6e7b46e02ec0a338d
+        doc_struct_hash: sha256:97263714ea9146257ced9b4ce9342d8f43f3dfe991116de6e7b46e02ec0a338d
+        lines: [10, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/config_test.go#TestSaveConfigCreatesPrivateFile
+      level: function
+      anchor:
+        file: cmd/nbco-worker/config_test.go
+        symbol: TestSaveConfigCreatesPrivateFile
+        hash: sha256:9562c4cc122d6349fce0e0a8f3be565893b71c825027d8463ecd447e3bf83c7e
+        struct_hash: sha256:4c115334aef3e7ba03dd3875abde60eb737a4847e9d4bdab08ba5c584eb33db5
+        doc_struct_hash: sha256:4c115334aef3e7ba03dd3875abde60eb737a4847e9d4bdab08ba5c584eb33db5
+        lines: [20, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/config_test.go#TestSaveConfigTightensExistingFilePermissions
+      level: function
+      anchor:
+        file: cmd/nbco-worker/config_test.go
+        symbol: TestSaveConfigTightensExistingFilePermissions
+        hash: sha256:a02d909cf501ad3c07d7090fe55fe9ee8bc178588e9d383aa00cd0952dccfe18
+        struct_hash: sha256:30c925b8344e688f5e23d7c63e1ad60de85be129cda02615d61afafd5b2f0b52
+        doc_struct_hash: sha256:30c925b8344e688f5e23d7c63e1ad60de85be129cda02615d61afafd5b2f0b52
+        lines: [46, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/config_test.go#TestServiceNameDefaults
+      level: function
+      anchor:
+        file: cmd/nbco-worker/config_test.go
+        symbol: TestServiceNameDefaults
+        hash: sha256:c344b24d9e56c4f5d9222b93380d94c2618ad6d1e092d780e596c6318aa0d2c4
+        struct_hash: sha256:0025908de531af5a80433e5ca1f1ec22b1b40c6516dd220c364ea5134580ac5c
+        doc_struct_hash: sha256:0025908de531af5a80433e5ca1f1ec22b1b40c6516dd220c364ea5134580ac5c
+        lines: [66, 79]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

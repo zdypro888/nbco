@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/runtime_store_integration_test.go
+      level: file
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        hash: sha256:e878472868335edcc16c8a07c1f65175bc80632a13d8bda0b277f8247d24b82d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#namespacedRuntimeStore
+      level: decl
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: namespacedRuntimeStore
+        hash: sha256:716c8d2d661e5fc4f25ef991cb6229cb148d6878b16d4b34ad48e036fb51d4d3
+        struct_hash: sha256:a90dc8652a63643fe6dfe59c64d0ad95c264d15a9ab3b1b50dca2555cfc2b029
+        doc_struct_hash: sha256:a90dc8652a63643fe6dfe59c64d0ad95c264d15a9ab3b1b50dca2555cfc2b029
+        lines: [19, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#namespacedRuntimeStore.AppendEvents
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: namespacedRuntimeStore.AppendEvents
+        hash: sha256:cf3d836e499f3a8cacf40c9e69aa371a415ef8dcadadcd01c207006ae3fd7713
+        struct_hash: sha256:2389230ac100edddf714c5cbb0228d9771120f7f4233dddc9f5282caa15b481e
+        doc_struct_hash: sha256:2389230ac100edddf714c5cbb0228d9771120f7f4233dddc9f5282caa15b481e
+        lines: [24, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#namespacedRuntimeStore.LoadEvents
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: namespacedRuntimeStore.LoadEvents
+        hash: sha256:850ab43db232ffc1172e618b35108b8acc0ccb9ab4d0f71f523a3da48858ad06
+        struct_hash: sha256:dc75faa4a62f6a1e06c0410be8535fc7b6518aaaa4bfe1ac6b4f976cbac4685d
+        doc_struct_hash: sha256:dc75faa4a62f6a1e06c0410be8535fc7b6518aaaa4bfe1ac6b4f976cbac4685d
+        lines: [28, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#namespacedRuntimeStore.Get
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: namespacedRuntimeStore.Get
+        hash: sha256:f13be136e044f9ac77f74f295f8300b07b493919dbfc3a788db7239c5075bcd8
+        struct_hash: sha256:222324101ad3df6a6d9d83d9c5d5b7ae3bca871a9c40e1993547d02327a0d6ee
+        doc_struct_hash: sha256:222324101ad3df6a6d9d83d9c5d5b7ae3bca871a9c40e1993547d02327a0d6ee
+        lines: [32, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#namespacedRuntimeStore.Set
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: namespacedRuntimeStore.Set
+        hash: sha256:81f204a0aa38a3e214ff6d8af1baeb05f88d4791a42ba84f92c5db3c43897290
+        struct_hash: sha256:ac1f808257abbec5c3c686721e0a5f5fe83a4500d004027068f96ab5dd76af8d
+        doc_struct_hash: sha256:ac1f808257abbec5c3c686721e0a5f5fe83a4500d004027068f96ab5dd76af8d
+        lines: [36, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#namespacedRuntimeStore.Delete
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: namespacedRuntimeStore.Delete
+        hash: sha256:3737571b4b48d5bc8fcc7351c1026d689ccbae4586b0f1da6813cce6b05ecb7f
+        struct_hash: sha256:7ee9ffb28de7964782b2fe7d91844d6c8f82a60ebe2722c9722cdcec400c5780
+        doc_struct_hash: sha256:7ee9ffb28de7964782b2fe7d91844d6c8f82a60ebe2722c9722cdcec400c5780
+        lines: [40, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/runtime_store_integration_test.go#TestPostgresRuntimeStoreConformance
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_integration_test.go
+        symbol: TestPostgresRuntimeStoreConformance
+        hash: sha256:e7e13c71594410e9427bb6f1954cf77e107ff48a50fed03612b309b6fdb62852
+        struct_hash: sha256:ca709a3b040ae732a2b0e57669c3ec036e79de6279ab8c9c1d69076e576f150e
+        doc_struct_hash: sha256:ca709a3b040ae732a2b0e57669c3ec036e79de6279ab8c9c1d69076e576f150e
+        lines: [44, 143]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

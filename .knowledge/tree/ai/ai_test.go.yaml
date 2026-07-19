@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: ai/ai_test.go
+      level: file
+      anchor:
+        file: ai/ai_test.go
+        hash: sha256:653a8d83a8592ab754b1e1ed8b569df717cd40d87bd30dfc6b80f4a7e99d9d21
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/ai_test.go#TestCosine
+      level: function
+      anchor:
+        file: ai/ai_test.go
+        symbol: TestCosine
+        hash: sha256:5e7454c926cc15c30e9851bc02a7244ec456ff8ff233364b623adce341769f1f
+        struct_hash: sha256:3e836a945e9a5126f2115ecaff52d186fac6a8bc5c9c7c8b19dcb079d4beb26b
+        doc_struct_hash: sha256:3e836a945e9a5126f2115ecaff52d186fac6a8bc5c9c7c8b19dcb079d4beb26b
+        lines: [8, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

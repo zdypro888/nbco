@@ -1,0 +1,208 @@
+schema: 1
+nodes:
+    - id: perm/perm.go
+      level: file
+      anchor:
+        file: perm/perm.go
+        hash: sha256:9a6505439759b44c1351ca959df728d2dc16e66f5d97e40bf8ef0809133f87c8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActWriteProfile
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActWriteProfile
+        hash: sha256:918a0e2096827a3966d43e357e0087e352728e4dce628503a4b15fa40b1fd2cc
+        struct_hash: sha256:10624605947f81d394f28f7c2d3ccf04e81866b582c31554fb3dce978fce3589
+        doc_struct_hash: sha256:90042798940ccdf3e44570bf848714ec8af74772b2d78cc9b4f1c6f35441fe2f
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActViewSelfIntro
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActViewSelfIntro
+        hash: sha256:1e3292f14a5e26e4c736d0ebf3c19d91c58c0fd0d51a89f7f2b81c89a15ec811
+        struct_hash: sha256:3eee395e6b25a9eb094e44554dae262b74b93e837787069ef589aafaacca2f94
+        doc_struct_hash: sha256:4bd0aaeda992ded1aad13ac9ce9e4fc6ab5ccf9a1fe197fc38201ff52efb767e
+        lines: [23, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActManagePerm
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActManagePerm
+        hash: sha256:9e86a5d2e5725d78dd80ed1e924ab746ea4482205c35fafa8f0d66409d29261c
+        struct_hash: sha256:4774b3276fdf059536e69dff44df323ed0285b4f4c6a599a4d6ec694e47cc836
+        doc_struct_hash: sha256:aff4d3c6090d7828237a5ac3a47be4a9915d1c061e6396bf3cad32b2aef9d48f
+        lines: [24, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActGenerateKey
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActGenerateKey
+        hash: sha256:db46913c95483a356368e111f9a8488ecccfb860e5b0e457a811efe9c9b3f1fd
+        struct_hash: sha256:ae84a14d8143ee186e6f29fbf5efe057e8a4a03f3d96f52ef32138befdee1f96
+        doc_struct_hash: sha256:bb3daa6c3b6aeb69814326b3146683f6f08b431c6682cd02b1ad0e172271f055
+        lines: [25, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActSendMsg
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActSendMsg
+        hash: sha256:8fc04b1f2ba45539f8ad7bd611e86f6cb07d6b0a03d8d85315d44d1d2c3b223e
+        struct_hash: sha256:60d4453c81063b6458d30838142ed0614a484cdfaec3b74662cc87aaa231e5d8
+        doc_struct_hash: sha256:1d56abea7996070d9c7f3f1b7115d33b6e9549a6ed72a1edff5fe43651713c7d
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActCreateProject
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActCreateProject
+        hash: sha256:746b7ca2a25470d59810337fa48e1968a8b5065231b7911cc1ab6b189dd30acb
+        struct_hash: sha256:48e7c08a61bfee5d77e7aff97080f60a735d8e316df17c349cbefba477f0fd03
+        doc_struct_hash: sha256:80521fba2e2925d82134b8561800bb814610fc84869fa25f26f6fec3c71d3a6c
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActEditInfo
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActEditInfo
+        hash: sha256:ad62a948b2b4ff5daeb4366c8f8354fec1fa3a9bc87508d7423c45136efa570a
+        struct_hash: sha256:2f0718bc8b1fa5ac6d27e91a2f6d322212d7a5e01e095c54da6bbae33f47e052
+        doc_struct_hash: sha256:5331b8274f7448db76be4b2f924ff448676fc4d6caca6cbe7fcaef2fd87bab08
+        lines: [28, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActManageTGGroup
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActManageTGGroup
+        hash: sha256:f44dda75395689f651fef1108f4f372d974a864fa75f4c3aa941c602b65df605
+        struct_hash: sha256:91cf0533a660eb04b3ae78ae319704ef04629f942ef9ed66b2e6f8ff6dbe3157
+        doc_struct_hash: sha256:505a2de2a4db1bb4ca336ef1908658260594d723cc03866ffb7d477a0fbaa2e2
+        lines: [29, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActManageWorker
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActManageWorker
+        hash: sha256:8404ea68ca383f51fb4c050a01d7cec57c1b18a8b4e92af99418796a2f931a08
+        struct_hash: sha256:cd905f1493a4ecb68dbe4a8af4f6ef21b1f0355a10e566e0f89ea10191a88d06
+        doc_struct_hash: sha256:0eaa64eb983a76437bd43f896abb1df47b4b64ff6321cb6f96c40ef41582d0bd
+        lines: [30, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ActiveActions
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: ActiveActions
+        hash: sha256:87d33efd5ab948bfc009a798342ea71c3c246ce9a6b894922022e82dbbff93d1
+        struct_hash: sha256:89bb8ab6545c153b2df57d6bfab1a9681e46155678298033cf773686f6eed85a
+        doc_struct_hash: sha256:d5f716a6fd419cf42089e3219c1e578fb4af35ed4da63e42d5cb1cc113490083
+        lines: [35, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#viewProfilePrefix
+      level: decl
+      anchor:
+        file: perm/perm.go
+        symbol: viewProfilePrefix
+        hash: sha256:152efa601a0daf92cc167246144a356a8ad54a7583e9a25103246d3c20f129bb
+        struct_hash: sha256:1d0cd0f645f66a469487c92cd1aa05c4229ae4ec2641268a3d09daa53e4c3f8b
+        doc_struct_hash: sha256:1d0cd0f645f66a469487c92cd1aa05c4229ae4ec2641268a3d09daa53e4c3f8b
+        lines: [48, 48]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ValidActiveAction
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: ValidActiveAction
+        hash: sha256:02d19043c538f87d878fea15f947cfb16d0fd4b39e23d8ad09bb1121ac41dd81
+        struct_hash: sha256:45cda7e860df5e708027106bdd27c9896d0d0629a559e59b309bd8ca4e5616ce
+        doc_struct_hash: sha256:7ab0ba8db86d8dfcc8d4377f58b01604cb59421cc80c0e45829511c50929eccb
+        lines: [50, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ValidPassiveAction
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: ValidPassiveAction
+        hash: sha256:5b1679e529d5c3bbf394060573afddd10a556a3528ef2da85baf87bef6453021
+        struct_hash: sha256:c18683cdde06e6b1203e4a807d6bed1249af509830c2dd44eaf71202c6f3d92a
+        doc_struct_hash: sha256:f2ae00fc02e9c9296688962c3776e3d585be7c0bc8c589edda7fe2df173e6421
+        lines: [53, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#CheckActive
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: CheckActive
+        hash: sha256:f0f6e61bf7a5c7986506487eca10a11550a9d884d30fe32917853839282e32dd
+        struct_hash: sha256:d5af64842a4727e4d2487942d4e4c800f917d9c16cb3cfb2c726959971a80046
+        doc_struct_hash: sha256:9def0ae6baba78e948cec2a7c7159c530bf44c50cb0209ea7cc69ac1af6668e8
+        lines: [66, 78]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#CheckPassive
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: CheckPassive
+        hash: sha256:5a5ff1400593545cf2b6e7290d030a11e02accf5548348ffc9a987a11d9f08b4
+        struct_hash: sha256:6b8d92ff0af1942a755bc29e16ba05220a1d63fb86edce4657ce4ad6ea36da41
+        doc_struct_hash: sha256:e044545fe7ce9052a2cda94aa028bd2fd25a4b241e6a5b54005fbdbec84f1c54
+        lines: [80, 92]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#CanViewProfile
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: CanViewProfile
+        hash: sha256:ffc9377a4e96a64928ffaa77a5f763b427148203949f19b4e2090a890672190d
+        struct_hash: sha256:ec1827baac30eef2a275a507955c6036414651ffccbf73a2ea880f6ff3af46f0
+        doc_struct_hash: sha256:c6490dcef347db02f681bbdec041a242458e0b45c547770546836d2593b162d7
+        lines: [94, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#CanGrantActive
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: CanGrantActive
+        hash: sha256:3b6c61877a742ab77eb15817c16eaa14e0200285947879478f553580bdb4109d
+        struct_hash: sha256:eef49ac3f20095d6181444d811f54ac9bce0f36d505e5e4df4d97c2653d48a2b
+        doc_struct_hash: sha256:ea357c1f3565079a1779ab73ea96e9f3ce96969f5a9c76ea76f710426b3e05d2
+        lines: [118, 145]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm.go#ViewIntroTargets
+      level: function
+      anchor:
+        file: perm/perm.go
+        symbol: ViewIntroTargets
+        hash: sha256:e44ae7a657d9770911a1f75fabc1306d7cbe4495c717077c26e675c8f6d184a5
+        struct_hash: sha256:d7be2f1019a89002e30aaec241c0ee0c4771463be97316ba149113a0a3c391a0
+        doc_struct_hash: sha256:a3d612642728c72b56308650d9277817526a5b4db02bf47e3b6431d04dda0002
+        lines: [147, 162]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

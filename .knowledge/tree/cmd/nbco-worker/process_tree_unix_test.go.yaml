@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/process_tree_unix_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/process_tree_unix_test.go
+        hash: sha256:94d88399a639853543c7f03da7856b154cabb2e37cf32ebc2180046a0f234a82
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_unix_test.go#TestRunCommandExecCancellationKillsDescendants
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_unix_test.go
+        symbol: TestRunCommandExecCancellationKillsDescendants
+        hash: sha256:76c79f361e3d75abe5539fc21821d88e1a603ae6bab3351540605b14fc59fe43
+        struct_hash: sha256:06a800a32a51d6682a01771fdcc3c653cfb81f0842bb28b64afce8b88e38a2c7
+        doc_struct_hash: sha256:06a800a32a51d6682a01771fdcc3c653cfb81f0842bb28b64afce8b88e38a2c7
+        lines: [17, 62]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

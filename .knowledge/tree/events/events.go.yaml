@@ -1,0 +1,241 @@
+schema: 1
+nodes:
+    - id: events/events.go
+      level: file
+      anchor:
+        file: events/events.go
+        hash: sha256:4b0824fa4ea9b6fe69dfe20b4aa938f1837bfd179e8d065457eca737179e0353
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#turnTimeout
+      level: decl
+      anchor:
+        file: events/events.go
+        symbol: turnTimeout
+        hash: sha256:537c68b61662c94446fafa58f2869fa12b852be5ddab842d66daebc2328ceffa
+        struct_hash: sha256:2d20d2180ee525272290f91d4b8496e7a1ab18fa9fcbd64271dc5c3e0707bdff
+        doc_struct_hash: sha256:17d07bf20a139d91035b3e2bc5aa24d966b3f5b8b1abd61184358b1aef2e13fe
+        lines: [22, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#eventStateTimeout
+      level: decl
+      anchor:
+        file: events/events.go
+        symbol: eventStateTimeout
+        hash: sha256:db03238f0e36a578b994bfa64468c1eec686cc911643a0cad5907a35324dac71
+        struct_hash: sha256:a44547e518335a60499bacfd26bec9fe2dbad81cfff8278712e0d0a55c8184a3
+        doc_struct_hash: sha256:a44547e518335a60499bacfd26bec9fe2dbad81cfff8278712e0d0a55c8184a3
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#eventSendTimeout
+      level: decl
+      anchor:
+        file: events/events.go
+        symbol: eventSendTimeout
+        hash: sha256:0ec59e1bc39a29dff646a03769ed422d2daeccb0e6dc9464f1eeca725cb2ffe4
+        struct_hash: sha256:c1a29f42dc0f674e3dc6ad9efeaf6d6d7bfa1a4cd9c7a6dfa54512e178dbbeb3
+        doc_struct_hash: sha256:c1a29f42dc0f674e3dc6ad9efeaf6d6d7bfa1a4cd9c7a6dfa54512e178dbbeb3
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#dedupeWindow
+      level: decl
+      anchor:
+        file: events/events.go
+        symbol: dedupeWindow
+        hash: sha256:03add1c82080a483832b08efd9d479188c1d20f9644ed4049c7ee7fdd3da36a5
+        struct_hash: sha256:a7712079ecb68cf1c129c6faa479b361f95e3c51394d302cdde68b42c01b0da6
+        doc_struct_hash: sha256:b5079a15d459e696dc517d94175862bc805541988259119764d3cca216345a0f
+        lines: [30, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#skipWord
+      level: decl
+      anchor:
+        file: events/events.go
+        symbol: skipWord
+        hash: sha256:a038f594ee629d4bf6f73e5a8cb7dbcb1ad8d86d7d2ec1d60c301d39538f82e7
+        struct_hash: sha256:9bea1759ff4c44a883b101153e522edc2f04c825893d099cc4317b6e6d3c3984
+        doc_struct_hash: sha256:94e7dfb73e12d0f3523f09c47b829ed0d9d3db1f00e38888563c8bfa498726a0
+        lines: [35, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus
+      level: decl
+      anchor:
+        file: events/events.go
+        symbol: Bus
+        hash: sha256:b647f1d706ead0baee84798f5c35b5711160e4de8edf3b9252f97bf44a337219
+        struct_hash: sha256:20eeed0a9ac95d44cf6863aca6397c775b6b997132b84ef52ce1ca398b8b7a58
+        doc_struct_hash: sha256:6a18b31f87ab78cf10dca514a34c7ea17f8de55b774ee1732e720c57445b5a5a
+        lines: [38, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#New
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: New
+        hash: sha256:3ba31fe8cf15e6622da63f0e713a77f1e876960c68dcf164b73ef58cbc96a490
+        struct_hash: sha256:6c38121926614b2c34b4c1ee973a0e5c358b858af852855a5fe20f813f31d885
+        doc_struct_hash: sha256:6d06b291fd3832ce14c3db50992cd5a4c67a2b16bcda317a69595e353173bdbe
+        lines: [48, 55]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.Emit
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.Emit
+        hash: sha256:312e05e94e03e8c050ffe4a05a5cf5ffd6591533713887a0fd87e8d78534c9e8
+        struct_hash: sha256:5896ed401b6c766f9dc8d0e07aab6b7658412c53f1592320278b25bc5a906596
+        doc_struct_hash: sha256:962807e6b6a5b37070fdc2960ec2e31dbf86a4ab9ee9ac8b71debc0434660897
+        lines: [57, 61]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.EmitRequired
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.EmitRequired
+        hash: sha256:171533ee39b3c0c491b203e8c215a35f8066a3466a66e8d07c06ab4e2631f8a3
+        struct_hash: sha256:fadc0bb0c36bf34e4cdb4b2e26e780de1af7afc23614ce0d6a6e9888acacee2e
+        doc_struct_hash: sha256:4d0dd236f3c64a6333362f5c13c20b3944cd4ed282573a3d875ce202009e94ae
+        lines: [63, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.EnqueueRequired
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.EnqueueRequired
+        hash: sha256:4bcefadad7d24956b72ce1e2f6189064a4f12ff7d6756bc84fb02b0d1ce8afba
+        struct_hash: sha256:f0be9b2779471d600852b3ec3ff60d48031397002520e2b96b64ca8e8d0e7217
+        doc_struct_hash: sha256:fd3128e2c676e2c77c862801f1338278a7886f2d458b64ebdcefd17e801c3b14
+        lines: [70, 75]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.emit
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.emit
+        hash: sha256:8cb7d0fe4d5917b7bd498c81eecbca3d3f711d4ebdf32ea7d08a8f9128a9d17e
+        struct_hash: sha256:1062b9ee4b296ea6c37b37dcd832fd12393cc539d2bd9facfb1ea1831bcb4f45
+        doc_struct_hash: sha256:1062b9ee4b296ea6c37b37dcd832fd12393cc539d2bd9facfb1ea1831bcb4f45
+        lines: [77, 97]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.Run
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.Run
+        hash: sha256:e7a74e98470e22b290c9db8ba6129d11b5543182f708d4782e87240bc0a790a1
+        struct_hash: sha256:f6d23f88f49768b2336fe08d92796c6c0db0f0fa130f1bd90c466c40be6d9bfb
+        doc_struct_hash: sha256:c3d05d3fc3da01d80c67cfad5d30b918910013b3e85b742dc8c5d5c19509526d
+        lines: [99, 115]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.dispatchDue
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.dispatchDue
+        hash: sha256:126d0f262762cd3289558e3dad13561ffe9347f56fdc78d00970b893f15814fc
+        struct_hash: sha256:141fd28663cd26001c1d04933382cb0b77ca34de3673466553fe38bd9b083a37
+        doc_struct_hash: sha256:141fd28663cd26001c1d04933382cb0b77ca34de3673466553fe38bd9b083a37
+        lines: [117, 141]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.handle
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.handle
+        hash: sha256:1c23fcc8414da66508592b207ca804a17c0169f2b70d094523b77bd1a259ec5f
+        struct_hash: sha256:5f1be52f41976a498b5cb91ed490ac334687a6717b0885f227649cb299d28623
+        doc_struct_hash: sha256:5f1be52f41976a498b5cb91ed490ac334687a6717b0885f227649cb299d28623
+        lines: [143, 238]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.prepareEventDelivery
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.prepareEventDelivery
+        hash: sha256:3bd3cf3f2888fadafd824d2222262c2f43074740f66e42be21d95820119665ba
+        struct_hash: sha256:5268eb7ff0187fd663d74c8ef92a4b3fbb8280149154aa5b0869cb3669896336
+        doc_struct_hash: sha256:5268eb7ff0187fd663d74c8ef92a4b3fbb8280149154aa5b0869cb3669896336
+        lines: [240, 244]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.completeEvent
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.completeEvent
+        hash: sha256:109101f113b2c45bc667f15a4c6f2d54450f6acc000b82b99ea1aa6f1cd626c1
+        struct_hash: sha256:59482bca574c1416aa705cbb4945407bca6a655ec40f2add2bfe2b28a949a066
+        doc_struct_hash: sha256:59482bca574c1416aa705cbb4945407bca6a655ec40f2add2bfe2b28a949a066
+        lines: [246, 250]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.finalizeEventSkip
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.finalizeEventSkip
+        hash: sha256:a1c1be269ed31c63a4d3c3ece2c410a7537704356bda404a321b942454ee58d7
+        struct_hash: sha256:1b22d876ab219e462e06fcaf8b8568c713299bfa82c308f6aa0047db7a985307
+        doc_struct_hash: sha256:1b22d876ab219e462e06fcaf8b8568c713299bfa82c308f6aa0047db7a985307
+        lines: [252, 256]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.retry
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.retry
+        hash: sha256:2e279ca185678a6d8428eba05ee7dd22b7be176c69b87e6e8227975f3ad4ba0a
+        struct_hash: sha256:9876e2225e9b75cfee845a4cf9c2cb3c1069574d258b8c081594adc3d2b0fe1f
+        doc_struct_hash: sha256:9876e2225e9b75cfee845a4cf9c2cb3c1069574d258b8c081594adc3d2b0fe1f
+        lines: [258, 267]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#Bus.send
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: Bus.send
+        hash: sha256:ebcf1a5f6de6cfb83ab4c0cdb6ccadffb7ec2f622a00cab9d357d68f6aba61b7
+        struct_hash: sha256:35b0ce20be828b1dd449c85e46cdfd9ba28f8cd239cfb0197166cfcd0eafdac5
+        doc_struct_hash: sha256:35b0ce20be828b1dd449c85e46cdfd9ba28f8cd239cfb0197166cfcd0eafdac5
+        lines: [269, 274]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#directive
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: directive
+        hash: sha256:235c91feda87f6520023e00474e729b0300ba09ebd5652ebae6ee9e8fd57a559
+        struct_hash: sha256:37845729aa166de22e0dff260283d6f59373508d4ca444a633c293ac0afcf30d
+        doc_struct_hash: sha256:11be275076a56511af2cd86b4f30c0476fb7da506dcf561e63e1824ec01aa43b
+        lines: [276, 286]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events.go#ShouldSkip
+      level: function
+      anchor:
+        file: events/events.go
+        symbol: ShouldSkip
+        hash: sha256:4ed6af7accbb5cadb150262b7b4b2be93c32c8ccdb3886a8d79c7543dccddb88
+        struct_hash: sha256:c1d2e3ff005ce93079ec76043cd3538faffdc62f668fcd329012fa506392d6cf
+        doc_struct_hash: sha256:5422f92ffbd5a09e7517119c6a393ce9e604fe333ee7da37e15c2cc1c8acbfa1
+        lines: [288, 300]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

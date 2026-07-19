@@ -1,0 +1,252 @@
+schema: 1
+nodes:
+    - id: store/events.go
+      level: file
+      anchor:
+        file: store/events.go
+        hash: sha256:b01b12a1332dc7ac5be7970740e5dbe0b3bf2b87a9b082cf2bcb44b1f1fb2367
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#EventOutcomeHandled
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: EventOutcomeHandled
+        hash: sha256:1a7dfa170f69c69822b1c33e127c5274107df16a3d39a013cc092df2b0d516ab
+        struct_hash: sha256:ae3c2d028d0c51792a7f59125cd1debe9303364c86ced037affd112f75f0172d
+        doc_struct_hash: sha256:cb4a7ca78db478540903d97bc1f54b4435e9315a86e793381dc6d46a6b923441
+        lines: [12, 12]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#EventOutcomeSkipped
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: EventOutcomeSkipped
+        hash: sha256:500c1d3809c3057a0822cd8cb88040061faa4d01a8fcf09d23fa36d9cec3fcc0
+        struct_hash: sha256:665dea25895dd2e941371bded928a8d68c41664566415f20188d135f3a24c91f
+        doc_struct_hash: sha256:893474bc56e241fcb7b83b985ce64541b79d373bd42b31d215cf1139a53a5c37
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#EventOutcomeFallback
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: EventOutcomeFallback
+        hash: sha256:ff41ded4e783e27edc768449ff682bf3ebaed28de17dd9d1bd4f11bdf9d2c95f
+        struct_hash: sha256:df9c44e3c6e7f64fa5a4f19fe60d3a701bba20ed2f94f0a81fc423dbb83d2b64
+        doc_struct_hash: sha256:85ca1ac479d4db7b2745b319a63faaa1acec2fcbbecafc94e86c5b7fb01dc0ba
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#EventOutcomeDropped
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: EventOutcomeDropped
+        hash: sha256:ecc2a5a52ffaa0468045d40e50a2e4cc53b737a5e10fef0cef6574f4122b3fe1
+        struct_hash: sha256:0a50dc4a31a0165e1a3ae33d3e0a88a778a8777d3b616638a72d6740a2cce070
+        doc_struct_hash: sha256:c8efd2097771a8e38677033c20fa6dd6e354fa5c77eab45ab8c6cd4c04c4e019
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#EventOutcomeSendFailed
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: EventOutcomeSendFailed
+        hash: sha256:8651470067db9418a89513cce40b42d788fdc0b81c8fd672259af122fdb4b731
+        struct_hash: sha256:9135af6eb6d91b526bbcd6de422730791fc36d184723549395b9dcf5a12b1d7f
+        doc_struct_hash: sha256:631093a564baf80b2a999b978a6d67e9a490581b6d44d686f4733548524bbb98
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#EventDeliveryModeGenerating
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: EventDeliveryModeGenerating
+        hash: sha256:e349a08702d27f2dc402f38c7b0d0c99f2d922ca6dd646ba0e997bbfb7d7390c
+        struct_hash: sha256:da073350cbf96b8a498eeedbddfcf16883facf01ef16eb308646eae0575050a6
+        doc_struct_hash: sha256:8861c9acc610db10fa2194360674ab468abd99dd414b16c0159c272919d2427f
+        lines: [18, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#eventReplyMax
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: eventReplyMax
+        hash: sha256:aa388fcf23323f615f6d4f84b3d5c668f9f7b5abb6665192552b5b26d8fc206d
+        struct_hash: sha256:34f5f739f410fabed81bebd044d16702f6678b0f89fdf81dce20cf3d83d8b100
+        doc_struct_hash: sha256:99e35eaf7336cc9cccd88cf88d201f6b391f74e895b772d18ef7d7886460d6fd
+        lines: [28, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#eventClaimLease
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: eventClaimLease
+        hash: sha256:bac2aec24ebb0fe63398309f17ca40364537c4169665e2ad8186cceb69915362
+        struct_hash: sha256:ba3120efd2e94a4f3491d195cdb367491b3a85e8d44f38de7294ea2623ff6c08
+        doc_struct_hash: sha256:733a8d0424a56c80bf1dcbc47a950481c09c11e6062fa3e5134e695ffe866eed
+        lines: [29, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#eventMaxAttempts
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: eventMaxAttempts
+        hash: sha256:804e7139ea6ce434b1096c097d11caf2875c8f53d23518fb1e02957d4f8a5542
+        struct_hash: sha256:108a2b12e52ee3fab6aceaaf13258d77bbdf9e1d4bf5d19a52958f6d2d40b421
+        doc_struct_hash: sha256:da8e030606bec847a9e5fedcc5b7cdd60315f38a2eaf78390638f7a12c6ba5ce
+        lines: [30, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Event
+      level: decl
+      anchor:
+        file: store/events.go
+        symbol: Event
+        hash: sha256:ce193fe1a0d212cbf50c8d54ca134e7ef3f97162ece45fe9d28379d9c81e5052
+        struct_hash: sha256:24b3b9cca570cf8731975d8baf52ea7fbca9ab46b8a6c60216785912fb81ea45
+        doc_struct_hash: sha256:24b3b9cca570cf8731975d8baf52ea7fbca9ab46b8a6c60216785912fb81ea45
+        lines: [33, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#scanEvent
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: scanEvent
+        hash: sha256:c2b1dd7a21a82ef570d8b980825a75832b1a614b0e851bec157200f093e35e14
+        struct_hash: sha256:fb14052d05db65b175c5e686bbb69f352994a3a584e6085ba1e50e3bed1874e3
+        doc_struct_hash: sha256:fb14052d05db65b175c5e686bbb69f352994a3a584e6085ba1e50e3bed1874e3
+        lines: [51, 59]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.RecordEvent
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.RecordEvent
+        hash: sha256:e9d491f264312630f0f65a1a1fb52bccc706b67959d7253d5f3231e7c7db5c03
+        struct_hash: sha256:79abc0cedb1d8232eeefb8f7425b7af11b97c421010a629ea6a769b75d03ddb2
+        doc_struct_hash: sha256:caafb8ed808a3dbe89f740adb94a25db0df2c6134a4e90ae7a0f4b0dcf855d7c
+        lines: [61, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.EnqueueEvent
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.EnqueueEvent
+        hash: sha256:78257977bcbeea99aa3b187c6901771c2f4f6e7a677314dc4c09b02f89a8da9c
+        struct_hash: sha256:aa9b78136aff00bdcc1c6c759d93020debe60c85c85514d43d3e998d6b21871b
+        doc_struct_hash: sha256:57ad359540d8eac05ec16f7eaed37e729e4be5f153df19cde918fa23a535146a
+        lines: [70, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.EnqueueEventWithPolicy
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.EnqueueEventWithPolicy
+        hash: sha256:ce13d6a95402d3c1b8f7fee03871313aef22eb0619d7dcf3ad545a498322bbe3
+        struct_hash: sha256:cf2e6d863a7d91bf7c21900cde71fb503cb4a1571fcce53d17f44d28adae0179
+        doc_struct_hash: sha256:f9edeb26dde75f55b67aa5195fcb1ae832d9f3afdb0858d24d38a3444689e89d
+        lines: [75, 133]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.DueEvents
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.DueEvents
+        hash: sha256:23d18018c7c44f1af47101587cba782eb3f45cbd1e5bbb4e567caa7d9f17ff6c
+        struct_hash: sha256:f419b99c0bc1142e4982562b86c660b365b4b109924ef9d9558b72a3158f9f67
+        doc_struct_hash: sha256:f419b99c0bc1142e4982562b86c660b365b4b109924ef9d9558b72a3158f9f67
+        lines: [135, 170]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#eventColsWithAlias
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: eventColsWithAlias
+        hash: sha256:70a6979ce48299a5f33e219333619ad0c3f16df6489ba8d9058344b795aff13e
+        struct_hash: sha256:7e7a9a8975e0f90641d8ff15a0c887d34770d565904d9970a2baf0a80a2ca6fc
+        doc_struct_hash: sha256:7e7a9a8975e0f90641d8ff15a0c887d34770d565904d9970a2baf0a80a2ca6fc
+        lines: [172, 178]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.BeginEventDecision
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.BeginEventDecision
+        hash: sha256:2a5d0f342296ab65b7e4ff03553ae86aa30ea9db8bf00ce073549411d49f9ec2
+        struct_hash: sha256:1fed21d7848bac9d049028cf1a7d8276f6ca072ed2959082def0ef58d56104e7
+        doc_struct_hash: sha256:1fed21d7848bac9d049028cf1a7d8276f6ca072ed2959082def0ef58d56104e7
+        lines: [180, 185]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.PrepareEventDelivery
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.PrepareEventDelivery
+        hash: sha256:3cfb34349e561fd34d679b6419148c8b78ddb351d61fea830f974ae4cf52490e
+        struct_hash: sha256:64e933e0dcbbeea1b6630d54662fa2dd8e3465ea67bc123130843741ea3a327a
+        doc_struct_hash: sha256:64e933e0dcbbeea1b6630d54662fa2dd8e3465ea67bc123130843741ea3a327a
+        lines: [187, 191]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.FinalizeEventSkip
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.FinalizeEventSkip
+        hash: sha256:1274702686a1165bd34d29960ef2959416131d2931cae743e8369e30fb38e002
+        struct_hash: sha256:d649ebdc11ea4597ec80635c548caa49a2811621118c828dba7ee13325b15b7f
+        doc_struct_hash: sha256:cb8cc6cf475ae561b27c52aaec2dea855015d5a4780dfcc34aaf4b6732093492
+        lines: [193, 210]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.CompleteEvent
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.CompleteEvent
+        hash: sha256:e8aa4101a644f4756ea7b2460534c9d76a4a07f918354f6080e4e2f6905f3476
+        struct_hash: sha256:7957da30e3d3f4576e20e9dd052513eeccc6c1ba4d47e56c9918b1ebb6e74de4
+        doc_struct_hash: sha256:7957da30e3d3f4576e20e9dd052513eeccc6c1ba4d47e56c9918b1ebb6e74de4
+        lines: [212, 216]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#Store.RetryEvent
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: Store.RetryEvent
+        hash: sha256:4798700e90489f55a65145c8b1c13a4b9e77458c941487bfbd0fb2b2372ed17d
+        struct_hash: sha256:6e5fa141f9af831eb305d2fdc7df3281fc0e7cf9486d33f102cdc3fb8537d458
+        doc_struct_hash: sha256:6e5fa141f9af831eb305d2fdc7df3281fc0e7cf9486d33f102cdc3fb8537d458
+        lines: [218, 229]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/events.go#truncateRunes
+      level: function
+      anchor:
+        file: store/events.go
+        symbol: truncateRunes
+        hash: sha256:2009b09b2fa3a02769075ccc0cfb7cc5e78bd24623200c6152bed8a09c11f3d7
+        struct_hash: sha256:bc03c4afb656f275b8b1b3c475b53cadbc3393a29ab150f020835ca82f50d69a
+        doc_struct_hash: sha256:55c249f5bf4bbbf29e7ba9a51b2ed540eb2c1a69865f391d748190b7e22bee3d
+        lines: [231, 238]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

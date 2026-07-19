@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: events/events_test.go
+      level: file
+      anchor:
+        file: events/events_test.go
+        hash: sha256:610b7d29339666fc228a08d0da3d3e2d51bb98e5dfe41dec357fca1610336e51
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events_test.go#TestShouldSkip
+      level: function
+      anchor:
+        file: events/events_test.go
+        symbol: TestShouldSkip
+        hash: sha256:9ad6faabce9b79e6914c6ff5e50a66fb6188d9aa8a301633aec8ac4b8b24be65
+        struct_hash: sha256:73a7fc176bf2f81fe871e350bbac880afde5a590acd9e37ec5c8809ae2c14f01
+        doc_struct_hash: sha256:73a7fc176bf2f81fe871e350bbac880afde5a590acd9e37ec5c8809ae2c14f01
+        lines: [9, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events_test.go#TestNilNotifierReturnsErrorInsteadOfPanicking
+      level: function
+      anchor:
+        file: events/events_test.go
+        symbol: TestNilNotifierReturnsErrorInsteadOfPanicking
+        hash: sha256:80dec6b747b53ade01311c18bacfe4e19dfa58f5f966f405a9d8598c3e55bf23
+        struct_hash: sha256:0ac9763177cc1a0cdb57416cb2dc0e0d933e5afe3923bcf6ef17f26e2c898d5d
+        doc_struct_hash: sha256:0ac9763177cc1a0cdb57416cb2dc0e0d933e5afe3923bcf6ef17f26e2c898d5d
+        lines: [29, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: events/events_test.go#TestDirectiveSeparatesNotificationFromBusinessMutation
+      level: function
+      anchor:
+        file: events/events_test.go
+        symbol: TestDirectiveSeparatesNotificationFromBusinessMutation
+        hash: sha256:526b593fcb57668f27879140fc4a2cfdb779468413470e81b370ddef76f64d9b
+        struct_hash: sha256:79aeb2911e4db1fa903053d158f01617a3fdc75d004e040705f40d09e4bc81dc
+        doc_struct_hash: sha256:79aeb2911e4db1fa903053d158f01617a3fdc75d004e040705f40d09e4bc81dc
+        lines: [37, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

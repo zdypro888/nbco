@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: keylock/keylock_test.go
+      level: file
+      anchor:
+        file: keylock/keylock_test.go
+        hash: sha256:86732a2fb7939794e59b260d05a826f0a125f1959cade309a1b0902ecaeafeb7
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock_test.go#TestMapAcquireContextStopsWaiting
+      level: function
+      anchor:
+        file: keylock/keylock_test.go
+        symbol: TestMapAcquireContextStopsWaiting
+        hash: sha256:5268baea525c27aedfc040b0b1ce2f50c1110c12e7030e6a750b3f93cb63f1fd
+        struct_hash: sha256:e4727d547edf4417cddd078fe4c31327e4ca7f42cf860da2a37a74308a977bb8
+        doc_struct_hash: sha256:e4727d547edf4417cddd078fe4c31327e4ca7f42cf860da2a37a74308a977bb8
+        lines: [10, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock_test.go#TestMapAcquireContextRejectsAlreadyCancelledFreeLock
+      level: function
+      anchor:
+        file: keylock/keylock_test.go
+        symbol: TestMapAcquireContextRejectsAlreadyCancelledFreeLock
+        hash: sha256:e4828f24389c736cb86f67925beed8c525fe0891b76a5b981ab19646fb82c3e0
+        struct_hash: sha256:66cfc5ba964f1e80face28a784b4a450b50c63647bb95d16d9e4750c92718ad3
+        doc_struct_hash: sha256:66cfc5ba964f1e80face28a784b4a450b50c63647bb95d16d9e4750c92718ad3
+        lines: [27, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock_test.go#TestMapSerializesSameKeyAndEvicts
+      level: function
+      anchor:
+        file: keylock/keylock_test.go
+        symbol: TestMapSerializesSameKeyAndEvicts
+        hash: sha256:135d21bb3e709b913865a2e39d58923bec42f638816e5dd88d5806343e4cbf93
+        struct_hash: sha256:73847db6b5e0e8d9c678f227b0ba64dd5f04208dff2f0fb89ae0373481858729
+        doc_struct_hash: sha256:73847db6b5e0e8d9c678f227b0ba64dd5f04208dff2f0fb89ae0373481858729
+        lines: [44, 65]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock_test.go#TestMapAllowsDifferentKeys
+      level: function
+      anchor:
+        file: keylock/keylock_test.go
+        symbol: TestMapAllowsDifferentKeys
+        hash: sha256:ea11c9647ebdc218ff2f610a1d7c1cb010a2954c335aa148bdbe616e447d78d5
+        struct_hash: sha256:2c845b6bc05f53a7154b920b326c0fcaa540b547d899fd984dc73526746d62c3
+        doc_struct_hash: sha256:2c845b6bc05f53a7154b920b326c0fcaa540b547d899fd984dc73526746d62c3
+        lines: [67, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

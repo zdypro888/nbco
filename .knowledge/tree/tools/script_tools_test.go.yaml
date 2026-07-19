@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/script_tools_test.go
+      level: file
+      anchor:
+        file: tools/script_tools_test.go
+        hash: sha256:0df7781ef6d846176d45c7a396a4a2756d366e07abcdf4ae8023532a38aefc2c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/script_tools_test.go#TestRunStoredScriptToolValidatesComposedCapabilitiesWithoutSideEffects
+      level: function
+      anchor:
+        file: tools/script_tools_test.go
+        symbol: TestRunStoredScriptToolValidatesComposedCapabilitiesWithoutSideEffects
+        hash: sha256:b1c368ee7949d27656aa81ea2da956a83439fe3277a3707fcca26cf7081e5bb7
+        struct_hash: sha256:7fbe7f41ac1dc0bb716409f0e4fc8fe88242c677f6f7ff61e8189f8028bbb50b
+        doc_struct_hash: sha256:7fbe7f41ac1dc0bb716409f0e4fc8fe88242c677f6f7ff61e8189f8028bbb50b
+        lines: [12, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/script_tools_test.go#TestRunStoredScriptToolEnforcesNestedCallBudgets
+      level: function
+      anchor:
+        file: tools/script_tools_test.go
+        symbol: TestRunStoredScriptToolEnforcesNestedCallBudgets
+        hash: sha256:f809abea06e5fa2b623907d1cfedafc01e43e5d0283ece4e35ffc33fa0781fb4
+        struct_hash: sha256:6dd9973df1ed1d05a3bcbb4a0b10bc3a3c0bc5571cff10480c8d0edf118b8b99
+        doc_struct_hash: sha256:6dd9973df1ed1d05a3bcbb4a0b10bc3a3c0bc5571cff10480c8d0edf118b8b99
+        lines: [41, 66]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

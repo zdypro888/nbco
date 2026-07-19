@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: store/approvals.go
+      level: file
+      anchor:
+        file: store/approvals.go
+        hash: sha256:1df08357ba833632ec16067a4e5521c86df6041c1fa1bec33c89a02e57624e20
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/approvals.go#approvalTTL
+      level: decl
+      anchor:
+        file: store/approvals.go
+        symbol: approvalTTL
+        hash: sha256:6349bb8077d38b9dbfd3cc5d284bc79897a267a2c618d14a061dd2261d638a06
+        struct_hash: sha256:9f35e94209cee5abb337bb88f38f4d3d84bde9787d22f6de37a17624fcdc49ae
+        doc_struct_hash: sha256:7073c1ba38b556a74eabf5a937bef4bd78b6edf8e6001485b6f36b5432d974aa
+        lines: [8, 10]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/approvals.go#PendingApproval
+      level: decl
+      anchor:
+        file: store/approvals.go
+        symbol: PendingApproval
+        hash: sha256:a5c516b3a7e6ef79431ba69185359a3fa2f1f16b58cc166685ad552611490f06
+        struct_hash: sha256:c7a43263ef11d10d0fcbd5437c641ba99a77ad87c3e4692d318141467566336b
+        doc_struct_hash: sha256:62ff5345fa6a44fda877f32773f65047300aaccdc0e1aba53b47aabf2c430e6a
+        lines: [12, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/approvals.go#Store.CreatePendingApproval
+      level: function
+      anchor:
+        file: store/approvals.go
+        symbol: Store.CreatePendingApproval
+        hash: sha256:a80794d36fbb639cca64f811313fcfec2aa0c60505aea67ddcafb793a0fc9596
+        struct_hash: sha256:db203ebc91d5865fe4c1e4510daf50d2797007dbb159c0f89cc0279bcf576ba8
+        doc_struct_hash: sha256:a5486110a7efe0460846749dbef73d4b38893c539305a882b33ca71e2d86f46c
+        lines: [24, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/approvals.go#Store.ConsumePendingApproval
+      level: function
+      anchor:
+        file: store/approvals.go
+        symbol: Store.ConsumePendingApproval
+        hash: sha256:f66be6763468aa766a4ad193dc4621eb7898ca655da9db93caa1b2837de20cd8
+        struct_hash: sha256:049be46618ac2ecd67d95304a4247fc4bb77117411bca9ba89f68172926a4ce0
+        doc_struct_hash: sha256:6c029c53b9e5e85bcbae3a5a8a2df021eff761464c8cfc816ea3c7915bccd42e
+        lines: [44, 58]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/approvals.go#Store.CleanupExpiredPendingApprovals
+      level: function
+      anchor:
+        file: store/approvals.go
+        symbol: Store.CleanupExpiredPendingApprovals
+        hash: sha256:26103d455c5ba95e6689ef7213595805c197b974864f3982d6e7f0a8a8d45666
+        struct_hash: sha256:331047dbda0560c2c973388870f7bc9269c00eb95403a45eb89007dd0bca7045
+        doc_struct_hash: sha256:bf06526f73d8e54c368e1461b7d301737084ad88a013996a22ef007b9c7bd722
+        lines: [60, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/approvals.go#Store.ListPendingApprovals
+      level: function
+      anchor:
+        file: store/approvals.go
+        symbol: Store.ListPendingApprovals
+        hash: sha256:2fd985c6a55ebd3f1bdc19f6082121d94811c81241d7b2176eb192a5f0f4ce81
+        struct_hash: sha256:84a32fc67629bce47172f916ebf6f1c3163c12b90295629f18306122f64877ac
+        doc_struct_hash: sha256:354b2fe3803b79b57f3d7718a3574578a5e306b9648e2ed16feb3ab742a1f64a
+        lines: [66, 95]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

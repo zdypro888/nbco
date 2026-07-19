@@ -1,0 +1,175 @@
+schema: 1
+nodes:
+    - id: config/config.go
+      level: file
+      anchor:
+        file: config/config.go
+        hash: sha256:c6239a87cf44c1907b5f621212884dc44c9394a4c66321ae92e1ed0a85e706a9
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#mcpServerNameRE
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: mcpServerNameRE
+        hash: sha256:dfd1b2232a9a095bb5335213a0b687c0fdfcf70ab59f0d1642270b0280ad47c1
+        struct_hash: sha256:72e5ea8d7441c2f39f582956d8753c817dbd6bc84821ac305d447edb6448a079
+        doc_struct_hash: sha256:72e5ea8d7441c2f39f582956d8753c817dbd6bc84821ac305d447edb6448a079
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#permissionNameRE
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: permissionNameRE
+        hash: sha256:aaffd7da1d55fccd3e548b258d99c12a3398fe16792bcc2ae6a1a57048742bd7
+        struct_hash: sha256:943dc7ace7d993ab15e3fa65b51706b56baaa81fa39815563f5f2e46f27853ba
+        doc_struct_hash: sha256:943dc7ace7d993ab15e3fa65b51706b56baaa81fa39815563f5f2e46f27853ba
+        lines: [19, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#embedRevisionRE
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: embedRevisionRE
+        hash: sha256:ad6526f20865bf4f307e8faab363d00dc6942d7a4ac43a231c3e919be60aef37
+        struct_hash: sha256:76798c63be11884e022d595c8c5255f4551ccc36ce45a741b98766e73e9bb4b5
+        doc_struct_hash: sha256:76798c63be11884e022d595c8c5255f4551ccc36ce45a741b98766e73e9bb4b5
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#EngineEino
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: EngineEino
+        hash: sha256:377c1dfcbfad6fca930e7a1cfefe22c5bb03dbc0181321a31689885d4665d51d
+        struct_hash: sha256:24ac178618dafc7aaf141e81aa9cd6ce1201fc04f533d175090a986aa9608813
+        doc_struct_hash: sha256:7d82cf18bebb64893e2e45d1506d198128ccdd95933bbdfbe3c8c9e9bc8fd0a0
+        lines: [25, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#ProviderClaude
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: ProviderClaude
+        hash: sha256:2a8c5aab59f39c908c90ab4cd2fb820b271f8f7505815340939fd07c9ee00e0f
+        struct_hash: sha256:ac61abc546fe86a3f5079c9e334889f9ab3e6d6aff45fd794c6e18831dc99628
+        doc_struct_hash: sha256:cdd48cbc6ea4eb71e6019e29b3156d45fe2f993e77f6abf72103a792d36ba601
+        lines: [30, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#ProviderOpenAI
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: ProviderOpenAI
+        hash: sha256:18aec18be6b6f82fbdbfddb23a5a4086fdb811affbc0d6301158e52cd4262973
+        struct_hash: sha256:d68bfcdd6cdf75dd51ded183a8c20fe05ea85867f802b15f96af9015488e6cee
+        doc_struct_hash: sha256:c9fb14e716f1cc81afd5c3dc5e2f688bf842e3abd908847d2927cd061688352e
+        lines: [31, 31]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#AIConfig
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: AIConfig
+        hash: sha256:8ac09f5f5568450d5ada6fa78be5ef367cd42c35953b9100223d44bb0c81597c
+        struct_hash: sha256:4d814526c525222a6010022dcbf9d45ed2cc4f9965ffb1350eb5dde77f9f2714
+        doc_struct_hash: sha256:f48f3850eb45c4169e624c1fc4126efffd003ce1f8c35272af0a5f796cd0944f
+        lines: [34, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#MCPServer
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: MCPServer
+        hash: sha256:626af473bc4940eb4b1518cad335af839a938535e5c17c34db77ba451e3db003
+        struct_hash: sha256:5f96f1c6aa39fb7c06840251880687138f66e82bbdf2128abfd472ef3acd1052
+        doc_struct_hash: sha256:da9999569b326329e925a1261f4787d15f4ae3ff6da32f2419902993e43c4ef9
+        lines: [79, 87]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#QdrantConfig
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: QdrantConfig
+        hash: sha256:6be3d0d8ee4915883367bbb20d7ab6ac63f3887570c1a77b1eb0d9ee9c70f710
+        struct_hash: sha256:82a5af0e4bb5cce804f620c9e0fe9bc329fd6a6e443ceb63ec094f854f2147b7
+        doc_struct_hash: sha256:f90fc2b1f73edb4ecc254ffefb7e391487bb1f7b0bb66eb00ab95ce2527b5c1b
+        lines: [89, 103]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#QdrantConfig.Enabled
+      level: function
+      anchor:
+        file: config/config.go
+        symbol: QdrantConfig.Enabled
+        hash: sha256:b6426a03fb16b9cd86c53017223df909a25fe547b5701144596b5521d0c67bef
+        struct_hash: sha256:778519eaac8edf2fb626b673a2ff0662776efc1dd4359a157d8cd5901940e907
+        doc_struct_hash: sha256:778519eaac8edf2fb626b673a2ff0662776efc1dd4359a157d8cd5901940e907
+        lines: [105, 105]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#Config
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: Config
+        hash: sha256:6e9b8d6fd9c32b97397714554080a999534190bac6a9a08e81c1e22e04f4709c
+        struct_hash: sha256:f72ae957688d3b48d7c64308ee25fbe51ab90ae5b6bec14d0115a34b1e122877
+        doc_struct_hash: sha256:cf169063912e886f37ea86e830f5be026a24b79a7f58ba9ea255945933b23c0d
+        lines: [107, 136]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#Load
+      level: function
+      anchor:
+        file: config/config.go
+        symbol: Load
+        hash: sha256:632660704acaa56b00230f090e222012ce98be061b080383a05ce185938abcf1
+        struct_hash: sha256:fca2544f7d99a0241429fc258fee0365b27670b5eb543bcc2639fcc0627d3ce1
+        doc_struct_hash: sha256:ff15c4efc9d6ca74a8f1ab3585b7992b8d9d404a59c02bf6a64e53c8142e901a
+        lines: [138, 153]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#Config.applyDefaults
+      level: function
+      anchor:
+        file: config/config.go
+        symbol: Config.applyDefaults
+        hash: sha256:343e88ff8bcb5b0dd49c8f0da9fca158a0a44de0f9362dcd8a7d084ba75e5a8c
+        struct_hash: sha256:efc2a7a69d89fadb77a41dfe085227b654e5c4f673b6295a8610c75c9528aa53
+        doc_struct_hash: sha256:efc2a7a69d89fadb77a41dfe085227b654e5c4f673b6295a8610c75c9528aa53
+        lines: [155, 222]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#Config.SlogLevel
+      level: function
+      anchor:
+        file: config/config.go
+        symbol: Config.SlogLevel
+        hash: sha256:c31d185e27dcf8d8eaa45c52d366bf37c1324394cc0a86a5f65ae969fc0f6885
+        struct_hash: sha256:66c0397ec286e8726c7572c35ceef5cca5938b959b02d9c23568c15da4554abe
+        doc_struct_hash: sha256:a00711b711e47734ad20f9ef2d32bc56c6039a85b2c53ae79d876fa8ad355393
+        lines: [224, 236]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#Config.validate
+      level: function
+      anchor:
+        file: config/config.go
+        symbol: Config.validate
+        hash: sha256:ec8cff73507929a20cc09ac2d0e497f56bf160a23e284fe672cb5b67904f7e2d
+        struct_hash: sha256:66adc81ba6d7a988118ee8834dc049d6496b3865252e4c6387f21e2ae0016047
+        doc_struct_hash: sha256:66adc81ba6d7a988118ee8834dc049d6496b3865252e4c6387f21e2ae0016047
+        lines: [238, 350]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

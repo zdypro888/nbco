@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: gateway/telegram/format.go
+      level: file
+      anchor:
+        file: gateway/telegram/format.go
+        hash: sha256:5927e2b747712cadf0dd25a7b402837e5833bf56d294f3f5de842238e5377a63
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format.go#toTelegramHTML
+      level: function
+      anchor:
+        file: gateway/telegram/format.go
+        symbol: toTelegramHTML
+        hash: sha256:5dd6ce1d69dbe14317e7fae8b531ec7d25cbe970192bc639810db4ba830610a3
+        struct_hash: sha256:716618a07c1d32eea72883dcedcf4a64fc1d46f61b56dcad733cbd89ddf84c42
+        doc_struct_hash: sha256:27a214012e2c178c155b81fca4bdef8e095a2ed2b3375025dea2787488abb995
+        lines: [8, 12]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

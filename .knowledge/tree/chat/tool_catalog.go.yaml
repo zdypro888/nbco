@@ -1,0 +1,45 @@
+schema: 1
+nodes:
+    - id: chat/tool_catalog.go
+      level: file
+      anchor:
+        file: chat/tool_catalog.go
+        hash: sha256:32b020334f57e5cff698b2e95132d8182f8a704231de9942bf84ce25017a72f8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/tool_catalog.go#routedToolNames
+      level: function
+      anchor:
+        file: chat/tool_catalog.go
+        symbol: routedToolNames
+        hash: sha256:4ee72bc8ef9e59f9286bb519dc35a9a82b62cfd0eb882762234a0d8631c1f2b7
+        struct_hash: sha256:9e3c9aee1514f90e1b2a43b701d08a8cab7e9e04cc4f1c3d6ee4df6a1091c6c0
+        doc_struct_hash: sha256:9e3c9aee1514f90e1b2a43b701d08a8cab7e9e04cc4f1c3d6ee4df6a1091c6c0
+        lines: [10, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: chat/tool_catalog.go#toolSchemaChars
+      level: function
+      anchor:
+        file: chat/tool_catalog.go
+        symbol: toolSchemaChars
+        hash: sha256:5ae0f90213410c7603613259da88d741f79e2272b96727c2321cbcf360e55ab0
+        struct_hash: sha256:98e3ca5ca3a0d59c35f586e3a17329ff543b3a4b1a7524046ecaac72f87f9ad7
+        doc_struct_hash: sha256:98e3ca5ca3a0d59c35f586e3a17329ff543b3a4b1a7524046ecaac72f87f9ad7
+        lines: [19, 28]
+      status: fresh
+      since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_23a7b5ce
+          kind: pitfall
+          text: toolSchemaChars 统计传给引擎的权限裁剪后完整逻辑目录（名称+描述+输入 schema），不是 Eino toolsearch 改写后某次模型调用实际收到的 ToolInfos。native tool_search 路由下 action_turns 的 tools/schema_chars 字段会高估首轮模型暴露量；应把 catalog 与 per-iteration model-visible 指标分开命名和采集。
+          confidence: inferred
+          at: 2026-07-19T19:27:16.982845Z
+          author: codex-mcp-client
+      keywords:
+        - tool_schema_chars
+        - catalog schema chars
+        - model visible tools
+        - action_turn diagnostics
+        - 174 tools

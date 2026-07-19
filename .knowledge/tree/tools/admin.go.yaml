@@ -1,0 +1,120 @@
+schema: 1
+nodes:
+    - id: tools/admin.go
+      level: file
+      anchor:
+        file: tools/admin.go
+        hash: sha256:61ba77bfb4b4700d2e335a8b47520d2a58da2594542910b994a387093bfdf531
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#bindKeyTTL
+      level: decl
+      anchor:
+        file: tools/admin.go
+        symbol: bindKeyTTL
+        hash: sha256:5b4276419d7bbb2b3d48a623318517464a6e7777dcd05045addfc34002e54714
+        struct_hash: sha256:8d9c2c8470760483495c5e68f3a277b8628031ce5885b8d11d47fdcd00af6976
+        doc_struct_hash: sha256:8d9c2c8470760483495c5e68f3a277b8628031ce5885b8d11d47fdcd00af6976
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#adminTools
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: adminTools
+        hash: sha256:11813de1a2e709cf6c009da4a81ac11927598c34786ea39177c4f9fc075cd00f
+        struct_hash: sha256:582c78c910c3d437182f565297c688acdbe299c7b936a40688b2c395387a49de
+        doc_struct_hash: sha256:854eb1c5bd32a702018a791529616dc1732916f74515cdf055e09d7467e0b9ce
+        lines: [18, 738]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#userDirectoryStats
+      level: decl
+      anchor:
+        file: tools/admin.go
+        symbol: userDirectoryStats
+        hash: sha256:dfe08bcdb8961046ca1cf5c7aa3699918a401eec05b82303055d893fd3db160d
+        struct_hash: sha256:454d71e96b75a56ac5147fe8f90dc48a00471d244b81b618ae006d8cb47ae649
+        doc_struct_hash: sha256:454d71e96b75a56ac5147fe8f90dc48a00471d244b81b618ae006d8cb47ae649
+        lines: [740, 743]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#visibleProfileStats
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: visibleProfileStats
+        hash: sha256:d60c8c0b0fd20653ab052893163bf0a842327d66056ee4c9b68b1bbf101ad2f8
+        struct_hash: sha256:76fa755240987bd3be476f30fcb50a5c45832d8c806a1317f138c2d3ce2b62f7
+        doc_struct_hash: sha256:76fa755240987bd3be476f30fcb50a5c45832d8c806a1317f138c2d3ce2b62f7
+        lines: [745, 766]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#sendMessageToAll
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: sendMessageToAll
+        hash: sha256:e8139ba59fb78353be889465f39c0c45cdc61834286a46702ba557c0ed0c9acd
+        struct_hash: sha256:6df738ef747b8687bd15cb6f972f26ce898a0a92c4a2cdc72866a0f95003dc42
+        doc_struct_hash: sha256:6df738ef747b8687bd15cb6f972f26ce898a0a92c4a2cdc72866a0f95003dc42
+        lines: [768, 805]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#messageTargetSelector
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: messageTargetSelector
+        hash: sha256:b945a09ce9b1ad9080a70fb587f0f552e345420370dbb42e5a59ded5140113c1
+        struct_hash: sha256:3a59b07ba3db637b7f06c0f06db4ef95615729f97f2df33d911487d4a5507874
+        doc_struct_hash: sha256:3a59b07ba3db637b7f06c0f06db4ef95615729f97f2df33d911487d4a5507874
+        lines: [807, 814]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#renderUserDirectory
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: renderUserDirectory
+        hash: sha256:90c8d42c3755a7fbe6d8e2d00022d54aeb629f58a6f42b4b494fd4f0c1180aad
+        struct_hash: sha256:6fda351a02c1c1e2c07bd500fb4413eb0d32662be6e1a0a3c5eaefd72cf3652f
+        doc_struct_hash: sha256:6fda351a02c1c1e2c07bd500fb4413eb0d32662be6e1a0a3c5eaefd72cf3652f
+        lines: [816, 868]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#renderUserDirectoryLine
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: renderUserDirectoryLine
+        hash: sha256:0cb320dde43bb4cfa67ee4a17bcc742a50c8f8acd4f5d3035f1fd914e25703db
+        struct_hash: sha256:0204b5bc389e18849a7e13257ebe0ca400d154e2b9b1deaaafb8485ec2e80db2
+        doc_struct_hash: sha256:0204b5bc389e18849a7e13257ebe0ca400d154e2b9b1deaaafb8485ec2e80db2
+        lines: [870, 882]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#profileCountLabel
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: profileCountLabel
+        hash: sha256:1d4ef351c05f4cc29a31df91ea0eef9c22693e8c383091b70eb96ae18de89a29
+        struct_hash: sha256:48ad003542df07fc7256eaa0c6e000ffad3c3e9e968e03fd21815752d2ebf5cb
+        doc_struct_hash: sha256:48ad003542df07fc7256eaa0c6e000ffad3c3e9e968e03fd21815752d2ebf5cb
+        lines: [884, 889]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#employeeInviteLink
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: employeeInviteLink
+        hash: sha256:ff6023d4903c710a7168133a491ee6de1f0ffb4591baf262a96cdcad12219ad8
+        struct_hash: sha256:84897b48fab4f46a6efadc41050cebd19bde1ab460d02ee4e3d7425a791ceee9
+        doc_struct_hash: sha256:84897b48fab4f46a6efadc41050cebd19bde1ab460d02ee4e3d7425a791ceee9
+        lines: [891, 904]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

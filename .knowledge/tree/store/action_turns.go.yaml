@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: store/action_turns.go
+      level: file
+      anchor:
+        file: store/action_turns.go
+        hash: sha256:3693f81ce5e26f36ce3ce1628bbb5dcce553c815b9d656117983f4e888615375
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/action_turns.go#ActionTurnInput
+      level: decl
+      anchor:
+        file: store/action_turns.go
+        symbol: ActionTurnInput
+        hash: sha256:500a4ba18b07d627949ff8cfdaaabae76adcf9f8216f0a7b962fbb85c0b97862
+        struct_hash: sha256:9b8982348facc116390665cbf341b987923cadbae0ca62028a49912d34979392
+        doc_struct_hash: sha256:9b8982348facc116390665cbf341b987923cadbae0ca62028a49912d34979392
+        lines: [10, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/action_turns.go#ActionTurn
+      level: decl
+      anchor:
+        file: store/action_turns.go
+        symbol: ActionTurn
+        hash: sha256:76ab4fa6f2baced9ac610d863e560aa5c4d5a37fd8a5b7b4d3cd18773a513bae
+        struct_hash: sha256:b7a7d24cb489cea06c3a62517d2a6d4139db9ed9fc792202735c6758abe1cfc5
+        doc_struct_hash: sha256:b7a7d24cb489cea06c3a62517d2a6d4139db9ed9fc792202735c6758abe1cfc5
+        lines: [26, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/action_turns.go#Store.RecordActionTurn
+      level: function
+      anchor:
+        file: store/action_turns.go
+        symbol: Store.RecordActionTurn
+        hash: sha256:b3871f79208a8d629cbae8bc1aa2919dac0491a935fb9e88c8f18c22f9ddc495
+        struct_hash: sha256:3b10c76d32a0af709830ff959ebe117d792f318aaf11f9ea1f109296c8763559
+        doc_struct_hash: sha256:3b10c76d32a0af709830ff959ebe117d792f318aaf11f9ea1f109296c8763559
+        lines: [44, 67]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/action_turns.go#Store.ListActionTurns
+      level: function
+      anchor:
+        file: store/action_turns.go
+        symbol: Store.ListActionTurns
+        hash: sha256:273e2375cd4d55de154c13b8c9d0356c38f8dd796bfef8fa3194e98677dd66d0
+        struct_hash: sha256:6827b46c7c8f9c6406a2119654707460ac3dab544e3669b36b01c7edf3593bc3
+        doc_struct_hash: sha256:6827b46c7c8f9c6406a2119654707460ac3dab544e3669b36b01c7edf3593bc3
+        lines: [69, 100]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

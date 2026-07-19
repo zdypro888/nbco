@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: workerhub/hub_test.go
+      level: file
+      anchor:
+        file: workerhub/hub_test.go
+        hash: sha256:43924b34b71ab9f963c2b7a37c90933052f4df0957d0dd6ab535bd7a1474650f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: workerhub/hub_test.go#fakeConn
+      level: decl
+      anchor:
+        file: workerhub/hub_test.go
+        symbol: fakeConn
+        hash: sha256:482322f3a9e08049311f2329612e1b28e3fd235b227e5d8232e0f0beb1629755
+        struct_hash: sha256:5699501cedc6f72fd9df1720ad0d369d753221e110b63631266669429da04bef
+        doc_struct_hash: sha256:5699501cedc6f72fd9df1720ad0d369d753221e110b63631266669429da04bef
+        lines: [8, 11]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: workerhub/hub_test.go#fakeConn.Send
+      level: function
+      anchor:
+        file: workerhub/hub_test.go
+        symbol: fakeConn.Send
+        hash: sha256:197d4026ff41b4e3e6550ee93c94a762f433b17655a5aa048852741f22222e9a
+        struct_hash: sha256:340d45b2a614432ae36d9f7212a882515c111b00960f889206b0275c064b0e3a
+        doc_struct_hash: sha256:340d45b2a614432ae36d9f7212a882515c111b00960f889206b0275c064b0e3a
+        lines: [13, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: workerhub/hub_test.go#fakeConn.got
+      level: function
+      anchor:
+        file: workerhub/hub_test.go
+        symbol: fakeConn.got
+        hash: sha256:cfd0bb93d7fcd7fee5a0c71a9aaf492bbeee89ebf479fcd5cb28af67c37188bd
+        struct_hash: sha256:bd3f789a80d05a14a8b314f807c189d0a16c242af38625f39a0408ed2e6d6f65
+        doc_struct_hash: sha256:bd3f789a80d05a14a8b314f807c189d0a16c242af38625f39a0408ed2e6d6f65
+        lines: [20, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: workerhub/hub_test.go#TestHubWakeAndCancel
+      level: function
+      anchor:
+        file: workerhub/hub_test.go
+        symbol: TestHubWakeAndCancel
+        hash: sha256:b1e0a50d840e4811b6a12d0c3e20dda1661497f52e887edf6054ab0e8dec849b
+        struct_hash: sha256:c791fb71243dd64229dde490d5cc05ee080c9bd0150e83df195381b8404475e8
+        doc_struct_hash: sha256:c791fb71243dd64229dde490d5cc05ee080c9bd0150e83df195381b8404475e8
+        lines: [26, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: workerhub/hub_test.go#TestHubReplaceAndDetach
+      level: function
+      anchor:
+        file: workerhub/hub_test.go
+        symbol: TestHubReplaceAndDetach
+        hash: sha256:469d1d1279cbe5da6cc1451ffce0524ce68035ddab4a9ba4407b25006ab3ed13
+        struct_hash: sha256:88db6f752c9c2c22b00afeb8a89148d3b37b7162a1867cafb01265d39c571bae
+        doc_struct_hash: sha256:88db6f752c9c2c22b00afeb8a89148d3b37b7162a1867cafb01265d39c571bae
+        lines: [46, 66]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

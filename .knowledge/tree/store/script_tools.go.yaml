@@ -1,0 +1,142 @@
+schema: 1
+nodes:
+    - id: store/script_tools.go
+      level: file
+      anchor:
+        file: store/script_tools.go
+        hash: sha256:b3b4c9de122cc38cf787c15dd2e5a003caa2b33b410882aca9dcb8d37e4d4cd7
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#ScriptTool
+      level: decl
+      anchor:
+        file: store/script_tools.go
+        symbol: ScriptTool
+        hash: sha256:bdc52f6ac531c908941906985dc2eb57e8b40dabbc8d2407a619b518a0174457
+        struct_hash: sha256:bbe6ea9cddc1efe3b7da1c3b14f5c40f6822100463fbb48152f2061ca0238d79
+        doc_struct_hash: sha256:bbe6ea9cddc1efe3b7da1c3b14f5c40f6822100463fbb48152f2061ca0238d79
+        lines: [11, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#scriptToolCols
+      level: decl
+      anchor:
+        file: store/script_tools.go
+        symbol: scriptToolCols
+        hash: sha256:ece4ac2fd01466eb27bb543b4a904657873c0f91c31bb1bbbe95037d781e12b9
+        struct_hash: sha256:c828b8ea0d5d72b0b8f8b2a4d05bd6509f26d91ab5f188192326ccafd8f8cae4
+        doc_struct_hash: sha256:c828b8ea0d5d72b0b8f8b2a4d05bd6509f26d91ab5f188192326ccafd8f8cae4
+        lines: [28, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#scanScriptTool
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: scanScriptTool
+        hash: sha256:6615c61c3338c71ea6d0970291314d298ee01c8313fd96568fa6923019cea9cd
+        struct_hash: sha256:45e8ff5542178c447db23491ae7588ebd98560e569e2f55be2d781453e52f504
+        doc_struct_hash: sha256:45e8ff5542178c447db23491ae7588ebd98560e569e2f55be2d781453e52f504
+        lines: [30, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.CreateScriptTool
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.CreateScriptTool
+        hash: sha256:dd97e71cdb1f3507a84fc3fca26837fafc2cca5409c621561c86ae0d6d338cb9
+        struct_hash: sha256:b7642dab60face468b982a121286c4573c05b9dcd96adb65ea77c841c6813bbc
+        doc_struct_hash: sha256:b7642dab60face468b982a121286c4573c05b9dcd96adb65ea77c841c6813bbc
+        lines: [40, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.UpdateScriptTool
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.UpdateScriptTool
+        hash: sha256:3c0a052f663df9acab94cc66cf35669c481b3e1575958d9cc8ac0498ea1e374f
+        struct_hash: sha256:a0f5f6762fc5f3de991631ee332074c7db9c1ecfd5cc4d337f1a35fd635480b7
+        doc_struct_hash: sha256:a0f5f6762fc5f3de991631ee332074c7db9c1ecfd5cc4d337f1a35fd635480b7
+        lines: [51, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.SetScriptToolEnabled
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.SetScriptToolEnabled
+        hash: sha256:5094526ba76b0cd7b968104e41117754d1c17ad85290fbcf003a19cefe860b54
+        struct_hash: sha256:36bf5a13465dbded029b11ac1fe8f42d120689a098a15ee7a9273fe84d30c006
+        doc_struct_hash: sha256:36bf5a13465dbded029b11ac1fe8f42d120689a098a15ee7a9273fe84d30c006
+        lines: [70, 91]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.RecordScriptToolTest
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.RecordScriptToolTest
+        hash: sha256:15bfaa542a5dea391e21cdd7f6570d2d28a81c67a9a52ccb120ebe2396b28327
+        struct_hash: sha256:a8bd7892b2481e0b0ea448d9af8bc2582e33ac731a991be234543fa938126d0c
+        doc_struct_hash: sha256:bd0285912f77722bcfe8435f8aeb0517cb742942a03e9918a68f8fbcb2ba40ee
+        lines: [93, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#ScriptToolSourceHash
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: ScriptToolSourceHash
+        hash: sha256:b3955e232e6aa0e9c60cddae2338ce893054910c13eab9cca0c781c487dca609
+        struct_hash: sha256:561af5de86430b14355faaac3f81e788e7e2072bce7e2c52a85a6880ad114f24
+        doc_struct_hash: sha256:561af5de86430b14355faaac3f81e788e7e2072bce7e2c52a85a6880ad114f24
+        lines: [110, 112]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.ScriptToolByID
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.ScriptToolByID
+        hash: sha256:853ffa3b29d2ecb1f12b5b89dbd85ab96a7ddcd0c70e9073ceb502782314bfe0
+        struct_hash: sha256:1fceb6f9797dcd8e4e765b40b1da3a0fb921301e18f6515582680d351229dffd
+        doc_struct_hash: sha256:1fceb6f9797dcd8e4e765b40b1da3a0fb921301e18f6515582680d351229dffd
+        lines: [114, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.ScriptToolByName
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.ScriptToolByName
+        hash: sha256:b9809b2d1be9e5909dc82161a0c13b4b44667b126ebb271a92ed6438c6c7ca6c
+        struct_hash: sha256:976be539e509cb3b46bef3a54ff3b0c9c84049a972f99f94806ad896c3618c66
+        doc_struct_hash: sha256:976be539e509cb3b46bef3a54ff3b0c9c84049a972f99f94806ad896c3618c66
+        lines: [118, 120]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#Store.ListScriptTools
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: Store.ListScriptTools
+        hash: sha256:f2096c14992fbef41b5d6a2f036d57d2ee20296df6d4e0f8de1ff11d1b4e62a8
+        struct_hash: sha256:fbc10ab9a7a4706faff4f697ffa91ec3c6374dd2892fa51958a47e6865fd116f
+        doc_struct_hash: sha256:fbc10ab9a7a4706faff4f697ffa91ec3c6374dd2892fa51958a47e6865fd116f
+        lines: [122, 144]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/script_tools.go#nullableJSON
+      level: function
+      anchor:
+        file: store/script_tools.go
+        symbol: nullableJSON
+        hash: sha256:2caa28c1e11d206310f16d9c9cbbf4a3dfcf8907d8b6b2bb3d5145e5debd5f74
+        struct_hash: sha256:aad5b752b5a2fc73bd31615323f30ec072e84f898c06cdceab5124f2284db172
+        doc_struct_hash: sha256:aad5b752b5a2fc73bd31615323f30ec072e84f898c06cdceab5124f2284db172
+        lines: [146, 151]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

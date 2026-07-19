@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: tools/rules.go
+      level: file
+      anchor:
+        file: tools/rules.go
+        hash: sha256:3d896e4717cc39446840359ff3c10987717a2ebc721016745639a4c2f7a9d9f8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/rules.go#ruleScopes
+      level: decl
+      anchor:
+        file: tools/rules.go
+        symbol: ruleScopes
+        hash: sha256:a0c1d2705499204ac73636cca58a71205138914a97273d9da3927e5cec4ea106
+        struct_hash: sha256:88cf5399670e4a1cf9120def07756eb3341eb033de291bdf7dcfc8e3c3b97339
+        doc_struct_hash: sha256:6481c6e1efb90f9340ea681456e661139e8b36bd339ab44ee744bf49a7a2ccf0
+        lines: [15, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/rules.go#rulesListLimit
+      level: decl
+      anchor:
+        file: tools/rules.go
+        symbol: rulesListLimit
+        hash: sha256:7439234dcfd680fc27ef92c968e0d650e8757fcd15524406415458e8b1f2e3c5
+        struct_hash: sha256:3f5f49f8fe898241f3e52c48940b82ae3dda69d7616d47a72193b9cf0a4216fb
+        doc_struct_hash: sha256:3f5f49f8fe898241f3e52c48940b82ae3dda69d7616d47a72193b9cf0a4216fb
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/rules.go#ruleTools
+      level: function
+      anchor:
+        file: tools/rules.go
+        symbol: ruleTools
+        hash: sha256:63a37f5ab5939b0c6618b6061cb3f64b66dbc280631044b027a6e939d82cf813
+        struct_hash: sha256:9f0e1bf17270bedcce048a4c7dfaa59953ab0cc6f980a898e3ac5922216aa4d8
+        doc_struct_hash: sha256:1d86fced7d7d0f56736052921347c11c8d4577a8c8b4ad06002a0acb89c49c30
+        lines: [20, 125]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/rules.go#ruleScopeOf
+      level: function
+      anchor:
+        file: tools/rules.go
+        symbol: ruleScopeOf
+        hash: sha256:9a09e75e948a9962941f41534b434b5ca1bb8f0c4c3140761d8108179a8b9d71
+        struct_hash: sha256:d667f5f70d4f68e22359d9f2bd70d422444780492285ae01bfdaafc58910d208
+        doc_struct_hash: sha256:6a95c66d33e97ee69d6aaa0fb68141762e765a6ca05b1548f22eee6721857bf8
+        lines: [127, 135]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

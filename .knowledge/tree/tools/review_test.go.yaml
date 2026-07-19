@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/review_test.go
+      level: file
+      anchor:
+        file: tools/review_test.go
+        hash: sha256:c9c124a891375a2ec9ee2d177311802fc27ce5903c27ed409c2726be5ebd64e0
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/review_test.go#TestBuildReviewBrief
+      level: function
+      anchor:
+        file: tools/review_test.go
+        symbol: TestBuildReviewBrief
+        hash: sha256:bd5819a00a4b2cfb1dd7b0edf438986a61a957957e6afb6007a532553b36ee20
+        struct_hash: sha256:3adf4ef8e4b987f0a6b626eb3cb71bda30b917bed97460e52b76e707f8240bf1
+        doc_struct_hash: sha256:3adf4ef8e4b987f0a6b626eb3cb71bda30b917bed97460e52b76e707f8240bf1
+        lines: [11, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/review_test.go#TestBuildReviewBriefCapsProgress
+      level: function
+      anchor:
+        file: tools/review_test.go
+        symbol: TestBuildReviewBriefCapsProgress
+        hash: sha256:47165051c7af7d23ee08956c5987c1bf888a420097bfd8505e3d375a7a5544d5
+        struct_hash: sha256:f364ecd98683fea4535b13ddf8018f87351749971b0132fc334d592d546ffa62
+        doc_struct_hash: sha256:f364ecd98683fea4535b13ddf8018f87351749971b0132fc334d592d546ffa62
+        lines: [30, 45]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

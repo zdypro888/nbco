@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ihtml_auth_test.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ihtml_auth_test.go
+        hash: sha256:f3528c7a667e53b3932ee9ef574f619c323ec1542599f9eeeea8ab79479dbf87
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth_test.go#TestIHTMLTicketLifecycle
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth_test.go
+        symbol: TestIHTMLTicketLifecycle
+        hash: sha256:c4f935ca7c92d80f381707e44538ef4720dcfc66a291beeb21e303d0a93b0e4c
+        struct_hash: sha256:e5270d92cf97b1163ddc196f3264600bbf56e350838102f2431c3dd9b5209935
+        doc_struct_hash: sha256:e5270d92cf97b1163ddc196f3264600bbf56e350838102f2431c3dd9b5209935
+        lines: [11, 45]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth_test.go#TestIHTMLTicketRejectsUnboundedFuture
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth_test.go
+        symbol: TestIHTMLTicketRejectsUnboundedFuture
+        hash: sha256:d8bc7f6d7414125def9ea16a175c38a6aaa8e32d2fd1438154ba86f24ba63011
+        struct_hash: sha256:9341160cd95fd8d12ffed807e902c9f9ac765d08e1f274d2665a5ddaf12d2ae4
+        doc_struct_hash: sha256:9341160cd95fd8d12ffed807e902c9f9ac765d08e1f274d2665a5ddaf12d2ae4
+        lines: [47, 63]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: sched/pool.go
+      level: file
+      anchor:
+        file: sched/pool.go
+        hash: sha256:e4f59e5ea107f1d53ec5ecafecfdde6ed65137fa107b9f9c7561a501340f0e66
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool.go#pool
+      level: decl
+      anchor:
+        file: sched/pool.go
+        symbol: pool
+        hash: sha256:179ebf92f28f562e3efaf5cb1bb84e1f0c7df5d2504f58ff4851cba56ed0b197
+        struct_hash: sha256:7d7f0c1a8af72d088f59a8d25625430cdb5633fe14fb124920ea7ce930dca0f4
+        doc_struct_hash: sha256:2c0bc990263c0dcd4b45df89b45f1f40a428ad8614c68fa1a2dcd0c4641845c7
+        lines: [9, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool.go#newPool
+      level: function
+      anchor:
+        file: sched/pool.go
+        symbol: newPool
+        hash: sha256:fcf0cada6acaa4a99b06f3e25fe585bcc7aeb2d13974090c22540937c045de49
+        struct_hash: sha256:b8bfe6d7d1f0675e7b8ec1a400ff0aa2fa6dc65e8788eac21dd787f6764c33ce
+        doc_struct_hash: sha256:b8bfe6d7d1f0675e7b8ec1a400ff0aa2fa6dc65e8788eac21dd787f6764c33ce
+        lines: [20, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool.go#pool.submit
+      level: function
+      anchor:
+        file: sched/pool.go
+        symbol: pool.submit
+        hash: sha256:745d72c571adc6c8331dd572b32e074723997a6f4b2566b768324cda640da35a
+        struct_hash: sha256:dab7eaf9c6d6b4574b7b127da19685666cf059a23cd56f76d7661632db6301bf
+        doc_struct_hash: sha256:ba3a27650379e48ac219765d7ca12d3e11f32a4e0b7472a71dac883a9e8d6129
+        lines: [27, 48]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool.go#pool.trySubmit
+      level: function
+      anchor:
+        file: sched/pool.go
+        symbol: pool.trySubmit
+        hash: sha256:a81c52b4b597af8672f78ef7602b4015d07bd90969d3be7d74c2a493dc8f6144
+        struct_hash: sha256:c520732a816365cc37e21a8bd9e72462ec5a43680209f68fde22bb1520e433d0
+        doc_struct_hash: sha256:32c2ed59be7ea6930aea29ba3698a9f3800ecd9a615b2eddfd5d59cca2a4f065
+        lines: [50, 72]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: sched/pool.go#pool.wait
+      level: function
+      anchor:
+        file: sched/pool.go
+        symbol: pool.wait
+        hash: sha256:87b96283d865851d9e39ae6b407fb067546ff484d48c35da34fd65cbf2942f90
+        struct_hash: sha256:9f20b1a74ad339e64f9e35d0ab31f2205bd5306ca4c0250c4076368c8c98b1cd
+        doc_struct_hash: sha256:81c33ad483d533c9d4439950a76440fcf25870a91d7d3791b35777e1338cb144
+        lines: [74, 75]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

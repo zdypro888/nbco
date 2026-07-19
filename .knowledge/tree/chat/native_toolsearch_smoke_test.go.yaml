@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: chat/native_toolsearch_smoke_test.go
+      level: file
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        hash: sha256:015d20d27fc5f1edb16d790cd1361852b64ae6f6878c2e65873687a54efc8bcc
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z
+    - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealNativeToolSearch
+      level: function
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        symbol: TestSmokeRealNativeToolSearch
+        hash: sha256:fc18c1916f445b3f39c04410cb90dbe9c96c82e56483d68099296d6ed786e181
+        struct_hash: sha256:716727378b1972012d5f55b2b6109280440346d95d55e46991ad2f5fd9f7384e
+        doc_struct_hash: sha256:716727378b1972012d5f55b2b6109280440346d95d55e46991ad2f5fd9f7384e
+        lines: [16, 75]
+      status: undigested
+      since: 2026-07-19T21:51:50.732439Z

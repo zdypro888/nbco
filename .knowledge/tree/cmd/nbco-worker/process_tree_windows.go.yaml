@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/process_tree_windows.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/process_tree_windows.go
+        hash: sha256:f14977dc3281793e93b8b43a7c7f13ff00a42fc0e8779fcf2f2f42f19f6bece6
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_windows.go#configureProcessTree
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_windows.go
+        symbol: configureProcessTree
+        hash: sha256:4759a039ac4d033351177a8345704d4829b422a16a96863425c4441fc14785c0
+        struct_hash: sha256:15efc1a7108ab23a4f039ce705815d89dcd5a5c87b2c082f4a89a7bb20346302
+        doc_struct_hash: sha256:15efc1a7108ab23a4f039ce705815d89dcd5a5c87b2c082f4a89a7bb20346302
+        lines: [12, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_windows.go#configurePTYProcessTree
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_windows.go
+        symbol: configurePTYProcessTree
+        hash: sha256:b6bcdf7128361121d6bb8ce7c993aff6b89df4cf7ce623ae47a04208e45d6351
+        struct_hash: sha256:15efc1a7108ab23a4f039ce705815d89dcd5a5c87b2c082f4a89a7bb20346302
+        doc_struct_hash: sha256:15efc1a7108ab23a4f039ce705815d89dcd5a5c87b2c082f4a89a7bb20346302
+        lines: [16, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/process_tree_windows.go#killProcessTree
+      level: function
+      anchor:
+        file: cmd/nbco-worker/process_tree_windows.go
+        symbol: killProcessTree
+        hash: sha256:30bb74e71590a7539de0dfe2a8a8b4a462c6cc677180449a137cbe6187702a29
+        struct_hash: sha256:f2251be29e12c6f392bff3308eacf4a767d8efa64fbabd7d71937046896aa60a
+        doc_struct_hash: sha256:f2251be29e12c6f392bff3308eacf4a767d8efa64fbabd7d71937046896aa60a
+        lines: [20, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

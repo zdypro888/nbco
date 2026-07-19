@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/telegram_auth_test.go
+      level: file
+      anchor:
+        file: gateway/httpapi/telegram_auth_test.go
+        hash: sha256:69a281df91a0548beab5983eb4986f6eddc21b4d2e08e708e75768d9371861bf
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/telegram_auth_test.go#TestValidateTelegramInitData
+      level: function
+      anchor:
+        file: gateway/httpapi/telegram_auth_test.go
+        symbol: TestValidateTelegramInitData
+        hash: sha256:e64690ea9c17d5988a5dfc3b21bcffdb34321dc445262a5e8595a2c253841ea5
+        struct_hash: sha256:15468d453ce8a1e3e3bdddb9c1d0992fa0dc6a27dde9f98d1b22e939a0ea6595
+        doc_struct_hash: sha256:15468d453ce8a1e3e3bdddb9c1d0992fa0dc6a27dde9f98d1b22e939a0ea6595
+        lines: [14, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/telegram_auth_test.go#signedTelegramInitData
+      level: function
+      anchor:
+        file: gateway/httpapi/telegram_auth_test.go
+        symbol: signedTelegramInitData
+        hash: sha256:7f6f5e16bb9b1a8bb67ff4c89488d41cbb8b9428d0763ab66e6aa399c69634e7
+        struct_hash: sha256:52919432fc71b4475904d0cf67705e4b48d5c3cb8bd6395a4ec1864134ba3f86
+        doc_struct_hash: sha256:52919432fc71b4475904d0cf67705e4b48d5c3cb8bd6395a4ec1864134ba3f86
+        lines: [37, 53]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

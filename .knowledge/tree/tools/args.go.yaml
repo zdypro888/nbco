@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: tools/args.go
+      level: file
+      anchor:
+        file: tools/args.go
+        hash: sha256:770a8cd6fc48a8f20182a5aa16fdbe51b5ab75b2b04c58d1a573b0cc4c75fbb2
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#withArgumentNormalization
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: withArgumentNormalization
+        hash: sha256:12b2ac930469d695a2823c682ed0003d127c58984f4607326381fcba5523e7da
+        struct_hash: sha256:4648ab612b85c8cd8144543f8c6d568fff713574821ee8ecd0597e5c2dc3237a
+        doc_struct_hash: sha256:852bdcf7ae1e1611f6aa07de43ef399545f263a7d12a9256f2d3e8362ffbea7b
+        lines: [14, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#normalizeToolArgs
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: normalizeToolArgs
+        hash: sha256:b9a805264d86d0c26110642d86970416e9712c2c8d809444252ede3bc9442744
+        struct_hash: sha256:3bf06bfd225446354edd15b8ef81571143e633257247b3164472cdde01778112
+        doc_struct_hash: sha256:3bf06bfd225446354edd15b8ef81571143e633257247b3164472cdde01778112
+        lines: [27, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#normalizeSchemaObject
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: normalizeSchemaObject
+        hash: sha256:073aaedf7a051500036b15e4e99cd2ba3067f13e8e63187bd197af4e78ad8c3c
+        struct_hash: sha256:8c9be1b2c60a2eefc3de8251f7c331fb3c483b3f04364e5b283ccaea0b9b20a4
+        doc_struct_hash: sha256:8c9be1b2c60a2eefc3de8251f7c331fb3c483b3f04364e5b283ccaea0b9b20a4
+        lines: [48, 69]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#schemaProperties
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: schemaProperties
+        hash: sha256:167d999959ad874c1bc2a5ae645f655277174e6f939a6f6d3378b7e21f542417
+        struct_hash: sha256:39621e3513f8b91ffc2721b2fdfed0b983e53bc99d9f496bd6edc63ea070804c
+        doc_struct_hash: sha256:39621e3513f8b91ffc2721b2fdfed0b983e53bc99d9f496bd6edc63ea070804c
+        lines: [71, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#resolveSchemaAlias
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: resolveSchemaAlias
+        hash: sha256:91a8ecfc55c625db3d42ef8414776cf7685701a8400a53c3d5f93844d344fa14
+        struct_hash: sha256:c358fbd9939fea9dd4c808909f1cd378759ea4be00ac4b0e735f2fd88df4ed24
+        doc_struct_hash: sha256:c358fbd9939fea9dd4c808909f1cd378759ea4be00ac4b0e735f2fd88df4ed24
+        lines: [79, 132]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#coerceSchemaValue
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: coerceSchemaValue
+        hash: sha256:58851f554485f1689c1b6c5e6049a453cba749465e29bb5b4c39acbb4232764e
+        struct_hash: sha256:a0624c5008116cead80e6107fee08e39dc61dd79e3d4778ae51f95e47309e99d
+        doc_struct_hash: sha256:a0624c5008116cead80e6107fee08e39dc61dd79e3d4778ae51f95e47309e99d
+        lines: [134, 215]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#parseSchemaInteger
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: parseSchemaInteger
+        hash: sha256:6e5f7ba3dbef0e451d8e6385cec94e761a3c18fad4a53b84502d7347710838ac
+        struct_hash: sha256:02edbe2ce3d0d368a5f2a5bea7ef972ce28a116036f97cd0e71bb6dc8511f7fc
+        doc_struct_hash: sha256:02edbe2ce3d0d368a5f2a5bea7ef972ce28a116036f97cd0e71bb6dc8511f7fc
+        lines: [217, 232]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

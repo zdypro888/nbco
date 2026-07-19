@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: tools/materials.go
+      level: file
+      anchor:
+        file: tools/materials.go
+        hash: sha256:c5c2044212ff67a8a8c4925fb151774042257557c9574e60021a0bedcd53aa94
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#MaterialLearningMarker
+      level: decl
+      anchor:
+        file: tools/materials.go
+        symbol: MaterialLearningMarker
+        hash: sha256:e64fdd884576c8e2e3c5dafabe8259b531b5d96e4a030c4a27f7afac368bfc15
+        struct_hash: sha256:9ffaab5fde81ffccc96ade9bced22f4458f6e920a567263159f4ff94f12a5bd3
+        doc_struct_hash: sha256:d98c6c531b3f0e85e2026897bec43c7c21b1407d5a50d03b37bfd06cb29e6a93
+        lines: [14, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#materialLearningMarker
+      level: decl
+      anchor:
+        file: tools/materials.go
+        symbol: materialLearningMarker
+        hash: sha256:bc816b3290a67cb916a1cd0f3c54152a1aff34717d947437b4a2bba02302da46
+        struct_hash: sha256:0f734e606415234fea1a169ed21e8716adc580701b5de18c0febb8084d1a7f9a
+        doc_struct_hash: sha256:0f734e606415234fea1a169ed21e8716adc580701b5de18c0febb8084d1a7f9a
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#materialAnalysisArgs
+      level: decl
+      anchor:
+        file: tools/materials.go
+        symbol: materialAnalysisArgs
+        hash: sha256:0f39784d2a7d8c0f5772af6c0a6192d091f95e79319b45cc39d89eecc5f61242
+        struct_hash: sha256:e3032c49f62b04dab594e7c18a6acd2a475af343cc730a97f4da6a6da05fb62d
+        doc_struct_hash: sha256:e3032c49f62b04dab594e7c18a6acd2a475af343cc730a97f4da6a6da05fb62d
+        lines: [20, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#materialTools
+      level: function
+      anchor:
+        file: tools/materials.go
+        symbol: materialTools
+        hash: sha256:22cb5e951b20215326f5b7575ee24b3507d28fc473b7b8243ab867c797f9d65e
+        struct_hash: sha256:a07aaf8bf1442b5071d0dc84fa3efad6fbb69d0e64a14deb918717477fcbff48
+        doc_struct_hash: sha256:a07aaf8bf1442b5071d0dc84fa3efad6fbb69d0e64a14deb918717477fcbff48
+        lines: [27, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#startMaterialAnalysis
+      level: function
+      anchor:
+        file: tools/materials.go
+        symbol: startMaterialAnalysis
+        hash: sha256:0f639fc3b5500f1cc7de69512c27b69a7592a26cc3bf125d9f1a95a68b76c87e
+        struct_hash: sha256:98f4260f2a0adf1af0b85a3c12ffaff88b2546777d61dc79cbdf976bf608e62e
+        doc_struct_hash: sha256:98f4260f2a0adf1af0b85a3c12ffaff88b2546777d61dc79cbdf976bf608e62e
+        lines: [46, 93]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#pickMaterialWorker
+      level: function
+      anchor:
+        file: tools/materials.go
+        symbol: pickMaterialWorker
+        hash: sha256:46b66663b23d60a0c1992fb8d381fa4c09a6d53398d947b03c3b24c7310e03a6
+        struct_hash: sha256:1ce87d2a24b5db26298a729fefab070896594b0469a7ee912e883d7acadc1965
+        doc_struct_hash: sha256:1ce87d2a24b5db26298a729fefab070896594b0469a7ee912e883d7acadc1965
+        lines: [95, 145]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/materials.go#materialAnalysisPrompt
+      level: function
+      anchor:
+        file: tools/materials.go
+        symbol: materialAnalysisPrompt
+        hash: sha256:b5852ae589419de2f8327f8b444babce188f1c680e7810f266bb300c8b4fce8e
+        struct_hash: sha256:13badf050edff60ac68e4649a874660ee18be412f37c6689e2213838433382ed
+        doc_struct_hash: sha256:13badf050edff60ac68e4649a874660ee18be412f37c6689e2213838433382ed
+        lines: [147, 171]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

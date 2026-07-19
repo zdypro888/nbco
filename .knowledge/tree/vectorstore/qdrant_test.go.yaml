@@ -1,0 +1,65 @@
+schema: 1
+nodes:
+    - id: vectorstore/qdrant_test.go
+      level: file
+      anchor:
+        file: vectorstore/qdrant_test.go
+        hash: sha256:15e565432798ea0c599c699141a79d7a132083a7d97fab9ecdbdf12c83af5981
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant_test.go#TestPointUUIDStableAndNamespaced
+      level: function
+      anchor:
+        file: vectorstore/qdrant_test.go
+        symbol: TestPointUUIDStableAndNamespaced
+        hash: sha256:19239ed386d05bdfea432e43a7af3ff1d0beb468ff4a0b49a287d0dad94196e1
+        struct_hash: sha256:1e288db396c230ac9aa53884102740c8871bb7b52b09e533a2951d2205375733
+        doc_struct_hash: sha256:1e288db396c230ac9aa53884102740c8871bb7b52b09e533a2951d2205375733
+        lines: [8, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant_test.go#TestNewQdrantValidatesURLWithoutConnecting
+      level: function
+      anchor:
+        file: vectorstore/qdrant_test.go
+        symbol: TestNewQdrantValidatesURLWithoutConnecting
+        hash: sha256:c315f233170dff7f1a1ead547226301cf318b147001e5219ff05632d7111d78f
+        struct_hash: sha256:05d1862ead3a9c5655921a5c07ab87b856024243851f6141b576fe2526f8940f
+        doc_struct_hash: sha256:05d1862ead3a9c5655921a5c07ab87b856024243851f6141b576fe2526f8940f
+        lines: [17, 31]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant_test.go#TestBuildFilterSupportsTypedPredicates
+      level: function
+      anchor:
+        file: vectorstore/qdrant_test.go
+        symbol: TestBuildFilterSupportsTypedPredicates
+        hash: sha256:0e702d376cce01c128b0916753797335e46515a8d797b8af0a000696a1c0775b
+        struct_hash: sha256:9c0845e8e57b6c11fffbd1b76a6110e6c54517e2f50da7c465c41e31c20661c1
+        doc_struct_hash: sha256:9c0845e8e57b6c11fffbd1b76a6110e6c54517e2f50da7c465c41e31c20661c1
+        lines: [33, 48]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant_test.go#TestQdrantPayloadConversionSupportsStringSlicesWithoutPanic
+      level: function
+      anchor:
+        file: vectorstore/qdrant_test.go
+        symbol: TestQdrantPayloadConversionSupportsStringSlicesWithoutPanic
+        hash: sha256:f866a5dedc8f94b2c7a7134bb72baaf83b5052f439188c84d79e91c7ef6d129d
+        struct_hash: sha256:1da9bbd52db71d40ff459599108a891f72f4f7d270194ade936edc62139f13fb
+        doc_struct_hash: sha256:1da9bbd52db71d40ff459599108a891f72f4f7d270194ade936edc62139f13fb
+        lines: [50, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: vectorstore/qdrant_test.go#TestValidQdrantVectorRejectsNonFiniteValues
+      level: function
+      anchor:
+        file: vectorstore/qdrant_test.go
+        symbol: TestValidQdrantVectorRejectsNonFiniteValues
+        hash: sha256:e8872b0c9780992319ffa35c5bdc5c833306bdf0cf8eb8d5f6bd83622f72bdd6
+        struct_hash: sha256:bf8a66282f81bf474fceefc7d5aa8674f03eb2e165f502f335531c6c5d2ae093
+        doc_struct_hash: sha256:bf8a66282f81bf474fceefc7d5aa8674f03eb2e165f502f335531c6c5d2ae093
+        lines: [66, 75]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

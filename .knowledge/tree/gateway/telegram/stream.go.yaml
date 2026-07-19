@@ -1,0 +1,186 @@
+schema: 1
+nodes:
+    - id: gateway/telegram/stream.go
+      level: file
+      anchor:
+        file: gateway/telegram/stream.go
+        hash: sha256:0b2cdc78bbd3b49719477afee5a79ad9b0091dc9ab3aafab2ccf73ec5b5a2feb
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditInterval
+      level: decl
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditInterval
+        hash: sha256:284b641e3f7ea6949f84b44225142bc870867c4d3e006942180c1172730152f8
+        struct_hash: sha256:243c8034e3efb18c12f832494050edd4d000144c6bf7927420a4c2ed119b9cbd
+        doc_struct_hash: sha256:243c8034e3efb18c12f832494050edd4d000144c6bf7927420a4c2ed119b9cbd
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamTypingEvery
+      level: decl
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamTypingEvery
+        hash: sha256:7c021442db2407f2b04d82d001d1445d321b2fdc72f6de3ca0e0c6bac648227c
+        struct_hash: sha256:4b768dc478621b390e6550bb19efccd1edc86e1997d61887c28a3aa283c7f3d9
+        doc_struct_hash: sha256:4b768dc478621b390e6550bb19efccd1edc86e1997d61887c28a3aa283c7f3d9
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamMaxRunes
+      level: decl
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamMaxRunes
+        hash: sha256:bfa236da3be185371f73fcb0a0c53f58c14e4aa1e7343ee229d717ed9b0e0b82
+        struct_hash: sha256:48e59c4bd25f87b86164d6163cb9a2a9326086f289eca0d7657d6327c52cf3e3
+        doc_struct_hash: sha256:48e59c4bd25f87b86164d6163cb9a2a9326086f289eca0d7657d6327c52cf3e3
+        lines: [19, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor
+      level: decl
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor
+        hash: sha256:00311db7786bb40c475f87464a39ebfe70a1b9176f27e22682b99e9149305a90
+        struct_hash: sha256:9aefdaeb4f5e1bc5d07ab3c426b4db01426cd7b2f69cc33b78e9d176b97887d4
+        doc_struct_hash: sha256:b50350b24ede891aeb3908ad2b04d161ff4cea7c246514dc603abf691165a77d
+        lines: [22, 42]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#Gateway.newStreamEditor
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: Gateway.newStreamEditor
+        hash: sha256:a9d22bcbbb64d20d6b7d764bf8ac938aa9742a72775de21cb2605c441b657339
+        struct_hash: sha256:4df8277c7d7713873d2b7e7484afb37c399fc043dc9bd90481affe67ea6701a6
+        doc_struct_hash: sha256:c7b366a59b1e85f434a4fa570ded13e8e9bd6c6630690c8834c94cfcf0bd01c7
+        lines: [44, 48]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#Gateway.newStreamEditorEvery
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: Gateway.newStreamEditorEvery
+        hash: sha256:14a934e522ec33dcd3746705b85987dfeb1c1da5a8eebb019aaf2aa07b75f54d
+        struct_hash: sha256:e12714cbbdd62c26fb6b7e90767a1d7de7e335dc4a5093b130dadadb95035f65
+        doc_struct_hash: sha256:2181545742133da143455131ab30f2ffc52b959abe31f08c41516a41e1ef2c8b
+        lines: [50, 63]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.loop
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.loop
+        hash: sha256:5f26095a6582c54769c6ee9e6302ff6a5ed3b6a07f1f05c7774d13bfdf531f39
+        struct_hash: sha256:95f7d5a950d3baf2134ec7833ec39367b1f6d7ee0a0b6f67f098b7406f9b8115
+        doc_struct_hash: sha256:95f7d5a950d3baf2134ec7833ec39367b1f6d7ee0a0b6f67f098b7406f9b8115
+        lines: [65, 101]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#Gateway.logStreamPanic
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: Gateway.logStreamPanic
+        hash: sha256:5fec947a729e99467d0887834c55a0f3e28b111d0981114a04f9f01b424ccac5
+        struct_hash: sha256:2e076886de1d06557b367516d7bf74ec079adc54a3c11d69f092d2a483852852
+        doc_struct_hash: sha256:2e076886de1d06557b367516d7bf74ec079adc54a3c11d69f092d2a483852852
+        lines: [103, 105]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.onDelta
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.onDelta
+        hash: sha256:7c2891616e30c971ef5e5ace80981dbae49ce12d38b91d7475b0db08afe753dd
+        struct_hash: sha256:5293d8638c5d43357ee845c3abece12e0f77505c3e9a4a9435d04b9229e2fb57
+        doc_struct_hash: sha256:b4cad97406a2e8bb6dc337034c98dff9f3edcd5af288743357c7588c0f29403d
+        lines: [107, 120]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.flush
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.flush
+        hash: sha256:82723f9aacea24c5f8ac45c34e9c45bf2fbcd9b0fa10b34452e460db73ef7006
+        struct_hash: sha256:fb3048ed7b46da1faff6f89568e7f53738051cc1e35462cbe720bb58614df03e
+        doc_struct_hash: sha256:d9b2522c37e72a8bd7cab43bf84ffd0c9f99ba59ad97d90dfaded80b55a9fdb9
+        lines: [122, 139]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.stopLoop
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.stopLoop
+        hash: sha256:c0c12298f2c03ba516e7bab4d1db0af2c94849746803c42e6dfdf59a7954f0be
+        struct_hash: sha256:b95938515b0c24473c8b4e4310640dcb61a0c1eedb0134846fc0f369e109ae4f
+        doc_struct_hash: sha256:075726c4954cd388a7b9f097bd8a55a9796b46fd8cb431169023907f31beec0b
+        lines: [141, 150]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.finish
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.finish
+        hash: sha256:779916827bf6f17d870067353129b607a5e2dfc4be3a05ca9348a369710394be
+        struct_hash: sha256:b6a9846a1eedbcac21b2bd71952b948300019dd58100fe652e122168442f687f
+        doc_struct_hash: sha256:91e97f1eda7e987b2fbfe0ad7ec606b3f8ad775a1fd6015d9e21c4cbb971f43e
+        lines: [152, 178]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.fail
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.fail
+        hash: sha256:571b298c17b2c4c2fa202e5f88e58518501a600451ecd62afbb03ecee48c8cde
+        struct_hash: sha256:e8d6973cd08d31d59969798148bf0384c1d895ae1c705f4b43b41172a1ac6e4b
+        doc_struct_hash: sha256:37fa43dd95ed1f74d20d1537d99ce14e556562e41d2611018f416a3e633511fc
+        lines: [180, 192]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#streamEditor.editPlaceholder
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: streamEditor.editPlaceholder
+        hash: sha256:48e6a5c8cf16de94c4e797eef4cde5c1b9d5df192769b829a3ea2d2b844dd151
+        struct_hash: sha256:78918d94cbcea68e7553a14ebc461d15d179a0b6f34b63c857c2882a7b3d22ab
+        doc_struct_hash: sha256:a9d7fcafa248ab935070e2743d1522725e1f6f88a9c56e3a7f0f9063f6e9e677
+        lines: [194, 207]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#isNotModified
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: isNotModified
+        hash: sha256:0bf988c9c3d160767d8700292bba4416190212d9d545492ec3173e58c8f31f4d
+        struct_hash: sha256:ced02b66dd66ac13bc61de392230c62a80ce24b16daf07250ccc86d0cb130d75
+        doc_struct_hash: sha256:771ab90b5db62d2cf6ebd7c19570879918990be95f9079e130a2b77f31767512
+        lines: [209, 214]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream.go#plainOf
+      level: function
+      anchor:
+        file: gateway/telegram/stream.go
+        symbol: plainOf
+        hash: sha256:f05f9881cf7d3e4073b99b7a8d1bdf9de43e6e2a67636981a93f3f9330268163
+        struct_hash: sha256:0579beee4d8bca4e8c473e037f9937f3f66d76ae185b4e257a5ccb8b3d089590
+        doc_struct_hash: sha256:233ebf3468ffa5607bcce7b37d332ac5d958c27ce0490ad56fb32f4c95b65ce3
+        lines: [216, 223]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

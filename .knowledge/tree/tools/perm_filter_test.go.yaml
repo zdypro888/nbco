@@ -1,0 +1,164 @@
+schema: 1
+nodes:
+    - id: tools/perm_filter_test.go
+      level: file
+      anchor:
+        file: tools/perm_filter_test.go
+        hash: sha256:63a4d32735de761539e67a0ed2acf450f6a6bef53b1e68038a8a556ca2ccc8a2
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#namesOf
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: namesOf
+        hash: sha256:0581c2b1d9cbf03eff91eb74ee0a21ceb754f0195a3fa9d5a237f49698658b63
+        struct_hash: sha256:2926cc7ab04a54b68dfc1d8792323ca432615d1ae61e2da96f07e6f30591c6b7
+        doc_struct_hash: sha256:2926cc7ab04a54b68dfc1d8792323ca432615d1ae61e2da96f07e6f30591c6b7
+        lines: [11, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestForUserPlainUserHidesGatedTools
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestForUserPlainUserHidesGatedTools
+        hash: sha256:5beda22c6a63d166c20a913205227af4f78ffc123546f5341cda8ed425a9297c
+        struct_hash: sha256:247e77859d743b302ce6c63b366a68e403a2ec3d703001d88245443e2c2f7db4
+        doc_struct_hash: sha256:d1f21f56be3e48b27dd999fe4fb8a56792e53cc32696422db8c90c421b82beee
+        lines: [19, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestFilterByPermGrantUnlocks
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestFilterByPermGrantUnlocks
+        hash: sha256:34a9882cf460d119fb3fb174195e56927bdff72cea5729ddd56546e744b0ddcc
+        struct_hash: sha256:1cd518da80ca70e650b7ebb31dfcaf94d819d413794cdc5f89928729ae073cc6
+        doc_struct_hash: sha256:75fba7b9b0ae4a3cbf3e80e118fb81ff99ce24e5cca51c4f5b9cad4814606d63
+        lines: [56, 71]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestFilterByPermUsesToolMetadataForExternalTools
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestFilterByPermUsesToolMetadataForExternalTools
+        hash: sha256:756c4059a99e323e95346b9638ef2c53a6645d06e61bb0c282173af5e42d5cb4
+        struct_hash: sha256:8c7732f5b588bcd7ba80ca2394c4077e937a83c28025610296c0bf6a877a507f
+        doc_struct_hash: sha256:8c7732f5b588bcd7ba80ca2394c4077e937a83c28025610296c0bf6a877a507f
+        lines: [73, 92]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestManageWorkerGrantUnlocks
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestManageWorkerGrantUnlocks
+        hash: sha256:e1d604a8fe8d452331c792c8b564b9c7363ba3f5a1e242b3f2b25c0e3e13f195
+        struct_hash: sha256:33b23f436a2bf7299a99a5998b2083f1fd6720822a93e87b5ec0f0029245ffe0
+        doc_struct_hash: sha256:41df2bf574defca4c504aae1a83ad89924b9a55cf18c58b66405832fcfe96742
+        lines: [94, 111]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestInviteEmployeeAliasNormalizesToGenerateKey
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestInviteEmployeeAliasNormalizesToGenerateKey
+        hash: sha256:472c0be688d8b154d2ec2ade8d7c4a55045d3d3e68b9ec9f192963d5ab01de35
+        struct_hash: sha256:861d27dc37c6baac1de22d98f45c32442695884d7c35d3f7e47771d10693120b
+        doc_struct_hash: sha256:861d27dc37c6baac1de22d98f45c32442695884d7c35d3f7e47771d10693120b
+        lines: [113, 136]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestManageTelegramGroupGrantUnlocks
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestManageTelegramGroupGrantUnlocks
+        hash: sha256:1e0bdeee205e5ca77e6e656c5cc4ea098b07daf83f5c047c3a553a96bd4bbef9
+        struct_hash: sha256:c0e24150220f63adf3df4a2a1a88abf2de3725d9ff4e4fb5b54a2b64f862c5a0
+        doc_struct_hash: sha256:c0e24150220f63adf3df4a2a1a88abf2de3725d9ff4e4fb5b54a2b64f862c5a0
+        lines: [138, 147]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestCanManagePermTarget
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestCanManagePermTarget
+        hash: sha256:bfebd187ae92e4c6dd7f69fc298cee2bcd1210bc4d962130ed31fbf77f65a183
+        struct_hash: sha256:4e778077ec20beb664e446335afb4e4a96957fc7913f6cf6a0044dc78a1eb31a
+        doc_struct_hash: sha256:4e778077ec20beb664e446335afb4e4a96957fc7913f6cf6a0044dc78a1eb31a
+        lines: [149, 167]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestForUserWorkerMinimalSet
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestForUserWorkerMinimalSet
+        hash: sha256:f93aeed9631be806fb14bf57ab7d33090f1a50c37a6ccd3c4857aed52419ae79
+        struct_hash: sha256:b7768ecc8fbefaa5823a7f17107dfc3d976e5e553b892e4c4180c34bb70d6c08
+        doc_struct_hash: sha256:955a938950945045bf68cb72a03e403ab87be0d5d18c4ccf3f1456ce35d0db39
+        lines: [169, 189]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestForUserAdminWorkerSeesSystemTools
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestForUserAdminWorkerSeesSystemTools
+        hash: sha256:33b52f7c1ba2a0b050069582586c89c1d2b1e8e69ff35e0de086cff7c379fb20
+        struct_hash: sha256:c166256d82fd9a8ca9b8bf09cf3e7cb3e6019f84e5fce95780bc7d495e24332c
+        doc_struct_hash: sha256:c166256d82fd9a8ca9b8bf09cf3e7cb3e6019f84e5fce95780bc7d495e24332c
+        lines: [191, 199]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestForUserSuperadminSeesAll
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestForUserSuperadminSeesAll
+        hash: sha256:2dcaa4a7367882625157e480c5f2d027e2458ec96fc0a91c074c88b4789ac2a2
+        struct_hash: sha256:36da2ae9e99ee11be5d631d9eb989c58a34b2bca8f988637e394fe2a65c8a909
+        doc_struct_hash: sha256:563ce508584f1018251cd503b20e409abb345e15d1cc8fa6f4fdb3f604814653
+        lines: [201, 221]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestToolPermRegistryNamesExist
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestToolPermRegistryNamesExist
+        hash: sha256:31bbdfb2d0264d6af6c56872d49097400ec6e40d79496a3fadd78bdc13cb644e
+        struct_hash: sha256:8d8311deee9f1ec62e762ac109ae8faccd1727f7d50aa8e52336c060489fd9fd
+        doc_struct_hash: sha256:8ac51ad74140a9db859561a467aa40f0635633c648860c80ef2250af2fbc3c94
+        lines: [223, 237]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestStripGroupSensitive
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestStripGroupSensitive
+        hash: sha256:9caa4d0565854467eb6e393459ad6d5724f2eb29ed53ca5e78776ec8fc6eab6a
+        struct_hash: sha256:dbd0be61ce70bcae6f66a6d477b255f7926014000dce9d138c5f5002bf73b5b2
+        doc_struct_hash: sha256:dbd0be61ce70bcae6f66a6d477b255f7926014000dce9d138c5f5002bf73b5b2
+        lines: [239, 273]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perm_filter_test.go#TestStripApprovalRequired
+      level: function
+      anchor:
+        file: tools/perm_filter_test.go
+        symbol: TestStripApprovalRequired
+        hash: sha256:804a56e438aca07a95eb926b3932ef592f89ffbca428156b1eedec0d5c0f5627
+        struct_hash: sha256:2c9965a9c3b0f2372aaf4198abdde1d9c7ded5a7629397f82495eb27b1062e4d
+        doc_struct_hash: sha256:2c9965a9c3b0f2372aaf4198abdde1d9c7ded5a7629397f82495eb27b1062e4d
+        lines: [275, 290]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

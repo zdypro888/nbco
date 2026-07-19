@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/fifo_windows_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/fifo_windows_test.go
+        hash: sha256:3413cc2d9a730e703b70a0af3ca3ccbb5edd4849e49a25441176cb3a56d74e63
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/fifo_windows_test.go#makeFIFO
+      level: function
+      anchor:
+        file: cmd/nbco-worker/fifo_windows_test.go
+        symbol: makeFIFO
+        hash: sha256:7a677e28dbf68abb5c395db6d5a84152daaabbd44af660db3e32567a79f10269
+        struct_hash: sha256:ae716753ea64a887c28f73379828e10ddfff7493cb455f8aae9f61ec2f3a3be7
+        doc_struct_hash: sha256:ae716753ea64a887c28f73379828e10ddfff7493cb455f8aae9f61ec2f3a3be7
+        lines: [7, 9]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

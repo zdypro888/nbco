@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/artifact_windows.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/artifact_windows.go
+        hash: sha256:ecbadccb8b394708908ff1cc98d1e5b1168e0db28af2ee9ea2cf1dded574d403
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/artifact_windows.go#openArtifactFile
+      level: function
+      anchor:
+        file: cmd/nbco-worker/artifact_windows.go
+        symbol: openArtifactFile
+        hash: sha256:56b3447d50b265b16da25bb489ed532ac4c08aa625c9d01a01eada1848bb7b17
+        struct_hash: sha256:3e806cce91bfb2e1eaf8683c3f5a5ae9fe045c63b638afceeae347514c6e2ddf
+        doc_struct_hash: sha256:7696f05099940e8b71e0071baf41f9a2b6b2b94420e22d9d1bd37da23a7e38ac
+        lines: [10, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

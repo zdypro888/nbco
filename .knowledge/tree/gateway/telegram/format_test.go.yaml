@@ -1,0 +1,120 @@
+schema: 1
+nodes:
+    - id: gateway/telegram/format_test.go
+      level: file
+      anchor:
+        file: gateway/telegram/format_test.go
+        hash: sha256:4da496462c8c78d843885d03aab748b6606074324194b169f7be05096556d29e
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLPassthrough
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLPassthrough
+        hash: sha256:f9ac54f997424f3a1315db068c118c69b7349fae13a59df4dfc6bed15b958608
+        struct_hash: sha256:aa95f5d71492a90b06b46700a68c9e7a3666d9a3777bcf48d090fe381e82f442
+        doc_struct_hash: sha256:aa95f5d71492a90b06b46700a68c9e7a3666d9a3777bcf48d090fe381e82f442
+        lines: [8, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLPlainUnchanged
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLPlainUnchanged
+        hash: sha256:6c949a7584d6384a37e531eff51e4cdd712e005db90b82323fb8ff09548983c1
+        struct_hash: sha256:1d554f1dcdaf09a0ebc929e2e638c1a195a09b04d547c2a15cd3bf4cc323b758
+        doc_struct_hash: sha256:1d554f1dcdaf09a0ebc929e2e638c1a195a09b04d547c2a15cd3bf4cc323b758
+        lines: [15, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLRestoresDoubleEscapedLayout
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLRestoresDoubleEscapedLayout
+        hash: sha256:7acc77eb3258a6e80da642ff6465958dd6dccf84d0c0e3ebbbfeca0b01253710
+        struct_hash: sha256:c17f9a142da60753f07c205a3978aad0b9f5c5cccb5925a6bcc0e03535ae6d48
+        doc_struct_hash: sha256:c17f9a142da60753f07c205a3978aad0b9f5c5cccb5925a6bcc0e03535ae6d48
+        lines: [22, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLMarkdown
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLMarkdown
+        hash: sha256:2766ad920357423375996ba2ffed5c36be9d125f560d3fe29a037bcd62b61b93
+        struct_hash: sha256:36dd9f320d759ec4e4eaadb8fea559998e12bceb7000caf9815a1459414578c0
+        doc_struct_hash: sha256:36dd9f320d759ec4e4eaadb8fea559998e12bceb7000caf9815a1459414578c0
+        lines: [30, 43]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLTable
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLTable
+        hash: sha256:41f005b26826a2d2d66f5075a2244054ee46002cb20a1dcb57617a037c09fbb4
+        struct_hash: sha256:240811e711ad331e7830d754f74b41936dd7e68917382fa00ef571f15d6864f0
+        doc_struct_hash: sha256:240811e711ad331e7830d754f74b41936dd7e68917382fa00ef571f15d6864f0
+        lines: [45, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLRawHTMLTable
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLRawHTMLTable
+        hash: sha256:69833e64e4f1cb3155a9a5ba4962f7370fc98c692c074cfbab90655b13925925
+        struct_hash: sha256:43cf5c534590415dac14ae53c8415d6ee8cf4979d65c9fdc2a41dd59b5477a5a
+        doc_struct_hash: sha256:43cf5c534590415dac14ae53c8415d6ee8cf4979d65c9fdc2a41dd59b5477a5a
+        lines: [58, 70]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLMixedHTMLAndMarkdown
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLMixedHTMLAndMarkdown
+        hash: sha256:799cab66c5689cfdb0734865ddc1b75bca85cfee456f271bca95ecfa6aafa075
+        struct_hash: sha256:98961187f576d4e95428f14e24f6e8d26cf49cd88b5f3822160b657311c58b45
+        doc_struct_hash: sha256:98961187f576d4e95428f14e24f6e8d26cf49cd88b5f3822160b657311c58b45
+        lines: [72, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLRepairsMalformedClosingTags
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLRepairsMalformedClosingTags
+        hash: sha256:684b6bc66a8df7a541f73f5c9ca59fc00a475cf047ad69850d9e2c2197594e8b
+        struct_hash: sha256:334ff1f4f3d03916aa15af3f95808a3fbae5d7d3960df070bd68da94499b112f
+        doc_struct_hash: sha256:334ff1f4f3d03916aa15af3f95808a3fbae5d7d3960df070bd68da94499b112f
+        lines: [84, 96]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLCodeBlockProtected
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLCodeBlockProtected
+        hash: sha256:7b01037489783f8cd5600a37a0189971643d1433c3a1f9d464a576cecacc0f66
+        struct_hash: sha256:230a6a310795d7e65b41c1091a8598bf25c1e58b86a9cee1b09101aa62e3e4c9
+        doc_struct_hash: sha256:230a6a310795d7e65b41c1091a8598bf25c1e58b86a9cee1b09101aa62e3e4c9
+        lines: [98, 103]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLEscapes
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLEscapes
+        hash: sha256:fa4f7ef4eaae0a1e0173a5cdcb539c0502cb6ddf8f14769d41ce66f8d2efae92
+        struct_hash: sha256:80c65b0b9b757712e1e59d109d97c589b4eea62c3712dfbde2f6e7815c032097
+        doc_struct_hash: sha256:80c65b0b9b757712e1e59d109d97c589b4eea62c3712dfbde2f6e7815c032097
+        lines: [105, 110]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

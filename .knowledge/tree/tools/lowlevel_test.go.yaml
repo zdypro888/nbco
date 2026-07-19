@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: tools/lowlevel_test.go
+      level: file
+      anchor:
+        file: tools/lowlevel_test.go
+        hash: sha256:cdbd3fca93f9fb534717d02369a05269d48ef8b2985efa45f8043f6b33d871f8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/lowlevel_test.go#TestValidateLowLevelQuerySQL
+      level: function
+      anchor:
+        file: tools/lowlevel_test.go
+        symbol: TestValidateLowLevelQuerySQL
+        hash: sha256:131ba522e6e0b363d7bb7f14174d9d40ebb77f73397371f54e8112429b9464f9
+        struct_hash: sha256:e040a83743628d949a3abfa6590282ea21b7c2d958029d3648b8494c6c9b7ec1
+        doc_struct_hash: sha256:e040a83743628d949a3abfa6590282ea21b7c2d958029d3648b8494c6c9b7ec1
+        lines: [5, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/lowlevel_test.go#TestValidateLowLevelExecSQL
+      level: function
+      anchor:
+        file: tools/lowlevel_test.go
+        symbol: TestValidateLowLevelExecSQL
+        hash: sha256:b9ec7ec250f4a5583b5635e1647d08692c0f9ce557d8630e6982533484e4057d
+        struct_hash: sha256:6e34df5d7c8c6fb26a5b3d433974711bed9995e6b9a4ef119996dfb8dcc8c447
+        doc_struct_hash: sha256:6e34df5d7c8c6fb26a5b3d433974711bed9995e6b9a4ef119996dfb8dcc8c447
+        lines: [29, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/lowlevel_test.go#TestClampLowLevelLimit
+      level: function
+      anchor:
+        file: tools/lowlevel_test.go
+        symbol: TestClampLowLevelLimit
+        hash: sha256:59f43c989e0f8edf04f0c42c2b4277e026584146806b41fbccd76350d0b26d10
+        struct_hash: sha256:a4a4239428846366854861ebcdcf4ba2ae8e8ee73c7df34ea3a49a184e264b5d
+        doc_struct_hash: sha256:a4a4239428846366854861ebcdcf4ba2ae8e8ee73c7df34ea3a49a184e264b5d
+        lines: [56, 66]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

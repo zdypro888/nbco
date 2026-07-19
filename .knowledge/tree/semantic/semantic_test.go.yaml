@@ -1,0 +1,340 @@
+schema: 1
+nodes:
+    - id: semantic/semantic_test.go
+      level: file
+      anchor:
+        file: semantic/semantic_test.go
+        hash: sha256:4760b579a31d63d6f16ff72d81d051cbdf775053fead1c113b61de1e0a11d003
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#poisonEmbedder
+      level: decl
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: poisonEmbedder
+        hash: sha256:5b8416becc4dade9526970189d64c081426292a0a5f666fd4312c206ba016a55
+        struct_hash: sha256:673f52805393194a80a630e081fac62995fa3e2755f8811393c00f2d22a05a39
+        doc_struct_hash: sha256:673f52805393194a80a630e081fac62995fa3e2755f8811393c00f2d22a05a39
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#poisonEmbedder.Model
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: poisonEmbedder.Model
+        hash: sha256:c237e863b88e3aff75a2a7a881e6b1d0e24669b1ad9cd2807cc5791c0df4bd34
+        struct_hash: sha256:92c55e9f507200891707fdf546f736cae9adf7e151a897bb207c1b4169f99713
+        doc_struct_hash: sha256:92c55e9f507200891707fdf546f736cae9adf7e151a897bb207c1b4169f99713
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#poisonEmbedder.Embed
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: poisonEmbedder.Embed
+        hash: sha256:6713fcf95e7417fb435fde448e624b0a37b6fbba605a772a3a2f8021363c5583
+        struct_hash: sha256:92f9068b6a5d1b4ebd1a864db47c0a3bd292b844fb0d06130cf2e8183c83bb98
+        doc_struct_hash: sha256:92f9068b6a5d1b4ebd1a864db47c0a3bd292b844fb0d06130cf2e8183c83bb98
+        lines: [22, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#testEmbedder
+      level: decl
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: testEmbedder
+        hash: sha256:d6e067e95c4c311517c92b848ae6a4810b84af5f4a19394b5e5a2c4196f67bd8
+        struct_hash: sha256:47bcfd85126487bdacc4a71597bd06d28b0f46912b4a837a31a77dddb84209d4
+        doc_struct_hash: sha256:47bcfd85126487bdacc4a71597bd06d28b0f46912b4a837a31a77dddb84209d4
+        lines: [35, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#testEmbedder.Model
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: testEmbedder.Model
+        hash: sha256:b62eb88a8d32d6d164e0ca53fefc4a6653009c27418b6c94397208192b663f5c
+        struct_hash: sha256:15ebd6a49d53211c195c4ded1d972dc7c038c86a919b7deb0284e7688a3d5a01
+        doc_struct_hash: sha256:15ebd6a49d53211c195c4ded1d972dc7c038c86a919b7deb0284e7688a3d5a01
+        lines: [41, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#testEmbedder.Embed
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: testEmbedder.Embed
+        hash: sha256:35f71f26c179e9161dabc3831a23ab6a1aeff4e30ec63d8e9a00382ab7fa4076
+        struct_hash: sha256:43747e60c3d88f6b6d178fabbff820d578ff9e4b0c406ec0432743684246606a
+        doc_struct_hash: sha256:43747e60c3d88f6b6d178fabbff820d578ff9e4b0c406ec0432743684246606a
+        lines: [42, 52]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#testEmbedder.embeddedTexts
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: testEmbedder.embeddedTexts
+        hash: sha256:0d2ec1e23f020dadfc93f4d24152b42f065542e6d2bd56cb6ce727d56015dd39
+        struct_hash: sha256:5a7e89df9ab120a668facc9a0cdfe6d42cf01dedb622bcc853e92756ee46fbb0
+        doc_struct_hash: sha256:5a7e89df9ab120a668facc9a0cdfe6d42cf01dedb622bcc853e92756ee46fbb0
+        lines: [54, 58]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors
+      level: decl
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors
+        hash: sha256:5be2e60d9d37b26b4a01307e87986157b7dec7085d0f5b5ddd8eb19159ee224b
+        struct_hash: sha256:57279a1c748fbf0f344d6c352c103f12673056e59300fc7f248fc45736fe5e4c
+        doc_struct_hash: sha256:57279a1c748fbf0f344d6c352c103f12673056e59300fc7f248fc45736fe5e4c
+        lines: [60, 63]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#newMemoryVectors
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: newMemoryVectors
+        hash: sha256:a90de97be58de4cdd5c95c09d15faff2a8a169cd4d1e47b178ad0f2f77c7fd46
+        struct_hash: sha256:369cf653040119b7ef81443ceb228e76d70d1ddb6fddbe3e73c32a7b75618640
+        doc_struct_hash: sha256:369cf653040119b7ef81443ceb228e76d70d1ddb6fddbe3e73c32a7b75618640
+        lines: [65, 67]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.Upsert
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.Upsert
+        hash: sha256:50ce00c9c551a5b23aeb5477d6f36dd533e1a1a87089df05b491123d03337c69
+        struct_hash: sha256:0dbdb84d9b77779849f17a0db4b04b96d8560749773c787cf5aadc3da715450a
+        doc_struct_hash: sha256:0dbdb84d9b77779849f17a0db4b04b96d8560749773c787cf5aadc3da715450a
+        lines: [69, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.Search
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.Search
+        hash: sha256:1708fa592546b9e1f4a9ed3470d98d7fed7ca21a96885d7e24d702361377edda
+        struct_hash: sha256:84d5dadd787bce4f993a85e128909d5b2e936c6290e265839a62b7271b1b6f0c
+        doc_struct_hash: sha256:84d5dadd787bce4f993a85e128909d5b2e936c6290e265839a62b7271b1b6f0c
+        lines: [78, 96]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.Hashes
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.Hashes
+        hash: sha256:781147e399b8c9eec8646afa813b14b1050ff95e5b5709751c01d7ecd645c89f
+        struct_hash: sha256:6295353680bc0e9a0d6e00844459e46940f2202e1c515d8f6d6b43aba4bc66b0
+        doc_struct_hash: sha256:6295353680bc0e9a0d6e00844459e46940f2202e1c515d8f6d6b43aba4bc66b0
+        lines: [98, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.List
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.List
+        hash: sha256:f4b72676e6fba0e181644986057ac7e80c80dbcd22791737621f5e5db166d328
+        struct_hash: sha256:eeca8a6c1d24bd1e9c73a83d0b3964fc35bf66edbd363664b927aee4fd4bcc49
+        doc_struct_hash: sha256:eeca8a6c1d24bd1e9c73a83d0b3964fc35bf66edbd363664b927aee4fd4bcc49
+        lines: [110, 120]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.Delete
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.Delete
+        hash: sha256:a76e115ac772ca92fa709437b0daedaba86afcc3fa0751ca260bcf7c2c19d8a7
+        struct_hash: sha256:02fe413f1b67f1e2bb121f75313ff88df86b45ca41cbfd34f2125fe4b28f9947
+        doc_struct_hash: sha256:02fe413f1b67f1e2bb121f75313ff88df86b45ca41cbfd34f2125fe4b28f9947
+        lines: [122, 129]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.Ping
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.Ping
+        hash: sha256:60e356ebad544bed964d15d7892b99106757c12d5949c85108f88ee53e9f92a4
+        struct_hash: sha256:0df5476fe1e5adf0a97b8a91db2a800f6da491a2ea755f4d1e30ed181c1ca4d2
+        doc_struct_hash: sha256:0df5476fe1e5adf0a97b8a91db2a800f6da491a2ea755f4d1e30ed181c1ca4d2
+        lines: [131, 131]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#memoryVectors.Close
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: memoryVectors.Close
+        hash: sha256:00ae4b483426ee5ae200fcd24b7acaaf2e8c5b57aeeed85a14d92364e1d22aa0
+        struct_hash: sha256:6585fbf62f7d72f8ca1ffb729780c69f641fb41099cc8d7d7076e9b6ae254c4a
+        doc_struct_hash: sha256:6585fbf62f7d72f8ca1ffb729780c69f641fb41099cc8d7d7076e9b6ae254c4a
+        lines: [132, 132]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestUpsertDocumentsSkipsUnchangedAndStoresNoContent
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestUpsertDocumentsSkipsUnchangedAndStoresNoContent
+        hash: sha256:0611e6936fba398dce5b35f3faf9f3531ebf5aedf25244c507737d91df39b0ec
+        struct_hash: sha256:b22d7a81dabfe10492c8b1e87677a647d2993b70b8068e7f3899f11e2b8ee8b4
+        doc_struct_hash: sha256:b22d7a81dabfe10492c8b1e87677a647d2993b70b8068e7f3899f11e2b8ee8b4
+        lines: [134, 165]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestSemanticBoundaryRedactsDocumentsQueriesAndPayloads
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestSemanticBoundaryRedactsDocumentsQueriesAndPayloads
+        hash: sha256:0c72beb38125d9cd414f961f1e968d793755343e537d9926dfc3af84d164d79a
+        struct_hash: sha256:8664de97c54f234aaa5fad10549414cf20195dfc16522989addf7aa10ebff9ed
+        doc_struct_hash: sha256:8664de97c54f234aaa5fad10549414cf20195dfc16522989addf7aa10ebff9ed
+        lines: [167, 204]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestUpsertDocumentsIsolatesRejectedInput
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestUpsertDocumentsIsolatesRejectedInput
+        hash: sha256:09418b6eb9c75dc35d47cdf66a41f754ada8e827684a7a6e7e3f9771b6b9fe65
+        struct_hash: sha256:624af0e044786b5d3a2794418929250f317ed032e7a7acea33bc6161c2e7741e
+        doc_struct_hash: sha256:624af0e044786b5d3a2794418929250f317ed032e7a7acea33bc6161c2e7741e
+        lines: [206, 226]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestCompactEmbeddingContentHonorsHardLimitAndKeepsTail
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestCompactEmbeddingContentHonorsHardLimitAndKeepsTail
+        hash: sha256:e95785d1ff25c42eb929b33a2ccd69e5b733ad57bac26d64f535e82304f15b42
+        struct_hash: sha256:26d041ec858b6671b6c0d896174202662ae53281772c518d02c614ea4ef5e334
+        doc_struct_hash: sha256:26d041ec858b6671b6c0d896174202662ae53281772c518d02c614ea4ef5e334
+        lines: [228, 237]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestDeleteMissing
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestDeleteMissing
+        hash: sha256:90abe10fda65ff043592b7c8c3f4dd34f6156b1d1f9905601a1613b136c1f74a
+        struct_hash: sha256:b26cef3e2f6f63759814609fc00cdcd4089f31102b9311bd1b01c7261f95df0d
+        doc_struct_hash: sha256:b26cef3e2f6f63759814609fc00cdcd4089f31102b9311bd1b01c7261f95df0d
+        lines: [239, 258]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestStructuredSyncForcesFullOnModelChange
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestStructuredSyncForcesFullOnModelChange
+        hash: sha256:0078b6914d4c830ec6470b1c6dabf87641a22ea9c4fa09189450b24bedd77733
+        struct_hash: sha256:4df87c5f8a7e6b571b9006ddb7371001e3dd2b02d536ef496e5c578260a17f0f
+        doc_struct_hash: sha256:4df87c5f8a7e6b571b9006ddb7371001e3dd2b02d536ef496e5c578260a17f0f
+        lines: [260, 275]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestQueryVectorCache
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestQueryVectorCache
+        hash: sha256:ea54ae00d6c29d3e004aedc56fd333fdbbf705e491e37f1606b1c1e7fa1ce4b0
+        struct_hash: sha256:da5c50bd7cf995a9473fa7a5e1c903624ce0487dba737e6e2f48d094950d7d25
+        doc_struct_hash: sha256:da5c50bd7cf995a9473fa7a5e1c903624ce0487dba737e6e2f48d094950d7d25
+        lines: [277, 289]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestVectorFingerprintTracksActualModelOutput
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestVectorFingerprintTracksActualModelOutput
+        hash: sha256:6eac18405d5699b22285d173e8f7b267020d9f94f0ff3f5df63aadaf2d8c7f0b
+        struct_hash: sha256:99ad7a13d4ba4bac1243251d5896302e213f9125362af739b900b4bf9de9cb68
+        doc_struct_hash: sha256:99ad7a13d4ba4bac1243251d5896302e213f9125362af739b900b4bf9de9cb68
+        lines: [291, 301]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestValidateVectorRejectsNonFiniteValues
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestValidateVectorRejectsNonFiniteValues
+        hash: sha256:2692a6115497e46f18ced3011648d13e34c1a19fccc2fe42b0826e1f191e06f0
+        struct_hash: sha256:a45512b4710e9399a5cdb45bfaad1df48ff07c0f32d1a2a3e0fb1d7d91c6f923
+        doc_struct_hash: sha256:a45512b4710e9399a5cdb45bfaad1df48ff07c0f32d1a2a3e0fb1d7d91c6f923
+        lines: [303, 312]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#measuredEmbedder
+      level: decl
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: measuredEmbedder
+        hash: sha256:93a8c0b13201279c4d184fece54389f56e82f1a04c29edebbf8e47d6397624e5
+        struct_hash: sha256:731e8753d383dcb2044d374e9e85268edb1de97dd6819134eddcb7bda3f983ce
+        doc_struct_hash: sha256:731e8753d383dcb2044d374e9e85268edb1de97dd6819134eddcb7bda3f983ce
+        lines: [314, 318]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#measuredEmbedder.Model
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: measuredEmbedder.Model
+        hash: sha256:388fbd033f3187a802eff238881920e422979eed9f34d6e386630ee2785a21bc
+        struct_hash: sha256:ab24ac0804757fd49915bdc90d17b861a73da355d30444a333ead6f2497dd0f4
+        doc_struct_hash: sha256:ab24ac0804757fd49915bdc90d17b861a73da355d30444a333ead6f2497dd0f4
+        lines: [320, 320]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#measuredEmbedder.Embed
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: measuredEmbedder.Embed
+        hash: sha256:edd54911636654fd90546c7fc946b7c23839d8b9c0f719d8c73126d6b1a9d093
+        struct_hash: sha256:35cc55c66499f023ba8dce59bd9939cec4ce4efa95bdac6e587b3218a223bd38
+        doc_struct_hash: sha256:35cc55c66499f023ba8dce59bd9939cec4ce4efa95bdac6e587b3218a223bd38
+        lines: [322, 337]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#recordMax
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: recordMax
+        hash: sha256:4fa34f67f4f87c4d821c308ff2afd551643b38a5f16d2fb72815de9522df121d
+        struct_hash: sha256:fe1247325fc916f7b9df144562e79a0c9220f2874db6d45f643feebbd10b72e3
+        doc_struct_hash: sha256:fe1247325fc916f7b9df144562e79a0c9220f2874db6d45f643feebbd10b72e3
+        lines: [339, 342]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestBulkEmbeddingsAreSerializedAndBounded
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestBulkEmbeddingsAreSerializedAndBounded
+        hash: sha256:1277ad611fb310d603f90088f8e699eae26082d364451ba921297d1a436c6646
+        struct_hash: sha256:72f62be56be0a6b2723645720f736f5988203617e085b5ea57824a6e10143d8f
+        doc_struct_hash: sha256:72f62be56be0a6b2723645720f736f5988203617e085b5ea57824a6e10143d8f
+        lines: [344, 381]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

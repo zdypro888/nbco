@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: mcptools/mcptools.go
+      level: file
+      anchor:
+        file: mcptools/mcptools.go
+        hash: sha256:c205815c7bca9a17d21dd0044282612eddb5acf98aa18872601e0bb0ee382544
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools.go#Connect
+      level: function
+      anchor:
+        file: mcptools/mcptools.go
+        symbol: Connect
+        hash: sha256:6b2d2277936613c5f1ec2e9c90793facc2d45e56f9132aae93330e6f1e4baeb1
+        struct_hash: sha256:9c8057fa3aa80c4806d4c72d9914f16da8dc3ae31deb392a5de2d9a6583e10b1
+        doc_struct_hash: sha256:81080f9ca27ec7f9fcfa57f0227f2c023d3e258bcb8271eea97659f6a6aa5d47
+        lines: [23, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools.go#externalToolName
+      level: function
+      anchor:
+        file: mcptools/mcptools.go
+        symbol: externalToolName
+        hash: sha256:f46ddf1cf560d10702f49eedecb88159887224f38afe455f91d4f1ab48239434
+        struct_hash: sha256:42e99c62221b5a865535e21420b9947af994dbe575e5cb06e0044a0d2c1cc262
+        doc_struct_hash: sha256:aa20ec9e3cf3285e71768ec2bb52c48bea2c36e4bfc5d79939dbafd564924ac2
+        lines: [84, 120]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools.go#toSchemaMap
+      level: function
+      anchor:
+        file: mcptools/mcptools.go
+        symbol: toSchemaMap
+        hash: sha256:e9152b312798610db0b6b3299bc5f6ede4e72eeb6268d2b37df8439a5dd4dbd7
+        struct_hash: sha256:9d5ba3c9b32ef800c4dcc7977dd16d3f1a84e08f37d93225d27042f765ef34c7
+        doc_struct_hash: sha256:ee04fc748b37e63fc5702b4b93f9bbf6a354a0da82a9173e644643da0090acd8
+        lines: [122, 135]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools.go#contentText
+      level: function
+      anchor:
+        file: mcptools/mcptools.go
+        symbol: contentText
+        hash: sha256:486d0f9b9cb95ede307f8062b245dac99a6a3cf73d8cc4f16269c6a2cf552113
+        struct_hash: sha256:630d1b6f25b8f9611e91f600725d56f8a61e6ad14a812d601fb6eac155cc60df
+        doc_struct_hash: sha256:630d1b6f25b8f9611e91f600725d56f8a61e6ad14a812d601fb6eac155cc60df
+        lines: [137, 153]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools.go#headerTransport
+      level: decl
+      anchor:
+        file: mcptools/mcptools.go
+        symbol: headerTransport
+        hash: sha256:46abd8bd7865ca8ce94e1be5d33b04574c53397221b31865a1fc4e30b5d69639
+        struct_hash: sha256:9c96af65892a8ad685ba8267d2f27ad61127a634d1f9d4dad5f7a8fb81c2e72c
+        doc_struct_hash: sha256:13d549bccff600f2bc6b636580596d71fc58081c33fba19356abb8e5fd7bd4aa
+        lines: [155, 158]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools.go#headerTransport.RoundTrip
+      level: function
+      anchor:
+        file: mcptools/mcptools.go
+        symbol: headerTransport.RoundTrip
+        hash: sha256:c99e19675bb9dd285c418ba7eb042d9b89255ac6e31319789fb64e5fde9b8ced
+        struct_hash: sha256:27954cfdf12bfe10c817309aa14df53c0e2e29084c30ccba05d078a6978c0378
+        doc_struct_hash: sha256:27954cfdf12bfe10c817309aa14df53c0e2e29084c30ccba05d078a6978c0378
+        lines: [160, 167]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

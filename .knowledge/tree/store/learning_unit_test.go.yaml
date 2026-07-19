@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: store/learning_unit_test.go
+      level: file
+      anchor:
+        file: store/learning_unit_test.go
+        hash: sha256:960279da77327c90bd7ac53de497fbeba94c7472d76a3134f4fe80181460b5e3
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning_unit_test.go#TestLearningTextSimilarity
+      level: function
+      anchor:
+        file: store/learning_unit_test.go
+        symbol: TestLearningTextSimilarity
+        hash: sha256:aabc2dc87f6ae913d9942eac249975cfce4d85f2fa8f4d030d89fbdbb4a8f130
+        struct_hash: sha256:bb0bd6378f14b939e1f63fed46b98d9013e33db13eaaa445e067f4ffc94b8f67
+        doc_struct_hash: sha256:bb0bd6378f14b939e1f63fed46b98d9013e33db13eaaa445e067f4ffc94b8f67
+        lines: [5, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning_unit_test.go#TestLearningConflictIsGenericAndNotDuplicate
+      level: function
+      anchor:
+        file: store/learning_unit_test.go
+        symbol: TestLearningConflictIsGenericAndNotDuplicate
+        hash: sha256:bd6dac14c3629d7c25d7e4b25888a43eff28012c98cc1c2e0581a38512d445a7
+        struct_hash: sha256:18651ced661c29ac958c6baca3c2061492484d01dfc0a421c78668224ae9faa7
+        doc_struct_hash: sha256:18651ced661c29ac958c6baca3c2061492484d01dfc0a421c78668224ae9faa7
+        lines: [22, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

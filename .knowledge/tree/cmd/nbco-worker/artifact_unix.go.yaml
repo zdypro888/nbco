@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/artifact_unix.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/artifact_unix.go
+        hash: sha256:7a33d6cf9fe321e50032337619359a17b20545feefb99b8b69c982348cdca7d4
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/artifact_unix.go#openArtifactFile
+      level: function
+      anchor:
+        file: cmd/nbco-worker/artifact_unix.go
+        symbol: openArtifactFile
+        hash: sha256:e469f6362f352dae8d4cecc0244c362a02134a8563692ed5ca80716e2ab89391
+        struct_hash: sha256:bd40d1402490c1b683d44f97f127a8a619b8ad8fe0a4885bd0055d25b752f7f1
+        doc_struct_hash: sha256:6d7f2fdcaf72c09fb92d0416e9c64b97b869f29eb703e6ec9dc6e9f122d79734
+        lines: [11, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

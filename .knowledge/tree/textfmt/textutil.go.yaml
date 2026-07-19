@@ -1,0 +1,329 @@
+schema: 1
+nodes:
+    - id: textfmt/textutil.go
+      level: file
+      anchor:
+        file: textfmt/textutil.go
+        hash: sha256:1eee5428e66e6017957ed924c28d8663baaaa3bdf650623ddfda774b992f5beb
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#TruncateRunes
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: TruncateRunes
+        hash: sha256:80b610925968e456478cddd87d71a51be13a8e83e1207c46842f6312380d0d59
+        struct_hash: sha256:02f4fd1deb36a0ed39b0d0d5fe3cc187a3399e3b2768b6a2d2bd3d13b78af5c4
+        doc_struct_hash: sha256:c04360b4744594ee6aa568ae89adebbaf7f94b39ce76cb4fcbc0c8277906274a
+        lines: [11, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#FormatBytes
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: FormatBytes
+        hash: sha256:c2088244a94c756c3c879334495fdae5857dda3e56d14a564abd5aa7c8242d44
+        struct_hash: sha256:7c94409acf3b72862dcea3c143cf0fa100d64349fffee377c5b8a1cf988c1670
+        doc_struct_hash: sha256:c51811ec9513d56041e8a8c7b39a51425310667bc2d3a6e0b1c6c0bcf5fa7caa
+        lines: [21, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#NormalizeScopeTags
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: NormalizeScopeTags
+        hash: sha256:bab37dcbaa055d1510e56f08b76873ef20f20cbb149072503f857f47cf72d860
+        struct_hash: sha256:d8b9ea019cacd86479cf39b67a0a516082ffb2ddece2b299d0c10bcc6fd253d8
+        doc_struct_hash: sha256:0339e4bbf0a5634a4e25c17f0fa15e07ac07454a5218ac19ac6e58966b302677
+        lines: [37, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#secretJSONAssignmentRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: secretJSONAssignmentRe
+        hash: sha256:78153fd8d47f0c39563d178743fb56f2b7c6beca3179cb69ef896aee1e796ed3
+        struct_hash: sha256:aa7a915d66ab76b5097ffe3ea5794a657a63af9d13badd66c051e3fbb3cb671a
+        doc_struct_hash: sha256:aa7a915d66ab76b5097ffe3ea5794a657a63af9d13badd66c051e3fbb3cb671a
+        lines: [57, 57]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#secretKVAssignmentRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: secretKVAssignmentRe
+        hash: sha256:53f968527fd021db4b33a3d3b3152f2f94720b7d836b99fedd5e444258e2ef0b
+        struct_hash: sha256:6e064f06f9b4416fbdd7690b28df2bd77bb663ce130dde6b81ba6b8886fe786e
+        doc_struct_hash: sha256:6e064f06f9b4416fbdd7690b28df2bd77bb663ce130dde6b81ba6b8886fe786e
+        lines: [58, 58]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#secretPatterns
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: secretPatterns
+        hash: sha256:1e497be7c89f5cb7973895282a0c65be57d6242712dfaab0cdebbb0816b3b5f9
+        struct_hash: sha256:2a65a07255cb4f22bfa750902fe722055945146c31ddcd52c9ab7dab66550bea
+        doc_struct_hash: sha256:2a65a07255cb4f22bfa750902fe722055945146c31ddcd52c9ab7dab66550bea
+        lines: [59, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#reasoningBlockRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: reasoningBlockRe
+        hash: sha256:7cad83bd03621fbc0b910839e61b8d8de2968b3c3dd1e530398904785f56f40c
+        struct_hash: sha256:131323ed2d0beed52b4fc46c3c5071c154bb730b959d4c5ade2d92b164a92875
+        doc_struct_hash: sha256:131323ed2d0beed52b4fc46c3c5071c154bb730b959d4c5ade2d92b164a92875
+        lines: [69, 69]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#reasoningCloseRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: reasoningCloseRe
+        hash: sha256:a5daebd95da152de0b45296331e582603cf1703e70f39f3320a7337b1d8a85ff
+        struct_hash: sha256:130221a39b092ef55f8b8c1f07dbe38cbae11b1151ecbbf3991ab91bc85fbe3d
+        doc_struct_hash: sha256:130221a39b092ef55f8b8c1f07dbe38cbae11b1151ecbbf3991ab91bc85fbe3d
+        lines: [70, 70]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#reasoningOpenRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: reasoningOpenRe
+        hash: sha256:375371caf3996ea3cd1a1a60d71c44f6bc0c26be2b94d40ee9f9afc7a6581c68
+        struct_hash: sha256:23a34b8f036d5f71f47776543a41fe0406552ea65746fa577bea35f9c7b2e970
+        doc_struct_hash: sha256:23a34b8f036d5f71f47776543a41fe0406552ea65746fa577bea35f9c7b2e970
+        lines: [71, 71]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#escapedReasoningBlockRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: escapedReasoningBlockRe
+        hash: sha256:5f82ef12dd27f2c1df30515ca6d99cf5d85bf04049ddf3020194dff990f13cd5
+        struct_hash: sha256:e4694ba024e63385e7ab7816ffdf9f1fb8b7b0ac19c195accefe74354815b4da
+        doc_struct_hash: sha256:e4694ba024e63385e7ab7816ffdf9f1fb8b7b0ac19c195accefe74354815b4da
+        lines: [72, 72]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#escapedReasoningCloseRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: escapedReasoningCloseRe
+        hash: sha256:969ff6fcdbb4fe5c9f986a49f5ab22a69451cc9fa008eb4f8505d9087e5b4a2c
+        struct_hash: sha256:13cd378bc6ff05d73aa5c8c03204c9ac73af9c5cb137bc5e4748ab85c748ed74
+        doc_struct_hash: sha256:13cd378bc6ff05d73aa5c8c03204c9ac73af9c5cb137bc5e4748ab85c748ed74
+        lines: [73, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#escapedReasoningOpenRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: escapedReasoningOpenRe
+        hash: sha256:865cf6a2914bd4262ff8ffa2405992e0316dc57919fe100b51dc630229798016
+        struct_hash: sha256:e076244626112243dc6196a0bccf5d92e353f649591a1fa83373b16ad19411c6
+        doc_struct_hash: sha256:e076244626112243dc6196a0bccf5d92e353f649591a1fa83373b16ad19411c6
+        lines: [74, 74]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#toolOnlySectionRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: toolOnlySectionRe
+        hash: sha256:8c26942f57b244aee72da69ecf2d64587830695267824675e4d727ff2c0652b2
+        struct_hash: sha256:47ed53c8038263162ff4d5bb5c8136e5d27f34a982ae6774646d84ecf233b449
+        doc_struct_hash: sha256:47ed53c8038263162ff4d5bb5c8136e5d27f34a982ae6774646d84ecf233b449
+        lines: [76, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#trailingToolOnlyRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: trailingToolOnlyRe
+        hash: sha256:a533cd60d48f73072d959b71c4453d1e37b8e41860be589a13e7810801618a88
+        struct_hash: sha256:31d1af507193d1f80c23fbf724d144462538184956e8153962530769d6643df3
+        doc_struct_hash: sha256:31d1af507193d1f80c23fbf724d144462538184956e8153962530769d6643df3
+        lines: [77, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#internalMarkerRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: internalMarkerRe
+        hash: sha256:ac6af1eacb65f8de1a54941b30b170122d51b4a1a6fa4b1505810558cec4f224
+        struct_hash: sha256:adae454a022bf97af0011d753be401d914275b5670e4a3697a9dfa84d6f6c0b9
+        doc_struct_hash: sha256:adae454a022bf97af0011d753be401d914275b5670e4a3697a9dfa84d6f6c0b9
+        lines: [78, 78]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#legacyHistoryTimeRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: legacyHistoryTimeRe
+        hash: sha256:712bf5b2aeefa3c1de6ddd7e32087469fd58aab2833fdb52a41bd0f882e75377
+        struct_hash: sha256:807b6885f7694b63067876c6a0d12b363b88d013fd60ab0e07b91ddb178fb6a1
+        doc_struct_hash: sha256:807b6885f7694b63067876c6a0d12b363b88d013fd60ab0e07b91ddb178fb6a1
+        lines: [79, 79]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#historyMetaTagRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: historyMetaTagRe
+        hash: sha256:f26eaaf3b912e7b8300bda2197ac5e2da24048608d09ad6ce05f1300e57cf9e8
+        struct_hash: sha256:8fe39cddaa22fd894f670b0509c5458c4b49dc0093277d2e7245c7df4d8b16ad
+        doc_struct_hash: sha256:8fe39cddaa22fd894f670b0509c5458c4b49dc0093277d2e7245c7df4d8b16ad
+        lines: [80, 80]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#historyMetaDanglingRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: historyMetaDanglingRe
+        hash: sha256:3f446c552367c42903d39ed9bcbdaae967aadd9b97f4e9a30fecf992e46d1851
+        struct_hash: sha256:1eb884666e15ef7f0ab5fc0dec662d2bd159fbb46d68827c088540a7f07143d8
+        doc_struct_hash: sha256:1eb884666e15ef7f0ab5fc0dec662d2bd159fbb46d68827c088540a7f07143d8
+        lines: [81, 81]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#escapedHistoryMetaTagRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: escapedHistoryMetaTagRe
+        hash: sha256:a240a450510f7bb0a95615a402e0bfe07e611101587bfb5993e6db8c73ce4f87
+        struct_hash: sha256:1176a7175072e377fe75683e074f0b97d48829be243df347f0fc46eeeedad75c
+        doc_struct_hash: sha256:1176a7175072e377fe75683e074f0b97d48829be243df347f0fc46eeeedad75c
+        lines: [82, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#escapedHistoryMetaDanglingRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: escapedHistoryMetaDanglingRe
+        hash: sha256:749fa0ce9f527c305af0c000568bbb8cfc641b04c03b3c65f1691f543937d1e9
+        struct_hash: sha256:c79f5a26080f4f6991a34765cb10133555e379f937c8e92a2134f352bff6d751
+        doc_struct_hash: sha256:c79f5a26080f4f6991a34765cb10133555e379f937c8e92a2134f352bff6d751
+        lines: [83, 83]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#userIDParenRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: userIDParenRe
+        hash: sha256:185724cf7672fb4602c4ae394d0ea9eaec4bcb3b220c9b65d0e6db055329354f
+        struct_hash: sha256:d0b63ac977230a160969c25b2d03674ecfadb601cbc6e93e14f2a73208fa205f
+        doc_struct_hash: sha256:d0b63ac977230a160969c25b2d03674ecfadb601cbc6e93e14f2a73208fa205f
+        lines: [84, 84]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#userIDKVRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: userIDKVRe
+        hash: sha256:bbdb84d36ac65296dc0e891db216cca39ab41ff616cfc95a2927d2cb4ab827db
+        struct_hash: sha256:83626a5fe49d2bfb9fbbd098a31c2f727d35380ffcaa4952b23d1aad38592670
+        doc_struct_hash: sha256:83626a5fe49d2bfb9fbbd098a31c2f727d35380ffcaa4952b23d1aad38592670
+        lines: [85, 85]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#userInternalRefRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: userInternalRefRe
+        hash: sha256:6797ba855f37dad5ea10157bc1b749d0e647c5559262c41093e9ac34233f4e95
+        struct_hash: sha256:61d4dbc35ca0af381d6a139d3ac80a5dea9edeec81adac2f2f8c3bac397a01c7
+        doc_struct_hash: sha256:61d4dbc35ca0af381d6a139d3ac80a5dea9edeec81adac2f2f8c3bac397a01c7
+        lines: [86, 86]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#userIDLabelRe
+      level: decl
+      anchor:
+        file: textfmt/textutil.go
+        symbol: userIDLabelRe
+        hash: sha256:c585cf850d6981fe1af81117ee3bd513fb99edc75310fac6156cf8ed3f94e2e9
+        struct_hash: sha256:32225bc6bbd499ba5d5c53999e713db1635a2c01e1e220adc96b45dca772c200
+        doc_struct_hash: sha256:32225bc6bbd499ba5d5c53999e713db1635a2c01e1e220adc96b45dca772c200
+        lines: [87, 87]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#RedactSecrets
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: RedactSecrets
+        hash: sha256:8829ee134c73a2e97c2d620c5a5d6aaaff2525e42d8a20155f2a5c621972e9d0
+        struct_hash: sha256:e0a6b549080d45dbbc27aba79fe0791a821d2ca2a3376e090b7748a8b732587f
+        doc_struct_hash: sha256:59ccaf950ec8c7958f281e69605d55d613fff1aee00fad41089577005d86a03a
+        lines: [90, 99]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#StripReasoning
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: StripReasoning
+        hash: sha256:572cb6f0938fd4cdcd6d9d59a7866d3cea8873f14182cd1fe16f2e7d3412e282
+        struct_hash: sha256:d937cb805624341ab412b6d44b102912c48635ec0525ce6af8b8dea1165f94dc
+        doc_struct_hash: sha256:d77610382e1cea0ee23900889bdefac7de4c75928df747a71d202b5b9fe0e74b
+        lines: [101, 133]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#StripHistoryMetadata
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: StripHistoryMetadata
+        hash: sha256:1d53e823a641aaa31a5f7e2a8cb542b686820cfe891abb44617c8d58a0c31eca
+        struct_hash: sha256:3de4018600a71dfdfa903ad893b0a80ebd9d299e5db9cbb2b7dc19c39ca0ea81
+        doc_struct_hash: sha256:e7414760539114f2648f048acc5dff9c3260e81f31413601e932ab1c37155cd1
+        lines: [135, 163]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#NormalizeEscapedLineBreaks
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: NormalizeEscapedLineBreaks
+        hash: sha256:190e16e5130b76cb9a4ebbe8f3f574c4ae10f3473894d509c4c2805dec73d83e
+        struct_hash: sha256:2b5429e1767e6e7994b2f20f606d8a13af01b8aec93508e580ed9824aa9cc9a3
+        doc_struct_hash: sha256:c43f19c184748c14b32e478183eb8adbe8cfaac640a706932c3cf686fcaab30c
+        lines: [165, 240]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: textfmt/textutil.go#SanitizeVisibleReply
+      level: function
+      anchor:
+        file: textfmt/textutil.go
+        symbol: SanitizeVisibleReply
+        hash: sha256:b50ed9ac49e18c7a47ae6e710ca47c46583907b58f34ab590f0495de626d86d4
+        struct_hash: sha256:3a3e059808c1cbcfa0aadf1a47d7e8354b1f02d8dbf3cd3200a38ebbc507bd45
+        doc_struct_hash: sha256:3f8c9184f448ba928594889d18480db2c963358e2f38aee7c8b4248bdc7d08d3
+        lines: [242, 258]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

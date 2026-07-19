@@ -1,0 +1,186 @@
+schema: 1
+nodes:
+    - id: tools/skills.go
+      level: file
+      anchor:
+        file: tools/skills.go
+        hash: sha256:3244747aabd7e185a2d5735f637a89807f138b729a6e409ba6afd2dbce7cee6c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillSearchLimit
+      level: decl
+      anchor:
+        file: tools/skills.go
+        symbol: skillSearchLimit
+        hash: sha256:3f7d07784206e6170dce63b3130922ba7e99198e33a094194960d659aa07fed4
+        struct_hash: sha256:a1c7dba0d3e415cfb101e193110b5b97bcd0ecf62a1695e6da4c21812e97633f
+        doc_struct_hash: sha256:a1c7dba0d3e415cfb101e193110b5b97bcd0ecf62a1695e6da4c21812e97633f
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillTools
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: skillTools
+        hash: sha256:fa6d07895423a48f1906d613ff30f50acb5b0beb1443e5103f91c88a1e8fe95b
+        struct_hash: sha256:7e1907ced5ec3e3f05e76568861148ee28ed14575794ef97825e66ecfeff51a7
+        doc_struct_hash: sha256:62cff0219c3fcb877b87aa67be327313c09be3433b4049185c4fb6d6096e0da0
+        lines: [18, 270]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillArgs
+      level: decl
+      anchor:
+        file: tools/skills.go
+        symbol: skillArgs
+        hash: sha256:fbfde54ccd8da09cad3eb9e135459574409bb30fe4c6f57eb99cf67119015fee
+        struct_hash: sha256:c89e375773e600b544400c48d03c34495ce03261c0497851b2816794e21463df
+        doc_struct_hash: sha256:c89e375773e600b544400c48d03c34495ce03261c0497851b2816794e21463df
+        lines: [272, 280]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillUpdateArgs
+      level: decl
+      anchor:
+        file: tools/skills.go
+        symbol: skillUpdateArgs
+        hash: sha256:911759e16cfcad3d0a341ae638a31ff6fe93a2c46000bfc16997b7ed9b50dadb
+        struct_hash: sha256:1eb1cc1f53dfb628f5602f45b0dc9ca36bccfe7e2781d47fe09208d25304239d
+        doc_struct_hash: sha256:1eb1cc1f53dfb628f5602f45b0dc9ca36bccfe7e2781d47fe09208d25304239d
+        lines: [282, 291]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillParts
+      level: decl
+      anchor:
+        file: tools/skills.go
+        symbol: skillParts
+        hash: sha256:a4364c39359a63d82f9055a37a64995b55a90f6995bc509f7dddbd313d4959fb
+        struct_hash: sha256:9bf8f6e09d402bc2d4108d1af9c56b09bd01d9f54eb21d53e9bbc16de3581de1
+        doc_struct_hash: sha256:9bf8f6e09d402bc2d4108d1af9c56b09bd01d9f54eb21d53e9bbc16de3581de1
+        lines: [293, 298]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#buildSkillContent
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: buildSkillContent
+        hash: sha256:3a49bc1f35b1bd6fd9861662506a311f7d4e26cfc4ee21864a80fbff6a96e42a
+        struct_hash: sha256:8b8308221acc7819e6db5036b443563ad7636ae5d6398fa90fe4e706000cae5b
+        doc_struct_hash: sha256:8b8308221acc7819e6db5036b443563ad7636ae5d6398fa90fe4e706000cae5b
+        lines: [300, 324]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#validateSkillScope
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: validateSkillScope
+        hash: sha256:30c134793bbee7b8ec7d773e1b756b600e343312d48f67c15ce6d0e92217f1fb
+        struct_hash: sha256:80ebf29269e603a272d51ddfb4dc236a38dac1f856deb309c16248777ba5a0f9
+        doc_struct_hash: sha256:80ebf29269e603a272d51ddfb4dc236a38dac1f856deb309c16248777ba5a0f9
+        lines: [326, 336]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#normalizeSkillTags
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: normalizeSkillTags
+        hash: sha256:0d0726c0c2f21b5d15014105b14881ec695ba0a139074acaf7be98489c396d93
+        struct_hash: sha256:cc8f31fa22a31b5ed79c1b1b0343bca2cfedc7edd5028cc454d30e06f937ab62
+        doc_struct_hash: sha256:c19eccdef2f323a19b53a0b7b95372222fc6d7062384e893b9baaf132593b7a2
+        lines: [338, 341]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#chooseSkillTags
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: chooseSkillTags
+        hash: sha256:6292b93c36d28d599f81b46ca718a780dea4c6568663c0584006b7c4a16e296c
+        struct_hash: sha256:aa5f7ea902572e7118eedcf16c7bcc0741b7541f211a2300961641a72ab29f14
+        doc_struct_hash: sha256:aa5f7ea902572e7118eedcf16c7bcc0741b7541f211a2300961641a72ab29f14
+        lines: [343, 354]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#parseSkillContent
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: parseSkillContent
+        hash: sha256:fa88debd1e0cca06f446f4cc2a0bc918b958a35ae4324b35e95bc91184afdf83
+        struct_hash: sha256:8a31e693e4477662585c31fa894dec3473d0f8ee884b371e19a4c6083257e375
+        doc_struct_hash: sha256:8a31e693e4477662585c31fa894dec3473d0f8ee884b371e19a4c6083257e375
+        lines: [356, 383]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#renderSkillList
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: renderSkillList
+        hash: sha256:0a803926ef7b2266b734ba953b6a5d20357c80cffeffee6b2e300b65dd652b74
+        struct_hash: sha256:7b485eae8b8a6f80714428b88f41f141dd077eab6da83fc662d0b07fbab1377b
+        doc_struct_hash: sha256:7b485eae8b8a6f80714428b88f41f141dd077eab6da83fc662d0b07fbab1377b
+        lines: [385, 403]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillScopeOf
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: skillScopeOf
+        hash: sha256:99f80ce7211fc6aa776398b0747a789a494f6710753b8e6ead892bc64bcd546e
+        struct_hash: sha256:5c1e7ae0bb77718140614e085adfe13d5e04a361dea4fd057f3a3724d31116f8
+        doc_struct_hash: sha256:5c1e7ae0bb77718140614e085adfe13d5e04a361dea4fd057f3a3724d31116f8
+        lines: [405, 407]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillHasAnyTag
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: skillHasAnyTag
+        hash: sha256:492ea3fb8adfb7fb3a7bd2fc46aba59728319cc949f16ba1ad24d2cff302131b
+        struct_hash: sha256:431fb12983ead03a589beb6037a447903c2a249ed21faa1de4a8d68fae4919db
+        doc_struct_hash: sha256:431fb12983ead03a589beb6037a447903c2a249ed21faa1de4a8d68fae4919db
+        lines: [409, 423]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#skillPriority
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: skillPriority
+        hash: sha256:627aa379eee506b966630b3ecd0272d0761255193a431e060570c6177af65a6b
+        struct_hash: sha256:1b30e2ae4ecacc6f1b9f6a462a69c846c0092219402c12cc7f34477a0d933131
+        doc_struct_hash: sha256:1b30e2ae4ecacc6f1b9f6a462a69c846c0092219402c12cc7f34477a0d933131
+        lines: [425, 430]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#workerSkillTaskPrompt
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: workerSkillTaskPrompt
+        hash: sha256:f607fe3629331f966df1c77560770896d25577072d2c259c3716bb412a8c8a82
+        struct_hash: sha256:8e8fd63093f2bef9b45d3f4b0cf9fc597caa830dd16d8b00144d7c6ac9a72b30
+        doc_struct_hash: sha256:8e8fd63093f2bef9b45d3f4b0cf9fc597caa830dd16d8b00144d7c6ac9a72b30
+        lines: [432, 448]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/skills.go#firstNonEmpty
+      level: function
+      anchor:
+        file: tools/skills.go
+        symbol: firstNonEmpty
+        hash: sha256:6ed2d8cdb422a904da87c91a62c25d9c6cb1cb8a91ed8d589d23afa07bfe81bd
+        struct_hash: sha256:525b51588ab2c8fbc190d0d4593319f8069b69b8a2c1658af944996fcdfe1020
+        doc_struct_hash: sha256:525b51588ab2c8fbc190d0d4593319f8069b69b8a2c1658af944996fcdfe1020
+        lines: [450, 455]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

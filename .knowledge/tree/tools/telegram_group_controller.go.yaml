@@ -1,0 +1,208 @@
+schema: 1
+nodes:
+    - id: tools/telegram_group_controller.go
+      level: file
+      anchor:
+        file: tools/telegram_group_controller.go
+        hash: sha256:c05bae60f098499ed6db5c9eaa327e64ab1843f16443b656f6d3470e8a3624d8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupController
+      level: decl
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupController
+        hash: sha256:69e4d3a0f9c3a7c61bd5f29b0bbdba63fc578682d43cd9cc68479b7eabfabae3
+        struct_hash: sha256:abed49e80078c4ff0a8efa40d6fb6942693da8db545409979b95394a334c6795
+        doc_struct_hash: sha256:d25f0aa68993ce1f750d894c89f1ebea8c44bc8d0eddb1a61534f57f295434e8
+        lines: [9, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.EnsureTelegramGroupSession
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.EnsureTelegramGroupSession
+        hash: sha256:1c7c0b1a0fd980caa95c75f6ca97cb07ed42aa6647568b872d15884e43badece
+        struct_hash: sha256:fd97ddd5570bc907483832ca990f7a33d8aaecd81b95115af42bdcd86c9dfce0
+        doc_struct_hash: sha256:fd97ddd5570bc907483832ca990f7a33d8aaecd81b95115af42bdcd86c9dfce0
+        lines: [26, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupMember
+      level: decl
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupMember
+        hash: sha256:766444da4368c4e87628c958333a52d4e5075d2d19ece37b1d58b88d68a9f352
+        struct_hash: sha256:11fb24e230027daeeb10cb31189b692828ced72df4ce8edb6466db7da6e8a2e7
+        doc_struct_hash: sha256:11fb24e230027daeeb10cb31189b692828ced72df4ce8edb6466db7da6e8a2e7
+        lines: [34, 41]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub
+      level: decl
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub
+        hash: sha256:f49ed7fa6f5c5d046016eb58176c8768a2475f6b0a40715449be291f2f18b3d1
+        struct_hash: sha256:51fb4ba97345d7771beca85cf92d7001dae14b3dc7186ec7d148ceadf897a3c7
+        doc_struct_hash: sha256:8ac06a7545198b7d55fa5021396332ded015cfdc481d0c3f375876d074102751
+        lines: [43, 47]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.Set
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.Set
+        hash: sha256:16e798af38a50817bdece374f1aba3eb981540d40d668eac6db2ec2964351ffd
+        struct_hash: sha256:61210a20ef8cbd00a07c939c85d20e0af6689e21c08467787939db6a072e9585
+        doc_struct_hash: sha256:61210a20ef8cbd00a07c939c85d20e0af6689e21c08467787939db6a072e9585
+        lines: [49, 53]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.Ready
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.Ready
+        hash: sha256:3056df72252a52b9feb808a4c51feae5163fca5af8dafadcda640c500240d734
+        struct_hash: sha256:99c89482ca611dcc4ec1b53a9c69fa0afff3a4d056a6dc7bd293de84c4463f92
+        doc_struct_hash: sha256:99c89482ca611dcc4ec1b53a9c69fa0afff3a4d056a6dc7bd293de84c4463f92
+        lines: [55, 66]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.controller
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.controller
+        hash: sha256:f7c01a195196b118fc7d38caaf81b8f8e8c4ef20e622e88dca8a6daf93ee7874
+        struct_hash: sha256:8e2838861758b15402da48eab7fef3b206bb1328dee875fa9fb5e9637f0ff50e
+        doc_struct_hash: sha256:8e2838861758b15402da48eab7fef3b206bb1328dee875fa9fb5e9637f0ff50e
+        lines: [68, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.SendTelegramGroupMessage
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.SendTelegramGroupMessage
+        hash: sha256:76747412c8db1ab460e0777881ca81da1aa6faee4eb8865dfa04dc0cdf5aff59
+        struct_hash: sha256:95c40314b2fb2969dee89bcb02e1747bd9f510200c8ece20b13cf1474639c498
+        doc_struct_hash: sha256:95c40314b2fb2969dee89bcb02e1747bd9f510200c8ece20b13cf1474639c498
+        lines: [78, 84]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.GetTelegramGroupMemberCount
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.GetTelegramGroupMemberCount
+        hash: sha256:11c2a9523d627cc411d4fdb8ff6482eb442f9e3717e3713fa2a463dbc74d419b
+        struct_hash: sha256:b0f1f05a20a6aee159e4ba6d8c8bff7e6e873c77cbc14c9ce29a382641de8f8e
+        doc_struct_hash: sha256:b0f1f05a20a6aee159e4ba6d8c8bff7e6e873c77cbc14c9ce29a382641de8f8e
+        lines: [86, 92]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.GetTelegramGroupAdministrators
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.GetTelegramGroupAdministrators
+        hash: sha256:6d5800cdb0f83e6b9b509e682d9d992d9f44fdcddf41199813c023456f1a6562
+        struct_hash: sha256:88bbd8a5443c7a971f438d0a751e917dffb6d1ffa385cc2213634eca88855f98
+        doc_struct_hash: sha256:88bbd8a5443c7a971f438d0a751e917dffb6d1ffa385cc2213634eca88855f98
+        lines: [94, 100]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.GetTelegramGroupMember
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.GetTelegramGroupMember
+        hash: sha256:aab475fff0b1fd084b4b5f7efd93e884f11cbc24a72213b74886ef89192b1fe1
+        struct_hash: sha256:ca8627c95df542407dfe1d77e96d321314772a058117374ef4e6e6df86a7ddaa
+        doc_struct_hash: sha256:ca8627c95df542407dfe1d77e96d321314772a058117374ef4e6e6df86a7ddaa
+        lines: [102, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.GetTelegramGroupBotMember
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.GetTelegramGroupBotMember
+        hash: sha256:a3c8ad29210688c0b0d2940dd359dccb4b21480e663cbb6ec3675b7bbefa2a40
+        struct_hash: sha256:3b7e8b21d49b68bd92b0d4543c9eaad1906340f46c8df98d678951b51fae09d9
+        doc_struct_hash: sha256:3b7e8b21d49b68bd92b0d4543c9eaad1906340f46c8df98d678951b51fae09d9
+        lines: [110, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.EditTelegramGroupMessage
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.EditTelegramGroupMessage
+        hash: sha256:0fbd5544861adc06c4dc4e577f6e82253ca1c235c51f44f89486b36b7aea1cc5
+        struct_hash: sha256:b1176e79615d7d2535410369cc9ae2d9816f298458f4b48402240c2526a5b57e
+        doc_struct_hash: sha256:b1176e79615d7d2535410369cc9ae2d9816f298458f4b48402240c2526a5b57e
+        lines: [118, 124]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.DeleteTelegramGroupMessage
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.DeleteTelegramGroupMessage
+        hash: sha256:9ca13b1f3a030403c4be968cbe330d7277d696f474930dc76c993771dc8d58de
+        struct_hash: sha256:20ce4de879be9dadcc482fede02618c71155ff6dd7a4a2d407bf9be4288b87b9
+        doc_struct_hash: sha256:20ce4de879be9dadcc482fede02618c71155ff6dd7a4a2d407bf9be4288b87b9
+        lines: [126, 132]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.PinTelegramGroupMessage
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.PinTelegramGroupMessage
+        hash: sha256:7679b256045248e487bf50d3ad84fc2df3668818dd6cae150948bec7542685b4
+        struct_hash: sha256:71415895872523130fb5b8e3715f770ed6a6d21c506c0706cc865efcbcedae5b
+        doc_struct_hash: sha256:71415895872523130fb5b8e3715f770ed6a6d21c506c0706cc865efcbcedae5b
+        lines: [134, 140]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.UnpinTelegramGroupMessage
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.UnpinTelegramGroupMessage
+        hash: sha256:0957a916ccbbc55e6b45628ec5df6c91cb148fd1385d7c8d633e7c804a1e0f80
+        struct_hash: sha256:953b3742c47ed45707ba33ecc0d87bbf5f4f3631a7323943ff2d2700055591db
+        doc_struct_hash: sha256:953b3742c47ed45707ba33ecc0d87bbf5f4f3631a7323943ff2d2700055591db
+        lines: [142, 148]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.SetTelegramGroupTitle
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.SetTelegramGroupTitle
+        hash: sha256:8094de4e0c2785a57e1c199244fbe09af08befcc553101ee2a800b423ccef450
+        struct_hash: sha256:1daa969b7b8ccc90ad8b8c2ed263d12c73ad42b29cceb413d8f9c1c159e8c6be
+        doc_struct_hash: sha256:1daa969b7b8ccc90ad8b8c2ed263d12c73ad42b29cceb413d8f9c1c159e8c6be
+        lines: [150, 156]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/telegram_group_controller.go#TelegramGroupHub.SetTelegramGroupDescription
+      level: function
+      anchor:
+        file: tools/telegram_group_controller.go
+        symbol: TelegramGroupHub.SetTelegramGroupDescription
+        hash: sha256:3eac914f9975abe09fb8bf8fc092c060d5a42a7586c791f96ab0fa9765e2040e
+        struct_hash: sha256:2f63145db99732a49649aacdfe8113fea6b748ac3504eb54add4c2150abfb87a
+        doc_struct_hash: sha256:2f63145db99732a49649aacdfe8113fea6b748ac3504eb54add4c2150abfb87a
+        lines: [158, 164]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: keylock/keylock.go
+      level: file
+      anchor:
+        file: keylock/keylock.go
+        hash: sha256:9eb0d93639f8e14eda4e214fe4f4fca0f4c96703a26882c3f94a140611269113
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock.go#Map
+      level: decl
+      anchor:
+        file: keylock/keylock.go
+        symbol: Map
+        hash: sha256:e504fce58bc22e121ed8c284d59ebf706d51d9b64a8e8b9b9a67e4813affaab7
+        struct_hash: sha256:de8bbc8f0ab9aa2dc22e6e36ecbba97b7713e35485a554f9a221fd16a86df3a1
+        doc_struct_hash: sha256:293d941083456a21eca7e979fe1ef6ba9b7d0f67d0957c10ad4b7fc75509bac9
+        lines: [9, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock.go#entry
+      level: decl
+      anchor:
+        file: keylock/keylock.go
+        symbol: entry
+        hash: sha256:2a18f8b116a4517478dcdc53aa2f195c72b3bacedb9a1db22df9bf11754d11b7
+        struct_hash: sha256:d51133734c091d4bce01c8e4fcdfa99423bc301e9b9ed9ca24bf351f73c88f60
+        doc_struct_hash: sha256:d51133734c091d4bce01c8e4fcdfa99423bc301e9b9ed9ca24bf351f73c88f60
+        lines: [16, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock.go#Map.Acquire
+      level: function
+      anchor:
+        file: keylock/keylock.go
+        symbol: Map.Acquire
+        hash: sha256:107b93d0a06598065bef4c400f56d23c9ac88ac1f46e285d656d833fa2666d10
+        struct_hash: sha256:9c5dece8db82654486e211c20c7d143eadbb4035e290ec2fb8d4022eee97ac48
+        doc_struct_hash: sha256:5b811aea59464001961161326f285fb2b50f61e6b4435e3507b3e2d71175396e
+        lines: [21, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock.go#Map.AcquireContext
+      level: function
+      anchor:
+        file: keylock/keylock.go
+        symbol: Map.AcquireContext
+        hash: sha256:6824915f8c14b15e0d3156fff40303690d9773d180627c2dd93eb40134d9e442
+        struct_hash: sha256:3854c12ea3e1bcc9b231768d58ec8ea222f86cdb63bf7d7de375d3edf2bc1b9b
+        doc_struct_hash: sha256:f5d23eb84c78118f280ad0c18c3bd160f9cd9950500cd41ae6bef7af7e0c27c0
+        lines: [27, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock.go#Map.dropRef
+      level: function
+      anchor:
+        file: keylock/keylock.go
+        symbol: Map.dropRef
+        hash: sha256:2222acc9a309d1a270a8a5d8afa93853594d9070adb15e1ca6d4779d0fa9a9ba
+        struct_hash: sha256:42a6ee66fe127b909b2f2b3d0d0a8d9b563869fed0524c763bd4b7f4a9dfadce
+        doc_struct_hash: sha256:42a6ee66fe127b909b2f2b3d0d0a8d9b563869fed0524c763bd4b7f4a9dfadce
+        lines: [66, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: keylock/keylock.go#Map.Len
+      level: function
+      anchor:
+        file: keylock/keylock.go
+        symbol: Map.Len
+        hash: sha256:04242b55aca78ebf7c8b6baa14157fa704296105339898f024c3edbd40ef8afd
+        struct_hash: sha256:69d94374d6f8f57ffcee8c9342f68cd6ede2d31d904f22171f77856152339acb
+        doc_struct_hash: sha256:08765d584e4ed6e03237d66f8845a567bee58b0bd78c39aaa02395e54afa04dc
+        lines: [75, 80]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,395 @@
+schema: 1
+nodes:
+    - id: store/learning.go
+      level: file
+      anchor:
+        file: store/learning.go
+        hash: sha256:f4fb5fe1e3d324cfa051377819be9cbb0bde4c0cfafc1c36f165a71fd6ba062b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningKindKnowledge
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningKindKnowledge
+        hash: sha256:705a200c7b5010b80c9387c2fa412d56055fccfc89b8a7b2b79af3ad6594e84f
+        struct_hash: sha256:dd73e1d9817066c28b3c466a401a5f9be6faaab58a04e87c85d57f53a4bbf65e
+        doc_struct_hash: sha256:dd73e1d9817066c28b3c466a401a5f9be6faaab58a04e87c85d57f53a4bbf65e
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningKindRule
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningKindRule
+        hash: sha256:0bded036e74e6e173261f4461d46daee069c9f5bdd2f788a8951523c8615c8f3
+        struct_hash: sha256:67d873f4231ce394ada30debebe48ad51f255e5a6a1ab77a6ead0c2e802f52c8
+        doc_struct_hash: sha256:67d873f4231ce394ada30debebe48ad51f255e5a6a1ab77a6ead0c2e802f52c8
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningKindSkill
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningKindSkill
+        hash: sha256:e4dadfa5511336ee0b75797c43e8d3664bf1bf47def96bf443d5059b660232fe
+        struct_hash: sha256:177184820b4daac37e3d1ccab7b07dd0eeb69832eeb8c9826c789d94b4089cd1
+        doc_struct_hash: sha256:177184820b4daac37e3d1ccab7b07dd0eeb69832eeb8c9826c789d94b4089cd1
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningKindScript
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningKindScript
+        hash: sha256:ca7b76ff3630daedd6ed27948e6b9880223734420bff6f7176b8344fc899cdd2
+        struct_hash: sha256:ae338aba2621f4f8e086bbd2b16183e640b7ef4819bde9b33552578554cf78b3
+        doc_struct_hash: sha256:ae338aba2621f4f8e086bbd2b16183e640b7ef4819bde9b33552578554cf78b3
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningKindProfile
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningKindProfile
+        hash: sha256:429061cd3e5da1c7dcd63bbe3f018c85b3848380025b9ef1cba2a88846f81c07
+        struct_hash: sha256:22ad93112f848a3ca58a4071d6ec48efb0d75d8da2208b83f52a836dca0bb122
+        doc_struct_hash: sha256:22ad93112f848a3ca58a4071d6ec48efb0d75d8da2208b83f52a836dca0bb122
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningKindSummary
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningKindSummary
+        hash: sha256:823844cc1172ffd7214e1263a9d7a747746cb42bebf6b64a9b5fe9beac35ffb7
+        struct_hash: sha256:c52c683694db8236d284c8c20fc6b246c8323a145ea2916a592f2bbbeb9e29d6
+        doc_struct_hash: sha256:c52c683694db8236d284c8c20fc6b246c8323a145ea2916a592f2bbbeb9e29d6
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningStatusPending
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningStatusPending
+        hash: sha256:c429c7bd3609ffb83e2f0710c1465f3bb52e01081af7d22df32fa966d6985f12
+        struct_hash: sha256:d4d1798e13f79c978a3699fadd59269e37d9489e0c5198c6c1d756647502893b
+        doc_struct_hash: sha256:d4d1798e13f79c978a3699fadd59269e37d9489e0c5198c6c1d756647502893b
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningStatusPublished
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningStatusPublished
+        hash: sha256:b387332a9086a0cbf6b81597fd122a0c3d09b65a481d2e61370caf4119d28f1e
+        struct_hash: sha256:84cd236c6a1a90b945ae5ddaae2d9d2b7761353459b203374c8f0a07950cd93d
+        doc_struct_hash: sha256:84cd236c6a1a90b945ae5ddaae2d9d2b7761353459b203374c8f0a07950cd93d
+        lines: [21, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningStatusRejected
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningStatusRejected
+        hash: sha256:f85316ff738e977f2da41c33dd142b776134e480695621320b74d69a34ff8075
+        struct_hash: sha256:d29cf87ad607a5b9d7f447696bce73122a10a0938f70409a7823eedba263f3d6
+        doc_struct_hash: sha256:d29cf87ad607a5b9d7f447696bce73122a10a0938f70409a7823eedba263f3d6
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningDuplicateThreshold
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningDuplicateThreshold
+        hash: sha256:0422fc6f60e766860e2634f2d8826ace6ba38d4dde097812ddb1f48ef06b7eb9
+        struct_hash: sha256:d74d0990674805e757720ad22baf17d4e5632a905e8163c7ff45de21f6d03422
+        doc_struct_hash: sha256:40e5f19fc7aa52c78639ebb59a1ecdeafce90d2a94803f37edb6741ded850fee
+        lines: [24, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningCandidate
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningCandidate
+        hash: sha256:a3f5f605a0dc79dc1b71beee0817da397653b3599538305472cdf515aade0538
+        struct_hash: sha256:a327d8f33dbb6af38901c79e5fa41f0b4dec4e9550fee272f1532d3b37472459
+        doc_struct_hash: sha256:b5a1baf688cb046cfc748ad2fe84c0e807603b0c64c5017731f1f2e6dadafe9a
+        lines: [29, 54]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningCandidateInput
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: LearningCandidateInput
+        hash: sha256:30d7eb3449e2888a7e7aa869c60afd7e937c9579e07a2d2f9f4df5efe9b7dfc6
+        struct_hash: sha256:2232ff6aeb78f433f9ea9a3ebb7b7151c823199b9fbaebe229c1021e014a7187
+        doc_struct_hash: sha256:2232ff6aeb78f433f9ea9a3ebb7b7151c823199b9fbaebe229c1021e014a7187
+        lines: [56, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#learningCandidateCols
+      level: decl
+      anchor:
+        file: store/learning.go
+        symbol: learningCandidateCols
+        hash: sha256:e4ec5a27a2bc5bf8ae215e87d87ff3ad81c3d158518c0ea5e00681807f6bc14f
+        struct_hash: sha256:750b80dcdf6c5afb7116f67fcc3dfc331cd0635c212485ac4020bfaf81bc71c9
+        doc_struct_hash: sha256:750b80dcdf6c5afb7116f67fcc3dfc331cd0635c212485ac4020bfaf81bc71c9
+        lines: [70, 70]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#scanLearningCandidate
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: scanLearningCandidate
+        hash: sha256:31d92748bce5b15760559ecec61dfc2ff21a2feabdc01d2eeddcd4e9b800968f
+        struct_hash: sha256:7a95b9a20dec0f577c9722846f362cb3709a55f02317e1b7aaac2202ed7f9e5f
+        doc_struct_hash: sha256:7a95b9a20dec0f577c9722846f362cb3709a55f02317e1b7aaac2202ed7f9e5f
+        lines: [72, 81]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.CreateLearningCandidate
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.CreateLearningCandidate
+        hash: sha256:92c5b0b87ddbe893049fd7ed3daa964144120c5f853b3a8c3d2a4d925a029ca7
+        struct_hash: sha256:29d66292288e3f56da433e51abd76e1610af54258a3a974cc44a924a5778dbfd
+        doc_struct_hash: sha256:29d66292288e3f56da433e51abd76e1610af54258a3a974cc44a924a5778dbfd
+        lines: [83, 103]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.LearningCandidateByID
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.LearningCandidateByID
+        hash: sha256:477c96df36178e1d3ff89be883d501f67d75a01a69afe3e945f8f1f7faec8983
+        struct_hash: sha256:0019e6740d030b8bceac7231121d6ea3ae2267d3c59c2ffdfacefb8244ad7c97
+        doc_struct_hash: sha256:0019e6740d030b8bceac7231121d6ea3ae2267d3c59c2ffdfacefb8244ad7c97
+        lines: [105, 108]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.ListLearningCandidates
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.ListLearningCandidates
+        hash: sha256:f68d59579e7c474ab8c6b948fb112db185ed0ee228018896437f62b51be4e010
+        struct_hash: sha256:2ce5285b618febcd85070cd2d037f2f65417fbb6acb1ae5d5e180c168efdf2e7
+        doc_struct_hash: sha256:2ce5285b618febcd85070cd2d037f2f65417fbb6acb1ae5d5e180c168efdf2e7
+        lines: [110, 140]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.LearningCandidateExists
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.LearningCandidateExists
+        hash: sha256:f4b3b82049a0a88ff3a8c06cc8746092f46eb94d49e997c75ac90c1bc7ae9a0f
+        struct_hash: sha256:f4f6be02080928c472ad075dc075b8e27fd84399758e3bcbc91acfa5f12c0974
+        doc_struct_hash: sha256:f4f6be02080928c472ad075dc075b8e27fd84399758e3bcbc91acfa5f12c0974
+        lines: [142, 158]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.MarkLearningCandidatePublished
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.MarkLearningCandidatePublished
+        hash: sha256:7c5e03ba666fa3ff74cc917d56d51129a269905339e408cc4460d4332fe91aab
+        struct_hash: sha256:ebf7cdbe909bb0c626e99e7ac915f44f707336081b59d113e107416c516d6087
+        doc_struct_hash: sha256:ebf7cdbe909bb0c626e99e7ac915f44f707336081b59d113e107416c516d6087
+        lines: [160, 166]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.RejectLearningCandidate
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.RejectLearningCandidate
+        hash: sha256:97ddbccadf8bc41eb01014d8af269ac0450ccdf5f107ce42a478f945bcdaa196
+        struct_hash: sha256:133afec4668658463d0e6fb84426fb25bcdbf6d80e021dc4a6d01e9f8fe34cc4
+        doc_struct_hash: sha256:133afec4668658463d0e6fb84426fb25bcdbf6d80e021dc4a6d01e9f8fe34cc4
+        lines: [168, 174]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.ScoreLearningCandidates
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.ScoreLearningCandidates
+        hash: sha256:c5a51bdfa4a5c8d87da8f7bebee3d76d8e89685332c17c792f12dff270266732
+        struct_hash: sha256:cb1d5fb89b0c3b98dfbe25915846a37b35619360add5b35ae02a8fe050dcc9ff
+        doc_struct_hash: sha256:c14b8fcd463e4d199ef13052564b9d6eacddd10814a2a12935e5a6c2e66050f9
+        lines: [176, 249]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.learningDuplicateID
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.learningDuplicateID
+        hash: sha256:9934d029ea09e1a89fcb5958cb102e519b78410b05da3f8c2291fca74913dc77
+        struct_hash: sha256:0a6355b3499b18286de9b83f77beb9caa8c6c74cf286bdeba32220d5c709894c
+        doc_struct_hash: sha256:0a6355b3499b18286de9b83f77beb9caa8c6c74cf286bdeba32220d5c709894c
+        lines: [251, 284]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.SimilarLearningCandidateExists
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.SimilarLearningCandidateExists
+        hash: sha256:0ab3f08d46ad91a9c8f37da2c22c50ceeaaad3682f7351d677d208d58e6f4980
+        struct_hash: sha256:6adc6bc48ad2aace9ee4cd738f160519753edcf7bab95c8be0135632d4bf53f2
+        doc_struct_hash: sha256:177b1c7fd126c7cfa897daac8a9c28e7d112e7e0df597bce90d33eac6a32cb7c
+        lines: [286, 316]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningTextSimilarity
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: LearningTextSimilarity
+        hash: sha256:d1870c8ff46f1d00d391abdd4d6fdcac2372e73e74f1caf17d05f5871e6dbf41
+        struct_hash: sha256:92fc596861fbade5007e914bb9ae061d8fc94ea5ccfbbf7050a555cbbba15aef
+        doc_struct_hash: sha256:92fc596861fbade5007e914bb9ae061d8fc94ea5ccfbbf7050a555cbbba15aef
+        lines: [318, 329]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#learningShingleDice
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: learningShingleDice
+        hash: sha256:b530af8ada048746526e66b937b3cf79b59b766d17d55983c2ee01b5c9e35741
+        struct_hash: sha256:0e63855c25ebc3c2e07f48cdf9c388049bceb9bf4b1b54861142b6f49b86b1af
+        doc_struct_hash: sha256:0e63855c25ebc3c2e07f48cdf9c388049bceb9bf4b1b54861142b6f49b86b1af
+        lines: [331, 342]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#normalizedLearningTitle
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: normalizedLearningTitle
+        hash: sha256:c48d2546cbe27fdd1c0150b6ce3160e68d077b57b8985a80fa3bdea1cfa4dcba
+        struct_hash: sha256:fe0616d050827033519f143bc5a827439abae587987da27bab8153901cec09ad
+        doc_struct_hash: sha256:fe0616d050827033519f143bc5a827439abae587987da27bab8153901cec09ad
+        lines: [344, 346]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#learningShingles
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: learningShingles
+        hash: sha256:c1a6b5aceec8c72811cc9f05de7be8cf9ed47eae183f136cc9ba21e05f67b0c2
+        struct_hash: sha256:89a6dc6ba2393598484b6cccd5ff33109526d80c49d9faf21bfd15a28e887187
+        doc_struct_hash: sha256:89a6dc6ba2393598484b6cccd5ff33109526d80c49d9faf21bfd15a28e887187
+        lines: [348, 373]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.learningConflictID
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.learningConflictID
+        hash: sha256:69a2da9f9e71b109b27b24673504314d19e44693d4c96c35cc3b5c81c49130aa
+        struct_hash: sha256:62e6574fce610f5fc7d4f704a386b7b98b0adc189fd1e4e7bbf1e50be8222573
+        doc_struct_hash: sha256:62e6574fce610f5fc7d4f704a386b7b98b0adc189fd1e4e7bbf1e50be8222573
+        lines: [375, 400]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#learningValueScore
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: learningValueScore
+        hash: sha256:8b835f5fa6a5527164632567a7930ebd3fe6a963095016f197b78415b9a0001b
+        struct_hash: sha256:9e89a531456e19a0e1aab8d2406e5eda9f29c2ee1217490a6991b23264497891
+        doc_struct_hash: sha256:9e89a531456e19a0e1aab8d2406e5eda9f29c2ee1217490a6991b23264497891
+        lines: [402, 423]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#likelyLearningConflict
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: likelyLearningConflict
+        hash: sha256:a831c265a3a655f7ae80e03c9aacf57ff45a75b2ed45760224764f91dfc11e61
+        struct_hash: sha256:00b4cb83eba720437ba96f2e77de696140c938941fa6eb3e18984a8292925cf2
+        doc_struct_hash: sha256:00b4cb83eba720437ba96f2e77de696140c938941fa6eb3e18984a8292925cf2
+        lines: [425, 436]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#LearningTextsConflict
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: LearningTextsConflict
+        hash: sha256:f0cc645f1c224388c956c6d229b6e1c5acf39bef66787c75b2b553865e15e22c
+        struct_hash: sha256:304d2142bcd82a012a7a8887cb32c01b1d8b5c488cf2692834d3822fc62ff505
+        doc_struct_hash: sha256:55c4a1481899fb173cc3c540c9d85286283abd070f0c0003088bfc88c6e8f33e
+        lines: [438, 445]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#learningSubjectOverlaps
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: learningSubjectOverlaps
+        hash: sha256:7623e23180abe8adcbee78ed68e21269df1ace3db97d6ccdc29b21be225d6764
+        struct_hash: sha256:097355421a180424dd3b3f22a7e8977584a97634f3d50ec94ca65f5321a00011
+        doc_struct_hash: sha256:097355421a180424dd3b3f22a7e8977584a97634f3d50ec94ca65f5321a00011
+        lines: [447, 457]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#learningPolarity
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: learningPolarity
+        hash: sha256:599054431f998cb664db006d17e0689efd201202537c5b24e61df3e65fe745f5
+        struct_hash: sha256:b8be0e0533284eea1c42b7f3df616ad593cd2388400d020c8b35025098f2c09b
+        doc_struct_hash: sha256:b8be0e0533284eea1c42b7f3df616ad593cd2388400d020c8b35025098f2c09b
+        lines: [459, 468]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#stripLearningPolarity
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: stripLearningPolarity
+        hash: sha256:ce3bd167a135dd124187f4177ed6f6e5c94800a99bc954a7c3542281fdd40253
+        struct_hash: sha256:e9250cfeaf3fb2209af4465ff33c679d2d05bb8d6d22b906c498cf7a22df9bb2
+        doc_struct_hash: sha256:e9250cfeaf3fb2209af4465ff33c679d2d05bb8d6d22b906c498cf7a22df9bb2
+        lines: [470, 479]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#containsAny
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: containsAny
+        hash: sha256:f973c10249e366a7914cc1e07173a21e0ff5fc96e94ad554526a7daeaeab04f9
+        struct_hash: sha256:107acd0bd923551a226f8d190cd756ce8fa92e11597c44fb6dd488bf220f9beb
+        doc_struct_hash: sha256:107acd0bd923551a226f8d190cd756ce8fa92e11597c44fb6dd488bf220f9beb
+        lines: [481, 488]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,98 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ihtml_tools.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        hash: sha256:03a43fd8f26ba7476fb5a24df34492dea85ba0c821ea21ec5cfbf12e79fd6297
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#ihtmlAgentTools
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: ihtmlAgentTools
+        hash: sha256:e28bb299d0d970e57b4aec1f161dd7823f4fa8568e73318bc80a46991e485933
+        struct_hash: sha256:b855ad3fed1895d7975a698b9ad859991297c2f0819d992818eefa61015f8ca5
+        doc_struct_hash: sha256:b855ad3fed1895d7975a698b9ad859991297c2f0819d992818eefa61015f8ca5
+        lines: [14, 244]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#ihtmlTool
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: ihtmlTool
+        hash: sha256:71a48252e1e29f6fbe2a8599f1af0a44ad5f6a4a26959f4d49a9c554765b7077
+        struct_hash: sha256:99a5a7740ff033bf74ed96a544bedba961a9f3154b87cb324b5b5d6dc4004284
+        doc_struct_hash: sha256:99a5a7740ff033bf74ed96a544bedba961a9f3154b87cb324b5b5d6dc4004284
+        lines: [246, 253]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#ihtmlItemSchema
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: ihtmlItemSchema
+        hash: sha256:2173242d1276822aae01fd070da0c19cae4c9109613ede61caa2154d36f719b9
+        struct_hash: sha256:024afcc4884bfac6bfeec84a2395e764d9e4877c57ce339b3aa696e8ce150ed5
+        doc_struct_hash: sha256:024afcc4884bfac6bfeec84a2395e764d9e4877c57ce339b3aa696e8ce150ed5
+        lines: [255, 272]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#ihtmlPageSchema
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: ihtmlPageSchema
+        hash: sha256:3d6c914616657ac21e5229b69d7dbdffacfc02eb08828c64fe38e12b715081bc
+        struct_hash: sha256:f3108fdfd9f772ed0f061ecc9a1e5fbe0241bb9ad5423b669b4feee7048d0183
+        doc_struct_hash: sha256:f3108fdfd9f772ed0f061ecc9a1e5fbe0241bb9ad5423b669b4feee7048d0183
+        lines: [274, 286]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#objectSchema
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: objectSchema
+        hash: sha256:8f186b96272cc9f101d893a6722e02a52e8fe279de68a1ba0b488ed894ae7241
+        struct_hash: sha256:000f2560574e79e6a93af8c9437cab523ada08bf0bdd86177d61abb4253a2f47
+        doc_struct_hash: sha256:000f2560574e79e6a93af8c9437cab523ada08bf0bdd86177d61abb4253a2f47
+        lines: [288, 297]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#property
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: property
+        hash: sha256:27d1733e46ce286cb50e9ce6b56fe732ea47d7ba8506f4c8e946e346c28f0a69
+        struct_hash: sha256:0d8cb453ce3c9fbbc6ffb876a057c3a0904487ed1dece4ae567e77a8ef6685dc
+        doc_struct_hash: sha256:0d8cb453ce3c9fbbc6ffb876a057c3a0904487ed1dece4ae567e77a8ef6685dc
+        lines: [299, 301]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#defaultObject
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: defaultObject
+        hash: sha256:80e8b244e3913ae9f55393d1a878c839f423f11844ee33fa67fb0734333ade45
+        struct_hash: sha256:501fe5cc89e5acf42004d216474c99f18ac488836b8cca2ba1304c86290422c3
+        doc_struct_hash: sha256:501fe5cc89e5acf42004d216474c99f18ac488836b8cca2ba1304c86290422c3
+        lines: [303, 308]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#marshalToolResult
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: marshalToolResult
+        hash: sha256:e5a31af02c9d96f281f99afd612a533fbb48b8202ac82e9b4f35106cfabc8914
+        struct_hash: sha256:edc6109dc6703d3b86f2b6abf476d80a0287f74b4af207bb59de12cfd5e166c9
+        doc_struct_hash: sha256:edc6109dc6703d3b86f2b6abf476d80a0287f74b4af207bb59de12cfd5e166c9
+        lines: [310, 316]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

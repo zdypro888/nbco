@@ -1,0 +1,406 @@
+schema: 1
+nodes:
+    - id: tools/tools_test.go
+      level: file
+      anchor:
+        file: tools/tools_test.go
+        hash: sha256:66f51e3807fa8c09e79ed033a19eaa8f4e11be62d8a233ffd3e9c4e562c4bf2f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestAllToolSchemasValid
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestAllToolSchemasValid
+        hash: sha256:d58e808411cc078704070f350054246dfedd4b6171fef260697084fddc9004e8
+        struct_hash: sha256:9408feb9102cdd3f775ba2ba9decae66037909d9df504ff074d924e4aa64c77f
+        doc_struct_hash: sha256:37ff78bb268f9b249c2dc5850e900235eff380bebec74826be7ca4fd6173899f
+        lines: [18, 45]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestParseTarget
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestParseTarget
+        hash: sha256:f5d52222c1e7d20d9e2214709b8e5515510646f1cac708677d570464aadc91dc
+        struct_hash: sha256:f39894cecdab150c63d7d32a3a019167196f919196bace55b0a4cc0e70965b64
+        doc_struct_hash: sha256:f39894cecdab150c63d7d32a3a019167196f919196bace55b0a4cc0e70965b64
+        lines: [47, 60]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestDecode
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestDecode
+        hash: sha256:79cd3059ff8175594e3f817fb67305135c5ad141837ad6c9623c521c91aa8787
+        struct_hash: sha256:88a01dbd804159ba3933b8ca488b03a6185b2956e27d909d0096373c808edd9c
+        doc_struct_hash: sha256:88a01dbd804159ba3933b8ca488b03a6185b2956e27d909d0096373c808edd9c
+        lines: [62, 76]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestMissingInfoFieldNamesUseCanonicalDefaults
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestMissingInfoFieldNamesUseCanonicalDefaults
+        hash: sha256:dc6cdcb82472046f2e748769bf4b6b917f67f22a6b21eabfc6bc1f6038dcf33b
+        struct_hash: sha256:9fa02c2d548813eb0a6d4c4ec9f2c675f0743b1b009789d6e3e2a4b8fae840e9
+        doc_struct_hash: sha256:9fa02c2d548813eb0a6d4c4ec9f2c675f0743b1b009789d6e3e2a4b8fae840e9
+        lines: [78, 92]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestDataCampaignTargetNameFallback
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestDataCampaignTargetNameFallback
+        hash: sha256:927ea07959b706821377843979284efdcd74aa33d7a0866c706e3fb6e3753f4a
+        struct_hash: sha256:2e8bbd7dd6ac0d8b0dedc1146f81ac0a459a5cfe6a4338cf7ce627d80850fc77
+        doc_struct_hash: sha256:2e8bbd7dd6ac0d8b0dedc1146f81ac0a459a5cfe6a4338cf7ce627d80850fc77
+        lines: [94, 101]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestTruncate
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestTruncate
+        hash: sha256:4029583495ec59520ea39ccba9a8f8377b37d32c186b7f2918b6bd6c6aabd026
+        struct_hash: sha256:79bd36c4ec6b5a8c8b99e9404e01bd4d3d7654b9fc7f4d724d29eab582890315
+        doc_struct_hash: sha256:79bd36c4ec6b5a8c8b99e9404e01bd4d3d7654b9fc7f4d724d29eab582890315
+        lines: [103, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestTruncateToolOutput
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestTruncateToolOutput
+        hash: sha256:d0519c11376a8ab204693bd042d6c8bd7144735757b16aa17a283990f4db9408
+        struct_hash: sha256:804252d26cc4cb704a77dce26d1af7389d29a0cd5c695aeab15b11fe23c775e7
+        doc_struct_hash: sha256:804252d26cc4cb704a77dce26d1af7389d29a0cd5c695aeab15b11fe23c775e7
+        lines: [118, 138]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestWithAuditWithoutStore
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestWithAuditWithoutStore
+        hash: sha256:762c2e460bf0ff651f7ef59efd754d4a2416c2ca6e96de24c938ef6eeea071ab
+        struct_hash: sha256:db729bfe7e328d494cf126c8ff8857504ded26200228e863f5858923cea1fcb3
+        doc_struct_hash: sha256:db729bfe7e328d494cf126c8ff8857504ded26200228e863f5858923cea1fcb3
+        lines: [140, 154]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestBoundedAuditArgsRedactsAndSummarizes
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestBoundedAuditArgsRedactsAndSummarizes
+        hash: sha256:6077cf76ef036eca6b21a6fb491d3686c347f67c3831bbc4f0fe586b843bbea3
+        struct_hash: sha256:995b2fd95f98162cbb3f98ffef9dcb0d0102307488f01068079980e63b66aed9
+        doc_struct_hash: sha256:995b2fd95f98162cbb3f98ffef9dcb0d0102307488f01068079980e63b66aed9
+        lines: [156, 173]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestCapabilityRegistryMetadata
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestCapabilityRegistryMetadata
+        hash: sha256:d8041aa976e098248cfd44dd047cfa2b34c9664b3de555f1e49526a6ae415e90
+        struct_hash: sha256:bf510f3aaa6cc2aaf58b3c31b981dcd5832349bbd1a9369a044e824bf7df8534
+        doc_struct_hash: sha256:bf510f3aaa6cc2aaf58b3c31b981dcd5832349bbd1a9369a044e824bf7df8534
+        lines: [175, 247]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestFixedToolInputsExposeJSONSchemaEnums
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestFixedToolInputsExposeJSONSchemaEnums
+        hash: sha256:b8e20443bbf8a1688e4ec2957fbb58da37521960eafcf2c3b13cfe644df1fc05
+        struct_hash: sha256:f59f25a5cba4646ca7987a8bb33e36e23bb32a5938a79362075031223c82cfee
+        doc_struct_hash: sha256:f59f25a5cba4646ca7987a8bb33e36e23bb32a5938a79362075031223c82cfee
+        lines: [249, 269]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestNormalizeAgentScope
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestNormalizeAgentScope
+        hash: sha256:c88961d2afc48973a8370b60d8e048c27f00acdfbe6fa451326a85017d9785ad
+        struct_hash: sha256:19bcd9980507b83583663ba20f235c464b204663ebc275ff86636ca4f831255d
+        doc_struct_hash: sha256:19bcd9980507b83583663ba20f235c464b204663ebc275ff86636ca4f831255d
+        lines: [271, 281]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestBuiltinToolRegistryIsCompleteAndUnique
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestBuiltinToolRegistryIsCompleteAndUnique
+        hash: sha256:10f051578f0d0f09dbef877a3b7bb87a5540794f46d520369bf31037283e4f01
+        struct_hash: sha256:508f1665def9573693596d633a0ae69fdf4a02d27d8f5bfac6e7488df69801bc
+        doc_struct_hash: sha256:508f1665def9573693596d633a0ae69fdf4a02d27d8f5bfac6e7488df69801bc
+        lines: [283, 295]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestDedupeToolsKeepsFirstDefinition
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestDedupeToolsKeepsFirstDefinition
+        hash: sha256:e3c6515cf13e37b83069049f8f899aeced05d3b00c480aca40cf158b0f8c4958
+        struct_hash: sha256:56a50a910c009bc7d63dbfe81732480de7ba3f3728a5dc6a055c260fd847ce68
+        doc_struct_hash: sha256:56a50a910c009bc7d63dbfe81732480de7ba3f3728a5dc6a055c260fd847ce68
+        lines: [297, 306]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestRenderActionTurnsIncludesToolEvidence
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestRenderActionTurnsIncludesToolEvidence
+        hash: sha256:9b9def32d64e066f46f27f49989ae5e13306910cc5df5c34ee6f500ae0551d53
+        struct_hash: sha256:15698d67cec7417ff0eb6ef7470091bbf70dd8120c34337f6022a7c95ad2aae6
+        doc_struct_hash: sha256:15698d67cec7417ff0eb6ef7470091bbf70dd8120c34337f6022a7c95ad2aae6
+        lines: [308, 329]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestRenderSystemActivityPreservesBusinessResultSemantics
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestRenderSystemActivityPreservesBusinessResultSemantics
+        hash: sha256:5e596cc3a6d3bbde7767bf5934566071bd5bdb00404eaef78012b3bf36033769
+        struct_hash: sha256:9a2d142568a841e10df10cecde052d5062bcea3e01807634b4c93b31239a0170
+        doc_struct_hash: sha256:9a2d142568a841e10df10cecde052d5062bcea3e01807634b4c93b31239a0170
+        lines: [331, 353]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestStaticToolDomainsRegistered
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestStaticToolDomainsRegistered
+        hash: sha256:db9f9b49ea587ac2a50c4c94a2bdda883797b0a0f3419b878a90ad4e297ef346
+        struct_hash: sha256:15fc1b8ef68789c17269fd1817b025d6c9056e466e301b7a1f2c603450b3dad9
+        doc_struct_hash: sha256:15fc1b8ef68789c17269fd1817b025d6c9056e466e301b7a1f2c603450b3dad9
+        lines: [355, 374]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestWorkflowTemplatesAndUpgradeCommand
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestWorkflowTemplatesAndUpgradeCommand
+        hash: sha256:2cb91be56a774580424cbecea68a1c30bb7cc47d0cecbdd9ff3e170209c0f599
+        struct_hash: sha256:b6e6d7fc319d9325374b8b961c566f062c82b53db3d757ad4e5fe2410e02f99e
+        doc_struct_hash: sha256:b6e6d7fc319d9325374b8b961c566f062c82b53db3d757ad4e5fe2410e02f99e
+        lines: [376, 418]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestNBCOUpgradeWorkflowRequiresSuperadmin
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestNBCOUpgradeWorkflowRequiresSuperadmin
+        hash: sha256:b69cb65e45f0f837e84a251a4fd02382f942d31cd158d02295ea88d2e6749b81
+        struct_hash: sha256:52251c5acaa9ed8a67e28c6b7bb2f3060be5ecc05e6fff0ca60c1a2e182a9007
+        doc_struct_hash: sha256:52251c5acaa9ed8a67e28c6b7bb2f3060be5ecc05e6fff0ca60c1a2e182a9007
+        lines: [420, 436]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestNormalizeInfoFieldsAliasesAndNullish
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestNormalizeInfoFieldsAliasesAndNullish
+        hash: sha256:de3fae8a8c6dfe32163de30071f3e76040a020f7d36067818111c20113eec4d7
+        struct_hash: sha256:fd0b9f95770e7d57ec7fdcdf84acc08d8932033debaded4c91d57513d5703dc7
+        doc_struct_hash: sha256:fd0b9f95770e7d57ec7fdcdf84acc08d8932033debaded4c91d57513d5703dc7
+        lines: [438, 464]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestBuildSkillContent
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestBuildSkillContent
+        hash: sha256:fa33407c5722ec4d77afc155b3dc49d5b9e001d7016c41f2448ac7febce5eaab
+        struct_hash: sha256:a82475d3a6549556b9514a68141fda0de18482f3726704239303ff6d5399f695
+        doc_struct_hash: sha256:a82475d3a6549556b9514a68141fda0de18482f3726704239303ff6d5399f695
+        lines: [466, 491]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestRenderLearningCandidatesIncludesEvidence
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestRenderLearningCandidatesIncludesEvidence
+        hash: sha256:32b4b1b24e591b050b2ffc001ba0d53bc762cef00d75bf60b38f02fac3c04d8e
+        struct_hash: sha256:f072b2ba09855e4958df6a584bf25163429aaf0f224cbeb8139b1e6187ee9b4a
+        doc_struct_hash: sha256:f072b2ba09855e4958df6a584bf25163429aaf0f224cbeb8139b1e6187ee9b4a
+        lines: [493, 512]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestFmtTime
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestFmtTime
+        hash: sha256:0d846138e90ed75fbfcae874546656f05513a033c251cdf46dea19b2dcc4bdab
+        struct_hash: sha256:440d784beaca0eb8d86923f58512af55f788f7aff6d58195db4a717129763038
+        doc_struct_hash: sha256:440d784beaca0eb8d86923f58512af55f788f7aff6d58195db4a717129763038
+        lines: [514, 523]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestFormatBytesHuge
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestFormatBytesHuge
+        hash: sha256:325b64375c5f8ccdfe1b48227b5cc0db34483d1e9c08edf78f2458e2fa60bb62
+        struct_hash: sha256:da8cec170cc4e9f777f769ec8567d61700a8471b147f1306c0ae5832fe67a8fc
+        doc_struct_hash: sha256:da8cec170cc4e9f777f769ec8567d61700a8471b147f1306c0ae5832fe67a8fc
+        lines: [525, 529]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestObjectRenderersUseInternalRefsInsteadOfHashIDs
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestObjectRenderersUseInternalRefsInsteadOfHashIDs
+        hash: sha256:a422bdf855857fe9bc92de191cd7dc6267c8fcc4dd583810ac502e2cffefea01
+        struct_hash: sha256:771476944af507b3be0b57c335086f8b2c3fb20ad5bb5f8b0fb17dfc7f3b34cc
+        doc_struct_hash: sha256:771476944af507b3be0b57c335086f8b2c3fb20ad5bb5f8b0fb17dfc7f3b34cc
+        lines: [531, 550]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestRenderFileQueueDistinguishesSavedAndFailed
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestRenderFileQueueDistinguishesSavedAndFailed
+        hash: sha256:9486a4c1cedfa143b32e17ecd329b5a8cf11b3ab37760089ba1b0ab801489d22
+        struct_hash: sha256:12c1fbfb883a69cfd640beb3b02436e0ee2a94fcfeb30e44dc35a2c5f5cf210e
+        doc_struct_hash: sha256:12c1fbfb883a69cfd640beb3b02436e0ee2a94fcfeb30e44dc35a2c5f5cf210e
+        lines: [552, 570]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestRenderWorkspaceResources
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestRenderWorkspaceResources
+        hash: sha256:b9235483712b835e0b70ca072442de65d61e2f1fe6036d016254333e6bf8f004
+        struct_hash: sha256:48f49c2e0a4a13535c5d318152d6f958e9865e652c7ee7088bdea896c3a5c43c
+        doc_struct_hash: sha256:48f49c2e0a4a13535c5d318152d6f958e9865e652c7ee7088bdea896c3a5c43c
+        lines: [572, 583]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestPlanSemanticSearchUsesAIInsteadOfCodeFuzzyMatching
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestPlanSemanticSearchUsesAIInsteadOfCodeFuzzyMatching
+        hash: sha256:a549153df12c37c435574323b1c60a6140dc453eaef81509de1cd3c1172c05bc
+        struct_hash: sha256:c9d18612633b20583ea304b91f29a3d34560d19aa77d1d1310f48a832a64b565
+        doc_struct_hash: sha256:c9d18612633b20583ea304b91f29a3d34560d19aa77d1d1310f48a832a64b565
+        lines: [585, 607]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestPlanSemanticSearchKeepsObjectTermsForRecentIntent
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestPlanSemanticSearchKeepsObjectTermsForRecentIntent
+        hash: sha256:59b630a85cdcc6dac851d3086de2e00f678e3127bb7ffbdc1711871b1a10c788
+        struct_hash: sha256:a3aa731852c25547c68358775067f7fcee9baecb5066b857cf458855a08e3a34
+        doc_struct_hash: sha256:a3aa731852c25547c68358775067f7fcee9baecb5066b857cf458855a08e3a34
+        lines: [609, 617]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestParseSemanticSearchPlanRejectsInventedKindsWithoutTreatingTermsAsSQL
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestParseSemanticSearchPlanRejectsInventedKindsWithoutTreatingTermsAsSQL
+        hash: sha256:883efc931f4082d5c2a59d2d5462f18a42e63f6e9b7b51ee2289b8cdfe4de82a
+        struct_hash: sha256:d1f33fe0b1c44512f1e30f5ca6bd65255f7f7c94f96c022370f114360b3fd841
+        doc_struct_hash: sha256:d1f33fe0b1c44512f1e30f5ca6bd65255f7f7c94f96c022370f114360b3fd841
+        lines: [619, 630]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestParseSemanticSearchPlanBoundsBroadSourceSelection
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestParseSemanticSearchPlanBoundsBroadSourceSelection
+        hash: sha256:73d138a9acc2cf6ef344babba239d987c7156dee6a65199a7a9f0adfd246c4ac
+        struct_hash: sha256:c0aa110808a5ca9d55a7ac04f5da3d9cc8b1670cc11df3aa4073b541756b304e
+        doc_struct_hash: sha256:c0aa110808a5ca9d55a7ac04f5da3d9cc8b1670cc11df3aa4073b541756b304e
+        lines: [632, 638]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestRenderDataSourcesAndRows
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestRenderDataSourcesAndRows
+        hash: sha256:e11731e0a7f2745fae5daefc57a467a5d671439c9e54bc35c3c1355ffa5e5770
+        struct_hash: sha256:6700f270c61976c262f99f8615b039eb76f2238ca03cc8d1f13c07cc5a661316
+        doc_struct_hash: sha256:6700f270c61976c262f99f8615b039eb76f2238ca03cc8d1f13c07cc5a661316
+        lines: [640, 654]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestCanonicalArgsHash
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestCanonicalArgsHash
+        hash: sha256:c0ef77be9f501053a1af8841fd0ae4aee414457ce38772d5e7ea80f131e29d92
+        struct_hash: sha256:ecf9c706cfde0d65517fa5c3d5608eb9165eedcb559654b2e439b4b1cd55208f
+        doc_struct_hash: sha256:ecf9c706cfde0d65517fa5c3d5608eb9165eedcb559654b2e439b4b1cd55208f
+        lines: [656, 669]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestTelegramUserSelectorParsing
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestTelegramUserSelectorParsing
+        hash: sha256:11dc153e279e5e284f14b3d7d8d8515348988f805060ce86dba8ee9a5ffe297c
+        struct_hash: sha256:ff0280d302891e82bb48f38f9edbdd30e734a7c0c7530b505c46e55a7d11ac14
+        doc_struct_hash: sha256:ff0280d302891e82bb48f38f9edbdd30e734a7c0c7530b505c46e55a7d11ac14
+        lines: [671, 684]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestApprovalRequiredToolsExist
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestApprovalRequiredToolsExist
+        hash: sha256:1b3b2c8058353e2e9c42eb448c75f2f59718ffc10bedd563203f1cf9e8d5e789
+        struct_hash: sha256:f78eddd053e7b3abd890928aed2367c0a9cff3fcb201d2a8a94188003087e98f
+        doc_struct_hash: sha256:f78eddd053e7b3abd890928aed2367c0a9cff3fcb201d2a8a94188003087e98f
+        lines: [686, 697]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools_test.go#TestReadOnlyToolsExcludesWritesExecutorsAndUnknownExtensions
+      level: function
+      anchor:
+        file: tools/tools_test.go
+        symbol: TestReadOnlyToolsExcludesWritesExecutorsAndUnknownExtensions
+        hash: sha256:86193ed76b7c326aa6f7b3ff07088e9221e932e38d0c7800280bf9394a4dddd3
+        struct_hash: sha256:87e5c7891d462f2d86e28efefd54cc2663be54900eef68d30ae801f5cbb6ea33
+        doc_struct_hash: sha256:87e5c7891d462f2d86e28efefd54cc2663be54900eef68d30ae801f5cbb6ea33
+        lines: [699, 711]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

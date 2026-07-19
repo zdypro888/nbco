@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: tools/roles.go
+      level: file
+      anchor:
+        file: tools/roles.go
+        hash: sha256:9133ad5e518e4404b23c3c78ee04b7638556ac21053b9de382b78d2ad690c164
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/roles.go#roleTools
+      level: function
+      anchor:
+        file: tools/roles.go
+        symbol: roleTools
+        hash: sha256:8dc495fb7e9f3cb058474ad0c62480bf6b133cafee7819753fa10939868ecc81
+        struct_hash: sha256:2d5d721f9a5677fe9299bf6dfbbdfdbacd5668a5f528e2bfcabe522221d3d606
+        doc_struct_hash: sha256:2fd0478a99e4314b3d1a20109b05b51d0988afd6633a0fe7e9e6c55d0cf8dfd8
+        lines: [14, 88]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,494 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/worker_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        hash: sha256:ebb744c44bcb36b8ea1ced4daf73b105e1f982591de5fdd8c417b2b221110ba1
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseCompletion
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseCompletion
+        hash: sha256:ae4be749f4eb85c263ecfb838e300d7a35136858649c0f6bfedb1ec65ba30936
+        struct_hash: sha256:dd6d4536b7c865672856bfe2b2e7ebc0c0894ad805c8a9ab75228bd62d67f46f
+        doc_struct_hash: sha256:dd6d4536b7c865672856bfe2b2e7ebc0c0894ad805c8a9ab75228bd62d67f46f
+        lines: [18, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseCompletionNoLessons
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseCompletionNoLessons
+        hash: sha256:066d6f3b17fe40a8b5755bab0d07e9a8629f753eb726bce7030192784428e6ad
+        struct_hash: sha256:594a08852d09dc3cbcfb83cfe733a1b6fb7b9012a84bcf11164d1bec2a9e970a
+        doc_struct_hash: sha256:594a08852d09dc3cbcfb83cfe733a1b6fb7b9012a84bcf11164d1bec2a9e970a
+        lines: [32, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseCompletionMissing
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseCompletionMissing
+        hash: sha256:04564e39ea0639ae1cc95a3fc858a29a2729d57bfaf28132ca4cd76f6f7eba2d
+        struct_hash: sha256:fd16c633063a7e44d2c759685d4f8cc939ab354803735c1478beddb973e06089
+        doc_struct_hash: sha256:fd16c633063a7e44d2c759685d4f8cc939ab354803735c1478beddb973e06089
+        lines: [40, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseCompletionSkipsPromptEcho
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseCompletionSkipsPromptEcho
+        hash: sha256:f7e4f078b1618a8e322b75a5385b79e98d251bfbcee63388c497305c47da57e8
+        struct_hash: sha256:73f70c6dbcd8cfe57e17b3d33c93461f725720afd80f1d7b2909fc4a3adad2c3
+        doc_struct_hash: sha256:73f70c6dbcd8cfe57e17b3d33c93461f725720afd80f1d7b2909fc4a3adad2c3
+        lines: [46, 59]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseCompletionRequiresRunNonce
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseCompletionRequiresRunNonce
+        hash: sha256:f9d0aa6e031e53d6b3911d57405297c83a24bf41bf5e78ca9e068879b5529035
+        struct_hash: sha256:515b136e04e5fca7b4817aa10c950c2c32e3f96f9ba131999363015bd19d68bb
+        doc_struct_hash: sha256:515b136e04e5fca7b4817aa10c950c2c32e3f96f9ba131999363015bd19d68bb
+        lines: [61, 77]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestNewCompletionMarksUnique
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestNewCompletionMarksUnique
+        hash: sha256:00b306a54afb3fa316b7d16390d276c9e455ada885ce0a9c93b25773240b06e9
+        struct_hash: sha256:3ae26d3513374ecad4ec5a896f332b0208afb34bf999ee010260c8daa49f6f48
+        doc_struct_hash: sha256:3ae26d3513374ecad4ec5a896f332b0208afb34bf999ee010260c8daa49f6f48
+        lines: [79, 88]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseInputRequestRequiresRunNonce
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseInputRequestRequiresRunNonce
+        hash: sha256:c0d1e50fa5797d35b710d07ac8ce64d8795cf3cb49da3d26cdda44b4c4bf2a6a
+        struct_hash: sha256:0113bf55fe50e68f2273309337ccfccdeb74f68d1f842c48b2295b351815afef
+        doc_struct_hash: sha256:0113bf55fe50e68f2273309337ccfccdeb74f68d1f842c48b2295b351815afef
+        lines: [90, 100]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestParseCompletionEchoWrapped
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestParseCompletionEchoWrapped
+        hash: sha256:d6bf65a2a0e86f64d1337bd6358357627fb6dabeed57b7c62ece8205ac60fdd2
+        struct_hash: sha256:6ad5235683d79a52f5115f3b594d8fb4cf86e77f9c98d39cea5624fe68eadb20
+        doc_struct_hash: sha256:6ad5235683d79a52f5115f3b594d8fb4cf86e77f9c98d39cea5624fe68eadb20
+        lines: [102, 109]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestBuildPrompt
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestBuildPrompt
+        hash: sha256:0ddd4a6325a95c43ea6d54afaa05124c168ca9d6520ab36a18d5f21144c92305
+        struct_hash: sha256:1544ea3ad58c9ddeaa34e8501c3fb40b879e62c53ac0a85b801d831a124f085a
+        doc_struct_hash: sha256:1544ea3ad58c9ddeaa34e8501c3fb40b879e62c53ac0a85b801d831a124f085a
+        lines: [111, 127]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestBuildPromptWithAttachmentsAndArtifacts
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestBuildPromptWithAttachmentsAndArtifacts
+        hash: sha256:605fb2211aaa48f2960f57bab07d953119468cdb89b07c93f23512270e5efeee
+        struct_hash: sha256:bf3ec567ca715cf972b5b3dc945de6fe424dc06db7c8e4a86ab6290a9849c95e
+        doc_struct_hash: sha256:bf3ec567ca715cf972b5b3dc945de6fe424dc06db7c8e4a86ab6290a9849c95e
+        lines: [129, 146]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestBuildPromptAttachmentFallbackMatchesDownloadedName
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestBuildPromptAttachmentFallbackMatchesDownloadedName
+        hash: sha256:0089a23d7264c0aaa1676fc8a7d0749dc98b5efa9a37505188c4d96541385296
+        struct_hash: sha256:71fe8a78314cb60bd07fc663890065518ac2b2705cc806a4d62b302ab37db3d9
+        doc_struct_hash: sha256:71fe8a78314cb60bd07fc663890065518ac2b2705cc806a4d62b302ab37db3d9
+        lines: [148, 158]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestExecuteCommandInfrastructureFailureUsesDurableFail
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestExecuteCommandInfrastructureFailureUsesDurableFail
+        hash: sha256:d902464160b19376d2a43d1bfb1319a83a3bb9b20c1793afff2378fa9b39401c
+        struct_hash: sha256:4c7fbc477edbb8d4b9fac7603eedae7311f05e8de1896a2ba9e16e050b5c488e
+        doc_struct_hash: sha256:4c7fbc477edbb8d4b9fac7603eedae7311f05e8de1896a2ba9e16e050b5c488e
+        lines: [160, 186]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestSafeFileName
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestSafeFileName
+        hash: sha256:214a5e26dbe5c1b485da4188869486c0baa77857ad162f8ff96a73fdbee1605d
+        struct_hash: sha256:4c620ba8d2f8081c5679cf5df4aec2ad9771266c03e5272cf36d6715d4564db7
+        doc_struct_hash: sha256:4c620ba8d2f8081c5679cf5df4aec2ad9771266c03e5272cf36d6715d4564db7
+        lines: [188, 204]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWorkDirIncludesClaimID
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWorkDirIncludesClaimID
+        hash: sha256:5c8857e1bfb53378a3269d25dd437d199e1fa7fb00c6556a0eb8a8f9c7f1eedd
+        struct_hash: sha256:212eddde139b1256719fd150f853028f4cd2e3662a74af66e97650f98897e2df
+        doc_struct_hash: sha256:212eddde139b1256719fd150f853028f4cd2e3662a74af66e97650f98897e2df
+        lines: [206, 218]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWorkDirUsesSessionScope
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWorkDirUsesSessionScope
+        hash: sha256:600d095a50f3faf4615606430dd08cb68d0ceff4cb7e5a493fb812e9e6a7e537
+        struct_hash: sha256:1694d2364bc0de0cec19e4a92f1047dda13c5055e4180925b566c199b1d01e05
+        doc_struct_hash: sha256:1694d2364bc0de0cec19e4a92f1047dda13c5055e4180925b566c199b1d01e05
+        lines: [220, 232]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWorkDirRepoScopeCreatesWorkspaceForAgentBootstrap
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWorkDirRepoScopeCreatesWorkspaceForAgentBootstrap
+        hash: sha256:d3c46e47b548cf9eb1ed91ea4506d36603a841c7f74af4dc95a60e1277162ef8
+        struct_hash: sha256:53dfe56eb184fc71b9a080cacf7dd18a4534d5dbc1c02022ba822732d7617a83
+        doc_struct_hash: sha256:53dfe56eb184fc71b9a080cacf7dd18a4534d5dbc1c02022ba822732d7617a83
+        lines: [234, 250]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWorkDirUsesConfiguredWorkspace
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWorkDirUsesConfiguredWorkspace
+        hash: sha256:3c51ba6e7fa43205f2870150f11154a8e7fdb1b4d16fb87624546de0e0e27a64
+        struct_hash: sha256:550421ab3562238492fbbf243cb29233a16ec59bc59d082b85d670891daf60b2
+        doc_struct_hash: sha256:550421ab3562238492fbbf243cb29233a16ec59bc59d082b85d670891daf60b2
+        lines: [252, 263]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWorkDirUsesRememberedWorkspace
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWorkDirUsesRememberedWorkspace
+        hash: sha256:26993f703fb83eea803198b0211326d3fb44307672d37e13db801b31a0985790
+        struct_hash: sha256:1baea07d5529852bf93ab279cdd44161a3553b913e19725384f3f0f2936da815
+        doc_struct_hash: sha256:1baea07d5529852bf93ab279cdd44161a3553b913e19725384f3f0f2936da815
+        lines: [265, 275]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestRunCommandPTY
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestRunCommandPTY
+        hash: sha256:3ae3e444fe5f7e9c35407889be6d0adcd69d1c77f10320727da1c3e37a72779f
+        struct_hash: sha256:c947209f8143eea1e664a89cc539c5e566cef35560cfa270b991f1c3a132e96a
+        doc_struct_hash: sha256:c947209f8143eea1e664a89cc539c5e566cef35560cfa270b991f1c3a132e96a
+        lines: [277, 307]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestRunCommandExec
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestRunCommandExec
+        hash: sha256:87861f5c088a7bfc51cf9cb5ce6c2c6ad520691d12107d08215618698df9579b
+        struct_hash: sha256:854a7a8b0803d750b5b11c1112f88a8f3e04eedcbce99257c06199f0123c06bb
+        doc_struct_hash: sha256:854a7a8b0803d750b5b11c1112f88a8f3e04eedcbce99257c06199f0123c06bb
+        lines: [309, 336]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestLimitedBufferKeepsTail
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestLimitedBufferKeepsTail
+        hash: sha256:13f8ee64e242ed041e8a68ec665243f4b2a0edbd67923f259b1ccc3ab559671a
+        struct_hash: sha256:6719ac7f66aa3f74389e2b3944fe366f09adfd66b10f6e1f88fe2b99b1dec215
+        doc_struct_hash: sha256:6719ac7f66aa3f74389e2b3944fe366f09adfd66b10f6e1f88fe2b99b1dec215
+        lines: [338, 349]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestCompletionNudgeRepeatsNonceWithoutParsingItsEcho
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestCompletionNudgeRepeatsNonceWithoutParsingItsEcho
+        hash: sha256:1fb892e55b9251284bab6f725669fcbc3ff94fa3719cb18dd0744c91539d6b68
+        struct_hash: sha256:185233aaf075caf1cbb468f762f9f2b632b47e37e9319b8c74f1e245dd4d7465
+        doc_struct_hash: sha256:185233aaf075caf1cbb468f762f9f2b632b47e37e9319b8c74f1e245dd4d7465
+        lines: [351, 368]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestCliArgs
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestCliArgs
+        hash: sha256:be4f440ddeb70a35c4dd8215cc4d14fd8e13981e0eb7ace5481e7eee1b6f8395
+        struct_hash: sha256:e6f7c6990fa527a1ccf3c15834ac51e7d78317daa3c38aa7947cd7c59cb4b22a
+        doc_struct_hash: sha256:e6f7c6990fa527a1ccf3c15834ac51e7d78317daa3c38aa7947cd7c59cb4b22a
+        lines: [370, 381]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestCliInvocationResumesKnownEngines
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestCliInvocationResumesKnownEngines
+        hash: sha256:5627b7781da8ed973d4517e8bdedab89e62cb60d86dd217923b206c82338b0f4
+        struct_hash: sha256:53f76915a270a34356582c08681988ce4c68aa06706fe6ef968b770fd6711c62
+        doc_struct_hash: sha256:53f76915a270a34356582c08681988ce4c68aa06706fe6ef968b770fd6711c62
+        lines: [383, 416]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestSafeScopePathAvoidsLossyNameCollisions
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestSafeScopePathAvoidsLossyNameCollisions
+        hash: sha256:8d0474d6805b75f90cc21a21bc43f0ef1306d9eb8b96ef1aab34a733b6fe0402
+        struct_hash: sha256:502bd9dae6b48d758485a92449415918c05d724d137bc4ce81cbaad5631215ea
+        doc_struct_hash: sha256:502bd9dae6b48d758485a92449415918c05d724d137bc4ce81cbaad5631215ea
+        lines: [418, 427]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestLatestEngineSessionRefCodex
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestLatestEngineSessionRefCodex
+        hash: sha256:6350bb4bc1b53d508bfd2e637f721ba290e2f88f7f06ade0196dd2ce0c6baa75
+        struct_hash: sha256:c7a808482467e7d55d748e732b8f315d10b90ab0fbdf022136a370fd67d27495
+        doc_struct_hash: sha256:c7a808482467e7d55d748e732b8f315d10b90ab0fbdf022136a370fd67d27495
+        lines: [429, 450]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestLatestEngineSessionRefClaude
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestLatestEngineSessionRefClaude
+        hash: sha256:f25f19856d2676bf758ffed950f73cab6af277ea9eed8aaf5bc95ffffa4d307e
+        struct_hash: sha256:3536418978ffe847a8167c6d0d9c1441a3e58660045a7c6071666dec9a55bf88
+        doc_struct_hash: sha256:3536418978ffe847a8167c6d0d9c1441a3e58660045a7c6071666dec9a55bf88
+        lines: [452, 477]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#containsAllInOrder
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: containsAllInOrder
+        hash: sha256:a2df5c474021a200786b22acbc723842adeb027b51f1a906457e0885cfd67d42
+        struct_hash: sha256:6e07a4fdbd1bd09a95f39cc7a3cf9cddcfa5a76fe47bd6bff3c3ddcd17ed8c26
+        doc_struct_hash: sha256:6e07a4fdbd1bd09a95f39cc7a3cf9cddcfa5a76fe47bd6bff3c3ddcd17ed8c26
+        lines: [479, 487]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#recordWriter
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: recordWriter
+        hash: sha256:f133abefc00d091113e3c3502f7467a143681f4b6e58ec1406345c580e3c7537
+        struct_hash: sha256:1dc4f21f494ebd42d18c7a99bc46a1fa8f74f7a9833af7ca40fc19d5925cdd99
+        doc_struct_hash: sha256:362b0bf0656299ba8fa1913c66df21910336f1e9b744e251d0171c53272617ec
+        lines: [489, 493]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#recordWriter.write
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: recordWriter.write
+        hash: sha256:b8129a44303cc2bd94ec500f52cee93e8c83b147e7a54fee190755af91ab31da
+        struct_hash: sha256:64f71d4ccbb0311516bf09623defbf0b6034a2e64b866a766a06f8142c85117f
+        doc_struct_hash: sha256:64f71d4ccbb0311516bf09623defbf0b6034a2e64b866a766a06f8142c85117f
+        lines: [495, 500]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWritePromptTwoStep
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWritePromptTwoStep
+        hash: sha256:3f0a62db7cc7636cdf6f316d66752e405b291341b1bf0ceded684e9009de0dbc
+        struct_hash: sha256:f4d0c04315c5cede3b6d04ead89ad90c0d49b4c4f80f83e6b84eaa86929875e1
+        doc_struct_hash: sha256:f4d0c04315c5cede3b6d04ead89ad90c0d49b4c4f80f83e6b84eaa86929875e1
+        lines: [502, 519]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWaitIdleMovedThenStable
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWaitIdleMovedThenStable
+        hash: sha256:4e43b3fc5bf9df1a2d2a3612fcff310a7061fd14edc3cea67cad215ff2a6d372
+        struct_hash: sha256:2d040c32f99ab812512e0c1ccbf63fc4bc5f75ffaccea9c2e0494e28c74c0703
+        doc_struct_hash: sha256:2d040c32f99ab812512e0c1ccbf63fc4bc5f75ffaccea9c2e0494e28c74c0703
+        lines: [521, 536]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWaitIdleBusyHoldsOpen
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWaitIdleBusyHoldsOpen
+        hash: sha256:36d7234aae95a009012fde697bdb01ca03943c627e987d6768a9adf1ea24be93
+        struct_hash: sha256:93a87baef4c2bd3c46fb020e5e67b7ebf42812b9d2f82ac94e8d7300e0762325
+        doc_struct_hash: sha256:93a87baef4c2bd3c46fb020e5e67b7ebf42812b9d2f82ac94e8d7300e0762325
+        lines: [538, 556]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWaitIdleStuck
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWaitIdleStuck
+        hash: sha256:b3585b6aaed9e2d3a3d61169d3c47d5b8e910b730cd423409cfe45e4e6922304
+        struct_hash: sha256:4b2f6911b906944e9d5a2c29377d6e61d011747e77cde3a1da89956be35e7afe
+        doc_struct_hash: sha256:4b2f6911b906944e9d5a2c29377d6e61d011747e77cde3a1da89956be35e7afe
+        lines: [558, 565]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWarmupAcceptsTrust
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWarmupAcceptsTrust
+        hash: sha256:70c7a6defbf4b1a00a0f8bccfcce3038342f254f4b8b56769d0be197f2db3c96
+        struct_hash: sha256:4e666d98b81a8caf89dbd59995b056b973912eb077ad6268c60b524ce7772f64
+        doc_struct_hash: sha256:4e666d98b81a8caf89dbd59995b056b973912eb077ad6268c60b524ce7772f64
+        lines: [567, 596]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWarmupAcceptsBypassDialog
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWarmupAcceptsBypassDialog
+        hash: sha256:907f0ad2218dce7d2e840a8e78db38afc2c007368d33fe3ff83cfce60534c9ea
+        struct_hash: sha256:d0894b6f9471c0e0ac3a12415deacb5921559611935ccd64dbfa0f48e761e16f
+        doc_struct_hash: sha256:d0894b6f9471c0e0ac3a12415deacb5921559611935ccd64dbfa0f48e761e16f
+        lines: [598, 628]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestSessionEndToEnd
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestSessionEndToEnd
+        hash: sha256:86732ec09ceec751c50e4c3f6efb5a8040d73e924dbb229b30648ad6f68b0a04
+        struct_hash: sha256:3bd9c935fe5abafe57f764468d00dde09b42e76f4429e81d9ad01e453aa3f7cd
+        doc_struct_hash: sha256:1cdf661642918a9ceb7351b41b677545cf9123d1338f4ebb3bf66c26473d2252
+        lines: [630, 672]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestSmokeClaude
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestSmokeClaude
+        hash: sha256:8e0368fe76cbd0b8b87ab303697bb5b86f6207923494d6e51a20335c0668964b
+        struct_hash: sha256:6943c49ad7c05ef3af1d3d70e5989fc794dde85c336d9d0571fc771fc833517e
+        doc_struct_hash: sha256:b5aa44ffb7b1f894abc311e9a721cf868be155dac953a23078a798b4fc8c4c4f
+        lines: [674, 710]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestArtifactEntriesSkipsSymlink
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestArtifactEntriesSkipsSymlink
+        hash: sha256:7ddf25996f9afe04746f3f5a621d293d594b47b2fdc3f4760997de784c03f0f9
+        struct_hash: sha256:c14e11d712566d35065993bae341541d0902ae6b99e5aca5c6fb506e41c4ba94
+        doc_struct_hash: sha256:c14e11d712566d35065993bae341541d0902ae6b99e5aca5c6fb506e41c4ba94
+        lines: [712, 742]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestOpenArtifactFileRejectsLinks
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestOpenArtifactFileRejectsLinks
+        hash: sha256:76a9d92d28aba8ac92d3b49ca112e55d5dcbbb21a736fe188f63c8dbbc892415
+        struct_hash: sha256:4d138f1604a30cc402efaea62cee8ba91dde80f80127bdf3b7b16b4c574f415c
+        doc_struct_hash: sha256:4d138f1604a30cc402efaea62cee8ba91dde80f80127bdf3b7b16b4c574f415c
+        lines: [744, 807]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestCliArgsCustomEngine
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestCliArgsCustomEngine
+        hash: sha256:2aba4eb66f5f936fc8bb22b3a99e116fa486daf78b0d3312e19a27e34b628d68
+        struct_hash: sha256:6772453a5de1ef00de9c1c9130a7bdc9bd2e7bd52481bab4215030b56f5bcbf6
+        doc_struct_hash: sha256:6772453a5de1ef00de9c1c9130a7bdc9bd2e7bd52481bab4215030b56f5bcbf6
+        lines: [809, 820]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestNewWorkerCustomBusyPattern
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestNewWorkerCustomBusyPattern
+        hash: sha256:f1dcd5438d87831b9beb548c8f1e2ded9efc9db494e4e34942621896ce8a74ea
+        struct_hash: sha256:1b0ea81e0587570f70198f7c05cae37e0a51e2f559f1064d84a6c1b4b2c1861b
+        doc_struct_hash: sha256:1b0ea81e0587570f70198f7c05cae37e0a51e2f559f1064d84a6c1b4b2c1861b
+        lines: [822, 841]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestWaitIdleBusyStableBackstop
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestWaitIdleBusyStableBackstop
+        hash: sha256:51815391c6a794cfbe109f29f081deab12028f02b4d9c1c9e02f2a2ac2a10859
+        struct_hash: sha256:0b73c44f750c34b1c8f4045967a76a7de4eeed3c816d529f85424724ad282b2b
+        doc_struct_hash: sha256:0b73c44f750c34b1c8f4045967a76a7de4eeed3c816d529f85424724ad282b2b
+        lines: [843, 879]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestDenoise
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestDenoise
+        hash: sha256:2f5dbd72f9d32b70510f9e3f2837f23ae11b2f4ec02eaa9a92ec4a2846e7720f
+        struct_hash: sha256:45434e2b6907bdb26b0d28162bf0ceb656d4347551113db491ef0baf5e4579ba
+        doc_struct_hash: sha256:45434e2b6907bdb26b0d28162bf0ceb656d4347551113db491ef0baf5e4579ba
+        lines: [881, 889]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

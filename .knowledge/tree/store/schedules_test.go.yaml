@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: store/schedules_test.go
+      level: file
+      anchor:
+        file: store/schedules_test.go
+        hash: sha256:d78d8ef10e2c3d2f63910b52351e144ad9c36313b01aa1aeb33f94a6d053da2d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#shanghai
+      level: decl
+      anchor:
+        file: store/schedules_test.go
+        symbol: shanghai
+        hash: sha256:3ca5054ab866373a07584a9087a630acbb794613e8dfd24f5c83dd194f48ed88
+        struct_hash: sha256:a0d27f9cff5b276845a585056a04fe4238fb71444d0679ac7cd82145c9aa8676
+        doc_struct_hash: sha256:a0d27f9cff5b276845a585056a04fe4238fb71444d0679ac7cd82145c9aa8676
+        lines: [8, 8]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#mustTZ
+      level: function
+      anchor:
+        file: store/schedules_test.go
+        symbol: mustTZ
+        hash: sha256:d248b171135fc6a7b7625e9f9440cd490bc28221d6127f111a54c1f771913c32
+        struct_hash: sha256:66e16f2b72cc4eaae7655bd45e153166ab08f651a594c9c9e84c96c67b8dcefe
+        doc_struct_hash: sha256:66e16f2b72cc4eaae7655bd45e153166ab08f651a594c9c9e84c96c67b8dcefe
+        lines: [10, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#TestNextDailyFireSameDay
+      level: function
+      anchor:
+        file: store/schedules_test.go
+        symbol: TestNextDailyFireSameDay
+        hash: sha256:167cf9b3a7bc51d5ba506fa8bcb1fc9a1f9a32e57c08a509122aaf0bede7b84d
+        struct_hash: sha256:a3e8da13c30984bc3a9bc41e40dd3a134d5ed650eacbab565f564c91fae9f37b
+        doc_struct_hash: sha256:a3e8da13c30984bc3a9bc41e40dd3a134d5ed650eacbab565f564c91fae9f37b
+        lines: [18, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#TestNextDailyFireNextDay
+      level: function
+      anchor:
+        file: store/schedules_test.go
+        symbol: TestNextDailyFireNextDay
+        hash: sha256:b6b5ab5d15d36d4360b567bbaedf5a91ed7b6c9288f08fd8f65a63e6b004330c
+        struct_hash: sha256:3578b79c4c92da0524896e4ad2404b131125321ad1d343539d153f1f74322552
+        doc_struct_hash: sha256:3578b79c4c92da0524896e4ad2404b131125321ad1d343539d153f1f74322552
+        lines: [28, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#TestNextDailyFireSkipsWeekend
+      level: function
+      anchor:
+        file: store/schedules_test.go
+        symbol: TestNextDailyFireSkipsWeekend
+        hash: sha256:1a610750c3bb0b7c90509a8f20a810c5210618fb46093bf452ed5e3fba79fbe5
+        struct_hash: sha256:561445322c77347aa001f19f13a5f3798362295c6036c3b05437c8f8d1bcc2c4
+        doc_struct_hash: sha256:561445322c77347aa001f19f13a5f3798362295c6036c3b05437c8f8d1bcc2c4
+        lines: [38, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#TestNextDailyFireInvalidInputsFallBack
+      level: function
+      anchor:
+        file: store/schedules_test.go
+        symbol: TestNextDailyFireInvalidInputsFallBack
+        hash: sha256:5657247d9da990403dfe879ca496fed70d7046fad458537888f6c018d86eddf2
+        struct_hash: sha256:01afb212b08a46815081ed8ecc3dc6736ab532c34fedc8aacfc424cceee69137
+        doc_struct_hash: sha256:01afb212b08a46815081ed8ecc3dc6736ab532c34fedc8aacfc424cceee69137
+        lines: [48, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules_test.go#TestWeekdayAllowed
+      level: function
+      anchor:
+        file: store/schedules_test.go
+        symbol: TestWeekdayAllowed
+        hash: sha256:1b7a281172dc4bd944c468a9f21ecdbe08e1de58786fdfd04de7b676fd22d45a
+        struct_hash: sha256:4678eb12f429224fa101616a40f2f3de19de3a974bf688b0a155302af17e1857
+        doc_struct_hash: sha256:4678eb12f429224fa101616a40f2f3de19de3a974bf688b0a155302af17e1857
+        lines: [58, 68]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

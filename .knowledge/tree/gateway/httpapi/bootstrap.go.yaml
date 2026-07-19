@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/bootstrap.go
+      level: file
+      anchor:
+        file: gateway/httpapi/bootstrap.go
+        hash: sha256:fe1a1f22fcfdfb60782146f60bf43c0b5357e18de55c31e79c2f8332fde657f4
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/bootstrap.go#bootstrapMaxBody
+      level: decl
+      anchor:
+        file: gateway/httpapi/bootstrap.go
+        symbol: bootstrapMaxBody
+        hash: sha256:71bc96f92b9c6d77f5904874011f620d6ecbebb50fd75f2039585fc2bb1f3fe4
+        struct_hash: sha256:e8502c26c74f79ec32998bbd73178938a2a1ceb7a2202f449e3f941dda5459e3
+        doc_struct_hash: sha256:e8502c26c74f79ec32998bbd73178938a2a1ceb7a2202f449e3f941dda5459e3
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/bootstrap.go#Server.handleBootstrap
+      level: function
+      anchor:
+        file: gateway/httpapi/bootstrap.go
+        symbol: Server.handleBootstrap
+        hash: sha256:412730e72fba3e4944aebffd8575236ce17905c421d76da6909bdbf7a831d4d0
+        struct_hash: sha256:594fadfca2cdc711bde0090444415ca2dd0cc4a6a388b4196b2c8edc60b03743
+        doc_struct_hash: sha256:594fadfca2cdc711bde0090444415ca2dd0cc4a6a388b4196b2c8edc60b03743
+        lines: [17, 52]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

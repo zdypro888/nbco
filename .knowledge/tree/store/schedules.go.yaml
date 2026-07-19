@@ -1,0 +1,549 @@
+schema: 1
+nodes:
+    - id: store/schedules.go
+      level: file
+      anchor:
+        file: store/schedules.go
+        hash: sha256:a8d0f505e2f0ce097f5f6ab2195e73af627cb26f3346a7a9cc6d209ed660e9d0
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleOnce
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleOnce
+        hash: sha256:531f232899f4afee2b8fa7a824df185bb4615cb57a29f16f5158105b18ed7e13
+        struct_hash: sha256:452e96f67a2113bc828e96fa9d0d1233871337d677b206685e0c6518e5464c80
+        doc_struct_hash: sha256:a12621310d18dae3109608727a80125fc1732d402920287c270acc4ed8262467
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleRepeat
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleRepeat
+        hash: sha256:9e5360a982eb19b341d3ff479720e3b2b57466445543fee105ae68ce324ee316
+        struct_hash: sha256:29ac19c17da0ab49921d58bef831780917d77bc3dd3b8dc1d1ad6be261f24216
+        doc_struct_hash: sha256:a408e7e2b1d31f974e64e8ff5cd4a2dffb2cf5f7fd8aa828d92a75d06cbeb0b0
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleDaily
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleDaily
+        hash: sha256:48322e6acdbfc3afe9c82131a7fb0d40e01d7357187adec93f9b715058dac5af
+        struct_hash: sha256:f48ecac2a0e496e81e75881a6e8b42b5079326fa1a32f6b3e371b0ec8de06b2f
+        doc_struct_hash: sha256:3d6a46c4687b3fbc9271288639baae98b696a89f6cf80b498f92e8e260f5da53
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleActive
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleActive
+        hash: sha256:8cf0ad9e50a4cbf2fb8a00f587786a9c744ba16dd84cae406dd66dd709826c89
+        struct_hash: sha256:52dd33cd940d92f5c49b150390156dda88042371747672f2538c03cb92dac706
+        doc_struct_hash: sha256:22397416e44d57769eaa04432261ecd25b28d16a4f07f8c2c661298334050219
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleDone
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleDone
+        hash: sha256:023f836ed9ed00a93f0665ab00317832da241634f4414adfb21b414bec4ea554
+        struct_hash: sha256:f4f57c2badd9e46a7eb2304007027e87ea4dd6c73aefd60943ba3c34638c4ad6
+        doc_struct_hash: sha256:2a8b980de82f9e75050c7ddb3dd0756f1b38151ad8858a15105f1b5470cb330c
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleCancelled
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleCancelled
+        hash: sha256:41baf32df0803c76e6f26114c8c59715cc6525c412c5199aedd045ec8246d781
+        struct_hash: sha256:be2234bbbad7403f5730ef173cc42fd7e3f889b4e9a7a6bd09df3ce23c10f8bd
+        doc_struct_hash: sha256:c624fc8a95e6d0ff9386986f52b832d26461eab85d21c392654d01e03a66efa9
+        lines: [19, 19]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleModeMessage
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleModeMessage
+        hash: sha256:19629aa5b5d0722996e60cb24abc288e32837cba51b07a73eea2f8021c67e9fe
+        struct_hash: sha256:08643f1b61c7aea96758e7f7f882db96b07ad777ff3a6164cc670dc5e33692e1
+        doc_struct_hash: sha256:bdbf656a3081c3d60465011a46c6576bbbb888427b3c87aa1aafebffd48c4021
+        lines: [21, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleModeAI
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleModeAI
+        hash: sha256:e4da0c31fe85cbeef2d99eb423d68b72346c05f5cd9e68db8bde7170c09dce91
+        struct_hash: sha256:89d27012934b2c11f45fd248dadc14e21782230d013ae7045ac3f7b236bb84c7
+        doc_struct_hash: sha256:94beeccff24b647471c888cc232742f3cb1997e8d20ecce761e67cceff4300c5
+        lines: [23, 23]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleTargetSelf
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleTargetSelf
+        hash: sha256:739cdbffc71844072f6c906bb31105c3939a0b827bb09d998a3c8ca4cabf844b
+        struct_hash: sha256:161b554fbac6cdb207330585b62a4db75a5014e20663bbcfeff5d320cf3bf180
+        doc_struct_hash: sha256:e4815d04c12d98965cc8162b01bd31303a9b67499b5052526e03fad1a3cb2eac
+        lines: [25, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleTargetAll
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleTargetAll
+        hash: sha256:2e3b249d9021ade8a929828e1433940dad2dc8f06da0b3c8b1cea360e0e24ad8
+        struct_hash: sha256:95817130f564c2e9a7405cf976cd6f6a6613cc2c26941f05f87add2fb4d45f22
+        doc_struct_hash: sha256:17fb1eb1607c5ae7761d26e7015a81ede21df5a7b7f94701acaaac2321fe8789
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleSourceTelegramGroupDigest
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleSourceTelegramGroupDigest
+        hash: sha256:ff214a6e4725a8f9a1354be21a506f79bde1f76aaeacad0764919af78f27b923
+        struct_hash: sha256:e609a47c2b614480d03e3a1352de86689a1ec5c61e3f8854c4e9997dd1820bad
+        doc_struct_hash: sha256:04b35dd018ac25f87bfb3108c844ca30ce5e6535ba81ed4061024e243466f2ec
+        lines: [29, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleDeliveryLease
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleDeliveryLease
+        hash: sha256:ebb74eba1de789c1e47dd8edcebf4fa829cc08745ff633e5dbc0db5d492b3f19
+        struct_hash: sha256:53fd36c74d3d8b93760e69e57202e19b50413f2004e906cc5c4bf3d19ecf9f32
+        doc_struct_hash: sha256:6e99f2c7f6a2f3c2b2a5da665637dbbccf057ea6086fd75173cc60374a65b747
+        lines: [32, 32]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleClaimBatch
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleClaimBatch
+        hash: sha256:67aea1ccb88f18e49d63dc298ed43787e3e709a87942c23ce9fc75803e427035
+        struct_hash: sha256:281faaa8a5949c16a8720e41f230967481e86134a6ae19fccd6bf2e47180c093
+        doc_struct_hash: sha256:a8316b29c4c924a82794182b2b7c6b07fe1fb8d6d63390ec296acff90a03517f
+        lines: [33, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleRecipientLease
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleRecipientLease
+        hash: sha256:c181b146ae987f37bef6f212bd9878129db30909f03250fd826d5c53fb39dc79
+        struct_hash: sha256:586b4ef3fb28a49740ac9334511e4a651c41964eaea8b6f2b475a92046990aae
+        doc_struct_hash: sha256:80d809a20c78a776033eade7efab4c8ca1ed84ba3aac1f828a25e3b69b6df5a1
+        lines: [34, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleRecipientBatch
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleRecipientBatch
+        hash: sha256:2dd2e95ccc76febe9a7c4e4a7202e83f466f5afe0f9dc3aaf8fd6a064cda141e
+        struct_hash: sha256:281faaa8a5949c16a8720e41f230967481e86134a6ae19fccd6bf2e47180c093
+        doc_struct_hash: sha256:a8316b29c4c924a82794182b2b7c6b07fe1fb8d6d63390ec296acff90a03517f
+        lines: [35, 35]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleRecipientMaxAttempts
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleRecipientMaxAttempts
+        hash: sha256:d2b6453e88b5ffdf2c32708b29bcbd5ac7effdc073ca42a0f473969cbd704604
+        struct_hash: sha256:0b53727b8a3555e305f2c158ee187ba0a665d2d6030c7b846293aeff559ebff5
+        doc_struct_hash: sha256:92e8fe3d7710c77771872d13794621a35a35931fe74e1a0808dc2c66de289d10
+        lines: [36, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Schedule
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: Schedule
+        hash: sha256:5f6dbf68faa368d16b5ed928f0e07ea74382039b8409360fcfdfff962f06e4bf
+        struct_hash: sha256:a0e5c9534523a1b7e7c9b29937756d04f70d4b452eb0ac29904668667b6f7e7f
+        doc_struct_hash: sha256:f419ca52baf5af7035c33b9a445763f2a77dfe0a56a00698b7160ba19c1460e3
+        lines: [39, 69]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleView
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleView
+        hash: sha256:dae7fd27f99c287f2e8816b829149424990fa6c3e44e509ba4e6ab39e8d10bb2
+        struct_hash: sha256:7f58ef26eb13a0e32da03b231a6e6aa82600da98c327a6a599d64265963afd51
+        doc_struct_hash: sha256:7f58ef26eb13a0e32da03b231a6e6aa82600da98c327a6a599d64265963afd51
+        lines: [71, 75]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#ScheduleDelivery
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: ScheduleDelivery
+        hash: sha256:e28eafcd2477e40374e90b44d8150dd7709d7c398aee385213c710dac681780b
+        struct_hash: sha256:918f626c4e166566344a03b8d6e89dd0ae19e91b6a795948a2292ff82fbe3c99
+        doc_struct_hash: sha256:c9fa620b3d6dab3fcfaa3a89c333d3e2a48e31e140c4b57b6c654c6e5399cf58
+        lines: [77, 95]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleDeliveryCols
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleDeliveryCols
+        hash: sha256:c2522f44e3c62779ce2dd652cda6c9b7da616e3a02647015a32f75d3444d0309
+        struct_hash: sha256:ec22946da350d94bf1df8cd38af1e0648addfc52d16fdbfd9b9b28a02647a2b1
+        doc_struct_hash: sha256:ec22946da350d94bf1df8cd38af1e0648addfc52d16fdbfd9b9b28a02647a2b1
+        lines: [97, 97]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scanScheduleDelivery
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: scanScheduleDelivery
+        hash: sha256:5b0a255adee61d792dff2085e38511383a6e8f37eaffe3b212ceebddada691a8
+        struct_hash: sha256:8b7b68249ec7fccb526194147a0f92a1fd04aed4c938ccc63da554ba3bdb4a88
+        doc_struct_hash: sha256:8b7b68249ec7fccb526194147a0f92a1fd04aed4c938ccc63da554ba3bdb4a88
+        lines: [99, 107]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleCols
+      level: decl
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleCols
+        hash: sha256:61ebce1625089edc503ef0e364f67f685a850a78933a05feffa8050ed06fc107
+        struct_hash: sha256:5442c2ced032e4947538573f03ba9cf4118fad8c935a4f32f557d8184b7117eb
+        doc_struct_hash: sha256:5442c2ced032e4947538573f03ba9cf4118fad8c935a4f32f557d8184b7117eb
+        lines: [109, 109]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scanSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: scanSchedule
+        hash: sha256:4c100533ba18947cd15060442586f540ef353d688b29cd796e04aa0a6395a2dd
+        struct_hash: sha256:9b49ebad987bd855da4b0b99a7dab7513dc9d0d3fbc4a153c858c5dd5e6561dc
+        doc_struct_hash: sha256:9b49ebad987bd855da4b0b99a7dab7513dc9d0d3fbc4a153c858c5dd5e6561dc
+        lines: [111, 125]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.CreateSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.CreateSchedule
+        hash: sha256:1e1d1b2a0db78ff96d47c6ebaaa762d3cc04c9b1736533105ac514443c445f02
+        struct_hash: sha256:6d9ba3180e719970edb24d15f4cb5a0564e13abc527b7496d4980e0348711305
+        doc_struct_hash: sha256:7017ffbd14e94f99697f69d9b80e2168a316fae8e43ab136904f79004c495fd9
+        lines: [127, 135]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.UpsertAutomationSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.UpsertAutomationSchedule
+        hash: sha256:d7ff7ef5f3816212390f1cf8cd458b3b768781b97da6ff3fe602b700f8d46135
+        struct_hash: sha256:e698d7ae0376f3793b92e01e04933f000f31b0763920250088f540e8b6dd2824
+        doc_struct_hash: sha256:37704dfeac6437e8ccac7d6e9d4b2aadf48b3f7a4057f1f711d5af45ac014546
+        lines: [137, 168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.ScheduleByID
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.ScheduleByID
+        hash: sha256:5e066f03b83ccec471f5d0092920e06d750eb76b2632514050b0cbf129a79f25
+        struct_hash: sha256:e233797f389011a27316c82545db5998bd1a7915cc4a5427ac6086ad3d507681
+        doc_struct_hash: sha256:e233797f389011a27316c82545db5998bd1a7915cc4a5427ac6086ad3d507681
+        lines: [170, 172]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.AutomationSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.AutomationSchedule
+        hash: sha256:779850eedba132032189e380e24279fc4fdfc3527a90231955b81e075f93a25c
+        struct_hash: sha256:8c9fa90017a1e73544c58b271e512bdbc3ee00abf8d226bc06eff00cddf53e4b
+        doc_struct_hash: sha256:8c9fa90017a1e73544c58b271e512bdbc3ee00abf8d226bc06eff00cddf53e4b
+        lines: [174, 179]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.HasActiveAutomationSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.HasActiveAutomationSchedule
+        hash: sha256:f4d6b64e92937d0b380ed11a434ed1162235719097aa87fb96af42a095fb3429
+        struct_hash: sha256:c575cf7e7f2ce3564f78d342ab3ddbf72a445b87fa6f649c73ac357930f467a5
+        doc_struct_hash: sha256:7b201d28aa3afd4b86834d34947977c925e9bb929da1d16f0e1d6e35ba369249
+        lines: [181, 191]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.CancelAutomationSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.CancelAutomationSchedule
+        hash: sha256:ecf062cb6388d222a78096c9f71e340dcf0fd3251673f0710003019fc7162950
+        struct_hash: sha256:667022226ee842b924c1ed2dc116cc650b2d4d09bc78200f5a086c73941927c3
+        doc_struct_hash: sha256:667022226ee842b924c1ed2dc116cc650b2d4d09bc78200f5a086c73941927c3
+        lines: [193, 210]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.SchedulesOf
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.SchedulesOf
+        hash: sha256:ae07b759ba72b4ef164ce23916c10b0919e5dc2d244026e1f0779707e5f306f6
+        struct_hash: sha256:46f9ebe79c0c2ffed664818f9ca3c29b0fe74043aff3ba350c789f558e14ff6a
+        doc_struct_hash: sha256:c7da01e0f4d219fda88df918c78f2027049cee7ea13fac98b5de798374c46b96
+        lines: [212, 230]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.SchedulesVisible
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.SchedulesVisible
+        hash: sha256:40b5627550c550f1394e6bc9cbc83320278bc7fedd34b2dae0117af19e10a993
+        struct_hash: sha256:2fd55d4fab9bec8f1093d8501058d9a9be216ca3967f25a75300459ca5fdcf52
+        doc_struct_hash: sha256:c3e487a0b283d31c7f7d62fdc5636c64d757e5860407c05b5683a56f4c9cbdcc
+        lines: [232, 288]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleColsWithAlias
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleColsWithAlias
+        hash: sha256:e815e6f1e01c3ac4e42ff0d29398b0cdb689ee4ae0dead5a414cf93c8812bab1
+        struct_hash: sha256:308205b6dfd75bafb63b57a0668b52aa7e9a2046d363584d5d496bab4d8eec42
+        doc_struct_hash: sha256:308205b6dfd75bafb63b57a0668b52aa7e9a2046d363584d5d496bab4d8eec42
+        lines: [290, 296]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.CancelSchedule
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.CancelSchedule
+        hash: sha256:a1972a108404ba250d2f5eb4c7225d8aa3078d55446ece55812284518f3fae90
+        struct_hash: sha256:c4791488debc7a3dc8646a240d7f9f9da847068e31719fae975d6c16a2ab4b26
+        doc_struct_hash: sha256:3863e798ab3123deaf2cbdd14ed2d5c0fece30cad4bc46127afc9e525783bb36
+        lines: [298, 301]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.CancelScheduleVisible
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.CancelScheduleVisible
+        hash: sha256:27baf3de7efe61f56ccc02315f522dfee6cb92e88aa119da9072662be394053c
+        struct_hash: sha256:52444f770e30eb4233253c6a891a307763c50c01e913787938acc6c3bc8eb2ad
+        doc_struct_hash: sha256:cb373fd47e8e6c833fdb3bbc047e55bec2c6f7383cc0b6ec70ac44edae34dcd1
+        lines: [303, 325]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.DueSchedules
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.DueSchedules
+        hash: sha256:4a25ab55111ba718878d019a9fb2ad7ec6132489584c9ece4decb1a1422f527b
+        struct_hash: sha256:0bb47e87264cc60f49f17bb2662bb411fd1d649fe834cf4e8f2bf85e69809ee5
+        doc_struct_hash: sha256:b86b9ff27abec41311d952aca8db74f41a1fb5f923bcb6833d9935ae204c5bac
+        lines: [327, 357]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.ReleaseScheduleClaim
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.ReleaseScheduleClaim
+        hash: sha256:31e11c2555a3fac763349426111bd11a4537c7880fc2a8508f873456ce3ca6c8
+        struct_hash: sha256:65684588a0f09769ca217391a6dc8a28cd32231e38509dd0bc1c7adefa2b7111
+        doc_struct_hash: sha256:10fc82d7b46a9132e23376eeb654c9344f56c0764b36fce2f88de71a06b7de46
+        lines: [359, 364]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.MarkScheduleDelivered
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.MarkScheduleDelivered
+        hash: sha256:caa2208351047198aa9c880b47fcdf5af86c1421bc5244105db909fe59616e4e
+        struct_hash: sha256:d8599d0a6cc83ee9526bdecd58a88564f78fad42768b03e65a48e7d15a00de74
+        doc_struct_hash: sha256:95f3e961a9c6e19e754f9ae1b9b269cf8f489a7adeae8e6d148c56b38257275b
+        lines: [366, 380]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.FanOutScheduleOccurrence
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.FanOutScheduleOccurrence
+        hash: sha256:ef6ce03edaf8696630756d9b79bf643875c96bf44f07b90fd1d3f175bbf7302f
+        struct_hash: sha256:a9066f437d6dc51444b115a1771ed925c0fc9f98ab9ea31d75859c06c835040c
+        doc_struct_hash: sha256:655b801bdeb250bb0edb39c5ec03ca0fcd8c633b51ed25c21092a2392f7b9f7e
+        lines: [382, 419]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.DueScheduleDeliveries
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.DueScheduleDeliveries
+        hash: sha256:e7bc39f30ca9cee6db1db40f1a1e1cbf5f19f8c0f11d24b26855a3f5dc32d82e
+        struct_hash: sha256:d882e7c7db5d72a2e87ec58484ab7cd98473644230d15aae9052478e2bfe4e39
+        doc_struct_hash: sha256:ff4ec00d77c9080cf925e2a741f7332dad36f192acd60cb9762de8534483f44a
+        lines: [421, 456]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#scheduleDeliveryColsWithAlias
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: scheduleDeliveryColsWithAlias
+        hash: sha256:85322209e8076d55c86f079658c07c75e1c5fe0d0562c90a111aaea18b53bc81
+        struct_hash: sha256:dd17456f6ef1b96d2c38e93965b34603e3c3d3f6ccc2733fb638da91926064ca
+        doc_struct_hash: sha256:dd17456f6ef1b96d2c38e93965b34603e3c3d3f6ccc2733fb638da91926064ca
+        lines: [458, 464]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.MarkScheduleDeliveryDelivered
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.MarkScheduleDeliveryDelivered
+        hash: sha256:e5c7a6383d56740b4095342a097290b293753268ff1b13bbaca8d36e61f4dbba
+        struct_hash: sha256:f040adfe5c2bd22d7002ad8bfb8d4f8d6e7ea6a67e4512f3b4d29d66bbeba9d8
+        doc_struct_hash: sha256:f040adfe5c2bd22d7002ad8bfb8d4f8d6e7ea6a67e4512f3b4d29d66bbeba9d8
+        lines: [466, 470]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.PrepareScheduleDeliveryResult
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.PrepareScheduleDeliveryResult
+        hash: sha256:eef58605fa29c1668c664f3b0cb0370f86583c0bb8d741aff359d4f9339c75e1
+        struct_hash: sha256:0923b0d42e435157245647dc264d89558398f0a44537593e25406713f60f31ba
+        doc_struct_hash: sha256:c1e93f34022506e48aef0040f222b7efab5aad406372c21a64e21b5dde8a3c90
+        lines: [472, 479]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.MarkScheduleDeliveryFailed
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.MarkScheduleDeliveryFailed
+        hash: sha256:07a14d69eb0330b6407dcc7259f24744b30cdf9f675834f26b452b019c3f6637
+        struct_hash: sha256:637aa313ff7750619459a3fa998c387ae2e354b016ba4ad4c965beab1ab5bdf2
+        doc_struct_hash: sha256:474d69a304640988e86a01ec8556a97fa5c882d4f386272b1ca7065755631037
+        lines: [481, 488]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.ReleaseScheduleDeliveryClaim
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.ReleaseScheduleDeliveryClaim
+        hash: sha256:5d7cf5edf1c8c85ad0430a63fbc5eb606237bd15b1a2e7119849f076ebb2a271
+        struct_hash: sha256:5bbadc23a5d8481693a0e517f26aa85eba8f945a972198db317b1339125e576d
+        doc_struct_hash: sha256:5bbadc23a5d8481693a0e517f26aa85eba8f945a972198db317b1339125e576d
+        lines: [490, 494]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.RetryScheduleDelivery
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.RetryScheduleDelivery
+        hash: sha256:643eaf510af1bd80401fa15f79f825195f624efbf76d41a53f11d68687384c01
+        struct_hash: sha256:7cf42578f4201b0f5eaca3d317a697814ed63b219856dbea6bbfe97cf5760804
+        doc_struct_hash: sha256:7cf42578f4201b0f5eaca3d317a697814ed63b219856dbea6bbfe97cf5760804
+        lines: [496, 506]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.UpdateScheduleFireAt
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.UpdateScheduleFireAt
+        hash: sha256:fe3258ee3894a4868a9d3d58e47f387315a4fc7ca3c609c7374618d05d6446b9
+        struct_hash: sha256:44f29a577198b71b2d470bb9702b2d577d6758ecbe8ae59111634a825812ead8
+        doc_struct_hash: sha256:efacd00b602e67d697bca76de3cc91515a179c3b54e607570d14ed8fe84ab078
+        lines: [508, 512]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#NextDailyFire
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: NextDailyFire
+        hash: sha256:43d605ca254b13f4ce4481a9f4e6d3831999ae1447b61383910fe9fbcfe6dcc4
+        struct_hash: sha256:e10ff74de69ab6440aa588c36e6f1ab3c126275d6daee8dd4ee657bcb62142e3
+        doc_struct_hash: sha256:10bb12ee2587a56c025873d9a9ee5190f9e2f2aab0228610a300cb28a9c33fd7
+        lines: [514, 531]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#WeekdayAllowed
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: WeekdayAllowed
+        hash: sha256:82d44c047437c9afe635f692e216ea47842c0c844a3ac8854d2a87cc679d1c3f
+        struct_hash: sha256:997e387fbbece3b4ec2af4b72474607033f44e179ef84bc64926a0837f777ed7
+        doc_struct_hash: sha256:08fd45e691cf1b576a10df1098be41bb72979c7be1f3a138c1224153546c36e3
+        lines: [533, 548]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.NextFireAt
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.NextFireAt
+        hash: sha256:9a286a57654c7f8ccb99b6d53709a2d62f18a375fdbe630f15e260abd8ca8515
+        struct_hash: sha256:976c12bdc30493e937d215d8ba62314c48442865df1f02bc3831db8de0b1bce1
+        doc_struct_hash: sha256:150125133380df0d8044b88a7be09a425f66aa50f28181bb2e0d972117cb222f
+        lines: [550, 556]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

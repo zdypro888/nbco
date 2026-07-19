@@ -1,0 +1,230 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/files.go
+      level: file
+      anchor:
+        file: gateway/httpapi/files.go
+        hash: sha256:a5c305880f6ca03c31c24f4ab487e701439373acb6d1a5f354148d36856f5028
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#maxUploadBytes
+      level: decl
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: maxUploadBytes
+        hash: sha256:016245a451ae3e3420c3dcc9ded359ad31059e0c4c3cd3b25747367e10148f6c
+        struct_hash: sha256:ab37a0cbea2e1e8ebbf0ecdb525d251868d18030f4f5c5ddd6e29cf3318d710b
+        doc_struct_hash: sha256:ab37a0cbea2e1e8ebbf0ecdb525d251868d18030f4f5c5ddd6e29cf3318d710b
+        lines: [24, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#maxMultipartMemory
+      level: decl
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: maxMultipartMemory
+        hash: sha256:4076c956c66d95eb8ea3aafca5b344c9e070ce6b74ebbbc138375d81dfd5ded2
+        struct_hash: sha256:a9f7b52d71891dd3089c55eb378da382e97da6869745003fcef908d0d63abb08
+        doc_struct_hash: sha256:a9f7b52d71891dd3089c55eb378da382e97da6869745003fcef908d0d63abb08
+        lines: [25, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#fileGCEvery
+      level: decl
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: fileGCEvery
+        hash: sha256:bd98005768d2716b0856a2904e734d03029847a5ada6bfcadc86c49b48631920
+        struct_hash: sha256:a8e941d1d7ce41e6b9002c753b98975dc4b42b808123528b55e0411b12813080
+        doc_struct_hash: sha256:a8e941d1d7ce41e6b9002c753b98975dc4b42b808123528b55e0411b12813080
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#fileGCGrace
+      level: decl
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: fileGCGrace
+        hash: sha256:36a99d147be9157606e0c9df1a8307914065ac56d05131ec45eb1344333f67cd
+        struct_hash: sha256:619bc626ffc9c0aee131cbbb3e5446bb3c651840df914b8347478f6334824d08
+        doc_struct_hash: sha256:619bc626ffc9c0aee131cbbb3e5446bb3c651840df914b8347478f6334824d08
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#fileJSON
+      level: decl
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: fileJSON
+        hash: sha256:07a4893f5f2dd2d54b8d7a80bc03ace106aa3a41d192f7a16f42006cbad10aa7
+        struct_hash: sha256:1e92fdc80224766de2ef20d7010a6d88fd416144963fd94ea3a5394b83c2111c
+        doc_struct_hash: sha256:1e92fdc80224766de2ef20d7010a6d88fd416144963fd94ea3a5394b83c2111c
+        lines: [30, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#fileIntakeJSON
+      level: decl
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: fileIntakeJSON
+        hash: sha256:4b7e4aaf1cc1c89b1e648c45b7b2c2be00f3d869aef6a20793e77e9658e1fa28
+        struct_hash: sha256:4070e7049d8a17a1f02815c4598e7c234aa7289434688fd8302226eb60020d48
+        doc_struct_hash: sha256:4070e7049d8a17a1f02815c4598e7c234aa7289434688fd8302226eb60020d48
+        lines: [40, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#toFileJSON
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: toFileJSON
+        hash: sha256:d0a1729256d91be5eff9784db3b993991cdaa7d3a6b736644ce8075a4c6c1b24
+        struct_hash: sha256:37620adb10695002bccb8aa16b0f008d2f328fd2109a450f7a6237f341fdaea5
+        doc_struct_hash: sha256:37620adb10695002bccb8aa16b0f008d2f328fd2109a450f7a6237f341fdaea5
+        lines: [51, 57]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#parseID
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: parseID
+        hash: sha256:855185e7406a0671ff3dbe41c791a7098815b1ec3aef52c04c5bd4932e8ae5bc
+        struct_hash: sha256:033531cb14610e2746c0f7501029310c591e6d0a6c3a362b7cae4ed503a58b36
+        doc_struct_hash: sha256:033531cb14610e2746c0f7501029310c591e6d0a6c3a362b7cae4ed503a58b36
+        lines: [59, 65]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.handleListFiles
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.handleListFiles
+        hash: sha256:9a27a04fef898adcfb18409dbd87bbdb0b39ca1f493b48828c11958685c871b6
+        struct_hash: sha256:4d4d9e1f61b09f5f7648a5b4c6970ba0e220d5f53ab14ac1c88e02c51e97e173
+        doc_struct_hash: sha256:4d4d9e1f61b09f5f7648a5b4c6970ba0e220d5f53ab14ac1c88e02c51e97e173
+        lines: [67, 122]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.handleUploadFile
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.handleUploadFile
+        hash: sha256:2a1fbb21db3d51164e8e7d7caec646a6628a825c887164b22e5ab8cdb5959b68
+        struct_hash: sha256:4827e72530f29d1b34f1ba81c6ed87abbeb99aeffd3eeba6e87350e295837354
+        doc_struct_hash: sha256:4827e72530f29d1b34f1ba81c6ed87abbeb99aeffd3eeba6e87350e295837354
+        lines: [124, 136]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.handleDownloadFile
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.handleDownloadFile
+        hash: sha256:646b7686fbdc65c6bd52dd74a0191ecc5f355442ee643cfff642e51f0f3c4f6e
+        struct_hash: sha256:d1ff77aa6003613688aa8d472961ab8b12a122d21977b0f8edb175d6871d5c34
+        doc_struct_hash: sha256:d1ff77aa6003613688aa8d472961ab8b12a122d21977b0f8edb175d6871d5c34
+        lines: [138, 154]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.handleAttachFile
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.handleAttachFile
+        hash: sha256:9836dff5cd2f94eed27b8fcbbe91be5fce50b82295ff37727f2ec5a6987c6555
+        struct_hash: sha256:7eb93e8f255ea40837729a780267bf7266405b03fa0503f8cbebba5dfe4ad5b3
+        doc_struct_hash: sha256:7eb93e8f255ea40837729a780267bf7266405b03fa0503f8cbebba5dfe4ad5b3
+        lines: [156, 199]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.handleWorkerDownloadFile
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.handleWorkerDownloadFile
+        hash: sha256:3ea1513a30835e077cbafae3cf493acdd7714eb8fcbcea2d390bffb78955ae7a
+        struct_hash: sha256:5aff7c443da10d12165b07cb8191ed481b3eb6975899363ed83be0c800bc8237
+        doc_struct_hash: sha256:5aff7c443da10d12165b07cb8191ed481b3eb6975899363ed83be0c800bc8237
+        lines: [201, 227]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.handleWorkerArtifact
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.handleWorkerArtifact
+        hash: sha256:8cd8b72d9e128257640dc21f760c4c48509caa44cb690f0354e4018525574faf
+        struct_hash: sha256:6c6f01556d02cdb91182bbb1854a046d2e3ca8b9031fedc2e0c3d0c025dcfd7b
+        doc_struct_hash: sha256:6c6f01556d02cdb91182bbb1854a046d2e3ca8b9031fedc2e0c3d0c025dcfd7b
+        lines: [229, 274]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.saveMultipartFile
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.saveMultipartFile
+        hash: sha256:57611d7d9929239545d35fdf175bd6d82ced262db79f1ae1e0af0be38306ccc4
+        struct_hash: sha256:253775a942c77590498cb7ac7acd98cfabf5d131ff0cf2dab74bbdf4c8cd967b
+        doc_struct_hash: sha256:08450cf7def2c36ae7df128934e2eae0b1f36653f0390415ed6a81b1ddc9330e
+        lines: [276, 335]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.serveFile
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.serveFile
+        hash: sha256:f0b19b94f74de962330bccde0521228aa7f49daa2aba5381540ae80ac8fa5051
+        struct_hash: sha256:12e9427bdfa1d8b83db95c0b92f92d964970a30786df49bab7d77a3daaacf4f1
+        doc_struct_hash: sha256:12e9427bdfa1d8b83db95c0b92f92d964970a30786df49bab7d77a3daaacf4f1
+        lines: [337, 354]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.runFileGC
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.runFileGC
+        hash: sha256:fa5ecd039b328b548895c0b272b838a9ceac5b54ae06ac59e945ea81c75c2e08
+        struct_hash: sha256:31d75248cf67f44124acfdef0bd8a3c356c1c4495c474b934bbb996811ce6030
+        doc_struct_hash: sha256:31d75248cf67f44124acfdef0bd8a3c356c1c4495c474b934bbb996811ce6030
+        lines: [356, 368]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.runFileGCPass
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.runFileGCPass
+        hash: sha256:f4d0a6312ca6902f85386ffef7b9ac6efc5c659f818a4c9691f7e520ecb3a8a1
+        struct_hash: sha256:326f719a3bfdae738706c9dc8cc278e4fcbe34036bf7fcd46ad0de4ea89bc06b
+        doc_struct_hash: sha256:326f719a3bfdae738706c9dc8cc278e4fcbe34036bf7fcd46ad0de4ea89bc06b
+        lines: [370, 377]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.gcFileStore
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.gcFileStore
+        hash: sha256:de7072793ec913885b7e891d8abf5713430d756f18f7cacb0f8757fd6cf14c48
+        struct_hash: sha256:72f00c91b913dd34bf4e721d75c21ae3b44a1e49f074d350957c2d99165b1d77
+        doc_struct_hash: sha256:72f00c91b913dd34bf4e721d75c21ae3b44a1e49f074d350957c2d99165b1d77
+        lines: [379, 383]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/files.go#Server.collectOrphanFiles
+      level: function
+      anchor:
+        file: gateway/httpapi/files.go
+        symbol: Server.collectOrphanFiles
+        hash: sha256:b21549508feae3f138ada7aede37cdb317c22090e33e2891918e780a30f74e2b
+        struct_hash: sha256:52d27e1e4153d81fccff1c06477272a736d804c065e26968b41bb626dfe5de5f
+        doc_struct_hash: sha256:52d27e1e4153d81fccff1c06477272a736d804c065e26968b41bb626dfe5de5f
+        lines: [385, 430]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

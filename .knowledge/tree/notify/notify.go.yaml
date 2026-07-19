@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: notify/notify.go
+      level: file
+      anchor:
+        file: notify/notify.go
+        hash: sha256:064a794759142c732527a2a4e737a3ac0e39c522c2ffad37b259be7f45b3d919
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Notifier
+      level: decl
+      anchor:
+        file: notify/notify.go
+        symbol: Notifier
+        hash: sha256:04c48b046cd902371f64dac0160988b73e3de327e0b4f239aa7806f1466dfcc9
+        struct_hash: sha256:ddfe6366f37a75d3adaf4d8099e171d87a811def32e507957cfe82a63e11f280
+        doc_struct_hash: sha256:0aebb2ccd3716945563ba8bc433562e39ac891163a85de9bb3e10bc063562780
+        lines: [11, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#FileNotifier
+      level: decl
+      anchor:
+        file: notify/notify.go
+        symbol: FileNotifier
+        hash: sha256:b3d612277313cf6b01162cfb539cf4b97e123c6e3e06895c9b17f7d6b595dc01
+        struct_hash: sha256:700149ac6bcbbb5605dc25fa4b0aaa65cb380ef36083900f68fa0c61c2a0fc3f
+        doc_struct_hash: sha256:52c262ac238daa5f978b8f5b336815e733afbb82e81d0014c4d180c797df8085
+        lines: [19, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Func
+      level: decl
+      anchor:
+        file: notify/notify.go
+        symbol: Func
+        hash: sha256:e3aef9910955108d12f8c9f6eb304feb17f6e3c010bbe9248ce78d42e81ceaa9
+        struct_hash: sha256:3d90ab70355f7efddd34941b2a98a56b91438ad799ea0e8f614cd299d30b04f2
+        doc_struct_hash: sha256:b64c0dd4837df5b9706c71a78d9efe33b986a1fba79bcd564be9d32d84091368
+        lines: [26, 27]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Func.Send
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: Func.Send
+        hash: sha256:ceeb6514c27360d2b72bdb0b611925e833f534fe9453cf2ad8fd290525cddc57
+        struct_hash: sha256:4c1342c17a6a120a6e7c7a7972947cdd4e77770987ee5fdded049a7992cdb70f
+        doc_struct_hash: sha256:278f155aa32c83148a6ffd23d8e119e4fae3e18eb91e56162d18f80f059a1771
+        lines: [29, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Hub
+      level: decl
+      anchor:
+        file: notify/notify.go
+        symbol: Hub
+        hash: sha256:688306a4e7909027093f9a6699de2c0ad92bad83282b39bb0630206f2b8d1840
+        struct_hash: sha256:3d5c7316ecf0f3f2b74b4bd54517eb077def77500f63313a09e92230b1966ab5
+        doc_struct_hash: sha256:cdf4c14ddb4815f510e1fda31926bbb2ec5b8c1a5a9610c4ffbbe5ce0dc8155b
+        lines: [32, 37]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Hub.Set
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: Hub.Set
+        hash: sha256:e8d8a9f2e9e08d201ded184b36c3253db4f306b36c6cb767b041c67bced0e832
+        struct_hash: sha256:bad9b9ba99eb9fc340fd0e4b3ce84e76b4f73f17cec3981fb29c02e2423dcfc4
+        doc_struct_hash: sha256:1aebadcdf1448b2c2dbf79dce2496e5664db6a90d78d01d09303b39406e82889
+        lines: [39, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Hub.Ready
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: Hub.Ready
+        hash: sha256:268a6d74daf7cbc724e562fbf36264370986e46b6ebd60a6535a81ff465ad841
+        struct_hash: sha256:55689066b81537794ce75d396d21c246fb04e611326396a8a769613eabc313e5
+        doc_struct_hash: sha256:6f519e9aecd7e93d5b89ac538cd849be2766d6b99edd8a52489106bd185f1801
+        lines: [46, 59]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Hub.Send
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: Hub.Send
+        hash: sha256:0efb75d1c879f6e0410fad7aab052a32651dde99cf7e1e440ef72553298a9feb
+        struct_hash: sha256:8c9edea7f9ef24951fa20e524e1b2bf74e0ccfcab84e1abdaefec759a64d695e
+        doc_struct_hash: sha256:b53d4ad8d600ac4124791011b4c483ebd1625ac877a6a010651a1c8028df6d80
+        lines: [61, 70]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#Hub.SendFile
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: Hub.SendFile
+        hash: sha256:dd7c8ba02fe412cb5cffb27828f4c971d7cec39c0bf98dbc4ed411e67537b9b8
+        struct_hash: sha256:bfee0402ff4e43a583e57b944f9ed20af0970c77b9ed713b28337153ad7ffdf0
+        doc_struct_hash: sha256:bfee0402ff4e43a583e57b944f9ed20af0970c77b9ed713b28337153ad7ffdf0
+        lines: [72, 84]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

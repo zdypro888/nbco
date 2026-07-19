@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/telegram_auth.go
+      level: file
+      anchor:
+        file: gateway/httpapi/telegram_auth.go
+        hash: sha256:dbb4941c7246bd3fbef00510f455be940b5d61f825e048c0df97bbe184ede81b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/telegram_auth.go#telegramInitDataMaxAge
+      level: decl
+      anchor:
+        file: gateway/httpapi/telegram_auth.go
+        symbol: telegramInitDataMaxAge
+        hash: sha256:30a45105334838776267cd3504304712d888ffb031742b11f23c8ecce4320554
+        struct_hash: sha256:b6d71a542a406b59706c8731752265e8a27efd02c3795446975e7cd4d8304256
+        doc_struct_hash: sha256:b6d71a542a406b59706c8731752265e8a27efd02c3795446975e7cd4d8304256
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/telegram_auth.go#validateTelegramInitData
+      level: function
+      anchor:
+        file: gateway/httpapi/telegram_auth.go
+        symbol: validateTelegramInitData
+        hash: sha256:09586c461f1a8c8891849287f2fc398789e1dac33356ea67243d8f1784baa9f3
+        struct_hash: sha256:1ee0863a6284ae551bbf195a379887c6e2068c26d643d40e7214934654c1dbce
+        doc_struct_hash: sha256:4980a2844e7e638c4911361f7492ad2ff2117e46206f79279001cb2dbabf6f91
+        lines: [17, 72]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

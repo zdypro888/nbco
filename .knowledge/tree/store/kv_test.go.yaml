@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/kv_test.go
+      level: file
+      anchor:
+        file: store/kv_test.go
+        hash: sha256:0550b5ae5616d7ce720ef736a7461391f0c38260d0e3b42f06b64320aa25c4dc
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv_test.go#TestBoolSetting
+      level: function
+      anchor:
+        file: store/kv_test.go
+        symbol: TestBoolSetting
+        hash: sha256:53ee8ab3a6d0e821d581fbc469fefafb7af4031cf1cc2c8988282bab4fb26162
+        struct_hash: sha256:351458fe1590681df7e6cdc1881e75e842fcb5815b35e94f0f53bdf100bc745d
+        doc_struct_hash: sha256:351458fe1590681df7e6cdc1881e75e842fcb5815b35e94f0f53bdf100bc745d
+        lines: [5, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

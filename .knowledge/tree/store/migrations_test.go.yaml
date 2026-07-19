@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/migrations_test.go
+      level: file
+      anchor:
+        file: store/migrations_test.go
+        hash: sha256:8b9ad4258aec88aecba232f7c9ac65b82b15e1307e4522a171c2fbdba2ed258c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/migrations_test.go#TestMigrationNumericPrefixesUnique
+      level: function
+      anchor:
+        file: store/migrations_test.go
+        symbol: TestMigrationNumericPrefixesUnique
+        hash: sha256:ec95f0433b5e15c20063250af72dc88eecac69d37cc445c4f29e5d26f15b94f0
+        struct_hash: sha256:fca6bcea02b5a4c94d30347c22d09e64a6887c14eb2ff0b6ad60a54d9dd9dfdf
+        doc_struct_hash: sha256:fca6bcea02b5a4c94d30347c22d09e64a6887c14eb2ff0b6ad60a54d9dd9dfdf
+        lines: [9, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

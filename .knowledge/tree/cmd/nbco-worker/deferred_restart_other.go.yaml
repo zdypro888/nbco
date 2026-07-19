@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/deferred_restart_other.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_other.go
+        hash: sha256:377d88d6b50d89da06374dff2cd286dfcfda6824ba74dadca58fee121bf78c1f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/deferred_restart_other.go#scheduleDeferredWorkerRestart
+      level: function
+      anchor:
+        file: cmd/nbco-worker/deferred_restart_other.go
+        symbol: scheduleDeferredWorkerRestart
+        hash: sha256:5c9dda32b9f4d2f7d54c101fae05bf763ca9b218992db7fbd172c74b9feefc41
+        struct_hash: sha256:d24be4de339bdc6eee2b3683a71a79eb858985c7ddd5db358698ce86a5a7c565
+        doc_struct_hash: sha256:d24be4de339bdc6eee2b3683a71a79eb858985c7ddd5db358698ce86a5a7c565
+        lines: [5, 5]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

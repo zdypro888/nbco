@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: safefs/safefs_test.go
+      level: file
+      anchor:
+        file: safefs/safefs_test.go
+        hash: sha256:608b58709ae3b3d1dfe3304e9fd5613df7cd3f9ce96a6bab1ffd303e72ab7e0f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs_test.go#TestOpenRegularConfinesPathsAndSymlinks
+      level: function
+      anchor:
+        file: safefs/safefs_test.go
+        symbol: TestOpenRegularConfinesPathsAndSymlinks
+        hash: sha256:8c0ee12f41352beb6be9aa736a9723322d7cac856d071ce2548ec4882b782676
+        struct_hash: sha256:0538de76a9eefe65de9e1b9101320dc8485efbc12794767a03effbee0c7c4334
+        doc_struct_hash: sha256:0538de76a9eefe65de9e1b9101320dc8485efbc12794767a03effbee0c7c4334
+        lines: [13, 39]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs_test.go#TestEnsurePrivateDirTightensExistingDirectory
+      level: function
+      anchor:
+        file: safefs/safefs_test.go
+        symbol: TestEnsurePrivateDirTightensExistingDirectory
+        hash: sha256:abfaa3527d4c23f62e0d1d3a07f72651b859f245190a0682b7ac7f99ab85eea3
+        struct_hash: sha256:d8e39d8f84a1bc8baee692b1ff3e7a0eaf80c685fee60456ece7c45095ebd347
+        doc_struct_hash: sha256:d8e39d8f84a1bc8baee692b1ff3e7a0eaf80c685fee60456ece7c45095ebd347
+        lines: [41, 59]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: safefs/safefs_test.go#TestInstallContentFile
+      level: function
+      anchor:
+        file: safefs/safefs_test.go
+        symbol: TestInstallContentFile
+        hash: sha256:49e7d2e2015c4bde5ab8e714acb6b7e8a0b856e1c68f908b798765312e0e1850
+        struct_hash: sha256:9b4ab23795cbb20b6ece11aaac8177c4227f749cde773101445b5f60bdb2225e
+        doc_struct_hash: sha256:9b4ab23795cbb20b6ece11aaac8177c4227f749cde773101445b5f60bdb2225e
+        lines: [61, 92]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

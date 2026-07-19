@@ -1,0 +1,87 @@
+schema: 1
+nodes:
+    - id: tools/governance.go
+      level: file
+      anchor:
+        file: tools/governance.go
+        hash: sha256:8d73d046ab8b27d5fadef68884d9e6c375da9f350ca485d6abd634cfab11bc93
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#governanceTools
+      level: function
+      anchor:
+        file: tools/governance.go
+        symbol: governanceTools
+        hash: sha256:f4ad9d177d6c8e6d63d1d14f7f37e1470a42ec97e6b8d1b7b929968a04b16923
+        struct_hash: sha256:fddca8e7361cf18a5cd2af746089269aec26f693bde028ec6e286a9301233433
+        doc_struct_hash: sha256:fddca8e7361cf18a5cd2af746089269aec26f693bde028ec6e286a9301233433
+        lines: [16, 393]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#renderDecisionItems
+      level: function
+      anchor:
+        file: tools/governance.go
+        symbol: renderDecisionItems
+        hash: sha256:b17babb4235bba33c20bc4c20da0599897dc957e1906c59df7a9dae59e880c7d
+        struct_hash: sha256:de1360cb478d82bc8bb50bb4c8f16f83ddbd4e1eb462f9398bd6b418e62d06a0
+        doc_struct_hash: sha256:de1360cb478d82bc8bb50bb4c8f16f83ddbd4e1eb462f9398bd6b418e62d06a0
+        lines: [395, 411]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#renderSystemActivity
+      level: function
+      anchor:
+        file: tools/governance.go
+        symbol: renderSystemActivity
+        hash: sha256:f0818c714d960db6a17b00d9e92d11792ae253c8eae361475d56d25368e57961
+        struct_hash: sha256:0ba167ffee2133c346ea0d80b05edf11c4d038e64ab3425752fe0b718ce970f9
+        doc_struct_hash: sha256:0ba167ffee2133c346ea0d80b05edf11c4d038e64ab3425752fe0b718ce970f9
+        lines: [413, 445]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#actionTurnDetails
+      level: decl
+      anchor:
+        file: tools/governance.go
+        symbol: actionTurnDetails
+        hash: sha256:1308ea84bac61c1f3752194eef15f41e74d7e527e6a6c49578c7c91373c0768d
+        struct_hash: sha256:c422634a707163c45cb24d53727f5276894b6e4a7770856a90970a8a3c59df8b
+        doc_struct_hash: sha256:c422634a707163c45cb24d53727f5276894b6e4a7770856a90970a8a3c59df8b
+        lines: [447, 473]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#renderActionTurns
+      level: function
+      anchor:
+        file: tools/governance.go
+        symbol: renderActionTurns
+        hash: sha256:2c9f82a76d1e220029d67003307f5f7b71fe5b5d6d32b98ae07f8fdf7b1e4ee0
+        struct_hash: sha256:ad1b25512c411c9baaa12ccf0c5d9170e6517d519c810df36612175e41426df0
+        doc_struct_hash: sha256:ad1b25512c411c9baaa12ccf0c5d9170e6517d519c810df36612175e41426df0
+        lines: [475, 543]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#actionOutcomeLabel
+      level: function
+      anchor:
+        file: tools/governance.go
+        symbol: actionOutcomeLabel
+        hash: sha256:729f06cdbbb5db5fbb4d4defa2cbacefe0eaae885c529e91c6dc1aa607f75bfa
+        struct_hash: sha256:114a4c02da5c27e8d1bb7fa256d8cf79358bf9fd4955f4f3eb3cfb3abf378a17
+        doc_struct_hash: sha256:114a4c02da5c27e8d1bb7fa256d8cf79358bf9fd4955f4f3eb3cfb3abf378a17
+        lines: [545, 575]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/governance.go#clipRunes
+      level: function
+      anchor:
+        file: tools/governance.go
+        symbol: clipRunes
+        hash: sha256:b3ea83724a5d1f280c7e003c4c2336302fab914f30c67a14d93722a363ddd3c6
+        struct_hash: sha256:b8b9030c26f7e7a7381d416ab7133286902a9f884f67d892d8d1a11e6e751926
+        doc_struct_hash: sha256:b8b9030c26f7e7a7381d416ab7133286902a9f884f67d892d8d1a11e6e751926
+        lines: [577, 583]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

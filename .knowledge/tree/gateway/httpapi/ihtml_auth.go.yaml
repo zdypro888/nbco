@@ -1,0 +1,131 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ihtml_auth.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        hash: sha256:201af2042fcf30fa0e22fb0857574ee994a250cab2fe0677d7e7b6ceea68792f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketVersion
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketVersion
+        hash: sha256:d3b73a1f393b8bfe730814263d2806d8e4142762a16e2910a062c21acddad254
+        struct_hash: sha256:f7459ea99e4a33b016cae0406efe5ee9d4dce476e7bab779dd3b489174394968
+        doc_struct_hash: sha256:f7459ea99e4a33b016cae0406efe5ee9d4dce476e7bab779dd3b489174394968
+        lines: [20, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketTTL
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketTTL
+        hash: sha256:e08eb768194d01b078b89c28959c39f020a939dfff2af98203e13b05de3ea6fb
+        struct_hash: sha256:e05ce4e1f826169bed3b8923d8c185260a32e79daac1ac975323db81000fe95d
+        doc_struct_hash: sha256:e05ce4e1f826169bed3b8923d8c185260a32e79daac1ac975323db81000fe95d
+        lines: [21, 21]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketBytes
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketBytes
+        hash: sha256:935a4c1150058f7d5d644546783d03bb49ba95fbbdc4e6c900f4a777eaea38cd
+        struct_hash: sha256:4ad99f5da45cb794a2a1f12428c203541ce49bcc5ef6f385a6b38cbed0dd2cfb
+        doc_struct_hash: sha256:4ad99f5da45cb794a2a1f12428c203541ce49bcc5ef6f385a6b38cbed0dd2cfb
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketManager
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketManager
+        hash: sha256:825deb34547d12ca105bedf55fbe6ddda1a0a6e2f320b1c6adce9ea67677d9e7
+        struct_hash: sha256:b56684c504cc6d3eaedefa883bfac5e6bc088df8278d8272f0d12eae884f4426
+        doc_struct_hash: sha256:b56684c504cc6d3eaedefa883bfac5e6bc088df8278d8272f0d12eae884f4426
+        lines: [25, 28]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#newIHTMLTicketManager
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: newIHTMLTicketManager
+        hash: sha256:bed9ca81b2dbb6e6652d74835d20cf220d8fdbfb0b798eef438044f052cbc65f
+        struct_hash: sha256:6290e8c1a294f4849f1e12d7c880f848355815471b14b6f0cc74778e70c33bfa
+        doc_struct_hash: sha256:6290e8c1a294f4849f1e12d7c880f848355815471b14b6f0cc74778e70c33bfa
+        lines: [30, 36]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketManager.issue
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketManager.issue
+        hash: sha256:47866639f31859619cc1d8c4409793f5a980544f436b165df716f73d8d63d42c
+        struct_hash: sha256:fdb97f5ef48d72670d37146f97948b4a084e8c81c19d4b44d929ccb5576f3438
+        doc_struct_hash: sha256:fdb97f5ef48d72670d37146f97948b4a084e8c81c19d4b44d929ccb5576f3438
+        lines: [38, 53]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketManager.verify
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketManager.verify
+        hash: sha256:986e1f9a650699a48e49d903a6038b5bc47402569e43953c569e8065b9312914
+        struct_hash: sha256:1a1c6505be90391a2ba870c32cc2d938b7b262def1a08e1e4562e9fbb11f869f
+        doc_struct_hash: sha256:1a1c6505be90391a2ba870c32cc2d938b7b262def1a08e1e4562e9fbb11f869f
+        lines: [55, 80]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#ihtmlTicketManager.sign
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: ihtmlTicketManager.sign
+        hash: sha256:00d90ebeb05035b273cd8a9fc3b174f2d9334b7403c011fc02328b1e472d2691
+        struct_hash: sha256:4d615e643cc3a43384255ac0523cb700fd47c52485a84b49a31f458cc31351fb
+        doc_struct_hash: sha256:4d615e643cc3a43384255ac0523cb700fd47c52485a84b49a31f458cc31351fb
+        lines: [82, 86]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#Server.handleIHTMLTicket
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: Server.handleIHTMLTicket
+        hash: sha256:1294dbfd0d6f380e16230e65877ab30ef2067f6eccb0c12389516ce326c5f496
+        struct_hash: sha256:6a914cd98762a18b21dfe9c967fabed42a075530da90d5b63b46edeab164b9c3
+        doc_struct_hash: sha256:6a914cd98762a18b21dfe9c967fabed42a075530da90d5b63b46edeab164b9c3
+        lines: [88, 107]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#Server.ihtmlUserFromTicket
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: Server.ihtmlUserFromTicket
+        hash: sha256:0556b76ddec1098bd5096ed94a34bbdef642c61daa1416ee51901f631cfa1f3f
+        struct_hash: sha256:c5cf6933d4d5f603a8bbc78362294ec25c69b7f87df626e9f26dda8c0b6e1545
+        doc_struct_hash: sha256:c5cf6933d4d5f603a8bbc78362294ec25c69b7f87df626e9f26dda8c0b6e1545
+        lines: [109, 126]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_auth.go#Server.resolveIHTMLUser
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_auth.go
+        symbol: Server.resolveIHTMLUser
+        hash: sha256:1f7400e548d324823596fcbf173ca2757df8aaf379a094fc3c06feb5388b2ec2
+        struct_hash: sha256:830e983c5edaa4bd8206957042094bbf91abda39b113cbbf39d1de578f0c2762
+        doc_struct_hash: sha256:830e983c5edaa4bd8206957042094bbf91abda39b113cbbf39d1de578f0c2762
+        lines: [128, 134]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

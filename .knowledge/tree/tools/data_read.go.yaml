@@ -1,0 +1,197 @@
+schema: 1
+nodes:
+    - id: tools/data_read.go
+      level: file
+      anchor:
+        file: tools/data_read.go
+        hash: sha256:33b13f3c0b48c35fba7b185cd39fa23330af5533b7098aa91e8a3ebe8e38aa3c
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#dataReadTools
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: dataReadTools
+        hash: sha256:c233e803cf7679537bffd4c486cd9384d90e8d30a5525d23d5a2c89973422eb8
+        struct_hash: sha256:fb7ed2f4963069d7849f8ad2089473f68b906e63bcc37ba6cb3d488ad52a67ac
+        doc_struct_hash: sha256:e1ee9d305585eb3a6368a75447aef8004e9679705cc41e91fe58a34f5e401b5c
+        lines: [23, 106]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#rankedDataRow
+      level: decl
+      anchor:
+        file: tools/data_read.go
+        symbol: rankedDataRow
+        hash: sha256:946847297ea83ebf770ce56bad3a76932eb4b0e76e8714d6d066201b3b3402cc
+        struct_hash: sha256:3aca527742270fbdcdfe8ac21c5f5fb23e736cc0c0cf2b258e434fd36a9dc75c
+        doc_struct_hash: sha256:3aca527742270fbdcdfe8ac21c5f5fb23e736cc0c0cf2b258e434fd36a9dc75c
+        lines: [108, 111]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#semanticRowsForSource
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: semanticRowsForSource
+        hash: sha256:3c2070faae3ca702012fbd4597b626aab6447f0c89cd72f74e91bc35855df08b
+        struct_hash: sha256:81f36bc4d9c036e65d42432a6c7675c0560df8d5bddabf7c50d1bbfe24bbd749
+        doc_struct_hash: sha256:81f36bc4d9c036e65d42432a6c7675c0560df8d5bddabf7c50d1bbfe24bbd749
+        lines: [113, 168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#queryAllVisibleData
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: queryAllVisibleData
+        hash: sha256:1a5342ca9266dc7efc16ee9974eecc295ed6adbea22ea52ffc3d239984bc5de3
+        struct_hash: sha256:7085c9fb9f7301aecc2870c72b43432c31a9329edb4e8fc4ba1783c7598d4c34
+        doc_struct_hash: sha256:7085c9fb9f7301aecc2870c72b43432c31a9329edb4e8fc4ba1783c7598d4c34
+        lines: [170, 207]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#searchVisibleSemanticSources
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: searchVisibleSemanticSources
+        hash: sha256:9e13b1fd3d8fd68a7446cc3c945642344edb91bbbbc66020ff9904685bd3f82c
+        struct_hash: sha256:49b3918de0711ea8363e302fa18f55f612e84c622b1f6cad48221d17ed25dbcc
+        doc_struct_hash: sha256:49b3918de0711ea8363e302fa18f55f612e84c622b1f6cad48221d17ed25dbcc
+        lines: [209, 250]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#dataSemanticFilter
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: dataSemanticFilter
+        hash: sha256:6d1e999534aa6c56c85d7a7066dbc913e2511b5b2ca585a7d1419e8d9ba8c711
+        struct_hash: sha256:8dc9b135afdbbdd30e7fe32f868809abbb849a1aee77fcc9b4a77e2d6f721c22
+        doc_struct_hash: sha256:8dc9b135afdbbdd30e7fe32f868809abbb849a1aee77fcc9b4a77e2d6f721c22
+        lines: [252, 265]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#lexicalRowsAcrossSources
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: lexicalRowsAcrossSources
+        hash: sha256:4ded0296b25072130bcad5bed199d506d939f53b56ee103c99bbaffa7aae85c3
+        struct_hash: sha256:8e3add9a5774377aefaf9a45199909852574536f1f0aa33d16f569f182d8cacb
+        doc_struct_hash: sha256:8e3add9a5774377aefaf9a45199909852574536f1f0aa33d16f569f182d8cacb
+        lines: [267, 299]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#interleaveLexicalRows
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: interleaveLexicalRows
+        hash: sha256:db5125dba50461bbb84afaec98033380cef349244ff712a67ef35288cf072fb2
+        struct_hash: sha256:06b9b60fe4e8702769518c71f883624f6d52acad77e03a6326d8d08ed059ed13
+        doc_struct_hash: sha256:06b9b60fe4e8702769518c71f883624f6d52acad77e03a6326d8d08ed059ed13
+        lines: [301, 323]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#semanticSourcesForUser
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: semanticSourcesForUser
+        hash: sha256:6c92e4977476202aa4dfd66b938bfe80b56560f095e97b6eda1b7ead5f710433
+        struct_hash: sha256:5a8c1257caaeb6d0d60516afd48c0f28bd1849a71cbdc9c6ebe8c73724fc6d7e
+        doc_struct_hash: sha256:5a8c1257caaeb6d0d60516afd48c0f28bd1849a71cbdc9c6ebe8c73724fc6d7e
+        lines: [325, 333]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#visibleRowsForHits
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: visibleRowsForHits
+        hash: sha256:2dedf976691d2cb46965e55a25d9e02e4ac67d606321140d6b469cd2a91668b1
+        struct_hash: sha256:f04dab1af57a17e273dba7916e8a5288b102730f472e7486ced12de0afae51b0
+        doc_struct_hash: sha256:f04dab1af57a17e273dba7916e8a5288b102730f472e7486ced12de0afae51b0
+        lines: [335, 379]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#mergeRankedDataRows
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: mergeRankedDataRows
+        hash: sha256:e791c52b275d03eab4cf2056278e14c37d34dc649b89ba452a1566d3fa3c1d57
+        struct_hash: sha256:09bb5c1bdb82600530b7c25f83dbf5d2ca91c7db2dbeb39776f724309a21416c
+        doc_struct_hash: sha256:09bb5c1bdb82600530b7c25f83dbf5d2ca91c7db2dbeb39776f724309a21416c
+        lines: [381, 425]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#mergeCrossRankedDataRows
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: mergeCrossRankedDataRows
+        hash: sha256:b28f937ececae3a10a0613f20c4fa3180433cae5f8ad967dd77309620877139f
+        struct_hash: sha256:648e9e8b37211560dfcad56a1b250d8ce9a930a3b065d5451cc04706f2dfbd18
+        doc_struct_hash: sha256:648e9e8b37211560dfcad56a1b250d8ce9a930a3b065d5451cc04706f2dfbd18
+        lines: [427, 508]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#crossSourceFactKeys
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: crossSourceFactKeys
+        hash: sha256:6844b8ca3014d4fa899eb9a89fc16358fd3def6a8e4327c44bef2f4019f16eb3
+        struct_hash: sha256:a69680eff42ae17296202bb5c7ee99a7eb0121a5b89293b36c96ed378c6c7223
+        doc_struct_hash: sha256:a69680eff42ae17296202bb5c7ee99a7eb0121a5b89293b36c96ed378c6c7223
+        lines: [510, 554]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#normalizeDataReadFilters
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: normalizeDataReadFilters
+        hash: sha256:1ab0a248ea86a7c83be07cdacf83de7aaabcad72f6fbfa29ffda3823c4aee5ce
+        struct_hash: sha256:723d08b57a87d8c5cfe2ee1250bce8564abad5c80bcab91a5edd3fe19b94644a
+        doc_struct_hash: sha256:723d08b57a87d8c5cfe2ee1250bce8564abad5c80bcab91a5edd3fe19b94644a
+        lines: [556, 580]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#renderDataSources
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: renderDataSources
+        hash: sha256:2c28dec0b173a578b9522d3167a97995303d43f0812687099a35765cfe8c9249
+        struct_hash: sha256:b379acf2ab080fdf9b2fed993f8f72bcb4618982366959a1bc66e6388fe9f94c
+        doc_struct_hash: sha256:b379acf2ab080fdf9b2fed993f8f72bcb4618982366959a1bc66e6388fe9f94c
+        lines: [582, 593]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#renderDataRows
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: renderDataRows
+        hash: sha256:0e3dfc42d73e6ebe714a6a295783d76040c97fad33cefe3fbd5807ba6d3702f6
+        struct_hash: sha256:3e697588cc04b299972bbd93a64abc4a460928488105b29e052ee272ef7a08bd
+        doc_struct_hash: sha256:3e697588cc04b299972bbd93a64abc4a460928488105b29e052ee272ef7a08bd
+        lines: [595, 607]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: tools/data_read.go#renderCrossSourceRows
+      level: function
+      anchor:
+        file: tools/data_read.go
+        symbol: renderCrossSourceRows
+        hash: sha256:72fd91caa993ad05b802ebb48a375a1aee931e09784aad811123862c91044cde
+        struct_hash: sha256:67952314ebff885f2c12645be9f267e7564b5637ceb24290c9cd016329e4dc1b
+        doc_struct_hash: sha256:67952314ebff885f2c12645be9f267e7564b5637ceb24290c9cd016329e4dc1b
+        lines: [609, 620]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

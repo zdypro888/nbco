@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: mcptools/mcptools_test.go
+      level: file
+      anchor:
+        file: mcptools/mcptools_test.go
+        hash: sha256:26878690898ddc50f1b3ed527aff1705b5bd33fcf3b44b9fe57835c343c4cefc
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools_test.go#TestExternalToolName
+      level: function
+      anchor:
+        file: mcptools/mcptools_test.go
+        symbol: TestExternalToolName
+        hash: sha256:be8b0dc9fa0171efcc0f7e20e5ee543a946812b2ceda052243ddcf1f81e4feac
+        struct_hash: sha256:83a4bd8a894ef1957ff9ef0f9fc6eda50073c2121691af6266b5de3ec5f5e2f0
+        doc_struct_hash: sha256:83a4bd8a894ef1957ff9ef0f9fc6eda50073c2121691af6266b5de3ec5f5e2f0
+        lines: [10, 46]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: mcptools/mcptools_test.go#TestContentTextFallsBackToStructuredResult
+      level: function
+      anchor:
+        file: mcptools/mcptools_test.go
+        symbol: TestContentTextFallsBackToStructuredResult
+        hash: sha256:b1fc0b67e5d6b06b8b6613380c38ac1440ea9349b17648e3e01e22c11d5e8e38
+        struct_hash: sha256:d5b248f8e84a7b71e4b9c53f4652582970b4a06d3f7eaa2bb56f0a69f151cd6b
+        doc_struct_hash: sha256:d5b248f8e84a7b71e4b9c53f4652582970b4a06d3f7eaa2bb56f0a69f151cd6b
+        lines: [48, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

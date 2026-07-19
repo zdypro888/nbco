@@ -1,0 +1,98 @@
+schema: 1
+nodes:
+    - id: perm/perm_test.go
+      level: file
+      anchor:
+        file: perm/perm_test.go
+        hash: sha256:7b7981d839ae6d1a4d6fef8a94245ef6672a97e0a23d63086c66fc2055d10150
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#active
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: active
+        hash: sha256:52586353a0f7c4b2871d7e5beaa4655928e6e8a4d128f0c39ce0bc693c9e1c61
+        struct_hash: sha256:9b3627fed0b81fb7a37a99a2e4196563a27d2b3e0bf08a294ca9c0c9ac5f1a0f
+        doc_struct_hash: sha256:9b3627fed0b81fb7a37a99a2e4196563a27d2b3e0bf08a294ca9c0c9ac5f1a0f
+        lines: [9, 11]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#passive
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: passive
+        hash: sha256:8e6bb81b779b5243ac85889438a50c1dc037fb8a04cf1b676cedbd9b3a6a87e2
+        struct_hash: sha256:b9ebd6b602a2ad121b2d964c8613f8a522c61057236fa17e4257e08011958686
+        doc_struct_hash: sha256:b9ebd6b602a2ad121b2d964c8613f8a522c61057236fa17e4257e08011958686
+        lines: [13, 15]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#TestValidPassiveAction
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: TestValidPassiveAction
+        hash: sha256:36744c1714a90e79228545d6319a5e55a41ca36d3cd36d48901d26bf2c8459d5
+        struct_hash: sha256:55c9c754159edfb9172a8db56cc59422abad11c6fc7181129f2694520f448276
+        doc_struct_hash: sha256:55c9c754159edfb9172a8db56cc59422abad11c6fc7181129f2694520f448276
+        lines: [17, 33]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#TestCheckActive
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: TestCheckActive
+        hash: sha256:0d8de2717ef89db6dceb071df701e1d7488291609b8e8746f4cd9b929cda4f6b
+        struct_hash: sha256:41efe049ffbbb86b6eb55764a7078bb4613e7539deb28f790f7c8c9b0d49f0c0
+        doc_struct_hash: sha256:41efe049ffbbb86b6eb55764a7078bb4613e7539deb28f790f7c8c9b0d49f0c0
+        lines: [35, 56]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#TestCheckPassive
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: TestCheckPassive
+        hash: sha256:85e4f8622701c81eb8c07713b127ceaadb2c66119af8f441a80c751dd6c66a68
+        struct_hash: sha256:7fb99b2eb7d6f461bf5b2f016f372c1fceb26a280469bcadb1efaeedd4511e8d
+        doc_struct_hash: sha256:7fb99b2eb7d6f461bf5b2f016f372c1fceb26a280469bcadb1efaeedd4511e8d
+        lines: [58, 73]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#TestCanViewProfile
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: TestCanViewProfile
+        hash: sha256:26cf7c2b890c9041501b4362f50d64b2a851ce0657f24fdb09e17171fde25869
+        struct_hash: sha256:d42ab2070570e76abdbd34e35be20bb16a01e453ee11b88728bc51557b63c126
+        doc_struct_hash: sha256:d42ab2070570e76abdbd34e35be20bb16a01e453ee11b88728bc51557b63c126
+        lines: [75, 124]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#TestCanGrantActive
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: TestCanGrantActive
+        hash: sha256:5d0324da5614da259daa8c587786e50525fe0cb2751a08653984c6a0ca840a4a
+        struct_hash: sha256:fc7b9036b971bab907978e1c1a79b59e693df62f25a1570470a740a7831dfa79
+        doc_struct_hash: sha256:fc7b9036b971bab907978e1c1a79b59e693df62f25a1570470a740a7831dfa79
+        lines: [126, 165]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: perm/perm_test.go#TestViewIntroTargets
+      level: function
+      anchor:
+        file: perm/perm_test.go
+        symbol: TestViewIntroTargets
+        hash: sha256:e51e4607824c3c52a4e51b87d4f16bcac81d18a46bb447cfecf20764d1e75c88
+        struct_hash: sha256:9d20df7e55007d9fa84a8300f0a8e52b58f2eee96a4821ae3b6c28a59c6c2f86
+        doc_struct_hash: sha256:9d20df7e55007d9fa84a8300f0a8e52b58f2eee96a4821ae3b6c28a59c6c2f86
+        lines: [167, 183]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

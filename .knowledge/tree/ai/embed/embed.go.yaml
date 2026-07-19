@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: ai/embed/embed.go
+      level: file
+      anchor:
+        file: ai/embed/embed.go
+        hash: sha256:a6fdb47a9a0e2e8c769fbcd20f50411d954e5d7235ff23c28264a9f9f524e816
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#defaultEmbedHTTPTimeout
+      level: decl
+      anchor:
+        file: ai/embed/embed.go
+        symbol: defaultEmbedHTTPTimeout
+        hash: sha256:5993ce893cda1a9e8d1d97b051086528c903bde694dfb64e82ac60d9a29f4666
+        struct_hash: sha256:61ffcd86b14f754e82aef625ef76c1fe7ba126ee0aceebec3e825ddce2529442
+        doc_struct_hash: sha256:61ffcd86b14f754e82aef625ef76c1fe7ba126ee0aceebec3e825ddce2529442
+        lines: [24, 24]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#embedMaxAttempts
+      level: decl
+      anchor:
+        file: ai/embed/embed.go
+        symbol: embedMaxAttempts
+        hash: sha256:19728fc7d7a070dbe1c4121159b67ad2f5ae1c9b1a4b881f048800105e53d2e6
+        struct_hash: sha256:80b30ad6a8663fb01d1523d2e992e223c8102981794a9793e6c581aa01900eb9
+        doc_struct_hash: sha256:80b30ad6a8663fb01d1523d2e992e223c8102981794a9793e6c581aa01900eb9
+        lines: [25, 25]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#embedRetryBaseDelay
+      level: decl
+      anchor:
+        file: ai/embed/embed.go
+        symbol: embedRetryBaseDelay
+        hash: sha256:621efa728eed69474c0edf4a275ce16d66c6eab60abbf84306821098aca456a6
+        struct_hash: sha256:9d53a32af834319f959be240567cf0ae63fe1503a2104026f1bc2ee93f58ee2c
+        doc_struct_hash: sha256:9d53a32af834319f959be240567cf0ae63fe1503a2104026f1bc2ee93f58ee2c
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#Client
+      level: decl
+      anchor:
+        file: ai/embed/embed.go
+        symbol: Client
+        hash: sha256:0223e50e5939f7f5247e511b547c5527e1953a5228ebb4c90c9623e87bb97df6
+        struct_hash: sha256:5d9b12137758c60b63f8be7b295b64efc8a9799d800d8052452f9286f88bfa08
+        doc_struct_hash: sha256:52cd7a98f80fb684901ff7e623a2db7d8e4c322a1b9b0e5f577a9640cc125676
+        lines: [29, 34]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#New
+      level: function
+      anchor:
+        file: ai/embed/embed.go
+        symbol: New
+        hash: sha256:8fd20c71698e7716a4ca8906bbb894e15bdf18c1dd9e91ce7a12fd591d93a79c
+        struct_hash: sha256:237dfe01a668e24ae7aba530031867e93cf99df90e0f11eca441eb423dfc808e
+        doc_struct_hash: sha256:1f59f5b5f3c73f5ea3675e0dcc93c84521176cda19ee25761fcc6e1f5c0e877c
+        lines: [36, 75]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#Client.Model
+      level: function
+      anchor:
+        file: ai/embed/embed.go
+        symbol: Client.Model
+        hash: sha256:d14ff1f621ca9bb068feb01a2c79a3b0ce0bc743540b6d39bd4445594dd79456
+        struct_hash: sha256:6b42f696d131b3bc978c1e4aecab2c278f3ff1ed103f3d8d3cd88250a59443e0
+        doc_struct_hash: sha256:41906515007a595d99e683fdc0f0d71034fa05da1d613447a064c200b4e97c92
+        lines: [77, 79]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#Client.Embed
+      level: function
+      anchor:
+        file: ai/embed/embed.go
+        symbol: Client.Embed
+        hash: sha256:d1afd28653f75f58dd091bc1aa53c26e5c096b9e0d5a0755d6845014a0238b31
+        struct_hash: sha256:3587cc7d301ac80464a9c12a3032ad6f7166593fffc5f844fe16adf9f409f5cd
+        doc_struct_hash: sha256:58a668115369397ed71771bfb9276928bfde72f4ca2dc962a04f8ee7f5ff7f00
+        lines: [81, 129]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#retryableEmbeddingError
+      level: function
+      anchor:
+        file: ai/embed/embed.go
+        symbol: retryableEmbeddingError
+        hash: sha256:cc8754f2e26c7def8a7bccf24bbf5ac4af55e85911508bb610ade40b4b9a406c
+        struct_hash: sha256:9351ec4827da5d16d386f841d6df7898b7c5c29414215eb2360aa9a0f3a569d9
+        doc_struct_hash: sha256:9351ec4827da5d16d386f841d6df7898b7c5c29414215eb2360aa9a0f3a569d9
+        lines: [131, 145]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/embed/embed.go#retryableHTTPStatus
+      level: function
+      anchor:
+        file: ai/embed/embed.go
+        symbol: retryableHTTPStatus
+        hash: sha256:e863a14bf3040b7ce5b15dce0de90af1ebea5cc305fab4c1d5dca9f6c48e39f8
+        struct_hash: sha256:aeed726e6bf7a5751a87844d2ae1795d6ae6299f2380cfc91e9ddcc201ebe83c
+        doc_struct_hash: sha256:aeed726e6bf7a5751a87844d2ae1795d6ae6299f2380cfc91e9ddcc201ebe83c
+        lines: [147, 151]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

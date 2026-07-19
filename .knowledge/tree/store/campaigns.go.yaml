@@ -1,0 +1,241 @@
+schema: 1
+nodes:
+    - id: store/campaigns.go
+      level: file
+      anchor:
+        file: store/campaigns.go
+        hash: sha256:c31a209a54677a293ea45439ca27f131c522cee656cfe551947030fd14a7296f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCampaignActive
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCampaignActive
+        hash: sha256:1fd5165f53a38e176e78344fd2245b0f8611dcccd33d2642c119d235c797c182
+        struct_hash: sha256:b7d0c650702f2558913477b7ba988fcf6c6224a4811240aa98438667f7fbd28b
+        doc_struct_hash: sha256:b7d0c650702f2558913477b7ba988fcf6c6224a4811240aa98438667f7fbd28b
+        lines: [12, 12]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCampaignClosed
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCampaignClosed
+        hash: sha256:976677bc7ae0c09a87a42ba1a7593e378eec0e6c51e198b70c23541217907f61
+        struct_hash: sha256:aaedd1c840c4348dacdad8889635c660c399f7d851a238878313be830cbae777
+        doc_struct_hash: sha256:aaedd1c840c4348dacdad8889635c660c399f7d851a238878313be830cbae777
+        lines: [13, 13]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCampaignCancelled
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCampaignCancelled
+        hash: sha256:d9bb0358614dfd5c522cf615f8d1e7fa22709cda68130cd6a91efb4d25e183b4
+        struct_hash: sha256:6b7d1817a79a15ace13f7558f60a96303baaf4cde61df005034ecd877915a063
+        doc_struct_hash: sha256:6b7d1817a79a15ace13f7558f60a96303baaf4cde61df005034ecd877915a063
+        lines: [14, 14]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCampaignTargetPending
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCampaignTargetPending
+        hash: sha256:feb495765cb1dd90e15bf387061224617d42166acc3543c4495f9c884a71b413
+        struct_hash: sha256:577ffb1ea4627c82e4e63fa48fd284850a0bc2cdb5f499a8b3efcd8adef18cfb
+        doc_struct_hash: sha256:577ffb1ea4627c82e4e63fa48fd284850a0bc2cdb5f499a8b3efcd8adef18cfb
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCampaignTargetCompleted
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCampaignTargetCompleted
+        hash: sha256:06931f8ec9bb6458841f2aec8c3a62163977899446746aaed169d86d4b0eb1c1
+        struct_hash: sha256:ce7422db6b8fb4b8f9567559b3f8705ac3781c800e46d8a1cd96ede775af1c64
+        doc_struct_hash: sha256:ce7422db6b8fb4b8f9567559b3f8705ac3781c800e46d8a1cd96ede775af1c64
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCollectionCampaign
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCollectionCampaign
+        hash: sha256:f8ba01f8600b31b9aa8917ff08d1c10e2673004a79c0423b1cd515150b4d362b
+        struct_hash: sha256:47ef6055c61d5e556e770481245ec40538ea76b9c93fc4b0e4fbaf47bc9190d7
+        doc_struct_hash: sha256:47ef6055c61d5e556e770481245ec40538ea76b9c93fc4b0e4fbaf47bc9190d7
+        lines: [20, 29]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCollectionCampaignView
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCollectionCampaignView
+        hash: sha256:38b2cc9c594fe135fc7c0d55699c3466dfb862f768c4ce8b0ab077cac3273416
+        struct_hash: sha256:7d370e9de062a7cc6f3c99b5afe9cff84edf159df5130c5fba89714c4092211a
+        doc_struct_hash: sha256:7d370e9de062a7cc6f3c99b5afe9cff84edf159df5130c5fba89714c4092211a
+        lines: [31, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#DataCollectionCampaignTarget
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: DataCollectionCampaignTarget
+        hash: sha256:da982175730cbe861a73f2eb63d0f3e02eb23eed85e95c646bb246262d993cfd
+        struct_hash: sha256:41e8d5ecf02cab7da31faf98e957eedbf4168573da181cf547024df5aa261c38
+        doc_struct_hash: sha256:41e8d5ecf02cab7da31faf98e957eedbf4168573da181cf547024df5aa261c38
+        lines: [40, 49]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#dataCampaignCols
+      level: decl
+      anchor:
+        file: store/campaigns.go
+        symbol: dataCampaignCols
+        hash: sha256:ec03529cdbd61bbcd13f881fe05095789a7f66ff1c3d8c93381c8c4e5f82d5e6
+        struct_hash: sha256:91c51612accf7c6b989bddd0c0e09af4ec7f39e984cf5d1df4fe4830009e42b7
+        doc_struct_hash: sha256:91c51612accf7c6b989bddd0c0e09af4ec7f39e984cf5d1df4fe4830009e42b7
+        lines: [51, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#scanDataCollectionCampaign
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: scanDataCollectionCampaign
+        hash: sha256:706df3474167e2a3ac734bc1a7d48972cb0a7adf473ec589bf011f120987d5de
+        struct_hash: sha256:93b7ead67d00a2b5a6be6cce37919bbd98f56de9e517e9b6339b03d53942c11e
+        doc_struct_hash: sha256:93b7ead67d00a2b5a6be6cce37919bbd98f56de9e517e9b6339b03d53942c11e
+        lines: [53, 57]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.CreateDataCollectionCampaign
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.CreateDataCollectionCampaign
+        hash: sha256:577e559939498a498d7db7a90df1f301d1336127ad9029a04beb21564bc9c180
+        struct_hash: sha256:7a1da6e745844ef10fe7d0a6bbe06a6ad4df76eec388408f17943b63a8adcd6c
+        doc_struct_hash: sha256:7a1da6e745844ef10fe7d0a6bbe06a6ad4df76eec388408f17943b63a8adcd6c
+        lines: [59, 82]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.DataCollectionCampaignByID
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.DataCollectionCampaignByID
+        hash: sha256:4acaa696368ac0c4251d8b175bb98b877b5135afa2ebaae812eeb77be78ee211
+        struct_hash: sha256:54a655467e2eb12fda15fae5d3d4c9618479101fff88acbfdd52f50bfce891c5
+        doc_struct_hash: sha256:54a655467e2eb12fda15fae5d3d4c9618479101fff88acbfdd52f50bfce891c5
+        lines: [84, 87]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.ListDataCollectionCampaigns
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.ListDataCollectionCampaigns
+        hash: sha256:ae5c6bc93fe737c624cb1915f6e12957fc85eb2e9c016c56a5967e36c5230d9f
+        struct_hash: sha256:255ca758f1ec36a5281ca696751d0a8d5c07ad3be15a1614df74f17979008717
+        doc_struct_hash: sha256:255ca758f1ec36a5281ca696751d0a8d5c07ad3be15a1614df74f17979008717
+        lines: [89, 137]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.DataCollectionCampaignTargets
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.DataCollectionCampaignTargets
+        hash: sha256:bcc35d997f6bfd6594a3473bc268651cac01885d3082f79cccec52a5df0af487
+        struct_hash: sha256:131c4afbf380bf190863c7d35ffdd715e319bc783e78941df56498095a6941a5
+        doc_struct_hash: sha256:131c4afbf380bf190863c7d35ffdd715e319bc783e78941df56498095a6941a5
+        lines: [139, 161]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.RefreshDataCollectionCampaign
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.RefreshDataCollectionCampaign
+        hash: sha256:3b360341f4be191a4b0d8b615757c6b126913ee269a0810bf07e0ec2b7c4e46e
+        struct_hash: sha256:5a10061fc717495b3d98cacc9ebe178e031a271c6eb876d934a0509918756050
+        doc_struct_hash: sha256:5a10061fc717495b3d98cacc9ebe178e031a271c6eb876d934a0509918756050
+        lines: [163, 221]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.RefreshDataCollectionCampaignsForUser
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.RefreshDataCollectionCampaignsForUser
+        hash: sha256:e3c379de1c1bba699d020c4ee70cca65323ea3f2a29db5b29ba78374ff9a2e2f
+        struct_hash: sha256:a85847486fc2097a81c99105e68e5302e79f2d1c8e14d5a9aff4db00c1008b46
+        doc_struct_hash: sha256:a85847486fc2097a81c99105e68e5302e79f2d1c8e14d5a9aff4db00c1008b46
+        lines: [223, 252]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.MarkDataCollectionCampaignTargetsNotified
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.MarkDataCollectionCampaignTargetsNotified
+        hash: sha256:0da20cb44dacddf8a1d602d6ce5c6ce1298764f7114c986a042ba40e3be45d27
+        struct_hash: sha256:88cd397c4a44249797cb3d3482bd76d61543848d3f1a900daff719dc59588d7f
+        doc_struct_hash: sha256:88cd397c4a44249797cb3d3482bd76d61543848d3f1a900daff719dc59588d7f
+        lines: [254, 264]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#Store.SetDataCollectionCampaignStatus
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: Store.SetDataCollectionCampaignStatus
+        hash: sha256:cb03a5fd693283957855ccae3c1ebcf82c99029f14c2d3d21f8a855ecc17721a
+        struct_hash: sha256:20b893646bad73d9381784548aa9711ab64c1d169119786cb9b18af3f0576072
+        doc_struct_hash: sha256:20b893646bad73d9381784548aa9711ab64c1d169119786cb9b18af3f0576072
+        lines: [266, 270]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#missingRequiredFields
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: missingRequiredFields
+        hash: sha256:61033d226231561b0dce32d2c2050e41863d80868e3fca12c58dcd79b93f7436
+        struct_hash: sha256:81e7500beae9dfeab7603ffe530132741ce388fb29957ab2f117656111ab207e
+        doc_struct_hash: sha256:81e7500beae9dfeab7603ffe530132741ce388fb29957ab2f117656111ab207e
+        lines: [272, 280]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#normalizeStringSet
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: normalizeStringSet
+        hash: sha256:172e307f76f408f3427a45038d6aa266234901e9459383138018fbe483bfa4d0
+        struct_hash: sha256:3ec3e35e1c152336ea26525afe109cd70867cd6a32aacd118cb6c87abf47b340
+        doc_struct_hash: sha256:3ec3e35e1c152336ea26525afe109cd70867cd6a32aacd118cb6c87abf47b340
+        lines: [282, 294]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/campaigns.go#normalizeIntSet
+      level: function
+      anchor:
+        file: store/campaigns.go
+        symbol: normalizeIntSet
+        hash: sha256:69e1d0a4f4d5e6fa2887e2fb7617e266c5431b49f3eefc5fa345ca829a63b900
+        struct_hash: sha256:5d09b5c18f0697e63676e0462d1a49309c1926b2452b282452bac3219bd067d3
+        doc_struct_hash: sha256:5d09b5c18f0697e63676e0462d1a49309c1926b2452b282452bac3219bd067d3
+        lines: [296, 307]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: store/data_read_unit_test.go
+      level: file
+      anchor:
+        file: store/data_read_unit_test.go
+        hash: sha256:46c70301c79b45e50e0fded91ba2a6d4123ad06dbe60190837c7b723766c8d58
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/data_read_unit_test.go#TestDataRowEntityIDPreservesLargeAndNegativeIDs
+      level: function
+      anchor:
+        file: store/data_read_unit_test.go
+        symbol: TestDataRowEntityIDPreservesLargeAndNegativeIDs
+        hash: sha256:cb7676b3740dbe3bab2fd2f3fb3e1268263c1e8b6f1074510c726346afaf0a2c
+        struct_hash: sha256:3ec1591f3f5e548051bee5ab05d2b7b05a5872bedc68adc4d2d834f5b6d5658e
+        doc_struct_hash: sha256:3ec1591f3f5e548051bee5ab05d2b7b05a5872bedc68adc4d2d834f5b6d5658e
+        lines: [10, 16]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/data_read_unit_test.go#TestSemanticDataSourcesOnlyIncludeCuratedTextModels
+      level: function
+      anchor:
+        file: store/data_read_unit_test.go
+        symbol: TestSemanticDataSourcesOnlyIncludeCuratedTextModels
+        hash: sha256:a2721b13f97e2214b7503ca67de0ab9218ed1420189a3c45f0a932216c560c28
+        struct_hash: sha256:56f484348ba62f4459efe372dc13ad9f0ad1ddac9d60efc69656763a2b53746f
+        doc_struct_hash: sha256:56f484348ba62f4459efe372dc13ad9f0ad1ddac9d60efc69656763a2b53746f
+        lines: [18, 62]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/data_read_unit_test.go#TestSemanticDocumentTextUsesOnlySelectedFields
+      level: function
+      anchor:
+        file: store/data_read_unit_test.go
+        symbol: TestSemanticDocumentTextUsesOnlySelectedFields
+        hash: sha256:4d392b3619e2c7e34a490d1f4f665a4a05c8ca45adde34b2da1123838eb19b89
+        struct_hash: sha256:6b08d9a898a47f862bcd5a65e505643f7c64932122464f504c442241040f4ce9
+        doc_struct_hash: sha256:6b08d9a898a47f862bcd5a65e505643f7c64932122464f504c442241040f4ce9
+        lines: [64, 74]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

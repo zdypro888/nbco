@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/skills.go
+      level: file
+      anchor:
+        file: ai/einoengine/skills.go
+        hash: sha256:0089da5715505caa9cc7348b38a4655a504c2916a397e82cfe82a5f49682cb1f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/skills.go#turnSkillBackend
+      level: decl
+      anchor:
+        file: ai/einoengine/skills.go
+        symbol: turnSkillBackend
+        hash: sha256:12284eaac83b52dbbdf66889bcc96a61bffbc55a809918b46e5059a621fe3682
+        struct_hash: sha256:6b83228417546c948f58c533a5246dceab3ad7ead6e852c5d214183d31b01ec8
+        doc_struct_hash: sha256:a9072fa764b3231bd45ae63a1ed4254432ec5dcb976640172174c42ba4c8fa21
+        lines: [14, 20]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/skills.go#newTurnSkillBackend
+      level: function
+      anchor:
+        file: ai/einoengine/skills.go
+        symbol: newTurnSkillBackend
+        hash: sha256:df7e56deb8557d2306eba2062cfa1d434bd4d0c044bd9afe94850ccbe25d73d2
+        struct_hash: sha256:8350d980f32d6cebdeecd847a3ce8a20872a74fa11eb7cc166d40a88be0a30c6
+        doc_struct_hash: sha256:8350d980f32d6cebdeecd847a3ce8a20872a74fa11eb7cc166d40a88be0a30c6
+        lines: [22, 44]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/skills.go#turnSkillBackend.List
+      level: function
+      anchor:
+        file: ai/einoengine/skills.go
+        symbol: turnSkillBackend.List
+        hash: sha256:9c3374070d10bc9b0bbbe6e87eddccb9fe8aed194d803044ffdc10d8a546b04f
+        struct_hash: sha256:0f4336a48131680610834344b814be5e2cd76c85ff89d19da5f0959a924199d7
+        doc_struct_hash: sha256:0f4336a48131680610834344b814be5e2cd76c85ff89d19da5f0959a924199d7
+        lines: [46, 51]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/skills.go#turnSkillBackend.Get
+      level: function
+      anchor:
+        file: ai/einoengine/skills.go
+        symbol: turnSkillBackend.Get
+        hash: sha256:bfdc8ea801b29f21c1e89b81c11a2cce2d7c7916cc7db202a793fd860a1378ad
+        struct_hash: sha256:35b63b3c2b7cf93376be39c65b6b1955e7a55bd9859f34ed0853a50e1eb4270b
+        doc_struct_hash: sha256:35b63b3c2b7cf93376be39c65b6b1955e7a55bd9859f34ed0853a50e1eb4270b
+        lines: [53, 62]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -1,0 +1,252 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ihtml_chat.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        hash: sha256:666eb1ada474693d010a682ab963d61362e74e838371c7aea10effabf10a7589
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlChatChannel
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlChatChannel
+        hash: sha256:dec5ce7acd73f8aa34434dada0cae03d74d722b067bdd32c5ec34285a4d3a8b5
+        struct_hash: sha256:11d99b5614bd858491f10b9d0f3da709a6415a6302bde4ff5a39027ed505d274
+        doc_struct_hash: sha256:11d99b5614bd858491f10b9d0f3da709a6415a6302bde4ff5a39027ed505d274
+        lines: [22, 22]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlChatBackend
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlChatBackend
+        hash: sha256:ccda8764e6ff122a956983580d4eac7e01372c5476f0fe0eefc12443972f5400
+        struct_hash: sha256:a4350ae59bb2d645de0e4eff9234fff54ad38aedae0da16622a8de153527a34a
+        doc_struct_hash: sha256:a4350ae59bb2d645de0e4eff9234fff54ad38aedae0da16622a8de153527a34a
+        lines: [24, 30]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#newIHTMLChatBackend
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: newIHTMLChatBackend
+        hash: sha256:6298e124f2b841d045314dd91be54275e223a81b66eee57174183296bd2449f2
+        struct_hash: sha256:76f8559ad016b6b46387aac53e3504bf84cf92ae79db98d27aa1e863b145a4dd
+        doc_struct_hash: sha256:76f8559ad016b6b46387aac53e3504bf84cf92ae79db98d27aa1e863b145a4dd
+        lines: [32, 38]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlChatBackend.Models
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlChatBackend.Models
+        hash: sha256:5702289c5b468d03106932d25cea78592fb264b3e59bbcd83f6d3291496dae22
+        struct_hash: sha256:86c96a3dd6ab98ce9d49cb5a42754b59960028c3f09b3e008b187dd4d97a906c
+        doc_struct_hash: sha256:86c96a3dd6ab98ce9d49cb5a42754b59960028c3f09b3e008b187dd4d97a906c
+        lines: [40, 64]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlChatBackend.NewSession
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlChatBackend.NewSession
+        hash: sha256:9e5a71f51bfbd9c5c8e8bebdede847da0e46708c312e92adf7c3d5cad80b886f
+        struct_hash: sha256:ceaccb3c1907d7541c91076f419ab9abf467eeb92d5cf9b48a2144c046ed7761
+        doc_struct_hash: sha256:ceaccb3c1907d7541c91076f419ab9abf467eeb92d5cf9b48a2144c046ed7761
+        lines: [66, 87]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession
+        hash: sha256:867701b4cf1b7c8fcdb0643beb96bc700acadb912b9772bc50d26aa39f92930d
+        struct_hash: sha256:f0536b29ee8365e017f6e0c22608f91f44513602e530146a978ba989c3713265
+        doc_struct_hash: sha256:f0536b29ee8365e017f6e0c22608f91f44513602e530146a978ba989c3713265
+        lines: [89, 103]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.HandleEvent
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession.HandleEvent
+        hash: sha256:8122211218cb409c1355a324b2cfe3e60596d4ac97780f293bc70337d90e0ef6
+        struct_hash: sha256:6acde9a4bc9398fcc617d579d21ba1be1308ed05c55341189642e46b6da41983
+        doc_struct_hash: sha256:6acde9a4bc9398fcc617d579d21ba1be1308ed05c55341189642e46b6da41983
+        lines: [105, 126]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.Close
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession.Close
+        hash: sha256:0e069eaf064c9a96f78ef0c0550d15d8bb84da376a164836161db4e0fec2ec60
+        struct_hash: sha256:8375e2e0bb24eb719be473c9d24d3a1997d0e7dab249b0a484358b32cc1fbdf6
+        doc_struct_hash: sha256:8375e2e0bb24eb719be473c9d24d3a1997d0e7dab249b0a484358b32cc1fbdf6
+        lines: [128, 137]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.loop
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession.loop
+        hash: sha256:c7bed8a8a46d9e0263f6bc8d786da0aa8c6f1886b3ba44f689a85570eeb423de
+        struct_hash: sha256:18478153e395978d417426b36bb009c88455f12a40dd20d6f2909ea322fe60b0
+        doc_struct_hash: sha256:18478153e395978d417426b36bb009c88455f12a40dd20d6f2909ea322fe60b0
+        lines: [139, 155]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.runTurnSafely
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession.runTurnSafely
+        hash: sha256:28b3846cdcc5e16ba0c52804c00a52ecab1d1b2eee229ef913bd11f410f69d96
+        struct_hash: sha256:de8893df5acea63960bdc90e2742fd194dfc23579c9668d01b64ec3ff5e88127
+        doc_struct_hash: sha256:de8893df5acea63960bdc90e2742fd194dfc23579c9668d01b64ec3ff5e88127
+        lines: [157, 167]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.cancelActive
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession.cancelActive
+        hash: sha256:76db3b000732554eab6905ff68e051a4c6fc965f0bb254c780df42f73f419ba4
+        struct_hash: sha256:6f5ee8322c06ed4b8c122719fb1365d91333b1e12de14d3f420ddd66b71016d8
+        doc_struct_hash: sha256:6f5ee8322c06ed4b8c122719fb1365d91333b1e12de14d3f420ddd66b71016d8
+        lines: [169, 176]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.runTurn
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlSharedSession.runTurn
+        hash: sha256:d5a77ac815760e72536cb404d5cf9f6c8aa38cd4a61e3cff983c74ab72ab7eb1
+        struct_hash: sha256:5b8ca37524c2c2906e4c831ae4ae866ad3896824898e5313ad05a2093357d4d3
+        doc_struct_hash: sha256:5b8ca37524c2c2906e4c831ae4ae866ad3896824898e5313ad05a2093357d4d3
+        lines: [178, 260]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#lastIHTMLUserMessage
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: lastIHTMLUserMessage
+        hash: sha256:47ea594238d70ae0392a48aec4d7d8ebc566589128ead72a1fafe9009c26dac5
+        struct_hash: sha256:fa4bf1d3adc5d939ab1ecbc9fc34d7eb82d8eb4ae506c596426f6b2ab6a88fce
+        doc_struct_hash: sha256:fa4bf1d3adc5d939ab1ecbc9fc34d7eb82d8eb4ae506c596426f6b2ab6a88fce
+        lines: [262, 271]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlBrowserContext
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlBrowserContext
+        hash: sha256:5a6b6dd02b00291ea28e3e86e33a598e67624a161e47c71f297646428b85a21d
+        struct_hash: sha256:5c240b9ee23e2b249d35b9c9f7eab9c5e59e7b7f22932e7ea62c62fd73a93880
+        doc_struct_hash: sha256:5c240b9ee23e2b249d35b9c9f7eab9c5e59e7b7f22932e7ea62c62fd73a93880
+        lines: [273, 283]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlTurnSystem
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlTurnSystem
+        hash: sha256:cac88816d83555bacbd97862653d72b390a849649e8a2b10f124b41fe11e3d33
+        struct_hash: sha256:62f3e2c018b7a6274399d06a2be75bef602a2f51c179ef5d6f7b90650b4239f2
+        doc_struct_hash: sha256:62f3e2c018b7a6274399d06a2be75bef602a2f51c179ef5d6f7b90650b4239f2
+        lines: [285, 303]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#ihtmlEventEmitter
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: ihtmlEventEmitter
+        hash: sha256:54dd9c165d01c2a82faed33c4496d89963ede6cc018f8de308fd9411da549c58
+        struct_hash: sha256:826526fb0caab36a7978b4098c5bca6f25141d693617c79058999b62336305a4
+        doc_struct_hash: sha256:826526fb0caab36a7978b4098c5bca6f25141d693617c79058999b62336305a4
+        lines: [305, 311]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#newIHTMLEmitter
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: newIHTMLEmitter
+        hash: sha256:b76ebdc3d111d8536b66ce943fbe651aa50f4b655f4ad99ddb05049541d73fd7
+        struct_hash: sha256:276f0f2321ae592bec6b675f3d5d912a5a5c1d859c0d044e0b4b11282c7eac46
+        doc_struct_hash: sha256:276f0f2321ae592bec6b675f3d5d912a5a5c1d859c0d044e0b4b11282c7eac46
+        lines: [313, 324]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#compactIHTMLToolSummary
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: compactIHTMLToolSummary
+        hash: sha256:1b841c7b56dbfb69e9bd76a592d24be53c859e0336386a06d2dad691e06c8098
+        struct_hash: sha256:b13a1e1a560bac378e79bb2d8e840b9826fcb37de3853fe318b6dc96c7f132fa
+        doc_struct_hash: sha256:b13a1e1a560bac378e79bb2d8e840b9826fcb37de3853fe318b6dc96c7f132fa
+        lines: [326, 332]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#clipRunes
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: clipRunes
+        hash: sha256:e48573cc54918d6410322647638c67fdb4f6a47d884e2c99a941d482e0869d58
+        struct_hash: sha256:06a8a42a665e4299d5428f7ca1d5575c4f40526a3319c661fec268e21e2632ab
+        doc_struct_hash: sha256:06a8a42a665e4299d5428f7ca1d5575c4f40526a3319c661fec268e21e2632ab
+        lines: [334, 340]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#_
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: _
+        hash: sha256:0e1038a54a7b6df39fa844638da7a7008aa9fdc6dc5874e18821ce3211d804be
+        struct_hash: sha256:39839ce5403cf094db4480340e94247c456620aae20276ade2fb76c84402a9fa
+        doc_struct_hash: sha256:39839ce5403cf094db4480340e94247c456620aae20276ade2fb76c84402a9fa
+        lines: [343, 343]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#_~2
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: _~2
+        hash: sha256:f48c4d7ea384dc12e98731e204afa48376a76c1de8503abae8ad32c1bd024d15
+        struct_hash: sha256:283ec51ae0b9452a5198d01103a2938fb41dd08673c04dad30a310ccbf2d5678
+        doc_struct_hash: sha256:283ec51ae0b9452a5198d01103a2938fb41dd08673c04dad30a310ccbf2d5678
+        lines: [344, 344]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat.go#_~3
+      level: decl
+      anchor:
+        file: gateway/httpapi/ihtml_chat.go
+        symbol: _~3
+        hash: sha256:ae251cb434e191e93ca6669caeb8ead6c914f96366123fb79f3f9aa6de9ed4de
+        struct_hash: sha256:0bb8b11702813486cd00c44b64365f5920ca4dac9404a7c44bf779dc01aa7cd9
+        doc_struct_hash: sha256:0bb8b11702813486cd00c44b64365f5920ca4dac9404a7c44bf779dc01aa7cd9
+        lines: [345, 345]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
