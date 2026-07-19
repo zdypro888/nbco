@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -293,6 +294,7 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 // runTurn 一轮引擎调用的公共路径：上下文与权限裁剪 → Eino DeepAgent → 落库。
 // onDelta 非 nil 时把最终答复的文本增量实时推给调用方（流式，网关渐进显示）。
 func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string), extension *TurnExtension) (string, error) {
+	start := time.Now()
 	internal, _ := ctx.Value(internalTurnKey{}).(bool)
 	if !internal && !isGroupChannel(channel) {
 		extension = o.withProvidedExtension(ctx, u, channel, extension)
@@ -330,6 +332,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	if readOnly, _ := ctx.Value(readOnlyTurnKey{}).(bool); readOnly {
 		fullToolset = tools.ReadOnlyTools(fullToolset)
 	}
+	modelText := extendedUserText(text, extension)
+	toolSelection := o.selectPreferredTools(ctx, u, modelText, msgs, fullToolset)
+	slog.Info("本轮工具语义检索", "session", sess.ID, "source", toolSelection.Source,
+		"selected", len(toolSelection.Names), "catalog", toolSelection.CatalogSize,
+		"duration", toolSelection.Duration.Round(time.Millisecond), "tools", toolSelection.Names)
 	availableTools := toolNames(fullToolset)
 	system, err := o.systemPrompt(ctx, u, channel, availableTools)
 	if err != nil {
@@ -360,11 +367,9 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			"摘要中的相对日期词只代表摘要生成当时，不得按当前日期重新解释；涉及时间结论时以带绝对时间的历史消息或工具记录为准。\n" + textfmt.StripHistoryMetadata(sess.Summary)
 	}
 
-	start := time.Now()
 	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
 	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
 
-	modelText := extendedUserText(text, extension)
 	req := &ai.TurnRequest{
 		Mode:              ai.TurnModeDeep,
 		SessionID:         fmt.Sprintf("%d", sess.ID),
@@ -375,6 +380,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		UserText:          modelText,
 		Model:             o.runtimeModel(ctx),
 		Tools:             toolset,
+		PreferredTools:    toolSelection.Names,
 		Skills:            turnSkills,
 		// 实时轨迹：工具调用与产出上报到日志（审计层另行落库）。
 		OnEvent: func(s ai.Step) {
@@ -416,18 +422,21 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		histChars += len(content)
 	}
 	diag := turnDiagnostics{
-		Route:           "eino:deep/tool_search",
+		Route:           "eino:deep/semantic_tools+tool_search",
 		SystemChars:     len(system),
 		HistoryChars:    histChars,
 		ToolCount:       len(toolset),
 		FullToolCount:   len(fullToolset),
 		ToolSchemaChars: toolSchemaChars(toolset),
 		Tools:           routedToolNames(toolset),
+		ToolSelector:    toolSelection.Source,
+		PreferredTools:  slices.Clone(toolSelection.Names),
 	}
 	slog.Info("轮次上下文", "session", sess.ID, "route", diag.Route,
 		"catalog_tools", diag.ToolCount, "authorized_tools", diag.FullToolCount,
 		"catalog_schema_chars", diag.ToolSchemaChars, "system_chars", diag.SystemChars,
-		"history_chars", diag.HistoryChars)
+		"history_chars", diag.HistoryChars, "tool_selector", diag.ToolSelector,
+		"preferred_tools", diag.PreferredTools)
 
 	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
 	// 若失败轮次留下孤立 user 消息，下一轮会把它移入「仅供理解、禁止执行」
@@ -447,20 +456,6 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	}
 
 	res, err := o.engine.RunTurn(ctx, req)
-	if err != nil {
-		if toolName := missingToolNameFromEngineErr(err); toolName != "" {
-			slog.Warn("模型调用了不可见工具，准备带工具名单重跑",
-				"session", sess.ID, "missing_tool", toolName, "err", err)
-			repaired, rerr := o.repairMissingToolTurn(ctx, req, toolName, onDelta)
-			if rerr == nil {
-				res = repaired
-				err = nil
-			} else {
-				slog.Warn("未知工具重跑失败", "session", sess.ID, "missing_tool", toolName, "err", rerr)
-				err = rerr
-			}
-		}
-	}
 	if err != nil {
 		slog.Warn("轮次失败", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond), "err", err)
 		o.noteEngineResult(false, err)
@@ -624,60 +619,6 @@ func capabilityScopeForGrants(u *store.User, grants []store.Grant) string {
 	return strings.Join(parts, "\x00")
 }
 
-func (o *Orchestrator) repairMissingToolTurn(ctx context.Context, req *ai.TurnRequest, missingTool string, onDelta func(string)) (*ai.TurnResult, error) {
-	retry := *req
-	retry.OnDelta = onDelta
-	retry.StreamReasoning = false
-	names := routedToolNames(req.Tools)
-	var b strings.Builder
-	b.WriteString(req.System)
-	b.WriteString("\n\n[系统保护]\n上一轮模型尝试调用不存在或本轮不可见的工具：")
-	b.WriteString(missingTool)
-	b.WriteString("。请重新处理同一个用户请求：\n")
-	b.WriteString("- 只能调用下面列出的可见工具名，不要自造工具名或猜测别名。\n")
-	b.WriteString("- 如果没有合适工具、权限不足、参数缺失或目标不明确，直接说明未完成和下一步。\n")
-	if len(names) > 0 {
-		b.WriteString("当前可见工具：")
-		b.WriteString(strings.Join(names, ", "))
-		b.WriteString("\n")
-	}
-	retry.System = b.String()
-	res, err := o.engine.RunTurn(ctx, &retry)
-	if err != nil {
-		return nil, err
-	}
-	res.Text = textfmt.StripReasoning(res.Text)
-	if needsVisibleReplyRepair(res) {
-		return nil, errors.New("未知工具重跑后输出仍疑似截断")
-	}
-	return res, nil
-}
-
-func missingToolNameFromEngineErr(err error) string {
-	if err == nil {
-		return ""
-	}
-	s := err.Error()
-	lower := strings.ToLower(s)
-	markers := []string{"tool ", "工具 "}
-	for _, marker := range markers {
-		idx := strings.Index(s, marker)
-		if idx < 0 {
-			continue
-		}
-		rest := s[idx+len(marker):]
-		end := strings.IndexAny(rest, " \n\t:：,，)")
-		if end < 0 {
-			end = len(rest)
-		}
-		name := strings.Trim(rest[:end], "`'\"“”")
-		if name != "" && (strings.Contains(lower, "not found") || strings.Contains(s, "不存在") || strings.Contains(s, "不可见")) {
-			return name
-		}
-	}
-	return ""
-}
-
 func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {
 	retry := *req
 	retry.Mode = ai.TurnModeOneShot
@@ -696,6 +637,7 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	// This is a rendering repair, never a second execution attempt. Removing all
 	// tools makes it safe even when the first pass already changed external state.
 	retry.Tools = nil
+	retry.PreferredTools = nil
 	retry.Skills = nil
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
@@ -2422,7 +2364,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 人物画像用于理解偏好、能力和沟通方式；输出仍以工具权限和查询结果为准。\n\n")
 
 	b.WriteString("[自主执行]\n")
-	b.WriteString("- 先理解最终目标，再按复杂度决定是否维护待办；需要系统能力时使用 tool_search 查找并加载底层工具，直到目标完成、明确等待外部结果，或遇到真实阻塞。\n")
+	b.WriteString("- 本轮最相关的底层能力会预先加载，直接组合调用；只有预加载能力不够时才用 tool_search 继续发现，不要停在能力说明或执行计划。\n")
 	b.WriteString("- 需要 Worker 观察输出、连续判断或多步适配时委派交互式 Agent，并为同一工作线复用稳定 scope；只有结果无需再判断的原子命令才直接派命令任务。\n")
 	b.WriteString("- 用户指定一个具体日期、明天或某个周几且没有明确重复语义时，创建一次性日程；只有明确表达每次、每天、每周或定期时才创建周期日程。\n")
 	b.WriteString("- 不要请求用户记工具名，不要猜测不存在的能力，也不要因为第一步返回结果就提前结束多步骤工作。\n")

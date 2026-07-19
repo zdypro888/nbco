@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/jsonschema"
 
@@ -266,6 +268,9 @@ func validateOneShotRequest(req *ai.TurnRequest) error {
 	if len(req.Tools) > 0 {
 		return errors.New("one-shot Eino turn cannot expose tools")
 	}
+	if len(req.PreferredTools) > 0 {
+		return errors.New("one-shot Eino turn cannot preload tools")
+	}
 	if len(req.Skills) > 0 {
 		return errors.New("one-shot Eino turn cannot expose skills")
 	}
@@ -301,6 +306,84 @@ type oneShotMiddleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
 }
 
+// deepInstructionMiddleware composes nbco's product context with Eino's native
+// Deep Agent instruction. Passing req.System as deep.Config.Instruction would
+// replace the native execution contract instead of extending it.
+type deepInstructionMiddleware struct {
+	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
+	instruction string
+}
+
+const toolSearchTurnResetKey = "__nbco_toolsearch_turn_reset__"
+
+// toolSearchTurnResetMiddleware removes the previous turn's deferred-tool
+// reminder once. Preferred tools vary by turn, so replaying an old reminder
+// would describe the wrong catalog; the current toolsearch middleware inserts
+// a fresh reminder immediately afterward.
+type toolSearchTurnResetMiddleware struct {
+	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
+}
+
+func (*toolSearchTurnResetMiddleware) BeforeModelRewriteState(
+	ctx context.Context,
+	state *adk.TypedChatModelAgentState[*schema.Message],
+	_ *adk.TypedModelContext[*schema.Message],
+) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
+	if state == nil {
+		return ctx, state, nil
+	}
+	if value, ok, err := adk.GetRunLocalValue(ctx, toolSearchTurnResetKey); err == nil && ok {
+		if reset, _ := value.(bool); reset {
+			return ctx, state, nil
+		}
+	}
+	_ = adk.SetRunLocalValue(ctx, toolSearchTurnResetKey, true)
+	deletedIDs := make([]string, 0, 1)
+	for _, message := range state.Messages {
+		if !isToolSearchReminder(message) {
+			continue
+		}
+		if id := adk.GetMessageID(message); id != "" {
+			deletedIDs = append(deletedIDs, id)
+		}
+	}
+	state.Messages = slices.DeleteFunc(slices.Clone(state.Messages), isToolSearchReminder)
+	if len(deletedIDs) > 0 {
+		err := adk.TypedSendEvent(ctx, &adk.TypedAgentEvent[*schema.Message]{
+			SessionEventVariant: &adk.SessionEventVariant[*schema.Message]{
+				Event: &adk.SessionEvent[*schema.Message]{
+					Kind: adk.SessionEventMessagesDeleted,
+					MessagesDeleted: &adk.MessagesDeletedEvent{
+						MessageIDs: deletedIDs,
+					},
+				},
+			},
+		})
+		if err != nil {
+			return ctx, state, fmt.Errorf("清理上一轮 Eino 工具目录: %w", err)
+		}
+	}
+	return ctx, state, nil
+}
+
+func (m *deepInstructionMiddleware) BeforeAgent(
+	ctx context.Context,
+	runCtx *adk.ChatModelAgentContext[*schema.Message],
+) (context.Context, *adk.ChatModelAgentContext[*schema.Message], error) {
+	if runCtx == nil || strings.TrimSpace(m.instruction) == "" {
+		return ctx, runCtx, nil
+	}
+	next := *runCtx
+	product := strings.TrimSpace(m.instruction)
+	if base := strings.TrimSpace(runCtx.Instruction); base != "" {
+		next.Instruction = base + "\n\n[nbco 产品与业务上下文]\n" +
+			"以下内容定义当前宿主、业务、权限和输出格式；若与前面的通用 CLI 或软件工程假设冲突，以本节为准。前面的持续执行与工具循环原则仍然适用。\n" + product
+	} else {
+		next.Instruction = product
+	}
+	return ctx, &next, nil
+}
+
 func (*oneShotMiddleware) BeforeModelRewriteState(
 	ctx context.Context,
 	state *adk.TypedChatModelAgentState[*schema.Message],
@@ -331,11 +414,23 @@ func (e *Engine) newDeepAgent(
 	summaryUsage *ai.Usage,
 	toolExposure *ai.ToolExposure,
 ) (adk.Agent, error) {
-	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
-	for _, t := range req.Tools {
-		dynamicTools = append(dynamicTools, &einoTool{t: t})
+	preferred := make(map[string]struct{}, len(req.PreferredTools))
+	for _, name := range req.PreferredTools {
+		preferred[name] = struct{}{}
 	}
-	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
+	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
+	initialTools := make([]tool.BaseTool, 0, min(len(req.Tools), len(preferred)))
+	for _, t := range req.Tools {
+		wrapped := &einoTool{t: t}
+		if _, ok := preferred[t.Name]; ok {
+			initialTools = append(initialTools, wrapped)
+		} else {
+			dynamicTools = append(dynamicTools, wrapped)
+		}
+	}
+	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 6)
+	handlers = append(handlers, &deepInstructionMiddleware{instruction: req.System})
+	handlers = append(handlers, &toolSearchTurnResetMiddleware{})
 	if len(dynamicTools) > 0 {
 		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
 		if err != nil {
@@ -379,19 +474,24 @@ func (e *Engine) newDeepAgent(
 	}
 	handlers = append(handlers, summaryMiddleware)
 	handlers = append(handlers, &finalIterationMiddleware{maxIterations: e.maxTurns})
-	protocolMiddleware, err := newDeepProtocolMiddleware(ctx, req.Tools, toolExposure)
+	protocolMiddleware, err := newDeepProtocolMiddleware(ctx, req.Tools, req.PreferredTools, toolExposure)
 	if err != nil {
 		return nil, fmt.Errorf("构建 Eino 轮次终止协议: %w", err)
 	}
 	handlers = append(handlers, protocolMiddleware)
 
 	agent, err := deep.New(ctx, &deep.Config{
-		Name:                   "nbco",
-		Description:            "nbco 公司运营中枢",
-		Instruction:            req.System,
-		ChatModel:              model,
+		Name:        "nbco",
+		Description: "nbco 公司运营中枢",
+		// Keep this empty so Eino installs its native Deep Agent execution
+		// contract. deepInstructionMiddleware appends the product context.
+		Instruction: "",
+		ChatModel:   model,
+		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{
+			Tools: initialTools,
+		}},
 		MaxIteration:           e.maxTurns,
-		WithoutWriteTodos:      len(dynamicTools) == 0,
+		WithoutWriteTodos:      len(req.Tools) == 0,
 		WithoutGeneralSubAgent: true,
 		Handlers:               handlers,
 		ModelRetryConfig:       protocolMiddleware.modelRetryConfig(),

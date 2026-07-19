@@ -506,16 +506,6 @@ func TestPendingApprovalRecordedAsOutcome(t *testing.T) {
 	}
 }
 
-func TestMissingToolNameFromEngineErr(t *testing.T) {
-	err := errors.New("[NodeRunError] tool delete_task not found in toolsNode indexes\nnode path: [node_1, ToolNode]")
-	if got := missingToolNameFromEngineErr(err); got != "delete_task" {
-		t.Fatalf("missing tool = %q", got)
-	}
-	if got := missingToolNameFromEngineErr(errors.New("upstream timeout")); got != "" {
-		t.Fatalf("non tool error should not match: %q", got)
-	}
-}
-
 func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 	engine := &fakeEngine{}
 	orchestrator := &Orchestrator{engine: engine}
@@ -525,13 +515,14 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 		Steps:                 []ai.Step{{Kind: ai.StepToolCall, ToolName: "write", Result: `{"ok":true}`}},
 	}
 	request := &ai.TurnRequest{
-		Mode:          ai.TurnModeDeep,
-		SessionID:     "1",
-		EngineSession: first.EngineSession,
-		System:        "system",
-		UserText:      "perform work",
-		Tools:         []ai.Tool{{Name: "write"}},
-		Skills:        []ai.Skill{{Name: "procedure"}},
+		Mode:           ai.TurnModeDeep,
+		SessionID:      "1",
+		EngineSession:  first.EngineSession,
+		System:         "system",
+		UserText:       "perform work",
+		Tools:          []ai.Tool{{Name: "write"}},
+		PreferredTools: []string{"write"},
+		Skills:         []ai.Skill{{Name: "procedure"}},
 	}
 	if _, err := orchestrator.repairDegenerateTurn(context.Background(), request, first, nil); err != nil {
 		t.Fatal(err)
@@ -540,9 +531,9 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 	if retry == nil || retry.Mode != ai.TurnModeOneShot {
 		t.Fatalf("repair mode = %v", retry)
 	}
-	if len(retry.Tools) != 0 || len(retry.Skills) != 0 {
-		t.Fatalf("repair retained agent capabilities: tools=%d skills=%d",
-			len(retry.Tools), len(retry.Skills))
+	if len(retry.Tools) != 0 || len(retry.PreferredTools) != 0 || len(retry.Skills) != 0 {
+		t.Fatalf("repair retained agent capabilities: tools=%d preferred=%d skills=%d",
+			len(retry.Tools), len(retry.PreferredTools), len(retry.Skills))
 	}
 	if retry.EngineSession != first.EngineSession {
 		t.Fatalf("repair session = %q want %q", retry.EngineSession, first.EngineSession)

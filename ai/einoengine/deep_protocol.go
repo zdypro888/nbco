@@ -22,7 +22,7 @@ const (
 	// Bump when the durable Deep Agent's internal tool or lifecycle contract
 	// changes. It is part of the managed-session fingerprint so old tool traces
 	// cannot teach a new runtime an obsolete protocol.
-	deepAgentProtocolVersion = "completion-outcome-v2"
+	deepAgentProtocolVersion = "native-deep-semantic-tools-v3"
 
 	finalResponseToolName = "final_response"
 	toolSearchToolName    = "tool_search"
@@ -40,6 +40,7 @@ final_response.outcome 必须准确选择：answer=只回答事实/问题且没�
 	actionEvidenceRetryInstruction = "[框架协议纠正] 上一个 final_response 声明了 action_result，但本轮尚无写入或执行工具返回，因而没有可核对的动作结果。请继续调用所需工具；若只是回答事实或能力，请用 answer 且不要描述尚未发生的动作；若无法继续，请如实用 blocked 或 clarify。"
 	actionOutcomeRetryInstruction  = "[框架协议纠正] 本轮已有写入或执行工具返回，不能用 answer 隐去动作结果。请根据工具返回如实使用 action_result；若结果表明无法继续，则使用 blocked。"
 	invalidFinalRetryInstruction   = "[框架协议纠正] 上一个 final_response 不符合终止协议。请只调用一次 final_response，提供非空 response，并准确选择 answer、action_result、blocked 或 clarify；若仍需工具，继续执行而不要收尾。"
+	unknownToolRetryInstruction    = "[框架协议纠正] 上一个输出调用了本轮不存在的工具，因此未执行任何工具。请只使用当前模型请求中提供的工具 schema；需要其他授权能力时先调用 tool_search，不要猜测工具名。"
 )
 
 type toolExecution struct {
@@ -54,34 +55,50 @@ type deepProtocolMiddleware struct {
 
 	finalTool    *finalResponseTool
 	finalInfo    *schema.ToolInfo
-	dynamicNames map[string]struct{}
+	dynamicInfos map[string]*schema.ToolInfo
 	toolEffects  map[string]string
 	exposure     *ai.ToolExposure
 
 	mu         sync.Mutex
+	available  map[string]struct{}
 	selected   map[string]struct{}
 	executions []toolExecution
 }
 
-func newDeepProtocolMiddleware(ctx context.Context, tools []ai.Tool, exposure *ai.ToolExposure) (*deepProtocolMiddleware, error) {
+func newDeepProtocolMiddleware(
+	ctx context.Context,
+	tools []ai.Tool,
+	preferred []string,
+	exposure *ai.ToolExposure,
+) (*deepProtocolMiddleware, error) {
 	finalTool := &finalResponseTool{}
 	finalInfo, err := finalTool.Info(ctx)
 	if err != nil {
 		return nil, err
 	}
-	dynamicNames := make(map[string]struct{}, len(tools))
+	dynamicInfos := make(map[string]*schema.ToolInfo, len(tools))
 	toolEffects := make(map[string]string, len(tools))
 	for _, item := range tools {
-		dynamicNames[item.Name] = struct{}{}
+		info, infoErr := (&einoTool{t: item}).Info(ctx)
+		if infoErr != nil {
+			return nil, fmt.Errorf("读取工具 %s schema: %w", item.Name, infoErr)
+		}
+		dynamicInfos[item.Name] = info
 		toolEffects[item.Name] = item.Effect
+	}
+	selected := make(map[string]struct{}, len(preferred))
+	for _, name := range preferred {
+		if _, ok := dynamicInfos[name]; ok {
+			selected[name] = struct{}{}
+		}
 	}
 	return &deepProtocolMiddleware{
 		finalTool:    finalTool,
 		finalInfo:    finalInfo,
-		dynamicNames: dynamicNames,
+		dynamicInfos: dynamicInfos,
 		toolEffects:  toolEffects,
 		exposure:     exposure,
-		selected:     make(map[string]struct{}),
+		selected:     selected,
 	}, nil
 }
 
@@ -95,6 +112,17 @@ func (m *deepProtocolMiddleware) BeforeAgent(
 	next := *runCtx
 	next.Instruction += deepCompletionInstruction
 	next.Tools = append(slices.Clone(runCtx.Tools), m.finalTool)
+	available := make(map[string]struct{}, len(next.Tools))
+	for _, item := range next.Tools {
+		info, err := item.Info(ctx)
+		if err != nil {
+			return ctx, runCtx, fmt.Errorf("读取 Agent 工具 schema: %w", err)
+		}
+		available[info.Name] = struct{}{}
+	}
+	m.mu.Lock()
+	m.available = available
+	m.mu.Unlock()
 	next.ReturnDirectly = maps.Clone(runCtx.ReturnDirectly)
 	if next.ReturnDirectly == nil {
 		next.ReturnDirectly = make(map[string]bool, 1)
@@ -119,10 +147,31 @@ func (m *deepProtocolMiddleware) BeforeModelRewriteState(
 		if info == nil {
 			return false
 		}
-		_, dynamic := m.dynamicNames[info.Name]
+		_, dynamic := m.dynamicInfos[info.Name]
 		_, active := selected[info.Name]
 		return dynamic && !active
 	})
+	present := make(map[string]struct{}, len(infos))
+	for _, info := range infos {
+		if info != nil {
+			present[info.Name] = struct{}{}
+		}
+	}
+	selectedNames := make([]string, 0, len(selected))
+	for name := range selected {
+		selectedNames = append(selectedNames, name)
+	}
+	sort.Strings(selectedNames)
+	for _, name := range selectedNames {
+		if _, ok := present[name]; ok {
+			continue
+		}
+		if info, ok := m.dynamicInfos[name]; ok {
+			clone := *info
+			infos = append(infos, &clone)
+			present[name] = struct{}{}
+		}
+	}
 
 	foundFinal := false
 	for i, info := range infos {
@@ -160,12 +209,34 @@ func (m *deepProtocolMiddleware) modelRetryConfig() *adk.ModelRetryConfig {
 			(retryCtx.OutputMessage == nil || len(retryCtx.OutputMessage.ToolCalls) == 0) {
 			return m.protocolRetry(retryCtx, "missing structured tool call", structuredRetryInstruction)
 		}
+		if name := m.unknownToolCall(retryCtx); name != "" {
+			return m.protocolRetry(retryCtx, "unknown tool call: "+name, unknownToolRetryInstruction)
+		}
 		if reason, instruction := m.invalidCompletion(retryCtx); reason != "" {
 			return m.protocolRetry(retryCtx, reason, instruction)
 		}
 		return baseRetry(ctx, retryCtx)
 	}
 	return config
+}
+
+func (m *deepProtocolMiddleware) unknownToolCall(retryCtx *adk.RetryContext) string {
+	if retryCtx == nil || retryCtx.Err != nil || retryCtx.OutputMessage == nil {
+		return ""
+	}
+	m.mu.Lock()
+	available := maps.Clone(m.available)
+	m.mu.Unlock()
+	for _, call := range retryCtx.OutputMessage.ToolCalls {
+		name := strings.TrimSpace(call.Function.Name)
+		if name == "" {
+			return "<empty>"
+		}
+		if _, ok := available[name]; !ok {
+			return name
+		}
+	}
+	return ""
 }
 
 func (m *deepProtocolMiddleware) invalidCompletion(retryCtx *adk.RetryContext) (string, string) {
@@ -336,7 +407,7 @@ func (m *deepProtocolMiddleware) rememberCurrentTurnSelections(messages []*schem
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, name := range found {
-		if _, ok := m.dynamicNames[name]; ok {
+		if _, ok := m.dynamicInfos[name]; ok {
 			m.selected[name] = struct{}{}
 		}
 	}
