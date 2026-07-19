@@ -445,10 +445,12 @@ func renderSystemActivity(tz *time.Location, items []*store.AuditActivity) strin
 }
 
 type actionTurnDetails struct {
-	PlannerSource string `json:"planner_source"`
-	FinishReason  string `json:"finish_reason"`
-	TurnContext   struct {
+	PlannerSource     string `json:"planner_source"`
+	FinishReason      string `json:"finish_reason"`
+	CompletionOutcome string `json:"completion_outcome"`
+	TurnContext       struct {
 		Route                string   `json:"route"`
+		CompletionOutcome    string   `json:"completion_outcome"`
 		SystemChars          int      `json:"system_chars"`
 		HistoryChars         int      `json:"history_chars"`
 		ToolCount            int      `json:"tool_count"`
@@ -457,6 +459,7 @@ type actionTurnDetails struct {
 		Tools                []string `json:"tools"`
 		AgentIterations      int      `json:"agent_iterations"`
 		ModelCalls           int      `json:"model_calls"`
+		ProtocolRetries      int      `json:"protocol_retries"`
 		ModelPeakToolCount   int      `json:"model_peak_tool_count"`
 		ModelPeakSchemaChars int      `json:"model_peak_schema_chars"`
 		ModelPeakTools       []string `json:"model_peak_tools"`
@@ -518,11 +521,19 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 				details.TurnContext.Route, details.TurnContext.ToolCount, details.TurnContext.FullToolCount,
 				details.TurnContext.ToolSchemaChars, details.TurnContext.SystemChars, details.TurnContext.HistoryChars)
 			if details.TurnContext.ModelCalls > 0 {
-				fmt.Fprintf(&b, " model_peak=%d/%d agent_iterations=%d model_calls=%d",
+				fmt.Fprintf(&b, " model_peak=%d/%d agent_iterations=%d model_calls=%d protocol_retries=%d",
 					details.TurnContext.ModelPeakToolCount, details.TurnContext.ModelPeakSchemaChars,
-					details.TurnContext.AgentIterations, details.TurnContext.ModelCalls)
+					details.TurnContext.AgentIterations, details.TurnContext.ModelCalls,
+					details.TurnContext.ProtocolRetries)
 			}
 			b.WriteByte('\n')
+		}
+		completionOutcome := details.CompletionOutcome
+		if completionOutcome == "" {
+			completionOutcome = details.TurnContext.CompletionOutcome
+		}
+		if completionOutcome != "" {
+			fmt.Fprintf(&b, "  completion_outcome: %s\n", completionOutcome)
 		}
 		if details.FinishReason != "" {
 			fmt.Fprintf(&b, "  finish_reason: %s\n", details.FinishReason)

@@ -467,13 +467,16 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		return "", fmt.Errorf("AI 引擎失败: %w", err)
 	}
 	res.Text = textfmt.StripReasoning(res.Text)
+	diag.CompletionOutcome = string(res.CompletionOutcome)
 	diag.AgentIterations = res.ToolExposure.AgentIterations
 	diag.ModelCalls = res.ToolExposure.ModelCalls
+	diag.ProtocolRetries = res.ToolExposure.ProtocolRetries
 	diag.ModelPeakToolCount = res.ToolExposure.PeakToolCount
 	diag.ModelPeakSchemaChars = res.ToolExposure.PeakSchemaChars
 	diag.ModelPeakTools = res.ToolExposure.PeakTools
 	slog.Info("模型工具上下文", "session", sess.ID, "agent_iterations", diag.AgentIterations,
-		"model_calls", diag.ModelCalls,
+		"model_calls", diag.ModelCalls, "protocol_retries", diag.ProtocolRetries,
+		"completion_outcome", diag.CompletionOutcome,
 		"peak_tools", diag.ModelPeakToolCount, "peak_schema_chars", diag.ModelPeakSchemaChars,
 		"peak_tool_names", diag.ModelPeakTools)
 	engineOK := true

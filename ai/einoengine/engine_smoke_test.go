@@ -74,6 +74,7 @@ func TestSmokeRealToolLoop(t *testing.T) {
 		Tools: []ai.Tool{{
 			Name:        "echo_probe",
 			Description: "无副作用地回显 value，用于验证 agent 工具调用链。",
+			Effect:      ai.ToolEffectExecute,
 			InputSchema: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{"value": map[string]any{"type": "string"}},
@@ -98,10 +99,11 @@ func TestSmokeRealToolLoop(t *testing.T) {
 			found = true
 		}
 	}
-	if !found || strings.TrimSpace(result.Text) == "" {
+	if !found || strings.TrimSpace(result.Text) == "" || result.CompletionOutcome != ai.CompletionOutcomeActionResult {
 		delta, _ := lastDelta.Load().(string)
 		t.Fatalf("tool loop incomplete: text=%q delta=%q truncated=%t finish=%q exposure=%+v steps=%+v",
 			result.Text, delta, result.OutputLikelyTruncated, result.FinishReason, result.ToolExposure, result.Steps)
 	}
-	t.Logf("real Eino tool loop passed: %q exposure=%+v", result.Text, result.ToolExposure)
+	t.Logf("real Eino tool loop passed: %q outcome=%s exposure=%+v",
+		result.Text, result.CompletionOutcome, result.ToolExposure)
 }

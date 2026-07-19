@@ -226,8 +226,12 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		runnerConfig.CheckPointStore = e.runtime
 	}
 	runner := adk.NewRunner(ctx, runnerConfig)
+	businessToolNames := make(map[string]struct{}, len(req.Tools))
+	for _, item := range req.Tools {
+		businessToolNames[item.Name] = struct{}{}
+	}
 	result, err := collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning,
-		e.outputTokenLimit(), mode == ai.TurnModeDeep)
+		e.outputTokenLimit(), mode == ai.TurnModeDeep, businessToolNames)
 	if err != nil && managedSession {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
@@ -390,7 +394,7 @@ func (e *Engine) newDeepAgent(
 		WithoutWriteTodos:      len(dynamicTools) == 0,
 		WithoutGeneralSubAgent: true,
 		Handlers:               handlers,
-		ModelRetryConfig:       deepModelRetryConfig(),
+		ModelRetryConfig:       protocolMiddleware.modelRetryConfig(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
@@ -490,7 +494,7 @@ func capabilityFingerprint(tools []ai.Tool, stableScope string) string {
 	// Authorization and tool contracts are both session boundaries. Keeping a
 	// durable agent trace after a schema/description change teaches the model
 	// obsolete field names and behavior even though its permissions are valid.
-	contractSum := sha256.Sum256([]byte(strings.Join(contracts, "\x00")))
+	contractSum := sha256.Sum256([]byte(deepAgentProtocolVersion + "\x00" + strings.Join(contracts, "\x00")))
 	return scopeFingerprint(stableScope) + "-" + fmt.Sprintf("%x", contractSum[:8])
 }
 
@@ -668,13 +672,14 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, requireStructuredFinal bool) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, requireStructuredFinal bool, businessToolNames map[string]struct{}) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
-	pendingFinal := map[string]struct{}{}
+	pendingFinal := map[string]ai.CompletionOutcome{}
 	var finalText string
 	var terminalErr error
+	businessToolReturned := false
 
 	for {
 		event, ok := iter.Next()
@@ -725,9 +730,31 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 					res.FinishReason = u.FinishReason
 				}
 			}
+			hasWorkCall := false
+			if requireStructuredFinal {
+				for _, tc := range msg.ToolCalls {
+					if tc.Function.Name != finalResponseToolName {
+						hasWorkCall = true
+						break
+					}
+				}
+			}
 			for _, tc := range msg.ToolCalls {
 				if requireStructuredFinal && tc.Function.Name == finalResponseToolName {
-					pendingFinal[tc.ID] = struct{}{}
+					// AfterModelRewriteState removes a terminal call emitted in the
+					// same batch as work. Agent events still expose the provider's
+					// original batch, so ignore that discarded call here as well.
+					if hasWorkCall {
+						continue
+					}
+					args, err := parseFinalResponseArguments(tc.Function.Arguments)
+					if err != nil {
+						if terminalErr == nil {
+							terminalErr = fmt.Errorf("读取 Deep Agent 最终状态: %w", err)
+						}
+						continue
+					}
+					pendingFinal[tc.ID] = args.Outcome
 					continue
 				}
 				step := ai.Step{
@@ -743,9 +770,10 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 				res.Steps = append(res.Steps, ai.Step{Kind: ai.StepText, Result: txt})
 			}
 		case schema.Tool:
-			if _, found := pendingFinal[msg.ToolCallID]; found {
+			if outcome, found := pendingFinal[msg.ToolCallID]; found {
 				delete(pendingFinal, msg.ToolCallID)
 				finalText = strings.TrimSpace(msg.Content)
+				res.CompletionOutcome = outcome
 				if finalText != "" {
 					res.Steps = append(res.Steps, ai.Step{Kind: ai.StepText, Result: finalText})
 					if onDelta != nil {
@@ -763,6 +791,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 				delete(pending, msg.ToolCallID)
 				res.Steps[idx].Result = msg.Content
 			}
+			if _, ok := businessToolNames[res.Steps[idx].ToolName]; ok {
+				businessToolReturned = true
+			}
 			if onEvent != nil {
 				onEvent(res.Steps[idx])
 			}
@@ -772,10 +803,10 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 		return preservePartialAgentError(res, pending, terminalErr)
 	}
 	if finalText == "" {
-		if emptyTurnNeedsRepair(res, maxTokens) {
-			// Preserve completed tool evidence so the orchestrator can run a
-			// tool-free summarization repair. This also covers reasoning models
-			// that spend the whole output budget before emitting visible text.
+		if emptyTurnNeedsRepair(res, maxTokens, requireStructuredFinal, businessToolReturned) {
+			// Deep may enter a tool-free rendering repair only after a business
+			// tool returned. OneShot also uses this path when a reasoning model
+			// spends its output budget before emitting visible text.
 			res.OutputLikelyTruncated = true
 			return res, nil
 		}
@@ -792,9 +823,12 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 	return res, nil
 }
 
-func emptyTurnNeedsRepair(res *ai.TurnResult, maxTokens int) bool {
+func emptyTurnNeedsRepair(res *ai.TurnResult, maxTokens int, requireStructuredFinal, businessToolReturned bool) bool {
 	if res == nil {
 		return false
+	}
+	if requireStructuredFinal {
+		return businessToolReturned
 	}
 	return len(res.Steps) > 0 || outputLikelyTruncated(res.Usage, res.FinishReason, maxTokens)
 }

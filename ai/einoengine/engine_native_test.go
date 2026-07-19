@@ -56,7 +56,11 @@ func (m *scriptedModel) respond(input []*schema.Message, opts ...model.Option) (
 }
 
 func finalResponse(id, text string) *schema.Message {
-	args, err := json.Marshal(map[string]string{"response": text})
+	return finalResponseWithOutcome(id, ai.CompletionOutcomeAnswer, text)
+}
+
+func finalResponseWithOutcome(id string, outcome ai.CompletionOutcome, text string) *schema.Message {
+	args, err := json.Marshal(map[string]string{"outcome": string(outcome), "response": text})
 	if err != nil {
 		panic(err)
 	}
@@ -584,6 +588,194 @@ func TestDeepProtocolRetriesPlainTextInsteadOfAcceptingPromise(t *testing.T) {
 	if result.Text != "执行完成" || executed != 1 || modelCalls != 4 ||
 		result.ToolExposure.ModelCalls != 4 || result.ToolExposure.AgentIterations != 3 {
 		t.Fatalf("result=%+v executed=%d model_calls=%d", result, executed, modelCalls)
+	}
+}
+
+func TestDeepProtocolRequiresActionEvidenceForActionResult(t *testing.T) {
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponseWithOutcome("final-proven-action", ai.CompletionOutcomeActionResult, "已按真实结果完成"), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-proven-action", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{}`},
+			}}), nil
+		case last.Role == schema.User && strings.Contains(last.Content, actionEvidenceRetryInstruction):
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-proven-action", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		default:
+			return finalResponseWithOutcome("false-action-result", ai.CompletionOutcomeActionResult, "已经执行"), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		UserText: "执行记录",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", Effect: ai.ToolEffectWrite,
+			InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if executed != 1 || result.Text != "已按真实结果完成" ||
+		result.CompletionOutcome != ai.CompletionOutcomeActionResult || result.ToolExposure.ProtocolRetries != 1 {
+		t.Fatalf("result=%+v executed=%d", result, executed)
+	}
+}
+
+func TestDeepProtocolReadEvidenceCannotProveAction(t *testing.T) {
+	var readCalls int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.User && strings.Contains(last.Content, actionEvidenceRetryInstruction):
+			return finalResponse("final-read-answer", "查询结果是 42"), nil
+		case last.Role == schema.Tool && last.ToolName == "lookup_value":
+			return finalResponseWithOutcome("false-read-action", ai.CompletionOutcomeActionResult, "操作完成"), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "read-value", Type: "function",
+				Function: schema.FunctionCall{Name: "lookup_value", Arguments: `{}`},
+			}}), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-read-value", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:lookup_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		UserText: "查询数值",
+		Tools: []ai.Tool{{
+			Name: "lookup_value", Description: "查询值", Effect: ai.ToolEffectRead,
+			InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				readCalls++
+				return `{"value":42}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readCalls != 1 || result.Text != "查询结果是 42" ||
+		result.CompletionOutcome != ai.CompletionOutcomeAnswer || result.ToolExposure.ProtocolRetries != 1 {
+		t.Fatalf("result=%+v read_calls=%d", result, readCalls)
+	}
+}
+
+func TestDeepProtocolRequiresActionOutcomeAfterActionEvidence(t *testing.T) {
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.User && strings.Contains(last.Content, actionOutcomeRetryInstruction):
+			return finalResponseWithOutcome("correct-action-outcome", ai.CompletionOutcomeActionResult, "写入工具已返回"), nil
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponse("hidden-action-outcome", "已经写入"), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-for-outcome", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{}`},
+			}}), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-for-outcome", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		UserText: "执行写入",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", Effect: ai.ToolEffectWrite,
+			InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if executed != 1 || result.Text != "写入工具已返回" ||
+		result.CompletionOutcome != ai.CompletionOutcomeActionResult || result.ToolExposure.ProtocolRetries != 1 {
+		t.Fatalf("result=%+v executed=%d", result, executed)
+	}
+}
+
+func TestDeepProtocolAcceptsNonActionTerminalOutcomes(t *testing.T) {
+	for _, outcome := range []ai.CompletionOutcome{
+		ai.CompletionOutcomeAnswer,
+		ai.CompletionOutcomeBlocked,
+		ai.CompletionOutcomeClarify,
+	} {
+		t.Run(string(outcome), func(t *testing.T) {
+			state := &scriptedModelState{fn: func([]*schema.Message, []*schema.ToolInfo) (*schema.Message, error) {
+				return finalResponseWithOutcome("final-"+string(outcome), outcome, "如实收尾"), nil
+			}}
+			engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+			result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{UserText: "测试"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Text != "如实收尾" || result.CompletionOutcome != outcome || result.ToolExposure.ProtocolRetries != 0 {
+				t.Fatalf("result=%+v", result)
+			}
+		})
+	}
+}
+
+func TestDeepProtocolRetriesMalformedFinalResponse(t *testing.T) {
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		if last.Role == schema.User && strings.Contains(last.Content, invalidFinalRetryInstruction) {
+			return finalResponse("valid-final", "已纠正"), nil
+		}
+		return schema.AssistantMessage("", []schema.ToolCall{{
+			ID: "missing-outcome", Type: "function",
+			Function: schema.FunctionCall{Name: finalResponseToolName, Arguments: `{"response":"无状态"}`},
+		}}), nil
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{UserText: "测试"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "已纠正" || result.CompletionOutcome != ai.CompletionOutcomeAnswer ||
+		result.ToolExposure.ProtocolRetries != 1 {
+		t.Fatalf("result=%+v", result)
+	}
+}
+
+func TestDeepProtocolNeverReturnsUnprovenActionAfterRetryBudget(t *testing.T) {
+	state := &scriptedModelState{fn: func([]*schema.Message, []*schema.ToolInfo) (*schema.Message, error) {
+		return finalResponseWithOutcome("always-unproven", ai.CompletionOutcomeActionResult, "已经执行"), nil
+	}}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{UserText: "执行操作"})
+	if err == nil {
+		t.Fatalf("unproven action unexpectedly returned: %+v", result)
+	}
+	if result != nil && strings.TrimSpace(result.Text) != "" {
+		t.Fatalf("unproven action leaked to user: %+v err=%v", result, err)
 	}
 }
 

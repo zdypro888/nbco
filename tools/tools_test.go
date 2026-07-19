@@ -315,13 +315,13 @@ func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 		RequiresAction:   true,
 		Intent:           "发送通知",
 		ExpectedTools:    []string{"send_message"},
-		Evidence:         json.RawMessage(`{"tool_evidence":[{"tool":"send_message","ok":true,"summary":"已发送给 3 人。"}],"turn_context":{"route":"people,action","tool_count":22,"full_tool_count":152,"tool_schema_chars":12345,"system_chars":6789,"history_chars":321},"finish_reason":"stop"}`),
+		Evidence:         json.RawMessage(`{"tool_evidence":[{"tool":"send_message","ok":true,"summary":"已发送给 3 人。"}],"turn_context":{"route":"people,action","completion_outcome":"action_result","tool_count":22,"full_tool_count":152,"tool_schema_chars":12345,"system_chars":6789,"history_chars":321,"agent_iterations":3,"model_calls":4,"protocol_retries":1},"completion_outcome":"action_result","finish_reason":"stop"}`),
 		Outcome:          "evidence_ok",
 		ToolCount:        1,
 		SuccessToolCount: 1,
 		CreatedAt:        time.Date(2026, 7, 9, 20, 30, 0, 0, time.UTC),
 	}})
-	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "send_message:returned", "已发送给 3 人", "route=people,action", "catalog=22/152", "finish_reason"} {
+	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "send_message:returned", "已发送给 3 人", "route=people,action", "catalog=22/152", "protocol_retries=1", "completion_outcome: action_result", "finish_reason"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("动作账本渲染缺 %q:\n%s", want, got)
 		}
