@@ -170,6 +170,7 @@ nodes:
           at: 2026-07-19T20:14:58.735592Z
           confirmed_at: 2026-07-19T21:48:08.276888Z
           author: codex-mcp-client
+          retired_by: chg_20260719T221913Z_c7c77c804709fc49
         - id: e_681565d5
           kind: pitfall
           text: 未知或未声明 Effect 的扩展工具不能证明动作结果；扩展执行能力必须显式声明 write/execute，否则只能按 read/blocked/clarify 语义收尾。
@@ -177,6 +178,7 @@ nodes:
           at: 2026-07-19T20:14:58.735684Z
           confirmed_at: 2026-07-19T21:48:08.079435Z
           author: codex-mcp-client
+          retired_by: chg_20260719T221913Z_4853fe5c5a890994
       keywords:
         - completion outcome
         - action_result evidence

@@ -214,20 +214,14 @@ func TestPreservePartialAgentErrorReturnsHardErrorWithoutEvidence(t *testing.T) 
 }
 
 func TestEmptyTurnNeedsRepairWhenReasoningUsesOutputBudget(t *testing.T) {
-	if !emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 4096)}, 4096, false, false) {
+	if !emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 4096)}, 4096) {
 		t.Fatal("empty visible output at the token limit must enter tool-free repair")
 	}
-	if emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 20), FinishReason: "stop"}, 4096, false, false) {
+	if emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 20), FinishReason: "stop"}, 4096) {
 		t.Fatal("ordinary empty stop without tool evidence should remain a hard model error")
 	}
-	if !emptyTurnNeedsRepair(&ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "read"}}}, 4096, false, false) {
+	if !emptyTurnNeedsRepair(&ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "read"}}}, 4096) {
 		t.Fatal("tool evidence must always be preserved for repair")
-	}
-	if emptyTurnNeedsRepair(&ai.TurnResult{Usage: usage(100, 4096)}, 4096, true, false) {
-		t.Fatal("Deep turn without a returned business tool must not bypass structured completion")
-	}
-	if !emptyTurnNeedsRepair(&ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "read"}}}, 4096, true, true) {
-		t.Fatal("Deep turn with a returned business tool may use a tool-free rendering repair")
 	}
 }
 

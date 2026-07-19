@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:55661c2a07840c73d97ac62d71ea95903ac13a116c7fb3187a7c09053c8444b6
-        struct_hash: sha256:108420e7824b192d55fa68a1c6df5202dd49269f55110909a1f6c3a9ec84e187
-        doc_struct_hash: sha256:02c16e68ff3920dc4197888c9292400ba47707a09cb36586b634274a4f747eea
-        lines: [293, 527]
+        hash: sha256:2a9bf847e48dfcb4714cf63470b0d92993a5118ddcd6e30988c743aa83f986e1
+        struct_hash: sha256:f0242cf2fc6da4545135439ad7902fc0bf4161342219dd8cbe81b18239f28aa0
+        doc_struct_hash: sha256:38900d942d77bd488b6e7a95b173390f8265bcd0d990eaa680110cde8816452f
+        lines: [293, 524]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.withProvidedExtension

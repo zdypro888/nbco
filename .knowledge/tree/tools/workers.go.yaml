@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: workerTools
-        hash: sha256:8f7a9f7ae67dae92fa07beed922a2200f213f3205b2cf3ff8d7a53970f0d795d
-        struct_hash: sha256:4b18baf558b9865a2ef2aafae7b2df8475d69f5b9a8232684dd26158da922f1c
-        doc_struct_hash: sha256:69e5c092a3c2aabdeb3f4955c9df2ff09608dca78f890752fa3249337e15ad3a
+        hash: sha256:c65a5230b7eb2755136d874e5687f2e083cc18a5b19a9ac35e7d0046eb59cf95
+        struct_hash: sha256:cc7a5450b7351604a443899b37e911fe5287c20fdcb2801140b2486685852d7d
+        doc_struct_hash: sha256:0f6a05627fb1db0579e9c9223aa70739a7d2c51783aac29abb0ce7107aa69309
         lines: [14, 304]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

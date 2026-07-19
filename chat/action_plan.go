@@ -78,7 +78,6 @@ type toolEvidence struct {
 
 type turnDiagnostics struct {
 	Route                string   `json:"route,omitempty"`
-	CompletionOutcome    string   `json:"completion_outcome,omitempty"`
 	SystemChars          int      `json:"system_chars,omitempty"`
 	HistoryChars         int      `json:"history_chars,omitempty"`
 	ToolCount            int      `json:"tool_count,omitempty"`
@@ -87,7 +86,6 @@ type turnDiagnostics struct {
 	Tools                []string `json:"tools,omitempty"`
 	AgentIterations      int      `json:"agent_iterations,omitempty"`
 	ModelCalls           int      `json:"model_calls,omitempty"`
-	ProtocolRetries      int      `json:"protocol_retries,omitempty"`
 	ModelPeakToolCount   int      `json:"model_peak_tool_count,omitempty"`
 	ModelPeakSchemaChars int      `json:"model_peak_schema_chars,omitempty"`
 	ModelPeakTools       []string `json:"model_peak_tools,omitempty"`
@@ -172,7 +170,6 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 	if res != nil {
 		evidence["tool_evidence"] = summarizeToolEvidence(res.Steps)
 		evidence["finish_reason"] = res.FinishReason
-		evidence["completion_outcome"] = res.CompletionOutcome
 	}
 	toolCount, successToolCount := 0, 0
 	replyExcerpt := ""

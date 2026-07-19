@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -23,6 +24,7 @@ func TestSmokeRealNativeToolSearch(t *testing.T) {
 		APIKey:   os.Getenv("NBCO_SMOKE_KEY"),
 		BaseURL:  os.Getenv("NBCO_SMOKE_BASE"),
 		Model:    os.Getenv("NBCO_SMOKE_MODEL"),
+		MaxTurns: 8,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +50,7 @@ func TestSmokeRealNativeToolSearch(t *testing.T) {
 			},
 			Handler: func(context.Context, json.RawMessage) (string, error) {
 				calls.Add(1)
-				return `{"queued":true,"worker_id":2,"agent":"codex"}`, nil
+				return "已创建并持久化 Worker Agent 任务（任务内部编号 42），分配给 Worker Alpha；主题 scope=research:event-transport。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话；本轮无需重复创建，进度和完成结果会由系统通知用户。", nil
 			},
 		},
 	}
@@ -62,14 +64,15 @@ func TestSmokeRealNativeToolSearch(t *testing.T) {
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
 		Mode:     ai.TurnModeDeep,
 		System:   "你是公司运营中枢，按当前用户目标使用授权工具。",
-		UserText: "请让在线的 AI Worker 使用 Codex 调查两个方案的差异并返回结果",
+		UserText: "请让在线的 AI Worker 使用 Codex 比较 PostgreSQL LISTEN/NOTIFY 与 Redis Streams 作为内部事件传输的差异，并返回结论。",
 		Tools:    catalog,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() == 0 || result.CompletionOutcome != ai.CompletionOutcomeActionResult {
+	if calls.Load() == 0 || strings.TrimSpace(result.Text) == "" {
 		t.Fatalf("native tool search did not execute: result=%+v", result)
 	}
-	t.Logf("native tool search passed: result=%q exposure=%+v", result.Text, result.ToolExposure)
+	t.Logf("native tool search passed: calls=%d result=%q exposure=%+v steps=%+v",
+		calls.Load(), result.Text, result.ToolExposure, result.Steps)
 }

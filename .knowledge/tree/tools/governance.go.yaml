@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/governance.go
         symbol: actionTurnDetails
-        hash: sha256:1308ea84bac61c1f3752194eef15f41e74d7e527e6a6c49578c7c91373c0768d
-        struct_hash: sha256:c422634a707163c45cb24d53727f5276894b6e4a7770856a90970a8a3c59df8b
-        doc_struct_hash: sha256:c422634a707163c45cb24d53727f5276894b6e4a7770856a90970a8a3c59df8b
-        lines: [447, 473]
+        hash: sha256:054e1d91ed1f01fa504f46c8a03b4debe313bcbd74980dddc1a53e4ebae2f953
+        struct_hash: sha256:0d3b4071d7bb9bf82b604bf84ac3eff9cb30e7462515dadad039bc0808315d16
+        doc_struct_hash: sha256:0d3b4071d7bb9bf82b604bf84ac3eff9cb30e7462515dadad039bc0808315d16
+        lines: [447, 470]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/governance.go#renderActionTurns
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: tools/governance.go
         symbol: renderActionTurns
-        hash: sha256:2c9f82a76d1e220029d67003307f5f7b71fe5b5d6d32b98ae07f8fdf7b1e4ee0
-        struct_hash: sha256:ad1b25512c411c9baaa12ccf0c5d9170e6517d519c810df36612175e41426df0
-        doc_struct_hash: sha256:ad1b25512c411c9baaa12ccf0c5d9170e6517d519c810df36612175e41426df0
-        lines: [475, 543]
+        hash: sha256:9e60df5d39d684d91d3a9f79b7c9b6d1b0729264c74d8e1411d2afabbc8eff52
+        struct_hash: sha256:57961b11e3a592272b31e02fe332f96b28435586c54d4a667def78943aabeb08
+        doc_struct_hash: sha256:57961b11e3a592272b31e02fe332f96b28435586c54d4a667def78943aabeb08
+        lines: [472, 532]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/governance.go#actionOutcomeLabel

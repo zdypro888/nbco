@@ -178,10 +178,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: ToolExposure
-        hash: sha256:a1e8c12f824569f26a11a2fc58e0510bd0438cad431524d58d49768c354065e5
-        struct_hash: sha256:e4a225004bed3f3625f73e86d799c0feb588b87af2775e709e205f92de6927a4
-        doc_struct_hash: sha256:d7ebcdf0f19d91252e5f8b4de6c68fb7f3940ac658ea7e8acba6a5e262a4b030
-        lines: [97, 107]
+        hash: sha256:1bb711551b328de3545f2a669fe58c0a7be9f5f593941efe2db332d944f41b78
+        struct_hash: sha256:0cbd8e259882418d8cd2c26300424ab7018752ee7d8a738cffad13fa56dfee63
+        doc_struct_hash: sha256:0360398a9a0d02fb79fa70417b35d547b36d9d18d54a65b8561c764291c23434
+        lines: [97, 106]
       status: fresh
       since: 2026-07-19T19:53:38.431728Z
     - id: ai/ai.go#CompletionOutcome
@@ -288,10 +288,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: TurnResult
-        hash: sha256:a4a3f5a013b26baeb721e7f8013be7a92dd6c6e8b27dbebf36ff8524a341a0ac
-        struct_hash: sha256:6b00de7121d5c7ec2e0ef1c780e7c347163dd79c56d3348ddca063130ce78bcb
-        doc_struct_hash: sha256:12669431c773352ce06108199f42dc4dacf4c92121ba4029dfd88a295f20594b
-        lines: [175, 191]
+        hash: sha256:e9c8d847c127d846b2583eb255b979d5956a25f96f248568eea079e31b7c2a5a
+        struct_hash: sha256:577c874358c0b9b5fc6a964006c167b7136672f2d814059c339050e5d29748cd
+        doc_struct_hash: sha256:4946fdce38941f8986a3fd7391979dd76faf1e4abb385469ebca2e3a1233a283
+        lines: [163, 178]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/ai.go#Engine

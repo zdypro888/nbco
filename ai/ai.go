@@ -100,22 +100,10 @@ type Usage struct {
 type ToolExposure struct {
 	AgentIterations int
 	ModelCalls      int
-	ProtocolRetries int
 	PeakToolCount   int
 	PeakSchemaChars int
 	PeakTools       []string
 }
-
-// CompletionOutcome is the model-declared reason a Deep turn is allowed to
-// stop. The engine validates outcomes against the current turn's tool trace.
-type CompletionOutcome string
-
-const (
-	CompletionOutcomeAnswer       CompletionOutcome = "answer"
-	CompletionOutcomeActionResult CompletionOutcome = "action_result"
-	CompletionOutcomeBlocked      CompletionOutcome = "blocked"
-	CompletionOutcomeClarify      CompletionOutcome = "clarify"
-)
 
 // TurnMode defines the orchestration contract for a model call. It is selected
 // by the call site, never inferred from user wording.
@@ -184,10 +172,9 @@ type TurnResult struct {
 	// 这常表现为 output tokens 打满，但可见正文只有一两个词。
 	OutputLikelyTruncated bool
 	// Steps 本轮完整执行轨迹（含 tool 调用），用于审计。
-	Steps             []Step
-	Usage             Usage
-	ToolExposure      ToolExposure
-	CompletionOutcome CompletionOutcome
+	Steps        []Step
+	Usage        Usage
+	ToolExposure ToolExposure
 }
 
 // Engine 跑一轮带工具的对话。实现：einoengine。

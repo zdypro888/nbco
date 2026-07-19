@@ -118,7 +118,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					"在工作机上运行 nbco-worker bind &lt;server&gt; %s 即可重绑；新码兑换后旧 token 自动作废。", code, code), nil
 			}),
 
-		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中执行一条确定性的 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。适合探测状态、运行测试或已知的单步操作；需要读取输出后继续判断、初始化仓库、修改代码或部署时，应创建普通 worker Agent 任务或启动对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是显式命令任务，不是常驻远控。",
+		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中执行一条确定性的 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。适合探测状态、运行测试或已知的单步操作；它不会启动 Codex/Claude。需要读取输出后继续判断、初始化仓库、修改代码、研究或部署时，应使用 delegate_worker_agent 或对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是显式命令任务，不是常驻远控。",
 			obj(map[string]any{
 				"worker_id": p("integer", "目标 worker 用户ID"),
 				"command":   p("string", "要执行的命令，如 go test ./..."),
@@ -162,7 +162,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if args.PTY {
 					mode = "pty"
 				}
-				return fmt.Sprintf("已创建 worker 命令任务（%s），分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行。", internalRef("任务", t.ID), w.Name, mode), nil
+				return fmt.Sprintf("已创建并持久化 worker 命令任务（%s），分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行；本轮无需重复创建，进度和完成结果会由系统通知用户。", internalRef("任务", t.ID), w.Name, mode), nil
 			}),
 
 		tool("delegate_worker_agent", "把需要观察结果、连续判断或多步处理的目标交给指定 AI worker 的 Codex/Claude 交互式 Agent。任务不包含预制 shell 命令，worker 必定通过 PTY 启动或恢复原生 Agent 会话；同一 worker 使用相同 scope_key 时会恢复该主题的工作目录、会话和摘要。适用于代码、研究、资料处理、排障等自适应工作。已知且无需判断的单条命令才使用 run_worker_command。非超管仅限自己名下的 worker。",
@@ -238,7 +238,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				wakeWorker(d, w)
-				return fmt.Sprintf("已创建 Worker Agent 任务（%s），分配给 %s；主题 scope=%s。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话。", internalRef("任务", t.ID), w.Name, scopeKey), nil
+				return fmt.Sprintf("已创建并持久化 Worker Agent 任务（%s），分配给 %s；主题 scope=%s。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话；本轮无需重复创建，进度和完成结果会由系统通知用户。", internalRef("任务", t.ID), w.Name, scopeKey), nil
 			}),
 
 		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker Access Token（历史任务保留）。非超管只能停用自己名下的 worker。",

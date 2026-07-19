@@ -49,7 +49,7 @@ func TestSmokeRealChat(t *testing.T) {
 }
 
 // 真端点工具循环冒烟：验证当前模型能完成 Eino 原生的
-// tool_search -> deferred tool -> final response，不产生任何外部副作用。
+// tool_search -> deferred tool -> native final response，不产生任何外部副作用。
 func TestSmokeRealToolLoop(t *testing.T) {
 	if os.Getenv("NBCO_SMOKE_TOOL") == "" {
 		t.Skip("设 NBCO_SMOKE_TOOL=1 + NBCO_SMOKE_* 跑真端点工具循环")
@@ -99,11 +99,10 @@ func TestSmokeRealToolLoop(t *testing.T) {
 			found = true
 		}
 	}
-	if !found || strings.TrimSpace(result.Text) == "" || result.CompletionOutcome != ai.CompletionOutcomeActionResult {
+	if !found || strings.TrimSpace(result.Text) == "" {
 		delta, _ := lastDelta.Load().(string)
 		t.Fatalf("tool loop incomplete: text=%q delta=%q truncated=%t finish=%q exposure=%+v steps=%+v",
 			result.Text, delta, result.OutputLikelyTruncated, result.FinishReason, result.ToolExposure, result.Steps)
 	}
-	t.Logf("real Eino tool loop passed: %q outcome=%s exposure=%+v",
-		result.Text, result.CompletionOutcome, result.ToolExposure)
+	t.Logf("real Eino tool loop passed: %q exposure=%+v", result.Text, result.ToolExposure)
 }

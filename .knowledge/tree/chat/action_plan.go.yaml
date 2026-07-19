@@ -34,14 +34,16 @@ nodes:
         - id: e_e43b8a2c
           kind: contract
           text: 当前 action plan 是纯事后 tool-trace 审计：RequiresAction 和 ExpectedTools 仅由已经发生的 write/execute 调用或待审批结果推导。零工具轮次无论用户目标/助手承诺是什么都会得到 RequiresAction=false、ExpectedTools=[]，最终 outcome=answered_without_tool；该账本因此不能充当未闭合目标的可恢复执行状态。
-          confidence: inferred
+          confidence: verified
           at: 2026-07-19T19:27:16.898859Z
+          confirmed_at: 2026-07-19T22:19:37.026273Z
           author: codex-mcp-client
         - id: e_d7341080
           kind: pitfall
           text: 若要恢复未执行承诺，必须在引擎执行前或结构化终止时建立独立 execution contract；不能从本函数的事后轨迹重建，因为零工具时意图信息已被有意丢弃。
-          confidence: inferred
+          confidence: verified
           at: 2026-07-19T19:27:16.898925Z
+          confirmed_at: 2026-07-19T22:19:37.204734Z
           author: codex-mcp-client
       keywords:
         - action_turns
@@ -76,10 +78,10 @@ nodes:
       anchor:
         file: chat/action_plan.go
         symbol: turnDiagnostics
-        hash: sha256:84e8de4d4c7aa14eac87cb97866a76941a38a40ba725511e66a5d558e45172fa
-        struct_hash: sha256:38e9550f59ba34b4699d69332802edcafaad5a7124aff301323b44387e7fcca9
-        doc_struct_hash: sha256:38e9550f59ba34b4699d69332802edcafaad5a7124aff301323b44387e7fcca9
-        lines: [79, 94]
+        hash: sha256:7955e9e1744f286aa9bcd23b9ff88fc8c5ea23f065fc537f4730850164e04061
+        struct_hash: sha256:d8bf1f1891ad64097696dce3016e8d1e05bb3783a3ea5fcba69af266b20c009e
+        doc_struct_hash: sha256:d8bf1f1891ad64097696dce3016e8d1e05bb3783a3ea5fcba69af266b20c009e
+        lines: [79, 92]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/action_plan.go#summarizeToolEvidence
@@ -153,10 +155,10 @@ nodes:
       anchor:
         file: chat/action_plan.go
         symbol: Orchestrator.recordActionTurn
-        hash: sha256:c053e4533dbcaad3ee74578cb4e08a00795e172890d2d5b42400265bb9cc6c84
-        struct_hash: sha256:f1494a5994491678f3b4f29395b97786f4e3617dc1bc55d3f6250b42e3c8a732
-        doc_struct_hash: sha256:f1494a5994491678f3b4f29395b97786f4e3617dc1bc55d3f6250b42e3c8a732
-        lines: [157, 201]
+        hash: sha256:ef5cf6ef1017cff9241c0acdde0434067274c1e4e5c8eac9825f4b28c34077ae
+        struct_hash: sha256:30b65140f9f84d6eac565c8263acb246d0471247938f3804c34102555800ed78
+        doc_struct_hash: sha256:30b65140f9f84d6eac565c8263acb246d0471247938f3804c34102555800ed78
+        lines: [155, 198]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/action_plan.go#actionTurnOutcome
