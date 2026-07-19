@@ -165,6 +165,82 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已创建 worker 命令任务（%s），分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行。", internalRef("任务", t.ID), w.Name, mode), nil
 			}),
 
+		tool("delegate_worker_agent", "把需要观察结果、连续判断或多步处理的目标交给指定 AI worker 的 Codex/Claude 交互式 Agent。任务不包含预制 shell 命令，worker 必定通过 PTY 启动或恢复原生 Agent 会话；同一 worker 使用相同 scope_key 时会恢复该主题的工作目录、会话和摘要。适用于代码、研究、资料处理、排障等自适应工作。已知且无需判断的单条命令才使用 run_worker_command。非超管仅限自己名下的 worker。",
+			obj(map[string]any{
+				"worker_id":   p("integer", "目标 worker 用户ID"),
+				"title":       p("string", "简短任务标题"),
+				"instruction": p("string", "完整目标、背景、约束和期望动作；Agent 会自行观察并推进"),
+				"acceptance":  p("string", "可验证的完成标准"),
+				"scope_key":   p("string", "稳定主题标识，格式 type:identity；同一工作线始终复用同一个值，例如 repo:nbco"),
+				"scope_title": p("string", "主题名称，可选；用于会话列表展示"),
+				"priority":    enumP("任务优先级，可选", "low", "normal", "high"),
+				"file_ids":    arr("integer", "可选，随任务下发给 worker 的系统文件ID"),
+			}, "worker_id", "title", "instruction", "acceptance", "scope_key"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					WorkerID    int64   `json:"worker_id"`
+					Title       string  `json:"title"`
+					Instruction string  `json:"instruction"`
+					Acceptance  string  `json:"acceptance"`
+					ScopeKey    string  `json:"scope_key"`
+					ScopeTitle  string  `json:"scope_title"`
+					Priority    string  `json:"priority"`
+					FileIDs     []int64 `json:"file_ids"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				args.Title = strings.TrimSpace(args.Title)
+				args.Instruction = strings.TrimSpace(args.Instruction)
+				args.Acceptance = strings.TrimSpace(args.Acceptance)
+				if args.Title == "" || args.Instruction == "" || args.Acceptance == "" {
+					return "title、instruction 和 acceptance 都不能为空。", nil
+				}
+				scopeType, scopeKey, msg := normalizeAgentScope(args.ScopeKey)
+				if msg != "" {
+					return msg, nil
+				}
+				w, msg := mustOwnWorker(ctx, d, u, args.WorkerID)
+				if msg != "" {
+					return msg, nil
+				}
+				if w.Status != store.UserActive {
+					return "目标 worker 已停用。", nil
+				}
+				fileIDs, msg, err := accessibleWorkerFiles(ctx, d, u, args.FileIDs)
+				if err != nil {
+					return "", err
+				}
+				if msg != "" {
+					return msg, nil
+				}
+				priority := strings.TrimSpace(args.Priority)
+				if priority == "" {
+					priority = "normal"
+				}
+				switch priority {
+				case "low", "normal", "high":
+				default:
+					return "priority 必须是 low、normal 或 high。", nil
+				}
+				pj, err := d.Store.EnsureWorkerOperationsProject(ctx, u.ID)
+				if err != nil {
+					return "", err
+				}
+				t, err := d.Store.CreateTaskWithFileAttachments(ctx, &store.Task{
+					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
+					Title: args.Title, Goal: args.Title, Description: args.Instruction,
+					Acceptance: args.Acceptance, Priority: priority,
+					WorkerScopeType: scopeType, WorkerScopeKey: scopeKey,
+					WorkerScopeTitle: firstNonEmpty(strings.TrimSpace(args.ScopeTitle), args.Title),
+				}, fileIDs, "Agent 任务输入")
+				if err != nil {
+					return "", err
+				}
+				wakeWorker(d, w)
+				return fmt.Sprintf("已创建 Worker Agent 任务（%s），分配给 %s；主题 scope=%s。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话。", internalRef("任务", t.ID), w.Name, scopeKey), nil
+			}),
+
 		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker Access Token（历史任务保留）。非超管只能停用自己名下的 worker。",
 			obj(map[string]any{"worker_id": p("integer", "worker 用户ID")}, "worker_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -240,7 +316,7 @@ type workerCommandTaskArgs struct {
 }
 
 func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args workerCommandTaskArgs) (*store.Task, error) {
-	pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
+	pj, err := d.Store.EnsureWorkerOperationsProject(ctx, u.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -280,6 +356,47 @@ func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args
 	}
 	wakeWorker(d, w)
 	return t, nil
+}
+
+func normalizeAgentScope(value string) (scopeType, scopeKey, message string) {
+	scopeKey = strings.TrimSpace(value)
+	if scopeKey == "" {
+		return "", "", "scope_key 不能为空；它用于恢复同一主题的 Agent 会话。"
+	}
+	if len([]rune(scopeKey)) > 160 || strings.ContainsAny(scopeKey, "\r\n\t") {
+		return "", "", "scope_key 不能超过 160 个字符，也不能包含控制字符。"
+	}
+	scopeType, identity, ok := strings.Cut(scopeKey, ":")
+	scopeType = strings.TrimSpace(scopeType)
+	identity = strings.TrimSpace(identity)
+	if !ok || scopeType == "" || identity == "" || strings.ContainsAny(scopeType, " /\\") {
+		return "", "", "scope_key 必须使用 type:identity 格式，例如 repo:nbco 或 project:42。"
+	}
+	scopeType = strings.ToLower(scopeType)
+	return scopeType, scopeType + ":" + identity, ""
+}
+
+func accessibleWorkerFiles(ctx context.Context, d Deps, u *store.User, values []int64) ([]int64, string, error) {
+	seen := make(map[int64]bool, len(values))
+	out := make([]int64, 0, len(values))
+	for _, id := range values {
+		if id <= 0 {
+			return nil, "file_ids 只能包含正整数。", nil
+		}
+		if seen[id] {
+			continue
+		}
+		allowed, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, id)
+		if err != nil {
+			return nil, "", err
+		}
+		if !allowed {
+			return nil, fmt.Sprintf("无权访问文件 %d。", id), nil
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out, "", nil
 }
 
 // mustOwnWorker 目标级校验：目标必须是 worker，且非超管只能操作自己名下

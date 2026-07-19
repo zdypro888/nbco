@@ -2085,7 +2085,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 			slog.Warn("清理已被显式邀请覆盖的待领取记录失败", "tg_user", msg.From.ID, "err", err)
 		}
 		g.reply(ctx, chatID, bindSuccessMessage(u.Name))
-		g.bus.Emit("员工加入", invitedBy,
+		g.bus.EmitRequired("员工加入", invitedBy,
 			fmt.Sprintf("新员工「%s」刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name))
 		return
 	}
@@ -2130,7 +2130,7 @@ func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, ch
 		slog.Warn("清理已领取邀请失败", "tg_user", tgUserID, "err", clearErr)
 	}
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
-	g.bus.Emit("员工加入", invitedBy,
+	g.bus.EmitRequired("员工加入", invitedBy,
 		fmt.Sprintf("新员工「%s」刚通过群自动邀请完成 Telegram 绑定，正式加入公司。", u.Name))
 	return true
 }

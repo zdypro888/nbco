@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	jsonschema "github.com/eino-contrib/jsonschema"
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -180,7 +182,7 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	for _, c := range caps {
 		byName[c.Name] = c
 	}
-	for _, name := range []string{"assign_task", "analyze_company_materials", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "list_telegram_group_messages", "set_telegram_group_digest", "list_capabilities", "query_data", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
+	for _, name := range []string{"assign_task", "analyze_company_materials", "delegate_worker_agent", "start_worker_skill", "start_workflow", "create_data_collection_campaign", "schedule_once_push", "schedule_recurring_push", "list_telegram_group_messages", "set_telegram_group_digest", "list_capabilities", "query_data", "list_action_turns", "list_system_activity", "low_level_db_query", "low_level_db_exec"} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("能力目录缺 %s", name)
 		}
@@ -233,11 +235,48 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if got := byName["run_worker_command"].Effect; got != ToolEffectExecute {
 		t.Fatalf("run_worker_command effect=%q", got)
 	}
+	if got := byName["delegate_worker_agent"]; got.Effect != ToolEffectExecute || got.RequiredAction != perm.ActManageWorker || got.GroupAllowed {
+		t.Fatalf("delegate_worker_agent 元数据错误: %+v", got)
+	}
 	if !byName["delete_project"].ApprovalRequired {
 		t.Fatalf("delete_project 应标记为审批工具")
 	}
 	if byName["start_workflow"].GroupAllowed {
 		t.Fatalf("start_workflow 不应在群共享会话可用")
+	}
+}
+
+func TestFixedToolInputsExposeJSONSchemaEnums(t *testing.T) {
+	super := &store.User{ID: 1, Name: "boss", Status: store.UserActive, IsSuperadmin: true}
+	byName := map[string]ai.Tool{}
+	for _, item := range baseStaticTools(Deps{}, super) {
+		byName[item.Name] = item
+	}
+	status := schemaProperties(byName["update_my_task_status"].InputSchema)["status"].(map[string]any)
+	if got := fmt.Sprint(status["enum"]); got != "[pending in_progress done]" {
+		t.Fatalf("task status enum = %s", got)
+	}
+	workflow := schemaProperties(byName["start_workflow"].InputSchema)["name"].(map[string]any)
+	if len(workflow["enum"].([]string)) != 3 {
+		t.Fatalf("workflow enum = %#v", workflow["enum"])
+	}
+	if _, exists := byName["schedule_push"]; exists {
+		t.Fatal("ambiguous schedule_push must not remain exposed")
+	}
+	if byName["schedule_once_push"].Name == "" || byName["schedule_recurring_push"].Name == "" {
+		t.Fatal("split schedule tools are missing")
+	}
+}
+
+func TestNormalizeAgentScope(t *testing.T) {
+	typ, key, message := normalizeAgentScope(" Repo : nbco ")
+	if message != "" || typ != "repo" || key != "repo:nbco" {
+		t.Fatalf("scope = (%q, %q, %q)", typ, key, message)
+	}
+	for _, invalid := range []string{"", "nbco", ":nbco", "repo:", "bad type:value", "repo:\nvalue"} {
+		if _, _, message := normalizeAgentScope(invalid); message == "" {
+			t.Fatalf("invalid scope %q was accepted", invalid)
+		}
 	}
 }
 

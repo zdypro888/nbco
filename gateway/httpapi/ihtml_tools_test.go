@@ -22,15 +22,19 @@ func TestIHTMLAgentToolsUseScopedService(t *testing.T) {
 		t.Fatal(err)
 	}
 	byName := map[string]ai.Tool{}
-	for _, tool := range ihtmlAgentTools(svc) {
+	for _, tool := range ihtmlAgentTools(svc, ihtml.APISpec{Name: "members", Method: "GET", Path: "/api/users"}) {
 		byName[tool.Name] = tool
 		if tool.Domain != "ui" || !tool.GroupSensitive {
 			t.Fatalf("tool %s escaped UI governance: %+v", tool.Name, tool)
 		}
 	}
 	apply := byName["ui_apply_items"]
-	if apply.Handler == nil || !apply.ApprovalRequired || apply.Effect != ai.ToolEffectWrite {
+	if apply.Handler == nil || apply.ApprovalRequired || apply.Effect != ai.ToolEffectWrite {
 		t.Fatalf("UI code write metadata = %+v", apply)
+	}
+	apis, err := byName["ui_list_host_apis"].Handler(context.Background(), nil)
+	if err != nil || !strings.Contains(apis, `"/api/users"`) {
+		t.Fatalf("host API catalog = %q, %v", apis, err)
 	}
 	input := json.RawMessage(`{"items":[{"id":"status-card","type":"html","title":"状态","order":10,"content":"<main>ready</main>"}],"note":"create status card"}`)
 	if out, err := apply.Handler(context.Background(), input); err != nil || !strings.Contains(out, `"updated_ids"`) {

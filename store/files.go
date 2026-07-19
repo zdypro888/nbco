@@ -596,6 +596,33 @@ func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64,
 	return err
 }
 
+// CreateTaskWithFileAttachments publishes a task and all of its file inputs in
+// one transaction. Workers poll independently, so a task must never become
+// claimable before the attachments required to execute it are visible.
+func (s *Store) CreateTaskWithFileAttachments(ctx context.Context, task *Task, fileIDs []int64, caption string) (*Task, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	created, err := createTaskTx(ctx, tx, task)
+	if err != nil {
+		return nil, err
+	}
+	for _, fileID := range fileIDs {
+		if fileID <= 0 {
+			return nil, ErrNotFound
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
+			 VALUES ($1, 'file', $2, $3, $4) ON CONFLICT DO NOTHING`,
+			created.ID, fmt.Sprint(fileID), caption, fileID); err != nil {
+			return nil, wrapErr(err)
+		}
+	}
+	return created, tx.Commit(ctx)
+}
+
 // AddTaskAttachmentFileOnce returns true only when a new relationship was
 // created. The database unique index makes this safe across concurrent turns.
 func (s *Store) AddTaskAttachmentFileOnce(ctx context.Context, taskID, fileID int64, caption string) (bool, error) {

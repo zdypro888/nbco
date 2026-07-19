@@ -27,7 +27,7 @@ func TestForUserPlainUserHidesGatedTools(t *testing.T) {
 		"grant_passive_perm", "revoke_passive_perm", "view_user_perms",
 		"company_overview", "get_ai_settings", "set_ai_settings", "ai_usage_stats", "list_system_activity", "create_role", "disable_user",
 		"low_level_db_query", "low_level_db_exec",
-		"create_worker", "issue_worker_bind_code", "run_worker_command", "revoke_worker", "analyze_company_materials",
+		"create_worker", "issue_worker_bind_code", "run_worker_command", "delegate_worker_agent", "revoke_worker", "analyze_company_materials",
 		"start_workflow",
 		"save_skill", "update_skill",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
@@ -181,7 +181,7 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 			t.Errorf("worker 应保留 %s", keep)
 		}
 	}
-	for _, gone := range []string{"generate_api_token", "list_workers", "run_worker_command", "grant_active_perm", "schedule_once", "accept_task"} {
+	for _, gone := range []string{"generate_api_token", "list_workers", "run_worker_command", "delegate_worker_agent", "grant_active_perm", "schedule_once", "accept_task"} {
 		if names[gone] {
 			t.Errorf("worker 不应有 %s", gone)
 		}
@@ -204,7 +204,7 @@ func TestForUserSuperadminSeesAll(t *testing.T) {
 	names := namesOf(ForUser(Deps{}, su, nil))
 	for _, want := range []string{
 		"assign_task", "delegate_review", "invite_employee", "company_overview", "get_ai_settings", "set_ai_settings",
-		"ai_usage_stats", "create_worker", "run_worker_command", "analyze_company_materials", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
+		"ai_usage_stats", "create_worker", "run_worker_command", "delegate_worker_agent", "analyze_company_materials", "send_message", "update_user_info", "bulk_update_user_info", "grant_passive_perm",
 		"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",
 		"save_skill", "update_skill", "search_skills", "load_skill", "start_worker_skill",
 		"list_workflows", "start_workflow", "list_capabilities", "list_system_activity",
@@ -243,8 +243,8 @@ func TestStripGroupSensitive(t *testing.T) {
 	// 群里必须剔除的机密/高危工具。
 	for _, gone := range []string{
 		"generate_api_token", "revoke_api_token", "invite_employee", "cancel_invites", "send_message",
-		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command",
-		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
+		"grant_active_perm", "grant_passive_perm", "disable_user", "create_worker", "run_worker_command", "delegate_worker_agent",
+		"get_ai_settings", "set_ai_settings", "ai_usage_stats", "schedule_once_push", "schedule_recurring_push", "update_user_info", "bulk_update_user_info", "save_skill", "update_skill",
 		"query_data", "low_level_db_query", "low_level_db_exec",
 		"send_file", "start_workflow", "start_worker_skill",
 		"create_data_collection_campaign", "list_data_collection_campaigns", "get_data_collection_campaign", "send_data_collection_reminder", "close_data_collection_campaign",

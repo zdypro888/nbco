@@ -706,8 +706,8 @@ func TestRecordActionTurn(t *testing.T) {
 		ReplyExcerpt:     "已设置推送。",
 		RequiresAction:   true,
 		Intent:           "设置提醒",
-		ExpectedTools:    []string{"schedule_push"},
-		Evidence:         map[string]any{"tool_evidence": []map[string]any{{"tool": "schedule_push", "ok": true}}},
+		ExpectedTools:    []string{"schedule_once_push"},
+		Evidence:         map[string]any{"tool_evidence": []map[string]any{{"tool": "schedule_once_push", "ok": true}}},
 		Outcome:          "evidence_ok",
 		ToolCount:        1,
 		SuccessToolCount: 1,
@@ -721,7 +721,7 @@ func TestRecordActionTurn(t *testing.T) {
 		Scan(&outcome, &expected); err != nil {
 		t.Fatal(err)
 	}
-	if outcome != "evidence_ok" || len(expected) != 1 || expected[0] != "schedule_push" {
+	if outcome != "evidence_ok" || len(expected) != 1 || expected[0] != "schedule_once_push" {
 		t.Fatalf("action_turns row = outcome=%q expected=%v", outcome, expected)
 	}
 	if err := s.RecordActionTurn(ctx, ActionTurnInput{
@@ -1446,6 +1446,42 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	}
 	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, out.ID); err != nil || !ok {
 		t.Fatalf("worker 应可用当前 claim 下载历史产物 ok=%v err=%v", ok, err)
+	}
+
+	atomicTask, err := s.CreateTaskWithFileAttachments(ctx, &Task{
+		ProjectID:  pj.ID,
+		AssignerID: boss.ID,
+		AssigneeID: worker.ID,
+		Title:      "原子发布附件任务",
+		Goal:       "worker 认领时附件必须已经可见",
+		Priority:   "normal",
+	}, []int64{in.ID}, "输入资料")
+	if err != nil {
+		t.Fatal(err)
+	}
+	atomicAttachments, err := s.TaskFileAttachments(ctx, atomicTask.ID)
+	if err != nil || len(atomicAttachments) != 1 || atomicAttachments[0].ID != in.ID {
+		t.Fatalf("原子任务附件 = %+v err=%v", atomicAttachments, err)
+	}
+
+	var before, after int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM tasks WHERE project_id=$1`, pj.ID).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.CreateTaskWithFileAttachments(ctx, &Task{
+		ProjectID:  pj.ID,
+		AssignerID: boss.ID,
+		AssigneeID: worker.ID,
+		Title:      "应整体回滚的任务",
+	}, []int64{in.ID, 1 << 62}, "输入资料")
+	if err == nil {
+		t.Fatal("不存在的附件必须使任务与全部附件关系一起回滚")
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM tasks WHERE project_id=$1`, pj.ID).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if after != before {
+		t.Fatalf("附件写入失败后留下了部分任务：before=%d after=%d", before, after)
 	}
 }
 
@@ -2632,8 +2668,12 @@ func TestDurableEventAndAutomationRunClaims(t *testing.T) {
 	if err != nil || created || id2 != id {
 		t.Fatalf("dedupe event = %d %v %v", id2, created, err)
 	}
+	upgradedID, wake, err := s.EnqueueEventWithPolicy(ctx, "task_ready", u.ID, "task 7", true, 5*time.Minute)
+	if err != nil || !wake || upgradedID != id {
+		t.Fatalf("required event upgrade = %d %v %v", upgradedID, wake, err)
+	}
 	events, err := s.DueEvents(ctx, time.Now().UTC(), 4)
-	if err != nil || len(events) != 1 || events[0].ClaimedAt == nil {
+	if err != nil || len(events) != 1 || events[0].ClaimedAt == nil || !events[0].NotificationRequired {
 		t.Fatalf("DueEvents = %+v %v", events, err)
 	}
 	event := events[0]
@@ -2654,6 +2694,52 @@ func TestDurableEventAndAutomationRunClaims(t *testing.T) {
 		t.Fatalf("retried event = %+v %v", events, err)
 	}
 	if err := s.CompleteEvent(ctx, events[0].ID, *events[0].ClaimedAt, EventOutcomeHandled); err != nil {
+		t.Fatal(err)
+	}
+	if duplicateID, wake, err := s.EnqueueEventWithPolicy(ctx, "task_ready", u.ID, "task 7", true, 5*time.Minute); err != nil || wake || duplicateID != id {
+		t.Fatalf("delivered required event should dedupe without reopening: id=%d wake=%v err=%v", duplicateID, wake, err)
+	}
+
+	failedID, _, err := s.EnqueueEventWithPolicy(ctx, "critical", u.ID, "retry me", true, 5*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failedEvents, err := s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(failedEvents) != 1 || failedEvents[0].ID != failedID {
+		t.Fatalf("claim critical event = %+v %v", failedEvents, err)
+	}
+	if err := s.RetryEvent(ctx, failedID, *failedEvents[0].ClaimedAt, eventMaxAttempts, "delivery exhausted"); err != nil {
+		t.Fatal(err)
+	}
+	if duplicateID, wake, err := s.EnqueueEventWithPolicy(ctx, "critical", u.ID, "retry me", true, 5*time.Minute); err != nil || !wake || duplicateID != failedID {
+		t.Fatalf("failed required event should reopen: id=%d wake=%v err=%v", duplicateID, wake, err)
+	}
+	reopened, err := s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(reopened) != 1 || reopened[0].ID != failedID || reopened[0].Attempts != 1 {
+		t.Fatalf("reopened required event = %+v %v", reopened, err)
+	}
+	if err := s.CompleteEvent(ctx, reopened[0].ID, *reopened[0].ClaimedAt, EventOutcomeFallback); err != nil {
+		t.Fatal(err)
+	}
+
+	optionalID, _, err := s.EnqueueEvent(ctx, "optional", u.ID, "may skip", 5*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	optionalEvents, err := s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(optionalEvents) != 1 || optionalEvents[0].ID != optionalID {
+		t.Fatalf("claim optional event = %+v %v", optionalEvents, err)
+	}
+	if _, _, err := s.EnqueueEventWithPolicy(ctx, "optional", u.ID, "may skip", true, 5*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if skipped, err := s.FinalizeEventSkip(ctx, optionalID, *optionalEvents[0].ClaimedAt); err != nil || skipped {
+		t.Fatalf("required upgrade must prevent stale skip: skipped=%v err=%v", skipped, err)
+	}
+	if err := s.PrepareEventDelivery(ctx, optionalID, *optionalEvents[0].ClaimedAt, EventOutcomeFallback, "required fallback"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CompleteEvent(ctx, optionalID, *optionalEvents[0].ClaimedAt, EventOutcomeFallback); err != nil {
 		t.Fatal(err)
 	}
 

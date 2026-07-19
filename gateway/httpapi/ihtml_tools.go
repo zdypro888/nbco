@@ -11,8 +11,15 @@ import (
 	"github.com/zdypro888/nbco/ai"
 )
 
-func ihtmlAgentTools(svc ihtml.ScopedService) []ai.Tool {
+func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 	return []ai.Tool{
+		ihtmlTool("ui_list_host_apis",
+			"列出宿主登记、会自动携带当前用户身份的同源 HTTP API。构建需要实时业务数据的页面前调用；页面只能通过 ihtml.http 使用这些接口。",
+			ai.ToolEffectRead, false, objectSchema(nil),
+			func(context.Context, json.RawMessage) (string, error) {
+				return marshalToolResult(apis)
+			}),
+
 		ihtmlTool("ui_list_state",
 			"分页读取当前动态工作台的页面、UI Item 元数据和最近浏览器错误。修改界面前先调用；源码按需用 ui_get_item 分块读取，避免把整站代码塞进上下文。",
 			ai.ToolEffectRead, false,
@@ -125,8 +132,8 @@ func ihtmlAgentTools(svc ihtml.ScopedService) []ai.Tool {
 			}),
 
 		ihtmlTool("ui_apply_items",
-			"批量新增或按稳定 ID 覆盖 HTML/JS/CSS Item。它会持久化并通过 SSE 实时上屏；只在用户明确要求改变界面时调用。任意源码写入都需要下一轮用户确认。",
-			ai.ToolEffectWrite, true,
+			"批量新增或按稳定 ID 覆盖 HTML/JS/CSS Item。它会保存可回滚修订并通过 SSE 实时上屏；只在用户明确要求创建或修改界面时调用。",
+			ai.ToolEffectWrite, false,
 			objectSchema(map[string]any{
 				"items": map[string]any{"type": "array", "description": "要新增或覆盖的 Item", "items": ihtmlItemSchema()},
 				"note":  property("string", "简短说明这次界面变更的目的"),
@@ -282,7 +289,7 @@ func objectSchema(properties map[string]any, required ...string) map[string]any 
 	if properties == nil {
 		properties = map[string]any{}
 	}
-	schema := map[string]any{"type": "object", "properties": properties}
+	schema := map[string]any{"type": "object", "properties": properties, "additionalProperties": false}
 	if len(required) > 0 {
 		schema["required"] = required
 	}

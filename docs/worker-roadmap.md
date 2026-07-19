@@ -16,7 +16,7 @@
 - WebSocket 增强：`wake` 秒级领活、`cancel` 终止当前任务、`ping/pong` 在线状态。
 - 只用交互式 PTY 驱动 CLI，禁止 `claude -p` / `codex exec`。
 - vt10x 屏幕仿真、两步投递、忙碌感知等待、屏幕快照进度、结构化收尾。
-- 显式命令任务：超管用 `run_worker_command` 派发命令，worker 在任务工作目录里默认用 stdout/stderr pipe 执行系统 shell；需要终端行为时可显式 `pty=true`，输出回传进度并进入验收。
+- 自适应 Agent 任务：用 `delegate_worker_agent` 派发目标与稳定 scope，worker 通过交互式 PTY 启动或恢复 Codex/Claude 原生 session；显式命令任务仅用于无需判断的原子命令，默认 pipe、可选 PTY。
 - 验收打回后自动重新领取，带上历史过程和打回理由返工。
 - HTTP/API 文件上传下载、任务附件挂载、worker 附件下载到 `attachments/`、worker 产物从 `artifacts/` 上传。
 - Telegram 网关可选；未配置 `telegram_token` 时，HTTP/API/MCP/worker 仍可运行。

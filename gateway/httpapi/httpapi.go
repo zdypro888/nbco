@@ -130,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/me", s.handleMe)
+	mux.HandleFunc("GET /api/users", s.handleUsers)
 	mux.HandleFunc("GET /api/me/tasks", s.handleMyTasks)
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
@@ -311,6 +312,64 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": u.ID, "name": u.Name, "is_superadmin": u.IsSuperadmin,
 		"is_worker": u.IsWorker, "owner_id": u.OwnerID,
+	})
+}
+
+func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	limit := 100
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 || parsed > 100 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "limit 必须是 1 到 100 的整数"})
+			return
+		}
+		limit = parsed
+	}
+	offset := 0
+	if raw := strings.TrimSpace(r.URL.Query().Get("offset")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 || parsed > 10_000 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "offset 必须是 0 到 10000 的整数"})
+			return
+		}
+		offset = parsed
+	}
+	filters := map[string]string{}
+	if status := strings.TrimSpace(r.URL.Query().Get("status")); status != "" {
+		if status != store.UserActive && status != store.UserDisabled {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status 必须是 active 或 disabled"})
+			return
+		}
+		filters["status"] = status
+	}
+	switch kind := strings.TrimSpace(r.URL.Query().Get("kind")); kind {
+	case "":
+	case "human":
+		filters["is_worker"] = "false"
+	case "worker":
+		filters["is_worker"] = "true"
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "kind 必须是 human 或 worker"})
+		return
+	}
+	var terms []string
+	if query := strings.TrimSpace(r.URL.Query().Get("q")); query != "" {
+		terms = []string{query}
+	}
+	rows, err := s.store.ReadData(r.Context(), u.ID, u.IsSuperadmin, store.DataReadQuery{
+		Source: "users", Terms: terms, Filters: filters, Limit: limit, Offset: offset,
+	})
+	if err != nil {
+		slog.Error("读取成员目录失败", "user", u.ID, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取成员目录失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"users": rows, "limit": limit, "offset": offset, "next_offset": offset + len(rows),
 	})
 }
 
@@ -1808,7 +1867,7 @@ func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if t.AssignerID != u.ID && s.bus != nil {
-		s.bus.Emit("任务需要补充信息", t.AssignerID,
+		s.bus.EmitRequired("任务需要补充信息", t.AssignerID,
 			fmt.Sprintf("AI 员工「%s」执行任务「%s」（任务内部编号 %d）时需要你补充信息：%s",
 				u.Name, t.Title, t.ID, truncateRunes(req.Content, 500)))
 	}
@@ -1860,7 +1919,7 @@ func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if t.Status == store.TaskAwaitingInput && t.AssignerID != u.ID && s.bus != nil {
-		s.bus.Emit("Worker 任务连续失败", t.AssignerID,
+		s.bus.EmitRequired("Worker 任务连续失败", t.AssignerID,
 			fmt.Sprintf("AI 员工「%s」执行任务「%s」（任务内部编号 %d）连续失败，任务已暂停等待处理。最近错误：%s",
 				u.Name, t.Title, t.ID, truncateRunes(t.WorkerLastError, 500)))
 	}
@@ -1943,7 +2002,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		if learned > 0 {
 			extra = fmt.Sprintf(" 已抽取 %d 条学习候选，可用 list_learning_candidates 审核。", learned)
 		}
-		s.bus.Emit("任务提交待验收", t.AssignerID,
+		s.bus.EmitRequired("任务提交待验收", t.AssignerID,
 			fmt.Sprintf("AI 员工「%s」提交了任务「%s」（任务内部编号 %d）待你验收。提交摘要：%s%s",
 				u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
 	}

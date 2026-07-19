@@ -75,7 +75,7 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 	if title == "" {
 		title = "整理公司资料"
 	}
-	t, err := d.Store.CreateTask(ctx, &store.Task{
+	t, err := d.Store.CreateTaskWithFileAttachments(ctx, &store.Task{
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
 		Title:           title,
 		Goal:            "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
@@ -84,14 +84,9 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 		Priority:        "high",
 		WorkerScopeType: "materials", WorkerScopeKey: "materials:company-intelligence",
 		WorkerScopeTitle: "Company material analysis",
-	})
+	}, args.FileIDs, "公司资料分析输入")
 	if err != nil {
 		return "", err
-	}
-	for _, id := range args.FileIDs {
-		if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, id, "公司资料分析输入"); err != nil {
-			return "", err
-		}
 	}
 	wakeWorker(d, worker)
 	return fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs)), nil

@@ -1,7 +1,6 @@
 // Package events 是系统事件总线：领域事件（员工加入、worker 上线、任务提交等）
-// 不再各自硬编码「通知谁、说什么」，而是统一交给 AI 分析——以事件相关人的身份
-// 跑一轮隔离的引擎执行，AI 结合规则与工具，自己决定要不要通知、
-// 通知什么措辞、要不要顺手做点什么（建任务/设提醒/存档），不值得打扰就静默。
+// 不再各自硬编码通知措辞，而是统一交给 AI 分析——以事件相关人的身份
+// 跑一轮隔离、只读的引擎执行，AI 结合规则与事实决定是否通知及如何表达。
 // 代码保证事件持久化、有限重试与并发受控；AI 失败时降级为原文推送，最终失败
 // 留在运行账本中供诊断和人工重放，而不是静默丢失。
 package events
@@ -58,24 +57,43 @@ func New(st *store.Store, orch *chat.Orchestrator, n notify.Notifier, channel st
 // Emit 先把事件写入持久队列再返回。decider 是该事件的决策人/利益相关者。
 // 处理、AI 生成和通知由 Run 驱动；进程重启、通道满载或临时发送失败都不会丢事件。
 func (b *Bus) Emit(kind string, deciderID int64, detail string) {
+	_ = b.emit(kind, deciderID, detail, false)
+}
+
+// EmitRequired enqueues a critical event that must reach the user. AI still
+// writes the message, but a skip/empty/error decision falls back to the factual
+// event instead of silently discarding it.
+func (b *Bus) EmitRequired(kind string, deciderID int64, detail string) {
+	_ = b.EnqueueRequired(kind, deciderID, detail)
+}
+
+// EnqueueRequired durably accepts a critical event. It returns true when the
+// event is safely represented in the queue, including when an equivalent event
+// was already queued or delivered inside the deduplication window.
+func (b *Bus) EnqueueRequired(kind string, deciderID int64, detail string) bool {
+	return b.emit(kind, deciderID, detail, true)
+}
+
+func (b *Bus) emit(kind string, deciderID int64, detail string, required bool) bool {
 	if b == nil || b.store == nil || deciderID <= 0 {
-		return
+		return false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, created, err := b.store.EnqueueEvent(ctx, kind, deciderID, detail, dedupeWindow)
+	_, created, err := b.store.EnqueueEventWithPolicy(ctx, kind, deciderID, detail, required, dedupeWindow)
 	if err != nil {
 		slog.Error("系统事件入队失败", "kind", kind, "user", deciderID, "err", err)
-		return
+		return false
 	}
 	if !created {
 		slog.Debug("事件去重：窗口内重复，跳过", "kind", kind, "user", deciderID)
-		return
+		return true
 	}
 	select {
 	case b.wake <- struct{}{}:
 	default:
 	}
+	return true
 }
 
 // Run 持续认领并处理持久事件队列。
@@ -142,16 +160,28 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 	}
 	reply, mode := strings.TrimSpace(event.Reply), event.DeliveryMode
 	if mode == store.EventOutcomeSkipped {
-		if err := b.completeEvent(parent, event, store.EventOutcomeSkipped); err != nil {
-			slog.Warn("事件静默 ack 失败", "event", event.ID, "err", err)
+		if !event.NotificationRequired {
+			skipped, err := b.finalizeEventSkip(parent, event)
+			if err != nil {
+				b.retry(event, "保存事件静默决定失败: "+err.Error())
+				return
+			}
+			if skipped {
+				return
+			}
 		}
-		return
+		mode = store.EventOutcomeFallback
+		reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
+		if err := b.prepareEventDelivery(parent, event, mode, reply); err != nil {
+			b.retry(event, "恢复必须送达事件失败: "+err.Error())
+			return
+		}
 	}
 	if reply == "" {
-		if mode == store.EventDeliveryModeGenerating {
+		if mode == store.EventOutcomeSkipped || mode == store.EventDeliveryModeGenerating {
 			// A previous process crossed the durable decision boundary but did not
-			// persist a reply. The AI turn may have run write tools, so replaying it
-			// is unsafe. Deliver the factual event without claiming any action.
+			// persist a reply. Do not replay a possibly billed model turn; deliver
+			// the factual event without claiming any action.
 			mode = store.EventOutcomeFallback
 			reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
 		} else {
@@ -161,7 +191,7 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 			}
 			mode = store.EventOutcomeHandled
 			if b.orch != nil {
-				reply, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail), false)
+				reply, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail, event.NotificationRequired), true)
 			}
 			if b.orch == nil || err != nil || strings.TrimSpace(reply) == "" {
 				if err != nil {
@@ -170,14 +200,23 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 				mode = store.EventOutcomeFallback
 				reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
 			} else if ShouldSkip(reply) {
-				if err := b.prepareEventDelivery(parent, event, store.EventOutcomeSkipped, skipWord); err != nil {
-					b.retry(event, "保存事件静默决定失败: "+err.Error())
-					return
+				if event.NotificationRequired {
+					mode = store.EventOutcomeFallback
+					reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
+				} else {
+					skipped, err := b.finalizeEventSkip(parent, event)
+					if err != nil {
+						b.retry(event, "保存事件静默决定失败: "+err.Error())
+						return
+					}
+					if skipped {
+						return
+					}
+					// A required duplicate won the row lock while the model was
+					// deciding. Fall back in this claim instead of waiting for retry.
+					mode = store.EventOutcomeFallback
+					reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
 				}
-				if err := b.completeEvent(parent, event, store.EventOutcomeSkipped); err != nil {
-					slog.Warn("事件静默 ack 失败", "event", event.ID, "err", err)
-				}
-				return
 			}
 		}
 		if err := b.prepareEventDelivery(parent, event, mode, reply); err != nil {
@@ -210,6 +249,12 @@ func (b *Bus) completeEvent(parent context.Context, event *store.Event, outcome 
 	return b.store.CompleteEvent(ctx, event.ID, *event.ClaimedAt, outcome)
 }
 
+func (b *Bus) finalizeEventSkip(parent context.Context, event *store.Event) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), eventStateTimeout)
+	defer cancel()
+	return b.store.FinalizeEventSkip(ctx, event.ID, *event.ClaimedAt)
+}
+
 func (b *Bus) retry(event *store.Event, cause string) {
 	if event == nil || event.ClaimedAt == nil || b.store == nil {
 		return
@@ -228,13 +273,16 @@ func (b *Bus) send(ctx context.Context, userID int64, text string) error {
 	return b.notifier.Send(ctx, userID, text)
 }
 
-// directive 组装喂给引擎的系统事件指令。决策权在 AI：通知、行动或跳过。
-func directive(kind, detail string) string {
+// directive assembles a read-only notification decision. Domain events are
+// evidence that something happened, not authorization to mutate business data.
+func directive(kind, detail string, required bool) string {
+	policy := fmt.Sprintf("若不值得打扰用户，只回复两个字「%s」，不要任何其他内容。", skipWord)
+	if required {
+		policy = "这是必须送达的关键事件，不可跳过；请直接给出通知内容。"
+	}
 	return fmt.Sprintf("[系统事件·%s]（此输入来自系统事件总线，不是用户本人）事件详情：%s\n"+
-		"请以当前用户助理的身份分析这个事件，自行决定：\n"+
-		"- 值得用户知道：直接产出要推送给用户的消息（简洁自然、含关键信息与下一步建议；需要事实先用工具查，不编造）\n"+
-		"- 需要顺手处理：直接调用工具完成（如记录信息、设提醒、跟进任务），并在推送消息里带一句做了什么\n"+
-		"- 不值得打扰用户：只回复两个字「%s」，不要任何其他内容", kind, detail, skipWord)
+		"这是只读通知决策：可用查询工具核实事实，但不得创建、修改、发送或承诺任何业务动作。"+
+		"请以当前用户助理的身份生成简洁自然的通知，包含关键信息；只有证据支持时才给下一步建议，不编造。%s", kind, detail, policy)
 }
 
 // ShouldSkip 判断 AI 答复是否为「静默」决定：剥掉标点/空白/表情后必须

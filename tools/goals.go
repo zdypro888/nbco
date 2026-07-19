@@ -111,7 +111,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 						"description": p("string", "做什么"),
 						"acceptance":  p("string", "验收标准（可选）"),
 						"deadline":    p("string", "截止时间 ISO8601（可选）"),
-						"priority":    p("string", "low|normal|high（可选）"),
+						"priority":    enumP("优先级，可选", "low", "normal", "high"),
 						"depends_on":  arr("integer", "前置任务ID列表（同项目，可选）"),
 					}, "title", "description"),
 				},
@@ -277,7 +277,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 			"标记目标达成（achieved）或归档（archived）。达成是判断题：看 view_goals 的里程碑进度后由你拍板，不从任务自动推导。限 owner 或超管。",
 			obj(map[string]any{
 				"goal_id": p("integer", "目标ID"),
-				"status":  p("string", "achieved（已达成）| archived（归档放弃）"),
+				"status":  enumP("目标终态", "achieved", "archived"),
 			}, "goal_id", "status"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -312,7 +312,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				// 沉淀动作（save_knowledge/save_infos_on_user）由事件触发的 AI 轮次自决，不在工具内硬塞——
 				// 与「达成靠判断、不自动推导」同理。
 				if args.Status == store.GoalAchieved && g.OwnerID != u.ID {
-					emitEvent(d, "目标达成", g.OwnerID, buildGoalClosedDetail(ctx, d.Store, g, u.Name))
+					emitRequiredEvent(d, "目标达成", g.OwnerID, buildGoalClosedDetail(ctx, d.Store, g, u.Name))
 				}
 				return fmt.Sprintf("目标「%s」%s。", g.Title, label), nil
 			}),
@@ -361,7 +361,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 			"标记里程碑达成（achieved）或归档（archived）。达成由你判断后手动标记（不自动从任务推导）。限其所属目标的 owner 或超管。",
 			obj(map[string]any{
 				"milestone_id": p("integer", "里程碑ID"),
-				"status":       p("string", "achieved（已达成）| archived（归档）"),
+				"status":       enumP("里程碑终态", "achieved", "archived"),
 			}, "milestone_id", "status"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -396,7 +396,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				}
 				// 达成（非归档）且非目标 owner 自行关闭时发事件，让其侧 AI 自决是否复盘。
 				if args.Status == store.GoalAchieved && g.OwnerID != u.ID {
-					emitEvent(d, "里程碑达成", g.OwnerID, buildMilestoneClosedDetail(ctx, d.Store, m, g, u.Name))
+					emitRequiredEvent(d, "里程碑达成", g.OwnerID, buildMilestoneClosedDetail(ctx, d.Store, m, g, u.Name))
 				}
 				return fmt.Sprintf("里程碑「%s」%s。", m.Title, label), nil
 			}),

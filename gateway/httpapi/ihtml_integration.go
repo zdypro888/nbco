@@ -15,6 +15,7 @@ import (
 	ihtml "github.com/zdypro888/ihtml"
 	"github.com/zdypro888/ihtml/sqlstore"
 
+	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 )
@@ -72,7 +73,25 @@ func (s *Server) EnableIHTML() error {
 		return fmt.Errorf("创建 ihtml handler: %w", err)
 	}
 	s.ihtmlHandler = handler
+	apis := nbcoIHTMLAPIs()
+	s.orch.SetTurnExtensionProvider(func(_ context.Context, u *store.User, channel string) (*chat.TurnExtension, error) {
+		// The embedded ihtml chat already supplies browser context and the same
+		// scoped tools explicitly. Other private channels receive the capability
+		// lazily through the shared Orchestrator.
+		if channel == ihtmlChatChannel {
+			return nil, nil
+		}
+		scoped, err := ihtml.ScopeService(handler, strconv.FormatInt(u.ID, 10))
+		if err != nil {
+			return nil, fmt.Errorf("绑定 ihtml 用户作用域: %w", err)
+		}
+		return &chat.TurnExtension{
+			System: crossChannelIHTMLSystem(s.deps.PublicBaseURL),
+			Tools:  ihtmlAgentTools(scoped, apis...),
+		}, nil
+	})
 	s.ihtmlClose = func() error {
+		s.orch.SetTurnExtensionProvider(nil)
 		return errors.Join(handler.Close(), db.Close())
 	}
 	return nil
@@ -140,6 +159,7 @@ func nbcoIHTMLAPIs() []ihtml.APISpec {
 	return []ihtml.APISpec{
 		{Name: "nbco_overview", Title: "运营总览", Method: "GET", Path: "/api/overview", Description: "当前用户可见的运营概览。"},
 		{Name: "nbco_me", Title: "当前身份", Method: "GET", Path: "/api/me", Description: "当前用户的稳定内部 ID、名称和权限摘要。"},
+		{Name: "nbco_users", Title: "成员目录", Method: "GET", Path: "/api/users", Description: "权限感知的成员目录；稳定用户 ID 和名称可见，动态字段按当前身份自动裁剪。支持 q、status、kind、limit、offset 查询参数。"},
 		{Name: "nbco_my_tasks", Title: "我的任务", Method: "GET", Path: "/api/me/tasks", Description: "当前用户的待办任务。"},
 		{Name: "nbco_my_review", Title: "待我验收", Method: "GET", Path: "/api/me/review", Description: "当前用户待验收的任务。"},
 		{Name: "nbco_my_assigned", Title: "我分配的任务", Method: "GET", Path: "/api/me/assigned", Description: "当前用户分配给他人的任务。"},
@@ -156,4 +176,14 @@ func nbcoIHTMLAPIs() []ihtml.APISpec {
 		{Name: "nbco_ai_settings", Title: "AI 运行配置", Method: "GET", Path: "/api/admin/ai-settings", Description: "超级管理员可见的当前模型与运行配置。"},
 		{Name: "nbco_operations", Title: "系统运行状态", Method: "GET", Path: "/api/admin/ops", Description: "超级管理员可见的服务、索引和运行状态。"},
 	}
+}
+
+func crossChannelIHTMLSystem(publicBaseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(publicBaseURL), "/")
+	workspace := "/?view=workspace"
+	if base != "" {
+		workspace = base + workspace
+	}
+	return "当前用户拥有一个可持久化的 ihtml 动态工作台。用户要求网页、表格视图、仪表盘或可视化操作界面时，使用 ui_* 工具直接实现；" +
+		"需要实时 nbco 数据时先读取 ui_list_host_apis，并在页面代码中通过 ihtml.http 调用登记的同源 API。完成后提供工作台地址：" + workspace
 }

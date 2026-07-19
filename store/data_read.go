@@ -483,11 +483,12 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"events": {
 		DataSource: DataSource{
 			Name: "events", Description: "领域事件及 AI 处理结果；普通用户只看由自己决策的事件。",
-			Fields: []string{"event_id", "kind", "decider_id", "detail", "status", "outcome", "reply", "delivery_mode", "attempts", "last_error", "created_at", "handled_at"},
+			Fields: []string{"event_id", "kind", "decider_id", "detail", "notification_required", "status", "outcome", "reply", "delivery_mode", "attempts", "last_error", "created_at", "handled_at"},
 		},
 		query: `SELECT jsonb_build_object(
 			'event_id', e.id, 'kind', e.kind, 'decider_id', e.decider_id,
-			'detail', e.detail, 'status', e.status, 'outcome', e.outcome,
+			'detail', e.detail, 'notification_required', e.notification_required,
+			'status', e.status, 'outcome', e.outcome,
 			'reply', e.reply, 'delivery_mode', e.delivery_mode,
 			'attempts', e.attempts, 'last_error', e.last_error,
 			'created_at', e.created_at, 'handled_at', e.handled_at

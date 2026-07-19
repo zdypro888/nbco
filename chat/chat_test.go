@@ -132,6 +132,20 @@ func TestExtendedUserTextKeepsHostStateAtUserTrustLevel(t *testing.T) {
 	}
 }
 
+func TestMergeTurnExtensionsPreservesCapabilitiesAndCallbacks(t *testing.T) {
+	var calls []string
+	left := &TurnExtension{System: "left", Tools: []ai.Tool{{Name: "one"}}, OnEvent: func(ai.Step) { calls = append(calls, "left") }}
+	right := &TurnExtension{System: "right", UntrustedContext: "state", Tools: []ai.Tool{{Name: "two"}}, OnEvent: func(ai.Step) { calls = append(calls, "right") }}
+	merged := mergeTurnExtensions(left, right)
+	if merged == nil || merged.System != "left\nright" || merged.UntrustedContext != "state" || len(merged.Tools) != 2 {
+		t.Fatalf("merged extension = %+v", merged)
+	}
+	merged.OnEvent(ai.Step{})
+	if strings.Join(calls, ",") != "left,right" {
+		t.Fatalf("callback order = %v", calls)
+	}
+}
+
 func TestCapabilityScopeTracksAuthorization(t *testing.T) {
 	owner := int64(9)
 	user := &store.User{ID: 2, IsWorker: true, OwnerID: &owner}
@@ -437,7 +451,7 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 
 func TestBuildActionAuditPlanUsesActualTraceOnly(t *testing.T) {
 	toolset := []ai.Tool{
-		{Name: "schedule_push", Effect: ai.ToolEffectWrite},
+		{Name: "schedule_once_push", Effect: ai.ToolEffectWrite},
 		{Name: "list_schedules", Effect: ai.ToolEffectRead},
 	}
 	plan := buildActionAuditPlan("明天早上提醒大家", toolset, &ai.TurnResult{})
@@ -447,9 +461,9 @@ func TestBuildActionAuditPlanUsesActualTraceOnly(t *testing.T) {
 	if plan.Source != "tool_trace" || actionTurnOutcome(plan, &ai.TurnResult{}) != "answered_without_tool" {
 		t.Fatalf("trace-only audit = %+v", plan)
 	}
-	res := &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已创建"}}}
+	res := &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_once_push", Result: "已创建"}}}
 	plan = buildActionAuditPlan("明天早上提醒大家", toolset, res)
-	if !plan.RequiresAction || !containsString(plan.ExpectedTools, "schedule_push") || actionTurnOutcome(plan, res) != "action_tool_returned" {
+	if !plan.RequiresAction || !containsString(plan.ExpectedTools, "schedule_once_push") || actionTurnOutcome(plan, res) != "action_tool_returned" {
 		t.Fatalf("actual action trace = %+v outcome=%s", plan, actionTurnOutcome(plan, res))
 	}
 }

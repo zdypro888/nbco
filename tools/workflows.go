@@ -88,7 +88,7 @@ func workflowTools(d Deps, u *store.User) []ai.Tool {
 
 		tool("start_workflow", "启动一个确定性标准工作流。支持 material_intake（资料分析入库）、nbco_upgrade（已提交版本安全部署）、nbco_code_change（先改代码再可选上线）。需要 AI 员工管理权限；高风险工作流还会执行自身权限校验，部署必须在 args.confirm=true 后才会创建任务。",
 			obj(map[string]any{
-				"name": p("string", "工作流名：material_intake、nbco_upgrade 或 nbco_code_change"),
+				"name": enumP("工作流名", "material_intake", "nbco_upgrade", "nbco_code_change"),
 				"args": map[string]any{
 					"type":        "object",
 					"description": "工作流参数对象；先用 list_workflows 查看每个模板需要的参数。",
@@ -312,7 +312,7 @@ func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw
 	if msg != "" {
 		return msg, nil
 	}
-	pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
+	pj, err := d.Store.EnsureWorkerOperationsProject(ctx, u.ID)
 	if err != nil {
 		return "", err
 	}

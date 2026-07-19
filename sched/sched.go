@@ -824,9 +824,8 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 				// 而非死板模板。bus 未装配（测试）时回退原文模板，保证必达。
 				detail := fmt.Sprintf("你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。",
 					t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))
-				if s.bus != nil {
-					s.bus.Emit("任务过期", t.AssignerID, detail)
-				} else if !s.send(ctx, t.AssignerID, "🔴 "+detail) {
+				enqueued := s.bus != nil && s.bus.EnqueueRequired("任务过期", t.AssignerID, detail)
+				if !enqueued && !s.send(ctx, t.AssignerID, "🔴 "+detail) {
 					slog.Warn("过期通知分配者侧投递失败（不重试）", "task", t.ID, "assigner", t.AssignerID)
 				}
 			}
@@ -884,14 +883,13 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 				}
 				return
 			}
-			// 与任务过期同构：owner 先同步收到模板（ack 基准=必达），bus 是额外的 AI 介入
-			// （结合里程碑停滞决定是否点名/升级）——bus 是 fire-and-forget，可能去重/丢弃，
-			// 故不能用它来决定 ack，否则事件丢了却永不重试（违背「事件必达」）。
+			// 事件先持久化再 ack；只有事件队列不可用时才回退同步模板，避免
+			// 同一条逾期通知沿两条路径重复送达。
 			detail := fmt.Sprintf("战略目标「%s」已过截止时间（%s）。请用 view_goals 核实里程碑进度，判断是否需要点名相关负责人、调整期限或重新拆解。",
 				g.Title, s.fmtTime(*g.Deadline))
-			ok := s.send(ctx, g.OwnerID, "🔴 "+detail)
-			if s.bus != nil {
-				s.bus.Emit("目标过期", g.OwnerID, detail)
+			ok := s.bus != nil && s.bus.EnqueueRequired("目标过期", g.OwnerID, detail)
+			if !ok {
+				ok = s.send(ctx, g.OwnerID, "🔴 "+detail)
 			}
 			if ok {
 				if err := s.store.MarkGoalOverdueNoticeSent(ctx, g.ID, time.Now().UTC()); err != nil {
@@ -954,12 +952,12 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 				}
 				return
 			}
-			// 与目标/任务过期同构：owner 先同步收模板（ack 基准=必达），bus 是额外的 AI 介入。
+			// 与目标过期同构：优先进入持久事件队列，队列不可用才直发。
 			detail := fmt.Sprintf("里程碑「%s」（属目标「%s」）已过截止时间（%s）。请用 get_milestone_detail 核实任务进度，点名停滞任务的执行人或重新拆解。",
 				m.Title, gTitle, s.fmtTime(*m.Deadline))
-			ok := s.send(ctx, ownerID, "🔴 "+detail)
-			if s.bus != nil {
-				s.bus.Emit("里程碑过期", ownerID, detail)
+			ok := s.bus != nil && s.bus.EnqueueRequired("里程碑过期", ownerID, detail)
+			if !ok {
+				ok = s.send(ctx, ownerID, "🔴 "+detail)
 			}
 			if ok {
 				if err := s.store.MarkMilestoneOverdueNoticeSent(ctx, m.ID, time.Now().UTC()); err != nil {

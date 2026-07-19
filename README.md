@@ -238,7 +238,7 @@ worker 的模型 CLI 带完整 shell，安全边界必须在部署侧：[deploy/
 
 > **隔离建议（安全边界在部署侧）**：worker 用 `--dangerously-skip-permissions` 跑 CLI，模型有完整 shell，能读到 worker 账号可读的一切（包括自身 Worker Access Token）。产物上传做了纵深加固（拒软/硬链接、非常规文件），但那不是安全边界——真正的隔离靠部署：**每个 worker 跑在独立容器 / 低权限账号里**，把宿主机密（别的 Worker Access Token、SSH 私钥等）挡在其可达范围外。
 
-执行规则：worker 启动 `claude` / `codex` 时必须走**交互式 PTY**，像人在终端里操作一样干活；严禁 `claude -p` / `codex exec` 等 headless 入口。显式命令任务走 `run_worker_command`，默认用 stdout/stderr pipe 执行系统 shell 命令；只有命令确实需要终端行为时才显式 `pty=true`。输出作为进度/完成汇报回传，产物放到任务提示给出的本轮产物目录自动上传；这不是常驻远程 shell。AI CLI 驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
+执行规则：需要观察输出并连续判断的工作走 `delegate_worker_agent`，worker 启动 `claude` / `codex` 时必须用**交互式 PTY**，同一稳定 `scope_key` 自动恢复对应工作目录与原生 CLI session；严禁 `claude -p` / `codex exec` 等 headless 入口。只有无需 Agent 判断的原子命令才走 `run_worker_command`，默认用 stdout/stderr pipe 执行，命令确实依赖终端行为时才显式 `pty=true`。进度、完成汇报与产物统一回传；这不是常驻远程 shell。AI CLI 驱动手法（借鉴 [aibridge](https://github.com/zdypro888/aibridge)）：
 
 - **vt10x 屏幕仿真**：PTY 字节流喂进内存终端仿真器，一切检测读渲染后的屏幕，不在原始流上扒 ANSI
 - **两步投递**：多行任务用 bracketed paste 包住、停顿后单发回车（防 TUI 的 paste 防抖吞掉提交）
@@ -312,7 +312,7 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 **资源模型**：每次 tick 只做几条**命中部分索引**的原子认领查询（`WHERE fire_at <= now()` / `deadline` / kv 日期），成本随「到期数」而非「任务总数」增长——库里堆多少未来任务都不扫。重活（AI 轮次、逐人推送）**在认领后派发到限并发协程池异步执行**，既不阻塞 30 秒节拍（截止提醒照常及时），又用 `sched_ai_concurrency`（默认 4）护住模型网关：全员 AI 问候不会几百轮齐发，而是限并发滚动完成。模板推送另走 16 并发池。
 
 - **定时提醒**：用户让 AI 设置的单次/循环提醒（`schedule_once` / `schedule_repeating`）
-- **动态运营节奏（`schedule_push`）**：管理者一句话（如"我们10点上班6:30下班，上下班问候一下大家"），AI 自己落成定时规则：目标（某人/全体）× 时间（每天 HH:MM，可限工作日）× 模式（`ai`=每次触发为每位目标现场跑一轮 AI，结合其当天待办等真实数据生成个性化内容；`message`=原文投递）。**代码里没有任何"作息"概念**——政策全在数据行里，说句话就能改；给他人/全体设置需要 `send_msg` 权限
+- **动态运营推送（`schedule_once_push` / `schedule_recurring_push`）**：单次日期与明确周期使用不同工具，避免把“周一做一次”误建成“每周一”。规则由目标（某人/全体）× 时间 × 模式组成；`ai` 在每次触发时结合实时数据生成内容，`message` 原文投递。业务政策仍完全存于数据，不硬编码作息；给他人/全体设置需要 `send_msg` 权限
 - **临近截止**：任务截止前 24 小时提醒执行人；分配者改截止时间后重新生效
 - **过期通知**：截止时间一过，通知执行人与分配者（各一次）
 - **AI 催办**：过期任务每 48 小时无动静（无进度更新），AI 核实状态后向执行人发出个性化催办；有汇报就不打扰
@@ -416,7 +416,7 @@ Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两�
 | `edit_info` | `update_user_info` |
 | `write_profile` | `save_infos_on_user` |
 | `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
-| `manage_worker` | `create_worker` / `issue_worker_bind_code` / `run_worker_command` / `revoke_worker`（非超管仅限自己名下的 worker，创建者即监护人） |
+| `manage_worker` | `create_worker` / `issue_worker_bind_code` / `delegate_worker_agent` / `run_worker_command` / `revoke_worker`（非超管仅限自己名下的 worker，创建者即监护人） |
 | 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned`、成本统计 `ai_usage_stats`、底层兜底 `low_level_db_query` / `low_level_db_exec`、Telegram 群控制 |
 
 **worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。

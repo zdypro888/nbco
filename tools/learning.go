@@ -83,7 +83,7 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 
 		tool("list_learning_candidates", "查看系统自动归纳出来的学习候选（知识/规则/skill/脚本/画像/总结）。用于审核 AI 是否学对了、合并前先看证据。",
 			obj(map[string]any{
-				"status": p("string", "pending/published/rejected，可选，默认 pending"),
+				"status": enumP("状态筛选，可选", store.LearningStatusPending, store.LearningStatusPublished, store.LearningStatusRejected),
 				"kind":   p("string", "knowledge/rule/skill/script/profile/summary，可选"),
 				"limit":  p("integer", "返回条数，默认 20，最多 100"),
 			}),

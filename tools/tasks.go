@@ -102,7 +102,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 		tool("update_my_task_status", "更新我负责或协作的任务状态。status: pending/in_progress/done。done=提交给分配者验收（自派任务直接完成）。",
 			obj(map[string]any{
 				"task_id": p("integer", "任务ID"),
-				"status":  p("string", "pending | in_progress | done"),
+				"status":  enumP("任务状态", store.TaskPending, store.TaskInProgress, store.TaskDone),
 			}, "task_id", "status"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -160,12 +160,12 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					}
 					// 任务提交待验收交分配者的 AI 分析（与 worker HTTP 提交路径合一）：
 					// AI 结合会话上下文给出验收建议再通知，而非死板模板。
-					emitEvent(d, "任务提交待验收", t.AssignerID,
+					emitRequiredEvent(d, "任务提交待验收", t.AssignerID,
 						fmt.Sprintf("「%s」提交了任务「%s」（%s）待你验收。", u.Name, t.Title, internalRef("任务", t.ID)))
 					reviewers, _ := d.Store.TaskParticipantIDs(ctx, t.ID, store.TaskParticipantReviewer)
 					for _, reviewerID := range reviewers {
 						if reviewerID != t.AssignerID {
-							emitEvent(d, "任务提交待验收", reviewerID,
+							emitRequiredEvent(d, "任务提交待验收", reviewerID,
 								fmt.Sprintf("「%s」提交了任务「%s」（%s），你是指定验收人。", u.Name, t.Title, internalRef("任务", t.ID)))
 						}
 					}
@@ -958,7 +958,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				"description":      p("string", "做什么"),
 				"acceptance":       p("string", "验收标准（可选）"),
 				"deadline":         p("string", "截止时间 ISO8601（可选）"),
-				"priority":         p("string", "low/normal/high（可选）"),
+				"priority":         enumP("优先级，可选", "low", "normal", "high"),
 				"depends_on":       arr("integer", "前置任务ID列表（可选；须为已存在的任务）"),
 			}, "project_id", "title", "description"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -1341,7 +1341,7 @@ func notifyChain(ctx context.Context, d Deps, operator *store.User, chain []*sto
 	for _, a := range chain {
 		if a.Status == store.TaskDone && a.AssignerID != operator.ID {
 			// 级联转入待验收同样交分配者的 AI 分析（与提交待验收一致）。
-			emitEvent(d, "任务提交待验收", a.AssignerID,
+			emitRequiredEvent(d, "任务提交待验收", a.AssignerID,
 				fmt.Sprintf("任务「%s」（%s）的全部子任务已验收通过，待你验收。", a.Title, internalRef("任务", a.ID)))
 		}
 	}
@@ -1750,7 +1750,7 @@ func FireReadyDependents(ctx context.Context, d Deps, acceptedID int64) {
 		if assignee, err := d.Store.UserByID(ctx, t.AssigneeID); err == nil {
 			wakeWorker(d, assignee)
 		}
-		emitEvent(d, "前置任务完成",
+		emitRequiredEvent(d, "前置任务完成",
 			t.AssignerID,
 			fmt.Sprintf("任务「%s」（%s）的全部前置已验收通过，现在可以开工（执行人：%s）。", t.Title, internalRef("任务", t.ID), assigneeName))
 	}

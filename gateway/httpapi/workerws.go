@@ -96,7 +96,7 @@ func (s *Server) notifyWorkerOffline(u *store.User) {
 	if err != nil || len(tasks) == 0 {
 		return
 	}
-	s.bus.Emit("worker 执行中离线", *u.OwnerID,
+	s.bus.EmitRequired("worker 执行中离线", *u.OwnerID,
 		fmt.Sprintf("AI 员工「%s」实时通道断开，仍有 %d 个在办任务。请核实是否需要改派或通知相关人。",
 			u.Name, len(tasks)))
 }

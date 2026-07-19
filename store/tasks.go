@@ -230,20 +230,32 @@ func (s *Store) SetProjectStatus(ctx context.Context, id int64, status string) e
 	return s.execOne(ctx, `UPDATE projects SET status = $2 WHERE id = $1`, id, status)
 }
 
-// EnsureWorkerCommandProject 返回超管名下的命令任务项目，不存在则创建。
-func (s *Store) EnsureWorkerCommandProject(ctx context.Context, creatorID int64) (*Project, error) {
-	const name = "Worker Commands"
+// EnsureWorkerOperationsProject returns the durable inbox for worker command,
+// agent, skill and workflow tasks. Older installations used "Worker Commands";
+// rename that project in place so task history keeps the same stable project ID.
+func (s *Store) EnsureWorkerOperationsProject(ctx context.Context, creatorID int64) (*Project, error) {
+	const name = "Worker Operations"
 	p, err := scanProject(s.pool.QueryRow(ctx,
 		`SELECT id, name, description, creator_id, status, created_at FROM projects
-		 WHERE creator_id = $1 AND name = $2 AND status = 'active'
-		 ORDER BY id LIMIT 1`, creatorID, name))
+		 WHERE creator_id = $1 AND name = ANY($2) AND status = 'active'
+		 ORDER BY CASE WHEN name = $3 THEN 0 ELSE 1 END, id LIMIT 1`,
+		creatorID, []string{name, "Worker Commands"}, name))
 	if err == nil {
+		if p.Name != name {
+			if _, updateErr := s.pool.Exec(ctx,
+				`UPDATE projects SET name = $2, description = $3 WHERE id = $1`,
+				p.ID, name, "AI worker 命令、Agent、Skill 与工作流任务。"); updateErr != nil {
+				return nil, updateErr
+			}
+			p.Name = name
+			p.Description = "AI worker 命令、Agent、Skill 与工作流任务。"
+		}
 		return p, nil
 	}
 	if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
-	return s.CreateProject(ctx, name, "显式 worker 命令任务。", creatorID)
+	return s.CreateProject(ctx, name, "AI worker 命令、Agent、Skill 与工作流任务。", creatorID)
 }
 
 // EnsureCompanyIntelligenceProject returns the inbox project for company

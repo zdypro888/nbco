@@ -66,6 +66,10 @@ type Eventer interface {
 	Emit(kind string, deciderID int64, detail string)
 }
 
+type requiredEventer interface {
+	EmitRequired(kind string, deciderID int64, detail string)
+}
+
 // EventHub 后注入的 Eventer 容器（装配顺序：deps → orch → bus，bus 建好后 Set）。
 type EventHub struct {
 	mu sync.Mutex
@@ -89,11 +93,38 @@ func (h *EventHub) Emit(kind string, deciderID int64, detail string) {
 	}
 }
 
+// EmitRequired preserves the stronger delivery policy when the concrete event
+// bus supports it, while keeping lightweight test Eventer implementations valid.
+func (h *EventHub) EmitRequired(kind string, deciderID int64, detail string) {
+	h.mu.Lock()
+	e := h.e
+	h.mu.Unlock()
+	if e == nil {
+		return
+	}
+	if required, ok := e.(requiredEventer); ok {
+		required.EmitRequired(kind, deciderID, detail)
+		return
+	}
+	e.Emit(kind, deciderID, detail)
+}
+
 // emitEvent 便捷入口：Deps.Events 可为 nil。
 func emitEvent(d Deps, kind string, deciderID int64, detail string) {
 	if d.Events != nil {
 		d.Events.Emit(kind, deciderID, detail)
 	}
+}
+
+func emitRequiredEvent(d Deps, kind string, deciderID int64, detail string) {
+	if d.Events == nil {
+		return
+	}
+	if required, ok := d.Events.(requiredEventer); ok {
+		required.EmitRequired(kind, deciderID, detail)
+		return
+	}
+	d.Events.Emit(kind, deciderID, detail)
 }
 
 // saveKnowledge / searchKnowledge：优先走 Knowledge 服务（含语义检索），
@@ -272,6 +303,7 @@ var toolPerm = map[string]string{
 	"create_worker":             perm.ActManageWorker,
 	"issue_worker_bind_code":    perm.ActManageWorker,
 	"run_worker_command":        perm.ActManageWorker,
+	"delegate_worker_agent":     perm.ActManageWorker,
 	"revoke_worker":             perm.ActManageWorker,
 	"set_worker_admin":          reqSuper,
 	"analyze_company_materials": perm.ActManageWorker,
@@ -361,6 +393,7 @@ var groupSensitive = map[string]bool{
 	"create_worker":                   true,
 	"issue_worker_bind_code":          true,
 	"run_worker_command":              true,
+	"delegate_worker_agent":           true,
 	"set_worker_admin":                true,
 	"revoke_worker":                   true,
 	"analyze_company_materials":       true,
@@ -408,7 +441,8 @@ var groupSensitive = map[string]bool{
 	"close_data_collection_campaign":  true,
 	"refresh_decision_queue":          true,
 	"list_decision_queue":             true,
-	"schedule_push":                   true, // 定向推送涉及他人，回私聊设更稳妥
+	"schedule_once_push":              true, // 定向推送涉及他人，回私聊设更稳妥
+	"schedule_recurring_push":         true,
 	"set_telegram_group_listen":       true,
 	"set_telegram_group_auto_invite":  true,
 	"set_telegram_group_monitor":      true,
@@ -542,7 +576,7 @@ func obj(props map[string]any, required ...string) map[string]any {
 		// record 校验，null 会导致整个 tools/list 被拒、所有工具失效。
 		props = map[string]any{}
 	}
-	m := map[string]any{"type": "object", "properties": props}
+	m := map[string]any{"type": "object", "properties": props, "additionalProperties": false}
 	if len(required) > 0 {
 		m["required"] = required
 	}
@@ -551,6 +585,10 @@ func obj(props map[string]any, required ...string) map[string]any {
 
 func p(typ, desc string) map[string]any {
 	return map[string]any{"type": typ, "description": desc}
+}
+
+func enumP(desc string, values ...string) map[string]any {
+	return map[string]any{"type": "string", "description": desc, "enum": values}
 }
 
 func arr(itemType, desc string) map[string]any {

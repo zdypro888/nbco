@@ -139,7 +139,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 						return fmt.Sprintf("你无权访问%s。", internalRef("文件", id)), nil
 					}
 				}
-				pj, err := d.Store.EnsureWorkerCommandProject(ctx, u.ID)
+				pj, err := d.Store.EnsureWorkerOperationsProject(ctx, u.ID)
 				if err != nil {
 					return "", err
 				}
@@ -147,7 +147,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if title == "" {
 					title = "执行 skill：" + k.Title
 				}
-				t, err := d.Store.CreateTask(ctx, &store.Task{
+				t, err := d.Store.CreateTaskWithFileAttachments(ctx, &store.Task{
 					ProjectID:       pj.ID,
 					AssignerID:      u.ID,
 					AssigneeID:      worker.ID,
@@ -158,14 +158,9 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 					Priority:        skillPriority(highRisk),
 					WorkerScopeType: "skill", WorkerScopeKey: fmt.Sprintf("skill:%d", k.ID),
 					WorkerScopeTitle: k.Title,
-				})
+				}, args.FileIDs, "skill 执行输入")
 				if err != nil {
 					return "", err
-				}
-				for _, id := range args.FileIDs {
-					if err := d.Store.AddTaskAttachmentFile(ctx, t.ID, id, "skill 执行输入"); err != nil {
-						return "", err
-					}
 				}
 				wakeWorker(d, worker)
 				return fmt.Sprintf("已按 skill「%s」创建 worker 任务（%s），分配给 %s。", k.Title, internalRef("任务", t.ID), worker.Name), nil

@@ -225,7 +225,7 @@ func (s *ihtmlSharedSession) runTurn(event *ihtml.ChatClientEvent) {
 	extension := chat.TurnExtension{
 		System:           ihtmlTurnSystem(s.apis),
 		UntrustedContext: ihtmlBrowserContext(event.ClientContext),
-		Tools:            ihtmlAgentTools(s.svc),
+		Tools:            ihtmlAgentTools(s.svc, s.apis...),
 		OnEvent: func(step ai.Step) {
 			if step.Kind != ai.StepToolCall {
 				return

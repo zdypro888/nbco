@@ -43,7 +43,7 @@ func campaignTools(d Deps, u *store.User) []ai.Tool {
 
 		tool("list_data_collection_campaigns", "查看资料收集活动列表、完成率和通知覆盖。它只回答专项追踪状态：没有活动不等于没人自行更新资料；用户问最近是否真的有人更新/执行时，本轮如有系统活动账本还要继续查询。pending 只表示字段仍缺失，不表示正在处理。",
 			obj(map[string]any{
-				"status": p("string", "active（默认）| closed | cancelled | all"),
+				"status": enumP("状态筛选，可选", store.DataCampaignActive, store.DataCampaignClosed, store.DataCampaignCancelled, "all"),
 				"limit":  p("integer", "返回数量，默认 20，最多 100"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -92,7 +92,7 @@ func campaignTools(d Deps, u *store.User) []ai.Tool {
 		tool("close_data_collection_campaign", "关闭或取消一个资料收集活动；历史状态保留，不再进入 active 列表。",
 			obj(map[string]any{
 				"campaign_id": p("integer", "资料收集活动内部编号"),
-				"status":      p("string", "closed 或 cancelled；默认 closed"),
+				"status":      enumP("结束状态，可选", store.DataCampaignClosed, store.DataCampaignCancelled),
 			}, "campaign_id"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {

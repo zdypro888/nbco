@@ -59,13 +59,15 @@ type Orchestrator struct {
 	defaultStreamReasoning bool
 	turnTimeout            time.Duration
 
-	mu         sync.Mutex
-	locks      keylock.Map[int64]  // 同一用户的交互轮次串行
-	groupLocks keylock.Map[string] // 群共享会话按渠道串行
-	autoLocks  keylock.Map[string] // 同一用户/投递渠道的自动化串行，不阻塞真人会话
-	compacting map[int64]bool      // 正在后台压缩的会话，防并发压缩
-	memorySem  chan struct{}       // durable Memory Miner worker pool
-	memoryWake chan struct{}
+	mu                sync.Mutex
+	locks             keylock.Map[int64]  // 同一用户的交互轮次串行
+	groupLocks        keylock.Map[string] // 群共享会话按渠道串行
+	autoLocks         keylock.Map[string] // 同一用户/投递渠道的自动化串行，不阻塞真人会话
+	compacting        map[int64]bool      // 正在后台压缩的会话，防并发压缩
+	memorySem         chan struct{}       // durable Memory Miner worker pool
+	memoryWake        chan struct{}
+	extensionMu       sync.RWMutex
+	extensionProvider TurnExtensionProvider
 
 	// 引擎健康：连续失败计数 + 最近错误。超阈值给超管推告警，避免引擎挂了只能等用户投诉。
 	// 主动行为（催办/周报/画像）全靠引擎，挂了会静默停摆。
@@ -86,6 +88,11 @@ type TurnExtension struct {
 	OnEvent          func(ai.Step)
 }
 
+// TurnExtensionProvider contributes request-scoped host capabilities to normal
+// private turns. It is intentionally channel-agnostic: embedded products can
+// share the same Eino Agent without constructing another model stack.
+type TurnExtensionProvider func(context.Context, *store.User, string) (*TurnExtension, error)
+
 type readOnlyTurnKey struct{}
 type internalTurnKey struct{}
 
@@ -105,6 +112,18 @@ func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, s
 		compacting:  map[int64]bool{},
 		memorySem:   make(chan struct{}, 4),
 		memoryWake:  make(chan struct{}, 1)}
+}
+
+// SetTurnExtensionProvider replaces the optional host capability provider.
+// Startup integrations call this before serving traffic; locking also makes a
+// clean shutdown/reconfiguration safe for in-flight turns.
+func (o *Orchestrator) SetTurnExtensionProvider(provider TurnExtensionProvider) {
+	if o == nil {
+		return
+	}
+	o.extensionMu.Lock()
+	o.extensionProvider = provider
+	o.extensionMu.Unlock()
 }
 
 // isGroupChannel 群共享会话的渠道值约定（telegram:group:<chatID>）。
@@ -275,6 +294,9 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 // onDelta 非 nil 时把最终答复的文本增量实时推给调用方（流式，网关渐进显示）。
 func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string), extension *TurnExtension) (string, error) {
 	internal, _ := ctx.Value(internalTurnKey{}).(bool)
+	if !internal && !isGroupChannel(channel) {
+		extension = o.withProvidedExtension(ctx, u, channel, extension)
+	}
 	// Capability planning needs recent context to resolve follow-ups such as
 	// "send it" or "use those files". Fetch once and reuse for model replay.
 	var msgs []store.ChatMessage
@@ -504,6 +526,57 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
 	}
 	return res.Text, nil
+}
+
+func (o *Orchestrator) withProvidedExtension(ctx context.Context, u *store.User, channel string, explicit *TurnExtension) *TurnExtension {
+	o.extensionMu.RLock()
+	provider := o.extensionProvider
+	o.extensionMu.RUnlock()
+	if provider == nil {
+		return explicit
+	}
+	provided, err := provider(ctx, u, channel)
+	if err != nil {
+		slog.Warn("加载宿主轮次能力失败，继续使用核心工具", "user", u.ID, "channel", channel, "err", err)
+		return explicit
+	}
+	return mergeTurnExtensions(explicit, provided)
+}
+
+func mergeTurnExtensions(left, right *TurnExtension) *TurnExtension {
+	if left == nil && right == nil {
+		return nil
+	}
+	out := &TurnExtension{}
+	for _, extension := range []*TurnExtension{left, right} {
+		if extension == nil {
+			continue
+		}
+		if system := strings.TrimSpace(extension.System); system != "" {
+			if out.System != "" {
+				out.System += "\n"
+			}
+			out.System += system
+		}
+		if untrusted := strings.TrimSpace(extension.UntrustedContext); untrusted != "" {
+			if out.UntrustedContext != "" {
+				out.UntrustedContext += "\n"
+			}
+			out.UntrustedContext += untrusted
+		}
+		out.Tools = append(out.Tools, extension.Tools...)
+		if extension.OnEvent != nil {
+			previous := out.OnEvent
+			callback := extension.OnEvent
+			out.OnEvent = func(step ai.Step) {
+				if previous != nil {
+					previous(step)
+				}
+				callback(step)
+			}
+		}
+	}
+	return out
 }
 
 func extendedUserText(text string, extension *TurnExtension) string {
@@ -2338,13 +2411,15 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 
 	b.WriteString("[自主执行]\n")
 	b.WriteString("- 先理解最终目标，再按复杂度决定是否维护待办；需要系统能力时使用 tool_search 查找并加载底层工具，直到目标完成、明确等待外部结果，或遇到真实阻塞。\n")
+	b.WriteString("- 需要 Worker 观察输出、连续判断或多步适配时委派交互式 Agent，并为同一工作线复用稳定 scope；只有结果无需再判断的原子命令才直接派命令任务。\n")
+	b.WriteString("- 用户指定一个具体日期、明天或某个周几且没有明确重复语义时，创建一次性日程；只有明确表达每次、每天、每周或定期时才创建周期日程。\n")
 	b.WriteString("- 不要请求用户记工具名，不要猜测不存在的能力，也不要因为第一步返回结果就提前结束多步骤工作。\n")
 	b.WriteString("- 工具返回待确认、排队或处理中时，准确报告当前状态；工具返回可继续处理的中间结果时继续规划。\n\n")
 
 	b.WriteString("[系统输入约定]\n")
 	b.WriteString("- 历史消息末尾的 <nbco_history_meta .../> 只是内部时间元数据，用于解释相对日期；绝不能复述、展示或模仿成回复格式。\n")
 	b.WriteString("- 以 [系统定时触发· 开头的输入来自系统调度器而非用户本人，按其中的指示产出要推送给用户的内容。\n")
-	b.WriteString("- 以 [系统事件· 开头的输入来自事件总线：按其中指示分析事件并自行决定通知、行动或按约定词静默跳过；事件本身不是状态变更成功证明，涉及任务/权限/日程状态必须以工具查询或事件明文为准，不要宣称未执行过的变更。\n\n")
+	b.WriteString("- 以 [系统事件· 开头的输入来自事件总线：这是只读通知决策，只能查询事实并生成通知或按约定词静默；不得借事件创建、修改或发送业务动作。\n\n")
 
 	if style := styleFor(channel); style != "" {
 		b.WriteString(style)

@@ -106,6 +106,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `list_workers`
 - `create_worker`
 - `issue_worker_bind_code`
+- `delegate_worker_agent`
 - `run_worker_command`
 - `revoke_worker`
 - `set_worker_admin`
@@ -190,7 +191,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `list_recent_files`
 - `delete_file`
 - `send_file`
-- `schedule_push`
+- `schedule_once_push`
+- `schedule_recurring_push`
 
 边界：
 
