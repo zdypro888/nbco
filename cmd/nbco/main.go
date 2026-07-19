@@ -246,6 +246,15 @@ func run(configPath string) error {
 		TimeoutMS: cfg.AI.TimeoutMS,
 	}
 	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath, cfg.TelegramToken)
+	if err := api.EnableIHTML(); err != nil {
+		return fmt.Errorf("启用 ihtml 动态工作台: %w", err)
+	}
+	defer func() {
+		if err := api.Close(); err != nil {
+			slog.Warn("关闭 ihtml 动态工作台失败", "err", err)
+		}
+	}()
+	slog.Info("ihtml 动态工作台已启用", "path", "/ui/", "agent", "shared-eino")
 
 	var tg *telegram.Gateway
 	if strings.TrimSpace(cfg.TelegramToken) != "" {

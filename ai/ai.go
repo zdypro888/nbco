@@ -29,6 +29,11 @@ type Tool struct {
 	// 注册表；外部工具应显式声明，"superadmin" 表示仅超级管理员可用。
 	RequiredAction string
 	GroupSensitive bool // true 表示不得暴露给群共享会话
+	// ApprovalRequired marks a host-provided destructive capability for nbco's
+	// normal cross-turn confirmation wrapper. Built-ins may still use the
+	// central name registry; extensions must declare the property on the tool
+	// itself so governance does not depend on hard-coded external tool names.
+	ApprovalRequired bool
 	// InputSchema 是 JSON Schema（object 类型）。
 	InputSchema map[string]any
 	// Handler 执行工具并返回给模型的文本结果。

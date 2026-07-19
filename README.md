@@ -8,7 +8,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 
 ```
 ┌─ 入口层（皆可换）────────────────────────────┐
-│  gateway/telegram  gateway/httpapi(Web+REST+MCP)│
+│  gateway/telegram  gateway/httpapi(Web+REST+MCP+ihtml)│
 ├─ 编排层 ─────────────────────────────────────┤
 │  chat（会话落库·系统提示·引擎调度）       │
 │  sched（DB 驱动定时·截止提醒·每日汇总/日报）│
@@ -31,6 +31,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 - **Eino 双执行模式**：主对话和可能产生动作的系统轮次使用 `DeepAgent`；`write_todos` 负责复杂目标的轮内计划，`tool_search` 延迟发现权限内工具，skill middleware 按需加载完整流程，summarization 管理长上下文。Memory Miner、摘要压缩和受控内部分析使用普通 `ChatModelAgent` 的 `OneShot` 模式，严格禁止工具和 skill，只做一次生成。模式由调用场景显式指定，不根据用户措辞做关键词路由或额外模型分类。Deep 会话事件和 interrupt/cancel checkpoint 持久化到 PostgreSQL，服务重启后继续使用同一 agent 上下文；OneShot 只在输出修复时允许收尾既有 Deep 会话，不自行创建持久会话。
 - **工具即权限边界**：每个工具 handler 内部做权限校验（超管专属工具只组装给超管），每次调用写审计日志。
 - **分渠道排版**：系统提示按会话渠道注入格式指引——Telegram 用其 HTML 子集（粗体/代码/引用）+ emoji，网关先按 HTML 发送、格式非法自动降级纯文本；Web/API 输出纯文本。
+- **[ihtml](https://github.com/zdypro888/ihtml) 动态工作台**：`/ui/` 以固定提交版本作为 Go 库挂进控制中心，Item、页面、KV 和修订与 nbco 共用 PostgreSQL，并按稳定内部用户 ID 隔离。ihtml 不再创建第二套模型或 Agent；它通过 `chat.TurnExtension` 把当前用户作用域的 `ui_*` 能力接入同一个 Orchestrator/Eino DeepAgent，继续复用模型切换、会话、权限、知识、skill、审计和上下文压缩。控制中心每次响应签发 CSP nonce，动态脚本无需放开全站 `unsafe-inline`。
 
 ## 配置
 
@@ -108,7 +109,7 @@ DNS 必须先指向服务器，并确保公网 `80/443` 可达，Caddy 才能完
 ## Web 入口与 HTTP API
 
 浏览器打开 `http://<listen>/` 即是 Web 入口（内嵌单页，无需部署前端）：粘贴 Access Token 登录，
-可对话（与 REST 同一会话）、看我的待办/待验收/我分配的任务和决策队列；超管还可以看全景、AI 员工能力、学习候选治理与运维状态。
+可对话（与 REST 同一会话）、看我的待办/待验收/我分配的任务和决策队列，并在“动态工作台”中让同一个 nbco Agent 按需生成可持久、可回滚的网页；超管还可以看全景、AI 员工能力、学习候选治理与运维状态。
 
 普通浏览器和 API 使用 `Authorization: Bearer <token>`；从 Bot 按钮打开的 Telegram Mini App 使用 Telegram 签名自动登录，不在 URL 中传凭据。全新系统且没有 Telegram 时，先调一次：
 

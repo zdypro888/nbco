@@ -54,9 +54,13 @@ var approvalRequired = map[string]bool{
 	"low_level_db_exec":      true, // 最终兜底写库，必须跨轮确认
 }
 
+func requiresApproval(t ai.Tool) bool {
+	return t.ApprovalRequired || approvalRequired[t.Name]
+}
+
 // withApproval 给破坏性工具包上两段式确认（在审计层内侧，两次调用都留审计）。
 func withApproval(s *store.Store, userID int64, t ai.Tool) ai.Tool {
-	if !approvalRequired[t.Name] {
+	if !requiresApproval(t) {
 		return t
 	}
 	inner := t.Handler

@@ -502,16 +502,20 @@ func capabilityForTool(t ai.Tool) Capability {
 	superOnly := required == reqSuper
 	risk := "normal"
 	switch {
-	case approvalRequired[t.Name]:
+	case requiresApproval(t):
 		risk = "approval"
 	case t.GroupSensitive || groupSensitive[t.Name]:
 		risk = "sensitive"
 	case superOnly:
 		risk = "admin"
 	}
+	domain := strings.TrimSpace(t.Domain)
+	if domain == "" {
+		domain = capabilityDomain(t.Name)
+	}
 	return Capability{
 		Name:             t.Name,
-		Domain:           capabilityDomain(t.Name),
+		Domain:           domain,
 		Effect:           effectForTool(t),
 		Description:      t.Description,
 		RequiredAction:   required,
@@ -519,7 +523,7 @@ func capabilityForTool(t ai.Tool) Capability {
 		SuperadminOnly:   superOnly,
 		WorkerAllowed:    workerAllowed[t.Name],
 		GroupAllowed:     !t.GroupSensitive && !groupSensitive[t.Name],
-		ApprovalRequired: approvalRequired[t.Name],
+		ApprovalRequired: requiresApproval(t),
 	}
 }
 

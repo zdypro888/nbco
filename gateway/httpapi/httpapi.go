@@ -6,7 +6,9 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -71,6 +73,9 @@ type Server struct {
 	fileStorePath string
 	downloadPath  string
 	telegramToken string
+	ihtmlHandler  http.Handler
+	ihtmlTickets  *ihtmlTicketManager
+	ihtmlClose    func() error
 }
 
 // New 创建 HTTP 入口。
@@ -84,10 +89,24 @@ func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.B
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
+		nonce, err := newCSPNonce()
+		if err != nil {
+			http.Error(w, "control center unavailable", http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(indexHTML)
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Security-Policy", contentSecurityPolicy(nonce))
+		_, _ = w.Write(bytes.ReplaceAll(indexHTML, []byte("{{CSP_NONCE}}"), []byte(nonce)))
 	})
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(mustWebAssetFS()))))
+	if s.ihtmlHandler != nil {
+		workspaceRedirect := http.RedirectHandler("/?view=workspace", http.StatusTemporaryRedirect)
+		mux.Handle("GET /ui", workspaceRedirect)
+		mux.Handle("GET /ui/{$}", workspaceRedirect)
+		mux.Handle("/ui/", http.StripPrefix("/ui", s.ihtmlHandler))
+		mux.HandleFunc("POST /api/ihtml/ticket", s.handleIHTMLTicket)
+	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		// 探活 DB：死 200 会让流量继续打到一个 DB 已断的实例。短超时避免 healthz 自身拖垮。
 		if s.store == nil {
@@ -176,9 +195,25 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org")
+		w.Header().Set("Content-Security-Policy", contentSecurityPolicy(""))
 		next.ServeHTTP(w, r)
 	})
+}
+
+func newCSPNonce() (string, error) {
+	var raw [18]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return base64.RawStdEncoding.EncodeToString(raw[:]), nil
+}
+
+func contentSecurityPolicy(scriptNonce string) string {
+	scriptSrc := "'self' https://telegram.org"
+	if scriptNonce = strings.TrimSpace(scriptNonce); scriptNonce != "" {
+		scriptSrc += " 'nonce-" + scriptNonce + "'"
+	}
+	return "default-src 'self'; script-src " + scriptSrc + "; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org"
 }
 
 func mustWebAssetFS() fs.FS {
@@ -191,6 +226,13 @@ func mustWebAssetFS() fs.FS {
 
 // authenticate 解析 Bearer token 并返回启用状态的用户。
 func (s *Server) authenticate(r *http.Request) *store.User {
+	if strings.TrimSpace(r.Header.Get("X-Ihtml-User")) != "" {
+		u, err := s.ihtmlUserFromTicket(r, false)
+		if err != nil {
+			return nil
+		}
+		return u
+	}
 	if raw := strings.TrimSpace(r.Header.Get("X-Telegram-Init-Data")); raw != "" {
 		tgID, ok := validateTelegramInitData(raw, s.telegramToken, time.Now(), telegramInitDataMaxAge)
 		if !ok {

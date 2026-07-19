@@ -5,6 +5,8 @@ package tools
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -142,6 +144,15 @@ func ForUser(d Deps, u *store.User, sessionID *int64) []ai.Tool {
 
 // ForUserContext 与 ForUser 相同，但权限和动态工具装配会响应调用方取消。
 func ForUserContext(ctx context.Context, d Deps, u *store.User, sessionID *int64) []ai.Tool {
+	return ForUserContextWithTools(ctx, d, u, sessionID, nil)
+}
+
+// ForUserContextWithTools adds request-scoped host capabilities before the
+// same permission, approval, audit and argument-normalization pipeline used by
+// built-ins. It is the integration boundary for embedded products such as a UI
+// workspace; host tools never bypass nbco governance and cannot shadow a core
+// capability.
+func ForUserContextWithTools(ctx context.Context, d Deps, u *store.User, sessionID *int64, hostTools []ai.Tool) []ai.Tool {
 	ts := baseStaticTools(d, u)
 	var grants []store.Grant
 	if !u.IsSuperadmin && d.Store != nil {
@@ -152,6 +163,7 @@ func ForUserContext(ctx context.Context, d Deps, u *store.User, sessionID *int64
 		}
 	}
 	ts = append(ts, dynamicScriptTools(ctx, d, u, grants)...)
+	ts = append(ts, hostTools...)
 	ts = dedupeTools(ts)
 	ts = filterByPerm(ts, u, grants)
 
@@ -429,7 +441,7 @@ func StripGroupSensitive(ts []ai.Tool) []ai.Tool {
 func StripApprovalRequired(ts []ai.Tool) []ai.Tool {
 	out := ts[:0]
 	for _, t := range ts {
-		if approvalRequired[t.Name] {
+		if requiresApproval(t) {
 			continue
 		}
 		out = append(out, t)
@@ -466,6 +478,7 @@ func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 // 一个超大返回（500 任务的 view_project、worker 终端快照）能顶爆模型上下文窗口，
 // 用户只得到「出错了请重试」且无截断兜底。这里在所有工具的统一包装层兜底截断。
 const toolOutputLimit = 12000
+const auditArgsLimit = 64 << 10
 
 func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Tool {
 	inner := t.Handler
@@ -477,7 +490,7 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 			result = err.Error()
 		}
 		if s != nil {
-			safeArgs := json.RawMessage(textfmt.RedactSecrets(string(args)))
+			safeArgs := boundedAuditArgs(args)
 			safeResult := textfmt.RedactSecrets(result)
 			if aerr := s.Audit(ctx, userID, sessionID, name, safeArgs, truncate(safeResult, 2000), ok); aerr != nil {
 				slog.Warn("审计写入失败", "tool", name, "err", aerr)
@@ -490,6 +503,21 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 		return out, err
 	}
 	return t
+}
+
+func boundedAuditArgs(args json.RawMessage) json.RawMessage {
+	redacted := textfmt.RedactSecrets(string(args))
+	if len(redacted) <= auditArgsLimit && json.Valid([]byte(redacted)) {
+		return json.RawMessage(redacted)
+	}
+	sum := sha256.Sum256([]byte(redacted))
+	envelope, _ := json.Marshal(map[string]any{
+		"truncated": true,
+		"bytes":     len(redacted),
+		"sha256":    hex.EncodeToString(sum[:]),
+		"preview":   truncate(redacted, 4000),
+	})
+	return envelope
 }
 
 // truncateToolOutput 超过 toolOutputLimit rune 时截断并附分页提示，防顶爆上下文。

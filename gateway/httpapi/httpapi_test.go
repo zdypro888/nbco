@@ -52,6 +52,61 @@ func TestHandlerSetsSecurityHeaders(t *testing.T) {
 	}
 }
 
+func TestControlCenterUsesPerResponseCSPNonce(t *testing.T) {
+	s := &Server{}
+	request := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		return rec
+	}
+	first, second := request(), request()
+	for _, rec := range []*httptest.ResponseRecorder{first, second} {
+		body := rec.Body.String()
+		marker := `data-csp-nonce="`
+		start := strings.Index(body, marker)
+		if start < 0 {
+			t.Fatalf("control center nonce marker missing: %s", body)
+		}
+		start += len(marker)
+		end := strings.Index(body[start:], `"`)
+		if end <= 0 {
+			t.Fatalf("control center nonce value missing: %s", body)
+		}
+		nonce := body[start : start+end]
+		policy := rec.Header().Get("Content-Security-Policy")
+		parts := strings.Split(policy, ";")
+		if len(parts) < 2 || !strings.Contains(parts[1], "'nonce-"+nonce+"'") || strings.Contains(parts[1], "'unsafe-inline'") {
+			t.Fatalf("script CSP does not bind the page nonce: %q", policy)
+		}
+		if strings.Contains(body, "{{CSP_NONCE}}") || rec.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("nonce response was not finalized safely: cache=%q", rec.Header().Get("Cache-Control"))
+		}
+	}
+	if first.Body.String() == second.Body.String() {
+		t.Fatal("CSP nonce must rotate for every control-center response")
+	}
+}
+
+func TestIHTMLStandaloneRootRedirectsIntoControlCenter(t *testing.T) {
+	s := &Server{ihtmlHandler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ihtml asset"))
+	})}
+	handler := s.Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ui/", nil))
+	if rec.Code != http.StatusTemporaryRedirect || rec.Header().Get("Location") != "/?view=workspace" {
+		t.Fatalf("workspace root = status %d location %q", rec.Code, rec.Header().Get("Location"))
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ui/ihtml.js", nil))
+	if rec.Code != http.StatusOK || rec.Body.String() != "ihtml asset" {
+		t.Fatalf("ihtml subtree = status %d body %q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestWorkerDownloadBinary(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "worker")

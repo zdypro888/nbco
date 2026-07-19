@@ -314,6 +314,40 @@ button:disabled {
   overflow: auto;
 }
 
+.route-workspace .main-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.route-workspace .content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.route-workspace .inspector {
+  display: none;
+}
+
+.ihtml-workspace-shell {
+  height: 100%;
+  min-height: 420px;
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(0, 1fr);
+  background: var(--panel);
+}
+
+.ihtml-workspace-menu {
+  min-width: 0;
+  padding: 10px 8px;
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+
+.ihtml-workspace-host {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
 .surface {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -822,6 +856,35 @@ button:disabled {
 
   .main-shell {
     display: block;
+  }
+
+  .ihtml-workspace-shell {
+    min-height: calc(100vh - 180px);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ihtml-workspace-menu {
+    display: block;
+    max-width: 100%;
+    padding: 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .route-workspace .ihtml-workspace-menu .ihtml-menu-root {
+    min-width: max-content;
+  }
+
+  .route-workspace .ihtml-workspace-menu .ihtml-hostmenu {
+    flex-direction: row;
+  }
+
+  .route-workspace .ihtml-workspace-menu .ihtml-hostmenu .mi {
+    width: auto;
+    min-width: max-content;
+    white-space: nowrap;
   }
 
   .content,

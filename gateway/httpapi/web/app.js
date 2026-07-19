@@ -2,10 +2,11 @@ const root = document.querySelector("#root");
 const telegramWebApp = window.Telegram && window.Telegram.WebApp;
 const tg = telegramWebApp && String(telegramWebApp.initData || "").trim() ? telegramWebApp : null;
 const requestedView = new URLSearchParams(window.location.search).get("view");
+const knownViews = new Set(["command", "files", "tasks", "workers", "workspace", "model", "ops", "chat"]);
 
 const state = {
   me: null,
-  route: requestedView === "files" ? "files" : "command",
+  route: knownViews.has(requestedView) ? requestedView : "command",
   loading: false,
   notice: "",
   files: [],
@@ -49,6 +50,10 @@ const storage = {
   },
 };
 let useAccessToken = !tg;
+let ihtmlWorkspace = null;
+let ihtmlTicket = { userID: "", token: "", expiresAt: 0 };
+let ihtmlTicketPromise = { userID: "", value: null };
+let ihtmlMountGeneration = 0;
 
 if (tg) {
   document.body.classList.add("tg-mini");
@@ -128,6 +133,8 @@ async function api(path, opts = {}) {
 }
 
 function renderLogin(error = "") {
+  disposeIHTMLWorkspace();
+  resetIHTMLAuth();
   const hint = tg
     ? "Telegram 自动登录未成功，也可以使用你的 Access Token。"
     : "使用你的 Access Token 登录。";
@@ -147,6 +154,7 @@ function navItems() {
     ["command", "sliders", "命令队列"],
     ["files", "file-upload", "文件中心"],
     ["tasks", "checkbox", "任务队列"],
+    ["workspace", "layout-dashboard", "动态工作台"],
     ["chat", "messages", "对话"],
   ];
   if (state.me?.is_superadmin || canStartWorkflow()) {
@@ -162,6 +170,7 @@ function navItems() {
 }
 
 function renderApp() {
+  disposeIHTMLWorkspace();
   if (!state.me) {
     renderLogin();
     return;
@@ -171,7 +180,7 @@ function renderApp() {
   const currentModel = state.ai?.current_model || state.ai?.default_model || "未读取";
   const statusText = state.me?.is_superadmin ? (engineFails ? "AI 异常" : "系统正常") : "控制台在线";
   root.innerHTML = `
-    <div class="app">
+    <div class="app route-${esc(state.route)}">
       <aside class="sidebar">
         <div class="brand"><span class="brand-mark">n</span><span>nbco</span></div>
         <nav class="nav">
@@ -256,6 +265,10 @@ function renderContent() {
     break;
   case "ops":
     el.innerHTML = renderOpsRoute();
+    break;
+  case "workspace":
+    el.innerHTML = renderWorkspaceRoute();
+    scheduleIHTMLWorkspaceMount();
     break;
   case "chat":
     el.innerHTML = renderChatRoute();
@@ -543,11 +556,91 @@ function renderChatRoute() {
     </section>`;
 }
 
+function renderWorkspaceRoute() {
+  return `
+    <section class="ihtml-workspace-shell">
+      <nav class="ihtml-workspace-menu" id="ihtmlWorkspaceMenu" aria-label="动态工作台页面"></nav>
+      <div class="ihtml-workspace-host" id="ihtmlWorkspace"></div>
+    </section>`;
+}
+
+function disposeIHTMLWorkspace() {
+  ihtmlMountGeneration++;
+  if (!ihtmlWorkspace) return;
+  try { ihtmlWorkspace.destroy(); } catch (_) { /* already detached */ }
+  ihtmlWorkspace = null;
+}
+
+function scheduleIHTMLWorkspaceMount() {
+  const generation = ihtmlMountGeneration;
+  queueMicrotask(() => mountIHTMLWorkspace(generation));
+}
+
+async function getIHTMLTicket() {
+  const userID = String(state.me?.id || "");
+  if (!userID) throw new Error("工作台用户身份不可用");
+  const now = Date.now();
+  if (ihtmlTicket.userID === userID && ihtmlTicket.token && ihtmlTicket.expiresAt > now + 30_000) {
+    return ihtmlTicket.token;
+  }
+  if (ihtmlTicketPromise.userID === userID && ihtmlTicketPromise.value) return ihtmlTicketPromise.value;
+  const request = api("/api/ihtml/ticket", { method: "POST" })
+    .then(data => {
+      const expiresAt = Date.parse(data.expires_at || "");
+      if (!data.token || !Number.isFinite(expiresAt)) throw new Error("工作台连接票据无效");
+      if (String(state.me?.id || "") !== userID) throw new Error("工作台用户身份已变更");
+      ihtmlTicket = { userID, token: data.token, expiresAt };
+      return data.token;
+    })
+    .finally(() => {
+      if (ihtmlTicketPromise.value === request) ihtmlTicketPromise = { userID: "", value: null };
+    });
+  ihtmlTicketPromise = { userID, value: request };
+  return request;
+}
+
+function resetIHTMLAuth() {
+  ihtmlTicket = { userID: "", token: "", expiresAt: 0 };
+  ihtmlTicketPromise = { userID: "", value: null };
+}
+
+function mountIHTMLWorkspace(generation) {
+  if (generation !== ihtmlMountGeneration || state.route !== "workspace") return;
+  const host = document.querySelector("#ihtmlWorkspace");
+  const menu = document.querySelector("#ihtmlWorkspaceMenu");
+  if (!host || !menu || !window.ihtml || typeof window.ihtml.mount !== "function") {
+    if (host) host.textContent = "动态工作台内核未加载。";
+    return;
+  }
+  try {
+    if (generation !== ihtmlMountGeneration) return;
+    ihtmlWorkspace = window.ihtml.mount(host, {
+      base: new URL("/ui/", window.location.origin).toString(),
+      auth: getIHTMLTicket,
+      connectionAuth: getIHTMLTicket,
+      theme: "inherit",
+      routing: "memory",
+      menu,
+      chatEntry: true,
+      storageKey: `nbco-dynamic-workspace:${state.me.id}`,
+      scriptNonce: root.dataset.cspNonce || "",
+      onAuthError: resetIHTMLAuth,
+    });
+  } catch (err) {
+    host.textContent = `动态工作台启动失败：${err.message}`;
+    addLog("ihtml", "ERROR", err.message);
+  }
+}
+
 function renderInspector() {
   const el = document.querySelector("#inspector");
   if (!el) return;
   if (state.route === "chat") {
     el.innerHTML = inspectorFrame("对话上下文", "messages", `<div class="result">临时问题走对话；文件分析、升级、模型切换等高影响动作建议走命令队列。</div>`);
+    return;
+  }
+  if (state.route === "workspace") {
+    el.replaceChildren();
     return;
   }
   const selected = selectedItem();
@@ -1026,7 +1119,7 @@ async function loadRoute(route) {
   state.notice = "";
   renderApp();
   try {
-    if (route === "chat") {
+    if (route === "chat" || route === "workspace") {
       state.loading = false;
       renderApp();
       return;
@@ -1316,6 +1409,8 @@ document.addEventListener("click", async event => {
     useAccessToken = true;
     await enter();
   } else if (action === "logout") {
+    disposeIHTMLWorkspace();
+    resetIHTMLAuth();
     storage.token = "";
     useAccessToken = !tg;
     state.me = null;

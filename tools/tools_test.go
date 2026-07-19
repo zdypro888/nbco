@@ -151,6 +151,25 @@ func TestWithAuditWithoutStore(t *testing.T) {
 	}
 }
 
+func TestBoundedAuditArgsRedactsAndSummarizes(t *testing.T) {
+	small := boundedAuditArgs(json.RawMessage(`{"token":"sk-test-0123456789abcdef0123456789abcdef","value":"ok"}`))
+	if !json.Valid(small) || strings.Contains(string(small), "0123456789abcdef") || !strings.Contains(strings.ToLower(string(small)), "[redacted]") {
+		t.Fatalf("small audit args were not safely redacted: %s", small)
+	}
+
+	large := boundedAuditArgs(json.RawMessage(`{"content":"` + strings.Repeat("x", auditArgsLimit) + `"}`))
+	var envelope struct {
+		Truncated bool   `json:"truncated"`
+		Bytes     int    `json:"bytes"`
+		SHA256    string `json:"sha256"`
+		Preview   string `json:"preview"`
+	}
+	if err := json.Unmarshal(large, &envelope); err != nil || !envelope.Truncated ||
+		envelope.Bytes <= auditArgsLimit || len(envelope.SHA256) != 64 || len(envelope.Preview) == 0 || len(large) >= auditArgsLimit {
+		t.Fatalf("large audit args were not summarized: %s, err=%v", large, err)
+	}
+}
+
 func TestCapabilityRegistryMetadata(t *testing.T) {
 	super := &store.User{ID: 1, Name: "boss", Status: store.UserActive, IsSuperadmin: true}
 	caps, err := CapabilityRegistry(context.Background(), Deps{}, super, true)

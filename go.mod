@@ -16,6 +16,7 @@ require (
 	github.com/meguminnnnnnnnn/go-openai v0.1.5
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/qdrant/go-client v1.18.3
+	github.com/zdypro888/ihtml v0.0.0-20260719130742-2b90a590f6f4
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/net v0.57.0
 	golang.org/x/sync v0.22.0
@@ -63,6 +64,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.18 // indirect
 	github.com/googleapis/gax-go/v2 v2.23.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
