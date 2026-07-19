@@ -3,9 +3,9 @@ module github.com/zdypro888/nbco
 go 1.26.5
 
 require (
-	github.com/cloudwego/eino v0.10.0-alpha.11
+	github.com/cloudwego/eino v0.10.0-alpha.12
 	github.com/cloudwego/eino-ext/components/embedding/openai v0.0.0-20260711013131-550170e5a9e0
-	github.com/cloudwego/eino-ext/components/model/claude v0.1.22
+	github.com/cloudwego/eino-ext/components/model/claude v0.1.23
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
@@ -16,7 +16,7 @@ require (
 	github.com/meguminnnnnnnnn/go-openai v0.1.5
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/qdrant/go-client v1.18.3
-	github.com/zdypro888/ihtml v0.0.0-20260719130742-2b90a590f6f4
+	github.com/zdypro888/ihtml v0.0.0-20260719135547-7bb80a688309
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/net v0.57.0
 	golang.org/x/sync v0.22.0
