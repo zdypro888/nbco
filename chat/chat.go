@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -46,7 +45,7 @@ const (
 
 const compactSystem = "你是会话压缩器。把输入的既有摘要与对话合并压缩成一份备忘摘要：" +
 	"保留事实、决定、承诺、进行中事项、关键编号与人名、用户偏好；去掉寒暄与过程细节；" +
-	"每条对话都带发生时间；把今天、昨天、明天、上周等相对时间按该条消息的发生时间改写为绝对日期，禁止原样保留会随时间漂移的日期词；" +
+	"每条对话都带发生时间；把相对时间表达按该条消息的发生时间改写为绝对日期，禁止原样保留会随时间漂移的日期词；" +
 	"既有摘要中无法可靠换算的相对时间改写为‘当时’并保留原始事件，不得按当前日期重新解释；" +
 	"未闭合/旁听输入只能作为背景事实，不得总结成已执行动作、系统承诺或待办指令；" +
 	"不超过500字；直接输出摘要正文，不要任何前后缀。"
@@ -332,11 +331,6 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	if readOnly, _ := ctx.Value(readOnlyTurnKey{}).(bool); readOnly {
 		fullToolset = tools.ReadOnlyTools(fullToolset)
 	}
-	modelText := extendedUserText(text, extension)
-	toolSelection := o.selectPreferredTools(ctx, u, modelText, msgs, fullToolset)
-	slog.Info("本轮工具语义检索", "session", sess.ID, "source", toolSelection.Source,
-		"selected", len(toolSelection.Names), "catalog", toolSelection.CatalogSize,
-		"duration", toolSelection.Duration.Round(time.Millisecond), "tools", toolSelection.Names)
 	availableTools := toolNames(fullToolset)
 	system, err := o.systemPrompt(ctx, u, channel, availableTools)
 	if err != nil {
@@ -370,6 +364,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
 	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
 
+	modelText := extendedUserText(text, extension)
 	req := &ai.TurnRequest{
 		Mode:              ai.TurnModeDeep,
 		SessionID:         fmt.Sprintf("%d", sess.ID),
@@ -380,7 +375,6 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		UserText:          modelText,
 		Model:             o.runtimeModel(ctx),
 		Tools:             toolset,
-		PreferredTools:    toolSelection.Names,
 		Skills:            turnSkills,
 		// 实时轨迹：工具调用与产出上报到日志（审计层另行落库）。
 		OnEvent: func(s ai.Step) {
@@ -422,21 +416,18 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		histChars += len(content)
 	}
 	diag := turnDiagnostics{
-		Route:           "eino:deep/semantic_tools+tool_search",
+		Route:           "eino:deep/tool_search",
 		SystemChars:     len(system),
 		HistoryChars:    histChars,
 		ToolCount:       len(toolset),
 		FullToolCount:   len(fullToolset),
 		ToolSchemaChars: toolSchemaChars(toolset),
 		Tools:           routedToolNames(toolset),
-		ToolSelector:    toolSelection.Source,
-		PreferredTools:  slices.Clone(toolSelection.Names),
 	}
 	slog.Info("轮次上下文", "session", sess.ID, "route", diag.Route,
 		"catalog_tools", diag.ToolCount, "authorized_tools", diag.FullToolCount,
 		"catalog_schema_chars", diag.ToolSchemaChars, "system_chars", diag.SystemChars,
-		"history_chars", diag.HistoryChars, "tool_selector", diag.ToolSelector,
-		"preferred_tools", diag.PreferredTools)
+		"history_chars", diag.HistoryChars)
 
 	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
 	// 若失败轮次留下孤立 user 消息，下一轮会把它移入「仅供理解、禁止执行」
@@ -637,7 +628,6 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	// This is a rendering repair, never a second execution attempt. Removing all
 	// tools makes it safe even when the first pass already changed external state.
 	retry.Tools = nil
-	retry.PreferredTools = nil
 	retry.Skills = nil
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
@@ -752,7 +742,7 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘�
 }
 
 分类标准：
-- rules：用户对系统/AI 的持久行为要求、禁令、默认做法，例如“以后不要…/默认…/记住以后…”。必须可执行、自包含。
+- rules：用户明确要求在未来同类场景持续生效的系统行为、禁令或默认做法。必须可执行、自包含。
 - skills：可复用执行方法，包含触发条件、步骤、工具使用、判断分支、禁忌；适合下次遇到同类目标时按流程调用。
 - knowledge：公司事实、项目背景、决策、约定。
 
@@ -761,9 +751,9 @@ const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘�
 - 不要保存普通寒暄、一次性任务、临时状态。
 - 当前开关、运行状态、队列进度和工具执行结果属于结构化业务数据，不是长期规则/知识；不能复制一份到记忆库。
 - 不要臆造用户没说过的规则或步骤。
-- 保存涉及日期的稳定事实时，必须根据“对话发生时间”把今天、昨天、明天、上周等相对表达换成绝对日期；无法可靠换算就不保存该时间结论。
+- 保存涉及日期的稳定事实时，必须根据“对话发生时间”把相对日期表达换成绝对日期；无法可靠换算就不保存该时间结论。
 - 不要把助手单方面提出的建议、承诺、道歉或“我会做”当成已生效事实。助手文本只能帮助理解上下文，不能作为记忆证据。
-- rule/skill 的 evidence 必须逐字摘自【用户】内容；knowledge 的 evidence 可逐字摘自【用户】或【已验证工具结果】。不能改写、不能引用助手；用户仅说“好的/当然/现在做”等操作确认时，不足以证明一条长期记忆。
+- rule/skill 的 evidence 必须逐字摘自【用户】内容；knowledge 的 evidence 可逐字摘自【用户】或【已验证工具结果】。不能改写、不能引用助手；缺少实质内容的简短操作确认不足以证明一条长期记忆。
 - 关于系统能力、限制、对象状态或执行结果的 knowledge，只有【已验证工具结果】能作为证据；没有工具证据时不要从助手回复推断。
 - evidence 中不得包含 Token、邀请码、绑定码、API key 或其他凭据。
 - skill 应该是可复用的类级流程，不要为一次对话里的单个临时问题生成微型 skill。
@@ -921,8 +911,8 @@ func (o *Orchestrator) reviewMinedMemory(ctx context.Context, u *store.User, min
 判断标准：
 - publish：用户证据明确表达长期要求/稳定事实/可复用方法，候选没有扩大适用范围，也不是助手自行推断。
 - review：内容可能有价值，但涉及可变运行状态、权限、具体人员/群/项目的泛化，或证据不足以支持完整候选。
-- reject：一次性请求、情绪性催促、普通问句、助手承诺、测试数据、把一个例子扩大成默认流程，或与证据不符。
-- 工具结果可以证明当次结构化事实，但不能自动证明永久规则；用户明确说“以后/默认/记住”之类的长期意图时才发布规则。
+- reject：一次性请求、情绪性催促、疑问、助手承诺、测试数据、把一个例子扩大成默认流程，或与证据不符。
+- 工具结果可以证明当次结构化事实，但不能自动证明永久规则；只有用户语义明确要求持续适用于未来同类场景时才发布规则。
 - 不改写候选，不添加解释。
 
 输入：` + string(input)
@@ -1152,22 +1142,10 @@ func knowledgeMemoryEvidenceSource(src memorySource, evidence string, minRunes i
 	if validUserMemoryEvidence(src.ToolEvidence, evidence, minRunes) {
 		return "tool"
 	}
-	if looksLikeQuestion(src.UserText) {
-		return ""
-	}
 	if validUserMemoryEvidence(src.UserText, evidence, minRunes) {
 		return "user"
 	}
 	return ""
-}
-
-func looksLikeQuestion(text string) bool {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return false
-	}
-	return strings.HasSuffix(text, "?") || strings.HasSuffix(text, "？") ||
-		strings.HasSuffix(text, "吗") || strings.HasSuffix(text, "么") || strings.HasSuffix(text, "呢")
 }
 
 func memoryEvidenceCoverage(evidence, content string) float64 {
@@ -2256,7 +2234,7 @@ func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User) str
 	var b strings.Builder
 	if len(fs) > 0 {
 		b.WriteString("\n[最近上传文件·待用户指令]\n")
-		b.WriteString("这些文件已进入 nbco 文件队列；用户若说“这几个/刚才的文件/附件”，通常指这里。不要凭文件名臆测内容；根据用户目标与本轮工具定义自行规划读取、派工、处理或发送。\n")
+		b.WriteString("这些文件已进入 nbco 文件队列，构成当前用户的近期文件上下文。不要凭文件名臆测内容；仅在当前目标确实指向这些文件时，根据工具定义自行规划读取、派工、处理或发送。\n")
 		for _, f := range fs {
 			fmt.Fprintf(&b, "- #%d %s（%s，%s，%s）\n", f.ID, f.OriginalName, textfmt.FormatBytes(f.SizeBytes), f.MIMEType, f.CreatedAt.In(o.tz).Format("01-02 15:04"))
 		}
@@ -2364,9 +2342,6 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 	b.WriteString("- 人物画像用于理解偏好、能力和沟通方式；输出仍以工具权限和查询结果为准。\n\n")
 
 	b.WriteString("[自主执行]\n")
-	b.WriteString("- 本轮最相关的底层能力会预先加载，直接组合调用；只有预加载能力不够时才用 tool_search 继续发现，不要停在能力说明或执行计划。\n")
-	b.WriteString("- 需要 Worker 观察输出、连续判断或多步适配时委派交互式 Agent，并为同一工作线复用稳定 scope；只有结果无需再判断的原子命令才直接派命令任务。\n")
-	b.WriteString("- 用户指定一个具体日期、明天或某个周几且没有明确重复语义时，创建一次性日程；只有明确表达每次、每天、每周或定期时才创建周期日程。\n")
 	b.WriteString("- 不要请求用户记工具名，不要猜测不存在的能力，也不要因为第一步返回结果就提前结束多步骤工作。\n")
 	b.WriteString("- 工具返回待确认、排队或处理中时，准确报告当前状态；工具返回可继续处理的中间结果时继续规划。\n\n")
 

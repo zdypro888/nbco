@@ -233,7 +233,7 @@ type pushScheduleArgs struct {
 
 func scheduleOncePushTool(d Deps, u *store.User) ai.Tool {
 	return tool("schedule_once_push",
-		"设置一次性定向推送。只要用户表达的是一个具体日期、明天、某个周几或其他单次发生时间，且没有明确说“每/每天/每周/定期”，就使用本工具。目标可以是自己、某个成员或全体。mode=ai 时到点结合原始消息、触发时间和实时数据生成内容；mode=message 仅在用户要求原文不改写时使用。给他人/全体设置需要对应 send_msg 权限（超管不限）。",
+		"设置只发生一次的定向推送；周期性推送使用 schedule_recurring_push。目标可以是自己、某个成员或全体。mode=ai 时到点结合原始消息、触发时间和实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。",
 		obj(map[string]any{
 			"target":  p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
 			"mode":    enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),
@@ -278,7 +278,7 @@ func scheduleOncePushTool(d Deps, u *store.User) ai.Tool {
 
 func scheduleRecurringPushTool(d Deps, u *store.User) ai.Tool {
 	return tool("schedule_recurring_push",
-		"设置明确重复的定向日历推送。只有用户明确表达“每/每天/每周/定期”等重复意图时才使用；单个日期、明天、某个周几必须使用 schedule_once_push。目标可以是自己、某个成员或全体。mode=ai 时每次结合实时数据生成内容；mode=message 原文投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。",
+		"设置按日历规则重复发生的定向推送；只发生一次的推送使用 schedule_once_push。目标可以是自己、某个成员或全体。mode=ai 时每次结合实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。",
 		obj(map[string]any{
 			"target":   p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
 			"mode":     enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),

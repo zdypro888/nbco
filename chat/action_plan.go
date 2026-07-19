@@ -85,8 +85,6 @@ type turnDiagnostics struct {
 	FullToolCount        int      `json:"full_tool_count,omitempty"`
 	ToolSchemaChars      int      `json:"tool_schema_chars,omitempty"`
 	Tools                []string `json:"tools,omitempty"`
-	ToolSelector         string   `json:"tool_selector,omitempty"`
-	PreferredTools       []string `json:"preferred_tools,omitempty"`
 	AgentIterations      int      `json:"agent_iterations,omitempty"`
 	ModelCalls           int      `json:"model_calls,omitempty"`
 	ProtocolRetries      int      `json:"protocol_retries,omitempty"`

@@ -154,144 +154,26 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	}
 }
 
-func TestDeepAgentExposesPreferredToolOnFirstIteration(t *testing.T) {
+func TestDeepAgentComposesNativeAndProductInstructions(t *testing.T) {
 	if err := adk.SetLanguage(adk.LanguageChinese); err != nil {
 		t.Fatal(err)
 	}
-	var executed int
-	state := &scriptedModelState{}
-	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
-		visibleNames := make(map[string]bool, len(visible))
-		for _, info := range visible {
-			visibleNames[info.Name] = true
-		}
-		last := input[len(input)-1]
-		if last.Role == schema.Tool && last.ToolName == "record_value" {
-			return finalResponseWithOutcome("preferred-final", ai.CompletionOutcomeActionResult, "已直接完成"), nil
-		}
+	state := &scriptedModelState{fn: func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
 		if !strings.Contains(input[0].Content, "重要：完全完成任务") ||
 			!strings.Contains(input[0].Content, "PRODUCT_CONTEXT_MARKER") {
 			return nil, fmt.Errorf("native and product instructions were not composed: %q", input[0].Content)
 		}
-		if !visibleNames["record_value"] || visibleNames["irrelevant_tool"] || !visibleNames[toolSearchToolName] {
-			return nil, fmt.Errorf("unexpected preferred tool exposure: %v", visibleNames)
-		}
-		return schema.AssistantMessage("", []schema.ToolCall{{
-			ID: "preferred-write", Type: "function",
-			Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
-		}}), nil
-	}
+		return finalResponse("composed-final", "组合正常"), nil
+	}}
 	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-		System:         "PRODUCT_CONTEXT_MARKER",
-		UserText:       "记录 alpha",
-		PreferredTools: []string{"record_value", "not_authorized"},
-		Tools: []ai.Tool{
-			{
-				Name: "record_value", Description: "保存一个值", Effect: ai.ToolEffectWrite,
-				InputSchema: map[string]any{"type": "object"},
-				Handler: func(context.Context, json.RawMessage) (string, error) {
-					executed++
-					return `{"ok":true}`, nil
-				},
-			},
-			{
-				Name: "irrelevant_tool", Description: "无关工具", Effect: ai.ToolEffectRead,
-				InputSchema: map[string]any{"type": "object"},
-				Handler:     func(context.Context, json.RawMessage) (string, error) { return `{}`, nil },
-			},
-		},
+		System: "PRODUCT_CONTEXT_MARKER", UserText: "测试",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if executed != 1 || result.Text != "已直接完成" || result.CompletionOutcome != ai.CompletionOutcomeActionResult {
-		t.Fatalf("result=%+v executed=%d", result, executed)
-	}
-	for _, step := range result.Steps {
-		if step.ToolName == toolSearchToolName {
-			t.Fatalf("preferred tool unnecessarily required tool_search: %+v", result.Steps)
-		}
-	}
-}
-
-func TestDeepAgentRefreshesDeferredCatalogAcrossManagedTurns(t *testing.T) {
-	runtime := session.NewInMemoryStore[*schema.Message](nil)
-	state := &scriptedModelState{}
-	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
-		last := input[len(input)-1]
-		if last.Role == schema.Tool && (last.ToolName == "tool_a" || last.ToolName == "tool_b") {
-			return finalResponse("catalog-final-"+last.ToolName, "完成 "+last.ToolName), nil
-		}
-		request := ""
-		reminder := ""
-		for _, message := range input {
-			if isToolSearchReminder(message) {
-				reminder = message.Content
-				continue
-			}
-			if message.Role == schema.User {
-				request = message.Content
-			}
-		}
-		wanted, deferred := "tool_a", "tool_b"
-		if strings.Contains(request, "second") {
-			wanted, deferred = "tool_b", "tool_a"
-		}
-		visibleNames := make(map[string]bool, len(visible))
-		for _, info := range visible {
-			visibleNames[info.Name] = true
-		}
-		if !visibleNames[wanted] || visibleNames[deferred] {
-			return nil, fmt.Errorf("request=%q visible=%v", request, visibleNames)
-		}
-		if strings.Contains(reminder, "\n"+wanted+"\n") || !strings.Contains(reminder, "\n"+deferred+"\n") {
-			return nil, fmt.Errorf("request=%q stale deferred reminder=%q", request, reminder)
-		}
-		return schema.AssistantMessage("", []schema.ToolCall{{
-			ID: "call-" + wanted, Type: "function",
-			Function: schema.FunctionCall{Name: wanted, Arguments: `{}`},
-		}}), nil
-	}
-	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
-	available := []ai.Tool{
-		{Name: "tool_a", Description: "A", Effect: ai.ToolEffectRead, InputSchema: map[string]any{"type": "object"}, Handler: func(context.Context, json.RawMessage) (string, error) { return `{"a":1}`, nil }},
-		{Name: "tool_b", Description: "B", Effect: ai.ToolEffectRead, InputSchema: map[string]any{"type": "object"}, Handler: func(context.Context, json.RawMessage) (string, error) { return `{"b":1}`, nil }},
-	}
-	first, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-		SessionID: "95", SessionCapability: "stable", UserText: "first",
-		Tools: available, PreferredTools: []string{"tool_a"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-		SessionID: "95", EngineSession: first.EngineSession, SessionCapability: "stable", UserText: "second",
-		Tools: available, PreferredTools: []string{"tool_b"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.Text != "完成 tool_a" || second.Text != "完成 tool_b" {
-		t.Fatalf("first=%q second=%q", first.Text, second.Text)
-	}
-	events, err := runtime.LoadEvents(context.Background(), first.EngineSession, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	liveReminders := make(map[string]struct{})
-	for _, event := range events.Events {
-		if event.MessageInserted != nil && isToolSearchReminder(event.MessageInserted.Message) {
-			liveReminders[adk.GetMessageID(event.MessageInserted.Message)] = struct{}{}
-		}
-		if event.MessagesDeleted != nil {
-			for _, id := range event.MessagesDeleted.MessageIDs {
-				delete(liveReminders, id)
-			}
-		}
-	}
-	if len(liveReminders) != 1 {
-		t.Fatalf("managed session retained %d live tool catalogs, want 1", len(liveReminders))
+	if result.Text != "组合正常" {
+		t.Fatalf("result=%+v", result)
 	}
 }
 
@@ -397,12 +279,6 @@ func TestOneShotRejectsAgentCapabilitiesAndUnknownMode(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "cannot expose tools") {
 		t.Fatalf("one-shot tools error = %v", err)
-	}
-	_, err = engine.RunTurn(context.Background(), &ai.TurnRequest{
-		Mode: ai.TurnModeOneShot, PreferredTools: []string{"must_not_load"},
-	})
-	if err == nil || !strings.Contains(err.Error(), "cannot preload tools") {
-		t.Fatalf("one-shot preferred tools error = %v", err)
 	}
 	_, err = engine.RunTurn(context.Background(), &ai.TurnRequest{Mode: ai.TurnMode("guess")})
 	if err == nil || !strings.Contains(err.Error(), "unsupported Eino turn mode") {
@@ -935,8 +811,7 @@ func TestDeepProtocolRetriesUnknownToolBeforeExecution(t *testing.T) {
 	}
 	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-		UserText:       "执行写入",
-		PreferredTools: []string{"record_value"},
+		UserText: "执行写入",
 		Tools: []ai.Tool{{
 			Name: "record_value", Description: "保存值", Effect: ai.ToolEffectWrite,
 			InputSchema: map[string]any{"type": "object"},

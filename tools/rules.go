@@ -25,7 +25,7 @@ func ruleTools(d Deps, u *store.User) []ai.Tool {
 		return nil
 	}
 	return []ai.Tool{
-		tool("save_rule", "当用户对系统/AI 的行为提出持久性要求、禁令或默认做法时调用（句式如「以后不要…」「默认…」「记住以后都…」「永远…」），把它存成一条行为规则；之后每轮对话会自动注入相关规则并被遵守。行为规则必须用这个工具而不是 save_knowledge。少数底线规则可设 pinned 常驻每轮提示，普通规则留给语义召回。",
+		tool("save_rule", "保存用户明确要求在未来同类场景持续生效的系统行为约束。之后每轮对话会按作用域和语义相关性加载；行为约束使用本工具，稳定事实使用 save_knowledge。少数不可遗漏的底线规则可设 pinned，普通规则由语义召回按需加载。",
 			obj(map[string]any{
 				"title":   p("string", "规则标题（一句话说清约束什么，便于检索）"),
 				"content": p("string", "规则正文：明确、可执行、自包含（含例外条件，如「除非超管明确要求」）"),
@@ -80,7 +80,7 @@ func ruleTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				if len(ks) == 0 {
-					return "（还没有行为规则。用户提出「以后都…」类要求时用 save_rule 沉淀。）", nil
+					return "（还没有行为规则。需要持久行为约束时可用 save_rule 沉淀。）", nil
 				}
 				var b strings.Builder
 				for _, k := range ks {

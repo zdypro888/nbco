@@ -223,10 +223,13 @@ func TestValidUserMemoryEvidence(t *testing.T) {
 	}
 }
 
-func TestKnowledgeMemoryRequiresUserFactOrVerifiedToolEvidence(t *testing.T) {
+func TestKnowledgeMemoryRequiresUserOrToolProvenance(t *testing.T) {
 	question := memorySource{UserText: "能看得懂这个吗？", AssistantText: "系统不支持图片"}
-	if validKnowledgeMemoryEvidence(question, "能看得懂这个吗？", 6) {
-		t.Fatal("a user question must not publish an assistant-derived capability claim")
+	if got := knowledgeMemoryEvidenceSource(question, "能看得懂这个吗？", 6); got != "user" {
+		t.Fatalf("exact user provenance should not depend on sentence punctuation: %q", got)
+	}
+	if validKnowledgeMemoryEvidence(question, "系统不支持图片", 6) {
+		t.Fatal("assistant-derived capability claim must not pass provenance")
 	}
 	grounded := memorySource{
 		UserText:     "帮我查一下",
@@ -515,14 +518,13 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 		Steps:                 []ai.Step{{Kind: ai.StepToolCall, ToolName: "write", Result: `{"ok":true}`}},
 	}
 	request := &ai.TurnRequest{
-		Mode:           ai.TurnModeDeep,
-		SessionID:      "1",
-		EngineSession:  first.EngineSession,
-		System:         "system",
-		UserText:       "perform work",
-		Tools:          []ai.Tool{{Name: "write"}},
-		PreferredTools: []string{"write"},
-		Skills:         []ai.Skill{{Name: "procedure"}},
+		Mode:          ai.TurnModeDeep,
+		SessionID:     "1",
+		EngineSession: first.EngineSession,
+		System:        "system",
+		UserText:      "perform work",
+		Tools:         []ai.Tool{{Name: "write"}},
+		Skills:        []ai.Skill{{Name: "procedure"}},
 	}
 	if _, err := orchestrator.repairDegenerateTurn(context.Background(), request, first, nil); err != nil {
 		t.Fatal(err)
@@ -531,9 +533,9 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 	if retry == nil || retry.Mode != ai.TurnModeOneShot {
 		t.Fatalf("repair mode = %v", retry)
 	}
-	if len(retry.Tools) != 0 || len(retry.PreferredTools) != 0 || len(retry.Skills) != 0 {
-		t.Fatalf("repair retained agent capabilities: tools=%d preferred=%d skills=%d",
-			len(retry.Tools), len(retry.PreferredTools), len(retry.Skills))
+	if len(retry.Tools) != 0 || len(retry.Skills) != 0 {
+		t.Fatalf("repair retained agent capabilities: tools=%d skills=%d",
+			len(retry.Tools), len(retry.Skills))
 	}
 	if retry.EngineSession != first.EngineSession {
 		t.Fatalf("repair session = %q want %q", retry.EngineSession, first.EngineSession)

@@ -21,7 +21,7 @@ const telegramGroupDigestSourceKind = store.ScheduleSourceTelegramGroupDigest
 // telegramGroupTools 管理 Telegram 群这个外部实体，和用户/worker 一样走 list/get/update。
 func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_telegram_groups", "列出 bot 已记录的 Telegram 群。用户问“你进群了吗/公司群收到了吗/有哪些群/监听状态”时先调用。结果里的 group_ref 是工作内存，可直接给后续群工具当参数；最终出口会清理内部引用。",
+		tool("list_telegram_groups", "列出 bot 已记录的 Telegram 群及其接入和监听状态。结果里的 group_ref 是工作内存，可直接给后续群工具当参数；最终出口会清理内部引用。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				groups, err := d.Store.ListTelegramGroupStates(ctx, telegramGroupToolLimit)
@@ -71,7 +71,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return out, nil
 			}),
 
-		tool("list_telegram_group_messages", "读取系统实际收到并保存的 Telegram 群消息，跨越群会话重置。用户问群里今天/某天说了什么、有什么需要注意、日报汇总、问题或决策时调用本工具，而不是只查群配置。date 按公司时区；发生截断时把返回的 next_cursor 传回 cursor 继续读取；无结果只表示 bot 在该时间范围没有记录，不能证明群里绝对没有消息。",
+		tool("list_telegram_group_messages", "按群与时间范围读取系统实际收到并保存的 Telegram 群消息，跨越群会话重置。用于内容查询、汇总以及问题或决策分析；群配置工具不返回消息正文。date 按公司时区；发生截断时把返回的 next_cursor 传回 cursor 继续读取；无结果只表示 bot 在该时间范围没有记录，不能证明群里绝对没有消息。",
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
 				"date":        p("string", "按公司时区查询的日期 YYYY-MM-DD；默认今天"),
@@ -169,7 +169,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与 nbco 系统员工。用户问群里有谁、谁已加入系统、成员是不是 AI worker/真人时优先调用本工具；内部用 Telegram ID 精确绑定，最终按姓名和绑定状态自然汇报。",
+		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与 nbco 系统员工，区分已绑定成员、真人和 AI worker。内部用 Telegram ID 精确绑定，最终按姓名和绑定状态自然汇报。",
 			obj(map[string]any{
 				"group": p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
 			}),
@@ -298,7 +298,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
 				"enabled":     p("boolean", "true 开启，false 关闭"),
-				"instruction": p("string", "可选：监控重点，例如“这个群是视频项目群，遇到问题总结给我，不要逐条转发”"),
+				"instruction": p("string", "可选：监控目标、关注条件与通知策略"),
 			}, "group", "enabled"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {

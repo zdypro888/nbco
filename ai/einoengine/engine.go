@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/jsonschema"
 
@@ -268,9 +266,6 @@ func validateOneShotRequest(req *ai.TurnRequest) error {
 	if len(req.Tools) > 0 {
 		return errors.New("one-shot Eino turn cannot expose tools")
 	}
-	if len(req.PreferredTools) > 0 {
-		return errors.New("one-shot Eino turn cannot preload tools")
-	}
 	if len(req.Skills) > 0 {
 		return errors.New("one-shot Eino turn cannot expose skills")
 	}
@@ -312,58 +307,6 @@ type oneShotMiddleware struct {
 type deepInstructionMiddleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
 	instruction string
-}
-
-const toolSearchTurnResetKey = "__nbco_toolsearch_turn_reset__"
-
-// toolSearchTurnResetMiddleware removes the previous turn's deferred-tool
-// reminder once. Preferred tools vary by turn, so replaying an old reminder
-// would describe the wrong catalog; the current toolsearch middleware inserts
-// a fresh reminder immediately afterward.
-type toolSearchTurnResetMiddleware struct {
-	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
-}
-
-func (*toolSearchTurnResetMiddleware) BeforeModelRewriteState(
-	ctx context.Context,
-	state *adk.TypedChatModelAgentState[*schema.Message],
-	_ *adk.TypedModelContext[*schema.Message],
-) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
-	if state == nil {
-		return ctx, state, nil
-	}
-	if value, ok, err := adk.GetRunLocalValue(ctx, toolSearchTurnResetKey); err == nil && ok {
-		if reset, _ := value.(bool); reset {
-			return ctx, state, nil
-		}
-	}
-	_ = adk.SetRunLocalValue(ctx, toolSearchTurnResetKey, true)
-	deletedIDs := make([]string, 0, 1)
-	for _, message := range state.Messages {
-		if !isToolSearchReminder(message) {
-			continue
-		}
-		if id := adk.GetMessageID(message); id != "" {
-			deletedIDs = append(deletedIDs, id)
-		}
-	}
-	state.Messages = slices.DeleteFunc(slices.Clone(state.Messages), isToolSearchReminder)
-	if len(deletedIDs) > 0 {
-		err := adk.TypedSendEvent(ctx, &adk.TypedAgentEvent[*schema.Message]{
-			SessionEventVariant: &adk.SessionEventVariant[*schema.Message]{
-				Event: &adk.SessionEvent[*schema.Message]{
-					Kind: adk.SessionEventMessagesDeleted,
-					MessagesDeleted: &adk.MessagesDeletedEvent{
-						MessageIDs: deletedIDs,
-					},
-				},
-			},
-		})
-		if err != nil {
-			return ctx, state, fmt.Errorf("清理上一轮 Eino 工具目录: %w", err)
-		}
-	}
-	return ctx, state, nil
 }
 
 func (m *deepInstructionMiddleware) BeforeAgent(
@@ -414,23 +357,12 @@ func (e *Engine) newDeepAgent(
 	summaryUsage *ai.Usage,
 	toolExposure *ai.ToolExposure,
 ) (adk.Agent, error) {
-	preferred := make(map[string]struct{}, len(req.PreferredTools))
-	for _, name := range req.PreferredTools {
-		preferred[name] = struct{}{}
-	}
 	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
-	initialTools := make([]tool.BaseTool, 0, min(len(req.Tools), len(preferred)))
 	for _, t := range req.Tools {
-		wrapped := &einoTool{t: t}
-		if _, ok := preferred[t.Name]; ok {
-			initialTools = append(initialTools, wrapped)
-		} else {
-			dynamicTools = append(dynamicTools, wrapped)
-		}
+		dynamicTools = append(dynamicTools, &einoTool{t: t})
 	}
-	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 6)
+	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 5)
 	handlers = append(handlers, &deepInstructionMiddleware{instruction: req.System})
-	handlers = append(handlers, &toolSearchTurnResetMiddleware{})
 	if len(dynamicTools) > 0 {
 		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
 		if err != nil {
@@ -474,7 +406,7 @@ func (e *Engine) newDeepAgent(
 	}
 	handlers = append(handlers, summaryMiddleware)
 	handlers = append(handlers, &finalIterationMiddleware{maxIterations: e.maxTurns})
-	protocolMiddleware, err := newDeepProtocolMiddleware(ctx, req.Tools, req.PreferredTools, toolExposure)
+	protocolMiddleware, err := newDeepProtocolMiddleware(ctx, req.Tools, toolExposure)
 	if err != nil {
 		return nil, fmt.Errorf("构建 Eino 轮次终止协议: %w", err)
 	}
@@ -485,13 +417,10 @@ func (e *Engine) newDeepAgent(
 		Description: "nbco 公司运营中枢",
 		// Keep this empty so Eino installs its native Deep Agent execution
 		// contract. deepInstructionMiddleware appends the product context.
-		Instruction: "",
-		ChatModel:   model,
-		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{
-			Tools: initialTools,
-		}},
+		Instruction:            "",
+		ChatModel:              model,
 		MaxIteration:           e.maxTurns,
-		WithoutWriteTodos:      len(req.Tools) == 0,
+		WithoutWriteTodos:      len(dynamicTools) == 0,
 		WithoutGeneralSubAgent: true,
 		Handlers:               handlers,
 		ModelRetryConfig:       protocolMiddleware.modelRetryConfig(),

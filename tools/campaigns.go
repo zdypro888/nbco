@@ -41,7 +41,7 @@ func campaignTools(d Deps, u *store.User) []ai.Tool {
 				return createDataCampaign(ctx, d, u, args.Title, args.Instruction, args.RequiredFields, args.Target, args.UserIDs, args.Message, args.SendNow)
 			}),
 
-		tool("list_data_collection_campaigns", "查看资料收集活动列表、完成率和通知覆盖。它只回答专项追踪状态：没有活动不等于没人自行更新资料；用户问最近是否真的有人更新/执行时，本轮如有系统活动账本还要继续查询。pending 只表示字段仍缺失，不表示正在处理。",
+		tool("list_data_collection_campaigns", "查看资料收集活动列表、完成率和通知覆盖。它只代表专项活动账本：没有活动不等于没人自行更新资料，pending 只表示字段仍缺失，不表示正在处理。",
 			obj(map[string]any{
 				"status": enumP("状态筛选，可选", store.DataCampaignActive, store.DataCampaignClosed, store.DataCampaignCancelled, "all"),
 				"limit":  p("integer", "返回数量，默认 20，最多 100"),

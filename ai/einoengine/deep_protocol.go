@@ -22,7 +22,7 @@ const (
 	// Bump when the durable Deep Agent's internal tool or lifecycle contract
 	// changes. It is part of the managed-session fingerprint so old tool traces
 	// cannot teach a new runtime an obsolete protocol.
-	deepAgentProtocolVersion = "native-deep-semantic-tools-v3"
+	deepAgentProtocolVersion = "native-deep-toolsearch-v4"
 
 	finalResponseToolName = "final_response"
 	toolSearchToolName    = "tool_search"
@@ -34,7 +34,7 @@ const (
 每次模型输出都必须调用一个工具。需要读取、修改或执行时，继续调用对应工具；只有当前请求已经回答完毕，或真实执行已经得到工具结果，或确实缺少权限/参数而无法继续时，才调用 final_response 结束本轮。
 final_response.outcome 必须准确选择：answer=只回答事实/问题且没有未执行动作；action_result=本轮写入或执行工具已经返回，答复必须忠实反映其结果；blocked=权限、系统错误等使请求无法继续；clarify=缺少用户才能提供的必要信息。不得用 final_response 承诺稍后执行尚未调用的动作，也不要把它和其他工具放在同一次输出中。`
 
-	conciseToolSearchDescription   = "按名称或语义查找并加载当前轮次需要的延迟工具。知道名称时用 select:<tool_name>；否则用简短能力关键词。返回的工具已立即可调用，无需重复搜索。"
+	conciseToolSearchDescription   = "按能力关键词或名称查找并加载当前轮次需要的延迟工具。知道名称时用 select:<tool_name>；否则用简短能力关键词。返回的工具已立即可调用，无需重复搜索。"
 	conciseWriteTodosDescription   = "为当前复杂请求维护临时步骤清单。仅在确有多个执行步骤时使用；及时把当前步骤标为 in_progress，完成后标为 completed。简单问答或单步操作无需调用。"
 	structuredRetryInstruction     = "[框架协议纠正] 上一个输出没有调用工具，因此未被接受。请重新处理同一请求：若仍需读取、修改或执行，调用或检索对应工具；若请求已完全回答、已有工具结果足以收尾、或确实无法继续，调用 final_response。不要只输出普通文本。"
 	actionEvidenceRetryInstruction = "[框架协议纠正] 上一个 final_response 声明了 action_result，但本轮尚无写入或执行工具返回，因而没有可核对的动作结果。请继续调用所需工具；若只是回答事实或能力，请用 answer 且不要描述尚未发生的动作；若无法继续，请如实用 blocked 或 clarify。"
@@ -55,7 +55,7 @@ type deepProtocolMiddleware struct {
 
 	finalTool    *finalResponseTool
 	finalInfo    *schema.ToolInfo
-	dynamicInfos map[string]*schema.ToolInfo
+	dynamicNames map[string]struct{}
 	toolEffects  map[string]string
 	exposure     *ai.ToolExposure
 
@@ -68,7 +68,6 @@ type deepProtocolMiddleware struct {
 func newDeepProtocolMiddleware(
 	ctx context.Context,
 	tools []ai.Tool,
-	preferred []string,
 	exposure *ai.ToolExposure,
 ) (*deepProtocolMiddleware, error) {
 	finalTool := &finalResponseTool{}
@@ -76,29 +75,19 @@ func newDeepProtocolMiddleware(
 	if err != nil {
 		return nil, err
 	}
-	dynamicInfos := make(map[string]*schema.ToolInfo, len(tools))
+	dynamicNames := make(map[string]struct{}, len(tools))
 	toolEffects := make(map[string]string, len(tools))
 	for _, item := range tools {
-		info, infoErr := (&einoTool{t: item}).Info(ctx)
-		if infoErr != nil {
-			return nil, fmt.Errorf("读取工具 %s schema: %w", item.Name, infoErr)
-		}
-		dynamicInfos[item.Name] = info
+		dynamicNames[item.Name] = struct{}{}
 		toolEffects[item.Name] = item.Effect
-	}
-	selected := make(map[string]struct{}, len(preferred))
-	for _, name := range preferred {
-		if _, ok := dynamicInfos[name]; ok {
-			selected[name] = struct{}{}
-		}
 	}
 	return &deepProtocolMiddleware{
 		finalTool:    finalTool,
 		finalInfo:    finalInfo,
-		dynamicInfos: dynamicInfos,
+		dynamicNames: dynamicNames,
 		toolEffects:  toolEffects,
 		exposure:     exposure,
-		selected:     selected,
+		selected:     make(map[string]struct{}),
 	}, nil
 }
 
@@ -147,31 +136,10 @@ func (m *deepProtocolMiddleware) BeforeModelRewriteState(
 		if info == nil {
 			return false
 		}
-		_, dynamic := m.dynamicInfos[info.Name]
+		_, dynamic := m.dynamicNames[info.Name]
 		_, active := selected[info.Name]
 		return dynamic && !active
 	})
-	present := make(map[string]struct{}, len(infos))
-	for _, info := range infos {
-		if info != nil {
-			present[info.Name] = struct{}{}
-		}
-	}
-	selectedNames := make([]string, 0, len(selected))
-	for name := range selected {
-		selectedNames = append(selectedNames, name)
-	}
-	sort.Strings(selectedNames)
-	for _, name := range selectedNames {
-		if _, ok := present[name]; ok {
-			continue
-		}
-		if info, ok := m.dynamicInfos[name]; ok {
-			clone := *info
-			infos = append(infos, &clone)
-			present[name] = struct{}{}
-		}
-	}
 
 	foundFinal := false
 	for i, info := range infos {
@@ -407,7 +375,7 @@ func (m *deepProtocolMiddleware) rememberCurrentTurnSelections(messages []*schem
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, name := range found {
-		if _, ok := m.dynamicInfos[name]; ok {
+		if _, ok := m.dynamicNames[name]; ok {
 			m.selected[name] = struct{}{}
 		}
 	}

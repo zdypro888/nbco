@@ -419,7 +419,7 @@ var toolEffect = map[string]string{
 
 func capabilityTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_capabilities", "查看 nbco 当前可用能力目录。按领域列出工具、权限、风险和当前用户是否可用；用户问“你会什么/系统有哪些功能/某类能力在哪里”时调用。",
+		tool("list_capabilities", "查看 nbco 当前可用能力目录，按领域列出工具、权限、风险和当前用户是否可用。",
 			obj(map[string]any{
 				"domain":              p("string", "可选：people/work/workers/memory/comms/automation/ops/extension"),
 				"include_unavailable": p("boolean", "可选：超管为 true 时显示当前入口不可用/无权限能力；普通用户会被忽略"),

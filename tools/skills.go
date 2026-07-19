@@ -19,7 +19,7 @@ const skillSearchLimit = 8
 // 读取。创建/修改影响系统行为，限超管；搜索/加载所有员工可用。
 func skillTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("search_skills", "检索可复用执行方法（Skill Memory）。用户问“这类事怎么做/以后按什么流程/你会不会记得执行方法”或当前任务明显匹配某个流程时调用。",
+		tool("search_skills", "按当前目标检索可复用执行方法（Skill Memory），返回相关流程的触发条件、步骤与限制。",
 			obj(map[string]any{"query": p("string", "查询（自然语言或关键词皆可）")}, "query"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -166,7 +166,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已按 skill「%s」创建 worker 任务（%s），分配给 %s。", k.Title, internalRef("任务", t.ID), worker.Name), nil
 			}),
 
-		tool("save_skill", "把用户教给系统的可复用执行方法保存为 skill。适用于“以后遇到 X 要按这些步骤做”“这种场景流程是…”“把刚才方法记成 skill”。只保存可执行流程，不保存普通事实。",
+		tool("save_skill", "把用户明确教给系统、可在同类目标中复用的执行方法保存为 skill。只保存具备触发条件、步骤和限制的可执行流程，不保存普通事实或一次性任务。",
 			obj(map[string]any{
 				"title":       p("string", "标题（一句话说清这个 skill 处理什么）"),
 				"trigger":     p("string", "触发条件：什么情况下应该想到这个 skill"),

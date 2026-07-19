@@ -55,7 +55,7 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				return renderWorkspaceResources(items, d.TZ, plan, fallback), nil
 			}),
 
-		tool("list_recent_files", "查看当前用户最近的文件接收队列，包括成功保存的系统 file_id 和未入库文件的失败原因。用户说“刚才那个文件/这些资料/附件”时先调用；只有 status=saved 的文件才能派 worker 分析。",
+		tool("list_recent_files", "查看当前用户最近的文件接收队列，并解析对近期文件的上下文指代。返回成功保存的系统 file_id 和未入库文件的失败原因；只有 status=saved 的文件才能派 worker 分析。",
 			obj(map[string]any{
 				"limit":       p("integer", "返回条数，默认 10，最多 50"),
 				"since_hours": p("integer", "只看最近多少小时，默认 24"),

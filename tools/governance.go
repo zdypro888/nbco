@@ -28,7 +28,7 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已刷新决策队列，新增/更新 %d 条。\n%s", n, renderDecisionItems(items)), nil
 			}),
 
-		tool("list_decision_queue", "查看当前用户未处理的决策队列。老板问“我现在要处理什么/今天要拍板什么”时调用。", obj(nil),
+		tool("list_decision_queue", "查看当前用户未处理的决策队列，包含待验收、过期任务和需要拍板的阻塞。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				items, err := d.Store.ListDecisionItems(ctx, u.ID, "open", 30)
 				if err != nil {

@@ -98,7 +98,7 @@ func permTools(d Deps, u *store.User) []ai.Tool {
 
 	// 主动权限授予：超管任意授；普通用户按转授规则（拥有且不超范围）。
 	ts = append(ts,
-		tool("grant_active_perm", "给某人授予主动权限。action: "+strings.Join(activeActionList(), "/")+"。用户说“邀请员工权限”或“invite_employee 权限”时，action 用 invite_employee 或 generate_key 都可以。超管可任意授；普通用户必须先有对被授权人的 manage_perm，且只能转授自己拥有、范围不超过自己的权限。",
+		tool("grant_active_perm", "给某人授予主动权限。action: "+strings.Join(activeActionList(), "/")+"。邀请员工能力的规范 action 是 generate_key，兼容别名 invite_employee。超管可任意授；普通用户必须先有对被授权人的 manage_perm，且只能转授自己拥有、范围不超过自己的权限。",
 			obj(map[string]any{
 				"user_id": p("integer", "被授权的用户ID"),
 				"action":  p("string", "动作；邀请员工权限可填 invite_employee（会自动转成 generate_key）"),

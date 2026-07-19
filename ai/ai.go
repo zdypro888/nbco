@@ -156,10 +156,6 @@ type TurnRequest struct {
 	Model string
 	// Tools 本轮可用工具集（已按用户权限裁剪）。
 	Tools []Tool
-	// PreferredTools 是语义能力检索从 Tools 中选出的本轮高相关工具名。
-	// Deep Agent 首轮直接看到这些工具的完整 schema，其余工具仍可通过
-	// tool_search 按需加载。引擎必须忽略不在 Tools 中的名称。
-	PreferredTools []string
 	// Skills 是已按语义相关性和用户/渠道作用域裁剪的候选执行方法。
 	// 引擎只暴露元数据，由模型按需加载完整 Content。
 	Skills []Skill

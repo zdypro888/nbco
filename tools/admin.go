@@ -476,7 +476,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 
 	// --- 超管专属 ---
 	ts = append(ts,
-		tool("company_overview", "公司全景：全局任务统计、各项目进度、过期任务点名。用户明确问全公司/系统级/全局/整体任务状态或写汇总/周报时调用；不要用个人任务工具结果代替它。超管专用。",
+		tool("company_overview", "读取公司级全局任务统计、各项目进度和过期任务；个人任务工具不能代表这些全局数据。超管专用。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				stats, err := d.Store.GlobalTaskStats(ctx, time.Now().Add(-7*24*time.Hour))
