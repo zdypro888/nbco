@@ -77,13 +77,18 @@ type toolEvidence struct {
 }
 
 type turnDiagnostics struct {
-	Route           string   `json:"route,omitempty"`
-	SystemChars     int      `json:"system_chars,omitempty"`
-	HistoryChars    int      `json:"history_chars,omitempty"`
-	ToolCount       int      `json:"tool_count,omitempty"`
-	FullToolCount   int      `json:"full_tool_count,omitempty"`
-	ToolSchemaChars int      `json:"tool_schema_chars,omitempty"`
-	Tools           []string `json:"tools,omitempty"`
+	Route                string   `json:"route,omitempty"`
+	SystemChars          int      `json:"system_chars,omitempty"`
+	HistoryChars         int      `json:"history_chars,omitempty"`
+	ToolCount            int      `json:"tool_count,omitempty"`
+	FullToolCount        int      `json:"full_tool_count,omitempty"`
+	ToolSchemaChars      int      `json:"tool_schema_chars,omitempty"`
+	Tools                []string `json:"tools,omitempty"`
+	AgentIterations      int      `json:"agent_iterations,omitempty"`
+	ModelCalls           int      `json:"model_calls,omitempty"`
+	ModelPeakToolCount   int      `json:"model_peak_tool_count,omitempty"`
+	ModelPeakSchemaChars int      `json:"model_peak_schema_chars,omitempty"`
+	ModelPeakTools       []string `json:"model_peak_tools,omitempty"`
 }
 
 func summarizeToolEvidence(steps []ai.Step) []toolEvidence {

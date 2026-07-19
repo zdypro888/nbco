@@ -94,6 +94,17 @@ type Usage struct {
 	OutputTokens int64
 }
 
+// ToolExposure records what the model actually saw after framework middleware
+// applied deferred-tool selection. It intentionally differs from the full
+// authorized catalog supplied in TurnRequest.Tools.
+type ToolExposure struct {
+	AgentIterations int
+	ModelCalls      int
+	PeakToolCount   int
+	PeakSchemaChars int
+	PeakTools       []string
+}
+
 // TurnMode defines the orchestration contract for a model call. It is selected
 // by the call site, never inferred from user wording.
 type TurnMode string
@@ -161,8 +172,9 @@ type TurnResult struct {
 	// 这常表现为 output tokens 打满，但可见正文只有一两个词。
 	OutputLikelyTruncated bool
 	// Steps 本轮完整执行轨迹（含 tool 调用），用于审计。
-	Steps []Step
-	Usage Usage
+	Steps        []Step
+	Usage        Usage
+	ToolExposure ToolExposure
 }
 
 // Engine 跑一轮带工具的对话。实现：einoengine。

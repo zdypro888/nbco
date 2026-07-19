@@ -162,10 +162,11 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		return nil, err
 	}
 	var summaryUsage ai.Usage
+	var toolExposure ai.ToolExposure
 	var agent adk.Agent
 	switch mode {
 	case ai.TurnModeDeep:
-		agent, err = e.newDeepAgent(ctx, model, req, &summaryUsage)
+		agent, err = e.newDeepAgent(ctx, model, req, &summaryUsage, &toolExposure)
 	case ai.TurnModeOneShot:
 		agent, err = newOneShotAgent(ctx, model, req)
 	}
@@ -225,7 +226,8 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		runnerConfig.CheckPointStore = e.runtime
 	}
 	runner := adk.NewRunner(ctx, runnerConfig)
-	result, err := collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning, e.outputTokenLimit())
+	result, err := collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning,
+		e.outputTokenLimit(), mode == ai.TurnModeDeep)
 	if err != nil && managedSession {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
@@ -237,6 +239,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	if result != nil {
 		result.Usage.InputTokens += summaryUsage.InputTokens
 		result.Usage.OutputTokens += summaryUsage.OutputTokens
+		result.ToolExposure = toolExposure
 		if managedSession {
 			result.EngineSession = engineSession
 		}
@@ -322,6 +325,7 @@ func (e *Engine) newDeepAgent(
 	model einomodel.ToolCallingChatModel,
 	req *ai.TurnRequest,
 	summaryUsage *ai.Usage,
+	toolExposure *ai.ToolExposure,
 ) (adk.Agent, error) {
 	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
 	for _, t := range req.Tools {
@@ -371,6 +375,11 @@ func (e *Engine) newDeepAgent(
 	}
 	handlers = append(handlers, summaryMiddleware)
 	handlers = append(handlers, &finalIterationMiddleware{maxIterations: e.maxTurns})
+	protocolMiddleware, err := newDeepProtocolMiddleware(ctx, req.Tools, toolExposure)
+	if err != nil {
+		return nil, fmt.Errorf("构建 Eino 轮次终止协议: %w", err)
+	}
+	handlers = append(handlers, protocolMiddleware)
 
 	agent, err := deep.New(ctx, &deep.Config{
 		Name:                   "nbco",
@@ -381,7 +390,7 @@ func (e *Engine) newDeepAgent(
 		WithoutWriteTodos:      len(dynamicTools) == 0,
 		WithoutGeneralSubAgent: true,
 		Handlers:               handlers,
-		ModelRetryConfig:       modelRetryConfig(),
+		ModelRetryConfig:       deepModelRetryConfig(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
@@ -659,10 +668,11 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, requireStructuredFinal bool) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
+	pendingFinal := map[string]struct{}{}
 	var finalText string
 	var terminalErr error
 
@@ -675,6 +685,10 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			continue
 		}
 		if event.Err != nil {
+			var willRetry *adk.WillRetryError
+			if errors.As(event.Err, &willRetry) {
+				continue
+			}
 			if terminalErr == nil {
 				terminalErr = event.Err
 			}
@@ -691,6 +705,10 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			// 流式：逐块读，助手最终答复的文本增量经 onDelta 实时推出，重组成完整消息。
 			m, err := readStream(mo.MessageStream, mo.Role, onDelta, showReasoning)
 			if err != nil {
+				var willRetry *adk.WillRetryError
+				if errors.As(err, &willRetry) {
+					continue
+				}
 				return preservePartialAgentError(res, pending, err)
 			}
 			msg = m
@@ -708,6 +726,10 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 				}
 			}
 			for _, tc := range msg.ToolCalls {
+				if requireStructuredFinal && tc.Function.Name == finalResponseToolName {
+					pendingFinal[tc.ID] = struct{}{}
+					continue
+				}
 				step := ai.Step{
 					Kind:     ai.StepToolCall,
 					ToolName: tc.Function.Name,
@@ -716,11 +738,22 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 				pending[tc.ID] = len(res.Steps)
 				res.Steps = append(res.Steps, step)
 			}
-			if txt := strings.TrimSpace(msg.Content); txt != "" && len(msg.ToolCalls) == 0 {
+			if txt := strings.TrimSpace(msg.Content); txt != "" && len(msg.ToolCalls) == 0 && !requireStructuredFinal {
 				finalText = txt
 				res.Steps = append(res.Steps, ai.Step{Kind: ai.StepText, Result: txt})
 			}
 		case schema.Tool:
+			if _, found := pendingFinal[msg.ToolCallID]; found {
+				delete(pendingFinal, msg.ToolCallID)
+				finalText = strings.TrimSpace(msg.Content)
+				if finalText != "" {
+					res.Steps = append(res.Steps, ai.Step{Kind: ai.StepText, Result: finalText})
+					if onDelta != nil {
+						onDelta(finalText)
+					}
+				}
+				continue
+			}
 			idx, found := pending[msg.ToolCallID]
 			if !found {
 				// 理论上不会发生；单独记一条避免丢审计。
@@ -745,6 +778,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			// that spend the whole output budget before emitting visible text.
 			res.OutputLikelyTruncated = true
 			return res, nil
+		}
+		if requireStructuredFinal {
+			return nil, errors.New("Deep Agent 未通过 final_response 结束本轮")
 		}
 		return nil, errors.New("模型未给出最终答复（可能超出 tool 循环上限）")
 	}

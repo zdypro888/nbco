@@ -17,8 +17,9 @@ import (
 )
 
 type scriptedModelState struct {
-	mu sync.Mutex
-	fn func(input []*schema.Message, tools []*schema.ToolInfo) (*schema.Message, error)
+	mu          sync.Mutex
+	fn          func(input []*schema.Message, tools []*schema.ToolInfo) (*schema.Message, error)
+	toolChoices []schema.ToolChoice
 }
 
 type scriptedModel struct {
@@ -48,7 +49,21 @@ func (m *scriptedModel) respond(input []*schema.Message, opts ...model.Option) (
 	options := model.GetCommonOptions(&model.Options{Tools: append([]*schema.ToolInfo(nil), m.tools...)}, opts...)
 	m.state.mu.Lock()
 	defer m.state.mu.Unlock()
+	if options.ToolChoice != nil {
+		m.state.toolChoices = append(m.state.toolChoices, *options.ToolChoice)
+	}
 	return m.state.fn(input, options.Tools)
+}
+
+func finalResponse(id, text string) *schema.Message {
+	args, err := json.Marshal(map[string]string{"response": text})
+	if err != nil {
+		panic(err)
+	}
+	return schema.AssistantMessage("", []schema.ToolCall{{
+		ID: id, Type: "function",
+		Function: schema.FunctionCall{Name: finalResponseToolName, Arguments: string(args)},
+	}})
 }
 
 func newNativeTestEngine(chatModel model.ToolCallingChatModel, runtime RuntimeStore) *Engine {
@@ -68,11 +83,17 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 		visibleNames := make(map[string]bool, len(visible))
 		for _, info := range visible {
 			visibleNames[info.Name] = true
+			if info.Name == writeTodosToolName && info.Desc != conciseWriteTodosDescription {
+				return nil, fmt.Errorf("write_todos description was not compacted")
+			}
+			if info.Name == toolSearchToolName && info.Desc != conciseToolSearchDescription {
+				return nil, fmt.Errorf("tool_search description was not compacted")
+			}
 		}
 		last := input[len(input)-1]
 		switch {
 		case last.Role == schema.Tool && last.ToolName == "record_value":
-			return schema.AssistantMessage("操作完成", nil), nil
+			return finalResponse("final-write", "操作完成"), nil
 		case last.Role == schema.Tool && last.ToolName == "tool_search":
 			if !visibleNames["record_value"] {
 				return nil, fmt.Errorf("deferred tool was not activated: %v", visibleNames)
@@ -118,6 +139,14 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	if len(result.Steps) < 2 || result.Steps[0].ToolName != "tool_search" || result.Steps[1].ToolName != "record_value" {
 		t.Fatalf("Eino tool loop steps = %+v", result.Steps)
 	}
+	if len(state.toolChoices) == 0 {
+		t.Fatal("deep model did not receive an explicit tool choice")
+	}
+	for _, choice := range state.toolChoices {
+		if choice != schema.ToolChoiceForced {
+			t.Fatalf("deep model tool choice = %q", choice)
+		}
+	}
 }
 
 func TestDeepAgentMayRepeatSameToolAndArguments(t *testing.T) {
@@ -133,7 +162,7 @@ func TestDeepAgentMayRepeatSameToolAndArguments(t *testing.T) {
 					Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"same"}`},
 				}}), nil
 			}
-			return schema.AssistantMessage("两次执行完成", nil), nil
+			return finalResponse("final-repeat", "两次执行完成"), nil
 		case last.Role == schema.Tool && last.ToolName == "tool_search":
 			return schema.AssistantMessage("", []schema.ToolCall{{
 				ID: "repeat-1", Type: "function",
@@ -257,7 +286,7 @@ func TestOneShotCanCloseExistingDeepSession(t *testing.T) {
 			if !foundSearch {
 				return nil, fmt.Errorf("deep turn did not expose tool_search: %v", visible)
 			}
-			return schema.AssistantMessage("first", nil), nil
+			return finalResponse("final-first", "first"), nil
 		}
 		if len(visible) != 0 {
 			return nil, fmt.Errorf("one-shot unexpectedly exposed tools: %v", visible)
@@ -309,7 +338,7 @@ func TestManagedSessionReplaysHistoryAcrossEngineInstances(t *testing.T) {
 				users++
 			}
 		}
-		return schema.AssistantMessage(fmt.Sprintf("users=%d", users), nil), nil
+		return finalResponse(fmt.Sprintf("final-users-%d", users), fmt.Sprintf("users=%d", users)), nil
 	}
 	model := &scriptedModel{state: state}
 	firstEngine := newNativeTestEngine(model, runtime)
@@ -349,7 +378,7 @@ func TestDeepAgentLoadsSkillContentOnDemand(t *testing.T) {
 			if !strings.Contains(last.Content, "先核对目标，再执行") {
 				return nil, fmt.Errorf("skill content was not loaded: %q", last.Content)
 			}
-			return schema.AssistantMessage("已按流程处理", nil), nil
+			return finalResponse("final-skill", "已按流程处理"), nil
 		}
 		for _, info := range visible {
 			if info.Name == "skill" {
@@ -444,7 +473,7 @@ func TestFailedManagedTurnRollsBackToLastCommit(t *testing.T) {
 				users = append(users, message.Content)
 			}
 		}
-		return schema.AssistantMessage(strings.Join(users, "|"), nil), nil
+		return finalResponse(fmt.Sprintf("final-history-%d", len(users)), strings.Join(users, "|")), nil
 	}
 	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
 	first, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
@@ -466,5 +495,149 @@ func TestFailedManagedTurnRollsBackToLastCommit(t *testing.T) {
 	}
 	if third.Text != "first turn|third turn" || strings.Contains(third.Text, "bad turn") {
 		t.Fatalf("failed turn remained active after rollback: %q", third.Text)
+	}
+}
+
+func TestDeepProtocolRunsWorkBeforeSimultaneousFinal(t *testing.T) {
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{
+				{
+					ID: "write-mixed", Type: "function",
+					Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
+				},
+				{
+					ID: "final-too-early", Type: "function",
+					Function: schema.FunctionCall{Name: finalResponseToolName, Arguments: `{"response":"尚未执行却结束"}`},
+				},
+			}), nil
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponse("final-after-work", "真实执行完成"), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-mixed", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		UserText: "记录 alpha",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值",
+			InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "真实执行完成" || executed != 1 {
+		t.Fatalf("result=%+v executed=%d", result, executed)
+	}
+}
+
+func TestDeepProtocolRetriesPlainTextInsteadOfAcceptingPromise(t *testing.T) {
+	var modelCalls, executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		modelCalls++
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponse("final-after-retry", "执行完成"), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-after-retry", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{}`},
+			}}), nil
+		case last.Role == schema.User && strings.Contains(last.Content, structuredRetryInstruction):
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-after-retry", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		default:
+			return schema.AssistantMessage("我现在去执行。", nil), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		UserText: "请执行记录",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "执行完成" || executed != 1 || modelCalls != 4 ||
+		result.ToolExposure.ModelCalls != 4 || result.ToolExposure.AgentIterations != 3 {
+		t.Fatalf("result=%+v executed=%d model_calls=%d", result, executed, modelCalls)
+	}
+}
+
+func TestDeepProtocolDoesNotReactivateToolsFromEarlierTurns(t *testing.T) {
+	runtime := session.NewInMemoryStore[*schema.Message](nil)
+	var currentTurn int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		if last.Role == schema.User && last.Content == "second" {
+			currentTurn = 2
+		}
+		if currentTurn == 2 {
+			for _, info := range visible {
+				if info.Name == "record_value" {
+					return nil, fmt.Errorf("historical deferred tool leaked into next turn")
+				}
+			}
+			return finalResponse("final-second", "second ok"), nil
+		}
+		switch {
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponse("final-first-turn", "first ok"), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-first", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{}`},
+			}}), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-first", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
+	request := &ai.TurnRequest{
+		SessionID: "101", UserText: "first", SessionCapability: "stable",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) { return `{"ok":true}`, nil },
+		}},
+	}
+	first, err := engine.RunTurn(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.EngineSession = first.EngineSession
+	request.UserText = "second"
+	second, err := engine.RunTurn(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Text != "second ok" {
+		t.Fatalf("second=%+v", second)
 	}
 }

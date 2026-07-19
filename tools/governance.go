@@ -448,13 +448,18 @@ type actionTurnDetails struct {
 	PlannerSource string `json:"planner_source"`
 	FinishReason  string `json:"finish_reason"`
 	TurnContext   struct {
-		Route           string   `json:"route"`
-		SystemChars     int      `json:"system_chars"`
-		HistoryChars    int      `json:"history_chars"`
-		ToolCount       int      `json:"tool_count"`
-		FullToolCount   int      `json:"full_tool_count"`
-		ToolSchemaChars int      `json:"tool_schema_chars"`
-		Tools           []string `json:"tools"`
+		Route                string   `json:"route"`
+		SystemChars          int      `json:"system_chars"`
+		HistoryChars         int      `json:"history_chars"`
+		ToolCount            int      `json:"tool_count"`
+		FullToolCount        int      `json:"full_tool_count"`
+		ToolSchemaChars      int      `json:"tool_schema_chars"`
+		Tools                []string `json:"tools"`
+		AgentIterations      int      `json:"agent_iterations"`
+		ModelCalls           int      `json:"model_calls"`
+		ModelPeakToolCount   int      `json:"model_peak_tool_count"`
+		ModelPeakSchemaChars int      `json:"model_peak_schema_chars"`
+		ModelPeakTools       []string `json:"model_peak_tools"`
 	} `json:"turn_context"`
 	ToolEvidence []struct {
 		Tool            string `json:"tool"`
@@ -509,9 +514,15 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 			}
 		}
 		if details.TurnContext.ToolCount > 0 || details.TurnContext.SystemChars > 0 {
-			fmt.Fprintf(&b, "  上下文：route=%s tools=%d/%d schema_chars=%d system_chars=%d history_chars=%d\n",
+			fmt.Fprintf(&b, "  上下文：route=%s catalog=%d/%d catalog_schema_chars=%d system_chars=%d history_chars=%d",
 				details.TurnContext.Route, details.TurnContext.ToolCount, details.TurnContext.FullToolCount,
 				details.TurnContext.ToolSchemaChars, details.TurnContext.SystemChars, details.TurnContext.HistoryChars)
+			if details.TurnContext.ModelCalls > 0 {
+				fmt.Fprintf(&b, " model_peak=%d/%d agent_iterations=%d model_calls=%d",
+					details.TurnContext.ModelPeakToolCount, details.TurnContext.ModelPeakSchemaChars,
+					details.TurnContext.AgentIterations, details.TurnContext.ModelCalls)
+			}
+			b.WriteByte('\n')
 		}
 		if details.FinishReason != "" {
 			fmt.Fprintf(&b, "  finish_reason: %s\n", details.FinishReason)

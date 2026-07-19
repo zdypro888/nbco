@@ -66,6 +66,7 @@ func TestSmokeRealToolLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	var calls atomic.Int32
+	var lastDelta atomic.Value
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
 		Mode:     ai.TurnModeDeep,
 		System:   "你是工具循环测试助手。用户要求验证时，必须先搜索并调用对应工具，再根据真实结果简短回答。",
@@ -83,6 +84,7 @@ func TestSmokeRealToolLoop(t *testing.T) {
 				return `{"ok":true,"echo":"EINO_OK"}`, nil
 			},
 		}},
+		OnDelta: func(text string) { lastDelta.Store(text) },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +99,9 @@ func TestSmokeRealToolLoop(t *testing.T) {
 		}
 	}
 	if !found || strings.TrimSpace(result.Text) == "" {
-		t.Fatalf("tool loop incomplete: text=%q steps=%+v", result.Text, result.Steps)
+		delta, _ := lastDelta.Load().(string)
+		t.Fatalf("tool loop incomplete: text=%q delta=%q truncated=%t finish=%q exposure=%+v steps=%+v",
+			result.Text, delta, result.OutputLikelyTruncated, result.FinishReason, result.ToolExposure, result.Steps)
 	}
-	t.Logf("real Eino tool loop passed: %q", result.Text)
+	t.Logf("real Eino tool loop passed: %q exposure=%+v", result.Text, result.ToolExposure)
 }

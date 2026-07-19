@@ -321,7 +321,7 @@ func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 		SuccessToolCount: 1,
 		CreatedAt:        time.Date(2026, 7, 9, 20, 30, 0, 0, time.UTC),
 	}})
-	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "send_message:returned", "已发送给 3 人", "route=people,action", "tools=22/152", "finish_reason"} {
+	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "send_message:returned", "已发送给 3 人", "route=people,action", "catalog=22/152", "finish_reason"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("动作账本渲染缺 %q:\n%s", want, got)
 		}

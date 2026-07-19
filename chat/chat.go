@@ -425,8 +425,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		Tools:           routedToolNames(toolset),
 	}
 	slog.Info("轮次上下文", "session", sess.ID, "route", diag.Route,
-		"tools", diag.ToolCount, "full_tools", diag.FullToolCount,
-		"tool_schema_chars", diag.ToolSchemaChars, "system_chars", diag.SystemChars,
+		"catalog_tools", diag.ToolCount, "authorized_tools", diag.FullToolCount,
+		"catalog_schema_chars", diag.ToolSchemaChars, "system_chars", diag.SystemChars,
 		"history_chars", diag.HistoryChars)
 
 	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
@@ -467,6 +467,15 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		return "", fmt.Errorf("AI 引擎失败: %w", err)
 	}
 	res.Text = textfmt.StripReasoning(res.Text)
+	diag.AgentIterations = res.ToolExposure.AgentIterations
+	diag.ModelCalls = res.ToolExposure.ModelCalls
+	diag.ModelPeakToolCount = res.ToolExposure.PeakToolCount
+	diag.ModelPeakSchemaChars = res.ToolExposure.PeakSchemaChars
+	diag.ModelPeakTools = res.ToolExposure.PeakTools
+	slog.Info("模型工具上下文", "session", sess.ID, "agent_iterations", diag.AgentIterations,
+		"model_calls", diag.ModelCalls,
+		"peak_tools", diag.ModelPeakToolCount, "peak_schema_chars", diag.ModelPeakSchemaChars,
+		"peak_tool_names", diag.ModelPeakTools)
 	engineOK := true
 	if needsVisibleReplyRepair(res) {
 		slog.Warn("模型可见答复疑似截断，准备兜底",
