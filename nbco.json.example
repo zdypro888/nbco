@@ -30,7 +30,7 @@
     "max_tokens": 4096,
     "timeout_ms": 300000,
     "turn_timeout_ms": 600000,
-    "max_turns": 16,
+    "max_turns": 64,
     "summarize_after_tokens": 24000,
     "summarize_after_messages": 80,
     "stream_reasoning": false,

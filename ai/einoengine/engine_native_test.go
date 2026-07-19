@@ -120,6 +120,58 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	}
 }
 
+func TestDeepAgentMayRepeatSameToolAndArguments(t *testing.T) {
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			if executed < 2 {
+				return schema.AssistantMessage("", []schema.ToolCall{{
+					ID: fmt.Sprintf("repeat-%d", executed+1), Type: "function",
+					Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"same"}`},
+				}}), nil
+			}
+			return schema.AssistantMessage("两次执行完成", nil), nil
+		case last.Role == schema.Tool && last.ToolName == "tool_search":
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "repeat-1", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"same"}`},
+			}}), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-repeat", Type: "function",
+				Function: schema.FunctionCall{Name: "tool_search", Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		System:   "按需要重复执行工具。",
+		UserText: "把相同值记录两次",
+		Tools: []ai.Tool{{
+			Name:        "record_value",
+			Description: "保存一个值",
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"value": map[string]any{"type": "string"}},
+				"required":   []string{"value"},
+			},
+			Handler: func(_ context.Context, args json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "两次执行完成" || executed != 2 {
+		t.Fatalf("result=%q executed=%d steps=%+v", result.Text, executed, result.Steps)
+	}
+}
+
 func TestOneShotUsesOneToolFreeGeneration(t *testing.T) {
 	var calls int
 	state := &scriptedModelState{}
@@ -347,6 +399,28 @@ func TestCapabilityChangeRotatesManagedSession(t *testing.T) {
 	base.EngineSession = second
 	if got := engine.engineSessionID(base); got != second {
 		t.Fatalf("stable capability set rotated again: got=%q want=%q", got, second)
+	}
+}
+
+func TestToolContractChangeRotatesManagedSessionWithStableScope(t *testing.T) {
+	base := []ai.Tool{{
+		Name: "view_project", Description: "read project", Effect: ai.ToolEffectRead,
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{
+			"project_id": map[string]any{"type": "integer"},
+		}},
+	}}
+	first := capabilityFingerprint(base, "superadmin")
+	unchanged := capabilityFingerprint(base, "superadmin")
+	if first != unchanged {
+		t.Fatalf("stable contract fingerprint changed: %q != %q", first, unchanged)
+	}
+	updated := append([]ai.Tool(nil), base...)
+	updated[0].InputSchema = map[string]any{"type": "object", "properties": map[string]any{
+		"project_id":    map[string]any{"type": "integer"},
+		"include_tasks": map[string]any{"type": "boolean"},
+	}}
+	if got := capabilityFingerprint(updated, "superadmin"); got == first {
+		t.Fatal("schema change did not rotate a scoped managed session")
 	}
 }
 

@@ -77,17 +77,34 @@ func (svc *Service) EmbedMessageAsync(id int64, content string) {
 
 // SearchHistory 在 userID 名下的历史消息里做混合检索（新旧会话都搜）。
 func (svc *Service) SearchHistory(ctx context.Context, userID int64, query string, limit int) ([]store.ChatMessage, error) {
+	return svc.searchHistory(ctx, userID, query, limit, false)
+}
+
+// SearchUserHistory is the conservative automatic-recall path. Every valid
+// transcript row remains indexed and explicitly searchable, but unattended
+// context injection starts from human statements rather than prior model text.
+func (svc *Service) SearchUserHistory(ctx context.Context, userID int64, query string, limit int) ([]store.ChatMessage, error) {
+	return svc.searchHistory(ctx, userID, query, limit, true)
+}
+
+func (svc *Service) searchHistory(ctx context.Context, userID int64, query string, limit int, userOnly bool) ([]store.ChatMessage, error) {
 	if limit <= 0 {
 		limit = 5
 	}
-	lexical, err := svc.store.SearchMessagesOfUser(ctx, userID, query, limit)
+	var lexical []store.ChatMessage
+	var err error
+	if userOnly {
+		lexical, err = svc.store.SearchUserMessagesOfUser(ctx, userID, query, limit)
+	} else {
+		lexical, err = svc.store.SearchMessagesOfUser(ctx, userID, query, limit)
+	}
 	if err != nil {
 		return nil, err
 	}
 	if svc.embedder == nil {
 		return lexical, nil
 	}
-	ranked, serr := svc.semanticHistory(ctx, userID, query, limit)
+	ranked, serr := svc.semanticHistory(ctx, userID, query, limit, userOnly)
 	if serr != nil {
 		slog.Warn("历史语义检索失败，回退词法", "err", serr)
 		return lexical, nil
@@ -98,6 +115,14 @@ func (svc *Service) SearchHistory(ctx context.Context, userID int64, query strin
 // SearchGroupHistory searches only one exact shared group transcript. Private
 // sessions never carry this channel scope, and SQL re-checks it after Qdrant.
 func (svc *Service) SearchGroupHistory(ctx context.Context, channel, query string, limit int) ([]store.ChatMessage, error) {
+	return svc.searchGroupHistory(ctx, channel, query, limit, false)
+}
+
+func (svc *Service) SearchGroupUserHistory(ctx context.Context, channel, query string, limit int) ([]store.ChatMessage, error) {
+	return svc.searchGroupHistory(ctx, channel, query, limit, true)
+}
+
+func (svc *Service) searchGroupHistory(ctx context.Context, channel, query string, limit int, userOnly bool) ([]store.ChatMessage, error) {
 	channel = strings.TrimSpace(channel)
 	if !store.IsGroupChannel(channel) {
 		return nil, nil
@@ -105,7 +130,13 @@ func (svc *Service) SearchGroupHistory(ctx context.Context, channel, query strin
 	if limit <= 0 {
 		limit = 5
 	}
-	lexical, err := svc.store.SearchMessagesOfChannel(ctx, channel, query, limit)
+	var lexical []store.ChatMessage
+	var err error
+	if userOnly {
+		lexical, err = svc.store.SearchUserMessagesOfChannel(ctx, channel, query, limit)
+	} else {
+		lexical, err = svc.store.SearchMessagesOfChannel(ctx, channel, query, limit)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -116,11 +147,15 @@ func (svc *Service) SearchGroupHistory(ctx context.Context, channel, query strin
 	if err != nil {
 		return lexical, nil
 	}
-	hits, err := svc.semantic.SearchVector(ctx, qv, vectorstore.Filter{Must: map[string]any{
+	must := map[string]any{
 		vectorstore.PayloadSource:            semantic.SourceChatMessage,
 		vectorstore.PayloadChannel:           channel,
 		vectorstore.PayloadConversationScope: "group",
-	}}, limit*semanticCandidateMul, 0)
+	}
+	if userOnly {
+		must[vectorstore.PayloadRole] = string(ai.RoleUser)
+	}
+	hits, err := svc.semantic.SearchVector(ctx, qv, vectorstore.Filter{Must: must}, limit*semanticCandidateMul, 0)
 	if err != nil {
 		slog.Warn("群历史语义检索失败，回退词法", "channel", channel, "err", err)
 		return lexical, nil
@@ -131,24 +166,33 @@ func (svc *Service) SearchGroupHistory(ctx context.Context, channel, query strin
 			ids = append(ids, id)
 		}
 	}
-	semanticRows, err := svc.store.MessagesByIDsForChannel(ctx, channel, ids)
+	var semanticRows []store.ChatMessage
+	if userOnly {
+		semanticRows, err = svc.store.UserMessagesByIDsForChannel(ctx, channel, ids)
+	} else {
+		semanticRows, err = svc.store.MessagesByIDsForChannel(ctx, channel, ids)
+	}
 	if err != nil {
 		return lexical, nil
 	}
 	return mergeMessages(semanticRows, lexical, limit), nil
 }
 
-func (svc *Service) semanticHistory(ctx context.Context, userID int64, query string, limit int) ([]store.ChatMessage, error) {
+func (svc *Service) semanticHistory(ctx context.Context, userID int64, query string, limit int, userOnly bool) ([]store.ChatMessage, error) {
 	qv, err := svc.queryVector(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	if svc.semantic != nil {
-		hits, err := svc.semantic.SearchVector(ctx, qv, vectorstore.Filter{Must: map[string]any{
+		must := map[string]any{
 			vectorstore.PayloadSource:            semantic.SourceChatMessage,
 			vectorstore.PayloadSessionUser:       userID,
 			vectorstore.PayloadConversationScope: "private",
-		}}, limit*semanticCandidateMul, 0)
+		}
+		if userOnly {
+			must[vectorstore.PayloadRole] = string(ai.RoleUser)
+		}
+		hits, err := svc.semantic.SearchVector(ctx, qv, vectorstore.Filter{Must: must}, limit*semanticCandidateMul, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -159,10 +203,18 @@ func (svc *Service) semanticHistory(ctx context.Context, userID int64, query str
 				ids = append(ids, id)
 			}
 		}
+		if userOnly {
+			return svc.store.UserMessagesByIDsForUser(ctx, userID, ids)
+		}
 		return svc.store.MessagesByIDsForUser(ctx, userID, ids)
 	}
 	tag := messageIndexMarker(modelTag(svc.embedder.Model(), len(qv)))
-	cands, err := svc.store.EmbeddedMessagesOfUser(ctx, tag, userID)
+	var cands []store.MessageVec
+	if userOnly {
+		cands, err = svc.store.EmbeddedUserMessagesOfUser(ctx, tag, userID)
+	} else {
+		cands, err = svc.store.EmbeddedMessagesOfUser(ctx, tag, userID)
+	}
 	if err != nil || len(cands) == 0 {
 		return nil, err
 	}
@@ -182,6 +234,9 @@ func (svc *Service) semanticHistory(ctx context.Context, userID int64, query str
 	ids := make([]int64, 0, n)
 	for _, s := range arr[:n] {
 		ids = append(ids, s.id)
+	}
+	if userOnly {
+		return svc.store.UserMessagesByIDsForUser(ctx, userID, ids)
 	}
 	return svc.store.MessagesByIDsForUser(ctx, userID, ids)
 }
@@ -382,7 +437,7 @@ func messagePayload(message store.MessageSemanticDocument) map[string]any {
 		vectorstore.PayloadSessionUser:       message.UserID,
 		vectorstore.PayloadConversationScope: "private",
 		"channel":                            message.Channel,
-		"role":                               message.Role,
+		vectorstore.PayloadRole:              message.Role,
 	}
 	if store.IsGroupChannel(message.Channel) {
 		payload[vectorstore.PayloadChannel] = message.Channel

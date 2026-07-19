@@ -60,7 +60,7 @@ func New(ctx context.Context, cfg config.AIConfig, opts ...Option) (*Engine, err
 		return nil, fmt.Errorf("设置 Eino 内置提示语言: %w", err)
 	}
 	if cfg.MaxTurns <= 0 {
-		cfg.MaxTurns = 16
+		cfg.MaxTurns = 64
 	}
 	if cfg.SummarizeAfterTokens <= 0 {
 		cfg.SummarizeAfterTokens = 24000
@@ -262,9 +262,6 @@ func validateOneShotRequest(req *ai.TurnRequest) error {
 	if len(req.Skills) > 0 {
 		return errors.New("one-shot Eino turn cannot expose skills")
 	}
-	if req.ShouldDisableTools != nil {
-		return errors.New("one-shot Eino turn cannot configure a tool budget")
-	}
 	if strings.TrimSpace(req.EngineSession) != "" && strings.TrimSpace(req.SessionCapability) == "" {
 		return errors.New("one-shot Eino session continuation requires a capability scope")
 	}
@@ -373,10 +370,7 @@ func (e *Engine) newDeepAgent(
 		return nil, fmt.Errorf("构建 Eino 上下文摘要: %w", err)
 	}
 	handlers = append(handlers, summaryMiddleware)
-	handlers = append(handlers, &toolBudgetMiddleware{
-		shouldDisable: req.ShouldDisableTools,
-		maxIterations: e.maxTurns,
-	})
+	handlers = append(handlers, &finalIterationMiddleware{maxIterations: e.maxTurns})
 
 	agent, err := deep.New(ctx, &deep.Config{
 		Name:                   "nbco",
@@ -445,6 +439,12 @@ func (e *Engine) engineSessionID(req *ai.TurnRequest) string {
 	if e.runtime == nil || req.DisableSession || !persistentChatSessionID(req.SessionID) {
 		return ""
 	}
+	if req.Mode == ai.TurnModeOneShot && req.EngineSession != "" {
+		prefix := "eino:chat:" + req.SessionID + ":" + scopeFingerprint(req.SessionCapability) + "-"
+		if strings.HasPrefix(req.EngineSession, prefix) {
+			return req.EngineSession
+		}
+	}
 	fingerprint := capabilityFingerprint(req.Tools, req.SessionCapability)
 	prefix := "eino:chat:" + req.SessionID + ":" + fingerprint + ":"
 	if strings.HasPrefix(req.EngineSession, prefix) {
@@ -464,16 +464,29 @@ func persistentChatSessionID(id string) bool {
 }
 
 func capabilityFingerprint(tools []ai.Tool, stableScope string) string {
-	if stableScope != "" {
-		sum := sha256.Sum256([]byte(stableScope))
-		return fmt.Sprintf("%x", sum[:8])
-	}
-	names := make([]string, 0, len(tools))
+	contracts := make([]string, 0, len(tools))
 	for _, item := range tools {
-		names = append(names, item.Name)
+		schema, _ := json.Marshal(item.InputSchema)
+		contracts = append(contracts, strings.Join([]string{
+			item.Name,
+			item.Domain,
+			item.Effect,
+			item.RequiredAction,
+			strconv.FormatBool(item.GroupSensitive),
+			item.Description,
+			string(schema),
+		}, "\x1f"))
 	}
-	sort.Strings(names)
-	sum := sha256.Sum256([]byte(strings.Join(names, "\x00")))
+	sort.Strings(contracts)
+	// Authorization and tool contracts are both session boundaries. Keeping a
+	// durable agent trace after a schema/description change teaches the model
+	// obsolete field names and behavior even though its permissions are valid.
+	contractSum := sha256.Sum256([]byte(strings.Join(contracts, "\x00")))
+	return scopeFingerprint(stableScope) + "-" + fmt.Sprintf("%x", contractSum[:8])
+}
+
+func scopeFingerprint(stableScope string) string {
+	sum := sha256.Sum256([]byte(stableScope))
 	return fmt.Sprintf("%x", sum[:8])
 }
 
@@ -787,25 +800,23 @@ type einoTool struct {
 	t ai.Tool
 }
 
-// toolBudgetMiddleware uses Eino's model-state hook to terminate a spent tool
-// phase. The rejected tool result remains in Messages, while an empty ToolInfos
-// list forces the next model invocation to produce a final response.
-type toolBudgetMiddleware struct {
+// finalIterationMiddleware reserves the final Eino lifecycle iteration for a
+// visible answer. It does not count or reject tool calls: the native agent loop
+// may invoke any tool as often as needed before the configured lifecycle limit.
+type finalIterationMiddleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
-	shouldDisable func() bool
 	maxIterations int
 	iteration     int
 }
 
-func (m *toolBudgetMiddleware) BeforeModelRewriteState(
+func (m *finalIterationMiddleware) BeforeModelRewriteState(
 	ctx context.Context,
 	state *adk.TypedChatModelAgentState[*schema.Message],
 	_ *adk.TypedModelContext[*schema.Message],
 ) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
 	m.iteration++
-	budgetSpent := m.shouldDisable != nil && m.shouldDisable()
 	finalIteration := m.maxIterations > 0 && m.iteration >= m.maxIterations
-	if budgetSpent || finalIteration {
+	if finalIteration {
 		state.ToolInfos = nil
 		state.DeferredToolInfos = nil
 	}

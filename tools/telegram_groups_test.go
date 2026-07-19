@@ -44,9 +44,18 @@ func TestRenderTelegramGroupHidesChatIDLabel(t *testing.T) {
 
 func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
 	tz := time.FixedZone("CST", 8*60*60)
-	from, to, msg := telegramGroupMessageRange("2026-07-10", 0, tz)
-	if msg != "" || from.In(tz).Format("2006-01-02 15:04") != "2026-07-10 00:00" || to.Sub(from) != 24*time.Hour {
+	from, to, msg := telegramGroupMessageRange("2020-07-10", 0, tz)
+	if msg != "" || from.In(tz).Format("2006-01-02 15:04") != "2020-07-10 00:00" || to.Sub(from) != 24*time.Hour {
 		t.Fatalf("date range = %v %v %q", from, to, msg)
+	}
+	today := time.Now().In(tz).Format("2006-01-02")
+	from, to, msg = telegramGroupMessageRange(today, 0, tz)
+	if msg != "" || to.Before(from) || time.Until(to) > time.Second {
+		t.Fatalf("today range must end at now: %v %v %q", from, to, msg)
+	}
+	future := time.Now().In(tz).AddDate(0, 0, 1).Format("2006-01-02")
+	if _, _, msg := telegramGroupMessageRange(future, 0, tz); !strings.Contains(msg, "不能晚于") {
+		t.Fatalf("future date message = %q", msg)
 	}
 	if _, _, msg := telegramGroupMessageRange("bad", 0, tz); !strings.Contains(msg, "YYYY-MM-DD") {
 		t.Fatalf("invalid date message = %q", msg)

@@ -1,6 +1,6 @@
 // Package events 是系统事件总线：领域事件（员工加入、worker 上线、任务提交等）
 // 不再各自硬编码「通知谁、说什么」，而是统一交给 AI 分析——以事件相关人的身份
-// 跑一轮引擎，AI 结合该用户的会话上下文、行为规则与工具，自己决定要不要通知、
+// 跑一轮隔离的引擎执行，AI 结合规则与工具，自己决定要不要通知、
 // 通知什么措辞、要不要顺手做点什么（建任务/设提醒/存档），不值得打扰就静默。
 // 代码保证事件持久化、有限重试与并发受控；AI 失败时降级为原文推送，最终失败
 // 留在运行账本中供诊断和人工重放，而不是静默丢失。
@@ -41,7 +41,7 @@ type Bus struct {
 	store    *store.Store
 	orch     *chat.Orchestrator
 	notifier notify.Notifier
-	channel  string        // AI 轮次挂在哪个渠道会话上（与调度器一致，保证上下文连续）
+	channel  string        // AI 结果按哪个渠道格式化并投递
 	sem      chan struct{} // AI 轮次限并发，护后端网关
 	wake     chan struct{}
 }
@@ -161,7 +161,7 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 			}
 			mode = store.EventOutcomeHandled
 			if b.orch != nil {
-				reply, err = b.orch.HandleMessage(ctx, u, b.channel, directive(event.Kind, event.Detail))
+				reply, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail), false)
 			}
 			if b.orch == nil || err != nil || strings.TrimSpace(reply) == "" {
 				if err != nil {

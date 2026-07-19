@@ -82,6 +82,7 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				if len(k.Tags) > 0 {
 					fmt.Fprintf(&b, "标签: %s\n", strings.Join(k.Tags, ", "))
 				}
+				fmt.Fprintf(&b, "状态: %s\n", map[bool]string{true: "生效", false: "已归档"}[k.Active])
 				fmt.Fprintf(&b, "作者: %s · 更新于 %s\n\n%s", userName(ctx, d.Store, k.AuthorID), fmtTime(k.UpdatedAt, d.TZ), k.Content)
 				return b.String(), nil
 			}),
@@ -154,6 +155,44 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return "已删除。", nil
+			}),
+
+		tool("set_knowledge_active", "归档或恢复一条知识、规则或 skill。归档后不再进入搜索、规则注入或 skill 路由，但原文和版本保留。仅作者或超管可操作。",
+			obj(map[string]any{
+				"id":     p("integer", "知识ID"),
+				"active": p("boolean", "true=恢复生效，false=归档"),
+				"reason": p("string", "变更原因，供审计"),
+			}, "id", "active"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					ID     int64  `json:"id"`
+					Active bool   `json:"active"`
+					Reason string `json:"reason"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				k, err := d.Store.KnowledgeByID(ctx, args.ID)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "知识条目不存在。", nil
+					}
+					return "", err
+				}
+				if k.AuthorID != u.ID && !u.IsSuperadmin {
+					return "只有作者或超管能归档或恢复。", nil
+				}
+				updated, err := d.Store.SetKnowledgeActive(ctx, args.ID, args.Active, u.ID, args.Reason)
+				if err != nil {
+					return "", err
+				}
+				if args.Active && d.Knowledge != nil {
+					d.Knowledge.Reembed(ctx, updated)
+				}
+				if args.Active {
+					return "已恢复生效。", nil
+				}
+				return "已归档；历史与版本仍保留。", nil
 			}),
 
 		tool("list_recent_knowledge", "查看最近入库的知识条目。", obj(nil),

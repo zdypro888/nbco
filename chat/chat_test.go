@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -120,7 +121,7 @@ func TestStyleFor(t *testing.T) {
 	}
 }
 
-func TestCapabilityScopeTracksAuthorizationNotToolCatalog(t *testing.T) {
+func TestCapabilityScopeTracksAuthorization(t *testing.T) {
 	owner := int64(9)
 	user := &store.User{ID: 2, IsWorker: true, OwnerID: &owner}
 	grants := []store.Grant{
@@ -287,6 +288,56 @@ func TestRenderRetrievalBlock(t *testing.T) {
 	}
 }
 
+func TestSelectRetrievalCandidatesUsesAIAllowList(t *testing.T) {
+	o := &Orchestrator{deps: tools.Deps{SubcallAI: func(_ context.Context, _ *store.User, purpose, _ string) (string, error) {
+		if purpose != "retrieval_router" {
+			t.Fatalf("purpose = %q", purpose)
+		}
+		return `{"knowledge_ids":[2,999],"message_ids":[11]}`, nil
+	}}}
+	ks := []*store.Knowledge{{ID: 1, Title: "one"}, {ID: 2, Title: "two"}}
+	ms := []store.ChatMessage{{ID: 10, Content: "old"}, {ID: 11, Content: "relevant"}}
+	gotK, gotM := o.selectRetrievalCandidates(context.Background(), &store.User{ID: 7}, "request", ks, ms)
+	if len(gotK) != 1 || gotK[0].ID != 2 || len(gotM) != 1 || gotM[0].ID != 11 {
+		t.Fatalf("selected knowledge/messages = %+v / %+v", gotK, gotM)
+	}
+}
+
+func TestSelectRetrievalCandidatesFailsClosed(t *testing.T) {
+	o := &Orchestrator{deps: tools.Deps{SubcallAI: func(context.Context, *store.User, string, string) (string, error) {
+		return "not-json", nil
+	}}}
+	ks, ms := o.selectRetrievalCandidates(context.Background(), &store.User{ID: 7}, "request",
+		[]*store.Knowledge{{ID: 1}}, []store.ChatMessage{{ID: 2}})
+	if len(ks) != 0 || len(ms) != 0 {
+		t.Fatalf("invalid router output must inject nothing: %+v / %+v", ks, ms)
+	}
+}
+
+func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
+	var mined minedMemory
+	if err := json.Unmarshal([]byte(`{
+		"rules":[{"title":"rule","content":"content","evidence":"evidence"}],
+		"skills":[],
+		"knowledge":[{"title":"fact","content":"content","evidence":"evidence"}]
+	}`), &mined); err != nil {
+		t.Fatal(err)
+	}
+	o := &Orchestrator{deps: tools.Deps{SubcallAI: func(_ context.Context, _ *store.User, purpose, _ string) (string, error) {
+		if purpose != "memory_governance" {
+			t.Fatalf("purpose = %q", purpose)
+		}
+		return `{"rules":["review"],"skills":[],"knowledge":["publish"]}`, nil
+	}}}
+	review := o.reviewMinedMemory(context.Background(), &store.User{ID: 1}, mined, memorySource{UserText: "evidence"})
+	if got := review.decision(store.KnowledgeKindPolicy, 0); got != "review" {
+		t.Fatalf("rule decision = %q", got)
+	}
+	if got := review.decision(store.KnowledgeKindFact, 0); got != "publish" {
+		t.Fatalf("knowledge decision = %q", got)
+	}
+}
+
 func TestShouldFetchHistory(t *testing.T) {
 	for _, channel := range []string{"api", "telegram", "telegram:group:-42"} {
 		if !shouldFetchHistory(channel) {
@@ -373,87 +424,46 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 	}
 }
 
-func TestBuildActionAuditPlanDoesNotCallPlanner(t *testing.T) {
+func TestBuildActionAuditPlanUsesActualTraceOnly(t *testing.T) {
 	toolset := []ai.Tool{
-		{Name: "start_workflow", Description: "启动标准 worker 工作流"},
-		{Name: "schedule_push", Description: "设置定向周期智能推送，目标可以是全体成员，例如例会提醒"},
-		{Name: "schedule_repeating", Description: "设置循环定时提醒"},
-		{Name: "send_message", Description: "向员工发送消息"},
-		{Name: "create_data_collection_campaign", Description: "创建员工资料收集活动"},
-		{Name: "update_user_info", Description: "修改真人员工基本信息"},
-		{Name: "delete_assigned_task", Description: "删除任务"},
-		{Name: "delete_project", Description: "删除项目"},
-		{Name: "cancel_schedule", Description: "取消定时规则"},
-		{Name: "set_telegram_group_monitor", Description: "设置群监控"},
-		{Name: "list_telegram_groups", Description: "列出群"},
-		{Name: "save_rule", Description: "保存规则"},
-		{Name: "low_level_db_query", Description: "底层数据库查询"},
-		{Name: "low_level_db_exec", Description: "底层数据库写入"},
+		{Name: "schedule_push", Effect: ai.ToolEffectWrite},
+		{Name: "list_schedules", Effect: ai.ToolEffectRead},
 	}
-	plan := buildActionAuditPlan("明天早上 9 点提醒全体员工完善个人档案", toolset, &ai.TurnResult{})
-	if plan == nil || !plan.RequiresAction {
-		t.Fatalf("动作请求应进入审计账本: %+v", plan)
+	plan := buildActionAuditPlan("明天早上提醒大家", toolset, &ai.TurnResult{})
+	if plan == nil || plan.RequiresAction || len(plan.ExpectedTools) != 0 {
+		t.Fatalf("没有实际工具调用时不得猜测动作: %+v", plan)
 	}
-	if plan.Source != "audit_heuristic" {
-		t.Fatalf("审计计划不应来自同步模型规划器: %+v", plan)
+	if plan.Source != "tool_trace" || actionTurnOutcome(plan, &ai.TurnResult{}) != "answered_without_tool" {
+		t.Fatalf("trace-only audit = %+v", plan)
 	}
-	if !containsString(plan.ExpectedTools, "schedule_push") {
-		t.Fatalf("审计候选工具缺 schedule_push: %+v", plan.ExpectedTools)
-	}
-	if containsString(plan.ExpectedTools, "update_user_info") {
-		t.Fatalf("通知大家完善资料不能把直接改员工资料当完成证据: %+v", plan.ExpectedTools)
+	res := &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_push", Result: "已创建"}}}
+	plan = buildActionAuditPlan("明天早上提醒大家", toolset, res)
+	if !plan.RequiresAction || !containsString(plan.ExpectedTools, "schedule_push") || actionTurnOutcome(plan, res) != "action_tool_returned" {
+		t.Fatalf("actual action trace = %+v outcome=%s", plan, actionTurnOutcome(plan, res))
 	}
 }
 
-func TestActionAuditPlanSkipsStatusQuestions(t *testing.T) {
-	if plan := buildActionAuditPlan("clone了吗？", []ai.Tool{{Name: "list_action_turns"}}, &ai.TurnResult{}); plan != nil {
-		t.Fatalf("状态核实不应被记录成新的动作请求: %+v", plan)
-	}
+func TestActionAuditPlanRecordsReadOnlyWithoutCallingItAction(t *testing.T) {
 	readOnly := &ai.TurnResult{
-		FinishReason: "blocked_no_tool_completion", // 兼容历史值，不得反向改变用户意图。
-		Steps:        []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_data_collection_campaigns", Result: "（没有资料收集活动）"}},
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_data_collection_campaigns", Result: "（没有资料收集活动）"}},
 	}
-	if plan := buildActionAuditPlan("员工有在完善自己的信息吗", []ai.Tool{{Name: "list_data_collection_campaigns", Effect: ai.ToolEffectRead}}, readOnly); plan != nil {
-		t.Fatalf("只读查询不能因模型 finish_reason 或查询工具被污染成动作: %+v", plan)
+	plan := buildActionAuditPlan("员工有在完善自己的信息吗", []ai.Tool{{Name: "list_data_collection_campaigns", Effect: ai.ToolEffectRead}}, readOnly)
+	if plan == nil || plan.RequiresAction || actionTurnOutcome(plan, readOnly) != "read_tool_returned" {
+		t.Fatalf("read-only trace was mislabeled: %+v", plan)
 	}
 }
 
-func TestToolResultEvidenceClassification(t *testing.T) {
-	pending := []ai.Step{{Kind: ai.StepToolCall, ToolName: "create_worker", Result: "⚠️ 高危操作已登记为待确认动作，请向用户复述。"}}
-	if !toolResultLooksFailed(pending[0].Result) || !toolResultLooksPendingApproval(pending[0].Result) {
-		t.Fatal("待确认动作不应算完成证据，但要保留 pending_approval 状态")
+func TestToolEvidenceTracksHandlerBoundaryNotChineseWording(t *testing.T) {
+	steps := []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "send_message", Result: "发送失败：目标不存在"},
+		{Kind: ai.StepToolCall, ToolName: "query_data", Err: "database unavailable"},
 	}
-	allSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 24 人，失败 0 人。"}}
-	if toolResultLooksFailed(allSent[0].Result) {
-		t.Fatal("成功 N 人、失败 0 人的统计结果应算有效执行证据")
+	evidence := summarizeToolEvidence(steps)
+	if len(evidence) != 2 || !evidence[0].HandlerReturned || evidence[1].HandlerReturned {
+		t.Fatalf("handler evidence = %+v", evidence)
 	}
-	partialSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 20 人，失败 4 人。"}}
-	if toolResultLooksFailed(partialSent[0].Result) {
-		t.Fatal("部分成功的统计结果应算有效执行证据，最终回复负责报告失败明细")
-	}
-	createdWithNextStep := []ai.Step{{Kind: ai.StepToolCall, ToolName: "create_script_tool", Result: "已创建脚本工具（脚本工具#7）format_date（当前 disabled）。请先 test_script_tool，确认通过后再 enable_script_tool。"}}
-	if toolResultLooksFailed(createdWithNextStep[0].Result) {
-		t.Fatal("成功创建后的下一步提示不应被“请先”误判为失败")
-	}
-	noneSent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 0 人，失败 24 人。"}}
-	if !toolResultLooksFailed(noneSent[0].Result) {
-		t.Fatal("成功 0 人、失败 N 人不应算成功证据")
-	}
-	emptySent := []ai.Step{{Kind: ai.StepToolCall, ToolName: "send_message", Result: "全体真人员工发送完成：成功 0 人，失败 0 人。"}}
-	if !toolResultLooksFailed(emptySent[0].Result) {
-		t.Fatal("成功 0 人、失败 0 人的空执行不应算成功证据")
-	}
-	if !toolResultLooksFailed("这条 skill 标记为高风险，必须由用户明确确认。确认后再次调用。") {
-		t.Fatal("没有成功动作的确认要求仍应算失败/阻塞证据")
-	}
-	if !toolResultLooksFailed("员工邀请链接或邀请码无效、已使用或已过期，请向管理员重新索取。") {
-		t.Fatal("无效/已使用/已过期的凭据结果不应被“已”误判为成功")
-	}
-	if toolResultLooksFailed("已停用。其名下 2 个未完成任务已重置为待改派。") {
-		t.Fatal("成功停用/作废类动作不应因状态词被误判为失败")
-	}
-	if !toolResultLooksFailed(tools.TurnBudgetExhaustedMarker + " 本轮工具调用已达到上限。") {
-		t.Fatal("工具预算控制流结果不能充当动作成功证据")
+	if total, returned := countToolEvidence(steps); total != 2 || returned != 1 {
+		t.Fatalf("tool counts = %d/%d", returned, total)
 	}
 }
 
@@ -461,40 +471,13 @@ func TestPendingApprovalRecordedAsOutcome(t *testing.T) {
 	steps := []ai.Step{{
 		Kind:     ai.StepToolCall,
 		ToolName: "run_worker_command",
-		Result:   "⚠️ 高危操作已登记为待确认动作（确认动作内部编号 2，10 分钟内有效）。请向用户复述将要执行的具体操作并征得明确同意。",
+		Result:   tools.PendingApprovalMarker + " ⚠️ 高危操作已登记为待确认动作。",
 	}}
 	outcome := actionTurnOutcome(&actionPlan{RequiresAction: true}, &ai.TurnResult{
 		Steps: steps,
 	})
 	if outcome != "pending_approval" {
 		t.Fatalf("待确认动作应记录为 pending_approval，got %s", outcome)
-	}
-}
-
-func TestActionAuditPlanIncludesWorkerCommandForCloneRequest(t *testing.T) {
-	tools := []ai.Tool{
-		{Name: "start_workflow"},
-		{Name: "start_worker_skill"},
-		{Name: "run_worker_command"},
-		{Name: "create_worker"},
-		{Name: "issue_worker_bind_code"},
-	}
-	plan := buildActionAuditPlan("你自己项目的源码地址 https://github.com/zdypro888/nbco。用 worker clone 下来，准备以后升级用", tools, &ai.TurnResult{})
-	if plan == nil || !plan.RequiresAction {
-		t.Fatalf("clone worker 请求应进入动作审计: %+v", plan)
-	}
-	if !containsString(plan.ExpectedTools, "run_worker_command") {
-		t.Fatalf("worker clone 请求必须允许 run_worker_command 作为完成证据: %+v", plan.ExpectedTools)
-	}
-}
-
-func TestSuccessfulActionEvidenceAllowsAnyWriteOrExecuteTool(t *testing.T) {
-	plan := &actionPlan{RequiresAction: true, ExpectedTools: []string{"start_workflow"}}
-	if !hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "run_worker_command", Result: "已创建 worker 命令任务（任务内部编号 9）。"}}) {
-		t.Fatal("审计候选工具不匹配时，真实执行类工具成功仍应作为动作证据")
-	}
-	if hasSuccessfulActionEvidence(plan, []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_workers", Result: "worker 列表：NBAI 在线。"}}) {
-		t.Fatal("读取类工具成功不能证明动作完成")
 	}
 }
 
@@ -524,9 +507,6 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 		UserText:      "perform work",
 		Tools:         []ai.Tool{{Name: "write"}},
 		Skills:        []ai.Skill{{Name: "procedure"}},
-		ShouldDisableTools: func() bool {
-			return false
-		},
 	}
 	if _, err := orchestrator.repairDegenerateTurn(context.Background(), request, first, nil); err != nil {
 		t.Fatal(err)
@@ -535,9 +515,9 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 	if retry == nil || retry.Mode != ai.TurnModeOneShot {
 		t.Fatalf("repair mode = %v", retry)
 	}
-	if len(retry.Tools) != 0 || len(retry.Skills) != 0 || retry.ShouldDisableTools != nil {
-		t.Fatalf("repair retained agent capabilities: tools=%d skills=%d budget=%v",
-			len(retry.Tools), len(retry.Skills), retry.ShouldDisableTools != nil)
+	if len(retry.Tools) != 0 || len(retry.Skills) != 0 {
+		t.Fatalf("repair retained agent capabilities: tools=%d skills=%d",
+			len(retry.Tools), len(retry.Skills))
 	}
 	if retry.EngineSession != first.EngineSession {
 		t.Fatalf("repair session = %q want %q", retry.EngineSession, first.EngineSession)

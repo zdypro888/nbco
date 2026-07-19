@@ -157,7 +157,9 @@ func ForUserContext(ctx context.Context, d Deps, u *store.User, sessionID *int64
 
 	for i := range ts {
 		// 审计包在审批外层：登记与执行两次调用都留审计记录。
-		ts[i] = withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i]))
+		// 参数归一化放最外层，让审计、审批哈希和实际 handler 看到同一份
+		// schema 规范参数；MCP/HTTP 等非聊天入口也获得相同行为。
+		ts[i] = withArgumentNormalization(withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i])))
 	}
 	return ts
 }
@@ -204,6 +206,7 @@ func baseStaticTools(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, workflowTools(d, u)...)
 	ts = append(ts, capabilityTools(d, u)...)
 	ts = append(ts, dataReadTools(d, u)...)
+	ts = append(ts, webTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, lowLevelTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
@@ -432,108 +435,6 @@ func StripApprovalRequired(ts []ai.Tool) []ai.Tool {
 		out = append(out, t)
 	}
 	return out
-}
-
-// TurnBudget bounds one model turn's tool use. Once a limit is hit the guard
-// rejects that call and asks the engine to withdraw tools before its next model
-// invocation, guaranteeing that even a weak model can leave the tool loop.
-type TurnBudget struct {
-	MaxCalls       int
-	MaxPerTool     int
-	MaxExactRepeat int
-}
-
-// TurnBudgetExhaustedMarker identifies control-flow responses that never ran
-// the wrapped tool. Evidence consumers must not treat them as successful side
-// effects merely because the readable text contains words such as “已”.
-const TurnBudgetExhaustedMarker = "[nbco:tool_budget_exhausted]"
-
-// TurnBudgetGuard owns one turn's counters and exposes the state to the engine.
-// It is safe when a model emits several parallel tool calls in one response.
-type TurnBudgetGuard struct {
-	state *turnBudgetState
-}
-
-func NewTurnBudgetGuard(budget TurnBudget) *TurnBudgetGuard {
-	return &TurnBudgetGuard{state: &turnBudgetState{
-		budget: budget,
-		tools:  map[string]int{},
-		exact:  map[string]int{},
-	}}
-}
-
-func (g *TurnBudgetGuard) Wrap(ts []ai.Tool) []ai.Tool {
-	if g == nil || g.state == nil || (g.state.budget.MaxCalls <= 0 && g.state.budget.MaxPerTool <= 0 && g.state.budget.MaxExactRepeat <= 0) {
-		return ts
-	}
-	out := make([]ai.Tool, len(ts))
-	copy(out, ts)
-	for i := range out {
-		inner := out[i].Handler
-		name := out[i].Name
-		out[i].Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
-			if msg := g.state.check(name, args); msg != "" {
-				return msg, nil
-			}
-			return inner(ctx, args)
-		}
-	}
-	return out
-}
-
-// ShouldDisableTools reports whether a budget violation has already occurred.
-// Eino reads this between iterations and removes the advertised tool list.
-func (g *TurnBudgetGuard) ShouldDisableTools() bool {
-	if g == nil || g.state == nil {
-		return false
-	}
-	return g.state.shouldDisableTools()
-}
-
-// WithTurnBudget is retained for callers that only need wrapped handlers. Chat
-// turns should use NewTurnBudgetGuard so the engine can also observe exhaustion.
-func WithTurnBudget(ts []ai.Tool, budget TurnBudget) []ai.Tool {
-	return NewTurnBudgetGuard(budget).Wrap(ts)
-}
-
-type turnBudgetState struct {
-	mu     sync.Mutex
-	budget TurnBudget
-	total  int
-	tools  map[string]int
-	exact  map[string]int
-	stop   bool
-}
-
-func (s *turnBudgetState) check(name string, args json.RawMessage) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.stop {
-		return TurnBudgetExhaustedMarker + " 本轮工具阶段已经结束。请基于已经取得的结果直接回答用户。"
-	}
-	if s.budget.MaxCalls > 0 && s.total >= s.budget.MaxCalls {
-		s.stop = true
-		return TurnBudgetExhaustedMarker + " 本轮工具调用已达到上限。请基于已经取得的结果给用户一个简洁结论；如果仍缺关键信息，请说明需要用户下一轮继续。"
-	}
-	if s.budget.MaxPerTool > 0 && s.tools[name] >= s.budget.MaxPerTool {
-		s.stop = true
-		return fmt.Sprintf("%s %s 本轮调用次数过多。请停止重复查询，基于已有结果回答。", TurnBudgetExhaustedMarker, name)
-	}
-	exactKey := name + "\x00" + canonicalArgsHash(args)
-	if s.budget.MaxExactRepeat > 0 && s.exact[exactKey] >= s.budget.MaxExactRepeat {
-		s.stop = true
-		return fmt.Sprintf("%s %s 对相同参数已经重复调用。请不要继续重复查询，直接整理已有结果回答。", TurnBudgetExhaustedMarker, name)
-	}
-	s.total++
-	s.tools[name]++
-	s.exact[exactKey]++
-	return ""
-}
-
-func (s *turnBudgetState) shouldDisableTools() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.stop
 }
 
 // filterByPerm 按注册表裁剪工具集（超管全通过；worker 走白名单）。

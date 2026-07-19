@@ -18,6 +18,10 @@ type approvalTurn struct {
 	MessageID int64
 }
 
+// PendingApprovalMarker is a machine-readable control result shared with
+// observability code. Human wording may change without breaking classification.
+const PendingApprovalMarker = "[nbco:pending_approval]"
+
 // WithApprovalTurn 标记本轮对话对应的用户消息。高危工具只能在后续用户消息
 // 明确确认之后执行，避免模型在同一个 tool loop 内登记后立刻自我核销。
 func WithApprovalTurn(ctx context.Context, sessionID, messageID int64) context.Context {
@@ -41,7 +45,6 @@ var approvalRequired = map[string]bool{
 	"revoke_api_token":       true, // 撤销长期凭据
 	"create_worker":          true, // 创建机器账号并展示一次性绑定码
 	"issue_worker_bind_code": true, // 补发一次性 worker 绑定码
-	"run_worker_command":     true, // 让真实工作机执行命令
 	"disable_user":           true, // 停用账号
 	"revoke_worker":          true, // 吊销 AI 员工 token
 	"delete_project":         true, // 连带删除项目全部任务
@@ -82,9 +85,9 @@ func withApproval(s *store.Store, userID int64, t ai.Tool) ai.Tool {
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("⚠️ 高危操作已登记为待确认动作（%s，10 分钟内有效）。"+
+		return fmt.Sprintf("%s ⚠️ 高危操作已登记为待确认动作（%s，10 分钟内有效）。"+
 			"请向用户复述将要执行的具体操作并征得明确同意；只有收到用户下一条明确确认消息后，才能以完全相同的参数再次调用本工具执行。"+
-			"同一轮里不要再次调用；用户不同意或未回应就不要再调用。", internalRef("确认动作", id)), nil
+			"同一轮里不要再次调用；用户不同意或未回应就不要再调用。", PendingApprovalMarker, internalRef("确认动作", id)), nil
 	}
 	return t
 }

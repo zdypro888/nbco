@@ -156,7 +156,11 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 				}
 				var b strings.Builder
 				for _, v := range vs {
-					fmt.Fprintf(&b, "- v%d：%s（%s，%s）\n", v.Version, v.Title, v.Kind, fmtTime(v.CreatedAt, d.TZ))
+					state := "生效"
+					if !v.Active {
+						state = "已归档"
+					}
+					fmt.Fprintf(&b, "- v%d：%s（%s，%s，%s）\n", v.Version, v.Title, v.Kind, state, fmtTime(v.CreatedAt, d.TZ))
 					if strings.TrimSpace(v.ChangeNote) != "" {
 						fmt.Fprintf(&b, "  note: %s\n", v.ChangeNote)
 					}
@@ -453,9 +457,10 @@ type actionTurnDetails struct {
 		Tools           []string `json:"tools"`
 	} `json:"turn_context"`
 	ToolEvidence []struct {
-		Tool    string `json:"tool"`
-		OK      bool   `json:"ok"`
-		Summary string `json:"summary"`
+		Tool            string `json:"tool"`
+		HandlerReturned bool   `json:"handler_returned"`
+		LegacyOK        bool   `json:"ok"`
+		Summary         string `json:"summary"`
 	} `json:"tool_evidence"`
 }
 
@@ -474,7 +479,7 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 		}
 		status := actionOutcomeLabel(it.Outcome)
 		name := userName(ctx, s, it.UserID)
-		fmt.Fprintf(&b, "- #%d %s %s [%s] %s；工具 %d/%d",
+		fmt.Fprintf(&b, "- #%d %s %s [%s] %s；handler 返回 %d/%d",
 			it.ID, it.CreatedAt.In(tz).Format("01-02 15:04"), name, it.Channel, status, it.SuccessToolCount, it.ToolCount)
 		if strings.TrimSpace(it.Intent) != "" {
 			fmt.Fprintf(&b, "；意图：%s", clipRunes(it.Intent, 80))
@@ -496,9 +501,9 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 		if len(details.ToolEvidence) > 0 {
 			b.WriteString("  工具证据：\n")
 			for _, ev := range details.ToolEvidence {
-				state := "fail"
-				if ev.OK {
-					state = "ok"
+				state := "handler_error"
+				if ev.HandlerReturned || ev.LegacyOK {
+					state = "returned"
 				}
 				fmt.Fprintf(&b, "  - %s:%s %s\n", ev.Tool, state, clipRunes(ev.Summary, 180))
 			}
@@ -517,8 +522,18 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 
 func actionOutcomeLabel(outcome string) string {
 	switch outcome {
+	case "action_tool_returned":
+		return "动作工具已返回（业务结果见明细）"
+	case "read_tool_returned":
+		return "只读工具已返回"
+	case "answered_without_tool":
+		return "未调用工具"
+	case "tool_handler_error":
+		return "工具 handler 错误"
+	case "pending_approval":
+		return "等待用户确认"
 	case "evidence_ok":
-		return "已执行"
+		return "历史记录：曾判定已执行"
 	case "planned_without_tool":
 		return "规划了动作但没调用工具"
 	case "tool_attempted_without_success_evidence":

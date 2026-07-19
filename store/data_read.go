@@ -387,12 +387,12 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"knowledge": {
 		DataSource: DataSource{
 			Name: "knowledge", Description: "共享事实和skill；策略规则仅超管可全量读取。",
-			Fields: []string{"knowledge_id", "title", "content", "tags", "author_id", "kind", "pinned", "created_at", "updated_at"},
+			Fields: []string{"knowledge_id", "title", "content", "tags", "author_id", "kind", "pinned", "active", "created_at", "updated_at"},
 		},
 		query: `SELECT jsonb_build_object(
 			'knowledge_id', k.id, 'title', k.title, 'content', k.content,
 			'tags', k.tags, 'author_id', k.author_id, 'kind', k.kind,
-			'pinned', k.pinned, 'created_at', k.created_at, 'updated_at', k.updated_at
+			'pinned', k.pinned, 'active', k.active, 'created_at', k.created_at, 'updated_at', k.updated_at
 		) AS item, k.updated_at AS sort_at, k.id AS sort_id
 		FROM knowledge k WHERE $2 OR k.kind <> 'policy'`,
 		semanticID: "knowledge_id",
@@ -515,12 +515,12 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"chat_messages": {
 		DataSource: DataSource{
 			Name: "chat_messages", Description: "逐条聊天事实；普通用户只读自己的私聊会话，超级管理员可跨会话检索。",
-			Fields: []string{"chat_message_id", "session_id", "session_user_id", "channel", "role", "content", "previous_role", "previous_content", "created_at"},
+			Fields: []string{"chat_message_id", "session_id", "session_user_id", "channel", "role", "content", "context_eligible", "previous_role", "previous_content", "created_at"},
 		},
 		query: `SELECT jsonb_build_object(
 			'chat_message_id', m.id, 'session_id', m.session_id,
 			'session_user_id', cs.user_id, 'channel', cs.channel,
-			'role', m.role, 'content', m.content,
+			'role', m.role, 'content', m.content, 'context_eligible', m.context_eligible,
 			'previous_role', COALESCE(prev.role, ''),
 			'previous_content', left(COALESCE(prev.content, ''), 1200),
 			'created_at', m.created_at
@@ -531,7 +531,8 @@ var dataSourceDefs = map[string]dataSourceDef{
 			 WHERE p.session_id = m.session_id AND p.id < m.id
 			 ORDER BY p.id DESC LIMIT 1
 		) prev ON TRUE
-		WHERE $2 OR (cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0)`,
+		WHERE cs.channel NOT LIKE 'internal:%'
+		  AND ($2 OR (cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0))`,
 		// Chat messages use the immediate message-index pipeline so their
 		// permission payload is preserved. A stable ID still lets query_data
 		// reuse that index and re-read the authoritative row here.

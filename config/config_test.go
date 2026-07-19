@@ -39,7 +39,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AI.Engine != EngineEino || cfg.AI.Provider != ProviderClaude {
 		t.Errorf("引擎默认值 = %q/%q", cfg.AI.Engine, cfg.AI.Provider)
 	}
-	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 16 || cfg.AI.TimeoutMS != 300000 || cfg.AI.TurnTimeoutMS != 600000 {
+	if cfg.AI.MaxTokens != 4096 || cfg.AI.MaxTurns != 64 || cfg.AI.TimeoutMS != 300000 || cfg.AI.TurnTimeoutMS != 600000 {
 		t.Errorf("MaxTokens/MaxTurns/TimeoutMS/TurnTimeoutMS 默认值 = %d/%d/%d/%d",
 			cfg.AI.MaxTokens, cfg.AI.MaxTurns, cfg.AI.TimeoutMS, cfg.AI.TurnTimeoutMS)
 	}

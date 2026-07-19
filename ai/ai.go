@@ -131,9 +131,6 @@ type TurnRequest struct {
 	// Skills 是已按语义相关性和用户/渠道作用域裁剪的候选执行方法。
 	// 引擎只暴露元数据，由模型按需加载完整 Content。
 	Skills []Skill
-	// ShouldDisableTools 在工具循环期间动态报告是否应进入最终答复阶段。
-	// 引擎应在下一次模型调用前撤下工具，而不是只靠工具结果文本劝模型停手。
-	ShouldDisableTools func() bool
 	// OnEvent 可选回调：工具调用与文本产出实时上报（审计/流式）。
 	// 引擎在任意 goroutine 调用它，实现方需自行保证并发安全。
 	OnEvent func(Step)

@@ -19,6 +19,7 @@ const (
 	CapabilityComms      = "comms"
 	CapabilityAutomation = "automation"
 	CapabilityOps        = "ops"
+	CapabilityResearch   = "research"
 	CapabilityExtension  = "extension"
 )
 
@@ -51,6 +52,7 @@ var domainLabels = map[string]string{
 	CapabilityComms:      "沟通/文件/群",
 	CapabilityAutomation: "自动化/脚本/工作流",
 	CapabilityOps:        "运维",
+	CapabilityResearch:   "公开信息检索",
 	CapabilityExtension:  "外部扩展",
 }
 
@@ -62,6 +64,7 @@ var domainOrder = []string{
 	CapabilityComms,
 	CapabilityAutomation,
 	CapabilityOps,
+	CapabilityResearch,
 	CapabilityExtension,
 }
 
@@ -85,6 +88,7 @@ var toolDomain = map[string]string{
 	"view_user_perms":        CapabilityPeople,
 	"list_users":             CapabilityPeople,
 	"get_user_info":          CapabilityPeople,
+	"get_users_info":         CapabilityPeople,
 	"update_user_info":       CapabilityPeople,
 	"bulk_update_user_info":  CapabilityPeople,
 	"invite_employee":        CapabilityPeople,
@@ -167,6 +171,7 @@ var toolDomain = map[string]string{
 	"get_knowledge":              CapabilityMemory,
 	"update_knowledge":           CapabilityMemory,
 	"delete_knowledge":           CapabilityMemory,
+	"set_knowledge_active":       CapabilityMemory,
 	"list_recent_knowledge":      CapabilityMemory,
 	"search_history":             CapabilityMemory,
 	"save_rule":                  CapabilityMemory,
@@ -234,6 +239,7 @@ var toolDomain = map[string]string{
 	"list_action_turns":    CapabilityOps,
 	"list_system_activity": CapabilityOps,
 	"query_data":           CapabilityOps,
+	"fetch_url":            CapabilityResearch,
 	"get_ai_settings":      CapabilityOps,
 	"set_ai_settings":      CapabilityOps,
 	"ai_usage_stats":       CapabilityOps,
@@ -303,6 +309,7 @@ var toolEffect = map[string]string{
 	"list_telegram_group_messages":    ToolEffectRead,
 	"get_telegram_group_member":       ToolEffectRead,
 	"get_user_info":                   ToolEffectRead,
+	"get_users_info":                  ToolEffectRead,
 	"get_user_stats":                  ToolEffectRead,
 	"grant_active_perm":               ToolEffectWrite,
 	"grant_my_passive_perm":           ToolEffectWrite,
@@ -313,6 +320,7 @@ var toolEffect = map[string]string{
 	"list_action_turns":               ToolEffectRead,
 	"list_system_activity":            ToolEffectRead,
 	"query_data":                      ToolEffectRead,
+	"fetch_url":                       ToolEffectRead,
 	"list_capabilities":               ToolEffectRead,
 	"list_data_collection_campaigns":  ToolEffectRead,
 	"list_decision_queue":             ToolEffectRead,
@@ -375,6 +383,7 @@ var toolEffect = map[string]string{
 	"send_telegram_group_message":     ToolEffectWrite,
 	"set_ai_settings":                 ToolEffectWrite,
 	"set_rule_pinned":                 ToolEffectWrite,
+	"set_knowledge_active":            ToolEffectWrite,
 	"set_telegram_group_auto_invite":  ToolEffectWrite,
 	"set_telegram_group_listen":       ToolEffectWrite,
 	"set_telegram_group_monitor":      ToolEffectWrite,

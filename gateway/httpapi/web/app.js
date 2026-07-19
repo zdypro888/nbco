@@ -788,7 +788,7 @@ function renderLogsOnly() {
     level: actionLogLevel(t),
     message: actionLogMessage(t),
     status: actionOutcomeLabel(t),
-    duration: `${Number(t.success_tool_count || 0)}/${Number(t.tool_count || 0)} tools`,
+    duration: `${Number(t.success_tool_count || 0)}/${Number(t.tool_count || 0)} returned`,
   }));
   const rows = [...actionRows, ...state.logs];
   if (!rows.length) {
@@ -804,14 +804,20 @@ function renderLogsOnly() {
 
 function actionLogLevel(t) {
   const outcome = String(t.outcome || "");
-  if (outcome === "evidence_ok") return "INFO";
+  if (outcome === "action_tool_returned" || outcome === "read_tool_returned" || outcome === "evidence_ok") return "INFO";
+  if (outcome === "tool_handler_error") return "ERROR";
   if (outcome.includes("blocked") || outcome.includes("without_success")) return "WARN";
   return "DEBUG";
 }
 
 function actionOutcomeLabel(t) {
   const labels = {
-    evidence_ok: "已执行",
+    action_tool_returned: "动作工具已返回",
+    read_tool_returned: "只读工具已返回",
+    answered_without_tool: "未调用工具",
+    tool_handler_error: "工具错误",
+    pending_approval: "待确认",
+    evidence_ok: "历史：曾判定已执行",
     planned_without_tool: "未执行",
     tool_attempted_without_success_evidence: "工具失败",
     blocked_action_evidence: "历史版本拦截",
@@ -834,7 +840,7 @@ function actionLogMessage(t) {
 function actionToolEvidenceLabel(t) {
   const ev = t.evidence && Array.isArray(t.evidence.tool_evidence) ? t.evidence.tool_evidence : [];
   if (!ev.length) return "";
-  return ev.slice(0, 4).map(x => `${x.tool || "tool"}:${x.ok ? "ok" : "fail"}`).join(", ");
+  return ev.slice(0, 4).map(x => `${x.tool || "tool"}:${(x.handler_returned ?? x.ok) ? "returned" : "handler_error"}`).join(", ");
 }
 
 function selectedItem() {

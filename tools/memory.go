@@ -18,7 +18,7 @@ const historySearchLimit = 8
 // ai_usage_stats 限超管（注册表兜底）。
 func memoryTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("search_history", "跨会话检索你和当前用户的历史对话（语义+关键词）。用户问「之前/上次聊过什么」「我们定过什么」而摘要里没有时先查这里。只能搜到当前用户自己的会话。",
+		tool("search_history", "跨会话检索当前用户的历史对话（语义+关键词）。用于回忆用户原话、讨论过程和旧答复；AI 历史文本不是当前事实或动作成功证据，涉及现状时还要查询对应结构化数据。只能搜到当前用户自己的私聊会话。",
 			obj(map[string]any{"query": p("string", "要找的话题（自然语言）")}, "query"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -45,7 +45,7 @@ func memoryTools(d Deps, u *store.User) []ai.Tool {
 					return "（历史对话里没有找到相关内容）", nil
 				}
 				var b strings.Builder
-				b.WriteString("历史对话片段（按相关度）：\n")
+				b.WriteString("历史对话片段（按相关度；AI 文本仅是旧答复，不证明当前状态）：\n")
 				for _, m := range ms {
 					who := "用户"
 					content := m.Content

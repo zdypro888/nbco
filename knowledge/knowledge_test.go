@@ -85,10 +85,11 @@ func TestMessageDocumentKeepsCurrentAndPreviousContext(t *testing.T) {
 
 func TestFilterAuthoritativeKnowledgeRejectsStaleVectorScopes(t *testing.T) {
 	rows := []*store.Knowledge{
-		{ID: 1, Kind: store.KnowledgeKindPolicy, Pinned: false, AuthorID: 7, Tags: []string{"project:1"}},
-		{ID: 2, Kind: store.KnowledgeKindPolicy, Pinned: true, AuthorID: 7, Tags: []string{"project:1"}},
-		{ID: 3, Kind: store.KnowledgeKindFact, Pinned: false, AuthorID: 7, Tags: []string{"project:1"}},
-		{ID: 4, Kind: store.KnowledgeKindPolicy, Pinned: false, AuthorID: 8, Tags: []string{"project:2"}},
+		{ID: 1, Kind: store.KnowledgeKindPolicy, Pinned: false, Active: true, AuthorID: 7, Tags: []string{"project:1"}},
+		{ID: 2, Kind: store.KnowledgeKindPolicy, Pinned: true, Active: true, AuthorID: 7, Tags: []string{"project:1"}},
+		{ID: 3, Kind: store.KnowledgeKindFact, Pinned: false, Active: true, AuthorID: 7, Tags: []string{"project:1"}},
+		{ID: 4, Kind: store.KnowledgeKindPolicy, Pinned: false, Active: true, AuthorID: 8, Tags: []string{"project:2"}},
+		{ID: 5, Kind: store.KnowledgeKindPolicy, Pinned: false, Active: false, AuthorID: 7, Tags: []string{"project:1"}},
 	}
 	filter := vectorstore.Filter{
 		Must: map[string]any{

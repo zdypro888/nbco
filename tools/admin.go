@@ -82,6 +82,64 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return renderUser(other), nil
 			}),
 
+		tool("get_users_info", "批量查看系统成员的基本信息与动态字段，避免逐个调用 get_user_info。user_ids 为空时读取当前有权查看的全部成员；非空时按稳定员工 ID 批量读取。每个目标仍独立执行 view_self_intro 权限校验。",
+			obj(map[string]any{
+				"user_ids": arr("integer", "可选员工 ID 列表；空表示全部可见成员，最多100人"),
+			}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					UserIDs []int64 `json:"user_ids"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if len(args.UserIDs) > 100 {
+					return "单次最多读取 100 名成员。", nil
+				}
+				users, err := d.Store.ListUsers(ctx)
+				if err != nil {
+					return "", err
+				}
+				selected := make(map[int64]bool, len(args.UserIDs))
+				for _, id := range args.UserIDs {
+					if id > 0 {
+						selected[id] = true
+					}
+				}
+				var grants []store.Grant
+				if !u.IsSuperadmin {
+					grants, err = d.Store.PermsOf(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+				}
+				var b strings.Builder
+				returned := 0
+				for _, other := range users {
+					if len(selected) > 0 && !selected[other.ID] {
+						continue
+					}
+					if other.ID != u.ID && !u.IsSuperadmin && !perm.CheckActive(grants, perm.ActViewSelfIntro, other.ID) {
+						continue
+					}
+					if returned >= 100 {
+						break
+					}
+					if returned > 0 {
+						b.WriteString("\n---\n")
+					}
+					b.WriteString(renderUser(other))
+					returned++
+				}
+				if returned == 0 {
+					return "没有找到有权查看的成员。", nil
+				}
+				if len(selected) > returned {
+					fmt.Fprintf(&b, "\n请求 %d 个 ID，返回 %d 个；其余目标不存在或当前无权查看。", len(selected), returned)
+				}
+				return b.String(), nil
+			}),
+
 		tool("update_user_info", "修改系统成员的基本信息（真人员工和 AI worker 都是系统成员）。需要对其 edit_info 主动权限；优先传员工ID/user_id；tg_id 仅作 Telegram 精确绑定；姓名只是兜底且必须唯一；值为空串/null/无表示清除字段，常见字段别名会自动归一。",
 			obj(map[string]any{
 				"user_id":   p("integer", "员工ID/系统用户ID（可选，优先）"),

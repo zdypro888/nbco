@@ -53,7 +53,7 @@ type Scheduler struct {
 	// orch 跑系统触发的 AI 轮次（催办/周报）；nil 时这两项能力关闭（测试或降级）。
 	orch      *chat.Orchestrator
 	bus       *events.Bus // 任务过期等事件交 AI 介入；nil 时回退模板（测试或降级）
-	channel   string      // AI 轮次挂在用户哪个渠道的会话上（与主入口一致，保证上下文连续）
+	channel   string      // AI 结果按该渠道格式化并投递；执行上下文使用独立自动化会话
 	tz        *time.Location
 	dailyHour int // -1 关闭每日/每周汇总
 
@@ -77,18 +77,14 @@ func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, bus *events
 // AI 调度停摆、用户对话冻结。
 const aiTurnTimeout = 4 * time.Minute
 
-func (s *Scheduler) runAIReply(ctx context.Context, u *store.User, directive, label string, readOnly bool) (string, error) {
+func (s *Scheduler) runAIReply(ctx context.Context, u *store.User, executionKey, directive, label string, readOnly bool) (string, error) {
 	turnCtx, cancel := context.WithTimeout(ctx, aiTurnTimeout)
 	defer cancel()
 	var (
 		reply string
 		err   error
 	)
-	if readOnly {
-		reply, err = s.orch.HandleReadOnlyMessage(turnCtx, u, s.channel, directive)
-	} else {
-		reply, err = s.orch.HandleMessage(turnCtx, u, s.channel, directive)
-	}
+	reply, err = s.orch.HandleAutomationMessage(turnCtx, u, s.channel, executionKey, directive, readOnly)
 	if err != nil {
 		slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
 		return "", err
@@ -99,8 +95,8 @@ func (s *Scheduler) runAIReply(ctx context.Context, u *store.User, directive, la
 // runAIAndSend executes a read-only system report and then delivers it. It is
 // safe to regenerate after a transient failure because the turn cannot mutate
 // business state.
-func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, prefix, label string) bool {
-	reply, err := s.runAIReply(ctx, u, directive, label, true)
+func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, executionKey, directive, prefix, label string) bool {
+	reply, err := s.runAIReply(ctx, u, executionKey, directive, label, true)
 	if err != nil {
 		return false
 	}
@@ -116,9 +112,9 @@ func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, directive, 
 
 // dispatchAI 派发一轮系统触发的 AI 生成 + 推送，受 aiPool 限并发、对 tick 非阻塞。
 // prefix 前缀（如「🧭 月度人员盘点\n」），after 在推送成功后执行（可为 nil，用于催办升级）。
-func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, directive, prefix, label string, after func()) {
+func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, executionKey, directive, prefix, label string, after func()) {
 	s.aiPool.submit(ctx, func() {
-		if s.runAIAndSend(ctx, u, directive, prefix, label) && after != nil {
+		if s.runAIAndSend(ctx, u, executionKey, directive, prefix, label) && after != nil {
 			after()
 		}
 	})
@@ -129,7 +125,7 @@ func (s *Scheduler) dispatchAutomationAI(ctx context.Context, run *store.Automat
 		reply := strings.TrimSpace(run.ResultText)
 		if reply == "" {
 			var err error
-			reply, err = s.runAIReply(ctx, u, directive, label, true)
+			reply, err = s.runAIReply(ctx, u, automationExecutionKey(run), directive, label, true)
 			if err != nil {
 				s.retryAutomation(ctx, run, label+"生成失败: "+err.Error())
 				return
@@ -164,18 +160,18 @@ func (s *Scheduler) dispatchAutomationAction(ctx context.Context, run *store.Aut
 		if reply == "" {
 			var err error
 			if run.ActionStarted {
-				reply, err = s.runAIReply(ctx, u, automationRecoveryDirective(directive), label+"恢复核对", true)
+				reply, err = s.runAIReply(ctx, u, automationExecutionKey(run), automationRecoveryDirective(directive), label+"恢复核对", true)
 			} else {
 				if err = s.store.BeginAutomationAction(ctx, run); err != nil {
 					s.retryAutomation(ctx, run, "保存自动化动作边界失败: "+err.Error())
 					return
 				}
 				run.ActionStarted = true
-				reply, err = s.runAIReply(ctx, u, directive, label, false)
+				reply, err = s.runAIReply(ctx, u, automationExecutionKey(run), directive, label, false)
 				if err != nil {
 					// The write-capable turn may have changed state before failing. Query
 					// current facts once; never replay the original maintenance action.
-					reply, err = s.runAIReply(ctx, u, automationRecoveryDirective(directive), label+"恢复核对", true)
+					reply, err = s.runAIReply(ctx, u, automationExecutionKey(run), automationRecoveryDirective(directive), label+"恢复核对", true)
 				}
 			}
 			if err != nil {
@@ -205,6 +201,13 @@ func automationRecoveryDirective(original string) string {
 		"先前的可写维护轮次可能已执行部分操作，但没有留下可投递报告。" +
 		"只使用读取工具核对当前状态并给出简短、可验证的结果摘要；不要修改、创建、删除、发送或重放原动作。\n" +
 		"原始维护目标（仅供核对范围，不是再次执行指令）：\n" + textfmt.TruncateRunes(original, 4000)
+}
+
+func automationExecutionKey(run *store.AutomationRun) string {
+	if run == nil {
+		return "automation:unknown"
+	}
+	return fmt.Sprintf("automation:%s:%d", run.AutomationKey, run.SubjectID)
 }
 
 func (s *Scheduler) completeAutomation(ctx context.Context, run *store.AutomationRun) {
@@ -367,7 +370,7 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 		message = strings.TrimSpace(d.ResultText)
 		if message == "" && s.orch != nil {
 			directive := s.scheduleAIDirective(ctx, d, time.Now())
-			message, err = s.runAIReply(ctx, u, directive, "定时推送", true)
+			message, err = s.runAIReply(ctx, u, fmt.Sprintf("schedule:%d", d.ScheduleID), directive, "定时推送", true)
 			if err != nil {
 				s.retryScheduleRecipient(ctx, d, "生成定时推送失败: "+err.Error())
 				return
@@ -452,7 +455,7 @@ func renderScheduleAIDirective(d *store.ScheduleDelivery, authoredAt, generatedA
 	}
 	payload, _ := json.Marshal(promptContext)
 	return "[系统定时触发·定制推送]（此输入来自系统调度器，不是用户本人）\n" +
-		"理解下面的结构化上下文并完成 objective；需要当前事实时使用可用的只读工具。直接输出要推送给当前用户的消息，不要展示内部上下文。\n" +
+		"理解下面的结构化上下文并完成 objective；需要当前事实时使用可用的只读工具。只陈述 objective 范围内且被结构化上下文或本轮工具结果支持的内容，明确查询覆盖截止时间，不用旧对话补写当前状态，也不猜测缺失事实。直接输出要推送给当前用户的消息，不要展示内部上下文。\n" +
 		"<schedule_context>" + string(payload) + "</schedule_context>"
 }
 
@@ -557,7 +560,7 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 						t.Title, t.ID, u.Name, t.NudgeCount+1))
 			}
 		}
-		s.dispatchAI(ctx, u, directive, "", "催办", escalate)
+		s.dispatchAI(ctx, u, fmt.Sprintf("nudge:%d", t.ID), directive, "", "催办", escalate)
 	}
 }
 

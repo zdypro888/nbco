@@ -113,16 +113,17 @@ type KnowledgeVersion struct {
 	Tags        []string
 	Kind        string
 	Pinned      bool
+	Active      bool
 	ChangedBy   *int64
 	ChangeNote  string
 	CreatedAt   time.Time
 }
 
-const knowledgeVersionCols = `id, knowledge_id, version, title, content, tags, kind, pinned, changed_by, change_note, created_at`
+const knowledgeVersionCols = `id, knowledge_id, version, title, content, tags, kind, pinned, active, changed_by, change_note, created_at`
 
 func scanKnowledgeVersion(row interface{ Scan(...any) error }) (*KnowledgeVersion, error) {
 	var v KnowledgeVersion
-	if err := row.Scan(&v.ID, &v.KnowledgeID, &v.Version, &v.Title, &v.Content, &v.Tags, &v.Kind, &v.Pinned, &v.ChangedBy, &v.ChangeNote, &v.CreatedAt); err != nil {
+	if err := row.Scan(&v.ID, &v.KnowledgeID, &v.Version, &v.Title, &v.Content, &v.Tags, &v.Kind, &v.Pinned, &v.Active, &v.ChangedBy, &v.ChangeNote, &v.CreatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &v, nil
@@ -139,10 +140,10 @@ func snapshotKnowledgeRow(ctx context.Context, q pgx.Tx, id int64, changedBy *in
 		return err
 	}
 	_, err = q.Exec(ctx,
-		`INSERT INTO knowledge_versions (knowledge_id, version, title, content, tags, kind, pinned, changed_by, change_note)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		`INSERT INTO knowledge_versions (knowledge_id, version, title, content, tags, kind, pinned, active, changed_by, change_note)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		 ON CONFLICT (knowledge_id, version) DO NOTHING`,
-		id, next, k.Title, k.Content, k.Tags, k.Kind, k.Pinned, changedBy, note)
+		id, next, k.Title, k.Content, k.Tags, k.Kind, k.Pinned, k.Active, changedBy, note)
 	return err
 }
 
@@ -184,7 +185,13 @@ func (s *Store) RollbackKnowledge(ctx context.Context, knowledgeID int64, versio
 	if err := snapshotKnowledgeRow(ctx, tx, knowledgeID, &by, fmt.Sprintf("rollback to version %d", version)); err != nil {
 		return nil, err
 	}
-	k, err := updateKnowledgeRow(ctx, tx, knowledgeID, &v.Title, &v.Content, v.Tags)
+	k, err := scanKnowledge(tx.QueryRow(ctx,
+		`UPDATE knowledge
+		    SET title = $2, content = $3, tags = $4, kind = $5,
+		        pinned = $6, active = $7, embedding = NULL, embed_model = '', updated_at = now()
+		  WHERE id = $1
+		  RETURNING `+knowledgeCols,
+		knowledgeID, v.Title, v.Content, v.Tags, v.Kind, v.Pinned, v.Active))
 	if err != nil {
 		return nil, err
 	}

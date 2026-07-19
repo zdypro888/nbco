@@ -13,6 +13,7 @@ const (
 	PayloadSessionUser       = "session_user_id"
 	PayloadChannel           = "channel_scope"
 	PayloadConversationScope = "conversation_scope"
+	PayloadRole              = "role"
 )
 
 // Ref identifies one authoritative record without depending on its mutable

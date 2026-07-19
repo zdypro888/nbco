@@ -480,7 +480,7 @@ func (svc *Service) semanticRank(ctx context.Context, query string, limit int, c
 func filterAuthoritativeKnowledge(rows []*store.Knowledge, filter vectorstore.Filter) []*store.Knowledge {
 	out := make([]*store.Knowledge, 0, len(rows))
 	for _, row := range rows {
-		if row != nil && knowledgeMatchesPayload(row, filter.Must) && !knowledgeMatchesAnyPayload(row, filter.MustNot) {
+		if row != nil && row.Active && knowledgeMatchesPayload(row, filter.Must) && !knowledgeMatchesAnyPayload(row, filter.MustNot) {
 			out = append(out, row)
 		}
 	}

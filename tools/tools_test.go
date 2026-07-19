@@ -263,7 +263,7 @@ func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 		SuccessToolCount: 1,
 		CreatedAt:        time.Date(2026, 7, 9, 20, 30, 0, 0, time.UTC),
 	}})
-	for _, want := range []string{"已执行", "工具 1/1", "发送通知", "send_message:ok", "已发送给 3 人", "route=people,action", "tools=22/152", "finish_reason"} {
+	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "send_message:returned", "已发送给 3 人", "route=people,action", "tools=22/152", "finish_reason"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("动作账本渲染缺 %q:\n%s", want, got)
 		}
@@ -374,52 +374,6 @@ func TestNBCOUpgradeWorkflowRequiresSuperadmin(t *testing.T) {
 	}
 	if ok || !strings.Contains(reason, "超级管理员") {
 		t.Fatalf("CanStartWorkflow nbco_upgrade = ok=%v reason=%q", ok, reason)
-	}
-}
-
-func TestWithTurnBudget(t *testing.T) {
-	calls := 0
-	guard := NewTurnBudgetGuard(TurnBudget{MaxCalls: 2, MaxExactRepeat: 1})
-	ts := guard.Wrap([]ai.Tool{{
-		Name: "lookup",
-		Handler: func(context.Context, json.RawMessage) (string, error) {
-			calls++
-			return "ok", nil
-		},
-	}})
-	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":1}`)); got != "ok" {
-		t.Fatalf("首次调用应通过: %q", got)
-	}
-	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":1}`)); !strings.Contains(got, "重复") {
-		t.Fatalf("相同参数重复调用应被挡住: %q", got)
-	}
-	if !guard.ShouldDisableTools() {
-		t.Fatal("预算违规后应通知引擎撤下工具")
-	}
-	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"a":2}`)); !strings.Contains(got, "已经结束") {
-		t.Fatalf("进入终止态后不应再执行其他调用: %q", got)
-	}
-	if calls != 1 {
-		t.Fatalf("实际 handler 调用次数 = %d, want 1", calls)
-	}
-}
-
-func TestTurnBudgetTotalLimit(t *testing.T) {
-	guard := NewTurnBudgetGuard(TurnBudget{MaxCalls: 1})
-	ts := guard.Wrap([]ai.Tool{{
-		Name: "lookup",
-		Handler: func(context.Context, json.RawMessage) (string, error) {
-			return "ok", nil
-		},
-	}})
-	if got, _ := ts[0].Handler(context.Background(), nil); got != "ok" {
-		t.Fatalf("预算内调用 = %q", got)
-	}
-	if got, _ := ts[0].Handler(context.Background(), json.RawMessage(`{"next":true}`)); !strings.Contains(got, "达到上限") {
-		t.Fatalf("总预算超限应被挡住: %q", got)
-	}
-	if !guard.ShouldDisableTools() {
-		t.Fatal("总预算超限后应进入终止态")
 	}
 }
 

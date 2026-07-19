@@ -259,7 +259,8 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		  WHERE `+strings.Join(where, " AND ")+`
 		  ORDER BY
 		    CASE s.status WHEN 'active' THEN 0 WHEN 'done' THEN 1 ELSE 2 END,
-		    s.fire_at ASC,
+		    CASE WHEN s.status = 'active' THEN s.fire_at END ASC,
+		    CASE WHEN s.status <> 'active' THEN COALESCE(s.last_fired, s.updated_at, s.fire_at) END DESC,
 		    s.id DESC
 		  LIMIT $1`, args...)
 	if err != nil {
@@ -296,6 +297,13 @@ func scheduleColsWithAlias(alias string) string {
 
 // CancelSchedule 取消（接收者或创建者都可取消）。
 func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
+	return s.CancelScheduleVisible(ctx, id, userID, false)
+}
+
+// CancelScheduleVisible cancels an active schedule within the caller's
+// visibility boundary. Superadmins may operate the global schedule queue;
+// ordinary users remain limited to schedules they receive or created.
+func (s *Store) CancelScheduleVisible(ctx context.Context, id, userID int64, superadmin bool) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -303,7 +311,7 @@ func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
 	defer func() { _ = tx.Rollback(ctx) }()
 	tag, err := tx.Exec(ctx,
 		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND (user_id = $2 OR created_by = $2) AND status = 'active'`, id, userID)
+		 WHERE id = $1 AND ($3 OR user_id = $2 OR created_by = $2) AND status = 'active'`, id, userID, superadmin)
 	if err != nil {
 		return wrapErr(err)
 	}

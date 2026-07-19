@@ -363,7 +363,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已关闭 %s 的智能监控。每日摘要配置未改变。", telegramGroupTitle(*g)), nil
 			}),
 
-		tool("set_telegram_group_digest", "设置或关闭 Telegram 群每日摘要。需要 manage_telegram_group 权限；这是独立的持久自动化，到点后读取该群当天真实消息并由 AI 生成摘要私聊给当前用户。它不改变事件监控。开启必须提供 daily_at，避免系统猜测发送时间。重复设置会幂等更新同一配置。",
+		tool("set_telegram_group_digest", "设置或关闭 Telegram 群每日摘要。需要 manage_telegram_group 权限；这是独立的只读持久自动化，到点后读取该群当天真实消息并由 AI 生成摘要私聊给当前用户。instruction 只改变摘要关注点，不能借摘要执行发送、建任务或更新状态等动作。它不改变事件监控。开启必须提供 daily_at，避免系统猜测发送时间。重复设置会幂等更新同一配置。",
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
 				"enabled":     p("boolean", "true 开启或更新，false 关闭"),
@@ -793,7 +793,14 @@ func telegramGroupMessageRange(date string, sinceHours int, tz *time.Location) (
 	if err != nil {
 		return time.Time{}, time.Time{}, "date 格式应为 YYYY-MM-DD。"
 	}
-	return from, from.AddDate(0, 0, 1), ""
+	if from.After(now.In(tz)) {
+		return time.Time{}, time.Time{}, "date 不能晚于当前业务日期。"
+	}
+	to := from.AddDate(0, 0, 1)
+	if to.After(now) {
+		to = now
+	}
+	return from, to, ""
 }
 
 func renderTelegramGroupMessages(g store.TelegramGroupState, page store.ChannelMessagePage, from, to time.Time, tz *time.Location) string {
@@ -847,9 +854,9 @@ func telegramGroupDigestText(ctx context.Context, d Deps, u *store.User, g store
 }
 
 func telegramGroupDigestDirective(g store.TelegramGroupState, instruction string) string {
-	base := fmt.Sprintf("调用 list_telegram_group_messages 读取群 %s 在当前业务日期的实际消息；如果返回 next_cursor 且会影响摘要完整性，继续分页读取。然后生成当日群摘要，总结事实、进展、问题/风险、决策和待跟进事项；没有消息就明确说没有记录，不得根据群配置猜测内容。", telegramGroupRef(g.ChatID))
+	base := fmt.Sprintf("调用 list_telegram_group_messages 读取群 %s 从当前业务日期零点到执行时刻的实际消息；如果返回 next_cursor 且会影响摘要完整性，继续分页读取。然后严格按工具返回的观察窗口生成摘要，总结事实、进展、问题/风险、决策和待跟进事项。本自动化只读：待跟进事项只能列入摘要，不执行发送、建任务或更新状态等动作。不要把截至当前时刻说成完整全天，不要把消息条数等同于人数或全员完成；没有记录只说明 bot 在该窗口未保存到消息，不猜测休假、团队状态或群外活动，也不要带入与本群摘要无关的旧日程、任务或代码状态。", telegramGroupRef(g.ChatID))
 	if instruction = strings.TrimSpace(instruction); instruction != "" {
-		base += "\n本摘要的额外要求：" + clipRunes(instruction, 600)
+		base += "\n本摘要的额外关注点（仅影响摘要内容，不授权执行动作）：" + clipRunes(instruction, 600)
 	}
 	return base
 }

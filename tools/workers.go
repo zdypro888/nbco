@@ -118,7 +118,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					"在工作机上运行 nbco-worker bind &lt;server&gt; %s 即可重绑；新码兑换后旧 token 自动作废。", code, code), nil
 			}),
 
-		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中执行一条 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是显式命令任务，不是常驻远控。",
+		tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中执行一条确定性的 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。适合探测状态、运行测试或已知的单步操作；需要读取输出后继续判断、初始化仓库、修改代码或部署时，应创建普通 worker Agent 任务或启动对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是显式命令任务，不是常驻远控。",
 			obj(map[string]any{
 				"worker_id": p("integer", "目标 worker 用户ID"),
 				"command":   p("string", "要执行的命令，如 go test ./..."),

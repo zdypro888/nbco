@@ -40,6 +40,12 @@ func IsGroupChannel(channel string) bool {
 	return strings.Contains(strings.TrimSpace(channel), ":group:")
 }
 
+// IsInternalChannel identifies scheduler/runtime sessions that are execution
+// plumbing rather than human conversation history.
+func IsInternalChannel(channel string) bool {
+	return strings.HasPrefix(strings.TrimSpace(channel), "internal:")
+}
+
 func (s *Store) ChatMessageByID(ctx context.Context, id int64) (*ChatMessage, error) {
 	var m ChatMessage
 	if err := s.pool.QueryRow(ctx,
@@ -209,10 +215,10 @@ func (s *Store) MessageSemanticDocumentByID(ctx context.Context, id int64) (*Mes
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
 		   LEFT JOIN LATERAL (
 		       SELECT p.role, p.content FROM chat_messages p
-		        WHERE p.session_id = m.session_id AND p.id < m.id
+		        WHERE p.session_id = m.session_id AND p.id < m.id AND p.context_eligible
 		        ORDER BY p.id DESC LIMIT 1
 		   ) prev ON TRUE
-		  WHERE m.id = $1`, id).
+		  WHERE m.id = $1 AND m.context_eligible`, id).
 		Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel,
 			&doc.PreviousRole, &doc.PreviousContent)
 	if err != nil {
@@ -243,10 +249,10 @@ func (s *Store) querySemanticMessages(ctx context.Context, predicate string, arg
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
 		   LEFT JOIN LATERAL (
 		       SELECT p.role, p.content FROM chat_messages p
-		        WHERE p.session_id = m.session_id AND p.id < m.id
+		        WHERE p.session_id = m.session_id AND p.id < m.id AND p.context_eligible
 		        ORDER BY p.id DESC LIMIT 1
 		   ) prev ON TRUE
-		  WHERE `+predicate+` AND btrim(m.content) <> ''
+		  WHERE `+predicate+` AND m.context_eligible AND btrim(m.content) <> '' AND cs.channel NOT LIKE 'internal:%'
 		  ORDER BY m.id LIMIT $`+fmt.Sprint(len(args)), args...)
 	if err != nil {
 		return nil, err
@@ -266,7 +272,8 @@ func (s *Store) querySemanticMessages(ctx context.Context, predicate string, arg
 
 func (s *Store) SemanticMessageIDs(ctx context.Context) ([]int64, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id FROM chat_messages WHERE btrim(content) <> '' ORDER BY id`)
+		`SELECT m.id FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		 WHERE m.context_eligible AND btrim(m.content) <> '' AND cs.channel NOT LIKE 'internal:%' ORDER BY m.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -304,9 +311,10 @@ type ChatMessageIndexStats struct {
 func (s *Store) ChatMessageIndexStats(ctx context.Context, marker string) (ChatMessageIndexStats, error) {
 	var stats ChatMessageIndexStats
 	err := s.pool.QueryRow(ctx,
-		`SELECT count(*) FILTER (WHERE btrim(content) <> ''),
-		        count(*) FILTER (WHERE btrim(content) <> '' AND embed_model = $1)
-		   FROM chat_messages`, marker).Scan(&stats.Total, &stats.Indexed)
+		`SELECT count(*) FILTER (WHERE btrim(m.content) <> ''),
+		        count(*) FILTER (WHERE btrim(m.content) <> '' AND m.embed_model = $1)
+		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		  WHERE cs.channel NOT LIKE 'internal:%' AND m.context_eligible`, marker).Scan(&stats.Total, &stats.Indexed)
 	stats.Pending = max(0, stats.Total-stats.Indexed)
 	return stats, err
 }
@@ -319,12 +327,30 @@ const embeddedMessagesCap = 20000
 // EmbeddedMessagesOfUser 取某用户名下会话中已按指定模型嵌入的消息向量（最近优先）。
 // 只搜自己名下的会话：情景记忆是个人视角，不跨权限泄露他人对话。
 func (s *Store) EmbeddedMessagesOfUser(ctx context.Context, model string, userID int64) ([]MessageVec, error) {
+	return s.embeddedMessagesOfUser(ctx, model, userID, "")
+}
+
+// EmbeddedUserMessagesOfUser is the PostgreSQL-vector fallback used by
+// automatic recall. Assistant outputs remain searchable explicitly, but are
+// not treated as authoritative memory candidates.
+func (s *Store) EmbeddedUserMessagesOfUser(ctx context.Context, model string, userID int64) ([]MessageVec, error) {
+	return s.embeddedMessagesOfUser(ctx, model, userID, "user")
+}
+
+func (s *Store) embeddedMessagesOfUser(ctx context.Context, model string, userID int64, role string) ([]MessageVec, error) {
+	rolePredicate := ""
+	args := []any{userID, model, embeddedMessagesCap}
+	if role != "" {
+		args = append(args, role)
+		rolePredicate = " AND m.role = $4"
+	}
 	rows, err := s.pool.Query(ctx,
 		`SELECT m.id, m.embedding FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0
-		   AND m.embed_model = $2 AND m.embedding IS NOT NULL
-		 ORDER BY m.id DESC LIMIT $3`, userID, model, embeddedMessagesCap)
+		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0 AND cs.channel NOT LIKE 'internal:%'
+		   AND m.context_eligible AND m.embed_model = $2 AND m.embedding IS NOT NULL
+		   `+rolePredicate+`
+		 ORDER BY m.id DESC LIMIT $3`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +368,17 @@ func (s *Store) EmbeddedMessagesOfUser(ctx context.Context, model string, userID
 
 // SearchMessagesOfUser 词法检索某用户名下会话的消息（新的在前）。
 func (s *Store) SearchMessagesOfUser(ctx context.Context, userID int64, query string, limit int) ([]ChatMessage, error) {
+	return s.searchMessagesOfUser(ctx, userID, query, limit, "")
+}
+
+// SearchUserMessagesOfUser restricts automatic memory candidates to what the
+// human actually said. Explicit history tools still use SearchMessagesOfUser
+// and can inspect both sides of the transcript.
+func (s *Store) SearchUserMessagesOfUser(ctx context.Context, userID int64, query string, limit int) ([]ChatMessage, error) {
+	return s.searchMessagesOfUser(ctx, userID, query, limit, "user")
+}
+
+func (s *Store) searchMessagesOfUser(ctx context.Context, userID int64, query string, limit int, role string) ([]ChatMessage, error) {
 	terms := searchTerms(query)
 	if len(terms) == 0 {
 		return nil, nil
@@ -352,16 +389,30 @@ func (s *Store) SearchMessagesOfUser(ctx context.Context, userID int64, query st
 		args = append(args, "%"+escapeLike(t)+"%")
 		conds = append(conds, fmt.Sprintf("m.content ILIKE $%d", len(args)))
 	}
+	rolePredicate := ""
+	if role != "" {
+		args = append(args, role)
+		rolePredicate = fmt.Sprintf(" AND m.role = $%d", len(args))
+	}
 	args = append(args, limit)
 	return s.queryMessages(ctx, fmt.Sprintf(
 		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0 AND (%s)
-		 ORDER BY m.id DESC LIMIT $%d`, strings.Join(conds, " OR "), len(args)), args...)
+		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0 AND cs.channel NOT LIKE 'internal:%%'
+		   AND m.context_eligible%s AND (%s)
+		 ORDER BY m.id DESC LIMIT $%d`, rolePredicate, strings.Join(conds, " OR "), len(args)), args...)
 }
 
 // SearchMessagesOfChannel is the lexical side of shared-group retrieval.
 func (s *Store) SearchMessagesOfChannel(ctx context.Context, channel, query string, limit int) ([]ChatMessage, error) {
+	return s.searchMessagesOfChannel(ctx, channel, query, limit, "")
+}
+
+func (s *Store) SearchUserMessagesOfChannel(ctx context.Context, channel, query string, limit int) ([]ChatMessage, error) {
+	return s.searchMessagesOfChannel(ctx, channel, query, limit, "user")
+}
+
+func (s *Store) searchMessagesOfChannel(ctx context.Context, channel, query string, limit int, role string) ([]ChatMessage, error) {
 	terms := searchTerms(query)
 	if len(terms) == 0 || !IsGroupChannel(channel) {
 		return nil, nil
@@ -372,12 +423,17 @@ func (s *Store) SearchMessagesOfChannel(ctx context.Context, channel, query stri
 		args = append(args, "%"+escapeLike(term)+"%")
 		conds = append(conds, fmt.Sprintf("m.content ILIKE $%d", len(args)))
 	}
+	rolePredicate := ""
+	if role != "" {
+		args = append(args, role)
+		rolePredicate = fmt.Sprintf(" AND m.role = $%d", len(args))
+	}
 	args = append(args, limit)
 	return s.queryMessages(ctx, fmt.Sprintf(
 		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.channel = $1 AND (%s)
-		 ORDER BY m.id DESC LIMIT $%d`, strings.Join(conds, " OR "), len(args)), args...)
+		 WHERE cs.channel = $1 AND m.context_eligible%s AND (%s)
+		 ORDER BY m.id DESC LIMIT $%d`, rolePredicate, strings.Join(conds, " OR "), len(args)), args...)
 }
 
 // MessagesByIDs 按 id 批量取消息，保持传入顺序（语义排序后回取详情）。
@@ -385,7 +441,7 @@ func (s *Store) MessagesByIDs(ctx context.Context, ids []int64) ([]ChatMessage, 
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, "")
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -411,11 +467,22 @@ func (s *Store) MessagesByIDsForUser(ctx context.Context, userID int64, ids []in
 	if len(ids) == 0 || userID <= 0 {
 		return nil, nil
 	}
-	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, userID, "")
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, userID, "", "")
 	if err != nil {
 		return nil, err
 	}
-	return orderedContextMessages(ids, docs), nil
+	return orderedMessages(ids, docs, true), nil
+}
+
+func (s *Store) UserMessagesByIDsForUser(ctx context.Context, userID int64, ids []int64) ([]ChatMessage, error) {
+	if len(ids) == 0 || userID <= 0 {
+		return nil, nil
+	}
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, userID, "", "user")
+	if err != nil {
+		return nil, err
+	}
+	return orderedMessages(ids, docs, false), nil
 }
 
 // MessagesByIDsForChannel re-checks the shared channel after a vector hit.
@@ -423,18 +490,31 @@ func (s *Store) MessagesByIDsForChannel(ctx context.Context, channel string, ids
 	if len(ids) == 0 || !IsGroupChannel(channel) {
 		return nil, nil
 	}
-	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, strings.TrimSpace(channel))
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, strings.TrimSpace(channel), "")
 	if err != nil {
 		return nil, err
 	}
-	return orderedContextMessages(ids, docs), nil
+	return orderedMessages(ids, docs, true), nil
 }
 
-func orderedContextMessages(ids []int64, docs []MessageSemanticDocument) []ChatMessage {
+func (s *Store) UserMessagesByIDsForChannel(ctx context.Context, channel string, ids []int64) ([]ChatMessage, error) {
+	if len(ids) == 0 || !IsGroupChannel(channel) {
+		return nil, nil
+	}
+	docs, err := s.messageSemanticDocumentsByIDs(ctx, ids, 0, strings.TrimSpace(channel), "user")
+	if err != nil {
+		return nil, err
+	}
+	return orderedMessages(ids, docs, false), nil
+}
+
+func orderedMessages(ids []int64, docs []MessageSemanticDocument, includeContext bool) []ChatMessage {
 	byID := make(map[int64]ChatMessage, len(docs))
 	for _, doc := range docs {
 		message := doc.ChatMessage
-		message.Content = doc.ContextContent()
+		if includeContext {
+			message.Content = doc.ContextContent()
+		}
 		byID[message.ID] = message
 	}
 	out := make([]ChatMessage, 0, len(ids))
@@ -446,9 +526,9 @@ func orderedContextMessages(ids []int64, docs []MessageSemanticDocument) []ChatM
 	return out
 }
 
-func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, userID int64, channel string) ([]MessageSemanticDocument, error) {
+func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, userID int64, channel, role string) ([]MessageSemanticDocument, error) {
 	args := []any{ids}
-	predicates := make([]string, 0, 2)
+	predicates := []string{"cs.channel NOT LIKE 'internal:%'", "m.context_eligible"}
 	if userID > 0 {
 		args = append(args, userID)
 		predicates = append(predicates, fmt.Sprintf("cs.user_id = $%d AND strpos(cs.channel, ':group:') = 0", len(args)))
@@ -457,17 +537,18 @@ func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, 
 		args = append(args, channel)
 		predicates = append(predicates, fmt.Sprintf("cs.channel = $%d", len(args)))
 	}
-	scopePredicate := ""
-	if len(predicates) > 0 {
-		scopePredicate = " AND " + strings.Join(predicates, " AND ")
+	if role != "" {
+		args = append(args, role)
+		predicates = append(predicates, fmt.Sprintf("m.role = $%d", len(args)))
 	}
+	scopePredicate := " AND " + strings.Join(predicates, " AND ")
 	rows, err := s.pool.Query(ctx,
 		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
 		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
 		   LEFT JOIN LATERAL (
 		       SELECT p.role, p.content FROM chat_messages p
-		        WHERE p.session_id = m.session_id AND p.id < m.id
+		        WHERE p.session_id = m.session_id AND p.id < m.id AND p.context_eligible
 		        ORDER BY p.id DESC LIMIT 1
 		   ) prev ON TRUE
 		  WHERE m.id = ANY($1)`+scopePredicate, args...)
@@ -573,13 +654,13 @@ func (s *Store) MessagesOf(ctx context.Context, sessionID int64, limit int) ([]C
 // 滚动摘要压缩用：afterID = 会话的 summary_upto。
 func (s *Store) MessagesAfter(ctx context.Context, sessionID, afterID int64, limit int) ([]ChatMessage, error) {
 	sql := `SELECT id, session_id, role, content, created_at FROM chat_messages
-	        WHERE session_id = $1 AND id > $2 ORDER BY id`
+	        WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id`
 	args := []any{sessionID, afterID}
 	if limit > 0 {
 		// 取最近 limit 条但保持升序。
 		sql = `SELECT id, session_id, role, content, created_at FROM (
 		         SELECT id, session_id, role, content, created_at FROM chat_messages
-		         WHERE session_id = $1 AND id > $2 ORDER BY id DESC LIMIT $3
+		         WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id DESC LIMIT $3
 		       ) sub ORDER BY id`
 		args = append(args, limit)
 	}
@@ -604,7 +685,7 @@ func (s *Store) MessagesAfter(ctx context.Context, sessionID, afterID int64, lim
 func (s *Store) OldestMessagesAfter(ctx context.Context, sessionID, afterID int64, limit int) ([]ChatMessage, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, session_id, role, content, created_at FROM chat_messages
-		 WHERE session_id = $1 AND id > $2 ORDER BY id LIMIT $3`, sessionID, afterID, limit)
+		 WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id LIMIT $3`, sessionID, afterID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -624,7 +705,7 @@ func (s *Store) OldestMessagesAfter(ctx context.Context, sessionID, afterID int6
 func (s *Store) CountMessagesAfter(ctx context.Context, sessionID, afterID int64) (int, error) {
 	var n int
 	err := s.pool.QueryRow(ctx,
-		`SELECT count(*) FROM chat_messages WHERE session_id = $1 AND id > $2`, sessionID, afterID).Scan(&n)
+		`SELECT count(*) FROM chat_messages WHERE session_id = $1 AND id > $2 AND context_eligible`, sessionID, afterID).Scan(&n)
 	return n, err
 }
 

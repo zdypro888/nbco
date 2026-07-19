@@ -12,6 +12,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 // hasActiveAll 是否拥有某主动权限的 _all 范围授权。
@@ -243,27 +244,71 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					internalRef("提醒", created.ID), desc, target, mode, fmtTime(created.FireAt, d.TZ)), nil
 			}),
 
-		tool("cancel_schedule", "取消一个定时提醒。",
-			obj(map[string]any{"schedule_id": p("integer", "提醒ID")}, "schedule_id"),
+		tool("cancel_schedule", "取消一个定时提醒或持久自动化。优先传 schedule_id；不知道编号时传 query，工具会在当前可见的活跃日程中按标题、内容和来源查找，只有唯一匹配才取消。超级管理员可取消全局日程。",
+			obj(map[string]any{
+				"schedule_id": p("integer", "日程ID（可选，优先）"),
+				"query":       p("string", "不知道 ID 时按标题、内容或来源检索（可选）"),
+			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					ScheduleID int64 `json:"schedule_id"`
+					ScheduleID int64  `json:"schedule_id"`
+					Query      string `json:"query"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
-				if err := d.Store.CancelSchedule(ctx, args.ScheduleID, u.ID); err != nil {
+				if args.ScheduleID <= 0 {
+					if strings.TrimSpace(args.Query) == "" {
+						return "请提供 schedule_id；不知道编号时请提供可用于消歧的 query。", nil
+					}
+					matches, err := findVisibleSchedules(ctx, d, u, args.Query)
+					if err != nil {
+						return "", err
+					}
+					switch len(matches) {
+					case 0:
+						return "没有找到匹配的活跃定时提醒或自动化。请先用 list_schedules 查看。", nil
+					case 1:
+						args.ScheduleID = matches[0].ID
+					default:
+						return "匹配到多条活跃日程，请根据稳定 ID 指定一条：\n" + renderScheduleCandidates(matches, d.TZ), nil
+					}
+				}
+				if err := d.Store.CancelScheduleVisible(ctx, args.ScheduleID, u.ID, u.IsSuperadmin); err != nil {
 					if errors.Is(err, store.ErrNotFound) {
-						return "提醒不存在或不属于你。", nil
+						return "日程不存在、已结束或不在你的可见范围。", nil
 					}
 					return "", err
 				}
-				return "已取消。", nil
+				return fmt.Sprintf("已取消%s。", internalRef("日程", args.ScheduleID)), nil
 			}),
 
-		tool("list_schedules", "查看我的定时提醒和持久自动化。", obj(nil),
-			func(ctx context.Context, _ json.RawMessage) (string, error) {
-				scs, err := d.Store.SchedulesOf(ctx, u.ID)
+		tool("list_schedules", "查看可见的定时提醒和持久自动化；超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all，避免执行后的单次任务从视图消失。返回稳定日程 ID、状态和触发时间，可用于取消或核实；逐次投递结果可用 query_data(source=deliveries) 深挖。",
+			obj(map[string]any{
+				"status": p("string", "active（默认）、done、cancelled 或 all"),
+				"limit":  p("integer", "最多返回条数，默认100，最大500"),
+			}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Status string `json:"status"`
+					Limit  int    `json:"limit"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				status := strings.ToLower(strings.TrimSpace(args.Status))
+				switch status {
+				case "", store.ScheduleActive, store.ScheduleDone, store.ScheduleCancelled, "all":
+				default:
+					return "status 只能是 active、done、cancelled 或 all。", nil
+				}
+				limit := args.Limit
+				if limit <= 0 {
+					limit = 100
+				} else if limit > 500 {
+					limit = 500
+				}
+				scs, err := d.Store.SchedulesVisible(ctx, u.ID, u.IsSuperadmin, status, limit)
 				if err != nil {
 					return "", err
 				}
@@ -271,12 +316,17 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					return "（无定时提醒或自动化）", nil
 				}
 				var b strings.Builder
-				for _, sc := range scs {
+				for i := range scs {
+					sc := &scs[i]
 					refLabel := "提醒"
 					if strings.TrimSpace(sc.SourceKind) != "" {
 						refLabel = "自动化"
 					}
-					fmt.Fprintf(&b, "- %s [%s] %s 下次 %s", internalRef(refLabel, sc.ID), sc.Kind, scheduleDisplayMessage(ctx, d, sc), fmtTime(sc.FireAt, d.TZ))
+					whenLabel := "计划"
+					if sc.Status == store.ScheduleActive {
+						whenLabel = "下次"
+					}
+					fmt.Fprintf(&b, "- %s [%s/%s] %s %s %s", internalRef(refLabel, sc.ID), sc.Status, sc.Kind, scheduleDisplayMessage(ctx, d, &sc.Schedule), whenLabel, fmtTime(sc.FireAt, d.TZ))
 					if sc.Kind == store.ScheduleRepeat {
 						fmt.Fprintf(&b, "（每 %d 秒）", sc.IntervalS)
 					}
@@ -293,11 +343,48 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					if sc.Mode == store.ScheduleModeAI {
 						b.WriteString(" [AI生成]")
 					}
+					if sc.LastFired != nil {
+						fmt.Fprintf(&b, " 最近触发 %s", fmtTime(*sc.LastFired, d.TZ))
+					}
 					b.WriteString("\n")
 				}
 				return b.String(), nil
 			}),
 	}
+}
+
+func findVisibleSchedules(ctx context.Context, d Deps, u *store.User, query string) ([]store.ScheduleView, error) {
+	items, err := d.Store.SchedulesVisible(ctx, u.ID, u.IsSuperadmin, store.ScheduleActive, 500)
+	if err != nil {
+		return nil, err
+	}
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return items, nil
+	}
+	matches := make([]store.ScheduleView, 0, len(items))
+	for _, item := range items {
+		haystack := strings.ToLower(strings.Join([]string{
+			item.Title, item.Message, item.SourceKind, item.SourceKey,
+			item.ReceiverName, item.CreatorName,
+		}, "\n"))
+		if strings.Contains(haystack, query) {
+			matches = append(matches, item)
+		}
+	}
+	return matches, nil
+}
+
+func renderScheduleCandidates(items []store.ScheduleView, tz *time.Location) string {
+	var b strings.Builder
+	for _, item := range items {
+		label := strings.TrimSpace(item.Title)
+		if label == "" {
+			label = textfmt.TruncateRunes(strings.TrimSpace(item.Message), 80)
+		}
+		fmt.Fprintf(&b, "- %s %s，下次 %s\n", internalRef("日程", item.ID), label, fmtTime(item.FireAt, tz))
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func normalizeDailyAt(raw string) (string, error) {

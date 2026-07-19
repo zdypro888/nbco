@@ -62,6 +62,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `ai.api_key` / `ai.model` | eino 引擎必填 |
 | `ai.timeout_ms` | 单次模型 API 请求超时，默认 `300000`（5 分钟）；长上下文/慢模型可调大 |
 | `ai.turn_timeout_ms` | 一整轮对话总时限（含排队、路由、工具与重试），默认 `600000`（10 分钟），最大 30 分钟 |
+| `ai.max_turns` | Eino DeepAgent 单轮模型生成生命周期上限，默认 `64`；不是工具调用次数限制，同一工具可按任务需要重复或并行调用 |
 | `ai.summarize_after_tokens` / `ai.summarize_after_messages` | Eino 原生上下文摘要触发阈值，任一达到即压缩 agent 上下文；默认 `24000` tokens / `80` messages，不删除产品聊天或审计记录 |
 | `ai.stream_reasoning` | 是否在流式回复阶段展示模型推理内容，默认 `false`；超管可通过对话修改，运行时设置优先于配置文件默认值 |
 | `ai.embed_model` | 语义检索的 embedding 模型（可选）；空=知识检索走词法。指向 OpenAI 兼容 embeddings 端点 |
@@ -334,17 +335,17 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 ## 知识与画像（越用越值钱）
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
-- **行为规则（Policy Memory）**：超管对 AI 说「以后不要…」「默认…」这类持久性要求时，AI 用 `save_rule` 存成规则（与知识同表，`kind=policy`；作用域 `scope:global/telegram/api/worker/user:<id>` 用标签表达）。少数 `pinned` 底线规则每轮常驻系统提示；其余规则每轮用当前输入做语义检索、按作用域过滤后注入「本轮相关规则」，worker 领活时同样注入适用 worker 场景的规则——规则可以无限多，系统提示不会随之膨胀。管理工具：`save_rule` / `list_rules` / `set_rule_pinned`（改正文/删除复用 `update_knowledge` / `delete_knowledge`）
-- **情景记忆（Episodic Memory）**：每条非空聊天消息都做 embedding，`search_history` 可跨会话检索「我们之前聊过/定过什么」。短确认也会索引，并携带上一条消息作为向量上下文，避免「就这个」脱离语境；存量消息启动及周期后台回填。普通用户只搜自己名下会话，超级管理员还可通过 `query_data` 按权限跨会话调查
+- **行为规则（Policy Memory）**：超管对 AI 提出持久要求时，Memory Miner 先抽取、再由独立治理子调用判断发布/待审/拒绝；冲突候选不会并排自动生效。少数 `pinned` 底线规则每轮常驻，其余规则按当前输入语义召回并校验作用域。知识、规则和 Skill 都支持 `set_knowledge_active` 可逆归档；归档后立即退出提示注入、搜索和 Qdrant 对账，原文、版本与审计仍保留。
+- **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 可显式检索双方历史。自动预取只从用户原话和正式知识开始，再由无工具 AI 相关性路由筛选；旧 AI 答复不会被自动当成事实回灌。短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
-- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，知识、规则、Skill、已进入会话事实流的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
+- **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，生效知识/规则/Skill、会话中可用于上下文的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除或归档实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
 - **文件正文索引**：上传请求只负责可靠落盘，后台持久队列再提取文本并按重叠窗口分块；PostgreSQL 正文提取与 Qdrant 向量写入分别记录状态和重试。TXT/CSV/JSON/源码和 DOCX/XLSX/PPTX/ODF 使用确定性提取；PDF 优先读取文本层，无文本层时受控 OCR，图片使用 `tesseract`（命令不可用时文件名和元数据仍可搜索，安装新提取器后会自动重试）。该流程限制 Office 解压规模与 OCR 页数，只建立搜索索引，不执行文件内容，也不会自动发布成知识、规则或 Skill
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 脚本工具（让 nbco 长出新工具）
 
-Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；脚本工具负责“把稳定的小计算/转换/格式化固化成可调用 tool”。超管可以用 `create_script_tool` / `test_script_tool` / `enable_script_tool` 创建 Starlark 脚本工具，启用后它会像内置工具一样进入 tool 列表，继续走权限裁剪、群聊高危过滤、调用预算和审计日志。
+Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；脚本工具负责“把稳定的小计算/转换/格式化固化成可调用 tool”。超管可以用 `create_script_tool` / `test_script_tool` / `enable_script_tool` 创建 Starlark 脚本工具，启用后它会像内置工具一样进入 tool 列表，继续走权限裁剪、群聊高危过滤、参数归一和审计日志。Agent 工具调用没有项目自建的总数、单工具或重复参数次数配额。
 
 脚本工具第一版只支持内嵌 **Starlark**：脚本必须定义 `run(args)`，`args` 是 JSON 对象，返回字符串、列表或字典。运行时无文件、无 shell、无网络、无数据库直连，并带执行步数和超时限制；适合值日表字段转换、报表格式化、规则计算、文本规范化这类可重复小工具。复杂 Python/Excel/PDF/爬虫/命令行工作交给 worker；Go 仍用于核心系统能力，不做主进程动态 Go 插件。
 
@@ -353,7 +354,7 @@ Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；�
 nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把可长期复用的结论沉淀成可治理资产：
 
 - **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态与审核人
-- **对话学习**：Memory Miner 从超管对话里抽取规则、skill、知识；每个条目必须逐字引用用户原话作为来源证明，助手承诺、工具执行结果、当前开关和队列状态不能复制成长期记忆；已发布内容也会留下 learning candidate 记录，便于之后审计
+- **对话学习**：Memory Miner 从对话里抽取规则、skill、知识；每个条目必须引用用户原话或受控工具证据，再经过独立治理子调用复核是否过度泛化。发布、待审、拒绝和冲突分流都留下 learning candidate 记录，助手承诺、一次性催促和当前运行状态不能直接变成长期规则
 - **worker 学习**：worker 完成资料分析任务时，可在汇报末尾输出 `NBCO_LEARNING_CANDIDATES_JSON:`，nbco 会解析为学习候选
 - **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，标记明显重复/冲突；调度器月度知识盘点和 Web 学习页会自动触发一次轻量评分
 - **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布到正式知识库/规则/Skill，用 `reject_learning_candidate` 清理噪音

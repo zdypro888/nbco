@@ -48,7 +48,10 @@ type AIConfig struct {
 	// TurnTimeoutMS caps one complete user turn, including routing, tool loops,
 	// retries and time spent waiting behind the same user's previous turn.
 	TurnTimeoutMS int `json:"turn_timeout_ms"` // 默认 600000ms，最大 1800000ms
-	MaxTurns      int `json:"max_turns"`       // tool 循环上限，默认 16
+	// MaxTurns is Eino DeepAgent's model-generation lifecycle limit. It is not
+	// a tool-call quota: one generation may issue multiple parallel calls and
+	// the same tool may be used repeatedly when the task requires it.
+	MaxTurns int `json:"max_turns"` // 默认 64
 	// Eino 原生 summarization 的触发阈值。任一阈值达到即压缩 agent 上下文；
 	// 与产品聊天记录分离，不删除审计历史。
 	SummarizeAfterTokens   int `json:"summarize_after_tokens"`   // 默认 24000
@@ -180,7 +183,7 @@ func (c *Config) applyDefaults() {
 		c.AI.TurnTimeoutMS = 600000
 	}
 	if c.AI.MaxTurns <= 0 {
-		c.AI.MaxTurns = 16
+		c.AI.MaxTurns = 64
 	}
 	if c.AI.SummarizeAfterTokens <= 0 {
 		c.AI.SummarizeAfterTokens = 24000
@@ -281,7 +284,7 @@ func (c *Config) validate() error {
 			errs = append(errs, errors.New("ai.model 必填（eino 引擎）"))
 		}
 		if c.AI.MaxTurns < 2 {
-			errs = append(errs, errors.New("ai.max_turns 至少为 2（工具调用后需要一轮最终答复）"))
+			errs = append(errs, errors.New("ai.max_turns 至少为 2（DeepAgent 需保留最终答复迭代）"))
 		}
 		if c.AI.SummarizeAfterTokens < 4096 {
 			errs = append(errs, errors.New("ai.summarize_after_tokens 至少为 4096"))

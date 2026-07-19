@@ -2445,6 +2445,116 @@ func TestDirectedDailySchedule(t *testing.T) {
 	if err != nil || len(all) != 1 || all[0].Status != ScheduleCancelled {
 		t.Fatalf("all 应看到已取消任务: %+v err=%v", all, err)
 	}
+
+	member := mkUser(t, s, "日程创建者", false)
+	memberSchedule, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: member.ID, Kind: ScheduleOnce, Message: "成员提醒",
+		FireAt: time.Now().UTC().Add(time.Hour), CreatedBy: member.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CancelScheduleVisible(ctx, memberSchedule.ID, boss.ID, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("非所有者且未启用超管范围时不应取消: %v", err)
+	}
+	if err := s.CancelScheduleVisible(ctx, memberSchedule.ID, boss.ID, true); err != nil {
+		t.Fatalf("超级管理员应能取消全局可见日程: %v", err)
+	}
+}
+
+func TestQuarantineLegacyAutomationHistoryMigration(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "automation-history", true)
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, message := range []struct{ role, content string }{
+		{"user", "正常问题"},
+		{"assistant", "正常回答"},
+		{"user", "[系统定时触发·定制推送]内部指令"},
+		{"assistant", "自动推送结果"},
+		{"user", "后续问题"},
+		{"assistant", "后续回答"},
+	} {
+		if _, err := s.AppendMessage(ctx, sess.ID, message.role, message.content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.UpdateSessionSummary(ctx, sess.ID, "含有旧自动化内容", 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetSessionEngineRef(ctx, sess.ID, "stale-agent-trace"); err != nil {
+		t.Fatal(err)
+	}
+	migration, err := migrationsFS.ReadFile("migrations/0057_quarantine_automation_history.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
+		t.Fatal(err)
+	}
+
+	original, err := s.MessagesOf(ctx, sess.ID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(original) != 4 {
+		t.Fatalf("interactive session should retain 4 human messages, got %+v", original)
+	}
+	for _, message := range original {
+		if strings.HasPrefix(message.Content, "[系统") || message.Content == "自动推送结果" {
+			t.Fatalf("automation content remained interactive: %+v", original)
+		}
+	}
+	var moved int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM chat_messages m JOIN chat_sessions cs ON cs.id=m.session_id
+		  WHERE cs.channel=$1`, fmt.Sprintf("internal:legacy:automation:%d", sess.ID)).Scan(&moved); err != nil {
+		t.Fatal(err)
+	}
+	if moved != 2 {
+		t.Fatalf("quarantined messages = %d, want 2", moved)
+	}
+	clean, err := s.SessionByID(ctx, sess.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clean.Summary != "" || clean.SummaryUpto != 0 || clean.EngineRef != "" {
+		t.Fatalf("interactive session state was not reset: %+v", clean)
+	}
+}
+
+func TestSchedulesVisibleOrdersRecentHistoryFirst(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "schedule-history", true)
+
+	older, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: u.ID, Kind: ScheduleOnce, Message: "older",
+		FireAt: time.Now().UTC().Add(-2 * time.Hour), CreatedBy: u.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: u.ID, Kind: ScheduleOnce, Message: "newer",
+		FireAt: time.Now().UTC().Add(-time.Hour), CreatedBy: u.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE schedules SET status='done', updated_at=now()-interval '2 hours' WHERE id=$1`, older.ID)
+	mustExec(t, s, `UPDATE schedules SET status='done', updated_at=now()-interval '1 hour' WHERE id=$1`, newer.ID)
+
+	items, err := s.SchedulesVisible(ctx, u.ID, true, ScheduleDone, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ID != newer.ID {
+		t.Fatalf("recent history should be first: %+v", items)
+	}
 }
 
 func TestScheduleOccurrenceFansOutPerRecipient(t *testing.T) {
@@ -3640,6 +3750,115 @@ func TestSemanticMessageLookupIncludesImmediateContext(t *testing.T) {
 	if !strings.Contains(rows[0].Content, "current_user: 就这个") ||
 		!strings.Contains(rows[0].Content, "previous_assistant: 需要把视频项目的发布日期调整到周五吗？") {
 		t.Fatalf("semantic context content = %q", rows[0].Content)
+	}
+}
+
+func TestChatContextEligibilityPreservesAuditButExcludesRecall(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "context-quality-owner", true)
+	session, err := s.StartSession(ctx, owner.ID, "telegram:private:context-quality", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keepID, err := s.AppendMessage(ctx, session.ID, "user", "保留这条项目决定")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quarantinedID, err := s.AppendMessage(ctx, session.ID, "assistant", "截断碎片")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE chat_messages SET context_eligible = false WHERE id = $1`, quarantinedID); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.MessagesAfter(ctx, session.ID, 0, 0)
+	if err != nil || len(rows) != 1 || rows[0].ID != keepID {
+		t.Fatalf("replay rows = %+v, %v", rows, err)
+	}
+	if _, err := s.MessageSemanticDocumentByID(ctx, quarantinedID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("quarantined semantic document error = %v", err)
+	}
+	if rows, err := s.SearchMessagesOfUser(ctx, owner.ID, "截断碎片", 10); err != nil || len(rows) != 0 {
+		t.Fatalf("quarantined lexical recall = %+v, %v", rows, err)
+	}
+	auditRows, err := s.ReadData(ctx, owner.ID, true, DataReadQuery{
+		Source: "chat_messages", EntityIDs: []string{fmt.Sprint(quarantinedID)}, Limit: 10,
+	})
+	if err != nil || len(auditRows) != 1 || !strings.Contains(string(auditRows[0]), `"context_eligible": false`) {
+		t.Fatalf("audit row = %s, %v", auditRows, err)
+	}
+}
+
+func TestAutomaticHistoryCandidatesUseOnlyRawUserMessages(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "user-history-owner", false)
+	session, err := s.StartSession(ctx, owner.ID, "telegram:private:user-history", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assistantID, err := s.AppendMessage(ctx, session.ID, "assistant", "项目暗号 alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userMessageID, err := s.AppendMessage(ctx, session.ID, "user", "项目暗号 alpha 由我确认")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.SearchUserMessagesOfUser(ctx, owner.ID, "alpha", 10)
+	if err != nil || len(rows) != 1 || rows[0].ID != userMessageID || rows[0].Role != "user" {
+		t.Fatalf("user-only lexical rows = %+v, %v", rows, err)
+	}
+	rows, err = s.UserMessagesByIDsForUser(ctx, owner.ID, []int64{assistantID, userMessageID})
+	if err != nil || len(rows) != 1 || rows[0].ID != userMessageID || rows[0].Content != "项目暗号 alpha 由我确认" {
+		t.Fatalf("user-only semantic rows = %+v, %v", rows, err)
+	}
+}
+
+func TestKnowledgeLifecycleArchivesWithoutDeletingAudit(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "knowledge-lifecycle-owner", true)
+	k, err := s.CreateRule(ctx, "可归档流程", "旧流程内容", []string{"lifecycle"}, owner.ID, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archived, err := s.SetKnowledgeActive(ctx, k.ID, false, owner.ID, "superseded")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archived.Active || !archived.Pinned {
+		t.Fatalf("archived lifecycle state = active:%v pinned:%v", archived.Active, archived.Pinned)
+	}
+	if rows, err := s.SearchRules(ctx, "可归档流程", 10); err != nil || len(rows) != 0 {
+		t.Fatalf("archived search rows = %+v, %v", rows, err)
+	}
+	if _, err := s.KnowledgeByID(ctx, k.ID); err != nil {
+		t.Fatalf("archived audit lookup: %v", err)
+	}
+	if rows, err := s.KnowledgeByIDs(ctx, []int64{k.ID}); err != nil || len(rows) != 0 {
+		t.Fatalf("archived semantic re-read = %+v, %v", rows, err)
+	}
+	auditRows, err := s.ReadData(ctx, owner.ID, true, DataReadQuery{
+		Source: "knowledge", EntityIDs: []string{fmt.Sprint(k.ID)}, Limit: 10,
+	})
+	if err != nil || len(auditRows) != 1 || !strings.Contains(string(auditRows[0]), `"active": false`) {
+		t.Fatalf("archived audit row = %s, %v", auditRows, err)
+	}
+	restored, err := s.SetKnowledgeActive(ctx, k.ID, true, owner.ID, "restore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !restored.Active || !restored.Pinned {
+		t.Fatalf("restored lifecycle state = active:%v pinned:%v", restored.Active, restored.Pinned)
+	}
+	if rows, err := s.PinnedRules(ctx); err != nil || len(rows) != 1 || rows[0].ID != k.ID {
+		t.Fatalf("restored pinned rules = %+v, %v", rows, err)
+	}
+	versions, err := s.KnowledgeVersions(ctx, k.ID, 10)
+	if err != nil || len(versions) != 2 {
+		t.Fatalf("lifecycle versions = %+v, %v", versions, err)
 	}
 }
 
