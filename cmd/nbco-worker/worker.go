@@ -37,10 +37,10 @@ var errAgentNoProgress = errors.New("Agent 连续多个交互回合没有产生�
 // 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
 // 避免任务描述里提前注入固定标记后被 parseCompletion 误认成完成输出。
 const (
-	markSummary   = "<<<SUMMARY>>>"
-	markLessons   = "<<<LESSONS>>>"
-	markNeedInput = "<<<NEED_INPUT>>>"
-	markEnd       = "<<<END>>>"
+	markSummary   = "[[NBCO_SUMMARY]]"
+	markLessons   = "[[NBCO_LESSONS]]"
+	markNeedInput = "[[NBCO_NEED_INPUT]]"
+	markEnd       = "[[NBCO_END]]"
 )
 
 type completionMarks struct {
@@ -59,18 +59,18 @@ func newCompletionMarks() completionMarks {
 	if _, err := rand.Read(b[:]); err != nil {
 		nonce := fmt.Sprint(time.Now().UnixNano())
 		return completionMarks{
-			Summary:   "<<<SUMMARY:" + nonce + ">>>",
-			Lessons:   "<<<LESSONS:" + nonce + ">>>",
-			NeedInput: "<<<NEED_INPUT:" + nonce + ">>>",
-			End:       "<<<END:" + nonce + ">>>",
+			Summary:   "[[NBCO_SUMMARY:" + nonce + "]]",
+			Lessons:   "[[NBCO_LESSONS:" + nonce + "]]",
+			NeedInput: "[[NBCO_NEED_INPUT:" + nonce + "]]",
+			End:       "[[NBCO_END:" + nonce + "]]",
 		}
 	}
 	nonce := hex.EncodeToString(b[:])
 	return completionMarks{
-		Summary:   "<<<SUMMARY:" + nonce + ">>>",
-		Lessons:   "<<<LESSONS:" + nonce + ">>>",
-		NeedInput: "<<<NEED_INPUT:" + nonce + ">>>",
-		End:       "<<<END:" + nonce + ">>>",
+		Summary:   "[[NBCO_SUMMARY:" + nonce + "]]",
+		Lessons:   "[[NBCO_LESSONS:" + nonce + "]]",
+		NeedInput: "[[NBCO_NEED_INPUT:" + nonce + "]]",
+		End:       "[[NBCO_END:" + nonce + "]]",
 	}
 }
 

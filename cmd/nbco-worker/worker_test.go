@@ -30,6 +30,18 @@ func TestParseCompletion(t *testing.T) {
 	}
 }
 
+func TestCompletionMarksAreTerminalRenderSafe(t *testing.T) {
+	marks := newCompletionMarks()
+	for _, mark := range []string{marks.Summary, marks.Lessons, marks.NeedInput, marks.End} {
+		if strings.ContainsAny(mark, "<>") {
+			t.Fatalf("PTY completion mark must not be interpreted as an HTML-like tag: %q", mark)
+		}
+		if !strings.HasPrefix(mark, "[[NBCO_") || !strings.HasSuffix(mark, "]]") {
+			t.Fatalf("unexpected PTY completion mark: %q", mark)
+		}
+	}
+}
+
 func TestCancelCurrentRunCancelsOnlyMatchingLease(t *testing.T) {
 	w := &Worker{}
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -805,16 +817,16 @@ func TestSessionEndToEnd(t *testing.T) {
 	}
 	// stty -echo：真 TUI 都是 raw 模式自绘输入；关掉 tty 回显后脚本才能像真
 	// TUI 一样完全控制屏幕（否则我们补发的回车会错位脚本的光标操作）。
-	script := `
+	script := fmt.Sprintf(`
 stty -echo
 printf 'mock-tui ready\n'
 IFS= read -r line
 printf 'thinking... esc to interrupt\n'
 sleep 1.2
 printf '\033[2J\033[H'
-printf '<<<SUMMARY>>>\n建好了 hello.txt\n<<<LESSONS>>>\n无\n<<<END>>>\n'
+printf '%s\n建好了 hello.txt\n%s\n无\n%s\n'
 sleep 60
-`
+`, markSummary, markLessons, markEnd)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	sess, err := startSession(ctx, t.TempDir(), "sh", "-c", script)

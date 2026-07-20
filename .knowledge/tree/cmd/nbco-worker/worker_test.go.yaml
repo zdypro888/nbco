@@ -442,10 +442,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker_test.go
         symbol: TestSessionEndToEnd
-        hash: sha256:043277da4b7f7011794dce3e80243539995e6b2c1ad5fe35d38ffeab46906456
-        struct_hash: sha256:280b372d5fc2bde1da5c0b47b77a3a7714f6f7ffbced551faa76e285c2ce8e1c
-        doc_struct_hash: sha256:a2c7e40b61b70d298a0df5275928ee81d4c875b28962a82739959ffc895c637a
-        lines: [725, 767]
+        hash: sha256:67e05d1d4d846c04ffc4ec377a6fbf336cb0878c1bb859d431c8435af9ad4294
+        struct_hash: sha256:95b9ff10d6bb8dc03579dcfb8a396457d282b0702d5a0534eb998069891bab38
+        doc_struct_hash: sha256:eeb16773530f66fe39ac7a51170b5c6b3c2611ab5f215771e1f51e75c324025f
+        lines: [811, 853]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker_test.go#TestSmokeClaude
@@ -536,3 +536,14 @@ nodes:
         lines: [563, 585]
       status: fresh
       since: 2026-07-20T18:19:17.319804Z
+    - id: cmd/nbco-worker/worker_test.go#TestCompletionMarksAreTerminalRenderSafe
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestCompletionMarksAreTerminalRenderSafe
+        hash: sha256:108e51fe81991b884fbd2a2dea9925d397a7cfa15a1b5b96771934b305630d57
+        struct_hash: sha256:1260d84be462082e1ab364d773c86f05063d09850251d31e93e744a1123a0f92
+        doc_struct_hash: sha256:1260d84be462082e1ab364d773c86f05063d09850251d31e93e744a1123a0f92
+        lines: [33, 43]
+      status: fresh
+      since: 2026-07-20T18:31:59.173469Z
