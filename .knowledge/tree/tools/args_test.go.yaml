@@ -4,19 +4,41 @@ nodes:
       level: file
       anchor:
         file: tools/args_test.go
-        hash: sha256:f6e6e6e62f4c33c646e10b59d72501c8c46fd603c10f0462b5e8bf14890a8192
+        hash: sha256:550bf8dcb34bdcfe93a6cf86dcec9e45227f3bce6314a4ad46d66e2aef011bd3
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args_test.go#TestArgumentBoundaryValidatesBeforeBusinessHandler
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestArgumentBoundaryValidatesBeforeBusinessHandler
+        hash: sha256:6e43a4dd70bb5f4860041fedf98d4c0acf83f8b56cdc8510655ed90840574598
+        struct_hash: sha256:a04ab2b24072428d2f4e966ee616298d09c19427e15ac3cd985cd5deb4037b8c
+        doc_struct_hash: sha256:a04ab2b24072428d2f4e966ee616298d09c19427e15ac3cd985cd5deb4037b8c
+        lines: [12, 47]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: tools/args_test.go#TestToolResultLifecycleIsStructured
+      level: function
+      anchor:
+        file: tools/args_test.go
+        symbol: TestToolResultLifecycleIsStructured
+        hash: sha256:122879b0e7610ec50bb9d73b71a027eacae09dae07be53964647248f15223906
+        struct_hash: sha256:244400d7d1c8bf90d6210eb82be6be7a3ea966c5cfa8ecd214e02cc50531b42c
+        doc_struct_hash: sha256:244400d7d1c8bf90d6210eb82be6be7a3ea966c5cfa8ecd214e02cc50531b42c
+        lines: [49, 61]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
     - id: tools/args_test.go#TestNormalizeToolArgsUsesSchemaTypesAndUnambiguousAliases
       level: function
       anchor:
         file: tools/args_test.go
         symbol: TestNormalizeToolArgsUsesSchemaTypesAndUnambiguousAliases
-        hash: sha256:879a2de15f2dbe079509b116b9d28f7766c5ee650b775374bea184018d101b35
-        struct_hash: sha256:2753fb7ecd5782f424a33bbe03b9d585ca497240eb177baa827bec1207897383
-        doc_struct_hash: sha256:2753fb7ecd5782f424a33bbe03b9d585ca497240eb177baa827bec1207897383
-        lines: [8, 33]
+        hash: sha256:b0ca14fe2734ab57008407bbe10cdd987458029901e387c1491cfc586e6e0da5
+        struct_hash: sha256:954754f30a63544e22f0480b6c229fe913860cf6bdf5a70f3812d4f174a3c176
+        doc_struct_hash: sha256:954754f30a63544e22f0480b6c229fe913860cf6bdf5a70f3812d4f174a3c176
+        lines: [63, 88]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsInternalIDOnlyWhenUnambiguous
@@ -24,10 +46,10 @@ nodes:
       anchor:
         file: tools/args_test.go
         symbol: TestNormalizeToolArgsInternalIDOnlyWhenUnambiguous
-        hash: sha256:a0d4ec133c7ca2303637e58d1847d2cca387cb4041cf0780a62b74da308a602d
-        struct_hash: sha256:8b422c430e26cf5433973782440f23aaeb1295cfd3732eb97f13d0c202da82c8
-        doc_struct_hash: sha256:8b422c430e26cf5433973782440f23aaeb1295cfd3732eb97f13d0c202da82c8
-        lines: [35, 51]
+        hash: sha256:08bc580b22bd98f5794dc7ba95b07fac208bde0ffa57e6cc7b14a78044a4a3f5
+        struct_hash: sha256:fa7b570daf332cd547f2b35940c233786784e494f32cd0bd8e2050290be07616
+        doc_struct_hash: sha256:fa7b570daf332cd547f2b35940c233786784e494f32cd0bd8e2050290be07616
+        lines: [90, 106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsNestedArray
@@ -35,10 +57,10 @@ nodes:
       anchor:
         file: tools/args_test.go
         symbol: TestNormalizeToolArgsNestedArray
-        hash: sha256:0661cdf79b7b0600a93c63690ebace758656806affacfd61beb3132d1382941e
-        struct_hash: sha256:7af4d2245e50ed222eec3bc12286135e83bcfe8ce55a0604b98c3b5302f7619f
-        doc_struct_hash: sha256:7af4d2245e50ed222eec3bc12286135e83bcfe8ce55a0604b98c3b5302f7619f
-        lines: [53, 69]
+        hash: sha256:151b19c79cac7c4ebdb1940f2962bff9c8e048b363d8aae2425c95c333df3755
+        struct_hash: sha256:57c8234ad800b042072efabd0866f75a91cc2f28e0906ed9de58298c678d8d2a
+        doc_struct_hash: sha256:57c8234ad800b042072efabd0866f75a91cc2f28e0906ed9de58298c678d8d2a
+        lines: [108, 124]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsMapsGenericTimeToAt
@@ -46,10 +68,10 @@ nodes:
       anchor:
         file: tools/args_test.go
         symbol: TestNormalizeToolArgsMapsGenericTimeToAt
-        hash: sha256:6d44312f9afcbefaa8ea53ba74b22c128e3eff8a645f097dd4974e3eba0c0441
-        struct_hash: sha256:0a87ae8c1f03af60c6c076799493e7e2705499c57c74b10c4baada62086685a7
-        doc_struct_hash: sha256:0a87ae8c1f03af60c6c076799493e7e2705499c57c74b10c4baada62086685a7
-        lines: [71, 80]
+        hash: sha256:517dd4f6113fc9cfb08cc1363fc36a4e4566ae56fbcf1ca5ee0dd03ec87d0b87
+        struct_hash: sha256:29768699f09ce18e38d7f40e7d5712aefbb114ae482888e964718a3fa701cd9a
+        doc_struct_hash: sha256:29768699f09ce18e38d7f40e7d5712aefbb114ae482888e964718a3fa701cd9a
+        lines: [126, 135]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsRejectsFractionalInteger
@@ -57,9 +79,9 @@ nodes:
       anchor:
         file: tools/args_test.go
         symbol: TestNormalizeToolArgsRejectsFractionalInteger
-        hash: sha256:b1cf2596f86ef778a6d11fc6dad05a4ce3936cb5ae76cb186a051eb44891318e
-        struct_hash: sha256:b033d3c3607b391a0167dcd7840da7015ff4aa43ed3b1c1b7ad0ee68b5103e36
-        doc_struct_hash: sha256:b033d3c3607b391a0167dcd7840da7015ff4aa43ed3b1c1b7ad0ee68b5103e36
-        lines: [82, 88]
+        hash: sha256:26866fe582756d887327094d468bd6cb5b4f1cf5e1dbe30d761b31dbab112837
+        struct_hash: sha256:7613cc47970b56a7f5cc31073467eaacfb2ee88674184e8f44b63a856a21ffc2
+        doc_struct_hash: sha256:7613cc47970b56a7f5cc31073467eaacfb2ee88674184e8f44b63a856a21ffc2
+        lines: [137, 143]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

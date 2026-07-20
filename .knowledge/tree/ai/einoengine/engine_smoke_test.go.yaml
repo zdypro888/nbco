@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/engine_smoke_test.go
-        hash: sha256:84922fc0faa328740a86ae452569657ed4aa197fe8456ac4352b3132836cd297
+        hash: sha256:5e2e2324993a97c6dd8499afa6dff7fefff51a0131d36c42c8d3c7db6a0a1493
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: ai/einoengine/engine_smoke_test.go
         symbol: TestSmokeRealToolLoop
-        hash: sha256:6bf06f8820bb0e87646920a2a2ebd4c52ae660591b72534334bbd1b9e51e3d49
-        struct_hash: sha256:8d05536619dc60117df9b36b9783bfef3d3e2dcfdf0b9be985f3964a4cdbb86e
-        doc_struct_hash: sha256:d7b1e8a49285eee8f67b6b2ecd92ecc24ada33a7dd84ac367bd1baf37dadd895
-        lines: [51, 109]
+        hash: sha256:1d8310360a3beb0042c676e8c6c891e2797414740528fa094b452f612a4fd19a
+        struct_hash: sha256:2a5cbfdbbb0ffabe3500abd10b41445f836ee19a98913277e561c2aa1f2dff20
+        doc_struct_hash: sha256:6d202944808941fde1d394f796bd85cf3b6f89f19c1a9b7e95029cbc37c82207
+        lines: [51, 108]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

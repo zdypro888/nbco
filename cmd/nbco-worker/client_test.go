@@ -98,6 +98,32 @@ func TestClientFailCarriesClaimAndSession(t *testing.T) {
 	}
 }
 
+func TestClientSubmitCarriesStructuredCommandExitCode(t *testing.T) {
+	var body struct {
+		TaskID          int64 `json:"task_id"`
+		CommandExitCode *int  `json:"command_exit_code"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/submit" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+
+	exitCode := 7
+	if err := newClient(srv.URL, "tok-worker-a").Submit(context.Background(), 42, "claim-1",
+		"command failed", "", SessionInfo{}, "/tmp/repo", &exitCode); err != nil {
+		t.Fatal(err)
+	}
+	if body.TaskID != 42 || body.CommandExitCode == nil || *body.CommandExitCode != 7 {
+		t.Fatalf("submit body = %+v", body)
+	}
+}
+
 func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
 	var body struct {
 		TaskID           int64  `json:"task_id"`

@@ -135,6 +135,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
 	mux.HandleFunc("GET /api/schedules", s.handleSchedules)
+	mux.HandleFunc("POST /api/tools/{name}", s.handleToolInvoke)
 	mux.HandleFunc("GET /api/overview", s.handleOverview)
 	mux.HandleFunc("GET /api/admin/workers", s.handleAdminWorkers)
 	mux.HandleFunc("GET /api/admin/task-queue", s.handleAdminTaskQueue)
@@ -604,6 +605,49 @@ func (s *Server) handleAdminCapabilities(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{"capabilities": caps})
 }
 
+func (s *Server) handleToolInvoke(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	name := strings.TrimSpace(r.PathValue("name"))
+	if name == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "工具不存在或无权限"})
+		return
+	}
+	var args json.RawMessage
+	if err := decodeJSON(w, r, &args); err != nil || !json.Valid(args) ||
+		!strings.HasPrefix(strings.TrimSpace(string(args)), "{") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "工具参数必须是 JSON 对象"})
+		return
+	}
+	deps := s.deps
+	if deps.Store == nil {
+		deps.Store = s.store
+	}
+	toolset := tools.StripApprovalRequired(tools.ForUserContext(r.Context(), deps, u, nil))
+	for _, item := range toolset {
+		if item.Name != name {
+			continue
+		}
+		result, err := item.Handler(r.Context(), args)
+		if err != nil {
+			slog.Error("HTTP 工具调用失败", "user", u.ID, "tool", name, "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "工具执行失败"})
+			return
+		}
+		response := map[string]any{"result": result}
+		if parsed, ok := tools.ParseToolResult(result); ok {
+			response["result"] = parsed.Message
+			response["status"] = parsed.Status
+			response["completion"] = parsed.Completion
+		}
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "工具不存在或无权限"})
+}
+
 func (s *Server) handleAdminWorkflows(w http.ResponseWriter, r *http.Request) {
 	u := s.requireUser(w, r)
 	if u == nil {
@@ -790,34 +834,36 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 // taskJSON 任务的对外表示（带人名，前端免二次查询）。
 type taskJSON struct {
-	ID              int64                   `json:"id"`
-	ProjectID       int64                   `json:"project_id"`
-	ParentID        *int64                  `json:"parent_id,omitempty"`
-	Title           string                  `json:"title"`
-	Goal            string                  `json:"goal,omitempty"`
-	Description     string                  `json:"description,omitempty"`
-	Acceptance      string                  `json:"acceptance,omitempty"`
-	Status          string                  `json:"status"`
-	Priority        string                  `json:"priority"`
-	Deadline        *time.Time              `json:"deadline,omitempty"`
-	CreatedAt       time.Time               `json:"created_at"`
-	UpdatedAt       time.Time               `json:"updated_at"`
-	AssignerID      int64                   `json:"assigner_id"`
-	AssignerName    string                  `json:"assigner_name"`
-	AssigneeID      int64                   `json:"assignee_id"`
-	AssigneeName    string                  `json:"assignee_name"`
-	Participants    []store.TaskParticipant `json:"participants"`
-	SubmittedBy     *int64                  `json:"submitted_by,omitempty"`
-	SubmittedByName string                  `json:"submitted_by_name,omitempty"`
-	SubmittedAt     *time.Time              `json:"submitted_at,omitempty"`
-	CancelReason    string                  `json:"cancel_reason,omitempty"`
-	CancelledAt     *time.Time              `json:"cancelled_at,omitempty"`
-	SupersededBy    *int64                  `json:"superseded_by,omitempty"`
-	NudgeCount      int64                   `json:"nudge_count,omitempty"`
-	WorkerClaim     string                  `json:"worker_claim_id,omitempty"`
-	WorkerRetry     *time.Time              `json:"worker_retry_at,omitempty"`
-	WorkerFails     int                     `json:"worker_failures,omitempty"`
-	WorkerError     string                  `json:"worker_last_error,omitempty"`
+	ID               int64                   `json:"id"`
+	ProjectID        int64                   `json:"project_id"`
+	ParentID         *int64                  `json:"parent_id,omitempty"`
+	Title            string                  `json:"title"`
+	Goal             string                  `json:"goal,omitempty"`
+	Description      string                  `json:"description,omitempty"`
+	Acceptance       string                  `json:"acceptance,omitempty"`
+	Status           string                  `json:"status"`
+	Priority         string                  `json:"priority"`
+	Deadline         *time.Time              `json:"deadline,omitempty"`
+	CreatedAt        time.Time               `json:"created_at"`
+	UpdatedAt        time.Time               `json:"updated_at"`
+	AssignerID       int64                   `json:"assigner_id"`
+	AssignerName     string                  `json:"assigner_name"`
+	AssigneeID       int64                   `json:"assignee_id"`
+	AssigneeName     string                  `json:"assignee_name"`
+	Participants     []store.TaskParticipant `json:"participants"`
+	SubmittedBy      *int64                  `json:"submitted_by,omitempty"`
+	SubmittedByName  string                  `json:"submitted_by_name,omitempty"`
+	SubmittedAt      *time.Time              `json:"submitted_at,omitempty"`
+	CancelReason     string                  `json:"cancel_reason,omitempty"`
+	CancelledAt      *time.Time              `json:"cancelled_at,omitempty"`
+	SupersededBy     *int64                  `json:"superseded_by,omitempty"`
+	NudgeCount       int64                   `json:"nudge_count,omitempty"`
+	WorkerClaim      string                  `json:"worker_claim_id,omitempty"`
+	WorkerRetry      *time.Time              `json:"worker_retry_at,omitempty"`
+	WorkerFails      int                     `json:"worker_failures,omitempty"`
+	WorkerError      string                  `json:"worker_last_error,omitempty"`
+	LatestProgress   string                  `json:"latest_progress,omitempty"`
+	LatestProgressAt *time.Time              `json:"latest_progress_at,omitempty"`
 }
 
 func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int64]string) ([]taskJSON, error) {
@@ -826,6 +872,10 @@ func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int6
 		taskIDs = append(taskIDs, task.ID)
 	}
 	participants, err := s.store.TaskParticipantsForTasks(ctx, taskIDs)
+	if err != nil {
+		return nil, err
+	}
+	latestProgress, err := s.store.LatestProgressForTasks(ctx, taskIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -839,6 +889,13 @@ func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int6
 		if t.SubmittedBy != nil {
 			submittedByName = names[*t.SubmittedBy]
 		}
+		var latest string
+		var latestAt *time.Time
+		if progress, ok := latestProgress[t.ID]; ok {
+			latest = truncateRunes(progress.Content, 4000)
+			at := progress.CreatedAt
+			latestAt = &at
+		}
 		out = append(out, taskJSON{
 			ID: t.ID, ProjectID: t.ProjectID, ParentID: t.ParentID,
 			Title: t.Title, Goal: t.Goal, Description: t.Description, Acceptance: t.Acceptance, Status: t.Status,
@@ -849,6 +906,7 @@ func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int6
 			CancelReason: t.CancelReason, CancelledAt: t.CancelledAt, SupersededBy: t.SupersededBy,
 			NudgeCount: t.NudgeCount, WorkerClaim: t.WorkerClaimID,
 			WorkerRetry: t.WorkerRetryAt, WorkerFails: t.WorkerFailures, WorkerError: t.WorkerLastError,
+			LatestProgress: latest, LatestProgressAt: latestAt,
 		})
 	}
 	return out, nil
@@ -1949,6 +2007,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		SessionSummary   string `json:"session_summary"`
 		EngineSessionRef string `json:"engine_session_ref"`
 		Workdir          string `json:"workdir"`
+		CommandExitCode  *int   `json:"command_exit_code"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Summary) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id 与 summary 必填"})
@@ -1975,7 +2034,8 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	// 原子提交：要求任务仍是本 worker 手上的 in_progress。若此刻分配者刚把它
 	// 改需求重置为 pending，提交落空（ErrNotFound），旧交付不会被当成完成。
-	t, chain, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary)
+	commandSucceeded := req.CommandExitCode != nil && *req.CommandExitCode == 0
+	t, chain, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary, commandSucceeded)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许提交（可能已被改派或重置）"})
@@ -2002,15 +2062,22 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	learned := s.ingestWorkerLearningCandidates(ctx, u, t, req.Summary)
-	// 提交事件交派活人的 AI 分析：AI 可先看交付摘要，通知里直接给验收建议。
+	// 提交事件交派活人的 AI 分析。确定性命令在没有显式验收人时已自动
+	// 终结；自适应 Agent/普通任务仍进入验收流，通知必须反映真实状态。
 	if t.AssignerID != u.ID && s.bus != nil {
 		extra := ""
 		if learned > 0 {
 			extra = fmt.Sprintf(" 已抽取 %d 条学习候选，可用 list_learning_candidates 审核。", learned)
 		}
-		s.bus.EmitRequired("任务提交待验收", t.AssignerID,
-			fmt.Sprintf("AI 员工「%s」提交了任务「%s」（任务内部编号 %d）待你验收。提交摘要：%s%s",
-				u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
+		if t.Status == store.TaskDone {
+			s.bus.EmitRequired("任务提交待验收", t.AssignerID,
+				fmt.Sprintf("AI 员工「%s」提交了任务「%s」（任务内部编号 %d）待你验收。提交摘要：%s%s",
+					u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
+		} else {
+			s.bus.EmitRequired("Worker 命令执行结束", t.AssignerID,
+				fmt.Sprintf("AI 员工「%s」已执行完命令任务「%s」（任务内部编号 %d），任务已归入历史。执行摘要：%s%s",
+					u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
+		}
 	}
 	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "lessons", req.Lessons != "")
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})

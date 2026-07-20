@@ -107,6 +107,12 @@ nodes:
         lines: [66, 111]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+      keywords:
+        - 数据库迁移
+        - schema migration
+        - schema_migrations
+        - migrations sql
+        - 任务状态数据修复
     - id: store/store.go#Store.AppliedMigrations
       level: function
       anchor:

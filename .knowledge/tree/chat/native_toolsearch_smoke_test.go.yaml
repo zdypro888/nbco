@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/native_toolsearch_smoke_test.go
-        hash: sha256:015d20d27fc5f1edb16d790cd1361852b64ae6f6878c2e65873687a54efc8bcc
+        hash: sha256:a3db54bffa398403f3818ece0fa75174ce395b43adda3467e41f8bee5de6fbfa
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T21:51:50.732439Z
@@ -13,9 +13,64 @@ nodes:
       anchor:
         file: chat/native_toolsearch_smoke_test.go
         symbol: TestSmokeRealNativeToolSearch
-        hash: sha256:fc18c1916f445b3f39c04410cb90dbe9c96c82e56483d68099296d6ed786e181
-        struct_hash: sha256:716727378b1972012d5f55b2b6109280440346d95d55e46991ad2f5fd9f7384e
-        doc_struct_hash: sha256:716727378b1972012d5f55b2b6109280440346d95d55e46991ad2f5fd9f7384e
-        lines: [16, 75]
+        hash: sha256:6ec51628577ec121cc00daee578985855f2e939bcd6d5762f1f1f776f7a73a80
+        struct_hash: sha256:f28059cd4267911e26208bad94b368666c881cfcd704322d9b241520732fe8e5
+        doc_struct_hash: sha256:f28059cd4267911e26208bad94b368666c881cfcd704322d9b241520732fe8e5
+        lines: [20, 81]
       status: undigested
       since: 2026-07-19T21:51:50.732439Z
+    - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealTurnContextSelector
+      level: function
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        symbol: TestSmokeRealTurnContextSelector
+        hash: sha256:f729c7862941f221c174c3b5fd0320b095fb7ecb817d5063a9416eef644de627
+        struct_hash: sha256:9f03c48b5e0faa283595934f415cafef0d12cda2311dc152e1865627acc5cae9
+        doc_struct_hash: sha256:9f03c48b5e0faa283595934f415cafef0d12cda2311dc152e1865627acc5cae9
+        lines: [83, 132]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealTurnContextSelectorWithAuthorizedCatalog
+      level: function
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        symbol: TestSmokeRealTurnContextSelectorWithAuthorizedCatalog
+        hash: sha256:3c5c077f02107b53ad4f0e0213b710808643b98a6fc15c91ffa6e8eba1bf0094
+        struct_hash: sha256:833e5cef181de12d19d49ffe049f6c800c43e39f9059555f74b960edc03de7e1
+        doc_struct_hash: sha256:833e5cef181de12d19d49ffe049f6c800c43e39f9059555f74b960edc03de7e1
+        lines: [134, 188]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealTurnContextSelectorKeepsStatusQueriesReadOnly
+      level: function
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        symbol: TestSmokeRealTurnContextSelectorKeepsStatusQueriesReadOnly
+        hash: sha256:853c05455d71a5a1f0432062af56b1a59ea1a94979c6e1bc7e33347ee60885f5
+        struct_hash: sha256:27a0b394fed5368180bd65afa483b2bfb769f998b118b995790b284d92333065
+        doc_struct_hash: sha256:27a0b394fed5368180bd65afa483b2bfb769f998b118b995790b284d92333065
+        lines: [190, 232]
+      status: fresh
+      since: 2026-07-20T08:12:20.012031Z
+    - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealScheduleFollowUp
+      level: function
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        symbol: TestSmokeRealScheduleFollowUp
+        hash: sha256:f869661f2322c8cf2d230b34214f832589f4f3c4f3c4cdc47e9238763f1b1e2b
+        struct_hash: sha256:91a9cf86906cf2bf62bf9c347a58831a3a91b63d189e958befdb8c5632821cd1
+        doc_struct_hash: sha256:91a9cf86906cf2bf62bf9c347a58831a3a91b63d189e958befdb8c5632821cd1
+        lines: [234, 324]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealDeliveredScheduleStatusDoesNotResend
+      level: function
+      anchor:
+        file: chat/native_toolsearch_smoke_test.go
+        symbol: TestSmokeRealDeliveredScheduleStatusDoesNotResend
+        hash: sha256:d1b598cd14961d5fc9a12b6c3e18101b59be29d3faddba2882be3f0f3fb0f4a9
+        struct_hash: sha256:01fcbcf603f89d0c770bc3c6b4257070117bed47e96b0873158a5f90bd0ad478
+        doc_struct_hash: sha256:01fcbcf603f89d0c770bc3c6b4257070117bed47e96b0873158a5f90bd0ad478
+        lines: [326, 398]
+      status: fresh
+      since: 2026-07-20T08:12:20.013979Z

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/governance.go
-        hash: sha256:8d73d046ab8b27d5fadef68884d9e6c375da9f350ca485d6abd634cfab11bc93
+        hash: sha256:42adb2d44dacdf86d4318014bcfabcc784927c916e17b476c49f1f0ca4382d79
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:729f06cdbbb5db5fbb4d4defa2cbacefe0eaae885c529e91c6dc1aa607f75bfa
         struct_hash: sha256:114a4c02da5c27e8d1bb7fa256d8cf79358bf9fd4955f4f3eb3cfb3abf378a17
         doc_struct_hash: sha256:114a4c02da5c27e8d1bb7fa256d8cf79358bf9fd4955f4f3eb3cfb3abf378a17
-        lines: [545, 575]
+        lines: [534, 564]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/governance.go#clipRunes
@@ -82,6 +82,6 @@ nodes:
         hash: sha256:b3ea83724a5d1f280c7e003c4c2336302fab914f30c67a14d93722a363ddd3c6
         struct_hash: sha256:b8b9030c26f7e7a7381d416ab7133286902a9f884f67d892d8d1a11e6e751926
         doc_struct_hash: sha256:b8b9030c26f7e7a7381d416ab7133286902a9f884f67d892d8d1a11e6e751926
-        lines: [577, 583]
+        lines: [566, 572]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

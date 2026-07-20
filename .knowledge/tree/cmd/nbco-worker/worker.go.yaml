@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/worker.go
-        hash: sha256:d74fe6a16f82eb2a27bd20e7b704e237a82376877a7237e6ec2a8baeef8fd77f
+        hash: sha256:6071895ae6bbce75578e95e0430a265ff0bb07e0c282b7a87815c2ecfdb5d7cc
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -266,9 +266,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: Worker.execute
-        hash: sha256:e4f6cea8162efe235ca1d62b385ad1383ae209cf54aaba788dab41b2fe6dd5b0
-        struct_hash: sha256:531fb8d1ce0318cd8218756352b52acedd223179e12880194cff1563598a50e8
-        doc_struct_hash: sha256:79b8eea78838f5acece9ec0a8f048e8683210eea8d21ffb942002fbe83c69d6a
+        hash: sha256:d039d2fdab4dcdb69b1daec3141576f4f3c11992139e049d59ed02cd17402862
+        struct_hash: sha256:228f36a20f0a440cb92b130f42729c3f9ca4f3f4d2a946ddec4c384eb10d1113
+        doc_struct_hash: sha256:6ba8d56d523d5c1c431b1337ec3ebc63af2c0613236448f8bb74b190cd2bdea4
         lines: [200, 323]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -277,9 +277,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: Worker.executeCommand
-        hash: sha256:add81b332bebfac450a5bb61e04270b65ece0d1dec7614c7d8f8754b2929ccd9
-        struct_hash: sha256:fa7c953b0f9fd50efdfadfb93e5a1e66c8bd44c9508a0501e2b5b80d5eea6456
-        doc_struct_hash: sha256:fa7c953b0f9fd50efdfadfb93e5a1e66c8bd44c9508a0501e2b5b80d5eea6456
+        hash: sha256:c313d37aac17d963d72f28673abe98307f0f69879680619089bc9068ddcf76b6
+        struct_hash: sha256:888ef78cc47ed2f3793b514a3a4e3ce36a7d272486b2053cfeaa7127b13af6f4
+        doc_struct_hash: sha256:888ef78cc47ed2f3793b514a3a4e3ce36a7d272486b2053cfeaa7127b13af6f4
         lines: [325, 365]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

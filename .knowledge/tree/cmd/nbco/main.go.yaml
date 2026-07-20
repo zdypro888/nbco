@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco/main.go
-        hash: sha256:f4bb24659ae0a213f0501d1663349c4701822935c7abd490f9406188fe259538
+        hash: sha256:42915dc9fb063e9511cbd5993325c17d130d08a9b3709d2b07528ea2882f2ca5
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:85af4a3a1187cbe77d6bdce9f63310924df3c5a8d93465ab15574a86ec8eded8
         struct_hash: sha256:dfa440a7cf55e3834f57b9636891f9f7c493a2c70148f11175e8d09ff99a8932
         doc_struct_hash: sha256:a33478ba190e316e0c28ba64213098d1b43df657ef9e42cc38c40e664c2cec5e
-        lines: [299, 307]
+        lines: [302, 310]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco/main.go#runBackfillLoop
@@ -82,7 +82,7 @@ nodes:
         hash: sha256:b173e1ea0a91a04c0710a23097b0fd809421481fa62cfddaa73d81412515624f
         struct_hash: sha256:83ac8b0600a1bb15695f92e123353a9d833ba9699e3f9ba5bbf2841f371ca763
         doc_struct_hash: sha256:9dd1fd90826d9a4ceb90ec3c1247e0291f15322f62b9a81a50e4ccb074ae476e
-        lines: [309, 332]
+        lines: [312, 335]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco/main.go#runBackfillExclusive
@@ -93,7 +93,7 @@ nodes:
         hash: sha256:fe7a4672c8570f781b22a4b807b485661bca830cfc84a730f27b6d832d1c9a63
         struct_hash: sha256:55f141a24597415714b3e2b39dab7a92ccf673c6f496b0c071b911640dc0268d
         doc_struct_hash: sha256:55f141a24597415714b3e2b39dab7a92ccf673c6f496b0c071b911640dc0268d
-        lines: [334, 338]
+        lines: [337, 341]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco/main.go#backfillKnowledge
@@ -104,7 +104,7 @@ nodes:
         hash: sha256:47def3e5fdd4e2bf7e0911c9612fa5be3719aef84a8d3205af7fc604b792e07b
         struct_hash: sha256:2386df86363642d252e2b105725b1bf10a1eefdbaacbed7b244c791602b4cd3c
         doc_struct_hash: sha256:2840d64bad6000d74c8e74ee35719ff17b14baa7ed0aedd30fad2f190c748ee2
-        lines: [340, 388]
+        lines: [343, 391]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco/main.go#backfillMessages
@@ -115,6 +115,6 @@ nodes:
         hash: sha256:afc07838f7aeab62fc33f289b8dac7ab563247932dde813e55dfa0fa8ac06d8a
         struct_hash: sha256:25d4dee7e2adf7bbc93494090d3e1af024f2e30a91dd520f20534019d054b436
         doc_struct_hash: sha256:cf222958a99512101494a0a4b7b9e8853eec567745bd59c0daa1e12383eae9e0
-        lines: [390, 435]
+        lines: [393, 438]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

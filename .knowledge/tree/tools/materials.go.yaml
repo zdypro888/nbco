@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/materials.go
-        hash: sha256:c5c2044212ff67a8a8c4925fb151774042257557c9574e60021a0bedcd53aa94
+        hash: sha256:e3dbc471c2781c32ac7da25184d3db3eaad41cb11b9e3171c0748e372e8e2f05
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,9 +46,9 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: materialTools
-        hash: sha256:22cb5e951b20215326f5b7575ee24b3507d28fc473b7b8243ab867c797f9d65e
-        struct_hash: sha256:a07aaf8bf1442b5071d0dc84fa3efad6fbb69d0e64a14deb918717477fcbff48
-        doc_struct_hash: sha256:a07aaf8bf1442b5071d0dc84fa3efad6fbb69d0e64a14deb918717477fcbff48
+        hash: sha256:003bbd1c34dff6df8d3372e217374a1f404ccb8d20f907d55c38f4cf04286430
+        struct_hash: sha256:702c5fc4ce4e8bde1f8ae0ab2f07c14c9877a9288c24d0ee7f08f6356c04a138
+        doc_struct_hash: sha256:702c5fc4ce4e8bde1f8ae0ab2f07c14c9877a9288c24d0ee7f08f6356c04a138
         lines: [27, 44]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -312,7 +312,7 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
 		submitSession.EngineSessionRef = ref
 	}
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir, nil); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交任务结果失败: "+err.Error(), submitSession, dir)
 		w.handoffDeferredRestart()
@@ -354,13 +354,13 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 		return
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir, &res.ExitCode); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交命令任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()
 		return
 	}
-	log.Printf("命令任务 #%d 已提交验收（exit=%d）", task.ID, res.ExitCode)
+	log.Printf("命令任务 #%d 已提交结果（exit=%d）", task.ID, res.ExitCode)
 	w.handoffDeferredRestart()
 }
 

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/action_turns.go
-        hash: sha256:3693f81ce5e26f36ce3ce1628bbb5dcce553c815b9d656117983f4e888615375
+        hash: sha256:adf48b5fc018a782687cc2f20961ebd002b4377a45fc1b73d3675f56d93da0cf
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: ActionTurnInput
-        hash: sha256:500a4ba18b07d627949ff8cfdaaabae76adcf9f8216f0a7b962fbb85c0b97862
-        struct_hash: sha256:9b8982348facc116390665cbf341b987923cadbae0ca62028a49912d34979392
-        doc_struct_hash: sha256:9b8982348facc116390665cbf341b987923cadbae0ca62028a49912d34979392
-        lines: [10, 24]
+        hash: sha256:cbb54dd8a4005689ed32970220535ba68e34b8d3b3b45a0bdd5da23e1e685a8f
+        struct_hash: sha256:ccca858a4b1a430516780dacdd4f2447f03e24ed3bf15b93af4c803566f53806
+        doc_struct_hash: sha256:ccca858a4b1a430516780dacdd4f2447f03e24ed3bf15b93af4c803566f53806
+        lines: [12, 26]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#ActionTurn
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: ActionTurn
-        hash: sha256:76ab4fa6f2baced9ac610d863e560aa5c4d5a37fd8a5b7b4d3cd18773a513bae
-        struct_hash: sha256:b7a7d24cb489cea06c3a62517d2a6d4139db9ed9fc792202735c6758abe1cfc5
-        doc_struct_hash: sha256:b7a7d24cb489cea06c3a62517d2a6d4139db9ed9fc792202735c6758abe1cfc5
-        lines: [26, 42]
+        hash: sha256:a55ccb76c58bc2800d3bb95d01522c37c07c085c05037438c4756fefa57a6193
+        struct_hash: sha256:adbe22bf44e51c260115f54eebc89a390646cf3d7665395182f2e94a2aab02f0
+        doc_struct_hash: sha256:adbe22bf44e51c260115f54eebc89a390646cf3d7665395182f2e94a2aab02f0
+        lines: [28, 44]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#Store.RecordActionTurn
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: Store.RecordActionTurn
-        hash: sha256:b3871f79208a8d629cbae8bc1aa2919dac0491a935fb9e88c8f18c22f9ddc495
-        struct_hash: sha256:3b10c76d32a0af709830ff959ebe117d792f318aaf11f9ea1f109296c8763559
-        doc_struct_hash: sha256:3b10c76d32a0af709830ff959ebe117d792f318aaf11f9ea1f109296c8763559
-        lines: [44, 67]
+        hash: sha256:4a15a5f7ca732114d591c6c680e34843305b3b721eea2edf27c73a28d3438c0b
+        struct_hash: sha256:404e178b21ebd2529eda303490c94476db98d9b347f6cc6c1f74079c857addf6
+        doc_struct_hash: sha256:404e178b21ebd2529eda303490c94476db98d9b347f6cc6c1f74079c857addf6
+        lines: [46, 69]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#Store.ListActionTurns
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: Store.ListActionTurns
-        hash: sha256:273e2375cd4d55de154c13b8c9d0356c38f8dd796bfef8fa3194e98677dd66d0
-        struct_hash: sha256:6827b46c7c8f9c6406a2119654707460ac3dab544e3669b36b01c7edf3593bc3
-        doc_struct_hash: sha256:6827b46c7c8f9c6406a2119654707460ac3dab544e3669b36b01c7edf3593bc3
-        lines: [69, 100]
+        hash: sha256:f3397d4241c23d957fbec994021f35d2cf94d672c0e1f70ca0d017fbc0a5f20b
+        struct_hash: sha256:3730bb71653a800104021a55444b7e7f4c0a41d9c98b22df01fcc1017e3905d5
+        doc_struct_hash: sha256:3730bb71653a800104021a55444b7e7f4c0a41d9c98b22df01fcc1017e3905d5
+        lines: [71, 86]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#Store.ListActionTurnsBySession
@@ -63,3 +63,14 @@ nodes:
         lines: [88, 106]
       status: fresh
       since: 2026-07-20T03:54:13.341525Z
+    - id: store/action_turns.go#scanActionTurns
+      level: function
+      anchor:
+        file: store/action_turns.go
+        symbol: scanActionTurns
+        hash: sha256:cb4162654a5c0f3308ac12e2a69e34a5080636d77eecc5affa874ed18db41388
+        struct_hash: sha256:b21911b258bcd6a1963721211d9f45e5ff308a9ff10c63a7fb4c2f05f9803481
+        doc_struct_hash: sha256:b21911b258bcd6a1963721211d9f45e5ff308a9ff10c63a7fb4c2f05f9803481
+        lines: [108, 126]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z

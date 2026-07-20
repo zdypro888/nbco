@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/agent.go
-        hash: sha256:367f0c62e27ebb25d258baa6d85e37d841c907dfb69811508efa0af6c07bfc64
+        hash: sha256:a5d8fb42e90ea548a571259bae19f9c366372e569b576698076864ada0020d61
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -233,9 +233,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: Worker.submitAgent
-        hash: sha256:aabaf007bad92cd9e320b27d9812c28b259fc9fe52d78f2a1ddb3c7358806bcc
-        struct_hash: sha256:8778bf6d445a5c99373d26f13d01f740a4e2a6a9daf4f6ca651c876263c8f604
-        doc_struct_hash: sha256:6fbf563fc4ffe0d63f6b943119503c194611561b8ccf119c7a6e95e148d605e1
+        hash: sha256:7b66316d529aba8b3322f571cea0c51440af194b9037630beed8726bbf0bc235
+        struct_hash: sha256:11b243ef845c17be48de5ca2c8048d4e82291a2bf08a11686630be088c37cbd7
+        doc_struct_hash: sha256:37c6b10c4103d52972b47d36be0e1613be7a5125dd3fa56da6a20f422ef18c11
         lines: [282, 293]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

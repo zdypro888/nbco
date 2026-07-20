@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/workers.go
-        hash: sha256:0b0202eb1cda39fe92261e3104a80a6c2d663420ad69fd334ff8be6652070c3a
+        hash: sha256:32c45f474d7fff5b4d8ecc9b483e3bff387b552ddbef5f109e0edfaaf4a41d8a
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/client_test.go
-        hash: sha256:d4cee059e03e86737c2cb4f71c7942cbea2d816ea468cf272191882a5f4968e4
+        hash: sha256:5bef75388b7a66750508edce9131a59db3a838d85ca37de42a3d5ddc6ed3602a
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -41,6 +41,17 @@ nodes:
         lines: [71, 99]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/client_test.go#TestClientSubmitCarriesStructuredCommandExitCode
+      level: function
+      anchor:
+        file: cmd/nbco-worker/client_test.go
+        symbol: TestClientSubmitCarriesStructuredCommandExitCode
+        hash: sha256:9492072948e8f405a67c27bf6be378063a261a193676f96af2df656731570a33
+        struct_hash: sha256:c7b19abd3535822c81c6f3b2ff8d1f37b24a93d4fa11e780d87b2526460e863b
+        doc_struct_hash: sha256:c7b19abd3535822c81c6f3b2ff8d1f37b24a93d4fa11e780d87b2526460e863b
+        lines: [101, 125]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
     - id: cmd/nbco-worker/client_test.go#TestClientUpdateSessionCarriesActiveClaim
       level: function
       anchor:
@@ -49,7 +60,7 @@ nodes:
         hash: sha256:a2ef8285a2ee5913f49fd44bbcac60ab6069bc91e0c8bae58fa0136d22cd7a6b
         struct_hash: sha256:c046d784b9124b06eb1e1e853a78798fc533d8c0836451e4b49eeccfa4f84db0
         doc_struct_hash: sha256:c046d784b9124b06eb1e1e853a78798fc533d8c0836451e4b49eeccfa4f84db0
-        lines: [101, 128]
+        lines: [127, 154]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/client_test.go#TestDownloadFileReplacesExistingDestination
@@ -60,6 +71,6 @@ nodes:
         hash: sha256:e397f5917b03aae1819c2f184ac42d91cdaecdc27367513ab987ce385bc3e840
         struct_hash: sha256:f5ad110c96b0febad62134619ea1c34a1b6f1153c9f0822c337b4c9f0f2a70cb
         doc_struct_hash: sha256:f5ad110c96b0febad62134619ea1c34a1b6f1153c9f0822c337b4c9f0f2a70cb
-        lines: [130, 156]
+        lines: [156, 182]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

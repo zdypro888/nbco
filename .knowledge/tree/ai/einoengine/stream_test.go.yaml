@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/stream_test.go
-        hash: sha256:571e4b4f799288cce2ceca11bee7974ad7f9b26351fabfc040365e3bc335155d
+        hash: sha256:4fdfb44a7f8dd4b4aaed6da841bbd86595ebd0d64e038f33c06aa2bfee200e78
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -145,10 +145,10 @@ nodes:
       anchor:
         file: ai/einoengine/stream_test.go
         symbol: TestEmptyTurnNeedsRepairWhenReasoningUsesOutputBudget
-        hash: sha256:90da3aa5225db59a7a9ccf831b0e81c77a577e22aa1bb63cd656b9dc645b899b
-        struct_hash: sha256:507e3ee8e43521fc111156b6658fce1cde0fb6d7d2f580d2d006aaddf3536ad9
-        doc_struct_hash: sha256:507e3ee8e43521fc111156b6658fce1cde0fb6d7d2f580d2d006aaddf3536ad9
-        lines: [216, 232]
+        hash: sha256:7b94b876966af86c0547d0f57c3e56a0b663088c75c07d5d5747c244a52f268d
+        struct_hash: sha256:a318bcc5408453c65c82ba81fd72d3978e1dcc4fa61b2d81b9526a2947a05331
+        doc_struct_hash: sha256:a318bcc5408453c65c82ba81fd72d3978e1dcc4fa61b2d81b9526a2947a05331
+        lines: [216, 226]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/stream_test.go#usage
@@ -159,6 +159,6 @@ nodes:
         hash: sha256:e9cdb70ec12cdbfc440c6af9f93ee254496e3b04cfa4f3bd1995feefe17c955c
         struct_hash: sha256:48d2449b49002a8c09c076138ac6bdb2f77d34817e9b239565141826218c7177
         doc_struct_hash: sha256:48d2449b49002a8c09c076138ac6bdb2f77d34817e9b239565141826218c7177
-        lines: [234, 236]
+        lines: [228, 230]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

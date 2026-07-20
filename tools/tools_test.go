@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -676,6 +677,59 @@ func TestCanonicalArgsHash(t *testing.T) {
 	}
 	if canonicalArgsHash(nil) == "" {
 		t.Error("空参数也应有稳定哈希")
+	}
+}
+
+func TestAsynchronousToolCoalescesIdenticalCallsPerToolset(t *testing.T) {
+	var calls atomic.Int32
+	started := make(chan struct{})
+	release := make(chan struct{})
+	task := asynchronousTool(tool("async_test", "test", obj(map[string]any{
+		"worker_id": p("integer", "worker"),
+		"title":     p("string", "title"),
+	}, "worker_id", "title"), func(context.Context, json.RawMessage) (string, error) {
+		if calls.Add(1) == 1 {
+			close(started)
+			<-release
+		}
+		return `{"status":"accepted"}`, nil
+	}))
+
+	type result struct {
+		text string
+		err  error
+	}
+	results := make(chan result, 2)
+	go func() {
+		text, err := task.Handler(context.Background(), json.RawMessage(`{"worker_id":2,"title":"same"}`))
+		results <- result{text: text, err: err}
+	}()
+	<-started
+	go func() {
+		text, err := task.Handler(context.Background(), json.RawMessage(`{"title":"same", "worker_id":2}`))
+		results <- result{text: text, err: err}
+	}()
+	close(release)
+	for range 2 {
+		got := <-results
+		if got.err != nil || got.text != `{"status":"accepted"}` {
+			t.Fatalf("coalesced result = %q, %v", got.text, got.err)
+		}
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("identical concurrent calls executed %d times", calls.Load())
+	}
+	if _, err := task.Handler(context.Background(), json.RawMessage(`{"worker_id":2,"title":"same"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("identical sequential call executed again: %d", calls.Load())
+	}
+	if _, err := task.Handler(context.Background(), json.RawMessage(`{"worker_id":2,"title":"different"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 2 {
+		t.Fatalf("different arguments should execute independently: %d", calls.Load())
 	}
 }
 

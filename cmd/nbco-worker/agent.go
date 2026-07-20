@@ -282,7 +282,7 @@ func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Task, dir, r
 // submitAgent 收尾：上传产物、拼报告、提交验收（与 CLI 路径同一套约定）。
 func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Task, dir, summary, lessons string) {
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir, nil); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交内置智能体任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()

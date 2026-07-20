@@ -19,6 +19,39 @@ nodes:
         lines: [10, 18]
       status: fresh
       since: 2026-07-20T03:54:29.342605Z
+    - id: tools/results.go#asynchronousAcceptedResult
+      level: function
+      anchor:
+        file: tools/results.go
+        symbol: asynchronousAcceptedResult
+        hash: sha256:447dad90ef20775d63a030b03eda7ec7f99c699807b5941d02c9b2b2a8aa3be7
+        struct_hash: sha256:863cdc980520ee24b66255b8e25467567a78072ce4bb4715f200b8f9c9d1e2e4
+        doc_struct_hash: sha256:863cdc980520ee24b66255b8e25467567a78072ce4bb4715f200b8f9c9d1e2e4
+        lines: [20, 26]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: tools/results.go#invalidToolArgumentsResult
+      level: function
+      anchor:
+        file: tools/results.go
+        symbol: invalidToolArgumentsResult
+        hash: sha256:9b45538296f6ccc8ea50db7b889a82286a3818ea7d9886246b59136b11939f07
+        struct_hash: sha256:6157e0cbf0b6a8c17054b47ffb999457597e386475b9f638d64de3aeca616186
+        doc_struct_hash: sha256:6157e0cbf0b6a8c17054b47ffb999457597e386475b9f638d64de3aeca616186
+        lines: [28, 41]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: tools/results.go#encodeToolResult
+      level: function
+      anchor:
+        file: tools/results.go
+        symbol: encodeToolResult
+        hash: sha256:08d46dfdf571048a40487f3c03e27e0fbcf6874fc014b738dbb5f48201aa3ea5
+        struct_hash: sha256:4d7fd11bb57b498a229bbe30309c634a0ba19129087af8aa78a8241b08bf3987
+        doc_struct_hash: sha256:4d7fd11bb57b498a229bbe30309c634a0ba19129087af8aa78a8241b08bf3987
+        lines: [43, 46]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
     - id: tools/results.go#ParseToolResult
       level: function
       anchor:

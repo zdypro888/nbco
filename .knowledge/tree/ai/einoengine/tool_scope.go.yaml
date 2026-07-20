@@ -4,10 +4,43 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/tool_scope.go
-        hash: sha256:ab1fe5a137bd376af681a3565c17cc1d504027f6e3d2530880c9c592c2ace087
+        hash: sha256:8f9997a4bea4e2ebf4a3d5ceb2d2a9a14d684fb372dcd822170e1af7506f0dc6
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T22:18:48.167775Z
+    - id: ai/einoengine/tool_scope.go#deepAgentRuntimeVersion
+      level: decl
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: deepAgentRuntimeVersion
+        hash: sha256:8c6fe04972fdeef487fea1d189b24fe83d1e2a459bdcc239f1c1ca788689fdb4
+        struct_hash: sha256:ee66ff15f0cf8681124e0f498fb0ead172781e90ef233f3fa4372131de1c9dd5
+        doc_struct_hash: sha256:714bddbb3259a4cc3ff2666db1993ade8144eb6cd9906c845e1f3fd5841ba25f
+        lines: [21, 23]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#toolSearchToolName
+      level: decl
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: toolSearchToolName
+        hash: sha256:f0d34672e194e8a26133be339125fe6b1331d5df75a46cab2809e983f9450f9d
+        struct_hash: sha256:7b74f9f65bb12a8c2eb15999bcda9c7d115547ef6cd7076e341adb99a01eb8b0
+        doc_struct_hash: sha256:7b74f9f65bb12a8c2eb15999bcda9c7d115547ef6cd7076e341adb99a01eb8b0
+        lines: [25, 25]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#conciseToolSearchDescription
+      level: decl
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: conciseToolSearchDescription
+        hash: sha256:e9f76564c878c792969c08b7d060d434b9bb03ac61826b1217c2b0ce073d76c6
+        struct_hash: sha256:5001351804608a19c93d063843b5a233ab6de79f0112dd6a284b22cac3ae9a76
+        doc_struct_hash: sha256:5001351804608a19c93d063843b5a233ab6de79f0112dd6a284b22cac3ae9a76
+        lines: [26, 26]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
     - id: ai/einoengine/tool_scope.go#turnToolMiddleware
       level: decl
       anchor:
@@ -16,31 +49,9 @@ nodes:
         hash: sha256:ae6edde974d7cb0300a0bfba0b94e4bfe25b93173f90bf30e1f40c5ed1bdf0bf
         struct_hash: sha256:c2df9b85f5384272b3159c0d13db38669dd39d269769ba1c30d6e17a89f9a7eb
         doc_struct_hash: sha256:f9f4a9600ce6b7138146e48be583e902e10226b1d78b4b42012312b7bcfe2104
-        lines: [28, 40]
-      status: fresh
+        lines: [29, 42]
+      status: suspect
       since: 2026-07-19T22:18:48.167719Z
-    - id: ai/einoengine/tool_scope.go#observedModel
-      level: decl
-      anchor:
-        file: ai/einoengine/tool_scope.go
-        symbol: observedModel
-        hash: sha256:87b08cd865d855f81c34f742d5ac7d0aa04bb91970e8191b37ea1a9270a4f163
-        struct_hash: sha256:3ea0df3798f9768ec204832b29140b7771545901a8a09b57e69c4ea86d5901ba
-        doc_struct_hash: sha256:3ea0df3798f9768ec204832b29140b7771545901a8a09b57e69c4ea86d5901ba
-        lines: [189, 192]
-      status: fresh
-      since: 2026-07-19T22:18:48.168358Z
-    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.guardInvokable
-      level: function
-      anchor:
-        file: ai/einoengine/tool_scope.go
-        symbol: turnToolMiddleware.guardInvokable
-        hash: sha256:66879c7086606f0f92158abd60b9aa94f52c996f289f1ef7fe8d0cbac27ad7d4
-        struct_hash: sha256:afe180f52af396680a6692aec3b25c7aa3b563b0cdba695fd9e6c0ee4463cb0f
-        doc_struct_hash: sha256:afe180f52af396680a6692aec3b25c7aa3b563b0cdba695fd9e6c0ee4463cb0f
-        lines: [170, 180]
-      status: fresh
-      since: 2026-07-20T02:42:24.652963Z
     - id: ai/einoengine/tool_scope.go#newTurnToolMiddleware
       level: function
       anchor:
@@ -63,3 +74,157 @@ nodes:
         lines: [73, 125]
       status: fresh
       since: 2026-07-20T03:54:13.328675Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.WrapModel
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.WrapModel
+        hash: sha256:007eb291cddfc300a3a17e4afc0c19ff10dc83a952c2a036b4c95c51903ec897
+        struct_hash: sha256:c172b86701c48709428b1ac7189609875bae7560cf595ce3995938fa4e71704a
+        doc_struct_hash: sha256:c172b86701c48709428b1ac7189609875bae7560cf595ce3995938fa4e71704a
+        lines: [127, 133]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.recordModelCall
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.recordModelCall
+        hash: sha256:841057c2b24b9583131551020c13f85cc88cfabfc6e8b0c45cb3fd29e85d6948
+        struct_hash: sha256:f0ed7cc879c04bfb7307de2640e0a21f5bec15c2c553ceb6494596fa4b266daf
+        doc_struct_hash: sha256:f0ed7cc879c04bfb7307de2640e0a21f5bec15c2c553ceb6494596fa4b266daf
+        lines: [135, 142]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.rememberCurrentTurnSelections
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.rememberCurrentTurnSelections
+        hash: sha256:ad10ff0823c03732fd0cac1c4504867d157e0e5a2a4b1f02ac532ac39781762b
+        struct_hash: sha256:a4e64f8f99f9ffa56f22fcdf86e36efa22d6452ed28bf1a61643a2608c2e91b1
+        doc_struct_hash: sha256:a4e64f8f99f9ffa56f22fcdf86e36efa22d6452ed28bf1a61643a2608c2e91b1
+        lines: [144, 176]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#isToolSearchReminder
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: isToolSearchReminder
+        hash: sha256:c6f6c78ce10ab23b819c8640d38d95c82b3a726b1e02dfda318679ee232ec966
+        struct_hash: sha256:41718020aca3efae3d39f57165a3832dffa2adf4fdc244d1ebedf80488900833
+        doc_struct_hash: sha256:41718020aca3efae3d39f57165a3832dffa2adf4fdc244d1ebedf80488900833
+        lines: [178, 184]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.selectedSnapshot
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.selectedSnapshot
+        hash: sha256:e84ec4b2a84c1009a6a9cd2b3ac916df4f8b72cfab2af11e1867eae8dbc654f7
+        struct_hash: sha256:c672194ed4789961944064727241caadca25142270c3a053fa9c4e88a3d7b7aa
+        doc_struct_hash: sha256:c672194ed4789961944064727241caadca25142270c3a053fa9c4e88a3d7b7aa
+        lines: [186, 190]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.callable
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.callable
+        hash: sha256:d506edca677b6fc0656ebaa8fda6bb414c8887a4f8a2311dec0eedb03d0c5ac0
+        struct_hash: sha256:2161a80a91bee7bb71e3af45506867fc999465bc7f46d74e98cbdfa4b5862c8c
+        doc_struct_hash: sha256:2161a80a91bee7bb71e3af45506867fc999465bc7f46d74e98cbdfa4b5862c8c
+        lines: [192, 203]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.guardInvokable
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.guardInvokable
+        hash: sha256:66879c7086606f0f92158abd60b9aa94f52c996f289f1ef7fe8d0cbac27ad7d4
+        struct_hash: sha256:afe180f52af396680a6692aec3b25c7aa3b563b0cdba695fd9e6c0ee4463cb0f
+        doc_struct_hash: sha256:afe180f52af396680a6692aec3b25c7aa3b563b0cdba695fd9e6c0ee4463cb0f
+        lines: [205, 215]
+      status: suspect
+      since: 2026-07-20T02:42:24.652963Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.blocked
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.blocked
+        hash: sha256:91abea4192d64eff907ada164fdb3a24acd97d0d5ccbcd4031702c29d76ec129
+        struct_hash: sha256:08e8aaacb00e9b34591a546505ae4633919db3082bc4971e008a267e66018a5f
+        doc_struct_hash: sha256:08e8aaacb00e9b34591a546505ae4633919db3082bc4971e008a267e66018a5f
+        lines: [217, 225]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#toolCallKey
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: toolCallKey
+        hash: sha256:c2780f24a2e885baae27455327871459c33155643a4ce5dde31889316f1b75d6
+        struct_hash: sha256:d838d666950a13eecf93cabab29356f4953f0afd3d3aecfcc686427a311f15e9
+        doc_struct_hash: sha256:d838d666950a13eecf93cabab29356f4953f0afd3d3aecfcc686427a311f15e9
+        lines: [227, 227]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#deferredToolNotLoadedResult
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: deferredToolNotLoadedResult
+        hash: sha256:b7bd6a66f630fe57f801a7712957817aac3a95e8e532dc1739b21f03f6a720d3
+        struct_hash: sha256:78c561e18621aa97759b0ff707f29f1a7af8b7d0ecd4d3fbdbb0d0de20ac8161
+        doc_struct_hash: sha256:78c561e18621aa97759b0ff707f29f1a7af8b7d0ecd4d3fbdbb0d0de20ac8161
+        lines: [229, 232]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.observe
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.observe
+        hash: sha256:20212cdc530ed90e88147cc0dd472edeca1b15c0acfcbd748ec5be59eac9a0d6
+        struct_hash: sha256:8a47ad385a91b10eb7a78e47a7de17ba82c04fbe5c5234fae712a8c5b6276b4f
+        doc_struct_hash: sha256:8a47ad385a91b10eb7a78e47a7de17ba82c04fbe5c5234fae712a8c5b6276b4f
+        lines: [234, 261]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#observedModel
+      level: decl
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: observedModel
+        hash: sha256:87b08cd865d855f81c34f742d5ac7d0aa04bb91970e8191b37ea1a9270a4f163
+        struct_hash: sha256:3ea0df3798f9768ec204832b29140b7771545901a8a09b57e69c4ea86d5901ba
+        doc_struct_hash: sha256:3ea0df3798f9768ec204832b29140b7771545901a8a09b57e69c4ea86d5901ba
+        lines: [263, 266]
+      status: suspect
+      since: 2026-07-19T22:18:48.168358Z
+    - id: ai/einoengine/tool_scope.go#observedModel.Generate
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: observedModel.Generate
+        hash: sha256:875874f5dee93ae14e37ba13de7e145b0c490e0d01f504891d1cdb0b97a30fb8
+        struct_hash: sha256:e391bab46b35690d82b09c039da3804b76e8f324ab984cca969c5d56e966bf5f
+        doc_struct_hash: sha256:e391bab46b35690d82b09c039da3804b76e8f324ab984cca969c5d56e966bf5f
+        lines: [268, 273]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z
+    - id: ai/einoengine/tool_scope.go#observedModel.Stream
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: observedModel.Stream
+        hash: sha256:35a90347fa10daeec3833b72bd35679ebc0c2b7c639334b6c5a14a9644d1bea8
+        struct_hash: sha256:58238628dc5514199ddaeb2dce59e0b7a74c1d107284689dc3506363c27cd0c6
+        doc_struct_hash: sha256:58238628dc5514199ddaeb2dce59e0b7a74c1d107284689dc3506363c27cd0c6
+        lines: [275, 280]
+      status: undigested
+      since: 2026-07-20T08:38:49.997524Z

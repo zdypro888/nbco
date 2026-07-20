@@ -629,6 +629,44 @@ func immediateTool(t ai.Tool) ai.Tool {
 
 func asynchronousTool(t ai.Tool) ai.Tool {
 	t.Completion = ai.ToolCompletionAsynchronous
+	if t.Handler == nil {
+		return t
+	}
+	type call struct {
+		done   chan struct{}
+		result string
+		err    error
+	}
+	inner := t.Handler
+	var mu sync.Mutex
+	calls := make(map[string]*call)
+	t.Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
+		key := canonicalArgsHash(args)
+		mu.Lock()
+		if existing := calls[key]; existing != nil {
+			mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-existing.done:
+				return existing.result, existing.err
+			}
+		}
+		current := &call{done: make(chan struct{})}
+		calls[key] = current
+		mu.Unlock()
+
+		current.result, current.err = inner(ctx, args)
+		mu.Lock()
+		if current.err != nil {
+			// A failed attempt did not establish a durable accepted result. Let a
+			// later model iteration repair its arguments or retry a transient error.
+			delete(calls, key)
+		}
+		close(current.done)
+		mu.Unlock()
+		return current.result, current.err
+	}
 	return t
 }
 

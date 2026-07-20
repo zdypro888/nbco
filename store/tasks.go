@@ -441,7 +441,8 @@ func (s *Store) TasksOfProject(ctx context.Context, projectID int64) ([]*Task, e
 }
 
 // TaskQueue 返回全局任务队列。scope:
-//   - queue/open: pending + in_progress + awaiting_input + done（未终态，含待补充/待验收）
+//   - queue/open: pending + in_progress + awaiting_input（仍可执行或等待输入）
+//   - review: done（已停止执行，等待验收）
 //   - history: accepted + split + cancelled（终态）
 //   - all: 全部
 //   - 具体状态：pending/in_progress/awaiting_input/done/accepted/split/cancelled
@@ -449,9 +450,11 @@ func (s *Store) TaskQueue(ctx context.Context, scope string, limit int) ([]*Task
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	where := "status IN ('pending','in_progress','awaiting_input','done')"
+	where := "status IN ('pending','in_progress','awaiting_input')"
 	switch strings.TrimSpace(scope) {
 	case "", "queue", "open":
+	case "review":
+		where = "status = 'done'"
 	case "history":
 		where = "status IN ('accepted','split','cancelled')"
 	case "all":
@@ -459,7 +462,7 @@ func (s *Store) TaskQueue(ctx context.Context, scope string, limit int) ([]*Task
 	case TaskPending, TaskInProgress, TaskAwaitingInput, TaskDone, TaskAccepted, TaskSplit, TaskCancelled:
 		where = "status = $2"
 	default:
-		where = "status IN ('pending','in_progress','awaiting_input','done')"
+		where = "status IN ('pending','in_progress','awaiting_input')"
 	}
 	sql := `SELECT ` + taskCols + ` FROM tasks WHERE ` + where + `
 		ORDER BY
@@ -664,10 +667,11 @@ func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*
 	return t, chain, tx.Commit(ctx)
 }
 
-// SubmitWorkerTask worker 提交：仅当任务仍是该 worker 手上的 in_progress 时才提交，
-// 原子避开「分配者同时改需求把任务重置为 pending」的竞态（那时 status 已非
-// in_progress，本次提交落空返回 ErrNotFound，旧交付不会被当成完成）。
-func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimID, summary string) (*Task, []*Task, error) {
+// SubmitWorkerTask worker 提交：仅当任务仍是该 worker 手上的 in_progress 时才提交。
+// 成功的确定性命令且未指定验收人时直接归档；非零退出、Agent 交付或明确指定
+// 验收人的结果仍进入 done。更新条件原子避开「分配者同时改需求把任务重置为
+// pending」的竞态（那时本次提交返回 ErrNotFound，旧交付不会被当成完成）。
+func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimID, summary string, commandSucceeded bool) (*Task, []*Task, error) {
 	if strings.TrimSpace(claimID) == "" {
 		return nil, nil, ErrNotFound
 	}
@@ -679,6 +683,14 @@ func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimI
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
 			   status = CASE
+			              WHEN worker_command <> '' THEN
+			                   CASE WHEN $4
+			                         AND NOT EXISTS (
+			                             SELECT 1 FROM task_participants tp
+			                              WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
+			                         ) THEN 'accepted'
+			                        ELSE 'done'
+			                   END
 			              WHEN assigner_id = assignee_id
 			               AND NOT EXISTS (
 			                   SELECT 1 FROM task_participants tp
@@ -696,7 +708,7 @@ func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimI
 		   worker_last_error = '',
 		   updated_at = now()
 		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3
-		 RETURNING `+taskCols, id, workerID, claimID))
+		 RETURNING `+taskCols, id, workerID, claimID, commandSucceeded))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1392,6 +1404,32 @@ func (s *Store) ProgressOf(ctx context.Context, taskID int64) ([]Progress, error
 		ps = append(ps, p)
 	}
 	return ps, rows.Err()
+}
+
+// LatestProgressForTasks 批量读取每个任务最新一条进度，供队列和验收视图展示
+// 执行证据；单条批量查询避免列表页按任务产生 N+1 查询。
+func (s *Store) LatestProgressForTasks(ctx context.Context, taskIDs []int64) (map[int64]Progress, error) {
+	out := make(map[int64]Progress, len(taskIDs))
+	if len(taskIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT DISTINCT ON (task_id) id, task_id, author_id, content, created_at
+		   FROM task_progress
+		  WHERE task_id = ANY($1)
+		  ORDER BY task_id, id DESC`, taskIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var progress Progress
+		if err := rows.Scan(&progress.ID, &progress.TaskID, &progress.AuthorID, &progress.Content, &progress.CreatedAt); err != nil {
+			return nil, err
+		}
+		out[progress.TaskID] = progress
+	}
+	return out, rows.Err()
 }
 
 // AddAttachment 挂附件。

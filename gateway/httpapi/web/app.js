@@ -14,6 +14,7 @@ const state = {
   selectedFileIDs: new Set(),
   tasks: { todo: [], assigned: [], review: [] },
   taskQueue: [],
+  taskReview: [],
   taskHistory: [],
   schedules: [],
   workers: [],
@@ -288,8 +289,8 @@ function renderContent() {
 
 function renderCommandRoute() {
   const pendingFiles = state.files.length;
-  const allTasks = taskQueueSource();
-  const queuedTasks = allTasks.filter(t => ["pending", "in_progress", "awaiting_input", "done"].includes(t.status));
+  const queuedTasks = taskQueueSource().filter(t => ["pending", "in_progress", "awaiting_input"].includes(t.status));
+  const reviewTasks = state.me?.is_superadmin ? state.taskReview : state.tasks.review;
   const taskCounts = countTaskStatuses(queuedTasks);
   const activeSchedules = (state.schedules || []).filter(s => s.status === "active");
   const approvals = state.approvals || [];
@@ -307,15 +308,17 @@ function renderCommandRoute() {
   return `
     <div class="metrics">
       ${metric("folder-up", "待处理材料", pendingFiles, `${selectedFileList().length} 个已选`)}
-      ${metric("player-play", "任务队列", queuedTasks.length, `${taskCounts.pending} 待处理 · ${taskCounts.in_progress} 进行中 · ${taskCounts.awaiting_input} 待补充 · ${taskCounts.done} 待验收`)}
+      ${metric("player-play", "运行队列", queuedTasks.length, `${taskCounts.pending} 待处理 · ${taskCounts.in_progress} 进行中 · ${taskCounts.awaiting_input} 待补充`)}
+      ${metric("clipboard-check", "待验收", reviewTasks.length, "已停止执行，等待确认结果")}
       ${metric("robot", "Worker 可用", activeWorkers, `总数 ${state.workers.length}`)}
       ${metric("calendar-time", "定时自动化", activeSchedules.length, `${state.schedules.length} 条可见规则`)}
       ${metric("alert-triangle", "需要确认", riskCount + decisions, `${decisions} 个决策项`)}
     </div>
     ${queueSection("待处理材料", pendingFiles, renderMaterialRows(), materialActions)}
-    ${queueSection("任务队列", queuedTasks.length, renderTaskRows(queuedTasks.slice(0, 12)), `
+    ${queueSection("运行队列", queuedTasks.length, renderTaskRows(queuedTasks.slice(0, 12)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
+    ${queueSection("待验收", reviewTasks.length, renderTaskRows(reviewTasks.slice(0, 12)), "")}
     ${queueSection("定时自动化", activeSchedules.length, renderScheduleRows(activeSchedules.slice(0, 8)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
@@ -368,8 +371,8 @@ function renderMaterialRows() {
     </table>`;
 }
 
-function renderTaskRows(tasks = taskQueueSource().filter(t => t.status !== "accepted").slice(0, 10)) {
-  if (!tasks.length) return `<div class="empty">当前没有运行中任务。</div>`;
+function renderTaskRows(tasks = taskQueueSource().slice(0, 10)) {
+  if (!tasks.length) return `<div class="empty">当前没有任务。</div>`;
   return `
     <table class="data-table">
       <thead><tr><th></th><th>ID</th><th>命令</th><th>Worker/员工</th><th>发起人</th><th>开始时间</th><th>进度</th><th>状态</th><th>预计完成</th></tr></thead>
@@ -451,12 +454,13 @@ function renderFailedFileIntakes() {
 }
 
 function renderTasksRoute() {
-	const assignedActive = state.tasks.assigned.filter(t => ["pending", "in_progress", "awaiting_input", "done"].includes(t.status));
+	const assignedActive = state.tasks.assigned.filter(t => ["pending", "in_progress", "awaiting_input"].includes(t.status));
 	const assignedHistory = state.tasks.assigned.filter(t => ["accepted", "split", "cancelled"].includes(t.status));
 	if (state.me?.is_superadmin) {
-		return `${queueSection("全局任务队列", state.taskQueue.length, taskTable(state.taskQueue), `
+		return `${queueSection("全局运行队列", state.taskQueue.length, taskTable(state.taskQueue), `
 			<button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
 		`)}
+		${queueSection("全局待验收", state.taskReview.length, taskTable(state.taskReview), "")}
 		${queueSection("任务历史", state.taskHistory.length, taskTable(state.taskHistory), "")}
 		${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), `
 			<button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
@@ -724,6 +728,21 @@ function fileInspector(file) {
 
 function taskInspector(task) {
   const participants = taskParticipantText(task);
+  const me = Number(state.me?.id || 0);
+  const canReview = task.status === "done" && (state.me?.is_superadmin || Number(task.assigner_id) === me ||
+    (task.participants || []).some(p => Number(p.user_id) === me && p.role === "reviewer"));
+  const canManage = ["pending", "in_progress", "awaiting_input", "done"].includes(task.status) &&
+    (state.me?.is_superadmin || Number(task.assigner_id) === me);
+  const actions = canReview || canManage ? `
+		<div class="form">
+		  <div class="field"><label>评语 / 原因</label><textarea class="textarea" id="taskActionReason" placeholder="验收评语可留空；打回或取消必须填写原因"></textarea></div>
+		  ${canManage ? `<div class="field"><label>替代任务 ID（仅合并重复任务时填写）</label><input class="input" id="taskReplacementID" inputmode="numeric" placeholder="例如 42"></div>` : ""}
+		  <div class="form-row">
+		    ${canReview ? `<button class="btn primary" data-action="accept-task" data-id="${task.id}">${icon("check")}验收通过</button>
+		    <button class="btn" data-action="reject-task" data-id="${task.id}">${icon("arrow-back-up")}打回</button>` : ""}
+		    ${canManage ? `<button class="btn danger" data-action="cancel-task" data-id="${task.id}">${icon("x")}取消 / 合并</button>` : ""}
+		  </div>
+		</div>` : "";
   return `
     <dl class="kv">
       <dt>任务</dt><dd>#${task.id} ${esc(task.title)}</dd>
@@ -744,7 +763,10 @@ function taskInspector(task) {
 	  ${task.goal ? `<div class="result"><strong>目标</strong><br>${esc(task.goal)}</div>` : ""}
 	  ${task.description ? `<div class="result"><strong>描述</strong><br>${esc(task.description)}</div>` : ""}
 	  ${task.acceptance ? `<div class="result"><strong>验收标准</strong><br>${esc(task.acceptance)}</div>` : ""}
+	  ${task.latest_progress ? `<div class="result"><strong>最新进度 / 结果${task.latest_progress_at ? ` · ${fmtTime(task.latest_progress_at)}` : ""}</strong><br>${esc(task.latest_progress)}</div>` : ""}
 	  ${task.worker_last_error ? `<div class="result bad">${esc(task.worker_last_error)}</div>` : ""}
+	  ${actions}
+	  ${state.actionResult ? actionResult() : ""}
 	  `;
 }
 
@@ -968,7 +990,7 @@ function taskQueueSource() {
 function allTaskSource() {
   const seen = new Set();
   const out = [];
-  for (const task of [...taskQueueSource(), ...(state.taskHistory || []), ...mergedTasks()]) {
+  for (const task of [...taskQueueSource(), ...(state.taskReview || []), ...(state.taskHistory || []), ...mergedTasks()]) {
     if (!task || seen.has(Number(task.id))) continue;
     seen.add(Number(task.id));
     out.push(task);
@@ -1179,6 +1201,7 @@ async function loadAdminData(parts) {
   const jobs = [];
 	if (state.me?.is_superadmin && parts.includes("taskQueue")) {
 		jobs.push(api("/api/admin/task-queue?scope=queue").then(d => { state.taskQueue = d.tasks || []; }));
+		jobs.push(api("/api/admin/task-queue?scope=review").then(d => { state.taskReview = d.tasks || []; }));
 		jobs.push(api("/api/admin/task-queue?scope=history").then(d => { state.taskHistory = d.tasks || []; }));
 	}
   if (parts.includes("workers")) jobs.push(api("/api/admin/workers").then(d => { state.workers = d.workers || []; }));
@@ -1203,6 +1226,8 @@ function ensureSelection() {
     state.selected = { kind: "file", id: state.files[0].id };
   } else if (taskQueueSource().length) {
     state.selected = { kind: "task", id: taskQueueSource()[0].id };
+  } else if (state.taskReview.length) {
+    state.selected = { kind: "task", id: state.taskReview[0].id };
   } else if (state.schedules.length) {
     state.selected = { kind: "schedule", id: state.schedules[0].id };
   } else if (state.me?.is_superadmin) {
@@ -1215,6 +1240,53 @@ function ensureSelection() {
 function setResult(text, ok = true) {
   state.actionResult = text;
   state.actionOK = ok;
+}
+
+async function invokeTool(name, args) {
+  return api(`/api/tools/${encodeURIComponent(name)}`, {
+    method: "POST",
+    body: JSON.stringify(args || {}),
+  });
+}
+
+async function runTaskAction(action, taskID) {
+  const reason = document.querySelector("#taskActionReason")?.value.trim() || "";
+  const replacement = Number(document.querySelector("#taskReplacementID")?.value || 0);
+  let name;
+  let args;
+  if (action === "accept-task") {
+    name = "accept_task";
+    args = { task_id: Number(taskID), comment: reason };
+  } else if (action === "reject-task") {
+    if (!reason) {
+      setResult("打回必须填写原因。", false);
+      renderApp();
+      return;
+    }
+    name = "reject_task";
+    args = { task_id: Number(taskID), reason };
+  } else if (action === "cancel-task") {
+    if (!reason) {
+      setResult("取消或合并任务必须填写原因。", false);
+      renderApp();
+      return;
+    }
+    name = "cancel_assigned_task";
+    args = { task_id: Number(taskID), reason };
+    if (Number.isInteger(replacement) && replacement > 0) args.superseded_by = replacement;
+  } else {
+    return;
+  }
+  try {
+    const data = await invokeTool(name, args);
+    const ok = data.status !== "rejected";
+    setResult(data.result || (ok ? "操作已完成。" : "操作未执行。"), ok);
+    addLog("task", ok ? "INFO" : "WARN", `${name} #${taskID}`);
+    await loadRoute(state.route);
+  } catch (err) {
+    setResult(err.message, false);
+    renderApp();
+  }
 }
 
 async function uploadFiles() {
@@ -1449,6 +1521,8 @@ document.addEventListener("click", async event => {
     await downloadFile(btn.dataset.id);
   } else if (action === "start-material") {
     await startMaterial();
+  } else if (["accept-task", "reject-task", "cancel-task"].includes(action)) {
+    await runTaskAction(action, btn.dataset.id);
   } else if (action === "start-upgrade") {
     await startUpgrade();
   } else if (action === "choose-model") {

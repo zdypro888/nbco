@@ -262,13 +262,18 @@ func (c *Client) Fail(ctx context.Context, taskID int64, claimID, cause string, 
 	})
 }
 
-// Submit 提交完成，进入验收流；lessons 非空则回流知识库。
-func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string) error {
-	return c.post(ctx, "/api/worker/submit", map[string]any{
+// Submit 提交完成，进入验收流；确定性命令额外上报退出码，服务端据此
+// 区分可自动归档的成功执行与需要人工处理的非零退出。
+func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string, commandExitCode *int) error {
+	payload := map[string]any{
 		"task_id": taskID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 		"worker_session_id": session.ID, "session_summary": sessionSummary(summary, lessons),
 		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
-	})
+	}
+	if commandExitCode != nil {
+		payload["command_exit_code"] = *commandExitCode
+	}
+	return c.post(ctx, "/api/worker/submit", payload)
 }
 
 func sessionSummary(summary, lessons string) string {

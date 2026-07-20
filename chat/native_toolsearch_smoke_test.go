@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/ai/einoengine"
@@ -186,6 +187,50 @@ func TestSmokeRealTurnContextSelectorWithAuthorizedCatalog(t *testing.T) {
 	}
 }
 
+func TestSmokeRealTurnContextSelectorKeepsStatusQueriesReadOnly(t *testing.T) {
+	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
+		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real turn context selection")
+	}
+	engine, err := einoengine.New(context.Background(), config.AIConfig{
+		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
+		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := nbtools.ForUser(nbtools.Deps{}, &store.User{ID: 1, Name: "PRO", IsSuperadmin: true}, nil)
+	payload, err := json.Marshal(map[string]any{
+		"request": "现在发送了吗",
+		"recent_messages": []any{
+			map[string]any{"role": "user", "content": "周一把金色项目成员名单发给杨桑确认。"},
+			map[string]any{"role": "assistant", "content": "已设置单次日程，计划在日本时间 7 月 20 日 10:30 发送。"},
+		},
+		"recent_actions": []any{}, "tools": turnContextTools(catalog), "memory_candidates": []any{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	result, err := engine.RunTurn(runCtx, &ai.TurnRequest{
+		Mode: ai.TurnModeOneShot, System: "只做相关性检索并输出请求要求的 JSON。",
+		UserText: turnContextSelectionPrompt(payload), MaxOutputTokens: turnContextSelectionBudget,
+		Reasoning: ai.ReasoningDisabled, JSONOutput: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selected turnContextSelection
+	if err := json.Unmarshal([]byte(extractJSONObject(result.Text)), &selected); err != nil {
+		t.Fatalf("selector output %q: %v", result.Text, err)
+	}
+	selected.Tools = allowToolNames(selected.Tools, catalog, turnContextToolLimit)
+	if !containsString(selected.Tools, "list_schedules") || containsString(selected.Tools, "send_message") {
+		t.Fatalf("status query selected an unsafe working set: %v", selected.Tools)
+	}
+	t.Logf("status query selected read-only working set: %v", selected.Tools)
+}
+
 func TestSmokeRealScheduleFollowUp(t *testing.T) {
 	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
 		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real native tool search")
@@ -276,4 +321,78 @@ func TestSmokeRealScheduleFollowUp(t *testing.T) {
 	}
 	t.Logf("schedule follow-up passed: schedules=%d result=%q exposure=%+v steps=%+v",
 		scheduleCalls.Load(), result.Text, result.ToolExposure, result.Steps)
+}
+
+func TestSmokeRealDeliveredScheduleStatusDoesNotResend(t *testing.T) {
+	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
+		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real native tool search")
+	}
+	engine, err := einoengine.New(context.Background(), config.AIConfig{
+		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
+		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scheduleCalls atomic.Int32
+	var sendCalls atomic.Int32
+	catalog := []ai.Tool{
+		{
+			Name: "list_schedules", Domain: "comms", Effect: ai.ToolEffectRead,
+			Description: "查看定时提醒、计划推送和持久自动化及其真实投递状态。status 可查 active、done、cancelled 或 all。",
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{
+				"status": map[string]any{"type": "string"},
+			}},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				scheduleCalls.Add(1)
+				return "提醒内部编号 5 [done/once] 金色项目成员名单确认；日本时间 2026-07-20 10:30 已成功投递给杨桑，无未来执行。", nil
+			},
+		},
+		{
+			Name: "send_message", Domain: "comms", Effect: ai.ToolEffectExecute,
+			Description: "立即向指定员工发送一条新消息；这是会产生外部副作用的新投递，不用于查询既有投递状态。",
+			InputSchema: map[string]any{
+				"type": "object", "properties": map[string]any{
+					"user_id": map[string]any{"type": "integer"},
+					"message": map[string]any{"type": "string"},
+				}, "required": []string{"user_id", "message"},
+			},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				sendCalls.Add(1)
+				return "已发送给杨桑。", nil
+			},
+		},
+	}
+	for i := 0; i < 172; i++ {
+		catalog = append(catalog, ai.Tool{
+			Name: fmt.Sprintf("unrelated_capability_%03d", i), Domain: "other", Effect: ai.ToolEffectRead,
+			Description: "与当前请求无关的占位能力。", InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) { return `{}`, nil },
+		})
+	}
+	runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	result, err := engine.RunTurn(runCtx, &ai.TurnRequest{
+		Mode: ai.TurnModeDeep,
+		System: `你是公司的 AI 运营中枢。工具定义和结果是状态事实来源。
+查询只读取；只有用户明确要求新的外部状态变化时才执行写入或发送。
+先读取可变状态，并根据工具返回决定下一步；已成功发生的副作用不得因状态查询而重复执行。
+当前时间：2026-07-20 10:59 +09:00（Asia/Tokyo）。`,
+		History: []ai.Message{
+			{Role: ai.RoleUser, Content: "周一把金色项目成员名单发给杨桑确认。"},
+			{Role: ai.RoleAssistant, Content: "已设置单次日程，计划在日本时间 7 月 20 日 10:30 发送。"},
+		},
+		UserText:       "现在发送了吗",
+		Tools:          catalog,
+		PreferredTools: []string{"list_schedules"},
+	})
+	if err != nil {
+		t.Fatalf("delivered status run failed after schedules=%d sends=%d: %v", scheduleCalls.Load(), sendCalls.Load(), err)
+	}
+	if scheduleCalls.Load() == 0 || sendCalls.Load() != 0 || strings.TrimSpace(result.Text) == "" {
+		t.Fatalf("delivered schedule status caused a duplicate send: schedules=%d sends=%d result=%q exposure=%+v steps=%+v",
+			scheduleCalls.Load(), sendCalls.Load(), result.Text, result.ToolExposure, result.Steps)
+	}
+	t.Logf("delivered status passed: schedules=%d sends=%d result=%q exposure=%+v steps=%+v",
+		scheduleCalls.Load(), sendCalls.Load(), result.Text, result.ToolExposure, result.Steps)
 }

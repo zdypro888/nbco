@@ -228,11 +228,34 @@ func TestTaskQueue(t *testing.T) {
 	for _, task := range queue {
 		got[task.ID] = task.Status
 	}
-	if got[pending.ID] != TaskPending || got[done.ID] != TaskDone {
-		t.Fatalf("queue 应包含 pending/done: %+v", got)
+	if got[pending.ID] != TaskPending {
+		t.Fatalf("queue 应包含 pending: %+v", got)
+	}
+	if _, ok := got[done.ID]; ok {
+		t.Fatalf("queue 不应包含待验收任务: %+v", got)
 	}
 	if _, ok := got[accepted.ID]; ok {
 		t.Fatalf("queue 不应包含 accepted: %+v", got)
+	}
+	review, err := s.TaskQueue(ctx, "review", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(review) != 1 || review[0].ID != done.ID || review[0].Status != TaskDone {
+		t.Fatalf("review 应只包含 done: %+v", review)
+	}
+	if err := s.AddProgress(ctx, done.ID, alice.ID, "first result"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddProgress(ctx, done.ID, alice.ID, "latest result"); err != nil {
+		t.Fatal(err)
+	}
+	latest, err := s.LatestProgressForTasks(ctx, []int64{pending.ID, done.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(latest) != 1 || latest[done.ID].Content != "latest result" {
+		t.Fatalf("latest progress = %+v", latest)
 	}
 	all, err := s.TaskQueue(ctx, "all", 50)
 	if err != nil {
@@ -433,7 +456,7 @@ func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T)
 	if err != nil || claimed.ID != workerTask.ID {
 		t.Fatalf("worker claim = %+v err=%v", claimed, err)
 	}
-	submitted, _, err := s.SubmitWorkerTask(ctx, workerTask.ID, worker.ID, claimed.WorkerClaimID, "done")
+	submitted, _, err := s.SubmitWorkerTask(ctx, workerTask.ID, worker.ID, claimed.WorkerClaimID, "done", false)
 	if err != nil || submitted.Status != TaskDone {
 		t.Fatalf("explicit reviewer must keep worker task awaiting review: %+v err=%v", submitted, err)
 	}
@@ -466,6 +489,133 @@ func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T)
 	}
 	if !foundParent {
 		t.Fatalf("explicit reviewer queue missing cascaded parent: %+v", queue)
+	}
+}
+
+func TestWorkerCommandSubmissionAutoAcceptsWithoutExplicitReviewer(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	reviewer := mkUser(t, s, "reviewer", false)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	command, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "deterministic command", WorkerCommand: "go test ./...",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != command.ID {
+		t.Fatalf("claim command = %+v err=%v", claimed, err)
+	}
+	completed, _, err := s.SubmitWorkerTask(ctx, command.ID, worker.ID, claimed.WorkerClaimID, "exit=0", true)
+	if err != nil || completed.Status != TaskAccepted {
+		t.Fatalf("unreviewed command should auto-accept: %+v err=%v", completed, err)
+	}
+
+	reviewed, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "reviewed command", WorkerCommand: "deploy production",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReplaceTaskParticipants(ctx, reviewed.ID, boss.ID,
+		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != reviewed.ID {
+		t.Fatalf("claim reviewed command = %+v err=%v", claimed, err)
+	}
+	completed, _, err = s.SubmitWorkerTask(ctx, reviewed.ID, worker.ID, claimed.WorkerClaimID, "needs review", true)
+	if err != nil || completed.Status != TaskDone {
+		t.Fatalf("explicit reviewer must keep command awaiting review: %+v err=%v", completed, err)
+	}
+
+	failed, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "failed command", WorkerCommand: "exit 7",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != failed.ID {
+		t.Fatalf("claim failed command = %+v err=%v", claimed, err)
+	}
+	completed, _, err = s.SubmitWorkerTask(ctx, failed.ID, worker.ID, claimed.WorkerClaimID, "exit=7", false)
+	if err != nil || completed.Status != TaskDone {
+		t.Fatalf("non-zero command must remain reviewable: %+v err=%v", completed, err)
+	}
+}
+
+func TestTaskQueueLifecycleMigrationOnlyClosesUnreviewedCommands(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "migration-boss", true)
+	reviewer := mkUser(t, s, "migration-reviewer", false)
+	worker, _, err := s.CreateWorker(ctx, "migration-worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	command, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "legacy command", WorkerCommand: "go test ./...",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewed, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "legacy reviewed command", WorkerCommand: "deploy production",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReplaceTaskParticipants(ctx, reviewed.ID, boss.ID,
+		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+	normal := mkTask(t, s, pj.ID, boss.ID, reviewer.ID, "legacy human task", nil)
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE tasks SET status = 'done' WHERE id = ANY($1)`,
+		[]int64{command.ID, reviewed.ID, normal.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO task_progress (task_id, author_id, content) VALUES
+		 ($1, $2, '🤖 完成汇报：命令执行完成，退出码：0' || chr(10) || '执行模式：pipe'),
+		 ($3, $2, '🤖 完成汇报：命令执行完成，退出码：0' || chr(10) || '执行模式：pipe')`,
+		command.ID, worker.ID, reviewed.ID); err != nil {
+		t.Fatal(err)
+	}
+	migration, err := migrationsFS.ReadFile("migrations/0062_task_queue_lifecycle.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, want := range []struct {
+		id     int64
+		status string
+	}{{command.ID, TaskAccepted}, {reviewed.ID, TaskDone}, {normal.ID, TaskDone}} {
+		got, err := s.TaskByID(ctx, want.id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Status != want.status {
+			t.Fatalf("task %d status = %s, want %s", want.id, got.Status, want.status)
+		}
 	}
 }
 
@@ -1175,14 +1325,14 @@ func TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim(t *testing.T) {
 	if updated.Status != TaskPending || updated.WorkerClaimID != "" {
 		t.Fatalf("worker content update must atomically reset claim: %+v", updated)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("old claim must not submit after content update: %v", err)
 	}
 	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果"); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil); !errors.Is(err, ErrNotFound) {
@@ -1363,7 +1513,7 @@ func TestWorkerClaimRejectedTaskWithoutClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版"); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版", false); err != nil {
 		t.Fatal(err)
 	}
 	rejected, err := s.RejectTask(ctx, tk.ID, boss.ID, "还要补文件")
@@ -3016,7 +3166,7 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	// worker 的提交应落空（任务已非 in_progress），不把旧交付当完成。
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("重置为 pending 后提交应被拒: %v", err)
 	}
 	if ps, err := s.ProgressOf(ctx, tk.ID); err != nil || len(ps) != 0 {
@@ -3037,10 +3187,10 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 	if err := s.AddWorkerProgress(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧进度"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 进度应被拒: %v", err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 提交应被拒: %v", err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果"); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", false); err != nil {
 		t.Fatalf("正常提交应成功: %v", err)
 	}
 	got, _ = s.TaskByID(ctx, tk.ID)
@@ -4061,7 +4211,7 @@ func TestTaskDependencyGating(t *testing.T) {
 		t.Fatalf("测试任务被前置挡住，不应可领: %v", err)
 	}
 	// 提交+验收 dev 后，test 就绪。
-	if _, _, err := s.SubmitWorkerTask(ctx, dev.ID, worker.ID, claimed.WorkerClaimID, "done"); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, dev.ID, worker.ID, claimed.WorkerClaimID, "done", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.AcceptTask(ctx, dev.ID); err != nil {
