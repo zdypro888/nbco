@@ -2029,7 +2029,9 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "执行 claim 已失效"})
 		return
 	}
-	req.Content = truncateRunes(textfmt.RedactSecrets(req.Content), 16000)
+	// Worker progress is authorized task state and may be needed verbatim by a
+	// resumed Agent. Presentation, audit, and learning surfaces redact separately.
+	req.Content = truncateRunes(req.Content, 16000)
 	if err := s.store.AddWorkerRunProgress(r.Context(), runID, u.ID, req.ClaimID, req.Content); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许记录进度（可能已被改派或重置）"})
@@ -2067,7 +2069,7 @@ func (s *Server) handleWorkerSession(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "执行 claim 已失效"})
 		return
 	}
-	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	if err := s.store.UpdateWorkerSessionForClaim(r.Context(), req.WorkerSessionID, u.ID, runID,
 		req.ClaimID, req.SessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -2112,8 +2114,8 @@ func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 content 必填"})
 		return
 	}
-	req.Content = truncateRunes(textfmt.RedactSecrets(req.Content), 4000)
-	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	req.Content = truncateRunes(req.Content, 4000)
+	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	finalization := workerFinalization(req.FinalizationID, req.ClaimID, "request_input", struct {
 		Content, SessionSummary, EngineSessionRef, Workdir string
 		WorkerSessionID                                    int64
@@ -2176,8 +2178,8 @@ func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 error 必填"})
 		return
 	}
-	req.Error = truncateRunes(textfmt.RedactSecrets(req.Error), 4000)
-	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	req.Error = truncateRunes(req.Error, 4000)
+	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	finalization := workerFinalization(req.FinalizationID, req.ClaimID, "fail", struct {
 		Error, SessionSummary, EngineSessionRef, Workdir string
 		WorkerSessionID                                  int64
@@ -2246,9 +2248,11 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 summary 必填"})
 		return
 	}
-	req.Summary = truncateRunes(textfmt.RedactSecrets(req.Summary), 64000)
-	req.Lessons = truncateRunes(textfmt.RedactSecrets(req.Lessons), 20000)
-	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	// The run and native-session records are private canonical state. Keeping
+	// them lossless lets a later PTY resume inspect exact output and credentials.
+	req.Summary = truncateRunes(req.Summary, 64000)
+	req.Lessons = truncateRunes(req.Lessons, 20000)
+	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	// Older workers did not send outcome. Their submit endpoint still meant that
 	// execution finished; an optional legacy exit code refines success/failure.
 	outcome, exitCode, validOutcome := resolveWorkerSubmissionOutcome(req.Outcome, req.ExitCode, req.LegacyCommandExitCode)
@@ -2296,7 +2300,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// 进化：可复用经验回流知识库，供后续同类任务检索。
-	if lessons := strings.TrimSpace(req.Lessons); !replayed && run.Executor == workerproto.ExecutorAgent && lessons != "" {
+	if lessons := strings.TrimSpace(textfmt.RedactSecrets(req.Lessons)); !replayed && run.Executor == workerproto.ExecutorAgent && lessons != "" {
 		tags := []string{"worker经验", fmt.Sprintf("worker:%d", u.ID)}
 		if task != nil {
 			tags = append(tags, fmt.Sprintf("project:%d", task.ProjectID))
@@ -2310,7 +2314,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	learned := 0
 	if !replayed && task != nil {
-		learned = s.ingestWorkerLearningCandidates(ctx, u, task, req.Summary)
+		learned = s.ingestWorkerLearningCandidates(ctx, u, task, textfmt.RedactSecrets(req.Summary))
 	}
 	if !replayed && s.bus != nil && task != nil && task.AssignerID != u.ID {
 		extra := ""

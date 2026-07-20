@@ -81,14 +81,13 @@ var (
 	historyMetaDanglingRe        = regexp.MustCompile(`(?is)[\t ]*<nbco_history_meta\b[^>]*$`)
 	escapedHistoryMetaTagRe      = regexp.MustCompile(`(?is)[\t ]*&lt;nbco_history_meta\b.*?/?&gt;[\t ]*`)
 	escapedHistoryMetaDanglingRe = regexp.MustCompile(`(?is)[\t ]*&lt;nbco_history_meta\b[^&]*$`)
-	userIDParenRe                = regexp.MustCompile(`(?i)[（(][^（）()\n]*(?:user[_ -]?id|用户\s*id|用户内部编号|成员内部编号|员工内部编号|tg\s*id|telegram\s*id)[^（）()\n]*[）)]`)
-	userIDKVRe                   = regexp.MustCompile(`(?i)\buser[_ -]?id\s*[:=：]\s*-?\d+\b`)
-	userInternalRefRe            = regexp.MustCompile(`(?i)(用户|成员|员工|授予者|创建者|操作者|目标用户)\s*内部编号\s*-?\d+`)
-	userIDLabelRe                = regexp.MustCompile(`(?i)(用户|成员|员工|tg|telegram)\s*id\s*[:=：]?\s*-?\d+\b`)
 )
 
 // RedactSecrets removes API keys, Telegram bot tokens, worker access tokens,
-// and common credential assignments before text is persisted in logs/history.
+// and common credential assignments at derived or diagnostic boundaries such
+// as logs, audits, semantic indexes, and learning candidates. Do not apply it
+// to an authorized canonical record: destructive redaction there breaks later
+// Agent turns and cannot be reversed after permissions have been checked.
 func RedactSecrets(s string) string {
 	s = secretJSONAssignmentRe.ReplaceAllString(s, `$1[redacted]$3`)
 	s = secretKVAssignmentRe.ReplaceAllString(s, `$1[redacted]$3`)
@@ -239,20 +238,16 @@ func NormalizeEscapedLineBreaks(s string) string {
 	return b.String()
 }
 
-// SanitizeVisibleReply removes tool-only references and user identity internals
-// from text that is about to be shown to end users. Tool handlers may expose
-// user_id in their own outputs so the model can chain calls; this final display
-// pass is the deterministic privacy boundary.
+// SanitizeVisibleReply removes reasoning and internal presentation protocols
+// from text that is about to be shown to end users. Authorization belongs at
+// the tool/data boundary; stable business IDs and explicitly requested channel
+// IDs must not be regex-rewritten after an authorized tool returned them.
 func SanitizeVisibleReply(s string) string {
 	s = StripReasoning(s)
 	s = StripHistoryMetadata(s)
 	s = toolOnlySectionRe.ReplaceAllString(s, "$1")
 	s = trailingToolOnlyRe.ReplaceAllString(s, "$1")
 	s = internalMarkerRe.ReplaceAllString(s, "")
-	s = userIDParenRe.ReplaceAllString(s, "")
-	s = userIDKVRe.ReplaceAllString(s, "用户标识")
-	s = userInternalRefRe.ReplaceAllString(s, "$1标识")
-	s = userIDLabelRe.ReplaceAllString(s, "$1标识")
 	s = NormalizeEscapedLineBreaks(s)
 	return strings.TrimSpace(s)
 }

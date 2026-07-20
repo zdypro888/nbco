@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: textfmt/textutil_test.go
-        hash: sha256:beb41f282ee49c5657a457f18a54013422062a58f76625c4db6d7cb19e4c3d84
+        hash: sha256:8908f0fe3ab8f5dd1c257e4d32a108675ef0dc9d1cdcdcf661ba38f0104dd05a
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -30,17 +30,17 @@ nodes:
         lines: [36, 56]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: textfmt/textutil_test.go#TestSanitizeVisibleReplyHidesToolOnlyUserRefs
+    - id: textfmt/textutil_test.go#TestSanitizeVisibleReplyHidesToolProtocolButPreservesAuthorizedIDs
       level: function
       anchor:
         file: textfmt/textutil_test.go
-        symbol: TestSanitizeVisibleReplyHidesToolOnlyUserRefs
-        hash: sha256:c25d040b7a01fbc8c2d426878e0ab57ac384affca56cde9e3421773bc1edffbe
-        struct_hash: sha256:e9f77fa9bbcb806f90c5c19195f6ca5f0722b92e8f2b9ed978edb39677848f19
-        doc_struct_hash: sha256:e9f77fa9bbcb806f90c5c19195f6ca5f0722b92e8f2b9ed978edb39677848f19
+        symbol: TestSanitizeVisibleReplyHidesToolProtocolButPreservesAuthorizedIDs
+        hash: sha256:fd114fb555fa741edefb64afd8c78442491c3895b9708bd68a4d8a4e99172117
+        struct_hash: sha256:ffa54ab4ce503bfe356312066b82284ea394580b535892ce8fd214ae7af27986
+        doc_struct_hash: sha256:ffa54ab4ce503bfe356312066b82284ea394580b535892ce8fd214ae7af27986
         lines: [58, 80]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
+      since: 2026-07-20T15:27:37.34846Z
     - id: textfmt/textutil_test.go#TestSanitizeVisibleReplyHidesInternalMarkers
       level: function
       anchor:

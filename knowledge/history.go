@@ -63,7 +63,7 @@ func (svc *Service) EmbedMessageAsync(id int64, content string) {
 			}
 			return
 		}
-		vecs, err := svc.embedder.Embed(ctx, []string{doc.ContextContent()})
+		vecs, err := svc.embedder.Embed(ctx, []string{semanticProjectionText(doc.ContextContent())})
 		if err != nil || len(vecs) != 1 || len(vecs[0]) == 0 {
 			slog.Debug("消息向量化失败（回填兜底）", "id", id, "err", err)
 			return
@@ -312,7 +312,7 @@ func (svc *Service) BackfillMessages(ctx context.Context, batch int, afterID int
 		res.LastID = m.ID
 		res.Attempted++
 		ectx, cancel := context.WithTimeout(ctx, embedTimeout)
-		vecs, err := svc.embedder.Embed(ectx, []string{m.ContextContent()})
+		vecs, err := svc.embedder.Embed(ectx, []string{semanticProjectionText(m.ContextContent())})
 		if err == nil && len(vecs) == 1 && len(vecs[0]) > 0 {
 			actualTag := messageIndexMarker(modelTag(svc.embedder.Model(), len(vecs[0])))
 			if svc.store.SetMessageEmbedding(ectx, m.ID, actualTag, vecs[0]) == nil {

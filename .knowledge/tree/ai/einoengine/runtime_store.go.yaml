@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/runtime_store.go
-        hash: sha256:06594bc49d19527b3bd5048e3d59b046b975fb41e8ceb5e1a40fbddbc213af5d
+        hash: sha256:f43b76f7eca494101c9b3594caea5d2414e1119769876d072778297178e92541
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: RuntimeStore
-        hash: sha256:442d97f5cea19731f6ac0c4c37d7f9185f8fa30245cc5f3b045d40c0b89efdd9
-        struct_hash: sha256:4d67d6a22ff9b4f60aef8ffbf34cc5dd5f8fbeff683fc8e51bddd9debf6018e3
-        doc_struct_hash: sha256:d4bc91d9b57bc0c18087348122b8495e26b4783131f19804ff05990980e60703
-        lines: [21, 28]
+        hash: sha256:547a97ab0e8fd026619a036f7680d8e872e28e90ef12196c041808848d910179
+        struct_hash: sha256:e7a3a33c7156f832cdba0a2ef3db3b0332d0a26cbd11e497df48b25acd31200d
+        doc_struct_hash: sha256:fb7c7c93756bb70a58be5a7251c1730da11a5b2dc786f2ed83072cbedf1a1992
+        lines: [16, 23]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore
-        hash: sha256:53d6e5583406eef81997b4ffb5ffd52b3ad56325a0bb9c8bf3cd2e68d18ce341
-        struct_hash: sha256:058fd9b16a9110700f8b5dad38748c13b244b9bc2a6811a4f8ec89006cb18d43
-        doc_struct_hash: sha256:5d479cbd1a998bee8a5b8618c862a2bcfc1e341d27245d137e991f6d056b179b
-        lines: [30, 35]
+        hash: sha256:f97045f796325a64bbe8315fbf2d3302a6289c4fcc7f908f5e3a5dd3a2bd306a
+        struct_hash: sha256:a08a46555f7dfc01bede654b4a6d7ad8be9bb26e87e7e751d651af60a71e2315
+        doc_struct_hash: sha256:6059d8c4f367f3b5cacfa1f0629a3f8589c3693fa0de3a5bcf7999bb7a777ddd
+        lines: [25, 30]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#NewPostgresRuntimeStore
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: NewPostgresRuntimeStore
-        hash: sha256:f56d8424e548c989f49cf9e6c1003f8db2d5a8fd5e1978620ac481d8d9a3028a
-        struct_hash: sha256:93d993af5ce6172b16549efeaedd127952cb837b919b371de6ef0f00e3b2054a
-        doc_struct_hash: sha256:93d993af5ce6172b16549efeaedd127952cb837b919b371de6ef0f00e3b2054a
-        lines: [37, 42]
+        hash: sha256:df8ce457747b283cfc128c8af63e4c5e02ade3ae1ea03853915f8ac4203e37be
+        struct_hash: sha256:e6436e4b10bc3e3c73af3da093df0c4c9d2fe7b7464136ac20849980765fd726
+        doc_struct_hash: sha256:e6436e4b10bc3e3c73af3da093df0c4c9d2fe7b7464136ac20849980765fd726
+        lines: [32, 37]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore.AppendEvents
@@ -46,94 +46,64 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore.AppendEvents
-        hash: sha256:ce30c4fa241a3bc46f03a131163dda7b55a0f4b748261a632d732624b400dde6
-        struct_hash: sha256:f469e110676a0480ebea31fbb991de692d927fb2d00d69f4892a0d04bb570578
-        doc_struct_hash: sha256:f469e110676a0480ebea31fbb991de692d927fb2d00d69f4892a0d04bb570578
-        lines: [44, 110]
+        hash: sha256:da393dd93263dea23607563813de4f3f87aaad3daf1d62d64aff51fc7200cc86
+        struct_hash: sha256:fc7c08f98ee37bb2ac76e45459aa8bc4b426c20788ccbd00754b3fc0fb7d61a9
+        doc_struct_hash: sha256:fc7c08f98ee37bb2ac76e45459aa8bc4b426c20788ccbd00754b3fc0fb7d61a9
+        lines: [39, 96]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_c97d23d4
           kind: contract
           text: Durable Eino events must be redacted after JSON decoding and before re-encoding. Serialized bytes are never passed through regex redaction because escaped quotes inside tool/user strings can be corrupted.
-          confidence: inferred
+          confidence: refuted
           at: 2026-07-20T14:31:45.669123Z
           author: codex-mcp-client
+          refuted_by: chg_20260720T152623Z_4525f756d28ecef9
         - id: e_c2b9b1da
           kind: pitfall
           text: Message.Content may itself contain JSON. Redaction must recurse into JSON-shaped string values before applying plain-text secret patterns; otherwise nested escaped command quotes can still be damaged.
-          confidence: inferred
+          confidence: refuted
           at: 2026-07-20T14:31:45.669571Z
           author: codex-mcp-client
+          refuted_by: chg_20260720T152622Z_b2961b365f7cc9c9
+        - id: e_dac6f8e7
+          kind: contract
+          text: 'Eino managed-session events are private canonical Agent working memory: persist serialized user/tool/assistant events losslessly and validate serializer round-trip; do not redact or rewrite event content here.'
+          confidence: inferred
+          at: 2026-07-20T15:26:29.691205Z
+          author: codex-mcp-client
+        - id: e_3cb62954
+          kind: pitfall
+          text: It is easy to treat the runtime event table as a log and redact it. It is actually replay state used by later Agent iterations/resume; destructive redaction silently changes behavior. Apply credential redaction only when projecting to embeddings, learning, audits, or logs.
+          confidence: inferred
+          at: 2026-07-20T15:26:29.691908Z
+          author: codex-mcp-client
       keywords:
-        - eino session event json redaction
-        - failed to persist session events
-        - invalid character after object key:value pair
-        - escaped shell header
-    - id: ai/einoengine/runtime_store.go#redactSessionEventPayload
+        - eino managed session canonical event
+        - credential continuity
+        - runtime event trust boundary
+        - session resume exact tool result
+    - id: ai/einoengine/runtime_store.go#encodeSessionEvent
       level: function
       anchor:
         file: ai/einoengine/runtime_store.go
-        symbol: redactSessionEventPayload
-        hash: sha256:bc7705ff449c35b3bcd7f026e2dded546f88eda8380357dc905878f757b7a47b
-        struct_hash: sha256:4925bb637de7bfa7c0d6d5d110f71a00c514cd9b5aaa3b3f62f9fbf08e0c0b13
-        doc_struct_hash: sha256:4925bb637de7bfa7c0d6d5d110f71a00c514cd9b5aaa3b3f62f9fbf08e0c0b13
-        lines: [112, 128]
+        symbol: encodeSessionEvent
+        hash: sha256:765082a18dbea2842169530de98552bbeca1010cd88e2f48cdd91162702125a8
+        struct_hash: sha256:c560ce909ec8fcb624e9869f5525fbe94217a516e71a608141898cf0cbabc0f0
+        doc_struct_hash: sha256:c560ce909ec8fcb624e9869f5525fbe94217a516e71a608141898cf0cbabc0f0
+        lines: [98, 108]
       status: fresh
-      since: 2026-07-20T14:30:47.559599Z
-    - id: ai/einoengine/runtime_store.go#redactSessionJSONValue
-      level: function
-      anchor:
-        file: ai/einoengine/runtime_store.go
-        symbol: redactSessionJSONValue
-        hash: sha256:ce148df1197f613cf826c2d0b98f5c6d6390e1a968f9c9bfa70d77bb3d39daa7
-        struct_hash: sha256:03cf754ce55376612fcdbf5c3d8d353ca98af75286a3f47af825f1582496fc23
-        doc_struct_hash: sha256:03cf754ce55376612fcdbf5c3d8d353ca98af75286a3f47af825f1582496fc23
-        lines: [130, 153]
-      status: fresh
-      since: 2026-07-20T14:30:47.560643Z
-    - id: ai/einoengine/runtime_store.go#redactSessionString
-      level: function
-      anchor:
-        file: ai/einoengine/runtime_store.go
-        symbol: redactSessionString
-        hash: sha256:f573070b76518b555266e9394e784072123e17d4801b7366eafc29835e05c302
-        struct_hash: sha256:2fb756035f7f5ba07baf019d065f6d6b21d940f5130f2e770cf51e4bc55b4661
-        doc_struct_hash: sha256:2fb756035f7f5ba07baf019d065f6d6b21d940f5130f2e770cf51e4bc55b4661
-        lines: [155, 163]
-      status: undigested
-      since: 2026-07-20T14:30:54.395109Z
-    - id: ai/einoengine/runtime_store.go#marshalSessionJSON
-      level: function
-      anchor:
-        file: ai/einoengine/runtime_store.go
-        symbol: marshalSessionJSON
-        hash: sha256:c051ed1f5d6792cf3770ad0c7b716699b5bbc7a8b08f5d7a6311c1af44f6d196
-        struct_hash: sha256:c514fdc5b0ed0d14d1f1d710e13a3c9899163af5f5a72cdae2bc37dd93ef0543
-        doc_struct_hash: sha256:c514fdc5b0ed0d14d1f1d710e13a3c9899163af5f5a72cdae2bc37dd93ef0543
-        lines: [165, 173]
-      status: undigested
-      since: 2026-07-20T14:30:54.395109Z
-    - id: ai/einoengine/runtime_store.go#sessionSecretField
-      level: function
-      anchor:
-        file: ai/einoengine/runtime_store.go
-        symbol: sessionSecretField
-        hash: sha256:17bfcf4c27e58d17cd36ea71faab27372c95d96aba97e6d880daa182b5493540
-        struct_hash: sha256:9c5c651228d14824d84490184a5d256b670bf2cb3fc575a305fd66f5f2b9c801
-        doc_struct_hash: sha256:9c5c651228d14824d84490184a5d256b670bf2cb3fc575a305fd66f5f2b9c801
-        lines: [175, 183]
-      status: undigested
-      since: 2026-07-20T14:30:54.395109Z
+      since: 2026-07-20T15:26:06.617361Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore.LoadEvents
       level: function
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore.LoadEvents
-        hash: sha256:03262d83cba371a09b0170cbe4278f3a756301b61bb479dc043ee890fed1c271
-        struct_hash: sha256:e0ef74419a126d95bf2c82874a43719b992f00338cc2dbcd67651be87cedfece
-        doc_struct_hash: sha256:e0ef74419a126d95bf2c82874a43719b992f00338cc2dbcd67651be87cedfece
-        lines: [185, 264]
+        hash: sha256:d5aadd0b614ff4f05076da8d575e1ad6bd1abd85c8d26b9d38dc96961f8315b6
+        struct_hash: sha256:5579b384a94a01278adca7a6aa531e9742fe67223c03cfbfc10275680f5054f1
+        doc_struct_hash: sha256:5579b384a94a01278adca7a6aa531e9742fe67223c03cfbfc10275680f5054f1
+        lines: [110, 189]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore.Get
@@ -141,10 +111,10 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore.Get
-        hash: sha256:4b8f6d518125d83397413121b9f5fed38d49bfaf60c6e3aa7ac1ab0c938030bb
-        struct_hash: sha256:a628731d60a6d9f39655cc9a49040b42cbc75f87a56097176c6f2cb82220e697
-        doc_struct_hash: sha256:a628731d60a6d9f39655cc9a49040b42cbc75f87a56097176c6f2cb82220e697
-        lines: [266, 280]
+        hash: sha256:2d06be2b842f2f41678a2b68171d7a62b10704bd6a82752e152dacf29b1e2b14
+        struct_hash: sha256:ee1844f2faff8733d50695ba6873df4ead357766e5d0b2806de6dde9c09808a6
+        doc_struct_hash: sha256:ee1844f2faff8733d50695ba6873df4ead357766e5d0b2806de6dde9c09808a6
+        lines: [191, 205]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore.Set
@@ -152,10 +122,10 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore.Set
-        hash: sha256:0193fd48872f6f536798e02e343baa80a9d7aa51c918201f27eb805ece62ff6c
-        struct_hash: sha256:0a01750d03def1a4212ad6e8a58a6c0ee79f33ccd0b103f144f6b0fc7f610840
-        doc_struct_hash: sha256:0a01750d03def1a4212ad6e8a58a6c0ee79f33ccd0b103f144f6b0fc7f610840
-        lines: [282, 295]
+        hash: sha256:b6a3b7182997c63a8a52690a0ba3b74e5cf6fc81bc21c994cbd1b3ac8e1e717d
+        struct_hash: sha256:92f62284aff363f93f1ff99609650a45aada2176a22d746e4f62d8177b95f3c0
+        doc_struct_hash: sha256:92f62284aff363f93f1ff99609650a45aada2176a22d746e4f62d8177b95f3c0
+        lines: [207, 220]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore.Delete
@@ -163,10 +133,10 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore.Delete
-        hash: sha256:71c5671db1d1a9725c7077a3b618e55d6c2d702bc216d73d00dda6ba7d62fc28
-        struct_hash: sha256:04b3b14a441ea9879f9474a85d4b12e86e03b7a4edb6980a5e0f591602d3e58d
-        doc_struct_hash: sha256:04b3b14a441ea9879f9474a85d4b12e86e03b7a4edb6980a5e0f591602d3e58d
-        lines: [297, 303]
+        hash: sha256:4543aa173c70f8beb968708576160ccc41878e38e1840761d5b8d2adf4d201ad
+        struct_hash: sha256:e5b35903ac4cab764d828467d3d3263e9b6dfe95caf401324da81c70b15843c0
+        doc_struct_hash: sha256:e5b35903ac4cab764d828467d3d3263e9b6dfe95caf401324da81c70b15843c0
+        lines: [222, 228]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/runtime_store.go#PostgresRuntimeStore.DeleteSession
@@ -174,9 +144,9 @@ nodes:
       anchor:
         file: ai/einoengine/runtime_store.go
         symbol: PostgresRuntimeStore.DeleteSession
-        hash: sha256:67bdcf86117e1f7dcd900464d6612de271ba862c8ed438204add250d68a5ce52
-        struct_hash: sha256:6a321d241c197f061333e5ac1331fb4d615f52d7949f277bbfe7764e47fda867
-        doc_struct_hash: sha256:784a44b69e7f341ef3f9fc6334e328c15fbc2adb650def45805c140cc65abc3d
-        lines: [305, 325]
+        hash: sha256:ffc423c040be283fb5dfc71859ffc0aa3706f0c27aba2bcf7e77ceba5b91ebcd
+        struct_hash: sha256:e9afe474b9da713494ea4a1f2165344d97108c2af65d239a47ca8015bd675c93
+        doc_struct_hash: sha256:439d120895aa3aa6b6d326c6878098f25cd2e38b8237f1c50573422c91f5b42b
+        lines: [230, 250]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

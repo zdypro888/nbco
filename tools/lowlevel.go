@@ -36,7 +36,7 @@ var (
 func lowLevelTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
 		tool("low_level_db_query",
-			"超管兜底读库工具。仅在业务工具缺失/失效、需要核实事实时使用；优先使用 list_users/get_assigned_tasks/list_action_turns 等领域工具。只允许 SELECT/WITH/SHOW/EXPLAIN，禁止读凭据表，结果会限行并脱敏。",
+			"超管兜底读库工具。仅在业务工具缺失/失效、需要核实事实时使用；优先使用 list_users/get_assigned_tasks/list_action_turns 等领域工具。只允许 SELECT/WITH/SHOW/EXPLAIN，禁止读凭据表，结果会限行。授权查询结果保持原值，审计记录另行脱敏。",
 			obj(map[string]any{
 				"sql":   p("string", "只读 SQL；允许 SELECT/WITH/SHOW/EXPLAIN；可使用 $1 参数占位"),
 				"args":  arr("string", "SQL 参数，按 $1/$2 顺序传入；需要数字时建议 SQL 里写 $1::bigint"),
@@ -292,6 +292,5 @@ func formatLowLevelValue(v any) string {
 	}
 	s = strings.ReplaceAll(s, "\n", "\\n")
 	s = strings.ReplaceAll(s, "\r", "\\r")
-	s = textfmt.RedactSecrets(s)
 	return textfmt.TruncateRunes(s, 180)
 }

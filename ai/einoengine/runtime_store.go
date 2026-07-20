@@ -1,12 +1,9 @@
 package einoengine
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/cloudwego/eino/adk"
@@ -14,8 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/zdypro888/nbco/textfmt"
 )
 
 // RuntimeStore is the durable state Eino needs for managed sessions and
@@ -66,21 +61,12 @@ func (s *PostgresRuntimeStore) AppendEvents(ctx context.Context, sessionID strin
 		if err := adk.NormalizeSessionEventKind(event); err != nil {
 			return err
 		}
-		payload, err := s.serializer.Marshal(event)
+		// Managed-session events are the Agent's private working memory. Preserve
+		// the exact user input and tool result so later iterations and resumed
+		// turns see the same facts; wider derived surfaces redact independently.
+		payload, err := encodeSessionEvent(s.serializer, event)
 		if err != nil {
 			return fmt.Errorf("serialize Eino session event %q: %w", event.EventID, err)
-		}
-		// Tool results and user inputs can contain one-time credentials. Redact
-		// decoded string leaves instead of the serialized JSON bytes: a secret next
-		// to an escaped quote would otherwise consume the escape and corrupt the
-		// durable event. The live event remains untouched for this turn.
-		payload, err = redactSessionEventPayload(payload)
-		if err != nil {
-			return fmt.Errorf("redact Eino session event %q: %w", event.EventID, err)
-		}
-		var check adk.SessionEvent[*schema.Message]
-		if err := s.serializer.Unmarshal(payload, &check); err != nil {
-			return fmt.Errorf("validate redacted Eino session event %q: %w", event.EventID, err)
 		}
 		encoded = append(encoded, encodedEvent{id: event.EventID, kind: event.Kind, payload: payload})
 	}
@@ -109,77 +95,16 @@ func (s *PostgresRuntimeStore) AppendEvents(ctx context.Context, sessionID strin
 	return tx.Commit(ctx)
 }
 
-func redactSessionEventPayload(payload []byte) ([]byte, error) {
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.UseNumber()
-	var value any
-	if err := decoder.Decode(&value); err != nil {
+func encodeSessionEvent(serializer schema.Serializer, event *adk.SessionEvent[*schema.Message]) ([]byte, error) {
+	payload, err := serializer.Marshal(event)
+	if err != nil {
 		return nil, err
 	}
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return nil, errors.New("serialized event contains multiple JSON values")
-		}
-		return nil, err
+	var check adk.SessionEvent[*schema.Message]
+	if err := serializer.Unmarshal(payload, &check); err != nil {
+		return nil, fmt.Errorf("validate serialized event: %w", err)
 	}
-	redactSessionJSONValue(value)
-	return marshalSessionJSON(value)
-}
-
-func redactSessionJSONValue(value any) {
-	switch value := value.(type) {
-	case map[string]any:
-		for key, item := range value {
-			if text, ok := item.(string); ok {
-				redacted := redactSessionString(text)
-				if sessionSecretField(key) && len(text) >= 8 {
-					redacted = "[redacted]"
-				}
-				value[key] = redacted
-				continue
-			}
-			redactSessionJSONValue(item)
-		}
-	case []any:
-		for index, item := range value {
-			if text, ok := item.(string); ok {
-				value[index] = redactSessionString(text)
-				continue
-			}
-			redactSessionJSONValue(item)
-		}
-	}
-}
-
-func redactSessionString(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
-		if redacted, err := redactSessionEventPayload([]byte(trimmed)); err == nil {
-			return string(redacted)
-		}
-	}
-	return textfmt.RedactSecrets(value)
-}
-
-func marshalSessionJSON(value any) ([]byte, error) {
-	var buf bytes.Buffer
-	encoder := json.NewEncoder(&buf)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(value); err != nil {
-		return nil, err
-	}
-	return bytes.TrimSuffix(buf.Bytes(), []byte{'\n'}), nil
-}
-
-func sessionSecretField(key string) bool {
-	key = strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToLower(key))
-	switch key {
-	case "apikey", "apihash", "accesstoken", "workeraccesstoken", "token", "secret", "password":
-		return true
-	default:
-		return false
-	}
+	return payload, nil
 }
 
 func (s *PostgresRuntimeStore) LoadEvents(ctx context.Context, sessionID string, req *adk.LoadSessionEventsRequest) (*adk.LoadSessionEventsResult[*schema.Message], error) {

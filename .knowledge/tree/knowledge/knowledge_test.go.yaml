@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: knowledge/knowledge_test.go
-        hash: sha256:49e10a60d0498e77684bd329b0864f9dda17c84f3db36b8073842775af919907
+        hash: sha256:4b9e0cd68606c668e5b3eecd82bd27e4dffbc92d24f3252d9dc9c5799f0b90d2
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -140,6 +140,50 @@ nodes:
         lines: [169, 175]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge_test.go#capturingEmbedder
+      level: decl
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: capturingEmbedder
+        hash: sha256:2b9f6647fde39915fe076ab6a7574c7e483109ee37b1a9b446c3d7905987cfdf
+        struct_hash: sha256:f9cea949fab45821a6eba3527565c534a6a1e78fa53566442771d085c9d8fd96
+        doc_struct_hash: sha256:f9cea949fab45821a6eba3527565c534a6a1e78fa53566442771d085c9d8fd96
+        lines: [177, 179]
+      status: undigested
+      since: 2026-07-20T15:27:37.34846Z
+    - id: knowledge/knowledge_test.go#capturingEmbedder.Model
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: capturingEmbedder.Model
+        hash: sha256:01ffeaa8ed879a7c05d4877449c04e2dc5c28033f4465309edb82ec8275ff924
+        struct_hash: sha256:04f88dd42772a5c75df874213afc0f7df78166bde16c72e522887896070e16cb
+        doc_struct_hash: sha256:04f88dd42772a5c75df874213afc0f7df78166bde16c72e522887896070e16cb
+        lines: [181, 181]
+      status: undigested
+      since: 2026-07-20T15:27:37.34846Z
+    - id: knowledge/knowledge_test.go#capturingEmbedder.Embed
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: capturingEmbedder.Embed
+        hash: sha256:200ba011010f6ebf21b90652a2c7085e4d76bd25d5ce9a126f24f7ad62fcfa8e
+        struct_hash: sha256:31f1bb91b17c37ff77d095f86efd4838f573d772e7b290ff9b9acd0107c9f7cd
+        doc_struct_hash: sha256:31f1bb91b17c37ff77d095f86efd4838f573d772e7b290ff9b9acd0107c9f7cd
+        lines: [182, 187]
+      status: undigested
+      since: 2026-07-20T15:27:37.34846Z
+    - id: knowledge/knowledge_test.go#TestLegacyEmbeddingUsesRedactedDerivedProjection
+      level: function
+      anchor:
+        file: knowledge/knowledge_test.go
+        symbol: TestLegacyEmbeddingUsesRedactedDerivedProjection
+        hash: sha256:7fb904fb5fb526f2d501986e901366198c715efe51ad0a623d317e7e97454cdd
+        struct_hash: sha256:1c0a8f75712fc4c8e6a70947a3c83f60336fd840afc7a33b68592bcb78372d2f
+        doc_struct_hash: sha256:1c0a8f75712fc4c8e6a70947a3c83f60336fd840afc7a33b68592bcb78372d2f
+        lines: [189, 199]
+      status: undigested
+      since: 2026-07-20T15:27:37.34846Z
     - id: knowledge/knowledge_test.go#countingQueryEmbedder
       level: decl
       anchor:
@@ -148,7 +192,7 @@ nodes:
         hash: sha256:5c6126540433addbc43c769eb71751315c9279c5ba0d9bc1c6d51156e8f0bf74
         struct_hash: sha256:7eddacf0b5fec5179e6ed51d1079a0f85aada6264d884461db97064686f139e1
         doc_struct_hash: sha256:7eddacf0b5fec5179e6ed51d1079a0f85aada6264d884461db97064686f139e1
-        lines: [177, 183]
+        lines: [201, 207]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#countingQueryEmbedder.Model
@@ -159,7 +203,7 @@ nodes:
         hash: sha256:ab6e1936f3bd28afc26a6aa87ea63fbc9fac46763928af45892dde59ef4d618d
         struct_hash: sha256:0b228e936e468dfcf0946688f48d416f4da8a9bdfdea66337884c5fe86c85dd9
         doc_struct_hash: sha256:0b228e936e468dfcf0946688f48d416f4da8a9bdfdea66337884c5fe86c85dd9
-        lines: [185, 185]
+        lines: [209, 209]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#countingQueryEmbedder.Embed
@@ -170,7 +214,7 @@ nodes:
         hash: sha256:4b980a4f790de0eaae2e25e646f23e19010f174cea01fc55cc5aad8561f8021d
         struct_hash: sha256:6a4d80dc1a27d9658696678692ba7ca229ba5fef05efb593424ca13bb9d520dd
         doc_struct_hash: sha256:6a4d80dc1a27d9658696678692ba7ca229ba5fef05efb593424ca13bb9d520dd
-        lines: [187, 203]
+        lines: [211, 227]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestQueryVectorDeduplicatesAndCaches
@@ -181,7 +225,7 @@ nodes:
         hash: sha256:3b7dd4d8af46c202b403d62bec81539125ffa39a70c66aa7f03266e160d16b69
         struct_hash: sha256:b454c4dad71d96e93239368c45ff35f9c4f56ccdf155331eab1a3b0398ceb806
         doc_struct_hash: sha256:b454c4dad71d96e93239368c45ff35f9c4f56ccdf155331eab1a3b0398ceb806
-        lines: [205, 241]
+        lines: [229, 265]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestQueryVectorFailureCooldown
@@ -192,7 +236,7 @@ nodes:
         hash: sha256:9a43b79aa167780d8822dfaf331402e5871131a8a5567b939b4e729d750c64ad
         struct_hash: sha256:1b120a80779d0c289e60835e0d156963c6fda52ce749dfa9d4d85f044ea09e69
         doc_struct_hash: sha256:1b120a80779d0c289e60835e0d156963c6fda52ce749dfa9d4d85f044ea09e69
-        lines: [243, 255]
+        lines: [267, 279]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestScopedSemanticSearch
@@ -203,7 +247,7 @@ nodes:
         hash: sha256:d7ea1921709919ac256faea49f14e996d4679c58b7fadb6befa44dcf7fa89806
         struct_hash: sha256:e3e001fd64c763883fd4871370ac5bcbb36aab575c0db10e25288c024ec24930
         doc_struct_hash: sha256:e3e001fd64c763883fd4871370ac5bcbb36aab575c0db10e25288c024ec24930
-        lines: [257, 295]
+        lines: [281, 319]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#failEmbedder
@@ -214,7 +258,7 @@ nodes:
         hash: sha256:576684d14dfd190f6902c87fa641d8336852eb1bc2af9e3fd998366200f30941
         struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
         doc_struct_hash: sha256:aaa87bdae1149668fbfaeec52a2c7b2c7d44fbbffc42b7e5ba886ab877ef6858
-        lines: [297, 298]
+        lines: [321, 322]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#failEmbedder.Model
@@ -225,7 +269,7 @@ nodes:
         hash: sha256:a6bbae697cd203873cd123091e640392d3081bddf4df6b5ff2a162e4278c3f7d
         struct_hash: sha256:bb97f869842fef6b6eeeec239199793b6d8a1c3e8eb966004cbd01cffaacb23e
         doc_struct_hash: sha256:bb97f869842fef6b6eeeec239199793b6d8a1c3e8eb966004cbd01cffaacb23e
-        lines: [300, 300]
+        lines: [324, 324]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#failEmbedder.Embed
@@ -236,7 +280,7 @@ nodes:
         hash: sha256:cb9592b597ba3addfb1172d2c07a328bff9f01ea71cfc1080b7ec024571a5de9
         struct_hash: sha256:7843b7d6dca3617a696dcd9b92488b73c5186aedb4479775b77ab35f2d646584
         doc_struct_hash: sha256:7843b7d6dca3617a696dcd9b92488b73c5186aedb4479775b77ab35f2d646584
-        lines: [301, 303]
+        lines: [325, 327]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#emptyEmbedder
@@ -247,7 +291,7 @@ nodes:
         hash: sha256:5724b49f0a2d427f8852615c83563fbe26ec1a1453d0720fcff15a69be296d91
         struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
         doc_struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
-        lines: [305, 305]
+        lines: [329, 329]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#emptyEmbedder.Model
@@ -258,7 +302,7 @@ nodes:
         hash: sha256:64d9a7343ea72e01d5587a28fa3ac727d7fcc50a05a691c43797a4edaf9622ca
         struct_hash: sha256:33379d7dc9881fd9ce8accced414eaeb7711d0a1d4c1bffb476b258520efcc62
         doc_struct_hash: sha256:33379d7dc9881fd9ce8accced414eaeb7711d0a1d4c1bffb476b258520efcc62
-        lines: [307, 307]
+        lines: [331, 331]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#emptyEmbedder.Embed
@@ -269,7 +313,7 @@ nodes:
         hash: sha256:0ee79d43b377dd5b0976893f35bcb7c270de8a4762ce320ca2b680cf10857002
         struct_hash: sha256:fbc11d1065592801671b7bb4ddfa7124657e4f4c3b3c3c391e69baa014b17740
         doc_struct_hash: sha256:fbc11d1065592801671b7bb4ddfa7124657e4f4c3b3c3c391e69baa014b17740
-        lines: [308, 310]
+        lines: [332, 334]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestBackfillsRejectEmptyEmbeddingProbe
@@ -280,7 +324,7 @@ nodes:
         hash: sha256:b85510d1509b3cb027570df34957486f31003de1c94c3c1bee3b843a4a01483e
         struct_hash: sha256:cfed0992e80845291fffc7e8e8415442bc731197022d303ed71372fc2657ce90
         doc_struct_hash: sha256:cfed0992e80845291fffc7e8e8415442bc731197022d303ed71372fc2657ce90
-        lines: [312, 320]
+        lines: [336, 344]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#selectiveEmbedder
@@ -291,7 +335,7 @@ nodes:
         hash: sha256:0305f24b6c8b044eb9d806d310a897c61010ccc8ab7644ff6a5cc8e324b0bbe3
         struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
         doc_struct_hash: sha256:ce1ad40ff291059ca9d5e68b322e8a9749c33b49886ae17d656dc605f81114ae
-        lines: [322, 322]
+        lines: [346, 346]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#selectiveEmbedder.Model
@@ -302,7 +346,7 @@ nodes:
         hash: sha256:b9f16394783bc0174ad9a9d3970417ecc8f161a59f070bfb4caf5ae0c674bead
         struct_hash: sha256:2091e6456c55464bfa48c606ae8ddef5d18d510f0960158aaf818438f7b2d275
         doc_struct_hash: sha256:2091e6456c55464bfa48c606ae8ddef5d18d510f0960158aaf818438f7b2d275
-        lines: [324, 324]
+        lines: [348, 348]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#selectiveEmbedder.Embed
@@ -313,7 +357,7 @@ nodes:
         hash: sha256:3b4b47fd8de6751c28abb2866d383a297281cd468a362e46a0d560cbf60a7994
         struct_hash: sha256:65ff5df72d0419c00a8115bade6ef4d0b7018c3997e276309634331b3ee691f3
         doc_struct_hash: sha256:65ff5df72d0419c00a8115bade6ef4d0b7018c3997e276309634331b3ee691f3
-        lines: [325, 334]
+        lines: [349, 358]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestBackfillSkipsFailedRowsWithoutStarvingLaterKnowledge
@@ -324,7 +368,7 @@ nodes:
         hash: sha256:9dbf8c0391c5b68ec09066666318699599c2e8b91df3c807fe36a6bb320b5933
         struct_hash: sha256:347191c7ff80f509172a16883edc764f9bfa24cea0be16dc089f0bdf37157a6c
         doc_struct_hash: sha256:347191c7ff80f509172a16883edc764f9bfa24cea0be16dc089f0bdf37157a6c
-        lines: [336, 378]
+        lines: [360, 402]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestBackfillStopsWhenServiceDown
@@ -335,7 +379,7 @@ nodes:
         hash: sha256:ce82f37de93611faa7f743d60fc21130bcc8c5ae5670ab9977f39e84a3f137df
         struct_hash: sha256:c7d74f130f4eac322aa763b8613b82ebcb89fec4e2245d9f45c329ecddc45c8b
         doc_struct_hash: sha256:c7d74f130f4eac322aa763b8613b82ebcb89fec4e2245d9f45c329ecddc45c8b
-        lines: [380, 402]
+        lines: [404, 426]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestRuleApplies
@@ -346,7 +390,7 @@ nodes:
         hash: sha256:cae110e7cd7d2434ce614e2f2b5708f080b97fa9b3cb8c1bdbfaccf854bbab3f
         struct_hash: sha256:f835d3203d58587199302646c8776d1f27206e7492e043adaa3ee43e8dc24966
         doc_struct_hash: sha256:f835d3203d58587199302646c8776d1f27206e7492e043adaa3ee43e8dc24966
-        lines: [404, 428]
+        lines: [428, 452]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: knowledge/knowledge_test.go#TestRulesSemanticSearch
@@ -357,6 +401,6 @@ nodes:
         hash: sha256:d3520f0d3e3d000b3942048bdf717a6c8d61620af18ca1fb125743802212cdce
         struct_hash: sha256:6fec671799ec6085cb75e57ef8ee31dcb32df2a7140a200ebe32f451c5b70c9d
         doc_struct_hash: sha256:6fec671799ec6085cb75e57ef8ee31dcb32df2a7140a200ebe32f451c5b70c9d
-        lines: [430, 487]
+        lines: [454, 511]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

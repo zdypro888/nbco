@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: textfmt/textutil.go
-        hash: sha256:1eee5428e66e6017957ed924c28d8663baaaa3bdf650623ddfda774b992f5beb
+        hash: sha256:bec92ad712b91acd8b478de6de1fcac863bee9462c248bc6e9c2d514bea25a70
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -228,61 +228,29 @@ nodes:
         lines: [83, 83]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: textfmt/textutil.go#userIDParenRe
-      level: decl
-      anchor:
-        file: textfmt/textutil.go
-        symbol: userIDParenRe
-        hash: sha256:185724cf7672fb4602c4ae394d0ea9eaec4bcb3b220c9b65d0e6db055329354f
-        struct_hash: sha256:d0b63ac977230a160969c25b2d03674ecfadb601cbc6e93e14f2a73208fa205f
-        doc_struct_hash: sha256:d0b63ac977230a160969c25b2d03674ecfadb601cbc6e93e14f2a73208fa205f
-        lines: [84, 84]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: textfmt/textutil.go#userIDKVRe
-      level: decl
-      anchor:
-        file: textfmt/textutil.go
-        symbol: userIDKVRe
-        hash: sha256:bbdb84d36ac65296dc0e891db216cca39ab41ff616cfc95a2927d2cb4ab827db
-        struct_hash: sha256:83626a5fe49d2bfb9fbbd098a31c2f727d35380ffcaa4952b23d1aad38592670
-        doc_struct_hash: sha256:83626a5fe49d2bfb9fbbd098a31c2f727d35380ffcaa4952b23d1aad38592670
-        lines: [85, 85]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: textfmt/textutil.go#userInternalRefRe
-      level: decl
-      anchor:
-        file: textfmt/textutil.go
-        symbol: userInternalRefRe
-        hash: sha256:6797ba855f37dad5ea10157bc1b749d0e647c5559262c41093e9ac34233f4e95
-        struct_hash: sha256:61d4dbc35ca0af381d6a139d3ac80a5dea9edeec81adac2f2f8c3bac397a01c7
-        doc_struct_hash: sha256:61d4dbc35ca0af381d6a139d3ac80a5dea9edeec81adac2f2f8c3bac397a01c7
-        lines: [86, 86]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: textfmt/textutil.go#userIDLabelRe
-      level: decl
-      anchor:
-        file: textfmt/textutil.go
-        symbol: userIDLabelRe
-        hash: sha256:c585cf850d6981fe1af81117ee3bd513fb99edc75310fac6156cf8ed3f94e2e9
-        struct_hash: sha256:32225bc6bbd499ba5d5c53999e713db1635a2c01e1e220adc96b45dca772c200
-        doc_struct_hash: sha256:32225bc6bbd499ba5d5c53999e713db1635a2c01e1e220adc96b45dca772c200
-        lines: [87, 87]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
     - id: textfmt/textutil.go#RedactSecrets
       level: function
       anchor:
         file: textfmt/textutil.go
         symbol: RedactSecrets
-        hash: sha256:8829ee134c73a2e97c2d620c5a5d6aaaff2525e42d8a20155f2a5c621972e9d0
+        hash: sha256:0b1b75c79f7ac00a8679bd8d6eb43ca1e247c27f87bfd35b17baba4b9b0d662f
         struct_hash: sha256:e0a6b549080d45dbbc27aba79fe0791a821d2ca2a3376e090b7748a8b732587f
-        doc_struct_hash: sha256:59ccaf950ec8c7958f281e69605d55d613fff1aee00fad41089577005d86a03a
-        lines: [90, 99]
-      status: undigested
+        doc_struct_hash: sha256:c6ba87cc2e53d435e991a4c705609b884637cc93e8a7790cfd92b567e7286690
+        lines: [86, 98]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_274b75ba
+          kind: contract
+          text: RedactSecrets is for wider derived/diagnostic surfaces (embedding input and payload, Memory Miner/learning candidates, audit summaries, errors/logs). Authorized PostgreSQL conversation/Worker records and Eino managed-session state must remain lossless; output field visibility is enforced by tool/data permissions rather than destructive final-text regexes.
+          confidence: inferred
+          at: 2026-07-20T15:26:36.644064Z
+          author: codex-mcp-client
+      keywords:
+        - canonical data trust boundary
+        - derived redaction
+        - authorized source of truth
+        - audit embedding learning projection
     - id: textfmt/textutil.go#StripReasoning
       level: function
       anchor:
@@ -291,7 +259,7 @@ nodes:
         hash: sha256:572cb6f0938fd4cdcd6d9d59a7866d3cea8873f14182cd1fe16f2e7d3412e282
         struct_hash: sha256:d937cb805624341ab412b6d44b102912c48635ec0525ce6af8b8dea1165f94dc
         doc_struct_hash: sha256:d77610382e1cea0ee23900889bdefac7de4c75928df747a71d202b5b9fe0e74b
-        lines: [101, 133]
+        lines: [100, 132]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: textfmt/textutil.go#StripHistoryMetadata
@@ -302,7 +270,7 @@ nodes:
         hash: sha256:1d53e823a641aaa31a5f7e2a8cb542b686820cfe891abb44617c8d58a0c31eca
         struct_hash: sha256:3de4018600a71dfdfa903ad893b0a80ebd9d299e5db9cbb2b7dc19c39ca0ea81
         doc_struct_hash: sha256:e7414760539114f2648f048acc5dff9c3260e81f31413601e932ab1c37155cd1
-        lines: [135, 163]
+        lines: [134, 162]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: textfmt/textutil.go#NormalizeEscapedLineBreaks
@@ -313,7 +281,7 @@ nodes:
         hash: sha256:190e16e5130b76cb9a4ebbe8f3f574c4ae10f3473894d509c4c2805dec73d83e
         struct_hash: sha256:2b5429e1767e6e7994b2f20f606d8a13af01b8aec93508e580ed9824aa9cc9a3
         doc_struct_hash: sha256:c43f19c184748c14b32e478183eb8adbe8cfaac640a706932c3cf686fcaab30c
-        lines: [165, 240]
+        lines: [164, 239]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: textfmt/textutil.go#SanitizeVisibleReply
@@ -321,9 +289,9 @@ nodes:
       anchor:
         file: textfmt/textutil.go
         symbol: SanitizeVisibleReply
-        hash: sha256:b50ed9ac49e18c7a47ae6e710ca47c46583907b58f34ab590f0495de626d86d4
-        struct_hash: sha256:3a3e059808c1cbcfa0aadf1a47d7e8354b1f02d8dbf3cd3200a38ebbc507bd45
-        doc_struct_hash: sha256:3f8c9184f448ba928594889d18480db2c963358e2f38aee7c8b4248bdc7d08d3
-        lines: [242, 258]
+        hash: sha256:7533cf6dc6d478b2659eff4c5cee5d8648009131797761826b6a2c6fd6f9d095
+        struct_hash: sha256:1d3f94690b6eb9bcd7337f6ad0b035285af4776538cae72a950c81cf0e72740d
+        doc_struct_hash: sha256:c3fd3097eb83a60403e2d1e606f8acaf4d41b632a186a17543154ed16f00dd23
+        lines: [241, 253]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

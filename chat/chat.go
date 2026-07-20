@@ -454,7 +454,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	// 若失败轮次留下孤立 user 消息，下一轮会把它移入「仅供理解、禁止执行」
 	// 的系统块，不再作为可执行 user 历史重放。
 	var userMsgID int64
-	storedUserText := textfmt.RedactSecrets(text)
+	// The authorized conversation transcript is the canonical source for
+	// follow-up turns. Redacting it here destroys credentials and identifiers
+	// the user may legitimately ask the Agent to use later; derived indexes and
+	// learning pipelines apply their own projection at their trust boundary.
+	storedUserText := text
 	if internal {
 		// Automation runs have their own durable run/delivery ledger. Writing
 		// scheduler directives into chat history makes retries look like user
@@ -518,7 +522,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		"steps", len(res.Steps), "in_tokens", res.Usage.InputTokens, "out_tokens", res.Usage.OutputTokens,
 		"reply_len", len(res.Text), "finish_reason", res.FinishReason)
 	slog.Debug("轮次答复", "session", sess.ID, "reply_len", len(res.Text), "reply_sha", contentHash(res.Text))
-	storedReply := textfmt.RedactSecrets(normalizeAssistantReply(channel, res.Text))
+	storedReply := normalizeAssistantReply(channel, res.Text)
 
 	// 成本计量：每轮 token 用量落库（尽力而为）。
 	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
@@ -1903,7 +1907,7 @@ func (o *Orchestrator) peopleContext(ctx context.Context, viewer *store.User, ch
 	if isGroupChannel(channel) {
 		b.WriteString("以下人物信息仅用于理解当前发言人与权限边界；群聊回复不要展开个人隐私或画像原文，必要时引导私聊。\n")
 	} else {
-		b.WriteString("以下人物信息按当前权限精简注入；回答仍以工具结果为准，不要展示内部用户ID/TG ID。\n")
+		b.WriteString("以下人物信息按当前权限精简注入；回答仍以工具结果为准。稳定员工ID可用于确认对象；TG ID、联系方式等仅在用户明确需要且工具已授权返回时展示。\n")
 	}
 	for _, subject := range subjects {
 		if subject == nil {
@@ -1992,7 +1996,7 @@ func isASCIITokenByte(b byte) bool {
 }
 
 func renderPromptPersonBase(u *store.User, users map[int64]*store.User, tz *time.Location) string {
-	var tags []string
+	tags := []string{fmt.Sprintf("员工ID %d", u.ID)}
 	if u.IsWorker {
 		if u.IsSuperadmin {
 			tags = append(tags, "Admin AI worker")

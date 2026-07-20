@@ -9,6 +9,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const memoryMinerPollInterval = 10 * time.Second
@@ -113,8 +114,11 @@ func (o *Orchestrator) processMemoryMiningJob(parent context.Context, job *store
 		return o.mineMemory(ctx, u, memorySource{
 			Channel: job.Channel, SessionID: job.SessionID,
 			UserMessageID: job.UserMessageID, AssistantMessageID: job.AssistantMessageID,
-			UserText: userMessage.Content, AssistantText: assistantMessage.Content,
-			ToolEvidence: job.ToolEvidence, OccurredAt: userMessage.CreatedAt.In(orTimeZone(o.tz)),
+			// Canonical chat remains lossless; durable learning is a wider, derived
+			// surface and receives a credential-safe projection instead.
+			UserText:      memoryMiningProjection(userMessage.Content),
+			AssistantText: memoryMiningProjection(assistantMessage.Content),
+			ToolEvidence:  job.ToolEvidence, OccurredAt: userMessage.CreatedAt.In(orTimeZone(o.tz)),
 			ExplicitCommit: job.ExplicitCommit,
 		})
 	}()
@@ -131,4 +135,8 @@ func (o *Orchestrator) processMemoryMiningJob(parent context.Context, job *store
 	if retryErr := o.store.RetryMemoryMiningJob(ackCtx, job.ID, *job.ClaimedAt, job.Attempts, err.Error()); retryErr != nil {
 		slog.Warn("Memory Miner 重试状态保存失败", "job", job.ID, "err", retryErr)
 	}
+}
+
+func memoryMiningProjection(text string) string {
+	return textfmt.RedactSecrets(text)
 }

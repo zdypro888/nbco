@@ -55,7 +55,7 @@ func TestStripReasoning(t *testing.T) {
 	}
 }
 
-func TestSanitizeVisibleReplyHidesToolOnlyUserRefs(t *testing.T) {
+func TestSanitizeVisibleReplyHidesToolProtocolButPreservesAuthorizedIDs(t *testing.T) {
 	in := `[工具引用·工作内存]
 - user_id=3 name="黄桑" kind=human status=active
 - user_id=4 name="JA" kind=human status=active
@@ -65,14 +65,14 @@ func TestSanitizeVisibleReplyHidesToolOnlyUserRefs(t *testing.T) {
 - 黄桑（正常）
 - JA（正常）
 
-我已发送给 黄桑（user_id=3），用户内部编号 4 不展示。`
+我已发送给黄桑（user_id=3），员工内部编号 4，TG ID: 6103874246。`
 	out := SanitizeVisibleReply(in)
-	for _, bad := range []string{"工具引用", "user_id", "用户内部编号 4"} {
+	for _, bad := range []string{"工具引用", `name="黄桑" kind=human`} {
 		if strings.Contains(out, bad) {
 			t.Fatalf("visible reply leaked %q:\n%s", bad, out)
 		}
 	}
-	for _, want := range []string{"真人员工（2 位）", "黄桑", "JA", "我已发送给 黄桑"} {
+	for _, want := range []string{"真人员工（2 位）", "黄桑", "JA", "user_id=3", "员工内部编号 4", "TG ID: 6103874246"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("visible reply missing %q:\n%s", want, out)
 		}

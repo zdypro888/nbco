@@ -17,6 +17,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/semantic"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/vectorstore"
 	"golang.org/x/sync/singleflight"
 )
@@ -78,6 +79,10 @@ func New(s *store.Store, embedder ai.Embedder, semanticService ...*semantic.Serv
 // retrieval budget so later consumers can reuse its result; callers can still
 // stop waiting immediately through their own context.
 func (svc *Service) queryVector(ctx context.Context, query string) ([]float32, error) {
+	query = semanticProjectionText(query)
+	if query == "" {
+		return nil, fmt.Errorf("语义查询不能为空")
+	}
 	if svc.semantic != nil {
 		return svc.semantic.QueryVector(ctx, query)
 	}
@@ -235,7 +240,7 @@ func (svc *Service) embedOne(ctx context.Context, k *store.Knowledge) bool {
 		}
 		return true
 	}
-	vecs, err := svc.embedder.Embed(ctx, []string{embedText(k.Title, k.Content)})
+	vecs, err := svc.embedder.Embed(ctx, []string{semanticProjectionText(embedText(k.Title, k.Content))})
 	if err != nil || len(vecs) != 1 || len(vecs[0]) == 0 {
 		slog.Warn("知识向量化失败（内容已存，回填时补）", "id", k.ID, "err", err)
 		return false
@@ -246,6 +251,12 @@ func (svc *Service) embedOne(ctx context.Context, k *store.Knowledge) bool {
 		return false
 	}
 	return true
+}
+
+// semanticProjectionText protects every external/derived embedding path while
+// leaving the authoritative PostgreSQL record untouched for authorized reads.
+func semanticProjectionText(text string) string {
+	return strings.TrimSpace(textfmt.RedactSecrets(text))
 }
 
 // modelTag 把模型名与向量维度合成检索/回填的标识。维度并入标签是维度变更自愈的

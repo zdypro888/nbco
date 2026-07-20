@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: knowledge/history.go
-        hash: sha256:192124fa1a9c64a8d4c4d66af7a9e17953a33f997e376a4e70782b027a94ca00
+        hash: sha256:21296a4359666ae7e8ca0f92849c4b009f7e6c50bd539c38fdd1cba972efc871
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -35,9 +35,9 @@ nodes:
       anchor:
         file: knowledge/history.go
         symbol: Service.EmbedMessageAsync
-        hash: sha256:c18ccc890d62cd1be02c09dbd014f61df9f1fb7e021a7e6bf957d2f42851ab6b
-        struct_hash: sha256:796d6e1431632f9dce14c516353a4ce8f2b3afee6b4d387531cabb04459fa656
-        doc_struct_hash: sha256:4c263a6f21c50351caeb6f26e5237289ed103f9a4a9a3843728d74c20300629e
+        hash: sha256:be38af973bea7b2179e5ab7cc11148ea48546eb6e49431b66063c495616331bc
+        struct_hash: sha256:192a0044274de6c679dd8e572576567286001687d284cc72251f2a5d2c5e02c6
+        doc_struct_hash: sha256:822eb355fc14e34fe19fef493ab161b040ac903a073c0355462acf1a3b3ff220
         lines: [26, 76]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -134,9 +134,9 @@ nodes:
       anchor:
         file: knowledge/history.go
         symbol: Service.BackfillMessages
-        hash: sha256:8178f52c8222527f8095d631cff48ea7f71ce000f5a07d3fd8db0efa0dc2a293
-        struct_hash: sha256:2635b55504e949414b5c9ace18d8bbb46487cf6b0c96f65da9bb5668f1666e88
-        doc_struct_hash: sha256:487b06723356ee728ff2ce45cfe482b1057f56ea18015a7cc362a78b331c17af
+        hash: sha256:c1ad779d4c0201896fbbbaec99721812c6e4403496748295aaabca407d7f56a9
+        struct_hash: sha256:3318d2333ae07200cd95e4c301f2b2ce0cf5b1d7237cfdf5470d67fae4a6b376
+        doc_struct_hash: sha256:fa29d5c99d348464cf21f66e95f046dd5aa7fd40443655475c25db4a42d2222e
         lines: [285, 325]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

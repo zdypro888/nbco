@@ -79,13 +79,13 @@ func TestPostgresRuntimeStoreConformance(t *testing.T) {
 		if loaded != nil {
 			count = len(loaded.Events)
 		}
-		t.Fatalf("load redacted event: events=%d err=%v", count, err)
+		t.Fatalf("load canonical event: events=%d err=%v", count, err)
 	}
-	if strings.Contains(loaded.Events[0].Message.Content, secret) || !strings.Contains(loaded.Events[0].Message.Content, "[redacted]") {
-		t.Fatalf("durable event leaked secret: %q", loaded.Events[0].Message.Content)
+	if loaded.Events[0].Message.Content != secretEvent.Message.Content {
+		t.Fatalf("durable canonical event changed: %q", loaded.Events[0].Message.Content)
 	}
 	if !strings.Contains(secretEvent.Message.Content, secret) {
-		t.Fatal("persistence redaction mutated the live turn event")
+		t.Fatal("persistence mutated the live turn event")
 	}
 	markerStore := &namespacedRuntimeStore{RuntimeStore: runtime, prefix: root + "marker-"}
 	markerMessage := schema.UserMessage("deferred tools")

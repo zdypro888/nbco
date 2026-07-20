@@ -174,6 +174,30 @@ func (fixedEmbedder) Embed(_ context.Context, texts []string) ([][]float32, erro
 	return out, nil
 }
 
+type capturingEmbedder struct {
+	text string
+}
+
+func (e *capturingEmbedder) Model() string { return "capture" }
+func (e *capturingEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	if len(texts) > 0 {
+		e.text = texts[0]
+	}
+	return [][]float32{{1, 0}}, nil
+}
+
+func TestLegacyEmbeddingUsesRedactedDerivedProjection(t *testing.T) {
+	emb := &capturingEmbedder{}
+	svc := New(nil, emb)
+	secret := strings.Repeat("a", 48)
+	if _, err := svc.queryVector(context.Background(), "部署时使用 token="+secret); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(emb.text, secret) || !strings.Contains(emb.text, "[redacted]") {
+		t.Fatalf("embedding projection leaked canonical credential: %q", emb.text)
+	}
+}
+
 type countingQueryEmbedder struct {
 	calls   atomic.Int32
 	entered chan struct{}

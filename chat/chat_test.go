@@ -219,6 +219,13 @@ func TestRenderPromptUserInfoSkipsSensitiveFields(t *testing.T) {
 	}
 }
 
+func TestRenderPromptPersonBaseIncludesStableEmployeeID(t *testing.T) {
+	got := renderPromptPersonBase(&store.User{ID: 42, Name: "黄桑", Status: store.UserActive}, nil, time.UTC)
+	if !strings.Contains(got, "黄桑") || !strings.Contains(got, "员工ID 42") {
+		t.Fatalf("person context lost stable identity: %q", got)
+	}
+}
+
 func TestValidUserMemoryEvidence(t *testing.T) {
 	userText := "以后不要把 worker token 发出来。\n当前先开启群监控。"
 	if !validUserMemoryEvidence(userText, "以后不要把 worker token 发出来。", 8) {
@@ -232,6 +239,14 @@ func TestValidUserMemoryEvidence(t *testing.T) {
 	}
 	if !validUserMemoryEvidence("客户甲的付款周期是 每月 25 日", "客户甲的付款周期是 每月 25 日", 4) {
 		t.Fatal("stable user fact should pass")
+	}
+}
+
+func TestMemoryMiningProjectionDoesNotPublishCanonicalCredentials(t *testing.T) {
+	secret := strings.Repeat("a", 48)
+	got := memoryMiningProjection("部署时使用 token=" + secret)
+	if strings.Contains(got, secret) || !strings.Contains(got, "[redacted]") {
+		t.Fatalf("memory mining projection leaked credential: %q", got)
 	}
 }
 
@@ -719,8 +734,9 @@ func containsString(list []string, target string) bool {
 // fakeEngine 可编排的假引擎：压缩轮次（识别压缩系统提示）返回固定摘要，
 // 普通轮次返回固定答复并记录请求。
 type fakeEngine struct {
-	mu   sync.Mutex
-	reqs []*ai.TurnRequest
+	mu    sync.Mutex
+	reqs  []*ai.TurnRequest
+	reply string
 }
 
 func (f *fakeEngine) Name() string { return "eino" }
@@ -734,6 +750,9 @@ func (f *fakeEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.TurnRe
 	f.mu.Unlock()
 	if req.System == compactSystem {
 		return &ai.TurnResult{Text: "【浓缩摘要】早期对话要点。"}, nil
+	}
+	if f.reply != "" {
+		return &ai.TurnResult{Text: f.reply}, nil
 	}
 	return &ai.TurnResult{Text: "收到。"}, nil
 }
@@ -751,6 +770,58 @@ func (f *fakeEngine) requests() []*ai.TurnRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]*ai.TurnRequest(nil), f.reqs...)
+}
+
+func TestConversationCanonicalStoragePreservesAuthorizedSecrets(t *testing.T) {
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	lockConn, err := s.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_lock($1)`, 7767002); err != nil {
+		lockConn.Release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = lockConn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, 7767002)
+		lockConn.Release()
+	})
+
+	u, err := s.CreateUser(ctx, "会话保真测试员", false, store.Identity{
+		Provider: "test", ExternalID: fmt.Sprintf("canonical-%d", time.Now().UnixNano()),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = s.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
+
+	secret := strings.Repeat("a", 48)
+	eng := &fakeEngine{reply: "已接收，后续继续使用 token=" + secret}
+	o := New(s, eng, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, time.Minute)
+	channel := fmt.Sprintf("api:canonical:%d", time.Now().UnixNano())
+	if _, err := o.HandleMessage(ctx, u, channel, "部署时使用 token="+secret); err != nil {
+		t.Fatal(err)
+	}
+	sess, err := s.ActiveSession(ctx, u.ID, channel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	messages, err := s.MessagesAfter(ctx, sess.ID, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 2 || !strings.Contains(messages[0].Content, secret) || !strings.Contains(messages[1].Content, secret) {
+		t.Fatalf("canonical conversation was destructively redacted: %+v", messages)
+	}
 }
 
 // TestCompactionCycle 验证群聊旁听兼容路径：群消息可在 agent loop 外进入，

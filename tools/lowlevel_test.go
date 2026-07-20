@@ -1,6 +1,9 @@
 package tools
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidateLowLevelQuerySQL(t *testing.T) {
 	for _, sql := range []string{
@@ -62,5 +65,12 @@ func TestClampLowLevelLimit(t *testing.T) {
 	}
 	if got := clampLowLevelLimit(50, 10, 100); got != 50 {
 		t.Fatalf("value = %d", got)
+	}
+}
+
+func TestFormatLowLevelValuePreservesAuthorizedCanonicalValue(t *testing.T) {
+	secret := "token=" + strings.Repeat("a", 48)
+	if got := formatLowLevelValue(secret); got != secret {
+		t.Fatalf("authorized row was destructively redacted: %q", got)
 	}
 }
