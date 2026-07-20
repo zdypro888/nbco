@@ -31,6 +31,7 @@ import (
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/mcpbridge"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/taskflow"
 	"github.com/zdypro888/nbco/textfmt"
 	"github.com/zdypro888/nbco/tools"
 )
@@ -841,6 +842,7 @@ type taskJSON struct {
 	Goal             string                  `json:"goal,omitempty"`
 	Description      string                  `json:"description,omitempty"`
 	Acceptance       string                  `json:"acceptance,omitempty"`
+	CompletionPolicy string                  `json:"completion_policy"`
 	Status           string                  `json:"status"`
 	Priority         string                  `json:"priority"`
 	Deadline         *time.Time              `json:"deadline,omitempty"`
@@ -898,7 +900,8 @@ func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int6
 		}
 		out = append(out, taskJSON{
 			ID: t.ID, ProjectID: t.ProjectID, ParentID: t.ParentID,
-			Title: t.Title, Goal: t.Goal, Description: t.Description, Acceptance: t.Acceptance, Status: t.Status,
+			Title: t.Title, Goal: t.Goal, Description: t.Description, Acceptance: t.Acceptance,
+			CompletionPolicy: t.CompletionPolicy, Status: t.Status,
 			Priority: t.Priority, Deadline: t.Deadline, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 			AssignerID: t.AssignerID, AssignerName: names[t.AssignerID],
 			AssigneeID: t.AssigneeID, AssigneeName: names[t.AssigneeID],
@@ -1750,7 +1753,8 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	if err := writeJSON(w, http.StatusOK, map[string]any{
 		"task": map[string]any{
 			"id": t.ID, "title": t.Title, "goal": t.Goal,
-			"description": t.Description, "acceptance": t.Acceptance, "command": t.WorkerCommand, "command_pty": t.WorkerCommandPTY, "claim_id": t.WorkerClaimID,
+			"description": t.Description, "acceptance": t.Acceptance, "completion_policy": t.CompletionPolicy,
+			"command": t.WorkerCommand, "command_pty": t.WorkerCommandPTY, "claim_id": t.WorkerClaimID,
 			"attachments": attachments,
 			"session": workerSessionJSON{
 				ID: ws.ID, Engine: ws.Engine, ScopeType: ws.ScopeType, ScopeKey: ws.ScopeKey,
@@ -1992,7 +1996,8 @@ func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleWorkerSubmit worker 提交完成：进入验收流；可复用经验回流知识库（进化闭环）。
+// handleWorkerSubmit 接收 worker 的结构化结果；完成策略决定归档或验收，
+// 可复用经验回流知识库（进化闭环）。
 func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	u := s.requireWorker(w, r)
 	if u == nil {
@@ -2007,7 +2012,10 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		SessionSummary   string `json:"session_summary"`
 		EngineSessionRef string `json:"engine_session_ref"`
 		Workdir          string `json:"workdir"`
-		CommandExitCode  *int   `json:"command_exit_code"`
+		Outcome          string `json:"outcome"`
+		ExitCode         *int   `json:"exit_code"`
+		// Deprecated rolling-upgrade input from workers older than 0063.
+		LegacyCommandExitCode *int `json:"command_exit_code"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil || req.TaskID == 0 || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Summary) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id、claim_id 与 summary 必填"})
@@ -2016,6 +2024,14 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	req.Summary = truncateRunes(textfmt.RedactSecrets(req.Summary), 64000)
 	req.Lessons = truncateRunes(textfmt.RedactSecrets(req.Lessons), 20000)
 	req.SessionSummary = truncateRunes(textfmt.RedactSecrets(req.SessionSummary), 1200)
+	// Older workers did not send outcome. Their submit endpoint still meant that
+	// execution finished; an optional legacy exit code refines success/failure.
+	outcome, exitCode, validOutcome := resolveWorkerSubmissionOutcome(req.Outcome, req.ExitCode, req.LegacyCommandExitCode)
+	if !validOutcome {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "outcome 必须为 succeeded 或 failed"})
+		return
+	}
+	req.ExitCode = exitCode
 	ctx := r.Context()
 	sessionSummary := strings.TrimSpace(req.SessionSummary)
 	if sessionSummary == "" {
@@ -2034,8 +2050,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	// 原子提交：要求任务仍是本 worker 手上的 in_progress。若此刻分配者刚把它
 	// 改需求重置为 pending，提交落空（ErrNotFound），旧交付不会被当成完成。
-	commandSucceeded := req.CommandExitCode != nil && *req.CommandExitCode == 0
-	t, chain, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary, commandSucceeded)
+	t, chain, err := s.store.SubmitWorkerTask(ctx, req.TaskID, u.ID, req.ClaimID, req.Summary, outcome)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许提交（可能已被改派或重置）"})
@@ -2044,7 +2059,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "提交失败"})
 		return
 	}
-	// 依赖编排：自派任务提交即 accepted（含级联），可能让下游任务全部前置就绪。
+	// 依赖编排：完成策略可能让提交直接 accepted（含级联），从而使下游前置就绪。
 	if t.Status == store.TaskAccepted {
 		tools.FireReadyDependents(ctx, s.deps, t.ID)
 		for _, c := range chain {
@@ -2062,8 +2077,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	learned := s.ingestWorkerLearningCandidates(ctx, u, t, req.Summary)
-	// 提交事件交派活人的 AI 分析。确定性命令在没有显式验收人时已自动
-	// 终结；自适应 Agent/普通任务仍进入验收流，通知必须反映真实状态。
+	// 提交事件交派活人的 AI 分析。通知只反映状态机结果，不推断执行器类型。
 	if t.AssignerID != u.ID && s.bus != nil {
 		extra := ""
 		if learned > 0 {
@@ -2074,13 +2088,28 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 				fmt.Sprintf("AI 员工「%s」提交了任务「%s」（任务内部编号 %d）待你验收。提交摘要：%s%s",
 					u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
 		} else {
-			s.bus.EmitRequired("Worker 命令执行结束", t.AssignerID,
-				fmt.Sprintf("AI 员工「%s」已执行完命令任务「%s」（任务内部编号 %d），任务已归入历史。执行摘要：%s%s",
+			s.bus.EmitRequired("任务执行结束", t.AssignerID,
+				fmt.Sprintf("AI 员工「%s」已完成任务「%s」（任务内部编号 %d），任务已按完成策略归入历史。执行摘要：%s%s",
 					u.Name, t.Title, t.ID, truncateRunes(req.Summary, 400), extra))
 		}
 	}
-	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "lessons", req.Lessons != "")
-	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+	slog.Info("worker 提交任务", "worker", u.ID, "task", t.ID, "outcome", outcome, "status", t.Status, "exit_code", req.ExitCode, "lessons", req.Lessons != "")
+	writeJSON(w, http.StatusOK, map[string]any{"ok": "1", "outcome": outcome, "status": t.Status})
+}
+
+func resolveWorkerSubmissionOutcome(value string, exitCode, legacyExitCode *int) (taskflow.ExecutionOutcome, *int, bool) {
+	if exitCode == nil {
+		exitCode = legacyExitCode
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		value = string(taskflow.ExecutionSucceeded)
+		if exitCode != nil && *exitCode != 0 {
+			value = string(taskflow.ExecutionFailed)
+		}
+	}
+	outcome, ok := taskflow.ParseExecutionOutcome(value)
+	return outcome, exitCode, ok
 }
 
 func workerSkillSummary(content string) string {

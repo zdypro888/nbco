@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 func TestClientMe(t *testing.T) {
@@ -98,10 +100,11 @@ func TestClientFailCarriesClaimAndSession(t *testing.T) {
 	}
 }
 
-func TestClientSubmitCarriesStructuredCommandExitCode(t *testing.T) {
+func TestClientSubmitCarriesStructuredOutcome(t *testing.T) {
 	var body struct {
-		TaskID          int64 `json:"task_id"`
-		CommandExitCode *int  `json:"command_exit_code"`
+		TaskID   int64                     `json:"task_id"`
+		Outcome  taskflow.ExecutionOutcome `json:"outcome"`
+		ExitCode *int                      `json:"exit_code"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/worker/submit" {
@@ -116,11 +119,20 @@ func TestClientSubmitCarriesStructuredCommandExitCode(t *testing.T) {
 
 	exitCode := 7
 	if err := newClient(srv.URL, "tok-worker-a").Submit(context.Background(), 42, "claim-1",
-		"command failed", "", SessionInfo{}, "/tmp/repo", &exitCode); err != nil {
+		"execution failed", "", SessionInfo{}, "/tmp/repo",
+		SubmissionResult{Outcome: taskflow.ExecutionFailed, ExitCode: &exitCode}); err != nil {
 		t.Fatal(err)
 	}
-	if body.TaskID != 42 || body.CommandExitCode == nil || *body.CommandExitCode != 7 {
+	if body.TaskID != 42 || body.Outcome != taskflow.ExecutionFailed || body.ExitCode == nil || *body.ExitCode != 7 {
 		t.Fatalf("submit body = %+v", body)
+	}
+}
+
+func TestClientSubmitRejectsMissingOutcome(t *testing.T) {
+	err := newClient("http://127.0.0.1", "tok-worker-a").Submit(context.Background(), 42, "claim-1",
+		"done", "", SessionInfo{}, "/tmp/repo", SubmissionResult{})
+	if err == nil {
+		t.Fatal("missing outcome should be rejected before the request")
 	}
 }
 

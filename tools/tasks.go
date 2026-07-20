@@ -99,7 +99,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("update_my_task_status", "更新我负责或协作的任务状态。status: pending/in_progress/done。done=提交给分配者验收（自派任务直接完成）。",
+		tool("update_my_task_status", "更新我负责或协作的任务状态。status: pending/in_progress/done。done=提交结果，系统按该任务的完成策略进入验收或归档。",
 			obj(map[string]any{
 				"task_id": p("integer", "任务ID"),
 				"status":  enumP("任务状态", store.TaskPending, store.TaskInProgress, store.TaskDone),
@@ -146,7 +146,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "已更新为 " + args.Status + "。", nil
 				}
-				// 提交完成：自派任务免验收直接 accepted 并向上级联；否则进入待验收。
+				// 提交完成：状态机按持久化完成策略进入 accepted 或 done。
 				t2, chain, err := d.Store.SubmitTaskBy(ctx, t.ID, u.ID)
 				if err != nil {
 					if errors.Is(err, store.ErrNotFound) {
@@ -171,11 +171,11 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "已提交，等待分配者验收。", nil
 				}
-				if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 已完成（自派任务免验收）。"); err != nil {
+				if err := d.Store.AddProgress(ctx, t.ID, u.ID, "✅ 已完成，按任务完成策略归档。"); err != nil {
 					return "", err
 				}
 				notifyChain(ctx, d, u, chain)
-				return "已完成（自派任务免验收）。", nil
+				return "已完成，任务已按完成策略归档。", nil
 			}),
 
 		tool("get_review_queue", "查看我分配出去、已提交待我验收的任务。只代表“需要我验收”的范围。",
@@ -1335,8 +1335,8 @@ func inheritViewPermsToUsers(ctx context.Context, d Deps, assigner *store.User, 
 }
 
 // notifyChain 验收级联改变了状态的祖先任务：
-// 转入待验收（done）的通知其分配者来验收；自动验收通过（accepted，自派任务）的
-// 相关人就是级联的触发者本人，无需通知。
+// 转入待验收（done）的通知其分配者来验收；按完成策略直接 accepted 的祖先
+// 无需再发验收通知。
 func notifyChain(ctx context.Context, d Deps, operator *store.User, chain []*store.Task) {
 	for _, a := range chain {
 		if a.Status == store.TaskDone && a.AssignerID != operator.ID {

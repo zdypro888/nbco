@@ -61,6 +61,9 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 	t.Description = strings.TrimSpace(t.Description)
 	t.Acceptance = strings.TrimSpace(t.Acceptance)
 	normalizeTaskWorkerScope(t)
+	if !normalizeTaskCompletionPolicy(t) {
+		return nil, ErrConflict
+	}
 	t.Priority = nonEmpty(strings.TrimSpace(t.Priority), "normal")
 	deps, ok := normalizeTaskDeps(t.DependsOn)
 	if !ok {
@@ -148,6 +151,7 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 func mergeTaskConstraintsTx(ctx context.Context, tx pgx.Tx, current, incoming *Task) (*Task, []string, error) {
 	if current.WorkerCommand != incoming.WorkerCommand ||
 		current.WorkerCommandPTY != incoming.WorkerCommandPTY ||
+		current.CompletionPolicy != incoming.CompletionPolicy ||
 		current.WorkerScopeType != incoming.WorkerScopeType ||
 		current.WorkerScopeKey != incoming.WorkerScopeKey {
 		return nil, nil, ErrConflict

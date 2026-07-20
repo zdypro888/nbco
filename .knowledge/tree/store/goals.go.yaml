@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/goals.go
-        hash: sha256:867d5f67e6d42147f7c534b08716072834256cf5a408517d3a97d5d5400207b0
+        hash: sha256:191e84c755bb0696f6211edbe4670f7cb6eebd732c6b258ce5f9d60c7ef018d7
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -431,9 +431,9 @@ nodes:
       anchor:
         file: store/goals.go
         symbol: Store.CreateMilestoneTasks
-        hash: sha256:be5e378cbedf40c7c817d0f83f6f2a866fe5a2b94d0beab1f05282388991434b
-        struct_hash: sha256:dd611cf1a7bd7d792d68ed421f485a543aca79010101c40303a8508aa5481032
-        doc_struct_hash: sha256:ab02eefe67c16f3ee66d01fe741488f494af1911576722df69f59626ea32eae8
-        lines: [414, 465]
+        hash: sha256:fef3c42cc515efeb95a936ed10b2a6519d744409c16f65d20a49391c88316087
+        struct_hash: sha256:e55dfa5474ba0abc2480ffb7ea329bca02967186ee25cb6b573d5910e511c19c
+        doc_struct_hash: sha256:3b631062fa636ed2a5594a0a2c2ba63d6472e47d42414c29f4dec19fecb444d2
+        lines: [414, 468]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

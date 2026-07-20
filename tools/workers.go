@@ -9,6 +9,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 // workerTools AI 员工管理：列出对所有人开放（只看自己名下）；创建/绑定码/命令/
@@ -348,7 +349,8 @@ func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
 		Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
 		Description: description, Acceptance: acceptance, Priority: priority,
-		WorkerCommand: strings.TrimSpace(args.Command), WorkerCommandPTY: args.PTY,
+		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
+		WorkerCommand:    strings.TrimSpace(args.Command), WorkerCommandPTY: args.PTY,
 		WorkerScopeType: scopeType, WorkerScopeKey: scopeKey, WorkerScopeTitle: scopeTitle,
 	})
 	if err != nil {

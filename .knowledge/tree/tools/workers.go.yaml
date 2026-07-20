@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/workers.go
-        hash: sha256:32c45f474d7fff5b4d8ecc9b483e3bff387b552ddbef5f109e0edfaaf4a41d8a
+        hash: sha256:40308e8a8f8dabb92b6a3b0ef05649d4b9dbfe0d79d1d724faf0003333295403
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: workerTools
-        hash: sha256:136c8924f302042693701097accbb814a6306c9474a66d8a64064e3cf60f11b5
-        struct_hash: sha256:ebdbbef899f745cec5b7bbb1a359aca5a7f90feb07461d725748958179e30f42
-        doc_struct_hash: sha256:da712d67c928136af77f6fc0447e5b647b23bacaa5ce5fb34a9974e314b23ea1
-        lines: [14, 304]
+        hash: sha256:c1f466495c580a9712282754c3a541ca3e6b897b47a4878085c210db27fc565c
+        struct_hash: sha256:f711dddb108561ba740d21f66e4cff64fc5af624cb84938c7256ee314ab92def
+        doc_struct_hash: sha256:cebbad63c5e48b9b4bfc05b003c8c2e13c4f1e05377ed3471bfed54cbf8db91d
+        lines: [15, 305]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workers.go#workerCommandTaskArgs
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: workerCommandTaskArgs
-        hash: sha256:3b3e3d4ba7b112e928829848c2200fdf1089cef78f0c8169f013ca02472bc175
-        struct_hash: sha256:49490bf5c9c372d4e6574561a0c1fbfe68be958af9a92915ad4a4d81e813aad8
-        doc_struct_hash: sha256:49490bf5c9c372d4e6574561a0c1fbfe68be958af9a92915ad4a4d81e813aad8
-        lines: [306, 316]
+        hash: sha256:687fe2ead3437df2a58f765a95a4dfba93134249ae04fdca24839137bc7f6517
+        struct_hash: sha256:76fe78dcf62a31a87cc255c058437d7c45dde9ee089dd4d6110992ac2aef5072
+        doc_struct_hash: sha256:76fe78dcf62a31a87cc255c058437d7c45dde9ee089dd4d6110992ac2aef5072
+        lines: [307, 317]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workers.go#createWorkerCommandTask
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: createWorkerCommandTask
-        hash: sha256:f6b016f37bf09940cdb13bb17a13de74e9a5bd2c58bd8acebb6f7056bfe49bab
-        struct_hash: sha256:b4a4fbef09f192da5875d807246f88b33afbe7e2b3e3cf3d307a4ac283763f27
-        doc_struct_hash: sha256:b4a4fbef09f192da5875d807246f88b33afbe7e2b3e3cf3d307a4ac283763f27
-        lines: [318, 359]
+        hash: sha256:edd2c253862ea42559f0609dffa8a7ae1f97708f632207e48ed6d6e0fd41690e
+        struct_hash: sha256:ebe21cfea6853b66edf9b6bc34c8a4865af15e6d17eae87b0e5dca3f5ddab95c
+        doc_struct_hash: sha256:ebe21cfea6853b66edf9b6bc34c8a4865af15e6d17eae87b0e5dca3f5ddab95c
+        lines: [319, 361]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workers.go#normalizeAgentScope
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: normalizeAgentScope
-        hash: sha256:8c917723be046d5af3d57319546f74cc7f4a76adc9b91665338cb60afa7283aa
-        struct_hash: sha256:ea4d1df8d471095b1f3e4b1ae9c3376ee0932ce19b955fb11bd1e8b823929bf3
-        doc_struct_hash: sha256:ea4d1df8d471095b1f3e4b1ae9c3376ee0932ce19b955fb11bd1e8b823929bf3
-        lines: [361, 377]
+        hash: sha256:83e1d52d235b54eaf60d75660e7de9454c048b015e253791e3b953d59b0b1958
+        struct_hash: sha256:dd44fd112782e182b7bc13f58ddbc38fc59740bc876d6736578d981cc25e3b37
+        doc_struct_hash: sha256:dd44fd112782e182b7bc13f58ddbc38fc59740bc876d6736578d981cc25e3b37
+        lines: [363, 379]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workers.go#accessibleWorkerFiles
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: accessibleWorkerFiles
-        hash: sha256:8882f8532b7dcd5705dd8d4693874c5852fd5e42ddcc4abc175241b377eea68e
-        struct_hash: sha256:c3eec1f90d49d75cf679c4a96a8a71d38ea605163cad2972ca32a7710eabddf3
-        doc_struct_hash: sha256:c3eec1f90d49d75cf679c4a96a8a71d38ea605163cad2972ca32a7710eabddf3
-        lines: [379, 400]
+        hash: sha256:88b44e62e1a39fd0fe0a4ccd21e667920fe8844605d7d604949913383a8e6966
+        struct_hash: sha256:949c8ec81423f5f3e2b04939cf1da787ab7bde258882f240386c774bf37d1670
+        doc_struct_hash: sha256:949c8ec81423f5f3e2b04939cf1da787ab7bde258882f240386c774bf37d1670
+        lines: [381, 402]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workers.go#mustOwnWorker
@@ -68,9 +68,9 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: mustOwnWorker
-        hash: sha256:5c660b311c0a0d0634f4f763e34ec49439eab5ac33a1528f45b65e6c399e9453
-        struct_hash: sha256:eec2167510f884a80f7d67fcebf61df93112394a88e858ba6905c2a34669286a
-        doc_struct_hash: sha256:71ca9f13ed7978a9bb6a556c8f7c00f41e01441b7b14e1e95a4c6c742db76ca6
-        lines: [402, 413]
+        hash: sha256:d73f21b2b44a70b5c224113523cb8c6dd77f9acd77fd18b13fc1a8486b314dc0
+        struct_hash: sha256:dd1264d680e093673150888a949f01a777c4b236880f57ecf13811e80be764c2
+        doc_struct_hash: sha256:99fb807d8fbde3099370bc822ec64121bdff725e023890901a3819711fc6201f
+        lines: [404, 415]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

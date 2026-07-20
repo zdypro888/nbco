@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 // 项目状态。
@@ -18,7 +20,7 @@ const (
 
 // 任务状态。流转：pending → in_progress → done（提交待验收）→ accepted（验收通过）。
 // Worker 缺少必要信息时进入 awaiting_input；分配者补充任务内容后回到 pending。
-// 打回：done → in_progress。自派任务（分配者=执行人）提交即 accepted，免自我验收。
+// 打回：done → in_progress。是否免验收由 CompletionPolicy 声明，执行器类型不参与判断。
 const (
 	TaskPending       = "pending"
 	TaskInProgress    = "in_progress"
@@ -58,6 +60,7 @@ type Task struct {
 	Goal             string
 	Description      string
 	Acceptance       string
+	CompletionPolicy string
 	WorkerCommand    string
 	WorkerCommandPTY bool
 	// WorkerScope* 是创建任务时明确写入的 CLI 会话作用域。它决定工作目录与
@@ -116,7 +119,23 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, worker_retry_at, worker_failures, worker_last_error, priority, deadline, status, nudge_count, worker_claim_id, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, completion_policy, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, worker_retry_at, worker_failures, worker_last_error, priority, deadline, status, nudge_count, worker_claim_id, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
+
+// successfulTaskCompletionStatusSQL is the single state-machine rule used by
+// direct submissions, worker submissions, and split-task cascade. It evaluates
+// declared policy and review ownership only; executor representation is absent.
+const successfulTaskCompletionStatusSQL = `CASE
+  WHEN NOT EXISTS (
+         SELECT 1 FROM task_participants tp
+          WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
+       )
+	   AND (
+	         completion_policy = '` + string(taskflow.CompletionAutoAcceptOnSuccess) + `'
+	         OR (completion_policy = '` + string(taskflow.CompletionSelfAcceptOnSuccess) + `' AND assigner_id = assignee_id)
+       )
+    THEN 'accepted'
+  ELSE 'done'
+END`
 
 func taskColsWithAlias(alias string) string {
 	cols := strings.Split(taskCols, ", ")
@@ -129,7 +148,7 @@ func taskColsWithAlias(alias string) string {
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
-		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.WorkerCommand, &t.WorkerCommandPTY,
+		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.CompletionPolicy, &t.WorkerCommand, &t.WorkerCommandPTY,
 		&t.WorkerScopeType, &t.WorkerScopeKey, &t.WorkerScopeTitle,
 		&t.WorkerRetryAt, &t.WorkerFailures, &t.WorkerLastError, &t.Priority, &t.Deadline,
 		&t.Status, &t.NudgeCount, &t.WorkerClaimID, &t.DependsOn, &t.MilestoneID,
@@ -321,6 +340,9 @@ func (s *Store) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 
 func createTaskTx(ctx context.Context, tx pgx.Tx, t *Task) (*Task, error) {
 	normalizeTaskWorkerScope(t)
+	if !normalizeTaskCompletionPolicy(t) {
+		return nil, ErrConflict
+	}
 	t.Title = strings.TrimSpace(t.Title)
 	t.Goal = strings.TrimSpace(t.Goal)
 	t.Description = strings.TrimSpace(t.Description)
@@ -355,16 +377,22 @@ func createTaskTx(ctx context.Context, tx pgx.Tx, t *Task) (*Task, error) {
 		}
 	}
 	row := tx.QueryRow(ctx,
-		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, priority, deadline, depends_on, milestone_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING `+taskCols,
+		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, completion_policy, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, priority, deadline, depends_on, milestone_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING `+taskCols,
 		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance,
-		t.WorkerCommand, t.WorkerCommandPTY, t.WorkerScopeType, t.WorkerScopeKey, t.WorkerScopeTitle,
+		t.CompletionPolicy, t.WorkerCommand, t.WorkerCommandPTY, t.WorkerScopeType, t.WorkerScopeKey, t.WorkerScopeTitle,
 		nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
 	created, err := scanTask(row)
 	if err != nil {
 		return nil, err
 	}
 	return created, nil
+}
+
+func normalizeTaskCompletionPolicy(t *Task) bool {
+	policy, ok := taskflow.NormalizeCompletionPolicy(t.CompletionPolicy)
+	t.CompletionPolicy = string(policy)
+	return ok
 }
 
 // normalizeTaskWorkerScope gives every task a deterministic, persisted scope.
@@ -615,8 +643,8 @@ func (s *Store) SubmitTask(ctx context.Context, id int64) (*Task, []*Task, error
 	return s.SubmitTaskBy(ctx, id, 0)
 }
 
-// SubmitTaskBy 由责任人或协作者提交完成。自派且没有指定验收人的任务免验收直接
-// accepted 并向上级联；其余置为 done 等待验收。actorID=0 兼容旧调用并按责任人提交。
+// SubmitTaskBy 由责任人或协作者提交完成。成功结果按任务持久化的完成策略流转；
+// 显式验收人始终让任务进入 done。actorID=0 兼容旧调用并按责任人提交。
 func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*Task, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -625,14 +653,7 @@ func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
-				   status = CASE
-				              WHEN assigner_id = assignee_id
-				               AND NOT EXISTS (
-				                   SELECT 1 FROM task_participants tp
-				                    WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
-				               ) THEN 'accepted'
-				              ELSE 'done'
-				            END,
+				   status = `+successfulTaskCompletionStatusSQL+`,
 				   submitted_by = CASE WHEN $2::bigint > 0 THEN $2 ELSE assignee_id END,
 				   submitted_at = now(),
 				   worker_claimed_by = NULL,
@@ -668,11 +689,11 @@ func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*
 }
 
 // SubmitWorkerTask worker 提交：仅当任务仍是该 worker 手上的 in_progress 时才提交。
-// 成功的确定性命令且未指定验收人时直接归档；非零退出、Agent 交付或明确指定
-// 验收人的结果仍进入 done。更新条件原子避开「分配者同时改需求把任务重置为
+// 结构化 outcome 与任务完成策略共同决定自动归档或进入验收；存储层不识别执行器
+// 类型。更新条件原子避开「分配者同时改需求把任务重置为
 // pending」的竞态（那时本次提交返回 ErrNotFound，旧交付不会被当成完成）。
-func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimID, summary string, commandSucceeded bool) (*Task, []*Task, error) {
-	if strings.TrimSpace(claimID) == "" {
+func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimID, summary string, outcome taskflow.ExecutionOutcome) (*Task, []*Task, error) {
+	if strings.TrimSpace(claimID) == "" || !outcome.Valid() {
 		return nil, nil, ErrNotFound
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -682,21 +703,9 @@ func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimI
 	defer func() { _ = tx.Rollback(ctx) }()
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
-			   status = CASE
-			              WHEN worker_command <> '' THEN
-			                   CASE WHEN $4
-			                         AND NOT EXISTS (
-			                             SELECT 1 FROM task_participants tp
-			                              WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
-			                         ) THEN 'accepted'
-			                        ELSE 'done'
-			                   END
-			              WHEN assigner_id = assignee_id
-			               AND NOT EXISTS (
-			                   SELECT 1 FROM task_participants tp
-			                    WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
-			               ) THEN 'accepted'
-			              ELSE 'done'
+			   status = CASE WHEN $4 = 'succeeded'
+			                 THEN `+successfulTaskCompletionStatusSQL+`
+			                 ELSE 'done'
 			            END,
 			   submitted_by = $2,
 			   submitted_at = now(),
@@ -708,7 +717,7 @@ func (s *Store) SubmitWorkerTask(ctx context.Context, id, workerID int64, claimI
 		   worker_last_error = '',
 		   updated_at = now()
 		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3
-		 RETURNING `+taskCols, id, workerID, claimID, commandSucceeded))
+		 RETURNING `+taskCols, id, workerID, claimID, string(outcome)))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -793,8 +802,7 @@ func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason str
 }
 
 // cascadeUp 子任务验收通过后的向上传播：父任务（split）的全部子任务 accepted 时，
-// 父任务转 done（交付物就绪，等待其分配者验收）；父任务是自派任务则直接 accepted
-// 并继续向上。返回状态被改变的祖先（自下而上）。
+// 父任务按自身完成策略进入 done 或 accepted。返回状态被改变的祖先（自下而上）。
 // 注：验收后的子任务被打回不会反向撤销祖先状态（罕见，由分配者人工纠正）。
 func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error) {
 	var chain []*Task
@@ -807,14 +815,7 @@ func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error)
 		}
 		p, err := scanTask(tx.QueryRow(ctx,
 			`UPDATE tasks SET
-				   status = CASE
-				              WHEN assigner_id = assignee_id
-				               AND NOT EXISTS (
-				                   SELECT 1 FROM task_participants tp
-				                    WHERE tp.task_id = tasks.id AND tp.role = 'reviewer'
-				               ) THEN 'accepted'
-				              ELSE 'done'
-				            END,
+				   status = `+successfulTaskCompletionStatusSQL+`,
 				   worker_claimed_by = NULL,
 				   worker_claimed_at = NULL,
 				   worker_claim_id = '',
@@ -1037,11 +1038,14 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 			t.WorkerScopeTitle = parentScopeTitle
 		}
 		normalizeTaskWorkerScope(t)
+		if !normalizeTaskCompletionPolicy(t) {
+			return nil, ErrConflict
+		}
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, priority, deadline, milestone_id)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING `+taskCols,
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, completion_policy, worker_command, worker_command_pty, worker_scope_type, worker_scope_key, worker_scope_title, priority, deadline, milestone_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING `+taskCols,
 			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance,
-			t.WorkerCommand, t.WorkerCommandPTY, t.WorkerScopeType, t.WorkerScopeKey, t.WorkerScopeTitle,
+			t.CompletionPolicy, t.WorkerCommand, t.WorkerCommandPTY, t.WorkerScopeType, t.WorkerScopeKey, t.WorkerScopeTitle,
 			nonEmpty(t.Priority, "normal"), t.Deadline, t.MilestoneID)
 		ct, err := scanTask(row)
 		if err != nil {

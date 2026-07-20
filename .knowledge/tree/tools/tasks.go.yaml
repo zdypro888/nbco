@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/tasks.go
         symbol: taskTools
-        hash: sha256:07a66423df7a3ccb5f4cd22a3370b404cc68887070bfcc7ab923c3a9f273d999
-        struct_hash: sha256:2f20fa4b7f5d7941d7367bc2f071bcce269c9c983432bddfac20c3d08afc48f3
-        doc_struct_hash: sha256:c84f2063068e85389264a4563273ce5d5aef55f9cef058f8315d896c5d89bf44
+        hash: sha256:8dcffacdbcdbb9ff24f8a7265ba1230a2383c14cdde6c2cc2fbef7692d26eb1f
+        struct_hash: sha256:b0f0578c967b0c174c829c541b3bf23b884b6ed0ccd3caa5a81d3db81ab7837f
+        doc_struct_hash: sha256:8f6e1cc5b7c26694773b549fa085b0dd524b61185ee3201dd5a4f35b98783f0f
         lines: [19, 1146]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -112,9 +112,9 @@ nodes:
       anchor:
         file: tools/tasks.go
         symbol: notifyChain
-        hash: sha256:bcf84d32a29ab4a2f9088110e3ad023e03309b224210fddfdec67b86c33bc6b4
+        hash: sha256:7fa19c81cef921c5add8ec72f828e4334e848d88835daf7a36b90cbc85904fb8
         struct_hash: sha256:90f846fc4dee4bc28422aa8f66380012c40b0ad666560b827b3cb6fee4b9a731
-        doc_struct_hash: sha256:6221799ff6c969a055735ee9087c69bcd258eecd4aa4c06aa59798c1852253cb
+        doc_struct_hash: sha256:b0081e5196293e9bb5a95e51f5cec27acd8bce347c838471dce1b69d7b9d9f0b
         lines: [1337, 1348]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

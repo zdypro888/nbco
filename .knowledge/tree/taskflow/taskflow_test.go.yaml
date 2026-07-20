@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: taskflow/taskflow_test.go
+      level: file
+      anchor:
+        file: taskflow/taskflow_test.go
+        hash: sha256:5fbf96615bebfc1a07a1a11502ed7826678789448c70beca2c7b92f886c59b58
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T09:19:36.738992Z
+    - id: taskflow/taskflow_test.go#TestNormalizeCompletionPolicy
+      level: function
+      anchor:
+        file: taskflow/taskflow_test.go
+        symbol: TestNormalizeCompletionPolicy
+        hash: sha256:7d20914ef7db0f3a4f09a36fca2f9a08666eb1500de630cdf563f575af0bd7d3
+        struct_hash: sha256:f88dab802adc42f469f111279a4245d75b7e64f35a7532aeca5cf1e8683cbe1a
+        doc_struct_hash: sha256:f88dab802adc42f469f111279a4245d75b7e64f35a7532aeca5cf1e8683cbe1a
+        lines: [5, 22]
+      status: undigested
+      since: 2026-07-20T09:19:36.738992Z
+    - id: taskflow/taskflow_test.go#TestParseExecutionOutcome
+      level: function
+      anchor:
+        file: taskflow/taskflow_test.go
+        symbol: TestParseExecutionOutcome
+        hash: sha256:edbb318a155123b51d89e26b84b1b333f26c1ef7bb526462362a4a9abdeebecb
+        struct_hash: sha256:3c3303ee901fbe40617c5e2f00ead3e677ee45a83836b72ad0d9a538efa4de82
+        doc_struct_hash: sha256:3c3303ee901fbe40617c5e2f00ead3e677ee45a83836b72ad0d9a538efa4de82
+        lines: [24, 34]
+      status: undigested
+      since: 2026-07-20T09:19:36.738992Z

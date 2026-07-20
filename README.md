@@ -156,8 +156,9 @@ pending → in_progress → done（提交待验收）→ accepted（验收通过
                           └────────┘ reject_task 打回（理由入进度记录）
 ```
 
-- 自派任务（分配者=执行人）提交即 `accepted`，免自我验收
-- 拆分的任务：子任务**全部验收通过**时父任务自动转入待验收，逐级向上；父任务也是自派的则直达 `accepted`
+- 每个任务持久化 `completion_policy`：普通任务默认 `self_accept_on_success`；确定性执行可声明 `auto_accept_on_success`；必须验收的任务可声明 `review_required`
+- 显式 `reviewer` 始终优先于完成策略；失败结果始终进入 `done` 等待处理，不会自动标成成功
+- 拆分的任务：子任务**全部验收通过**时，父任务按自己的 `completion_policy` 转入待验收或直接归档，并逐级向上
 - 验收工具：`get_review_queue` / `accept_task` / `reject_task`（限分配者与超管）
 - **依赖编排（流水线）**：`assign_task` 可带 `depends_on`（只能指向已存在任务，天然无环）；前置全部 `accepted` 之前 worker 领不到该任务，验收通过时自动唤醒就绪的下游 worker 并发事件给派活人的 AI——「开发→测试→审查」接力不再人肉盯
 - **一个交付物一个任务 ID**：`assignee_id` 是唯一责任人；同一产出涉及多人时用 `collaborator_ids`（可执行/提交）、`reviewer_ids`（可验收/打回）、`watcher_ids`（只读/接收通知）。等价未终态任务在事务内自动合并，只有确实需要彼此独立产出时才用 `allow_parallel=true`

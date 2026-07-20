@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 const (
@@ -312,13 +314,14 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
 		submitSession.EngineSessionRef = ref
 	}
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir, nil); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir,
+		SubmissionResult{Outcome: taskflow.ExecutionSucceeded}); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交任务结果失败: "+err.Error(), submitSession, dir)
 		w.handoffDeferredRestart()
 		return
 	}
-	log.Printf("任务 #%d 已提交验收", task.ID)
+	log.Printf("任务 #%d 已提交结果", task.ID)
 	w.handoffDeferredRestart()
 }
 
@@ -354,7 +357,12 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 		return
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir, &res.ExitCode); err != nil {
+	outcome := taskflow.ExecutionSucceeded
+	if res.ExitCode != 0 {
+		outcome = taskflow.ExecutionFailed
+	}
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir,
+		SubmissionResult{Outcome: outcome, ExitCode: &res.ExitCode}); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交命令任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()

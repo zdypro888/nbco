@@ -12,7 +12,38 @@ import (
 	"testing"
 
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/taskflow"
 )
+
+func TestResolveWorkerSubmissionOutcome(t *testing.T) {
+	zero, seven := 0, 7
+	tests := []struct {
+		name       string
+		value      string
+		exitCode   *int
+		legacyCode *int
+		want       taskflow.ExecutionOutcome
+		wantCode   *int
+		ok         bool
+	}{
+		{name: "explicit success", value: "succeeded", exitCode: &zero, want: taskflow.ExecutionSucceeded, wantCode: &zero, ok: true},
+		{name: "explicit failure without process", value: "failed", want: taskflow.ExecutionFailed, ok: true},
+		{name: "legacy agent submission", want: taskflow.ExecutionSucceeded, ok: true},
+		{name: "legacy non-zero command", legacyCode: &seven, want: taskflow.ExecutionFailed, wantCode: &seven, ok: true},
+		{name: "invalid", value: "command_succeeded", ok: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, code, ok := resolveWorkerSubmissionOutcome(tt.value, tt.exitCode, tt.legacyCode)
+			if got != tt.want || ok != tt.ok {
+				t.Fatalf("outcome = %q, %v; want %q, %v", got, ok, tt.want, tt.ok)
+			}
+			if (code == nil) != (tt.wantCode == nil) || code != nil && *code != *tt.wantCode {
+				t.Fatalf("exit code = %v, want %v", code, tt.wantCode)
+			}
+		})
+	}
+}
 
 func TestDecodeJSONLimitsBody(t *testing.T) {
 	body := `{"message":"` + strings.Repeat("x", maxJSONBodyBytes) + `"}`

@@ -18,6 +18,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 func openTestStore(t *testing.T) *Store {
@@ -456,7 +458,7 @@ func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T)
 	if err != nil || claimed.ID != workerTask.ID {
 		t.Fatalf("worker claim = %+v err=%v", claimed, err)
 	}
-	submitted, _, err := s.SubmitWorkerTask(ctx, workerTask.ID, worker.ID, claimed.WorkerClaimID, "done", false)
+	submitted, _, err := s.SubmitWorkerTask(ctx, workerTask.ID, worker.ID, claimed.WorkerClaimID, "done", taskflow.ExecutionSucceeded)
 	if err != nil || submitted.Status != TaskDone {
 		t.Fatalf("explicit reviewer must keep worker task awaiting review: %+v err=%v", submitted, err)
 	}
@@ -492,7 +494,7 @@ func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T)
 	}
 }
 
-func TestWorkerCommandSubmissionAutoAcceptsWithoutExplicitReviewer(t *testing.T) {
+func TestWorkerSubmissionUsesCompletionPolicyAndOutcome(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	boss := mkUser(t, s, "boss", true)
@@ -502,25 +504,33 @@ func TestWorkerCommandSubmissionAutoAcceptsWithoutExplicitReviewer(t *testing.T)
 		t.Fatal(err)
 	}
 	pj := mkProject(t, s, boss.ID)
-	command, err := s.CreateTask(ctx, &Task{
+	if _, err := s.CreateTask(ctx, &Task{
 		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "deterministic command", WorkerCommand: "go test ./...",
+		Title: "invalid completion contract", CompletionPolicy: "executor:command",
+	}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("invalid completion policy should be rejected, got %v", err)
+	}
+	auto, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title:            "executor-neutral auto task",
+		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != command.ID {
-		t.Fatalf("claim command = %+v err=%v", claimed, err)
+	if err != nil || claimed.ID != auto.ID {
+		t.Fatalf("claim auto task = %+v err=%v", claimed, err)
 	}
-	completed, _, err := s.SubmitWorkerTask(ctx, command.ID, worker.ID, claimed.WorkerClaimID, "exit=0", true)
+	completed, _, err := s.SubmitWorkerTask(ctx, auto.ID, worker.ID, claimed.WorkerClaimID, "completed", taskflow.ExecutionSucceeded)
 	if err != nil || completed.Status != TaskAccepted {
-		t.Fatalf("unreviewed command should auto-accept: %+v err=%v", completed, err)
+		t.Fatalf("successful auto policy should accept without inspecting executor: %+v err=%v", completed, err)
 	}
 
 	reviewed, err := s.CreateTask(ctx, &Task{
 		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "reviewed command", WorkerCommand: "deploy production",
+		Title:            "reviewed auto task",
+		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -533,14 +543,15 @@ func TestWorkerCommandSubmissionAutoAcceptsWithoutExplicitReviewer(t *testing.T)
 	if err != nil || claimed.ID != reviewed.ID {
 		t.Fatalf("claim reviewed command = %+v err=%v", claimed, err)
 	}
-	completed, _, err = s.SubmitWorkerTask(ctx, reviewed.ID, worker.ID, claimed.WorkerClaimID, "needs review", true)
+	completed, _, err = s.SubmitWorkerTask(ctx, reviewed.ID, worker.ID, claimed.WorkerClaimID, "needs review", taskflow.ExecutionSucceeded)
 	if err != nil || completed.Status != TaskDone {
 		t.Fatalf("explicit reviewer must keep command awaiting review: %+v err=%v", completed, err)
 	}
 
 	failed, err := s.CreateTask(ctx, &Task{
 		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "failed command", WorkerCommand: "exit 7",
+		Title:            "failed auto task",
+		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -549,9 +560,26 @@ func TestWorkerCommandSubmissionAutoAcceptsWithoutExplicitReviewer(t *testing.T)
 	if err != nil || claimed.ID != failed.ID {
 		t.Fatalf("claim failed command = %+v err=%v", claimed, err)
 	}
-	completed, _, err = s.SubmitWorkerTask(ctx, failed.ID, worker.ID, claimed.WorkerClaimID, "exit=7", false)
+	completed, _, err = s.SubmitWorkerTask(ctx, failed.ID, worker.ID, claimed.WorkerClaimID, "failed", taskflow.ExecutionFailed)
 	if err != nil || completed.Status != TaskDone {
-		t.Fatalf("non-zero command must remain reviewable: %+v err=%v", completed, err)
+		t.Fatalf("failed outcome must remain reviewable: %+v err=%v", completed, err)
+	}
+
+	commandUnderReview, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "command representation does not control state", WorkerCommand: "true",
+		CompletionPolicy: string(taskflow.CompletionReviewRequired),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = s.ClaimNextTask(ctx, worker.ID)
+	if err != nil || claimed.ID != commandUnderReview.ID {
+		t.Fatalf("claim review task = %+v err=%v", claimed, err)
+	}
+	completed, _, err = s.SubmitWorkerTask(ctx, commandUnderReview.ID, worker.ID, claimed.WorkerClaimID, "completed", taskflow.ExecutionSucceeded)
+	if err != nil || completed.Status != TaskDone {
+		t.Fatalf("executor fields must not override review policy: %+v err=%v", completed, err)
 	}
 }
 
@@ -616,6 +644,50 @@ func TestTaskQueueLifecycleMigrationOnlyClosesUnreviewedCommands(t *testing.T) {
 		if got.Status != want.status {
 			t.Fatalf("task %d status = %s, want %s", want.id, got.Status, want.status)
 		}
+	}
+}
+
+func TestTaskCompletionContractMigrationMapsLegacyRepresentation(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "completion-migration-boss", true)
+	worker, _, err := s.CreateWorker(ctx, "completion-migration-worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	command, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "legacy executor representation", WorkerCommand: "true",
+		CompletionPolicy: string(taskflow.CompletionSelfAcceptOnSuccess),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordinary := mkTask(t, s, pj.ID, boss.ID, worker.ID, "ordinary delegated task", nil)
+
+	migration, err := migrationsFS.ReadFile("migrations/0063_task_completion_contract.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	command, err = s.TaskByID(ctx, command.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordinary, err = s.TaskByID(ctx, ordinary.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if command.CompletionPolicy != string(taskflow.CompletionAutoAcceptOnSuccess) {
+		t.Fatalf("legacy command policy = %q", command.CompletionPolicy)
+	}
+	if ordinary.CompletionPolicy != string(taskflow.CompletionSelfAcceptOnSuccess) {
+		t.Fatalf("ordinary task policy = %q", ordinary.CompletionPolicy)
 	}
 }
 
@@ -1325,14 +1397,14 @@ func TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim(t *testing.T) {
 	if updated.Status != TaskPending || updated.WorkerClaimID != "" {
 		t.Fatalf("worker content update must atomically reset claim: %+v", updated)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", false); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", taskflow.ExecutionSucceeded); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("old claim must not submit after content update: %v", err)
 	}
 	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", false); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", taskflow.ExecutionSucceeded); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil); !errors.Is(err, ErrNotFound) {
@@ -1513,7 +1585,7 @@ func TestWorkerClaimRejectedTaskWithoutClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版", false); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版", taskflow.ExecutionSucceeded); err != nil {
 		t.Fatal(err)
 	}
 	rejected, err := s.RejectTask(ctx, tk.ID, boss.ID, "还要补文件")
@@ -3166,7 +3238,7 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	// worker 的提交应落空（任务已非 in_progress），不把旧交付当完成。
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", false); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", taskflow.ExecutionSucceeded); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("重置为 pending 后提交应被拒: %v", err)
 	}
 	if ps, err := s.ProgressOf(ctx, tk.ID); err != nil || len(ps) != 0 {
@@ -3187,10 +3259,10 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 	if err := s.AddWorkerProgress(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧进度"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 进度应被拒: %v", err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", false); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", taskflow.ExecutionSucceeded); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 提交应被拒: %v", err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", false); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", taskflow.ExecutionSucceeded); err != nil {
 		t.Fatalf("正常提交应成功: %v", err)
 	}
 	got, _ = s.TaskByID(ctx, tk.ID)
@@ -4211,7 +4283,7 @@ func TestTaskDependencyGating(t *testing.T) {
 		t.Fatalf("测试任务被前置挡住，不应可领: %v", err)
 	}
 	// 提交+验收 dev 后，test 就绪。
-	if _, _, err := s.SubmitWorkerTask(ctx, dev.ID, worker.ID, claimed.WorkerClaimID, "done", false); err != nil {
+	if _, _, err := s.SubmitWorkerTask(ctx, dev.ID, worker.ID, claimed.WorkerClaimID, "done", taskflow.ExecutionSucceeded); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.AcceptTask(ctx, dev.ID); err != nil {

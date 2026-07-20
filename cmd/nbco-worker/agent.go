@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 // 内置智能体（engine=builtin）：工作机上没有 claude/codex 时，worker 自己就是
@@ -279,16 +281,17 @@ func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Task, dir, r
 	return reply + "\n输出：\n" + out
 }
 
-// submitAgent 收尾：上传产物、拼报告、提交验收（与 CLI 路径同一套约定）。
+// submitAgent 收尾：上传产物、拼报告、提交结果（与 CLI 路径同一套约定）。
 func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Task, dir, summary, lessons string) {
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir, nil); err != nil {
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir,
+		SubmissionResult{Outcome: taskflow.ExecutionSucceeded}); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交内置智能体任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()
 		return
 	}
-	log.Printf("任务 #%d 已提交验收（内置智能体）", task.ID)
+	log.Printf("任务 #%d 已提交结果（内置智能体）", task.ID)
 	w.handoffDeferredRestart()
 }
 

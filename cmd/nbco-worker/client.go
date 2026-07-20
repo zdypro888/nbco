@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/zdypro888/nbco/taskflow"
 )
 
 // fileTransferTimeout 单次文件收发的墙钟上限（兜底，防连接挂死；大文件不该被
@@ -116,16 +118,17 @@ func (c *Client) RegisterCapabilities(ctx context.Context, report CapabilityRepo
 
 // Task 从 nbco 领到的任务。
 type Task struct {
-	ID          int64        `json:"id"`
-	ClaimID     string       `json:"claim_id"`
-	Title       string       `json:"title"`
-	Goal        string       `json:"goal"`
-	Description string       `json:"description"`
-	Acceptance  string       `json:"acceptance"`
-	Command     string       `json:"command"`
-	CommandPTY  bool         `json:"command_pty"`
-	Attachments []Attachment `json:"attachments"`
-	Session     SessionInfo  `json:"session"`
+	ID               int64        `json:"id"`
+	ClaimID          string       `json:"claim_id"`
+	Title            string       `json:"title"`
+	Goal             string       `json:"goal"`
+	Description      string       `json:"description"`
+	Acceptance       string       `json:"acceptance"`
+	CompletionPolicy string       `json:"completion_policy"`
+	Command          string       `json:"command"`
+	CommandPTY       bool         `json:"command_pty"`
+	Attachments      []Attachment `json:"attachments"`
+	Session          SessionInfo  `json:"session"`
 }
 
 // SessionInfo is the server-owned topic context this task belongs to.
@@ -262,16 +265,25 @@ func (c *Client) Fail(ctx context.Context, taskID int64, claimID, cause string, 
 	})
 }
 
-// Submit 提交完成，进入验收流；确定性命令额外上报退出码，服务端据此
-// 区分可自动归档的成功执行与需要人工处理的非零退出。
-func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string, commandExitCode *int) error {
+type SubmissionResult struct {
+	Outcome  taskflow.ExecutionOutcome
+	ExitCode *int
+}
+
+// Submit reports an execution-neutral outcome. ExitCode is optional evidence;
+// task completion behavior is owned by the server-side completion policy.
+func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string, result SubmissionResult) error {
+	if !result.Outcome.Valid() {
+		return fmt.Errorf("invalid submission outcome %q", result.Outcome)
+	}
 	payload := map[string]any{
 		"task_id": taskID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 		"worker_session_id": session.ID, "session_summary": sessionSummary(summary, lessons),
 		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+		"outcome": result.Outcome,
 	}
-	if commandExitCode != nil {
-		payload["command_exit_code"] = *commandExitCode
+	if result.ExitCode != nil {
+		payload["exit_code"] = *result.ExitCode
 	}
 	return c.post(ctx, "/api/worker/submit", payload)
 }
