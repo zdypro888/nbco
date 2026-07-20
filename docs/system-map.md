@@ -103,6 +103,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - CLI 自动执行只能用交互式 PTY；显式命令任务默认用 pipe，需要终端行为才用 PTY。
 - 权限裁剪后的 Worker 稳定 ID、名称和状态进入本轮执行目标目录；用户明确指定执行者时，该目标是执行约束，Agent 不得改用中枢直读代做。`list_workers` 与自适应 Agent 委派属于常驻认知内核，具体执行方式仍由 Eino 根据工具契约决定。
 - 支持 worker 能力上报、主题 workspace、任务附件、返工产物回注。
+- 原生 CLI 会话恢复受 engine runtime fingerprint 约束；运行时配置变化只轮换本机 CLI session，不丢失服务端主题上下文。
 - 支持 admin worker 执行系统级维护和资料入库任务。
 
 关键工具：

@@ -150,14 +150,15 @@ type Run struct {
 
 // SessionInfo is the server-owned topic context this run belongs to.
 type SessionInfo struct {
-	ID               int64  `json:"id"`
-	Engine           string `json:"engine"`
-	ScopeType        string `json:"scope_type"`
-	ScopeKey         string `json:"scope_key"`
-	Title            string `json:"title"`
-	Workdir          string `json:"workdir,omitempty"`
-	EngineSessionRef string `json:"engine_session_ref,omitempty"`
-	Summary          string `json:"summary,omitempty"`
+	ID                       int64  `json:"id"`
+	Engine                   string `json:"engine"`
+	ScopeType                string `json:"scope_type"`
+	ScopeKey                 string `json:"scope_key"`
+	Title                    string `json:"title"`
+	Workdir                  string `json:"workdir,omitempty"`
+	EngineSessionRef         string `json:"engine_session_ref,omitempty"`
+	EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint,omitempty"`
+	Summary                  string `json:"summary,omitempty"`
 }
 
 // Attachment 是服务端随执行下发的文件快照。
@@ -269,7 +270,8 @@ func (c *Client) UpdateSession(ctx context.Context, runID int64, claimID string,
 	return c.post(ctx, "/api/worker/session", map[string]any{
 		"run_id": runID, "task_id": runID, "claim_id": claimID,
 		"worker_session_id": session.ID, "session_summary": session.Summary,
-		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+		"engine_session_ref": session.EngineSessionRef, "engine_runtime_fingerprint": session.EngineRuntimeFingerprint,
+		"workdir": workdir,
 	})
 }
 
@@ -279,7 +281,8 @@ func (c *Client) RequestInput(ctx context.Context, runID int64, claimID, content
 	return c.postFinal(ctx, "/api/worker/request-input", map[string]any{
 		"run_id": runID, "task_id": runID, "claim_id": claimID, "content": content,
 		"worker_session_id": session.ID, "session_summary": "等待补充：" + strings.TrimSpace(content),
-		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+		"engine_session_ref": session.EngineSessionRef, "engine_runtime_fingerprint": session.EngineRuntimeFingerprint,
+		"workdir": workdir,
 	})
 }
 
@@ -290,7 +293,8 @@ func (c *Client) Fail(ctx context.Context, runID int64, claimID, cause string, s
 	return c.postFinal(ctx, "/api/worker/fail", map[string]any{
 		"run_id": runID, "task_id": runID, "claim_id": claimID, "error": cause,
 		"worker_session_id": session.ID, "session_summary": "最近执行失败：" + strings.TrimSpace(cause),
-		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+		"engine_session_ref": session.EngineSessionRef, "engine_runtime_fingerprint": session.EngineRuntimeFingerprint,
+		"workdir": workdir,
 	})
 }
 
@@ -308,7 +312,8 @@ func (c *Client) Submit(ctx context.Context, runID int64, claimID, summary, less
 	payload := map[string]any{
 		"run_id": runID, "task_id": runID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 		"worker_session_id": session.ID, "session_summary": sessionSummary(summary, lessons),
-		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
+		"engine_session_ref": session.EngineSessionRef, "engine_runtime_fingerprint": session.EngineRuntimeFingerprint,
+		"workdir": workdir,
 		"outcome": result.Outcome,
 	}
 	if result.ExitCode != nil {

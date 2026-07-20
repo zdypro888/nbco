@@ -42,6 +42,12 @@ type Config struct {
 	// 仍守 PTY 交互铁律——只是换掉「启动哪个 CLI、怎么判完成」。
 	Args        []string `json:"args"`         // 自定义启动参数（非空则覆盖内置 claude/codex 默认参数）
 	BusyPattern string   `json:"busy_pattern"` // 自定义「工作中」状态行正则（完成检测用；空=默认 "esc to interrupt"）
+	// SessionRuntimeFiles / SessionRuntimeEnv extend the automatic engine
+	// fingerprint for custom wrappers and provider-specific configuration. Only
+	// a SHA-256 digest is sent to nbco; file contents and environment values stay
+	// on the worker machine.
+	SessionRuntimeFiles []string `json:"session_runtime_files,omitempty"`
+	SessionRuntimeEnv   []string `json:"session_runtime_env,omitempty"`
 	// SessionWorkspaces pins topic scopes to real directories. Example:
 	// {"repo:nbco":"/root/src/nbco"} lets code/deploy tasks resume the nbco
 	// codebase workspace while unrelated document-analysis tasks use their own

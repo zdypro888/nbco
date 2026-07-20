@@ -3716,22 +3716,23 @@ func TestWorkerSessionClaimAndUpdate(t *testing.T) {
 	if ws2.ID != ws.ID || ws2.UseCount != 2 {
 		t.Fatalf("session should be reused and counted: first=%+v second=%+v", ws, ws2)
 	}
+	fingerprint := strings.Repeat("a", 64)
 	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, claimed.ID, claimed.ClaimID,
-		"执行中", "early-native-ref", "/root/src/nbco"); err != nil {
+		"执行中", "early-native-ref", fingerprint, "/root/src/nbco"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, claimed.ID, "stale-claim",
-		"stale", "stale-ref", "/tmp/stale"); !errors.Is(err, ErrNotFound) {
+		"stale", "stale-ref", strings.Repeat("b", 64), "/tmp/stale"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("stale claim must not overwrite worker session: %v", err)
 	}
-	if err := s.UpdateWorkerSession(ctx, ws.ID, worker.ID, claimed.ID, &task.ID, "完成了路由", "native-ref", "/root/src/nbco"); err != nil {
+	if err := s.UpdateWorkerSession(ctx, ws.ID, worker.ID, claimed.ID, &task.ID, "完成了路由", "native-ref", fingerprint, "/root/src/nbco"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", claimed.ID, &task.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Summary != "完成了路由" || got.EngineSessionRef != "native-ref" || got.Workdir != "/root/src/nbco" {
+	if got.Summary != "完成了路由" || got.EngineSessionRef != "native-ref" || got.EngineRuntimeFingerprint != fingerprint || got.Workdir != "/root/src/nbco" {
 		t.Fatalf("session update not persisted: %+v", got)
 	}
 	newerTask := mkTask(t, s, p.ID, boss.ID, worker.ID, "nbco 后续开发", nil)
@@ -3743,7 +3744,7 @@ func TestWorkerSessionClaimAndUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, claimed.ID, claimed.ClaimID,
-		"旧执行迟到", "old-ref", "/tmp/old"); !errors.Is(err, ErrNotFound) {
+		"旧执行迟到", "old-ref", strings.Repeat("c", 64), "/tmp/old"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("older run must not overwrite a session already handed to a newer run: %v", err)
 	}
 }

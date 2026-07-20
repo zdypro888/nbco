@@ -2,18 +2,24 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
 
 type cliInvocation struct {
-	Args      []string
-	ResumeRef string
+	Args               []string
+	ResumeRef          string
+	RuntimeFingerprint string
 }
 
 var uuidSessionRefRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -23,9 +29,14 @@ var uuidSessionRefRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]
 // provided by the engine's native session resume when nbco has a safe ref.
 func (w *Worker) cliInvocationFor(session SessionInfo, dir string) cliInvocation {
 	base := w.cliArgs()
-	inv := cliInvocation{Args: append([]string(nil), base...)}
+	inv := cliInvocation{
+		Args:               append([]string(nil), base...),
+		RuntimeFingerprint: w.engineRuntimeFingerprint(dir),
+	}
 	ref := cleanEngineSessionRef(session.EngineSessionRef)
-	if ref == "" || len(w.cfg.Args) > 0 {
+	if ref == "" || len(w.cfg.Args) > 0 ||
+		strings.TrimSpace(session.EngineRuntimeFingerprint) == "" ||
+		!strings.EqualFold(session.EngineRuntimeFingerprint, inv.RuntimeFingerprint) {
 		return inv
 	}
 	// A native session owns its original CWD. Resuming it after a workspace
@@ -43,6 +54,173 @@ func (w *Worker) cliInvocationFor(session SessionInfo, dir string) cliInvocation
 		inv.ResumeRef = ref
 	}
 	return inv
+}
+
+type runtimeFingerprintFile struct {
+	Path   string `json:"path"`
+	Digest string `json:"digest"`
+	State  string `json:"state"`
+}
+
+// engineRuntimeFingerprint identifies the local runtime assumptions captured
+// by a native CLI session. It deliberately hashes, rather than uploads, config
+// files and environment values. The server only needs an equality token to
+// decide whether a stored native session is still safe to resume.
+func (w *Worker) engineRuntimeFingerprint(dir string) string {
+	engine := strings.ToLower(strings.TrimSpace(w.cfg.Engine))
+	bin := strings.TrimSpace(w.cfg.Bin)
+	if bin == "" {
+		bin = engine
+	}
+	resolvedBin := bin
+	if path, err := exec.LookPath(bin); err == nil {
+		resolvedBin = canonicalDir(path)
+	}
+
+	files := make([]runtimeFingerprintFile, 0)
+	for _, path := range w.engineRuntimeFiles(engine, dir) {
+		files = append(files, fingerprintFile(path))
+	}
+	environment := w.engineRuntimeEnvironment(engine)
+	payload := struct {
+		Version     int                      `json:"version"`
+		Engine      string                   `json:"engine"`
+		Binary      string                   `json:"binary"`
+		CLIVersion  string                   `json:"cli_version"`
+		Args        []string                 `json:"args"`
+		Files       []runtimeFingerprintFile `json:"files"`
+		Environment []string                 `json:"environment"`
+	}{
+		Version: 1, Engine: engine, Binary: resolvedBin, CLIVersion: cliVersion(bin),
+		Args: append([]string(nil), w.cliArgs()...), Files: files, Environment: environment,
+	}
+	raw, _ := json.Marshal(payload)
+	return fmt.Sprintf("%x", sha256.Sum256(raw))
+}
+
+func (w *Worker) engineRuntimeFiles(engine, dir string) []string {
+	home, _ := os.UserHomeDir()
+	paths := make([]string, 0, len(w.cfg.SessionRuntimeFiles)+8)
+	switch engine {
+	case "codex":
+		codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+		if codexHome == "" {
+			codexHome = filepath.Join(home, ".codex")
+		}
+		paths = append(paths, filepath.Join(codexHome, "config.toml"))
+		paths = append(paths, ancestorRuntimeFiles(dir, ".codex/config.toml")...)
+	case "claude":
+		paths = append(paths,
+			filepath.Join(home, ".claude", "settings.json"),
+			filepath.Join(home, ".claude", "settings.local.json"),
+			filepath.Join(home, ".claude.json"),
+		)
+		paths = append(paths, ancestorRuntimeFiles(dir, ".claude/settings.json")...)
+		paths = append(paths, ancestorRuntimeFiles(dir, ".claude/settings.local.json")...)
+	}
+	for _, path := range w.cfg.SessionRuntimeFiles {
+		paths = append(paths, expandRuntimePath(path, home))
+	}
+	return dedupeSortedPaths(paths)
+}
+
+func (w *Worker) engineRuntimeEnvironment(engine string) []string {
+	prefixes := []string(nil)
+	switch engine {
+	case "codex":
+		prefixes = []string{"CODEX_", "OPENAI_"}
+	case "claude":
+		prefixes = []string{"ANTHROPIC_", "CLAUDE_"}
+	}
+	exact := make(map[string]bool, len(w.cfg.SessionRuntimeEnv))
+	for _, name := range w.cfg.SessionRuntimeEnv {
+		if name = strings.TrimSpace(name); name != "" {
+			exact[name] = true
+		}
+	}
+	values := make([]string, 0)
+	for _, item := range os.Environ() {
+		name, _, _ := strings.Cut(item, "=")
+		matched := exact[name]
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(name, prefix) {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			values = append(values, item)
+			delete(exact, name)
+		}
+	}
+	for name := range exact {
+		values = append(values, name+"=<unset>")
+	}
+	sort.Strings(values)
+	return values
+}
+
+func fingerprintFile(path string) runtimeFingerprintFile {
+	path = canonicalDir(path)
+	entry := runtimeFingerprintFile{Path: path, State: "missing"}
+	f, err := os.Open(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			entry.State = "unreadable"
+		}
+		return entry
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		entry.State = "unreadable"
+		return entry
+	}
+	entry.State = "present"
+	entry.Digest = fmt.Sprintf("%x", h.Sum(nil))
+	return entry
+}
+
+func ancestorRuntimeFiles(dir, relative string) []string {
+	dir = canonicalDir(dir)
+	if dir == "" {
+		return nil
+	}
+	var paths []string
+	for {
+		paths = append(paths, filepath.Join(dir, filepath.FromSlash(relative)))
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return paths
+		}
+		dir = parent
+	}
+}
+
+func expandRuntimePath(path, home string) string {
+	path = os.ExpandEnv(strings.TrimSpace(path))
+	if path == "~" {
+		return home
+	}
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
+	}
+	return path
+}
+
+func dedupeSortedPaths(paths []string) []string {
+	seen := make(map[string]bool, len(paths))
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		path = canonicalDir(path)
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		out = append(out, path)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func cleanEngineSessionRef(ref string) string {

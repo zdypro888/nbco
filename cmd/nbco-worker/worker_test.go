@@ -440,7 +440,11 @@ func TestCliArgs(t *testing.T) {
 
 func TestCliInvocationResumesKnownEngines(t *testing.T) {
 	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
-	codex := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo")
+	codexWorker := &Worker{cfg: Config{Engine: "codex"}}
+	codexFingerprint := codexWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo").RuntimeFingerprint
+	codex := codexWorker.cliInvocationFor(SessionInfo{
+		EngineSessionRef: ref, EngineRuntimeFingerprint: codexFingerprint, Workdir: "/tmp/repo",
+	}, "/tmp/repo")
 	if len(codex.Args) < 3 || codex.Args[0] != "resume" || codex.Args[len(codex.Args)-1] != ref || codex.ResumeRef != ref {
 		t.Fatalf("codex resume args = %+v", codex)
 	}
@@ -448,7 +452,11 @@ func TestCliInvocationResumesKnownEngines(t *testing.T) {
 		t.Fatalf("codex resume 仍必须是交互模式，不得用 exec: %v", codex.Args)
 	}
 
-	claude := (&Worker{cfg: Config{Engine: "claude"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo")
+	claudeWorker := &Worker{cfg: Config{Engine: "claude"}}
+	claudeFingerprint := claudeWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo").RuntimeFingerprint
+	claude := claudeWorker.cliInvocationFor(SessionInfo{
+		EngineSessionRef: ref, EngineRuntimeFingerprint: claudeFingerprint, Workdir: "/tmp/repo",
+	}, "/tmp/repo")
 	if !containsAllInOrder(claude.Args, "--resume", ref) || claude.ResumeRef != ref {
 		t.Fatalf("claude resume args = %+v", claude)
 	}
@@ -470,6 +478,35 @@ func TestCliInvocationResumesKnownEngines(t *testing.T) {
 	moved := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/old"}, "/tmp/new")
 	if moved.ResumeRef != "" || len(moved.Args) > 0 && moved.Args[0] == "resume" {
 		t.Fatalf("工作目录变化后不得恢复旧原生会话: %+v", moved)
+	}
+}
+
+func TestCliInvocationRotatesWhenRuntimeConfigurationChanges(t *testing.T) {
+	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
+	configFile := filepath.Join(t.TempDir(), "provider.toml")
+	if err := os.WriteFile(configFile, []byte("model = \"one\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	w := &Worker{cfg: Config{Engine: "codex", SessionRuntimeFiles: []string{configFile}}}
+	first := w.cliInvocationFor(SessionInfo{}, "/tmp/repo")
+	compatible := w.cliInvocationFor(SessionInfo{
+		EngineSessionRef: ref, EngineRuntimeFingerprint: first.RuntimeFingerprint, Workdir: "/tmp/repo",
+	}, "/tmp/repo")
+	if compatible.ResumeRef != ref {
+		t.Fatalf("unchanged runtime should resume: %+v", compatible)
+	}
+	if err := os.WriteFile(configFile, []byte("model = \"two\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rotated := w.cliInvocationFor(SessionInfo{
+		EngineSessionRef: ref, EngineRuntimeFingerprint: first.RuntimeFingerprint, Workdir: "/tmp/repo",
+	}, "/tmp/repo")
+	if rotated.ResumeRef != "" || rotated.RuntimeFingerprint == first.RuntimeFingerprint {
+		t.Fatalf("changed runtime must rotate native session: before=%+v after=%+v", first, rotated)
+	}
+	legacy := w.cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo")
+	if legacy.ResumeRef != "" {
+		t.Fatalf("session without a compatibility fingerprint must rotate once: %+v", legacy)
 	}
 }
 

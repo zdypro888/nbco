@@ -278,6 +278,8 @@ worker 不把所有任务塞进同一个 Claude/Codex 长会话；每个任务�
 }
 ```
 
+原生 CLI session 只在工作目录和 **engine runtime fingerprint** 同时一致时恢复。fingerprint 自动覆盖引擎、CLI 版本、启动参数、Codex/Claude 配置文件与相关环境变量；模型、provider、凭据来源或 CLI 版本变化后会开启新的原生 session，但仍保留相同 scope 的 workspace、摘要和中枢历史。自定义 harness 可用 `session_runtime_files` / `session_runtime_env` 把额外配置纳入指纹；服务端只保存 SHA-256，不接收文件内容或环境变量值。
+
 长期记忆由中枢托管并在领活时注入：worker 自我画像、监护人画像、该 worker 自己沉淀的经验、当前项目经验、主题会话摘要和全局相关知识。worker 本地配置只保存认证、引擎参数与可选 workspace 映射，不维护不可审计的独立记忆文件。
 
 生产升级这类高风险连续流程要反过来保证“一次尝试一个执行上下文”：不要把同一次 nbco 升级拆给多个 worker、多个 agent 或多条零散 worker 任务。优先用一个 command task 跑完整升级入口；如果需要 AI CLI 介入，也必须在一个 worker 任务的一次交互式 PTY session 里完成更新、测试、部署、健康检查与回滚判断。升级结束后该 session 仍按任务边界销毁，不跨任务保留。

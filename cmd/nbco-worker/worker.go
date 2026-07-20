@@ -277,7 +277,13 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 
 	sessionStartedAt := time.Now()
 	invocation := w.cliInvocationFor(task.Session, dir)
+	task.Session.EngineRuntimeFingerprint = invocation.RuntimeFingerprint
 	persistNewSession := invocation.ResumeRef == ""
+	if persistNewSession {
+		// Do not accidentally submit a stale ref if the fresh CLI fails before
+		// its new native session metadata becomes visible.
+		task.Session.EngineSessionRef = ""
+	}
 	if invocation.ResumeRef != "" {
 		log.Printf("worker 会话 #%d scope=%s 恢复 %s 原生会话 %s", task.Session.ID, task.Session.ScopeKey, w.cfg.Engine, invocation.ResumeRef)
 	}

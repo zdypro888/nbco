@@ -1067,14 +1067,15 @@ type workerFileJSON struct {
 }
 
 type workerSessionJSON struct {
-	ID               int64  `json:"id"`
-	Engine           string `json:"engine"`
-	ScopeType        string `json:"scope_type"`
-	ScopeKey         string `json:"scope_key"`
-	Title            string `json:"title"`
-	Workdir          string `json:"workdir,omitempty"`
-	EngineSessionRef string `json:"engine_session_ref,omitempty"`
-	Summary          string `json:"summary,omitempty"`
+	ID                       int64  `json:"id"`
+	Engine                   string `json:"engine"`
+	ScopeType                string `json:"scope_type"`
+	ScopeKey                 string `json:"scope_key"`
+	Title                    string `json:"title"`
+	Workdir                  string `json:"workdir,omitempty"`
+	EngineSessionRef         string `json:"engine_session_ref,omitempty"`
+	EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint,omitempty"`
+	Summary                  string `json:"summary,omitempty"`
 }
 
 // requireWorker 认证并要求是 worker 用户。
@@ -1921,7 +1922,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		"session": workerSessionJSON{
 			ID: ws.ID, Engine: ws.Engine, ScopeType: ws.ScopeType, ScopeKey: ws.ScopeKey,
 			Title: ws.Title, Workdir: ws.Workdir, EngineSessionRef: ws.EngineSessionRef,
-			Summary: ws.Summary,
+			EngineRuntimeFingerprint: ws.EngineRuntimeFingerprint, Summary: ws.Summary,
 		},
 	}
 	if err := writeJSON(w, http.StatusOK, map[string]any{
@@ -2051,16 +2052,18 @@ func (s *Server) handleWorkerSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		SessionSummary   string `json:"session_summary"`
-		EngineSessionRef string `json:"engine_session_ref"`
-		Workdir          string `json:"workdir"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		SessionSummary           string `json:"session_summary"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
+		Workdir                  string `json:"workdir"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || req.WorkerSessionID == 0 ||
-		strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.EngineSessionRef) == "" || strings.TrimSpace(req.Workdir) == "" {
+		strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.EngineSessionRef) == "" || strings.TrimSpace(req.Workdir) == "" ||
+		!validEngineRuntimeFingerprint(req.EngineRuntimeFingerprint) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id、worker_session_id、engine_session_ref 与 workdir 必填"})
 		return
 	}
@@ -2071,7 +2074,7 @@ func (s *Server) handleWorkerSession(w http.ResponseWriter, r *http.Request) {
 	}
 	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	if err := s.store.UpdateWorkerSessionForClaim(r.Context(), req.WorkerSessionID, u.ID, runID,
-		req.ClaimID, req.SessionSummary, req.EngineSessionRef, req.Workdir); err != nil {
+		req.ClaimID, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务 claim 或 worker 会话已失效"})
 			return
@@ -2082,14 +2085,30 @@ func (s *Server) handleWorkerSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
 }
 
-func (s *Server) persistFinalizedWorkerSession(ctx context.Context, workerSessionID, workerID, runID int64, claimID, finalizationID, summary, engineRef, workdir string) bool {
+func (s *Server) persistFinalizedWorkerSession(ctx context.Context, workerSessionID, workerID, runID int64, claimID, finalizationID, summary, engineRef, runtimeFingerprint, workdir string) bool {
 	if workerSessionID <= 0 {
 		return true
 	}
 	if err := s.store.UpdateWorkerSessionForFinalization(ctx, workerSessionID, workerID, runID,
-		claimID, finalizationID, summary, engineRef, workdir); err != nil {
+		claimID, finalizationID, summary, engineRef, runtimeFingerprint, workdir); err != nil {
 		slog.Warn("保存已最终化的 worker 会话失败", "worker", workerID, "run", runID, "session", workerSessionID, "err", err)
 		return false
+	}
+	return true
+}
+
+func validEngineRuntimeFingerprint(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return true // rolling compatibility with workers predating 0067
+	}
+	if len(value) != 64 {
+		return false
+	}
+	for _, c := range value {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
 	}
 	return true
 }
@@ -2100,26 +2119,28 @@ func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		FinalizationID   string `json:"finalization_id"`
-		Content          string `json:"content"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		SessionSummary   string `json:"session_summary"`
-		EngineSessionRef string `json:"engine_session_ref"`
-		Workdir          string `json:"workdir"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		FinalizationID           string `json:"finalization_id"`
+		Content                  string `json:"content"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		SessionSummary           string `json:"session_summary"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
+		Workdir                  string `json:"workdir"`
 	}
-	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Content) == "" {
+	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" ||
+		strings.TrimSpace(req.Content) == "" || !validEngineRuntimeFingerprint(req.EngineRuntimeFingerprint) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 content 必填"})
 		return
 	}
 	req.Content = truncateRunes(req.Content, 4000)
 	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	finalization := workerFinalization(req.FinalizationID, req.ClaimID, "request_input", struct {
-		Content, SessionSummary, EngineSessionRef, Workdir string
-		WorkerSessionID                                    int64
-	}{req.Content, req.SessionSummary, req.EngineSessionRef, req.Workdir, req.WorkerSessionID})
+		Content, SessionSummary, EngineSessionRef, EngineRuntimeFingerprint, Workdir string
+		WorkerSessionID                                                              int64
+	}{req.Content, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir, req.WorkerSessionID})
 	ctx := r.Context()
 	candidate := req.RunID
 	if candidate == 0 {
@@ -2140,7 +2161,7 @@ func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request
 		return
 	}
 	sessionSaved := s.persistFinalizedWorkerSession(ctx, req.WorkerSessionID, u.ID, runID,
-		req.ClaimID, finalization.ID, req.SessionSummary, req.EngineSessionRef, req.Workdir)
+		req.ClaimID, finalization.ID, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir)
 	if !replayed && s.bus != nil {
 		if task != nil && task.AssignerID != u.ID {
 			s.bus.EmitRequired("任务需要补充信息", task.AssignerID,
@@ -2164,26 +2185,28 @@ func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		FinalizationID   string `json:"finalization_id"`
-		Error            string `json:"error"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		SessionSummary   string `json:"session_summary"`
-		EngineSessionRef string `json:"engine_session_ref"`
-		Workdir          string `json:"workdir"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		FinalizationID           string `json:"finalization_id"`
+		Error                    string `json:"error"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		SessionSummary           string `json:"session_summary"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
+		Workdir                  string `json:"workdir"`
 	}
-	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Error) == "" {
+	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" ||
+		strings.TrimSpace(req.Error) == "" || !validEngineRuntimeFingerprint(req.EngineRuntimeFingerprint) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 error 必填"})
 		return
 	}
 	req.Error = truncateRunes(req.Error, 4000)
 	req.SessionSummary = truncateRunes(req.SessionSummary, 1200)
 	finalization := workerFinalization(req.FinalizationID, req.ClaimID, "fail", struct {
-		Error, SessionSummary, EngineSessionRef, Workdir string
-		WorkerSessionID                                  int64
-	}{req.Error, req.SessionSummary, req.EngineSessionRef, req.Workdir, req.WorkerSessionID})
+		Error, SessionSummary, EngineSessionRef, EngineRuntimeFingerprint, Workdir string
+		WorkerSessionID                                                            int64
+	}{req.Error, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir, req.WorkerSessionID})
 	ctx := r.Context()
 	candidate := req.RunID
 	if candidate == 0 {
@@ -2204,7 +2227,7 @@ func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionSaved := s.persistFinalizedWorkerSession(ctx, req.WorkerSessionID, u.ID, runID,
-		req.ClaimID, finalization.ID, req.SessionSummary, req.EngineSessionRef, req.Workdir)
+		req.ClaimID, finalization.ID, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir)
 	if !replayed && run.Status == store.WorkerRunAwaitingInput && s.bus != nil {
 		if task != nil && task.AssignerID != u.ID {
 			s.bus.EmitRequired("Worker 任务连续失败", task.AssignerID,
@@ -2229,22 +2252,24 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		FinalizationID   string `json:"finalization_id"`
-		Summary          string `json:"summary"`
-		Lessons          string `json:"lessons"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		SessionSummary   string `json:"session_summary"`
-		EngineSessionRef string `json:"engine_session_ref"`
-		Workdir          string `json:"workdir"`
-		Outcome          string `json:"outcome"`
-		ExitCode         *int   `json:"exit_code"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		FinalizationID           string `json:"finalization_id"`
+		Summary                  string `json:"summary"`
+		Lessons                  string `json:"lessons"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		SessionSummary           string `json:"session_summary"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
+		Workdir                  string `json:"workdir"`
+		Outcome                  string `json:"outcome"`
+		ExitCode                 *int   `json:"exit_code"`
 		// Deprecated rolling-upgrade input from workers older than 0063.
 		LegacyCommandExitCode *int `json:"command_exit_code"`
 	}
-	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Summary) == "" {
+	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" ||
+		strings.TrimSpace(req.Summary) == "" || !validEngineRuntimeFingerprint(req.EngineRuntimeFingerprint) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 summary 必填"})
 		return
 	}
@@ -2262,10 +2287,10 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	req.ExitCode = exitCode
 	finalization := workerFinalization(req.FinalizationID, req.ClaimID, "complete", struct {
-		Summary, Lessons, SessionSummary, EngineSessionRef, Workdir, Outcome string
-		ExitCode                                                             *int
-		WorkerSessionID                                                      int64
-	}{req.Summary, req.Lessons, req.SessionSummary, req.EngineSessionRef, req.Workdir, string(outcome), req.ExitCode, req.WorkerSessionID})
+		Summary, Lessons, SessionSummary, EngineSessionRef, EngineRuntimeFingerprint, Workdir, Outcome string
+		ExitCode                                                                                       *int
+		WorkerSessionID                                                                                int64
+	}{req.Summary, req.Lessons, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir, string(outcome), req.ExitCode, req.WorkerSessionID})
 	ctx := r.Context()
 	candidate := req.RunID
 	if candidate == 0 {
@@ -2292,7 +2317,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionSaved := s.persistFinalizedWorkerSession(ctx, req.WorkerSessionID, u.ID, runID,
-		req.ClaimID, finalization.ID, sessionSummary, req.EngineSessionRef, req.Workdir)
+		req.ClaimID, finalization.ID, sessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir)
 	if !replayed && task != nil && task.Status == store.TaskAccepted {
 		tools.FireReadyDependents(ctx, s.deps, task.ID)
 		for _, c := range chain {

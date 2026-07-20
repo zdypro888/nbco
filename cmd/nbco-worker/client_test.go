@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zdypro888/nbco/workerproto"
@@ -94,13 +95,14 @@ func TestClientHeartbeatReportsLostLease(t *testing.T) {
 
 func TestClientRequestInput(t *testing.T) {
 	var body struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		Content          string `json:"content"`
-		FinalizationID   string `json:"finalization_id"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		EngineSessionRef string `json:"engine_session_ref"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		Content                  string `json:"content"`
+		FinalizationID           string `json:"finalization_id"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/worker/request-input" {
@@ -118,28 +120,29 @@ func TestClientRequestInput(t *testing.T) {
 	defer srv.Close()
 
 	err := newClient(srv.URL, "tok-worker-a").RequestInput(context.Background(), 42, "claim-1", "请提供 repo URL",
-		SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"}, "/tmp/repo")
+		SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f", EngineRuntimeFingerprint: strings.Repeat("a", 64)}, "/tmp/repo")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if body.RunID != 42 || body.TaskID != 42 || body.ClaimID != "claim-1" || body.Content != "请提供 repo URL" || body.FinalizationID == "" {
 		t.Fatalf("request body = %+v", body)
 	}
-	if body.WorkerSessionID != 9 || body.EngineSessionRef == "" {
+	if body.WorkerSessionID != 9 || body.EngineSessionRef == "" || body.EngineRuntimeFingerprint != strings.Repeat("a", 64) {
 		t.Fatalf("request input must persist worker session: %+v", body)
 	}
 }
 
 func TestClientFailCarriesClaimAndSession(t *testing.T) {
 	var body struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		Error            string `json:"error"`
-		FinalizationID   string `json:"finalization_id"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		EngineSessionRef string `json:"engine_session_ref"`
-		Workdir          string `json:"workdir"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		Error                    string `json:"error"`
+		FinalizationID           string `json:"finalization_id"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
+		Workdir                  string `json:"workdir"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/worker/fail" {
@@ -152,12 +155,12 @@ func TestClientFailCarriesClaimAndSession(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	session := SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"}
+	session := SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f", EngineRuntimeFingerprint: strings.Repeat("a", 64)}
 	if err := newClient(srv.URL, "tok-worker-a").Fail(context.Background(), 42, "claim-1", "agent crashed", session, "/tmp/repo"); err != nil {
 		t.Fatal(err)
 	}
 	if body.RunID != 42 || body.TaskID != 42 || body.ClaimID != "claim-1" || body.Error != "agent crashed" ||
-		body.WorkerSessionID != 9 || body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" || body.FinalizationID == "" {
+		body.WorkerSessionID != 9 || body.EngineSessionRef == "" || body.EngineRuntimeFingerprint != strings.Repeat("a", 64) || body.Workdir != "/tmp/repo" || body.FinalizationID == "" {
 		t.Fatalf("fail body = %+v", body)
 	}
 }
@@ -230,12 +233,13 @@ func TestClientSubmitRejectsMissingOutcome(t *testing.T) {
 
 func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
 	var body struct {
-		RunID            int64  `json:"run_id"`
-		TaskID           int64  `json:"task_id"`
-		ClaimID          string `json:"claim_id"`
-		WorkerSessionID  int64  `json:"worker_session_id"`
-		EngineSessionRef string `json:"engine_session_ref"`
-		Workdir          string `json:"workdir"`
+		RunID                    int64  `json:"run_id"`
+		TaskID                   int64  `json:"task_id"`
+		ClaimID                  string `json:"claim_id"`
+		WorkerSessionID          int64  `json:"worker_session_id"`
+		EngineSessionRef         string `json:"engine_session_ref"`
+		EngineRuntimeFingerprint string `json:"engine_runtime_fingerprint"`
+		Workdir                  string `json:"workdir"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/worker/session" {
@@ -248,12 +252,12 @@ func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	session := SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"}
+	session := SessionInfo{ID: 9, EngineSessionRef: "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f", EngineRuntimeFingerprint: strings.Repeat("a", 64)}
 	if err := newClient(srv.URL, "tok-worker-a").UpdateSession(context.Background(), 42, "claim-1", session, "/tmp/repo"); err != nil {
 		t.Fatal(err)
 	}
 	if body.RunID != 42 || body.TaskID != 42 || body.ClaimID != "claim-1" || body.WorkerSessionID != 9 ||
-		body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" {
+		body.EngineSessionRef == "" || body.EngineRuntimeFingerprint != strings.Repeat("a", 64) || body.Workdir != "/tmp/repo" {
 		t.Fatalf("session body = %+v", body)
 	}
 }

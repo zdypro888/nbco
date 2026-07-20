@@ -15,6 +15,20 @@ import (
 	"github.com/zdypro888/nbco/workerproto"
 )
 
+func TestValidEngineRuntimeFingerprint(t *testing.T) {
+	valid := strings.Repeat("a1", 32)
+	for _, value := range []string{"", valid, strings.ToUpper(valid), "  " + valid + "  "} {
+		if !validEngineRuntimeFingerprint(value) {
+			t.Fatalf("fingerprint should be valid: %q", value)
+		}
+	}
+	for _, value := range []string{"abc", strings.Repeat("a", 63), strings.Repeat("a", 65), strings.Repeat("g", 64), strings.Repeat("-", 64)} {
+		if validEngineRuntimeFingerprint(value) {
+			t.Fatalf("fingerprint should be invalid: %q", value)
+		}
+	}
+}
+
 func TestResolveWorkerSubmissionOutcome(t *testing.T) {
 	zero, seven := 0, 7
 	tests := []struct {
