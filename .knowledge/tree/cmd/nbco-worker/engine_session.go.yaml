@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/engine_session.go
         symbol: Worker.engineRuntimeFingerprint
-        hash: sha256:52574b88b11344b486224206fcad076920ef6662a966ab372a648c4eed1f4b62
-        struct_hash: sha256:6986972746398ccbfc2b04fd5255c7a611553ffe08abdc9270b37e465687a0a4
-        doc_struct_hash: sha256:290f8e48b23dfe8d2d217ef3657c28100b3b3aeefe90823b6cb09e589643dd19
-        lines: [65, 99]
+        hash: sha256:d440d3e0c753f52871164287bc9fedcbadb380b0337e275a63264fcab7db6691
+        struct_hash: sha256:b330debab06323730207b8fd2d0b27da7c45098188842216282b5fd580e8bdc9
+        doc_struct_hash: sha256:1e4d80b109b35014ea253f0f3a66d7eb8fe5b8435f8eb9359bb8279790ce1d93
+        lines: [67, 101]
       status: undigested
       since: 2026-07-20T18:06:32.545764Z
     - id: cmd/nbco-worker/engine_session.go#Worker.engineRuntimeFiles
@@ -261,3 +261,14 @@ nodes:
         lines: [401, 408]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/engine_session.go#fingerprintCodexConfig
+      level: function
+      anchor:
+        file: cmd/nbco-worker/engine_session.go
+        symbol: fingerprintCodexConfig
+        hash: sha256:f6f13d83d230e846fec8fb183e31dfdbd44ec48aed8ef16122e0281f63ab1fa1
+        struct_hash: sha256:cc5c9db748d275d38cc45bfda448655622014455cb2ebf7458a57b9a6b900625
+        doc_struct_hash: sha256:bc8fdfc382347265d88ad1364befea8deb5e35269792269b48a261690844e7c1
+        lines: [123, 149]
+      status: fresh
+      since: 2026-07-20T18:19:17.316014Z

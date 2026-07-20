@@ -28,9 +28,11 @@ const (
 	ackRetryInterval  = 2 * time.Second  // 首次交付确认遇到不确定网络结果时幂等重试
 	progressInterval  = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
 	progressTail      = 25               // 每次快照回传的屏幕行数
-	maxNudges         = 2                // 未按格式收尾时的补提醒次数
+	maxStalledTurns   = 3                // 连续无可见进展才判卡；有进展的交互不限制轮数
 	taskIORelDir      = ".nbco-task/current"
 )
+
+var errAgentNoProgress = errors.New("Agent 连续多个交互回合没有产生可见进展")
 
 // 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
 // 避免任务描述里提前注入固定标记后被 parseCompletion 误认成完成输出。
@@ -322,15 +324,17 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 	go w.relayProgress(ctx, task.ID, task.ClaimID, sess, stopProg)
 
 	screen, werr := sess.submitAndWait(runCtx, prompt, w.wait)
-	summary, lessons, ok := parseCompletionWithMarks(screen, marks)
-	question, needsInput := parseInputRequestWithMarks(screen, marks)
-	// 长任务可能触发 CLI 上下文压缩，把开头的收尾要求挤掉——用简短提醒补一轮。
-	for n := 0; !ok && !needsInput && werr == nil && n < maxNudges; n++ {
-		log.Printf("任务 #%d 未按格式收尾，补提醒（%d/%d）", task.ID, n+1, maxNudges)
-		screen, werr = sess.submitAndWait(runCtx, completionNudgeWithMarks(marks), w.wait)
-		summary, lessons, ok = parseCompletionWithMarks(screen, marks)
-		question, needsInput = parseInputRequestWithMarks(screen, marks)
-	}
+	turns := 1
+	var summary, lessons, question string
+	var ok, needsInput bool
+	screen, summary, lessons, question, ok, needsInput, werr = driveAgentTurns(
+		screen, werr, marks,
+		func(continuation string) (string, error) {
+			turns++
+			log.Printf("任务 #%d 尚未收尾，继续自主执行（交互回合 %d）", task.ID, turns)
+			return sess.submitAndWait(runCtx, continuation, w.wait)
+		},
+	)
 
 	// 被服务端取消（任务已删或改派）：报告后直接退出，不上传不提交。
 	if w.killed() {
@@ -384,6 +388,44 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 	}
 	log.Printf("任务 #%d 已提交结果", task.ID)
 	w.handoffDeferredRestart()
+}
+
+// driveAgentTurns turns an interactive CLI into a task-level agent loop. A
+// model may legitimately end one chat turn after describing or performing an
+// intermediate step; that is not task completion. As long as the rendered
+// terminal keeps changing, the worker asks it to continue and lets the outer
+// task context own the wall-clock bound. Only repeated identical terminal
+// states are treated as a stalled agent.
+func driveAgentTurns(initial string, initialErr error, marks completionMarks, submit func(string) (string, error)) (
+	screen, summary, lessons, question string, ok, needsInput bool, err error,
+) {
+	screen, err = initial, initialErr
+	lastProgress := agentTurnFingerprint(screen)
+	stalled := 0
+	for {
+		summary, lessons, ok = parseCompletionWithMarks(screen, marks)
+		question, needsInput = parseInputRequestWithMarks(screen, marks)
+		if ok || needsInput || err != nil {
+			return
+		}
+
+		next, submitErr := submit(agentContinuationWithMarks(marks))
+		fingerprint := agentTurnFingerprint(next)
+		if fingerprint == lastProgress {
+			stalled++
+		} else {
+			stalled = 0
+			lastProgress = fingerprint
+		}
+		screen, err = next, submitErr
+		if err == nil && stalled >= maxStalledTurns {
+			err = errAgentNoProgress
+		}
+	}
+}
+
+func agentTurnFingerprint(screen string) string {
+	return strings.Join(strings.Fields(denoise(tailLines(screen, 32))), " ")
 }
 
 func (w *Worker) keepRunLease(ctx context.Context, run *Run) {
@@ -891,14 +933,13 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 	return b.String()
 }
 
-// completionNudgeWithMarks repeats this run's nonce-bearing protocol after a
-// long CLI session compacts the original prompt. Placeholder text is deliberate:
-// the parsers recognize it as terminal echo and only accept the agent's later
-// filled block.
-func completionNudgeWithMarks(marks completionMarks) string {
-	return fmt.Sprintf("请现在按下面的精确标记收尾，每个标记独占一行。\n"+
-		"已完成时：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
-		"只有被分配者才能提供的信息确实阻塞时：\n%s\n（一个具体、可直接回答的问题）\n%s",
+// agentContinuationWithMarks repeats the nonce-bearing result contract while
+// asking the CLI to keep working. It deliberately does not demand immediate
+// closure: ending one model turn is not proof that the assigned task is done.
+func agentContinuationWithMarks(marks completionMarks) string {
+	return fmt.Sprintf("继续自主推进当前任务。检查已有结果与验收标准，立即执行仍缺少的步骤和验证，不要只描述下一步计划。\n"+
+		"任务确实完成后，最后输出：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
+		"只有缺少分配者才能提供的关键信息时，输出：\n%s\n（一个具体、可直接回答的问题）\n%s",
 		marks.Summary, marks.Lessons, marks.End, marks.NeedInput, marks.End)
 }
 

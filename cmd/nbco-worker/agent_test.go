@@ -137,11 +137,11 @@ func TestExecuteBuiltinRunsCommandAndSubmits(t *testing.T) {
 	}
 }
 
-// 模型光说不练：提醒 maxNudges 次后按失败退避，不把未验证发言当完成提交。
+// 模型连续光说不练时按卡死失败，不把未验证发言当完成提交。
 func TestExecuteBuiltinNoToolFallback(t *testing.T) {
 	talk := chatMessage{Role: "assistant", Content: "我认为任务已经完成了"}
-	script := make([]chatMessage, 0, maxNudges+1)
-	for i := 0; i <= maxNudges; i++ {
+	script := make([]chatMessage, 0, agentNoToolTurns)
+	for range agentNoToolTurns {
 		script = append(script, talk)
 	}
 	hub := &fakeHub{script: script}
@@ -152,8 +152,8 @@ func TestExecuteBuiltinNoToolFallback(t *testing.T) {
 	task := &Run{ID: 8, ClaimID: "claim8", Title: "空谈任务"}
 	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
 
-	if hub.llmCalls != maxNudges+1 {
-		t.Fatalf("应在 %d 次后收尾, got %d", maxNudges+1, hub.llmCalls)
+	if hub.llmCalls != agentNoToolTurns {
+		t.Fatalf("应在 %d 次后收尾, got %d", agentNoToolTurns, hub.llmCalls)
 	}
 	if hub.summary != "" {
 		t.Fatalf("未验证任务不应提交完成, got %q", hub.summary)

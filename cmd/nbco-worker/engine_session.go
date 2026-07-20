@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type cliInvocation struct {
@@ -79,7 +81,7 @@ func (w *Worker) engineRuntimeFingerprint(dir string) string {
 
 	files := make([]runtimeFingerprintFile, 0)
 	for _, path := range w.engineRuntimeFiles(engine, dir) {
-		files = append(files, fingerprintFile(path))
+		files = append(files, w.fingerprintRuntimeFile(engine, path))
 	}
 	environment := w.engineRuntimeEnvironment(engine)
 	payload := struct {
@@ -96,6 +98,60 @@ func (w *Worker) engineRuntimeFingerprint(dir string) string {
 	}
 	raw, _ := json.Marshal(payload)
 	return fmt.Sprintf("%x", sha256.Sum256(raw))
+}
+
+func (w *Worker) fingerprintRuntimeFile(engine, path string) runtimeFingerprintFile {
+	if engine == "codex" && w.isCodexConfigPath(path) {
+		return fingerprintCodexConfig(path)
+	}
+	return fingerprintFile(path)
+}
+
+func (w *Worker) isCodexConfigPath(path string) bool {
+	home, _ := os.UserHomeDir()
+	codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+	if codexHome == "" {
+		codexHome = filepath.Join(home, ".codex")
+	}
+	path = canonicalDir(path)
+	if path == canonicalDir(filepath.Join(codexHome, "config.toml")) {
+		return true
+	}
+	return strings.HasSuffix(filepath.ToSlash(path), "/.codex/config.toml")
+}
+
+// fingerprintCodexConfig excludes local UI bookkeeping and trust acknowledgements
+// which Codex rewrites during normal startup. Model, provider, features, sandbox,
+// MCP and every other runtime-affecting setting remain in the canonical digest.
+// Without this semantic normalization, an unrelated TUI counter would rotate the
+// native session on every task and defeat continuity.
+func fingerprintCodexConfig(path string) runtimeFingerprintFile {
+	path = canonicalDir(path)
+	entry := runtimeFingerprintFile{Path: path, State: "missing"}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			entry.State = "unreadable"
+		}
+		return entry
+	}
+	var cfg map[string]any
+	if err := toml.Unmarshal(raw, &cfg); err != nil {
+		return fingerprintBytes(entry, raw, "present_raw")
+	}
+	delete(cfg, "projects")
+	delete(cfg, "tui")
+	canonical, err := json.Marshal(cfg)
+	if err != nil {
+		return fingerprintBytes(entry, raw, "present_raw")
+	}
+	return fingerprintBytes(entry, canonical, "present")
+}
+
+func fingerprintBytes(entry runtimeFingerprintFile, data []byte, state string) runtimeFingerprintFile {
+	entry.State = state
+	entry.Digest = fmt.Sprintf("%x", sha256.Sum256(data))
+	return entry
 }
 
 func (w *Worker) engineRuntimeFiles(engine, dir string) []string {

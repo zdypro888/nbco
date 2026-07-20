@@ -24,6 +24,7 @@ const (
 	agentCmdTimeoutMax = 30 * time.Minute // run_command 可指定的最大时限
 	agentToolOutLimit  = 12 << 10         // 单条命令输出喂回模型的截断（保尾部）
 	agentThoughtLimit  = 2000             // 模型阶段性说明记进度时的截断
+	agentNoToolTurns   = 3                // 连续只叙述、不执行时的卡死判定
 
 	// agentTranscriptBudget 每轮发送给模型的对话正文字节预算：长任务的工具输出
 	// 全量累积会撑爆（本地）模型上下文，超预算时压缩早期工具输出。
@@ -135,7 +136,7 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 				w.report(ctx, task.ID, task.ClaimID, "💭 "+clipHead(t, agentThoughtLimit))
 			}
 			noTool++
-			if noTool > maxNudges {
+			if noTool >= agentNoToolTurns {
 				w.failTask(ctx, task, "内置智能体多次未调用执行或完成工具，无法确认任务完成", task.Session, dir)
 				return
 			}

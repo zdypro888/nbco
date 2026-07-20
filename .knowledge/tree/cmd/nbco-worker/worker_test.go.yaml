@@ -525,3 +525,14 @@ nodes:
         lines: [976, 984]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker_test.go#TestCodexRuntimeFingerprintIgnoresStartupBookkeeping
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestCodexRuntimeFingerprintIgnoresStartupBookkeeping
+        hash: sha256:9fd2d2346ca7889661e26c7bb100e5e87372d1fda6118ac7efbbc7fa5a8f1730
+        struct_hash: sha256:cafb8fd5ef95ed1bb53cd6fd9d0db3d426f797afd59b6cc4fa54fae06f804b12
+        doc_struct_hash: sha256:cafb8fd5ef95ed1bb53cd6fd9d0db3d426f797afd59b6cc4fa54fae06f804b12
+        lines: [563, 585]
+      status: fresh
+      since: 2026-07-20T18:19:17.319804Z

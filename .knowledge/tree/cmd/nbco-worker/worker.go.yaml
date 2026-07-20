@@ -310,10 +310,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: Worker.execute
-        hash: sha256:251d3fec5856e19f258c2146df7e0053f6ab6765876d1f7963da5ce72bb2d867
-        struct_hash: sha256:5f7b473037ca37b03b6f7c706f0c4cce2ab1d940bcab9cb187f458f24a3bff24
-        doc_struct_hash: sha256:9aebfc94f17c24e9a54b4f0a849da21f3bdde71032105f02ec29df10eb2a8f0d
-        lines: [242, 387]
+        hash: sha256:cc46ac24fd0c47ba91e5d31a31166e498687f6f13282d9bc8c39e45fe0a855d9
+        struct_hash: sha256:345fda277d88818863cb98acec4f24837dce11821e21a414bfbdd892fad544a6
+        doc_struct_hash: sha256:a9c72336290a7de71bdffb4a9c68b13d9de925a45bc98472da81b3e78a6c7d79
+        lines: [244, 391]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker.go#Worker.keepRunLease
@@ -668,3 +668,25 @@ nodes:
         lines: [962, 965]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/worker.go#driveAgentTurns
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker.go
+        symbol: driveAgentTurns
+        hash: sha256:b1edb8d1abca766648f50f32cb50c18f90fbc9f02f02b8bb5a434713370afcca
+        struct_hash: sha256:90dbf15dc7a8eccbd125062c384c2c6034d29d29e389a78a17da8ea646a8d39a
+        doc_struct_hash: sha256:9b0ece9e15839e326b1c9ee69f1564b4cb512a814b0411c1e103a3983c3bfa39
+        lines: [393, 425]
+      status: fresh
+      since: 2026-07-20T18:19:16.834966Z
+    - id: cmd/nbco-worker/worker.go#agentContinuationWithMarks
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker.go
+        symbol: agentContinuationWithMarks
+        hash: sha256:0621a4667fb9a130f083778e1a95364264edd14b5bb07cca9ccd5966e11980c3
+        struct_hash: sha256:fc5c5d76686c97225ea5d4440c1b2486b24ecaf825af08673c33374e5d9d688d
+        doc_struct_hash: sha256:d112c47a34bd8c375c272f4162fecdbaa30532319e148c99614d75d46d0b7000
+        lines: [936, 944]
+      status: fresh
+      since: 2026-07-20T18:19:16.838036Z

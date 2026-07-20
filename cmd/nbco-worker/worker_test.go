@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -406,12 +407,12 @@ func TestLimitedBufferKeepsTail(t *testing.T) {
 	}
 }
 
-func TestCompletionNudgeRepeatsNonceWithoutParsingItsEcho(t *testing.T) {
+func TestAgentContinuationRepeatsNonceWithoutParsingItsEcho(t *testing.T) {
 	marks := completionMarks{
 		Summary: "<<<SUMMARY:nonce>>>", Lessons: "<<<LESSONS:nonce>>>",
 		NeedInput: "<<<NEED_INPUT:nonce>>>", End: "<<<END:nonce>>>",
 	}
-	nudge := completionNudgeWithMarks(marks)
+	nudge := agentContinuationWithMarks(marks)
 	for _, mark := range []string{marks.Summary, marks.Lessons, marks.NeedInput, marks.End} {
 		if !strings.Contains(nudge, mark) {
 			t.Fatalf("补提醒缺少本轮随机标记: %q", mark)
@@ -422,6 +423,55 @@ func TestCompletionNudgeRepeatsNonceWithoutParsingItsEcho(t *testing.T) {
 	}
 	if _, ok := parseInputRequestWithMarks(nudge, marks); ok {
 		t.Fatal("补提醒回显不能被误判为补充信息请求")
+	}
+}
+
+func TestDriveAgentTurnsContinuesWhileProgressing(t *testing.T) {
+	marks := completionMarks{
+		Summary: "<<<SUMMARY:loop>>>", Lessons: "<<<LESSONS:loop>>>",
+		NeedInput: "<<<NEED_INPUT:loop>>>", End: "<<<END:loop>>>",
+	}
+	screens := []string{
+		"第二步：已查到第一项资料",
+		"第三步：正在交叉验证",
+		"第四步：已完成验证",
+		marks.Summary + "\n已查询并核验全部比赛\n" + marks.Lessons + "\n无\n" + marks.End,
+	}
+	calls := 0
+	screen, summary, lessons, question, ok, needsInput, err := driveAgentTurns("第一步：开始检索", nil, marks,
+		func(prompt string) (string, error) {
+			if !strings.Contains(prompt, "继续自主推进") {
+				t.Fatalf("continuation prompt = %q", prompt)
+			}
+			out := screens[calls]
+			calls++
+			return out, nil
+		})
+	if err != nil || !ok || needsInput || summary != "已查询并核验全部比赛" || lessons != "" || question != "" {
+		t.Fatalf("unexpected result: screen=%q summary=%q lessons=%q question=%q ok=%v input=%v err=%v",
+			screen, summary, lessons, question, ok, needsInput, err)
+	}
+	if calls != len(screens) || calls <= 2 {
+		t.Fatalf("progressing agent should continue beyond the old fixed nudge limit: calls=%d", calls)
+	}
+}
+
+func TestDriveAgentTurnsStopsOnlyAfterRepeatedNoProgress(t *testing.T) {
+	marks := completionMarks{
+		Summary: "<<<SUMMARY:stall>>>", Lessons: "<<<LESSONS:stall>>>",
+		NeedInput: "<<<NEED_INPUT:stall>>>", End: "<<<END:stall>>>",
+	}
+	calls := 0
+	_, _, _, _, ok, needsInput, err := driveAgentTurns("只描述计划", nil, marks,
+		func(string) (string, error) {
+			calls++
+			return "只描述计划", nil
+		})
+	if !errors.Is(err, errAgentNoProgress) || ok || needsInput {
+		t.Fatalf("expected no-progress failure, ok=%v input=%v err=%v", ok, needsInput, err)
+	}
+	if calls != maxStalledTurns {
+		t.Fatalf("calls=%d want %d", calls, maxStalledTurns)
 	}
 }
 
@@ -507,6 +557,30 @@ func TestCliInvocationRotatesWhenRuntimeConfigurationChanges(t *testing.T) {
 	legacy := w.cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo")
 	if legacy.ResumeRef != "" {
 		t.Fatalf("session without a compatibility fingerprint must rotate once: %+v", legacy)
+	}
+}
+
+func TestCodexRuntimeFingerprintIgnoresStartupBookkeeping(t *testing.T) {
+	codexHome := t.TempDir()
+	t.Setenv("CODEX_HOME", codexHome)
+	configFile := filepath.Join(codexHome, "config.toml")
+	writeConfig := func(model string, counter int) {
+		t.Helper()
+		body := fmt.Sprintf("model = %q\nmodel_provider = \"nbco_ai\"\n\n[model_providers.nbco_ai]\nbase_url = \"https://ai.example/v1\"\nwire_api = \"responses\"\n\n[projects.\"/tmp/repo\"]\ntrust_level = \"trusted\"\n\n[tui.model_availability_nux]\n\"gpt-test\" = %d\n", model, counter)
+		if err := os.WriteFile(configFile, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := &Worker{cfg: Config{Engine: "codex"}}
+	writeConfig("model-one", 1)
+	first := w.engineRuntimeFingerprint("/tmp/repo")
+	writeConfig("model-one", 9)
+	if got := w.engineRuntimeFingerprint("/tmp/repo"); got != first {
+		t.Fatalf("TUI/trust startup bookkeeping must not rotate a native session: before=%s after=%s", first, got)
+	}
+	writeConfig("model-two", 9)
+	if got := w.engineRuntimeFingerprint("/tmp/repo"); got == first {
+		t.Fatal("model/provider runtime changes must rotate a native session")
 	}
 }
 
