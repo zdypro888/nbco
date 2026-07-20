@@ -45,12 +45,19 @@ nodes:
           at: 2026-07-19T19:27:16.898925Z
           confirmed_at: 2026-07-19T22:19:37.204734Z
           author: codex-mcp-client
+        - id: e_7ff5a228
+          kind: contract
+          text: 动作账本只基于实际 tool trace：ExpectedTools 记录尝试过的写入/执行工具；actionTurnOutcome 优先识别待审批，其次识别最终成功的 ExpectedTools。先失败后同轮恢复成功应记 action_tool_returned，早期失败仍完整保留在 tool_evidence；若动作工具始终失败，即使只读工具成功也记 tool_handler_error。
+          confidence: inferred
+          at: 2026-07-20T02:48:10.570001Z
+          author: codex-mcp-client
       keywords:
-        - action_turns
-        - answered_without_tool
-        - pending execution
-        - 执行契约
-        - expected tools
+        - 工具恢复
+        - 部分失败
+        - action_tool_returned
+        - tool_handler_error
+        - 审计归类
+        - tool evidence
     - id: chat/action_plan.go#toolNames
       level: function
       anchor:

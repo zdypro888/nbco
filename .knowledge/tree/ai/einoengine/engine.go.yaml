@@ -244,14 +244,16 @@ nodes:
         - id: e_e3a9ecfd
           kind: contract
           text: req.Tools 全部注册为 Eino toolsearch.DynamicTools；Deep Agent 使用 Eino 原生停止条件，普通 assistant 文本就是合法最终答复，不再注入 final_response、forced tool choice 或语义协议重试。turnToolMiddleware 只保留当前真实用户轮次经 tool_search 命中的业务 schema并统计暴露量；modelRetryConfig 仅重试瞬时传输/服务错误。
-          confidence: inferred
+          confidence: verified
           at: 2026-07-19T22:19:00.81772Z
+          confirmed_at: 2026-07-20T02:48:02.365434Z
           author: codex-mcp-client
         - id: e_1956c25f
           kind: pitfall
           text: Eino toolsearch 会把延迟工具选择写入持久会话；turnToolMiddleware 必须位于 toolsearch 之后，并按最后一个非 reminder 的真实 user 边界过滤当前轮未重新选中的业务 schema。移除或调换顺序会让旧轮次工具重新泄漏到模型上下文。
-          confidence: inferred
+          confidence: verified
           at: 2026-07-19T22:19:05.469949Z
+          confirmed_at: 2026-07-20T02:48:02.173123Z
           author: codex-mcp-client
       keywords:
         - tool_search
