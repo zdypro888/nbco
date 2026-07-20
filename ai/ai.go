@@ -19,12 +19,20 @@ import (
 type Tool struct {
 	Name        string
 	Description string
-	// Domain 是稳定的能力领域标识（people/work/workers/...）。编排器用它做
-	// 语义路由；外部工具未声明时归入 extension。
+	// Domain 是稳定的能力领域标识（people/work/workers/...），供能力检索、
+	// 展示和审计使用；外部工具未声明时归入 extension。
 	Domain string
-	// Effect 描述工具的外部影响，供路由、审计和动作证据判断使用。
+	// Effect 描述工具的外部影响，供能力检索、审计和动作证据判断使用。
 	// 未声明的第三方工具按 unknown 处理。
 	Effect string
+	// LoadMode separates authorization from cognitive exposure. Authorized tools
+	// remain executable, while only immediate tools and turn-relevant deferred
+	// tools expose their full schema to the model.
+	LoadMode ToolLoadMode
+	// Completion describes what a successful handler return means. Most tools
+	// complete synchronously; worker and workflow dispatchers only accept durable
+	// asynchronous work and must not be presented as already finished.
+	Completion ToolCompletion
 	// RequiredAction 声明调用工具所需的主动权限。空值表示沿用内建工具权限
 	// 注册表；外部工具应显式声明，"superadmin" 表示仅超级管理员可用。
 	RequiredAction string
@@ -47,6 +55,26 @@ const (
 	ToolEffectWrite   = "write"
 	ToolEffectExecute = "execute"
 	ToolEffectUnknown = "unknown"
+)
+
+// ToolLoadMode controls when an authorized tool schema enters the model's
+// working set. The zero value is deferred so new tools remain scalable by
+// default; immediate is reserved for a very small, generic capability kernel.
+type ToolLoadMode string
+
+const (
+	ToolLoadDeferred  ToolLoadMode = ""
+	ToolLoadImmediate ToolLoadMode = "immediate"
+)
+
+// ToolCompletion describes the lifecycle represented by a successful tool
+// handler return. It is metadata about the operation, not an agent completion
+// protocol.
+type ToolCompletion string
+
+const (
+	ToolCompletionImmediate    ToolCompletion = ""
+	ToolCompletionAsynchronous ToolCompletion = "asynchronous"
 )
 
 // Role 消息角色。
@@ -81,11 +109,12 @@ const (
 
 // Step 一次引擎轮次内的执行轨迹条目，用于审计与回放。
 type Step struct {
-	Kind     StepKind
-	ToolName string
-	Args     json.RawMessage
-	Result   string
-	Err      string
+	Kind       StepKind
+	ToolName   string
+	Args       json.RawMessage
+	Result     string
+	Err        string
+	Completion ToolCompletion
 }
 
 // Usage 一轮的用量统计（能取到多少记多少，取不到为零值）。
@@ -118,6 +147,16 @@ const (
 	TurnModeOneShot TurnMode = "one_shot"
 )
 
+// ReasoningMode controls provider reasoning for a specific call. Product Deep
+// turns use the configured default; bounded internal selectors can disable
+// reasoning when the provider supports it.
+type ReasoningMode string
+
+const (
+	ReasoningDefault  ReasoningMode = ""
+	ReasoningDisabled ReasoningMode = "disabled"
+)
+
 // TurnRequest 一轮对话请求。
 type TurnRequest struct {
 	// Mode selects the orchestration profile. Empty defaults to TurnModeDeep.
@@ -144,6 +183,11 @@ type TurnRequest struct {
 	Model string
 	// Tools 本轮可用工具集（已按用户权限裁剪）。
 	Tools []Tool
+	// PreferredTools is a relevance-ranked subset of Tools whose schemas should
+	// be visible on the first model iteration. It is only a cognitive retrieval
+	// hint: it grants no permission, does not restrict the full catalog, and the
+	// native tool_search path remains available for every deferred tool.
+	PreferredTools []string
 	// Skills 是已按语义相关性和用户/渠道作用域裁剪的候选执行方法。
 	// 引擎只暴露元数据，由模型按需加载完整 Content。
 	Skills []Skill
@@ -158,6 +202,15 @@ type TurnRequest struct {
 	// StreamReasoning 为 true 时，OnDelta 会包含模型 ReasoningContent；默认 false，
 	// 只流式展示最终正文，避免把内部推理暴露给用户。
 	StreamReasoning bool
+	// MaxOutputTokens bounds this call independently from the engine default.
+	// It is primarily used by internal OneShot selectors and extractors.
+	MaxOutputTokens int
+	// Reasoning controls provider reasoning for this call. Unsupported providers
+	// keep their normal behavior.
+	Reasoning ReasoningMode
+	// JSONOutput asks compatible providers for a JSON object. Callers must still
+	// validate the decoded structure and all selected identifiers.
+	JSONOutput bool
 }
 
 // TurnResult 一轮对话结果。

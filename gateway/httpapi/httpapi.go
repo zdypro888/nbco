@@ -645,7 +645,13 @@ func (s *Server) handleAdminStartWorkflow(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "启动工作流失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"result": out})
+	response := map[string]any{"result": out}
+	if result, ok := tools.ParseToolResult(out); ok {
+		response["result"] = result.Message
+		response["status"] = result.Status
+		response["completion"] = result.Completion
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 // engineHealth 返回引擎连续失败数与最近错误，供超管在 /api/admin/ops 看引擎是否挂了。

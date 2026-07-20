@@ -41,3 +41,25 @@ nodes:
         lines: [170, 180]
       status: fresh
       since: 2026-07-20T02:42:24.652963Z
+    - id: ai/einoengine/tool_scope.go#newTurnToolMiddleware
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: newTurnToolMiddleware
+        hash: sha256:98e73497e8292a80a54a3c24a3443f0eac3052ea8d5e32ad76cf8a80eb8faa58
+        struct_hash: sha256:915f405aafc2bf4e58b25fc8371eb634ba78308ed85002d193c5bc474bdd8029
+        doc_struct_hash: sha256:915f405aafc2bf4e58b25fc8371eb634ba78308ed85002d193c5bc474bdd8029
+        lines: [44, 71]
+      status: fresh
+      since: 2026-07-20T03:54:13.32795Z
+    - id: ai/einoengine/tool_scope.go#turnToolMiddleware.BeforeModelRewriteState
+      level: function
+      anchor:
+        file: ai/einoengine/tool_scope.go
+        symbol: turnToolMiddleware.BeforeModelRewriteState
+        hash: sha256:7e91c3670503e198309b99f8ca5fbcded8118e42eb824e95295ee2fa7f3ec451
+        struct_hash: sha256:f8be9f2b6ca8bdd48c8ece4bc3da401f8c90eba12f6318ab29096a887f82a47b
+        doc_struct_hash: sha256:f8be9f2b6ca8bdd48c8ece4bc3da401f8c90eba12f6318ab29096a887f82a47b
+        lines: [73, 125]
+      status: fresh
+      since: 2026-07-20T03:54:13.328675Z

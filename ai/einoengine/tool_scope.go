@@ -3,6 +3,7 @@ package einoengine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 	"sort"
@@ -19,7 +20,7 @@ import (
 const (
 	// Bump when the durable Deep Agent's tool or lifecycle contract changes so
 	// managed sessions cannot replay traces produced by an incompatible runtime.
-	deepAgentRuntimeVersion = "native-deep-toolsearch-v6"
+	deepAgentRuntimeVersion = "native-deep-toolsearch-v7"
 
 	toolSearchToolName           = "tool_search"
 	conciseToolSearchDescription = "按能力关键词或名称查找并加载当前轮次需要的延迟工具。知道名称时用 select:<tool_name>；否则用简短能力关键词。返回的工具已立即可调用，无需重复搜索。"
@@ -32,6 +33,7 @@ type turnToolMiddleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
 
 	dynamicNames map[string]struct{}
+	toolInfos    map[string]*schema.ToolInfo
 	exposure     *ai.ToolExposure
 
 	mu           sync.Mutex
@@ -39,17 +41,33 @@ type turnToolMiddleware struct {
 	blockedCalls map[string]struct{}
 }
 
-func newTurnToolMiddleware(tools []ai.Tool, exposure *ai.ToolExposure) *turnToolMiddleware {
+func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, preferred []string, exposure *ai.ToolExposure) (*turnToolMiddleware, error) {
 	dynamicNames := make(map[string]struct{}, len(tools))
+	toolInfos := make(map[string]*schema.ToolInfo, len(tools))
 	for _, item := range tools {
+		if item.LoadMode == ai.ToolLoadImmediate {
+			continue
+		}
 		dynamicNames[item.Name] = struct{}{}
+		info, err := (&einoTool{t: item}).Info(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("读取延迟工具 %s schema: %w", item.Name, err)
+		}
+		toolInfos[item.Name] = info
+	}
+	selected := make(map[string]struct{}, len(preferred))
+	for _, name := range preferred {
+		if _, ok := dynamicNames[name]; ok {
+			selected[name] = struct{}{}
+		}
 	}
 	return &turnToolMiddleware{
 		dynamicNames: dynamicNames,
+		toolInfos:    toolInfos,
 		exposure:     exposure,
-		selected:     make(map[string]struct{}),
+		selected:     selected,
 		blockedCalls: make(map[string]struct{}),
-	}
+	}, nil
 }
 
 func (m *turnToolMiddleware) BeforeModelRewriteState(
@@ -72,6 +90,23 @@ func (m *turnToolMiddleware) BeforeModelRewriteState(
 		_, active := selected[info.Name]
 		return dynamic && !active
 	})
+	existing := make(map[string]struct{}, len(infos))
+	for _, info := range infos {
+		if info != nil {
+			existing[info.Name] = struct{}{}
+		}
+	}
+	selectedNames := slices.Collect(maps.Keys(selected))
+	sort.Strings(selectedNames)
+	for _, name := range selectedNames {
+		if _, ok := existing[name]; ok {
+			continue
+		}
+		if info := m.toolInfos[name]; info != nil {
+			infos = append(infos, info)
+			existing[name] = struct{}{}
+		}
+	}
 	for i, info := range infos {
 		if info == nil {
 			continue

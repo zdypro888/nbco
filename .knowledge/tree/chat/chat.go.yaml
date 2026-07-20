@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:2a9bf847e48dfcb4714cf63470b0d92993a5118ddcd6e30988c743aa83f986e1
-        struct_hash: sha256:f0242cf2fc6da4545135439ad7902fc0bf4161342219dd8cbe81b18239f28aa0
-        doc_struct_hash: sha256:38900d942d77bd488b6e7a95b173390f8265bcd0d990eaa680110cde8816452f
-        lines: [293, 524]
+        hash: sha256:5fc4035ac0b834c853f24120e27057c6b4e09e167762781d412c8eff665ea4b7
+        struct_hash: sha256:f2f16d7ad7d2f826fa40002561084c524d3ab446096436636cf9fe86ff9eb4ce
+        doc_struct_hash: sha256:08db26fd9836d38e2e9cd6fe53d1573e72306e5026b05b1798b9feb60051cf65
+        lines: [294, 529]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.withProvidedExtension
@@ -541,10 +541,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.reviewMinedMemory
-        hash: sha256:af09dbf5bab1ba46b87c7f589ede539d859124156c19630d258bc4456f673c0d
-        struct_hash: sha256:5b165c027b2e11c4bc13cae529faaf9a5671b7c61cbb9e0a307afe91295abbe3
-        doc_struct_hash: sha256:dae3224c5e9a8c0d176ceb711ac4268ba45e8740fba02ae2304b728b58c8e107
-        lines: [880, 933]
+        hash: sha256:b9b9338ccb2020d489df26e4bb1df8058046aae093d886c999177bb1d4d5b1e9
+        struct_hash: sha256:ab09e1530d5f34f0a9eb2555531a3c4722df936045324035581d905e4eb2e696
+        doc_struct_hash: sha256:89318fcc00a5716a61a57371ad7028bf34dbb708655b2897832dcb24dfcf0ba6
+        lines: [882, 938]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
       lineage:
@@ -864,10 +864,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: modelHistoryContent
-        hash: sha256:85e6b5f8833f540f1bbc32f3cd66f5105757fb573aebe5ea02cab9ada483dfc8
-        struct_hash: sha256:b9434b0a6898efbf7fd491421f952dbd375367f74fc26fcbfbf208d225a7c034
-        doc_struct_hash: sha256:b9434b0a6898efbf7fd491421f952dbd375367f74fc26fcbfbf208d225a7c034
-        lines: [1531, 1533]
+        hash: sha256:0c9d2f9836f9dfbcd26be427f2d2b989485313e22abfec9250967b0fac37d5ad
+        struct_hash: sha256:65a27345eaccb88edf6dbdf9b25dd41a6fad3e519a8417d87b2f5c369ad071da
+        doc_struct_hash: sha256:65a27345eaccb88edf6dbdf9b25dd41a6fad3e519a8417d87b2f5c369ad071da
+        lines: [1537, 1539]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#historyMessageContent
@@ -1387,3 +1387,14 @@ nodes:
         lines: [2322, 2387]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: chat/chat.go#modelUserContent
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: modelUserContent
+        hash: sha256:41cb48aa84ed6c6f00070653f7cd1aa6e2cc5ae51b3c3825949ad906d3248461
+        struct_hash: sha256:4b7accdb05e630cb4a4beb946f874978b7750612fc6ab11b5eb96f3975fce354
+        doc_struct_hash: sha256:4b7accdb05e630cb4a4beb946f874978b7750612fc6ab11b5eb96f3975fce354
+        lines: [1541, 1544]
+      status: fresh
+      since: 2026-07-20T03:54:50.074064Z

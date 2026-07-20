@@ -186,7 +186,7 @@ func run(configPath string) error {
 	if err != nil {
 		return err
 	}
-	deps.SubcallAI = func(ctx context.Context, u *store.User, purpose, prompt string) (string, error) {
+	deps.SubcallAI = func(ctx context.Context, u *store.User, call tools.SubcallRequest) (string, error) {
 		actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		defer cancel()
 		name := ""
@@ -195,7 +195,7 @@ func run(configPath string) error {
 			name = u.Name
 			userID = u.ID
 		}
-		purpose = strings.TrimSpace(purpose)
+		purpose := strings.TrimSpace(call.Purpose)
 		if purpose == "" {
 			purpose = "internal"
 		}
@@ -204,11 +204,14 @@ func run(configPath string) error {
 			model = strings.TrimSpace(runtimeModel)
 		}
 		res, err := engine.RunTurn(actx, &ai.TurnRequest{
-			Mode:      ai.TurnModeOneShot,
-			SessionID: "subcall:" + purpose,
-			System:    "你是 nbco 内部的受控 AI 子调用。只完成指定的单一分析任务，不调用工具，不输出无关解释。",
-			UserText:  fmt.Sprintf("调用者：%s\n\n%s", name, prompt),
-			Model:     model,
+			Mode:            ai.TurnModeOneShot,
+			SessionID:       "subcall:" + purpose,
+			System:          "你是 nbco 内部的受控 AI 子调用。只完成指定的单一分析任务，不调用工具，不输出无关解释。",
+			UserText:        fmt.Sprintf("调用者：%s\n\n%s", name, call.Prompt),
+			Model:           model,
+			MaxOutputTokens: call.MaxOutputTokens,
+			Reasoning:       call.Reasoning,
+			JSONOutput:      call.JSONOutput,
 		})
 		if err != nil {
 			return "", err

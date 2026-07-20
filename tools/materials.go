@@ -26,7 +26,7 @@ type materialAnalysisArgs struct {
 
 func materialTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("analyze_company_materials", "把已上传到 nbco 的公司资料文件交给发起人名下的 worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；nbco 会在 worker 提交后抽取候选，供入库审核/发布。简单文本信息直接保存，不必派 worker。",
+		asynchronousTool(tool("analyze_company_materials", "把已上传到 nbco 的公司资料文件交给发起人名下的 worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；nbco 会在 worker 提交后抽取候选，供入库审核/发布。简单文本信息直接保存，不必派 worker。",
 			obj(map[string]any{
 				"file_ids":    arr("integer", "系统文件 ID 列表（/api/files 上传或任务附件里的真实文件 ID）"),
 				"instruction": p("string", "整理目标，例如：提炼公司基本信息、制度、联系人、项目背景、风险点"),
@@ -39,7 +39,7 @@ func materialTools(d Deps, u *store.User) []ai.Tool {
 					return err.Error(), nil
 				}
 				return startMaterialAnalysis(ctx, d, u, args)
-			}),
+			})),
 	}
 }
 
@@ -89,7 +89,7 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 		return "", err
 	}
 	wakeWorker(d, worker)
-	return fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs)), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs))), nil
 }
 
 func pickMaterialWorker(ctx context.Context, d Deps, u *store.User, workerID int64) (*store.User, error) {

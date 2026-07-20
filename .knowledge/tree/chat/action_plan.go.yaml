@@ -96,10 +96,10 @@ nodes:
       anchor:
         file: chat/action_plan.go
         symbol: summarizeToolEvidence
-        hash: sha256:d58f0d88028e995f8b54eefd8d8792c19901b47ace75c27dd67ad49e7d87685d
-        struct_hash: sha256:f791012eafde85387e9c1656f017758b8212fbbef6da8f993dcbe9587409f269
-        doc_struct_hash: sha256:f791012eafde85387e9c1656f017758b8212fbbef6da8f993dcbe9587409f269
-        lines: [96, 114]
+        hash: sha256:eb70f72b5580946c4af8c5cc9e106a64e83f3bf326ac2f372030b112aba375f1
+        struct_hash: sha256:be77d4bfba3db80a332709ec910c39463f3a71961783b138670c9891a57c860e
+        doc_struct_hash: sha256:be77d4bfba3db80a332709ec910c39463f3a71961783b138670c9891a57c860e
+        lines: [97, 118]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/action_plan.go#countToolEvidence
@@ -173,9 +173,9 @@ nodes:
       anchor:
         file: chat/action_plan.go
         symbol: actionTurnOutcome
-        hash: sha256:926fbbe92cd0aa755c40fbcdeb897507d676d2c65c3def68fb422c350993e0cd
-        struct_hash: sha256:0e51224bbf4fdd674b23ed37e43c729e144b3d505f5236f096ef7a80ff7a8f70
-        doc_struct_hash: sha256:0e51224bbf4fdd674b23ed37e43c729e144b3d505f5236f096ef7a80ff7a8f70
-        lines: [200, 242]
+        hash: sha256:56296c4dd61391d81726b38aec6c24e656f7514c3d6f290069056bd2f51437ff
+        struct_hash: sha256:51dcffbd063af8680e6fced07c383cdb104d662198a210a56228c0c69496ec11
+        doc_struct_hash: sha256:51dcffbd063af8680e6fced07c383cdb104d662198a210a56228c0c69496ec11
+        lines: [206, 252]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

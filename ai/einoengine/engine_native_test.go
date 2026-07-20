@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -131,6 +133,102 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	}
 	if len(state.toolChoices) != 0 {
 		t.Fatalf("native Deep Agent tool choice was overridden: %v", state.toolChoices)
+	}
+}
+
+func TestDeepAgentPreloadsRelevantToolsAndKeepsGenericReadVisible(t *testing.T) {
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
+		visibleNames := make(map[string]bool, len(visible))
+		for _, info := range visible {
+			visibleNames[info.Name] = true
+		}
+		last := input[len(input)-1]
+		if last.Role == schema.Tool && last.ToolName == "record_value" {
+			return finalResponse("preferred-final", "已记录"), nil
+		}
+		if !visibleNames[toolSearchToolName] || !visibleNames["query_data"] || !visibleNames["record_value"] {
+			return nil, fmt.Errorf("initial cognitive working set = %v", visibleNames)
+		}
+		if visibleNames["unrelated_tool"] {
+			return nil, fmt.Errorf("unrelated deferred schema leaked into first iteration")
+		}
+		return schema.AssistantMessage("", []schema.ToolCall{{
+			ID: "preferred-write", Type: "function",
+			Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
+		}}), nil
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		System: "完成用户要求。", UserText: "记录 alpha", PreferredTools: []string{"record_value", "not_authorized"},
+		Tools: []ai.Tool{
+			{
+				Name: "query_data", Description: "通用状态读取", LoadMode: ai.ToolLoadImmediate,
+				InputSchema: map[string]any{"type": "object"},
+				Handler:     func(context.Context, json.RawMessage) (string, error) { return `{}`, nil },
+			},
+			{
+				Name: "record_value", Description: "保存一个值", Effect: ai.ToolEffectWrite,
+				InputSchema: map[string]any{"type": "object", "properties": map[string]any{"value": map[string]any{"type": "string"}}, "required": []string{"value"}},
+				Handler: func(context.Context, json.RawMessage) (string, error) {
+					executed++
+					return `{"ok":true}`, nil
+				},
+			},
+			{
+				Name: "unrelated_tool", Description: "无关能力", InputSchema: map[string]any{"type": "object"},
+				Handler: func(context.Context, json.RawMessage) (string, error) { return `{}`, nil },
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "已记录" || executed != 1 {
+		t.Fatalf("result=%+v executed=%d", result, executed)
+	}
+	for _, step := range result.Steps {
+		if step.ToolName == toolSearchToolName {
+			t.Fatalf("preloaded schema should not require lexical tool_search: %+v", result.Steps)
+		}
+	}
+}
+
+func TestOneShotAppliesPerCallReasoningAndOutputOptions(t *testing.T) {
+	var request map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"test","choices":[{"index":0,"message":{"role":"assistant","content":"{\"ok\":true}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}`))
+	}))
+	defer server.Close()
+
+	engine, err := New(context.Background(), config.AIConfig{
+		Provider: config.ProviderOpenAI, BaseURL: server.URL, APIKey: "test", Model: "test", MaxTokens: 4096,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode: ai.TurnModeOneShot, System: "JSON", UserText: "select",
+		MaxOutputTokens: 321, Reasoning: ai.ReasoningDisabled, JSONOutput: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != `{"ok":true}` {
+		t.Fatalf("result = %q", result.Text)
+	}
+	if request["enable_thinking"] != false || request["max_tokens"] != float64(321) {
+		t.Fatalf("per-call options missing: %#v", request)
+	}
+	format, _ := request["response_format"].(map[string]any)
+	if format["type"] != "json_object" {
+		t.Fatalf("response_format = %#v", request["response_format"])
 	}
 }
 
@@ -519,6 +617,16 @@ func TestToolContractChangeRotatesManagedSessionWithStableScope(t *testing.T) {
 	}}
 	if got := capabilityFingerprint(updated, "superadmin"); got == first {
 		t.Fatal("schema change did not rotate a scoped managed session")
+	}
+	updated = append([]ai.Tool(nil), base...)
+	updated[0].Completion = ai.ToolCompletionAsynchronous
+	if got := capabilityFingerprint(updated, "superadmin"); got == first {
+		t.Fatal("completion lifecycle change did not rotate a scoped managed session")
+	}
+	updated = append([]ai.Tool(nil), base...)
+	updated[0].LoadMode = ai.ToolLoadImmediate
+	if got := capabilityFingerprint(updated, "superadmin"); got == first {
+		t.Fatal("cognitive load mode change did not rotate a scoped managed session")
 	}
 }
 

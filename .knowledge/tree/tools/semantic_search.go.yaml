@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/semantic_search.go
         symbol: planSemanticSearch
-        hash: sha256:5db9f98da7e547f53bc91b57572504a195fc26795d84ef2aa3d3e03678d11fab
-        struct_hash: sha256:26f8984660386310769079a9e59cc00cfe56e5af70bbf46b669fbe240b7566c2
-        doc_struct_hash: sha256:26f8984660386310769079a9e59cc00cfe56e5af70bbf46b669fbe240b7566c2
-        lines: [23, 67]
+        hash: sha256:1dc039792b19f54853d9f0fe2699a55a4eb2432d1135a36601ee38de9f01dd73
+        struct_hash: sha256:7ea055cd829463dd352a56da05810423b3b27a1ef25000ed69bbed77382f5073
+        doc_struct_hash: sha256:7ea055cd829463dd352a56da05810423b3b27a1ef25000ed69bbed77382f5073
+        lines: [24, 71]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/semantic_search.go#searchPlannerUserID

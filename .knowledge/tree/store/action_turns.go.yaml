@@ -52,3 +52,14 @@ nodes:
         lines: [69, 100]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/action_turns.go#Store.ListActionTurnsBySession
+      level: function
+      anchor:
+        file: store/action_turns.go
+        symbol: Store.ListActionTurnsBySession
+        hash: sha256:cc6177522450cd02c5b017a9de06c0ae4aafc6a61b845c41521bcfb8b45d21a3
+        struct_hash: sha256:aa4e05c05b5c78eee3fe2d923b7cbf563b8d9b06b2c1fc336021fdafeb921d2a
+        doc_struct_hash: sha256:292d190f2b3121bf2d160567ccfc0623f1d18dc1db08151f7abc6779e60dd756
+        lines: [88, 106]
+      status: fresh
+      since: 2026-07-20T03:54:13.341525Z

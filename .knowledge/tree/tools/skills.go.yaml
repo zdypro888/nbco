@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: tools/skills.go
         symbol: skillTools
-        hash: sha256:fa6d07895423a48f1906d613ff30f50acb5b0beb1443e5103f91c88a1e8fe95b
-        struct_hash: sha256:7e1907ced5ec3e3f05e76568861148ee28ed14575794ef97825e66ecfeff51a7
-        doc_struct_hash: sha256:62cff0219c3fcb877b87aa67be327313c09be3433b4049185c4fb6d6096e0da0
+        hash: sha256:8cec6b3babcdbc6f6b099821688511e854c7bb5704cb67a7296ea81ac5529e02
+        struct_hash: sha256:e5e950c1b7269d96cf4a938a41bf0d8ed7c41bccee5d5f86cef7ce70de3307d2
+        doc_struct_hash: sha256:b2c6a17576facdd34ffecf84d41238b98cc4c4034e374029d64746ca67bb3b86
         lines: [18, 270]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

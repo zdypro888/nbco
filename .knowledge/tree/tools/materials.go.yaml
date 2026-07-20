@@ -57,9 +57,9 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: startMaterialAnalysis
-        hash: sha256:0f639fc3b5500f1cc7de69512c27b69a7592a26cc3bf125d9f1a95a68b76c87e
-        struct_hash: sha256:98f4260f2a0adf1af0b85a3c12ffaff88b2546777d61dc79cbdf976bf608e62e
-        doc_struct_hash: sha256:98f4260f2a0adf1af0b85a3c12ffaff88b2546777d61dc79cbdf976bf608e62e
+        hash: sha256:c453334bb9cc8bbe37283c0704ef5ef59ccc030d7ff211e884767cc70894efcb
+        struct_hash: sha256:0de4d8ab5e62e22077c704cef5c99f29ff3c3633e5a704b903ef0816629ee870
+        doc_struct_hash: sha256:0de4d8ab5e62e22077c704cef5c99f29ff3c3633e5a704b903ef0816629ee870
         lines: [46, 93]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

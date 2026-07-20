@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 )
@@ -50,7 +51,10 @@ func planSemanticSearch(ctx context.Context, d Deps, u *store.User, intent strin
 输入：` + string(input)
 	planCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	out, err := d.SubcallAI(planCtx, u, "search_planner", prompt)
+	out, err := d.SubcallAI(planCtx, u, SubcallRequest{
+		Purpose: "search_planner", Prompt: prompt, MaxOutputTokens: 1024,
+		Reasoning: ai.ReasoningDisabled, JSONOutput: true,
+	})
 	if err != nil {
 		slog.Warn("AI 查询规划失败，回退用户原词", "user", searchPlannerUserID(u), "err", err)
 		return fallback

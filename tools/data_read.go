@@ -25,7 +25,7 @@ import (
 // visibility; the model owns source selection and query planning.
 func dataReadTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("query_data", "通用权限感知数据读取。source 为空时列可用数据源；source='*' 对全部可见数据源做统一语义检索；指定 source 时融合Qdrant语义召回、AI规划的词法候选和精确filters。所有语义命中都按稳定ID回PostgreSQL执行当前用户的行级与字段级权限复核。适合跨对象调查、历史事实和领域工具未覆盖的查询；只读。",
+		immediateTool(tool("query_data", "通用权限感知数据读取。source 为空时列可用数据源；source='*' 对全部可见数据源做统一语义检索；指定 source 时融合Qdrant语义召回、AI规划的词法候选和精确filters。所有语义命中都按稳定ID回PostgreSQL执行当前用户的行级与字段级权限复核。适合跨对象调查、历史事实和领域工具未覆盖的查询；只读。",
 			obj(map[string]any{
 				"source": p("string", "数据源名；空值返回目录；'*' 跨全部可见数据源语义检索"),
 				"search": p("string", "自然语言名称/内容查询；语义向量处理同义表达，AI子调用同时规划词法候选"),
@@ -101,7 +101,7 @@ func dataReadTools(d Deps, u *store.User) []ai.Tool {
 				semanticRows := semanticRowsForSource(ctx, d, u, args.Source, strings.TrimSpace(args.Search), filters, limit, offset)
 				rows := mergeRankedDataRows(args.Source, semanticRows, lexical, limit)
 				return renderDataRows(args.Source, plan, filters, offset, rows), nil
-			}),
+			})),
 	}
 }
 

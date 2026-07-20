@@ -34,6 +34,8 @@ type Capability struct {
 	Name             string `json:"name"`
 	Domain           string `json:"domain"`
 	Effect           string `json:"effect"`
+	LoadMode         string `json:"load_mode"`
+	Completion       string `json:"completion"`
 	Description      string `json:"description"`
 	RequiredAction   string `json:"required_action,omitempty"`
 	Risk             string `json:"risk"`
@@ -419,7 +421,7 @@ var toolEffect = map[string]string{
 
 func capabilityTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_capabilities", "查看 nbco 当前可用能力目录，按领域列出工具、权限、风险和当前用户是否可用。",
+		immediateTool(tool("list_capabilities", "查看 nbco 当前可用能力目录，按领域列出工具、权限、风险和当前用户是否可用。",
 			obj(map[string]any{
 				"domain":              p("string", "可选：people/work/workers/memory/comms/automation/ops/extension"),
 				"include_unavailable": p("boolean", "可选：超管为 true 时显示当前入口不可用/无权限能力；普通用户会被忽略"),
@@ -448,7 +450,7 @@ func capabilityTools(d Deps, u *store.User) []ai.Tool {
 					caps = filtered
 				}
 				return renderCapabilities(caps), nil
-			}),
+			})),
 	}
 }
 
@@ -521,6 +523,8 @@ func capabilityForTool(t ai.Tool) Capability {
 		Name:             t.Name,
 		Domain:           domain,
 		Effect:           effectForTool(t),
+		LoadMode:         string(t.LoadMode),
+		Completion:       string(t.Completion),
 		Description:      t.Description,
 		RequiredAction:   required,
 		Risk:             risk,
@@ -633,6 +637,9 @@ func renderCapabilities(caps []Capability) string {
 			req = "；权限=" + c.RequiredAction
 		}
 		flags := []string{status, "效果=" + c.Effect, "风险=" + c.Risk}
+		if c.Completion == string(ai.ToolCompletionAsynchronous) {
+			flags = append(flags, "异步受理")
+		}
 		if !c.GroupAllowed {
 			flags = append(flags, "群聊禁用")
 		}

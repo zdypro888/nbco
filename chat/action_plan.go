@@ -73,6 +73,8 @@ func toolNames(toolset []ai.Tool) map[string]bool {
 type toolEvidence struct {
 	Tool            string `json:"tool"`
 	HandlerReturned bool   `json:"handler_returned"`
+	Rejected        bool   `json:"rejected,omitempty"`
+	Completion      string `json:"completion,omitempty"`
 	Summary         string `json:"summary,omitempty"`
 }
 
@@ -84,6 +86,7 @@ type turnDiagnostics struct {
 	FullToolCount        int      `json:"full_tool_count,omitempty"`
 	ToolSchemaChars      int      `json:"tool_schema_chars,omitempty"`
 	Tools                []string `json:"tools,omitempty"`
+	PreferredTools       []string `json:"preferred_tools,omitempty"`
 	AgentIterations      int      `json:"agent_iterations,omitempty"`
 	ModelCalls           int      `json:"model_calls,omitempty"`
 	ModelPeakToolCount   int      `json:"model_peak_tool_count,omitempty"`
@@ -97,7 +100,8 @@ func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
 		if st.Kind != ai.StepToolCall {
 			continue
 		}
-		ok := st.Err == ""
+		rejected := nbtools.ToolResultRejected(st.Result)
+		ok := st.Err == "" && !rejected
 		summary := st.Err
 		if summary == "" {
 			summary = st.Result
@@ -105,6 +109,8 @@ func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
 		out = append(out, toolEvidence{
 			Tool:            st.ToolName,
 			HandlerReturned: ok,
+			Rejected:        rejected,
+			Completion:      string(st.Completion),
 			Summary:         textfmt.TruncateRunes(textfmt.RedactSecrets(strings.TrimSpace(summary)), 220),
 		})
 	}
@@ -117,7 +123,7 @@ func countToolEvidence(steps []ai.Step) (total, success int) {
 			continue
 		}
 		total++
-		if st.Err == "" {
+		if st.Err == "" && !nbtools.ToolResultRejected(st.Result) {
 			success++
 		}
 	}
@@ -211,22 +217,26 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 	for _, name := range plan.ExpectedTools {
 		actionTools[name] = struct{}{}
 	}
-	hadTool, hadSuccess, hadError, actionSuccess, actionError := false, false, false, false, false
+	hadTool, hadSuccess, hadError, actionSuccess, actionAccepted, actionError := false, false, false, false, false, false
 	for _, step := range res.Steps {
 		if step.Kind != ai.StepToolCall {
 			continue
 		}
 		hadTool = true
 		_, action := actionTools[step.ToolName]
-		if step.Err != "" {
+		if step.Err != "" || nbtools.ToolResultRejected(step.Result) {
 			hadError = true
 			actionError = actionError || action
 			continue
 		}
 		hadSuccess = true
 		actionSuccess = actionSuccess || action
+		actionAccepted = actionAccepted || (action && step.Completion == ai.ToolCompletionAsynchronous && nbtools.ToolResultAccepted(step.Result))
 	}
 	if plan.RequiresAction && actionSuccess {
+		if actionAccepted {
+			return "action_accepted"
+		}
 		return "action_tool_returned"
 	}
 	if actionError || (!hadSuccess && hadError) {

@@ -86,7 +86,7 @@ func workflowTools(d Deps, u *store.User) []ai.Tool {
 				return renderWorkflowTemplates(args.Domain), nil
 			}),
 
-		tool("start_workflow", "启动一个确定性标准工作流。支持 material_intake（资料分析入库）、nbco_upgrade（已提交版本安全部署）、nbco_code_change（先改代码再可选上线）。需要 AI 员工管理权限；高风险工作流还会执行自身权限校验，部署必须在 args.confirm=true 后才会创建任务。",
+		asynchronousTool(tool("start_workflow", "启动一个确定性标准工作流。支持 material_intake（资料分析入库）、nbco_upgrade（已提交版本安全部署）、nbco_code_change（先改代码再可选上线）。需要 AI 员工管理权限；高风险工作流还会执行自身权限校验，部署必须在 args.confirm=true 后才会创建任务。",
 			obj(map[string]any{
 				"name": enumP("工作流名", "material_intake", "nbco_upgrade", "nbco_code_change"),
 				"args": map[string]any{
@@ -103,7 +103,7 @@ func workflowTools(d Deps, u *store.User) []ai.Tool {
 					return err.Error(), nil
 				}
 				return StartWorkflow(ctx, d, u, req.Name, req.Args)
-			}),
+			})),
 	}
 }
 
@@ -212,10 +212,11 @@ func startMaterialWorkflow(ctx context.Context, d Deps, u *store.User, raw json.
 		return err.Error(), nil
 	}
 	out, err := startMaterialAnalysis(ctx, d, u, args)
-	if err != nil || strings.HasPrefix(out, "file_ids 不能为空") || strings.Contains(out, "不能为空") || strings.Contains(out, "无权") {
+	if err != nil || !ToolResultAccepted(out) {
 		return out, err
 	}
-	return "已启动工作流「资料分析入库」。\n" + out, nil
+	result, _ := ParseToolResult(out)
+	return asynchronousAcceptedResult("已启动工作流「资料分析入库」。\n" + result.Message), nil
 }
 
 func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw json.RawMessage) (string, error) {
@@ -271,7 +272,7 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("已启动工作流「nbco 单 worker 升级」：创建任务（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一个 worker 任务里。", internalRef("任务", t.ID), w.Name), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「nbco 单 worker 升级」：创建任务（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一个 worker 任务里。", internalRef("任务", t.ID), w.Name)), nil
 }
 
 func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw json.RawMessage) (string, error) {
@@ -344,7 +345,7 @@ func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw
 	if args.Deploy {
 		mode += "/部署"
 	}
-	return fmt.Sprintf("已启动工作流「nbco 代码变更与可选上线」：创建任务（%s）并分配给 admin worker %s。模式：%s；同一目标会在同一个 worker 任务上下文里推进。", internalRef("任务", t.ID), w.Name, mode), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「nbco 代码变更与可选上线」：创建任务（%s）并分配给 admin worker %s。模式：%s；同一目标会在同一个 worker 任务上下文里推进。", internalRef("任务", t.ID), w.Name, mode)), nil
 }
 
 func nbcoCodeChangePrompt(goal, repoDir, repoURL, branch string, commitPush, deploy bool) string {

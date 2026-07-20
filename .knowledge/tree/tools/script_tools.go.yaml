@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: tools/script_tools.go
         symbol: scriptBuiltins
-        hash: sha256:4d85c73c6f7c9fb348c9aecb9a678649248482903fef0fd7cbe34facb5b5e58b
-        struct_hash: sha256:b89be0a1b43192f753ff7325de42dd4e51ddb0a80b6fe8b307bb70b0ee28ae7d
-        doc_struct_hash: sha256:b89be0a1b43192f753ff7325de42dd4e51ddb0a80b6fe8b307bb70b0ee28ae7d
-        lines: [333, 395]
+        hash: sha256:403163d2833f612badb03a66dd0a075a0c79f4dd43ddaf723749d204f1774e82
+        struct_hash: sha256:52737d13f39a59701457e68cfe93125c6057d4291fe9c508962d25134b0bfd4e
+        doc_struct_hash: sha256:52737d13f39a59701457e68cfe93125c6057d4291fe9c508962d25134b0bfd4e
+        lines: [333, 398]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/script_tools.go#normalizeScriptToolSchema

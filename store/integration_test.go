@@ -749,6 +749,13 @@ func TestRecordActionTurn(t *testing.T) {
 	if len(items) != 2 || items[1].UserTextExcerpt != "明天 9 点提醒全体完善档案" || items[1].SuccessToolCount != 1 {
 		t.Fatalf("ListActionTurns 缺少可读动作轨迹: %+v", items)
 	}
+	sessionItems, err := s.ListActionTurnsBySession(ctx, u.ID, sess.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sessionItems) != 1 || sessionItems[0].UserTextHash != "abc123" {
+		t.Fatalf("ListActionTurnsBySession leaked another scope: %+v", sessionItems)
+	}
 }
 
 func TestListAuditActivity(t *testing.T) {

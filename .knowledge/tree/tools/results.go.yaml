@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: tools/results.go
+      level: file
+      anchor:
+        file: tools/results.go
+        hash: sha256:3d98927987d65a50e688b0663f82e7675d9674c4991964dcee4a747413a3c0da
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T03:54:29.342622Z
+    - id: tools/results.go#ToolResultEnvelope
+      level: decl
+      anchor:
+        file: tools/results.go
+        symbol: ToolResultEnvelope
+        hash: sha256:8a03b184af4560e154a0f8dbc71569b096992e406ba8b7a225e883cc4d85e8a7
+        struct_hash: sha256:af30ba29896ce77a73311cd3cb441cd7b084de71ea0447cc50f99125c78155c1
+        doc_struct_hash: sha256:6eb758dd379d2723f2b04e318146e285ee19ff39265bf61e6f07aa801f2a7bc9
+        lines: [10, 18]
+      status: fresh
+      since: 2026-07-20T03:54:29.342605Z
+    - id: tools/results.go#ParseToolResult
+      level: function
+      anchor:
+        file: tools/results.go
+        symbol: ParseToolResult
+        hash: sha256:926508aac4496b89e200c6c7923a9e9444f333c28d722231f64a4657a666f93f
+        struct_hash: sha256:724851cb29ee20d793ebfe23c6d7b76d27a0654138180776a48ee70987004e27
+        doc_struct_hash: sha256:d08ae3aa435fa8bb3adb22ba6eba26b1eefa64495cb6016ec22dddb3ec728f03
+        lines: [48, 55]
+      status: fresh
+      since: 2026-07-20T03:54:29.342852Z
+    - id: tools/results.go#ToolResultAccepted
+      level: function
+      anchor:
+        file: tools/results.go
+        symbol: ToolResultAccepted
+        hash: sha256:c0d1f9044d777a3c77b0df39e1da6ed489e2b7accb536df4380adac31de77a31
+        struct_hash: sha256:ba303880bbd5dfff23322a08013a945b638353e61418b71055ee5bd81f550e9d
+        doc_struct_hash: sha256:ba303880bbd5dfff23322a08013a945b638353e61418b71055ee5bd81f550e9d
+        lines: [57, 60]
+      status: fresh
+      since: 2026-07-20T03:54:29.343084Z
+    - id: tools/results.go#ToolResultRejected
+      level: function
+      anchor:
+        file: tools/results.go
+        symbol: ToolResultRejected
+        hash: sha256:493cc6fe804acb4aeb5067f0c7c2a5db814418fd753d461f1e340af863da5cdc
+        struct_hash: sha256:403125e76e0a63fe2ae1a077cc15e382dc79ea8437e3248bfd4f109f2115918f
+        doc_struct_hash: sha256:900689370d9c225ed358554cd6caa18f8cba9f679cec3d1ea3dbc310bf622d0c
+        lines: [62, 66]
+      status: fresh
+      since: 2026-07-20T03:54:29.343301Z

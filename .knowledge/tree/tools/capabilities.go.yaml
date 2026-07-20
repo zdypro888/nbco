@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: tools/capabilities.go
         symbol: capabilityForTool
-        hash: sha256:dbd71dd4d252dee425ff71f7cd0388eb7799685a4507e454d80abdb37d3df3a4
-        struct_hash: sha256:ed1eb265bb4c8231ac9d4f4e513368b27ececfd3e5bf634c6ff73b9fc409f7c9
-        doc_struct_hash: sha256:ed1eb265bb4c8231ac9d4f4e513368b27ececfd3e5bf634c6ff73b9fc409f7c9
-        lines: [499, 532]
+        hash: sha256:60470596e2d8732e491b55dee4b50cf04b8acb0ae058d7c4cd5f3b0ff047759f
+        struct_hash: sha256:71404a950dfdc50cd8ce9bcd744873a51d26fd6043c2aca1404c4ed5d5a1e900
+        doc_struct_hash: sha256:71404a950dfdc50cd8ce9bcd744873a51d26fd6043c2aca1404c4ed5d5a1e900
+        lines: [501, 536]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/capabilities.go#ToolEffect

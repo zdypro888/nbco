@@ -67,7 +67,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("start_worker_skill", "按一条已保存的 skill 创建 worker 执行任务。适合把可复用 SOP 交给发起人名下 worker 执行；工具本身不内置具体业务流程，流程来自 skill 内容与标签。高风险/admin worker skill 必须 confirm=true。",
+		asynchronousTool(tool("start_worker_skill", "按一条已保存的 skill 创建 worker 执行任务。适合把可复用 SOP 交给发起人名下 worker 执行；工具本身不内置具体业务流程，流程来自 skill 内容与标签。高风险/admin worker skill 必须 confirm=true。",
 			obj(map[string]any{
 				"skill_id":    p("integer", "要执行的 skill ID"),
 				"instruction": p("string", "本次具体目标/补充要求"),
@@ -163,8 +163,8 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				wakeWorker(d, worker)
-				return fmt.Sprintf("已按 skill「%s」创建 worker 任务（%s），分配给 %s。", k.Title, internalRef("任务", t.ID), worker.Name), nil
-			}),
+				return asynchronousAcceptedResult(fmt.Sprintf("已按 skill「%s」创建 worker 任务（%s），分配给 %s。", k.Title, internalRef("任务", t.ID), worker.Name)), nil
+			})),
 
 		tool("save_skill", "把用户明确教给系统、可在同类目标中复用的执行方法保存为 skill。只保存具备触发条件、步骤和限制的可执行流程，不保存普通事实或一次性任务。",
 			obj(map[string]any{

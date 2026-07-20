@@ -365,6 +365,7 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 				if d.Store != nil {
 					t = withAudit(d.Store, u.ID, nil, withApproval(d.Store, u.ID, t))
 				}
+				t = withArgumentNormalization(t)
 				out, err := t.Handler(ctx, raw)
 				if err != nil {
 					return nil, err
@@ -385,7 +386,9 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 			if aiCalls > scriptNestedAILimit {
 				return nil, fmt.Errorf("脚本单次运行最多调用 %d 次 nbco_ai", scriptNestedAILimit)
 			}
-			out, err := d.SubcallAI(ctx, u, "script", prompt)
+			out, err := d.SubcallAI(ctx, u, SubcallRequest{
+				Purpose: "script", Prompt: prompt, MaxOutputTokens: 4096,
+			})
 			if err != nil {
 				return nil, err
 			}

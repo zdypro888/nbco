@@ -221,7 +221,10 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 	push(schema.UserMessage(req.UserText))
 
-	runnerConfig := adk.RunnerConfig{Agent: agent, EnableStreaming: true}
+	runnerConfig := adk.RunnerConfig{
+		Agent:           agent,
+		EnableStreaming: mode == ai.TurnModeDeep || req.OnDelta != nil,
+	}
 	if managedSession {
 		runnerConfig.SessionID = engineSession
 		runnerConfig.SessionStore = e.runtime
@@ -232,8 +235,13 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	if toolScope != nil {
 		blockedToolCall = toolScope.blocked
 	}
-	result, err := collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning,
-		e.outputTokenLimit(), blockedToolCall)
+	runOptions := turnRunOptions(e.cfg.Provider, req)
+	outputLimit := e.outputTokenLimit()
+	if req.MaxOutputTokens > 0 {
+		outputLimit = req.MaxOutputTokens
+	}
+	result, err := collect(runner.Run(ctx, msgs, runOptions...), req.OnEvent, req.OnDelta, req.StreamReasoning,
+		outputLimit, blockedToolCall, toolCompletions(req.Tools))
 	if err != nil && managedSession {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
@@ -251,6 +259,42 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		}
 	}
 	return result, err
+}
+
+func turnRunOptions(provider string, req *ai.TurnRequest) []adk.AgentRunOption {
+	if req == nil {
+		return nil
+	}
+	var options []einomodel.Option
+	if req.MaxOutputTokens > 0 {
+		options = append(options, einomodel.WithMaxTokens(req.MaxOutputTokens))
+	}
+	if provider == config.ProviderOpenAI {
+		extra := map[string]any{}
+		if req.Reasoning == ai.ReasoningDisabled {
+			extra["enable_thinking"] = false
+		}
+		if req.JSONOutput {
+			extra["response_format"] = map[string]any{"type": "json_object"}
+		}
+		if len(extra) > 0 {
+			options = append(options, openai.WithExtraFields(extra))
+		}
+	}
+	if len(options) == 0 {
+		return nil
+	}
+	return []adk.AgentRunOption{adk.WithChatModelOptions(options)}
+}
+
+func toolCompletions(toolset []ai.Tool) map[string]ai.ToolCompletion {
+	out := make(map[string]ai.ToolCompletion)
+	for _, item := range toolset {
+		if item.Completion != ai.ToolCompletionImmediate {
+			out[item.Name] = item.Completion
+		}
+	}
+	return out
 }
 
 func normalizeTurnMode(mode ai.TurnMode) (ai.TurnMode, error) {
@@ -333,10 +377,19 @@ func (e *Engine) newDeepAgent(
 	summaryUsage *ai.Usage,
 	toolExposure *ai.ToolExposure,
 ) (adk.Agent, *turnToolMiddleware, error) {
-	toolScope := newTurnToolMiddleware(req.Tools, toolExposure)
+	toolScope, err := newTurnToolMiddleware(ctx, req.Tools, req.PreferredTools, toolExposure)
+	if err != nil {
+		return nil, nil, err
+	}
 	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
+	immediateTools := make([]tool.BaseTool, 0, 2)
 	for _, t := range req.Tools {
-		dynamicTools = append(dynamicTools, &einoTool{t: t})
+		adapted := &einoTool{t: t}
+		if t.LoadMode == ai.ToolLoadImmediate {
+			immediateTools = append(immediateTools, adapted)
+			continue
+		}
+		dynamicTools = append(dynamicTools, adapted)
 	}
 	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
 	if len(dynamicTools) > 0 {
@@ -398,6 +451,7 @@ func (e *Engine) newDeepAgent(
 		WithoutWriteTodos:      true,
 		WithoutGeneralSubAgent: true,
 		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{
+			Tools: immediateTools,
 			ToolCallMiddlewares: []compose.ToolMiddleware{{
 				Name:      "nbco_deferred_tool_scope",
 				Invokable: toolScope.guardInvokable,
@@ -494,6 +548,8 @@ func capabilityFingerprint(tools []ai.Tool, stableScope string) string {
 			item.Name,
 			item.Domain,
 			item.Effect,
+			string(item.LoadMode),
+			string(item.Completion),
 			item.RequiredAction,
 			strconv.FormatBool(item.GroupSensitive),
 			item.Description,
@@ -682,7 +738,7 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, blockedToolCall func(string, string) bool) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, blockedToolCall func(string, string) bool, completions map[string]ai.ToolCompletion) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
@@ -740,9 +796,10 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			}
 			for _, tc := range msg.ToolCalls {
 				step := ai.Step{
-					Kind:     ai.StepToolCall,
-					ToolName: tc.Function.Name,
-					Args:     json.RawMessage(tc.Function.Arguments),
+					Kind:       ai.StepToolCall,
+					ToolName:   tc.Function.Name,
+					Args:       json.RawMessage(tc.Function.Arguments),
+					Completion: completions[tc.Function.Name],
 				}
 				pending[tc.ID] = len(res.Steps)
 				res.Steps = append(res.Steps, step)
@@ -755,7 +812,7 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			idx, found := pending[msg.ToolCallID]
 			if !found {
 				// 理论上不会发生；单独记一条避免丢审计。
-				res.Steps = append(res.Steps, ai.Step{Kind: ai.StepToolCall, ToolName: mo.ToolName, Result: msg.Content})
+				res.Steps = append(res.Steps, ai.Step{Kind: ai.StepToolCall, ToolName: mo.ToolName, Result: msg.Content, Completion: completions[mo.ToolName]})
 				idx = len(res.Steps) - 1
 			} else {
 				delete(pending, msg.ToolCallID)
@@ -839,9 +896,13 @@ func (e *einoTool) Info(context.Context) (*schema.ToolInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("工具 %s schema: %w", e.t.Name, err)
 	}
+	description := e.t.Description
+	if e.t.Completion == ai.ToolCompletionAsynchronous {
+		description += " 成功返回表示任务已持久化并被异步受理，不表示任务已经执行完成；后续进度和最终结果以任务状态为准。"
+	}
 	return &schema.ToolInfo{
 		Name:        e.t.Name,
-		Desc:        e.t.Description,
+		Desc:        description,
 		ParamsOneOf: schema.NewParamsOneOfByJSONSchema(js),
 	}, nil
 }

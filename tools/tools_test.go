@@ -211,8 +211,11 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if !byName["list_system_activity"].SuperadminOnly || byName["list_system_activity"].GroupAllowed {
 		t.Fatalf("list_system_activity 应仅超管可用且禁止群聊: %+v", byName["list_system_activity"])
 	}
-	if got := byName["query_data"]; got.Domain != CapabilityOps || got.Effect != ToolEffectRead || got.GroupAllowed || !got.WorkerAllowed {
+	if got := byName["query_data"]; got.Domain != CapabilityOps || got.Effect != ToolEffectRead || got.GroupAllowed || !got.WorkerAllowed || got.LoadMode != string(ai.ToolLoadImmediate) {
 		t.Fatalf("query_data 元数据错误: %+v", got)
+	}
+	if got := byName["list_capabilities"]; got.LoadMode != string(ai.ToolLoadImmediate) {
+		t.Fatalf("list_capabilities should be part of the immediate capability kernel: %+v", got)
 	}
 	if got := byName["low_level_db_query"].Domain; got != CapabilityOps {
 		t.Fatalf("low_level_db_query domain=%q", got)
@@ -240,6 +243,11 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if got := byName["delegate_worker_agent"]; got.Effect != ToolEffectExecute || got.RequiredAction != perm.ActManageWorker || got.GroupAllowed {
 		t.Fatalf("delegate_worker_agent 元数据错误: %+v", got)
+	}
+	for _, name := range []string{"run_worker_command", "delegate_worker_agent", "analyze_company_materials", "start_worker_skill", "start_workflow"} {
+		if got := byName[name].Completion; got != string(ai.ToolCompletionAsynchronous) {
+			t.Fatalf("%s completion=%q", name, got)
+		}
 	}
 	if !byName["delete_project"].ApprovalRequired {
 		t.Fatalf("delete_project 应标记为审批工具")
@@ -587,13 +595,13 @@ func TestRenderWorkspaceResources(t *testing.T) {
 
 func TestPlanSemanticSearchUsesAIInsteadOfCodeFuzzyMatching(t *testing.T) {
 	called := false
-	d := Deps{SubcallAI: func(_ context.Context, _ *store.User, purpose, prompt string) (string, error) {
+	d := Deps{SubcallAI: func(_ context.Context, _ *store.User, req SubcallRequest) (string, error) {
 		called = true
-		if purpose != "search_planner" {
-			t.Fatalf("purpose = %q", purpose)
+		if req.Purpose != "search_planner" {
+			t.Fatalf("purpose = %q", req.Purpose)
 		}
-		if !strings.Contains(prompt, "无成分陪伴") {
-			t.Fatalf("planner did not receive intent: %s", prompt)
+		if !strings.Contains(req.Prompt, "无成分陪伴") {
+			t.Fatalf("planner did not receive intent: %s", req.Prompt)
 		}
 		return `{"terms":["无成人陪伴","乘机申请表"],"kinds":["file"],"recent":false}`, nil
 	}}
@@ -610,7 +618,7 @@ func TestPlanSemanticSearchUsesAIInsteadOfCodeFuzzyMatching(t *testing.T) {
 }
 
 func TestPlanSemanticSearchKeepsObjectTermsForRecentIntent(t *testing.T) {
-	d := Deps{SubcallAI: func(context.Context, *store.User, string, string) (string, error) {
+	d := Deps{SubcallAI: func(context.Context, *store.User, SubcallRequest) (string, error) {
 		return `{"terms":["视频项目"],"kinds":["files"],"recent":true}`, nil
 	}}
 	plan := planSemanticSearch(context.Background(), d, &store.User{ID: 1}, "视频项目最新文件", []string{"files", "tasks"})

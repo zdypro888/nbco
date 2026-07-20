@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: Tool
-        hash: sha256:607c163fc1471851a01d0e37f848a6d902a33fb5d55acd1fa4b62e08be94a851
-        struct_hash: sha256:7633a15b4381cedb1d6f84bc3bab7cc513aa4acf07a14e87a96b41d837d254f8
-        doc_struct_hash: sha256:de9c761b849b2f03a4d2cdee700f3fd2b271edb8a806772676ce8a4901537a19
-        lines: [18, 43]
+        hash: sha256:f1e5e1d052f3392e09ed65ac5b11df3bfee8df57f73431b66765d7c5a32ad17b
+        struct_hash: sha256:a83cd40a4caa4cbfa14eca9faa56d14fcec0299f96041c2176ce44988508f247
+        doc_struct_hash: sha256:9b286f92a2da1ad80054d9776a04dd5c149770cb83a27016939a970905bb9e0b
+        lines: [18, 51]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/ai.go#ToolEffectRead
@@ -156,10 +156,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: Step
-        hash: sha256:de8504b5d646ed780256908e0c9137d72a4cce5bfd6639e71665b13fea9762a0
-        struct_hash: sha256:530d054e057517f0db39ae166390c8f5c36850b3122fc6fe9fd98e98daaa7f28
-        doc_struct_hash: sha256:f20caf30cfb0fcf76958cdd539594985f7888af7ad818ad0875136883de9b509
-        lines: [82, 89]
+        hash: sha256:79b34577731ea217a66e27f78b427bca9503afe82ead67c8c957a325df2d85d1
+        struct_hash: sha256:df8b2068d4153f465951db987509a6dc212b2966b1576a108a840039d05a1110
+        doc_struct_hash: sha256:d04b4b469cc2fb29d5d6dd2386297a9dc4ba9475a9058d216bd2a0e589f000f7
+        lines: [110, 118]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/ai.go#Usage
@@ -277,10 +277,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: TurnRequest
-        hash: sha256:d8a8eedec43ad7acb83f4ac9ea337ba7845dc9fa92d56f7cbe0837720433442d
-        struct_hash: sha256:52726cb00ba93a1cc00ef74c0cf509793d7179300530a78966fe95884917849d
-        doc_struct_hash: sha256:05da09fb95c7ba0348082af287b7e9f943145b442e82b6e51ae21178f4e6d0e5
-        lines: [133, 173]
+        hash: sha256:29499a2b5717cc3f2b69ebf3607345005b3b08e1b5e1551cf3f3542131878310
+        struct_hash: sha256:96a54b7688abd604e01070a403872b5ec7c80359cb99a9220b25d429813c4fe5
+        doc_struct_hash: sha256:7dc3ff6177fd97661f74aa76751998486b569a1e34b14ae3986bc641a141916b
+        lines: [160, 214]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/ai.go#TurnResult

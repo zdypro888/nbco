@@ -16,6 +16,7 @@ require (
 	github.com/meguminnnnnnnnn/go-openai v0.1.5
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/qdrant/go-client v1.18.3
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zdypro888/ihtml v0.0.0-20260719135547-7bb80a688309
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/net v0.57.0

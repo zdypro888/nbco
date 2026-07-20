@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type ActionTurnInput struct {
@@ -80,6 +82,30 @@ func (s *Store) ListActionTurns(ctx context.Context, userID int64, limit int) ([
 	if err != nil {
 		return nil, wrapErr(err)
 	}
+	return scanActionTurns(rows)
+}
+
+// ListActionTurnsBySession returns the current caller's recent execution facts
+// for one exact conversation. It is used for capability continuity, not as a
+// replacement for mutable domain state.
+func (s *Store) ListActionTurnsBySession(ctx context.Context, userID, sessionID int64, limit int) ([]*ActionTurn, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 8
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, user_id, session_id, channel, user_text_hash, user_text_excerpt, reply_excerpt,
+		        requires_action, intent, expected_tools, evidence, outcome, tool_count, success_tool_count, created_at
+		   FROM action_turns
+		  WHERE user_id = $1 AND session_id = $2
+		  ORDER BY id DESC
+		  LIMIT $3`, userID, sessionID, limit)
+	if err != nil {
+		return nil, wrapErr(err)
+	}
+	return scanActionTurns(rows)
+}
+
+func scanActionTurns(rows pgx.Rows) ([]*ActionTurn, error) {
 	defer rows.Close()
 	var out []*ActionTurn
 	for rows.Next() {

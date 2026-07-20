@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/args.go
         symbol: withArgumentNormalization
-        hash: sha256:12b2ac930469d695a2823c682ed0003d127c58984f4607326381fcba5523e7da
-        struct_hash: sha256:4648ab612b85c8cd8144543f8c6d568fff713574821ee8ecd0597e5c2dc3237a
-        doc_struct_hash: sha256:852bdcf7ae1e1611f6aa07de43ef399545f263a7d12a9256f2d3e8362ffbea7b
-        lines: [14, 25]
+        hash: sha256:5471df47e997b9b51ee2832a346735675ad2c42d4628b2a4c2cd184318a06203
+        struct_hash: sha256:8bbf715b3cc247aba63f88412a613a46b4b171055303a79bb1d9be0baf6e3d1a
+        doc_struct_hash: sha256:5125263c9b11e56e44531203414cf6763e39d7db06cebbbbeeef03e459319773
+        lines: [20, 40]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args.go#normalizeToolArgs
@@ -85,3 +85,25 @@ nodes:
         lines: [217, 232]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#compileToolSchema
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: compileToolSchema
+        hash: sha256:3813bbf4bfe151b6bb4550409a5bbb021d19dccd2a52f10eed8e77018f3dd3ae
+        struct_hash: sha256:5bad639e9a4214c304762431b4f2882d439aa9d61ca228c8c3276404729ebc15
+        doc_struct_hash: sha256:5bad639e9a4214c304762431b4f2882d439aa9d61ca228c8c3276404729ebc15
+        lines: [42, 68]
+      status: fresh
+      since: 2026-07-20T03:54:29.341642Z
+    - id: tools/args.go#validateToolArgs
+      level: function
+      anchor:
+        file: tools/args.go
+        symbol: validateToolArgs
+        hash: sha256:305787d17a14d1a045b1988e323e16fb0009c6c2e5a0d61f69766722aa401d93
+        struct_hash: sha256:c6840bf9f275b4b1a1f7b67ca8128109cdc1a2b84b0e6eaa397fb5ae596717a9
+        doc_struct_hash: sha256:c6840bf9f275b4b1a1f7b67ca8128109cdc1a2b84b0e6eaa397fb5ae596717a9
+        lines: [82, 100]
+      status: fresh
+      since: 2026-07-20T03:54:29.342336Z

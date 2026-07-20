@@ -3,25 +3,100 @@ package tools
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"io"
 	"math/big"
 	"strconv"
 	"strings"
+	"sync"
+
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/zdypro888/nbco/ai"
 )
 
 // withArgumentNormalization makes tool invocation tolerant of harmless model
-// serialization drift. The tool's JSON Schema remains the source of truth:
+// serialization drift and rejects structurally invalid calls before approval,
+// audit, or business handlers run. The tool's JSON Schema remains the source of truth:
 // aliases are accepted only when they resolve to exactly one declared field,
 // and values are coerced only to the declared primitive type.
 func withArgumentNormalization(t ai.Tool) ai.Tool {
 	inner := t.Handler
 	schema := t.InputSchema
+	validator, compileErr := compileToolSchema(t.Name, schema)
 	t.Handler = func(ctx context.Context, raw json.RawMessage) (string, error) {
-		return inner(ctx, normalizeToolArgs(raw, schema))
+		normalized := normalizeToolArgs(raw, schema)
+		if compileErr != nil {
+			return "", fmt.Errorf("工具 %s 的输入 schema 无效: %w", t.Name, compileErr)
+		}
+		if err := validateToolArgs(normalized, validator); err != nil {
+			return invalidToolArgumentsResult(err), nil
+		}
+		return inner(ctx, normalized)
 	}
 	return t
+}
+
+func compileToolSchema(name string, schema map[string]any) (*jsonschema.Schema, error) {
+	if schema == nil {
+		schema = map[string]any{"type": "object", "properties": map[string]any{}}
+	}
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		return nil, err
+	}
+	key := toolSchemaCacheKey{Name: name, Hash: sha256.Sum256(raw)}
+	if cached, ok := toolSchemaCache.Load(key); ok {
+		entry := cached.(toolSchemaCacheEntry)
+		return entry.Schema, entry.Err
+	}
+	var document any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return nil, err
+	}
+	compiler := jsonschema.NewCompiler()
+	location := "nbco://tools/" + name + "/input.json"
+	if err := compiler.AddResource(location, document); err != nil {
+		toolSchemaCache.Store(key, toolSchemaCacheEntry{Err: err})
+		return nil, err
+	}
+	compiled, err := compiler.Compile(location)
+	toolSchemaCache.Store(key, toolSchemaCacheEntry{Schema: compiled, Err: err})
+	return compiled, err
+}
+
+type toolSchemaCacheKey struct {
+	Name string
+	Hash [sha256.Size]byte
+}
+
+type toolSchemaCacheEntry struct {
+	Schema *jsonschema.Schema
+	Err    error
+}
+
+var toolSchemaCache sync.Map
+
+func validateToolArgs(raw json.RawMessage, schema *jsonschema.Schema) error {
+	if schema == nil {
+		return nil
+	}
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return fmt.Errorf("参数不是合法 JSON: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("参数包含多个 JSON 值")
+	}
+	if err := schema.Validate(value); err != nil {
+		return err
+	}
+	return nil
 }
 
 func normalizeToolArgs(raw json.RawMessage, schema map[string]any) json.RawMessage {

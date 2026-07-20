@@ -192,7 +192,7 @@ nodes:
         hash: sha256:4da1313b7eeb4395c9f6a262804238092fa868bce2defc207994d11371918148
         struct_hash: sha256:bb1675e1054280ebf8b556e56ea810ef50fd997eec972bc1ab00bbd8242ccade
         doc_struct_hash: sha256:8295b3b0769cd710e72e2dc54c1457198cbdf401635746fff1e2f1c1a34aaac0
-        lines: [181, 208]
+        lines: [191, 218]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#dedupeTools
@@ -525,3 +525,36 @@ nodes:
         lines: [771, 774]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools.go#SubcallRequest
+      level: decl
+      anchor:
+        file: tools/tools.go
+        symbol: SubcallRequest
+        hash: sha256:619ae6132538229cb582442cd98ffadfb2d14a796709a845c8b94c6a22436948
+        struct_hash: sha256:20feb97437756910ca164f8ca95d80aaaa24b40defa9601d3d0d7572ccadd230
+        doc_struct_hash: sha256:ba2312363a7afc3818beef82dc684af4788020bf5de8190184f119f4a5f0c4d2
+        lines: [64, 72]
+      status: fresh
+      since: 2026-07-20T03:54:13.332024Z
+    - id: tools/tools.go#immediateTool
+      level: function
+      anchor:
+        file: tools/tools.go
+        symbol: immediateTool
+        hash: sha256:820b8b7c71fe452f4d6c5b0734ad7591f73911012c5094112460d470c42e5759
+        struct_hash: sha256:cbb16d848c1d974a4b074304164698d77851dbc9cff89430b7921255dcd2e71e
+        doc_struct_hash: sha256:cbb16d848c1d974a4b074304164698d77851dbc9cff89430b7921255dcd2e71e
+        lines: [625, 628]
+      status: fresh
+      since: 2026-07-20T03:54:29.351351Z
+    - id: tools/tools.go#asynchronousTool
+      level: function
+      anchor:
+        file: tools/tools.go
+        symbol: asynchronousTool
+        hash: sha256:95075620af8d551a1abe39a64be8f4ad4302468904f4c4aa7e6a927e9139ffca
+        struct_hash: sha256:14be25bf0f6201dd512e8708a1a0612a7f659c1b29ed6484daf3ba235b3dc709
+        doc_struct_hash: sha256:14be25bf0f6201dd512e8708a1a0612a7f659c1b29ed6484daf3ba235b3dc709
+        lines: [630, 633]
+      status: fresh
+      since: 2026-07-20T03:54:29.35373Z

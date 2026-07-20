@@ -11,7 +11,7 @@ import (
 
 func TestRunStoredScriptToolValidatesComposedCapabilitiesWithoutSideEffects(t *testing.T) {
 	u := &store.User{ID: 1, IsSuperadmin: true}
-	d := Deps{SubcallAI: func(context.Context, *store.User, string, string) (string, error) {
+	d := Deps{SubcallAI: func(context.Context, *store.User, SubcallRequest) (string, error) {
 		t.Fatal("validation stub must not execute AI")
 		return "", nil
 	}}
@@ -40,7 +40,7 @@ func TestRunStoredScriptToolValidatesComposedCapabilitiesWithoutSideEffects(t *t
 
 func TestRunStoredScriptToolEnforcesNestedCallBudgets(t *testing.T) {
 	u := &store.User{ID: 1, IsSuperadmin: true}
-	d := Deps{SubcallAI: func(context.Context, *store.User, string, string) (string, error) {
+	d := Deps{SubcallAI: func(context.Context, *store.User, SubcallRequest) (string, error) {
 		return "", nil
 	}}
 	toolLines := make([]string, scriptNestedToolLimit+1)

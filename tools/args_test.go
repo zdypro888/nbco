@@ -1,9 +1,64 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
+	"strings"
 	"testing"
+
+	"github.com/zdypro888/nbco/ai"
 )
+
+func TestArgumentBoundaryValidatesBeforeBusinessHandler(t *testing.T) {
+	called := 0
+	wrapped := withArgumentNormalization(ai.Tool{
+		Name: "validated_tool",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"worker_id": map[string]any{"type": "integer"},
+				"mode":      map[string]any{"type": "string", "enum": []any{"read", "write"}},
+			},
+			"required": []string{"worker_id", "mode"},
+		},
+		Handler: func(context.Context, json.RawMessage) (string, error) {
+			called++
+			return `{"ok":true}`, nil
+		},
+	})
+
+	for _, raw := range []string{`{}`, `{"worker_id":2,"mode":"other"}`, `{"worker_id":"bad","mode":"read"}`, `{broken`} {
+		result, err := wrapped.Handler(context.Background(), json.RawMessage(raw))
+		if err != nil {
+			t.Fatalf("invalid model input should be repairable tool output, got %v", err)
+		}
+		if !ToolResultRejected(result) || !strings.Contains(result, "invalid_arguments") {
+			t.Fatalf("invalid args result = %q", result)
+		}
+	}
+	if called != 0 {
+		t.Fatalf("business handler called %d times for rejected inputs", called)
+	}
+
+	result, err := wrapped.Handler(context.Background(), json.RawMessage(`{"worker_ref":"2.0","mode":"read"}`))
+	if err != nil || result != `{"ok":true}` || called != 1 {
+		t.Fatalf("normalized valid call: result=%q err=%v called=%d", result, err, called)
+	}
+}
+
+func TestToolResultLifecycleIsStructured(t *testing.T) {
+	accepted := asynchronousAcceptedResult("任务已持久化")
+	if !ToolResultAccepted(accepted) || ToolResultRejected(accepted) {
+		t.Fatalf("accepted result was not recognized: %s", accepted)
+	}
+	result, ok := ParseToolResult(accepted)
+	if !ok || result.Message != "任务已持久化" || result.Completion != ai.ToolCompletionAsynchronous {
+		t.Fatalf("accepted envelope = %+v, ok=%v", result, ok)
+	}
+	if ToolResultAccepted("任务已持久化") {
+		t.Fatal("plain prose must not be treated as durable acceptance evidence")
+	}
+}
 
 func TestNormalizeToolArgsUsesSchemaTypesAndUnambiguousAliases(t *testing.T) {
 	schema := obj(map[string]any{

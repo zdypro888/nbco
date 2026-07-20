@@ -398,10 +398,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.handleAdminStartWorkflow
-        hash: sha256:57207d089835c27e0c82df046532506baad7359cc93eb50372a70393157d3a8c
-        struct_hash: sha256:5a645a289c8a0bac1e78e4f15dda93a3c3eed2c1e339e4d7e94ed90f606a3602
-        doc_struct_hash: sha256:5a645a289c8a0bac1e78e4f15dda93a3c3eed2c1e339e4d7e94ed90f606a3602
-        lines: [615, 649]
+        hash: sha256:69f7b248888d077afe67dd15f2481a60e576a1a7a4487b11de4ee354d351b597
+        struct_hash: sha256:0af27ba6fde5d4d88bfcece578eb82c47f37c41f5466d8fb2c66241f1b6836f5
+        doc_struct_hash: sha256:0af27ba6fde5d4d88bfcece578eb82c47f37c41f5466d8fb2c66241f1b6836f5
+        lines: [615, 655]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#Server.engineHealth

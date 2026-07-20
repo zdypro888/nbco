@@ -58,7 +58,17 @@ type Deps struct {
 	// SubcallAI is a constrained, tool-free AI subcall used by semantic planners
 	// and exposed to script tools. Purpose keeps usage attributable by subsystem;
 	// the caller identity is always preserved.
-	SubcallAI func(ctx context.Context, u *store.User, purpose, prompt string) (string, error)
+	SubcallAI func(ctx context.Context, u *store.User, req SubcallRequest) (string, error)
+}
+
+// SubcallRequest lets internal selectors bound cost and disable expensive model
+// reasoning without coupling them to a specific provider API.
+type SubcallRequest struct {
+	Purpose         string
+	Prompt          string
+	MaxOutputTokens int
+	Reasoning       ai.ReasoningMode
+	JSONOutput      bool
 }
 
 // Eventer 系统事件出口（由 events.Bus 实现）。
@@ -610,6 +620,16 @@ func decode[T any](raw json.RawMessage, v *T) error {
 // tool 便捷构造。
 func tool(name, desc string, schema map[string]any, h func(ctx context.Context, args json.RawMessage) (string, error)) ai.Tool {
 	return ai.Tool{Name: name, Description: desc, Domain: CapabilityDomain(name), Effect: ToolEffect(name), InputSchema: schema, Handler: h}
+}
+
+func immediateTool(t ai.Tool) ai.Tool {
+	t.LoadMode = ai.ToolLoadImmediate
+	return t
+}
+
+func asynchronousTool(t ai.Tool) ai.Tool {
+	t.Completion = ai.ToolCompletionAsynchronous
+	return t
 }
 
 // --- 通用小助手 ---

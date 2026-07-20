@@ -1,0 +1,43 @@
+schema: 1
+nodes:
+    - id: chat/turn_context.go
+      level: file
+      anchor:
+        file: chat/turn_context.go
+        hash: sha256:f10cf9a4b42f2f9e278234ebf7f879de70e189048109535828f65661591c353e
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T03:54:13.31165Z
+    - id: chat/turn_context.go#Orchestrator.planTurnContext
+      level: function
+      anchor:
+        file: chat/turn_context.go
+        symbol: Orchestrator.planTurnContext
+        hash: sha256:16786f364b3d48ba50837b92f3fe65608eadf8d19f225632319ab856bcbd1c93
+        struct_hash: sha256:f27398c9b6b8ec5bcb3e78b165302e34de567b083a2533f6a28a78541d275a09
+        doc_struct_hash: sha256:a394c08353cbd4f68e50df1cf8fa38f7f2f24e1c0afea7c8d74cfb167fec80d2
+        lines: [135, 197]
+      status: fresh
+      since: 2026-07-20T03:54:13.311603Z
+    - id: chat/turn_context.go#turnContextSelection.UnmarshalJSON
+      level: function
+      anchor:
+        file: chat/turn_context.go
+        symbol: turnContextSelection.UnmarshalJSON
+        hash: sha256:4575ff6c0c4e79ba16f7346c08eaaf20bd928e91d9ab31672e601b43024a4b3e
+        struct_hash: sha256:f34c30863fdfd0f4fd8dfd23070477453c6fa59567240d20449d0426c4360881
+        doc_struct_hash: sha256:987b32b29af53644b2ee90b4fa7602a538506125ade6d453544aa566761585e8
+        lines: [40, 56]
+      status: fresh
+      since: 2026-07-20T03:54:13.312673Z
+    - id: chat/turn_context.go#Orchestrator.turnMemoryCandidates
+      level: function
+      anchor:
+        file: chat/turn_context.go
+        symbol: Orchestrator.turnMemoryCandidates
+        hash: sha256:06f5473012ed058144c1432777914dd2d03d8c051b68af952cbfad4e477ccfdd
+        struct_hash: sha256:93e6b62b1c9092e3a261884eabd788608f540eca95e4c03fd4f74eb8c530861a
+        doc_struct_hash: sha256:93e6b62b1c9092e3a261884eabd788608f540eca95e4c03fd4f74eb8c530861a
+        lines: [213, 252]
+      status: fresh
+      since: 2026-07-20T03:54:13.313693Z

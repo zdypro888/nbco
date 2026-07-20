@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: tools/workflows.go
         symbol: startMaterialWorkflow
-        hash: sha256:2b8860a1c7ab42a39b22ef9a4fd71edc1e92e66411677d73c5a9864b550d96df
-        struct_hash: sha256:d1f7d2fb193798fde8767271ab49517452aa54f71268c6389bd4ee8bcaf01306
-        doc_struct_hash: sha256:d1f7d2fb193798fde8767271ab49517452aa54f71268c6389bd4ee8bcaf01306
-        lines: [209, 219]
+        hash: sha256:d2478b74c8bb42a3bb9342ef13662cd8d38d7d8ba8f23c02d9ef26a8240c1387
+        struct_hash: sha256:f9ca64c1c94698e6602b75cab6aeb57407db270bbec21549dc93744459cb4cab
+        doc_struct_hash: sha256:f9ca64c1c94698e6602b75cab6aeb57407db270bbec21549dc93744459cb4cab
+        lines: [209, 220]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workflows.go#startNBCOUpgradeWorkflow
@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: tools/workflows.go
         symbol: startNBCOUpgradeWorkflow
-        hash: sha256:ddac2f387bd549f63103a2c6b72441a4dc8a5541f990661e8f87921d23523092
-        struct_hash: sha256:fd694c262921abb926d7e43b27382acd51538255a30b886ae187e55ddbc04d2f
-        doc_struct_hash: sha256:fd694c262921abb926d7e43b27382acd51538255a30b886ae187e55ddbc04d2f
-        lines: [221, 275]
+        hash: sha256:c30481687bee416e9f0d31a9ffc1a0d983af7c28c79dfb9f597449379f0daf86
+        struct_hash: sha256:7aedae5ce76d9fc65b6046e2992bd8d1847b8ef5adabd7e0a825f24c4feb4b64
+        doc_struct_hash: sha256:7aedae5ce76d9fc65b6046e2992bd8d1847b8ef5adabd7e0a825f24c4feb4b64
+        lines: [222, 276]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workflows.go#startNBCOCodeChangeWorkflow
@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: tools/workflows.go
         symbol: startNBCOCodeChangeWorkflow
-        hash: sha256:7655f049ea5418739d33cc5659a7e408c74b2f18a1b19aeaa0f8a61b6ea1d11b
-        struct_hash: sha256:e89ae90d3de781a0395d18d2c482bd79eb83797a1144d1be384b4425697c9204
-        doc_struct_hash: sha256:e89ae90d3de781a0395d18d2c482bd79eb83797a1144d1be384b4425697c9204
-        lines: [277, 348]
+        hash: sha256:b1704a4e0aa59c5cbb4d0303d8f79e237113755c0e3c631f8a7af4cb4640391b
+        struct_hash: sha256:b3a5745b7fee63edd5bdd209766c3ddccfe7aa149ff0d361b421903ece33f9cb
+        doc_struct_hash: sha256:b3a5745b7fee63edd5bdd209766c3ddccfe7aa149ff0d361b421903ece33f9cb
+        lines: [278, 349]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workflows.go#nbcoCodeChangePrompt
