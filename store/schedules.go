@@ -511,6 +511,84 @@ func (s *Store) UpdateScheduleFireAt(ctx context.Context, id int64, fireAt time.
 		`UPDATE schedules SET fire_at = $2, updated_at = now() WHERE id = $1 AND status = 'active'`, id, fireAt)
 }
 
+// ReconcileScheduleTimezone rebases active daily schedules when the configured
+// company timezone changes. DailyAt is wall-clock data, while FireAt is an
+// absolute instant; persisting the timezone marker keeps ordinary restarts from
+// moving overdue schedules and preserves their normal catch-up behavior.
+func (s *Store) ReconcileScheduleTimezone(ctx context.Context, after time.Time, tz *time.Location) (changed bool, updated int, err error) {
+	if tz == nil {
+		tz = time.Local
+	}
+	timezone := tz.String()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1, '')
+		 ON CONFLICT (key) DO NOTHING`, KVSchedulerTimezone); err != nil {
+		return false, 0, err
+	}
+	var previous string
+	err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key = $1 FOR UPDATE`, KVSchedulerTimezone).Scan(&previous)
+	if err != nil {
+		return false, 0, err
+	}
+	if previous == timezone {
+		if err := tx.Commit(ctx); err != nil {
+			return false, 0, err
+		}
+		return false, 0, nil
+	}
+
+	rows, err := tx.Query(ctx,
+		`SELECT id, daily_at, weekdays FROM schedules
+		  WHERE kind = $1 AND status = $2
+		  ORDER BY id FOR UPDATE`, ScheduleDaily, ScheduleActive)
+	if err != nil {
+		return false, 0, err
+	}
+	type dailySchedule struct {
+		id                int64
+		dailyAt, weekdays string
+	}
+	var schedules []dailySchedule
+	for rows.Next() {
+		var id int64
+		var dailyAt, weekdays string
+		if err := rows.Scan(&id, &dailyAt, &weekdays); err != nil {
+			rows.Close()
+			return false, 0, err
+		}
+		schedules = append(schedules, dailySchedule{id: id, dailyAt: dailyAt, weekdays: weekdays})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return false, 0, err
+	}
+	for _, sc := range schedules {
+		next := NextDailyFire(after, sc.dailyAt, sc.weekdays, tz)
+		if _, err := tx.Exec(ctx,
+			`UPDATE schedules
+			    SET fire_at = $2, delivery_claimed_at = NULL, updated_at = now()
+			  WHERE id = $1 AND status = $3`, sc.id, next, ScheduleActive); err != nil {
+			return false, 0, err
+		}
+		updated++
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1, $2)
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, KVSchedulerTimezone, timezone); err != nil {
+		return false, 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, 0, err
+	}
+	return true, updated, nil
+}
+
 // NextDailyFire 计算 after 之后、时刻为 dailyAt（HH:MM，tz 时区）、且落在
 // weekdays 过滤内的最近触发时间（UTC）。dailyAt 非法或 weekdays 全非法时
 // 兜底 after+24h。纯函数，调度器与工具层共用。

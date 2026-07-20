@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: scheduleTools
-        hash: sha256:d43fa6be6d6ff536f617f189f63fff9934ca9ac0aad05bb2dbdd16420cf1d5ae
-        struct_hash: sha256:4a02a5f7d5209e23ab5297a2783a39193eda093ec43eb0b7caa94a5c289ff552
-        doc_struct_hash: sha256:7fc90abb2b0d888e5ae69357dd5f336a7eab6bc28ecdfa5326172b12802539fe
-        lines: [43, 225]
+        hash: sha256:6f8e84870a8a0acd5a0c5b81593c3bb36b7984c613f8f3e79bcace024d84ab46
+        struct_hash: sha256:059c37c917020a58018efad906d25506f198de355686d2f097d5c5115daf7fa7
+        doc_struct_hash: sha256:9e4d0e6fde6388f368702a3e3f94c73c8875e6a2ce62fa8dba99279c67985268
+        lines: [43, 244]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#pushScheduleArgs
@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: findVisibleSchedules
-        hash: sha256:9fd0c8981d18f9e815c142fe390226803498c07dd7293cbbc81a50374ecbfec7
-        struct_hash: sha256:376cb15e1e2f43d91df468debb8f67b855a65cb5e9094b47a977ef377f1ffda5
-        doc_struct_hash: sha256:376cb15e1e2f43d91df468debb8f67b855a65cb5e9094b47a977ef377f1ffda5
-        lines: [392, 412]
+        hash: sha256:3570b136d4e1dde0155552fd3ad514d02d91cdb275767d5b130c0d31aa2852cf
+        struct_hash: sha256:e4a86c52b294d66e531f29d9e5b509511f0ab66bc5e9e0424b3206f1806dfde6
+        doc_struct_hash: sha256:e4a86c52b294d66e531f29d9e5b509511f0ab66bc5e9e0424b3206f1806dfde6
+        lines: [411, 431]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#renderScheduleCandidates
@@ -162,3 +162,14 @@ nodes:
         lines: [471, 490]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/schedule.go#inactiveScheduleResult
+      level: function
+      anchor:
+        file: tools/schedule.go
+        symbol: inactiveScheduleResult
+        hash: sha256:bd0328dc574551af6f7273d6fb529279dbcd943d555c330a6db382c62e5e1043
+        struct_hash: sha256:2982815f782cb24d531dd9aed7ad25443fa0a79469d9bfa254251b4dd9ce72ad
+        doc_struct_hash: sha256:2982815f782cb24d531dd9aed7ad25443fa0a79469d9bfa254251b4dd9ce72ad
+        lines: [449, 463]
+      status: fresh
+      since: 2026-07-20T02:42:41.897905Z

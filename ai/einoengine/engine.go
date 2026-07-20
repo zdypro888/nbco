@@ -27,6 +27,7 @@ import (
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/jsonschema"
 
@@ -164,9 +165,10 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	var summaryUsage ai.Usage
 	var toolExposure ai.ToolExposure
 	var agent adk.Agent
+	var toolScope *turnToolMiddleware
 	switch mode {
 	case ai.TurnModeDeep:
-		agent, err = e.newDeepAgent(ctx, model, req, &summaryUsage, &toolExposure)
+		agent, toolScope, err = e.newDeepAgent(ctx, model, req, &summaryUsage, &toolExposure)
 	case ai.TurnModeOneShot:
 		agent, err = newOneShotAgent(ctx, model, req)
 	}
@@ -226,8 +228,12 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		runnerConfig.CheckPointStore = e.runtime
 	}
 	runner := adk.NewRunner(ctx, runnerConfig)
+	var blockedToolCall func(string, string) bool
+	if toolScope != nil {
+		blockedToolCall = toolScope.blocked
+	}
 	result, err := collect(runner.Run(ctx, msgs), req.OnEvent, req.OnDelta, req.StreamReasoning,
-		e.outputTokenLimit())
+		e.outputTokenLimit(), blockedToolCall)
 	if err != nil && managedSession {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
@@ -297,32 +303,6 @@ type oneShotMiddleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
 }
 
-// deepInstructionMiddleware composes nbco's product context with Eino's native
-// Deep Agent instruction. Passing req.System as deep.Config.Instruction would
-// replace the native execution contract instead of extending it.
-type deepInstructionMiddleware struct {
-	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
-	instruction string
-}
-
-func (m *deepInstructionMiddleware) BeforeAgent(
-	ctx context.Context,
-	runCtx *adk.ChatModelAgentContext[*schema.Message],
-) (context.Context, *adk.ChatModelAgentContext[*schema.Message], error) {
-	if runCtx == nil || strings.TrimSpace(m.instruction) == "" {
-		return ctx, runCtx, nil
-	}
-	next := *runCtx
-	product := strings.TrimSpace(m.instruction)
-	if base := strings.TrimSpace(runCtx.Instruction); base != "" {
-		next.Instruction = base + "\n\n[nbco 产品与业务上下文]\n" +
-			"以下内容定义当前宿主、业务、权限和输出格式；若与前面的通用 CLI 或软件工程假设冲突，以本节为准。前面的持续执行与工具循环原则仍然适用。\n" + product
-	} else {
-		next.Instruction = product
-	}
-	return ctx, &next, nil
-}
-
 func (*oneShotMiddleware) BeforeModelRewriteState(
 	ctx context.Context,
 	state *adk.TypedChatModelAgentState[*schema.Message],
@@ -352,17 +332,17 @@ func (e *Engine) newDeepAgent(
 	req *ai.TurnRequest,
 	summaryUsage *ai.Usage,
 	toolExposure *ai.ToolExposure,
-) (adk.Agent, error) {
+) (adk.Agent, *turnToolMiddleware, error) {
+	toolScope := newTurnToolMiddleware(req.Tools, toolExposure)
 	dynamicTools := make([]tool.BaseTool, 0, len(req.Tools))
 	for _, t := range req.Tools {
 		dynamicTools = append(dynamicTools, &einoTool{t: t})
 	}
-	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 5)
-	handlers = append(handlers, &deepInstructionMiddleware{instruction: req.System})
+	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
 	if len(dynamicTools) > 0 {
 		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
 		if err != nil {
-			return nil, fmt.Errorf("构建 Eino 动态工具检索: %w", err)
+			return nil, nil, fmt.Errorf("构建 Eino 动态工具检索: %w", err)
 		}
 		handlers = append(handlers, middleware)
 	}
@@ -371,7 +351,7 @@ func (e *Engine) newDeepAgent(
 			Backend: newTurnSkillBackend(req.Skills),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("构建 Eino skill 中间件: %w", err)
+			return nil, nil, fmt.Errorf("构建 Eino skill 中间件: %w", err)
 		}
 		handlers = append(handlers, middleware)
 	}
@@ -398,28 +378,38 @@ func (e *Engine) newDeepAgent(
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("构建 Eino 上下文摘要: %w", err)
+		return nil, nil, fmt.Errorf("构建 Eino 上下文摘要: %w", err)
 	}
 	handlers = append(handlers, summaryMiddleware)
-	handlers = append(handlers, newTurnToolMiddleware(req.Tools, toolExposure))
+	handlers = append(handlers, toolScope)
 
 	agent, err := deep.New(ctx, &deep.Config{
 		Name:        "nbco",
 		Description: "nbco 公司运营中枢",
-		// Keep this empty so Eino installs its native Deep Agent execution
-		// contract. deepInstructionMiddleware appends the product context.
-		Instruction:            "",
-		ChatModel:              model,
-		MaxIteration:           e.maxTurns,
-		WithoutWriteTodos:      len(dynamicTools) == 0,
+		// Deep Agent's loop, middleware and lifecycle remain native Eino. Its
+		// bundled prompt targets a coding CLI, so nbco supplies the product
+		// instruction through the framework's supported configuration point.
+		Instruction:  req.System,
+		ChatModel:    model,
+		MaxIteration: e.maxTurns,
+		// nbco has durable tasks, goals and workflows. Deep's ephemeral coding
+		// checklist adds two model turns to simple operational actions without
+		// improving recoverability.
+		WithoutWriteTodos:      true,
 		WithoutGeneralSubAgent: true,
-		Handlers:               handlers,
-		ModelRetryConfig:       modelRetryConfig(),
+		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{
+			ToolCallMiddlewares: []compose.ToolMiddleware{{
+				Name:      "nbco_deferred_tool_scope",
+				Invokable: toolScope.guardInvokable,
+			}},
+		}},
+		Handlers:         handlers,
+		ModelRetryConfig: modelRetryConfig(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
+		return nil, nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
 	}
-	return agent, nil
+	return agent, toolScope, nil
 }
 
 type sessionResetter interface {
@@ -692,7 +682,7 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, blockedToolCall func(string, string) bool) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
@@ -770,6 +760,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			} else {
 				delete(pending, msg.ToolCallID)
 				res.Steps[idx].Result = msg.Content
+			}
+			if blockedToolCall != nil && blockedToolCall(msg.ToolName, msg.ToolCallID) {
+				res.Steps[idx].Err = "deferred tool was not loaded for the current turn"
 			}
 			if onEvent != nil {
 				onEvent(res.Steps[idx])

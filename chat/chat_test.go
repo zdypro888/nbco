@@ -509,6 +509,25 @@ func TestPendingApprovalRecordedAsOutcome(t *testing.T) {
 	}
 }
 
+func TestActionAuditRecordsRecoveredToolCallAsSuccess(t *testing.T) {
+	res := &ai.TurnResult{Steps: []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "delegate_worker_agent", Err: "deferred tool was not loaded"},
+		{Kind: ai.StepToolCall, ToolName: "tool_search", Result: `{"matches":["delegate_worker_agent"]}`},
+		{Kind: ai.StepToolCall, ToolName: "delegate_worker_agent", Result: "已创建任务"},
+	}}
+	plan := buildActionAuditPlan("安排 worker 处理", []ai.Tool{
+		{Name: "delegate_worker_agent", Effect: ai.ToolEffectExecute},
+		{Name: "tool_search", Effect: ai.ToolEffectRead},
+	}, res)
+	if got := actionTurnOutcome(plan, res); got != "action_tool_returned" {
+		t.Fatalf("recovered action outcome = %s; want action_tool_returned", got)
+	}
+	evidence := summarizeToolEvidence(res.Steps)
+	if len(evidence) != 3 || evidence[0].HandlerReturned || !evidence[2].HandlerReturned {
+		t.Fatalf("recovery evidence lost: %+v", evidence)
+	}
+}
+
 func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 	engine := &fakeEngine{}
 	orchestrator := &Orchestrator{engine: engine}

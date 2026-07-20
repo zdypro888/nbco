@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 	einomodel "github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
 	"github.com/zdypro888/nbco/ai"
@@ -18,12 +19,10 @@ import (
 const (
 	// Bump when the durable Deep Agent's tool or lifecycle contract changes so
 	// managed sessions cannot replay traces produced by an incompatible runtime.
-	deepAgentRuntimeVersion = "native-deep-toolsearch-v5"
+	deepAgentRuntimeVersion = "native-deep-toolsearch-v6"
 
 	toolSearchToolName           = "tool_search"
-	writeTodosToolName           = "write_todos"
 	conciseToolSearchDescription = "按能力关键词或名称查找并加载当前轮次需要的延迟工具。知道名称时用 select:<tool_name>；否则用简短能力关键词。返回的工具已立即可调用，无需重复搜索。"
-	conciseWriteTodosDescription = "为当前复杂请求维护临时步骤清单。仅在确有多个执行步骤时使用；及时把当前步骤标为 in_progress，完成后标为 completed。简单问答或单步操作无需调用。"
 )
 
 // turnToolMiddleware keeps deferred tools selected in older managed-session
@@ -35,8 +34,9 @@ type turnToolMiddleware struct {
 	dynamicNames map[string]struct{}
 	exposure     *ai.ToolExposure
 
-	mu       sync.Mutex
-	selected map[string]struct{}
+	mu           sync.Mutex
+	selected     map[string]struct{}
+	blockedCalls map[string]struct{}
 }
 
 func newTurnToolMiddleware(tools []ai.Tool, exposure *ai.ToolExposure) *turnToolMiddleware {
@@ -48,6 +48,7 @@ func newTurnToolMiddleware(tools []ai.Tool, exposure *ai.ToolExposure) *turnTool
 		dynamicNames: dynamicNames,
 		exposure:     exposure,
 		selected:     make(map[string]struct{}),
+		blockedCalls: make(map[string]struct{}),
 	}
 }
 
@@ -79,10 +80,6 @@ func (m *turnToolMiddleware) BeforeModelRewriteState(
 		case toolSearchToolName:
 			clone := *info
 			clone.Desc = conciseToolSearchDescription
-			infos[i] = &clone
-		case writeTodosToolName:
-			clone := *info
-			clone.Desc = conciseWriteTodosDescription
 			infos[i] = &clone
 		}
 	}
@@ -155,6 +152,48 @@ func (m *turnToolMiddleware) selectedSnapshot() map[string]struct{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return maps.Clone(m.selected)
+}
+
+func (m *turnToolMiddleware) callable(name string) bool {
+	if m == nil {
+		return true
+	}
+	if _, dynamic := m.dynamicNames[name]; !dynamic {
+		return true
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, selected := m.selected[name]
+	return selected
+}
+
+func (m *turnToolMiddleware) guardInvokable(next compose.InvokableToolEndpoint) compose.InvokableToolEndpoint {
+	return func(ctx context.Context, input *compose.ToolInput) (*compose.ToolOutput, error) {
+		if input == nil || m.callable(input.Name) {
+			return next(ctx, input)
+		}
+		m.mu.Lock()
+		m.blockedCalls[toolCallKey(input.Name, input.CallID)] = struct{}{}
+		m.mu.Unlock()
+		return &compose.ToolOutput{Result: deferredToolNotLoadedResult(input.Name)}, nil
+	}
+}
+
+func (m *turnToolMiddleware) blocked(toolName, callID string) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, blocked := m.blockedCalls[toolCallKey(toolName, callID)]
+	return blocked
+}
+
+func toolCallKey(toolName, callID string) string { return toolName + "\x00" + callID }
+
+func deferredToolNotLoadedResult(name string) string {
+	return "工具 " + name +
+		" 未执行：它尚未在当前轮次通过 tool_search 加载。请先调用 tool_search，随后再调用该工具。"
 }
 
 func (m *turnToolMiddleware) observe(infos []*schema.ToolInfo) {

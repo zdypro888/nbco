@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.RunTurn
-        hash: sha256:dc1a4c144ae326c5dacc26a577a3f9da2bd65575cb95f9ed28591aef68bdde4b
-        struct_hash: sha256:3ae52a248525655b091bcabe3ece4305b4eea322c3ea7ae26b7f3f9ae392b128
-        doc_struct_hash: sha256:51b93f3d7edc0bfb8dffe884612b362e42e411887dffd3b296fc856fbe18e6c7
-        lines: [145, 252]
+        hash: sha256:34027b0779097e9d5c985d72d4a9c76ba7d5d5d1360cae5b4c8d3dca1a340f77
+        struct_hash: sha256:73cac7281b123f2ebc5f4d33fe4bd32d8a8477c7a64dc5d11195423eb6c04b6b
+        doc_struct_hash: sha256:d799e853f2db0239e57a55f06c30a66bb8412bba5836885381b2135e1a9866d0
+        lines: [146, 254]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#normalizeTurnMode
@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.newDeepAgent
-        hash: sha256:2abe69ba0d7c427790936d62599e8e28e8de73983157b94f61a3e84005372688
-        struct_hash: sha256:930668711d92258ef509b9379e41a78e26a0505547ef563cde65797933ce5c7d
-        doc_struct_hash: sha256:930668711d92258ef509b9379e41a78e26a0505547ef563cde65797933ce5c7d
-        lines: [349, 423]
+        hash: sha256:49410c40c496be250bfce2aad516e1d04f7236d17b82bdfc1a8e70ef9677d4f4
+        struct_hash: sha256:c582a4c59adc8f89b297ddd25429253ff496b49daba364a45fc3ca2f5fe26859
+        doc_struct_hash: sha256:c582a4c59adc8f89b297ddd25429253ff496b49daba364a45fc3ca2f5fe26859
+        lines: [329, 413]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -435,10 +435,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: collect
-        hash: sha256:16557a7e7b3e8187f74462439762d7e00793dc89bc64eee05c52a08ff293d27a
-        struct_hash: sha256:ec761c04d7a5a8542299d714b12eda3debce214929040aad9d10cb82c715ae8d
-        doc_struct_hash: sha256:afa27a6641d0ad5e4566061bd3fceea9b7e2621284fdaaa659f038e0ee160083
-        lines: [694, 798]
+        hash: sha256:d0401a5aca7ada0a781118b097af8d84f56f5816ee22c0935ad31e9b88267d78
+        struct_hash: sha256:4e430c617e042d934b00b30a077e6b47c42067602ad9006b598a89c473fec1a0
+        doc_struct_hash: sha256:df88850e389cfb5042e51250f487c7fd13e31965615f2c8ee7af37e354abf786
+        lines: [684, 791]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:

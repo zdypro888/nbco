@@ -2498,6 +2498,63 @@ func TestDirectedDailySchedule(t *testing.T) {
 	}
 }
 
+func TestReconcileScheduleTimezoneOnlyOnChange(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "老板", true)
+	now := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+	shanghai, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldFire := NextDailyFire(now, "18:00", "", shanghai)
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: boss.ID, Kind: ScheduleDaily, Message: "日报", FireAt: oldFire,
+		Target: ScheduleTargetSelf, Mode: ScheduleModeMessage, DailyAt: "18:00", CreatedBy: boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetKV(ctx, KVSchedulerTimezone, shanghai.String()); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, updated, err := s.ReconcileScheduleTimezone(ctx, now, tokyo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || updated != 1 {
+		t.Fatalf("timezone reconcile = changed %v, updated %d; want true, 1", changed, updated)
+	}
+	got, err := s.ScheduleByID(ctx, sc.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := NextDailyFire(now, "18:00", "", tokyo)
+	if !got.FireAt.Equal(want) {
+		t.Fatalf("rebased fire_at = %s; want %s", got.FireAt, want)
+	}
+
+	changed, updated, err = s.ReconcileScheduleTimezone(ctx, now.Add(48*time.Hour), tokyo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed || updated != 0 {
+		t.Fatalf("same timezone reconcile = changed %v, updated %d; want false, 0", changed, updated)
+	}
+	got, err = s.ScheduleByID(ctx, sc.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.FireAt.Equal(want) {
+		t.Fatalf("ordinary restart moved fire_at to %s; want unchanged %s", got.FireAt, want)
+	}
+}
+
 func TestQuarantineLegacyAutomationHistoryMigration(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

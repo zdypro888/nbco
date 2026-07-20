@@ -12,6 +12,10 @@ const (
 	KVAIModel = "settings.ai.model"
 	// KVTelegramBotUsername 缓存 Telegram bot username，用于生成员工邀请 deep link。
 	KVTelegramBotUsername = "telegram.bot_username"
+	// KVSchedulerTimezone records the IANA timezone used to materialize daily
+	// schedule fire_at values. The scheduler uses it to rebase those absolute
+	// timestamps exactly once when the configured company timezone changes.
+	KVSchedulerTimezone = "scheduler.timezone"
 )
 
 // BoolSetting 把 kv_state 里的布尔字符串解析成 bool；空值或未知值走 fallback。

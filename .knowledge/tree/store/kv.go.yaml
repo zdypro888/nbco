@@ -96,3 +96,14 @@ nodes:
         lines: [56, 76]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/kv.go#KVSchedulerTimezone
+      level: decl
+      anchor:
+        file: store/kv.go
+        symbol: KVSchedulerTimezone
+        hash: sha256:5ffc22ebe07d419726fec2b043626825c81fc561e0a59921e063d1b07bc03a2a
+        struct_hash: sha256:577eae8a1fa4c94f653e498fc238bc6ed85b1f3f6ba22477a3418c050c2c011e
+        doc_struct_hash: sha256:3583c2b77cf33d6684fe36575fe7a74f43f1db1409d23748f59d02261468b625
+        lines: [15, 18]
+      status: fresh
+      since: 2026-07-20T02:42:41.915768Z

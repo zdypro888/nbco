@@ -224,6 +224,11 @@ func (s *Scheduler) retryAutomation(ctx context.Context, run *store.AutomationRu
 
 // Run 阻塞运行直到 ctx 结束。
 func (s *Scheduler) Run(ctx context.Context) {
+	if changed, updated, err := s.store.ReconcileScheduleTimezone(ctx, time.Now().UTC(), s.tz); err != nil {
+		slog.Error("调度器时区对账失败", "timezone", s.tz, "err", err)
+	} else if changed {
+		slog.Info("调度器时区已切换", "timezone", s.tz, "daily_schedules_rebased", updated)
+	}
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {

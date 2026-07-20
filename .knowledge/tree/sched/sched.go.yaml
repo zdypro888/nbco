@@ -299,10 +299,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.Run
-        hash: sha256:d19ee804028bb61bc631cf682eb6763df2967e95071da5bfdd3724199e1deae4
-        struct_hash: sha256:d4b177bceb0fd0e24948d39ff80d53a3662141d194491c0a314e4fbbbb0216b2
-        doc_struct_hash: sha256:27b419c0c90569479208bf72c63da6e83b018eaa1af32375912b1181a37f628b
-        lines: [225, 238]
+        hash: sha256:0f47fba80a64c1d82ce325138724d64d61b39eab84ac0af468cdb9327d1bff59
+        struct_hash: sha256:43b1097091e31fe4f800c85ec5f7eb467875749316dc9ee4ecbf8833974482be
+        doc_struct_hash: sha256:e123b1776ce379faa1854a971a83decdbea29ea9af2a23b2c1ed72b7579dd1b9
+        lines: [225, 243]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.tick

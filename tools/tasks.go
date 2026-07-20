@@ -29,7 +29,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderProjects(ps), nil
 			}),
 
-		tool("get_my_tasks", "查看当前用户自己的待办任务（待处理+进行中）。只代表“我作为执行人”的范围，不能据此判断全公司/系统/项目是否空闲。",
+		tool("get_my_tasks", "查看当前用户作为执行人的普通工作任务（待处理+进行中），不包含定时提醒、计划推送或持久自动化；后者使用 list_schedules。只代表个人执行范围，不能据此判断全公司、系统或项目是否空闲。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, true)
@@ -39,7 +39,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderTasks(ts, d.TZ), nil
 			}),
 
-		tool("get_my_all_tasks", "查看当前用户相关的所有任务（含负责、协作、验收、关注以及已完成/已拆分任务）。",
+		tool("get_my_all_tasks", "查看当前用户相关的所有普通工作任务（含负责、协作、验收、关注以及已完成/已拆分任务），不包含定时提醒、计划推送或持久自动化；后者使用 list_schedules。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, false)

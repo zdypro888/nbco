@@ -115,7 +115,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 		scheduleOncePushTool(d, u),
 		scheduleRecurringPushTool(d, u),
 
-		tool("cancel_schedule", "取消一个定时提醒或持久自动化。优先传 schedule_id；不知道编号时传 query，工具会在当前可见的活跃日程中按标题、内容和来源查找，只有唯一匹配才取消。超级管理员可取消全局日程。",
+		tool("cancel_schedule", "取消尚未执行的定时提醒、计划推送或持久自动化；它们属于日程，不是普通工作任务。优先传 schedule_id；不知道编号时传 query，工具会在当前可见的活跃日程中按标题、内容和来源查找，只有唯一匹配才取消。超级管理员可取消全局日程。",
 			obj(map[string]any{
 				"schedule_id": p("integer", "日程ID（可选，优先）"),
 				"query":       p("string", "不知道 ID 时按标题、内容或来源检索（可选）"),
@@ -132,13 +132,28 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					if strings.TrimSpace(args.Query) == "" {
 						return "请提供 schedule_id；不知道编号时请提供可用于消歧的 query。", nil
 					}
-					matches, err := findVisibleSchedules(ctx, d, u, args.Query)
+					matches, err := findVisibleSchedules(ctx, d, u, args.Query, store.ScheduleActive)
 					if err != nil {
 						return "", err
 					}
 					switch len(matches) {
 					case 0:
-						return "没有找到匹配的活跃定时提醒或自动化。请先用 list_schedules 查看。", nil
+						historical, err := findVisibleSchedules(ctx, d, u, args.Query, "all")
+						if err != nil {
+							return "", err
+						}
+						switch len(historical) {
+						case 0:
+							return "没有找到匹配的定时提醒、计划推送或自动化。", nil
+						case 1:
+							if historical[0].Status == store.ScheduleActive {
+								args.ScheduleID = historical[0].ID
+								break
+							}
+							return inactiveScheduleResult(historical[0].Schedule, d.TZ), nil
+						default:
+							return "匹配到多条已结束日程，请根据稳定 ID 指定一条：\n" + renderScheduleCandidates(historical, d.TZ), nil
+						}
 					case 1:
 						args.ScheduleID = matches[0].ID
 					default:
@@ -147,14 +162,18 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if err := d.Store.CancelScheduleVisible(ctx, args.ScheduleID, u.ID, u.IsSuperadmin); err != nil {
 					if errors.Is(err, store.ErrNotFound) {
-						return "日程不存在、已结束或不在你的可见范围。", nil
+						sc, findErr := d.Store.ScheduleByID(ctx, args.ScheduleID)
+						if findErr == nil && scheduleVisibleTo(sc, u) && sc.Status != store.ScheduleActive {
+							return inactiveScheduleResult(*sc, d.TZ), nil
+						}
+						return "日程不存在或不在你的可见范围。", nil
 					}
 					return "", err
 				}
 				return fmt.Sprintf("已取消%s。", internalRef("日程", args.ScheduleID)), nil
 			}),
 
-		tool("list_schedules", "查看可见的定时提醒和持久自动化；超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all，避免执行后的单次任务从视图消失。返回稳定日程 ID、状态和触发时间，可用于取消或核实；逐次投递结果可用 query_data(source=deliveries) 深挖。",
+		tool("list_schedules", "查看可见的定时提醒、计划推送和持久自动化；这些属于日程，不是普通工作任务。超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all，避免执行后的单次日程从视图消失。返回稳定日程 ID、状态和触发时间，可用于取消或核实；逐次投递结果可用 query_data(source=deliveries) 深挖。",
 			obj(map[string]any{
 				"status": enumP("状态筛选，可省略", store.ScheduleActive, store.ScheduleDone, store.ScheduleCancelled, "all"),
 				"limit":  p("integer", "最多返回条数，默认100，最大500"),
@@ -389,8 +408,8 @@ func preparePushSchedule(ctx context.Context, d Deps, u *store.User, args pushSc
 	}, "", nil
 }
 
-func findVisibleSchedules(ctx context.Context, d Deps, u *store.User, query string) ([]store.ScheduleView, error) {
-	items, err := d.Store.SchedulesVisible(ctx, u.ID, u.IsSuperadmin, store.ScheduleActive, 500)
+func findVisibleSchedules(ctx context.Context, d Deps, u *store.User, query, status string) ([]store.ScheduleView, error) {
+	items, err := d.Store.SchedulesVisible(ctx, u.ID, u.IsSuperadmin, status, 500)
 	if err != nil {
 		return nil, err
 	}
@@ -418,9 +437,29 @@ func renderScheduleCandidates(items []store.ScheduleView, tz *time.Location) str
 		if label == "" {
 			label = textfmt.TruncateRunes(strings.TrimSpace(item.Message), 80)
 		}
-		fmt.Fprintf(&b, "- %s %s，下次 %s\n", internalRef("日程", item.ID), label, fmtTime(item.FireAt, tz))
+		fmt.Fprintf(&b, "- %s [%s] %s，计划 %s\n", internalRef("日程", item.ID), item.Status, label, fmtTime(item.FireAt, tz))
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func scheduleVisibleTo(sc *store.Schedule, u *store.User) bool {
+	return sc != nil && u != nil && (u.IsSuperadmin || sc.UserID == u.ID || sc.CreatedBy == u.ID)
+}
+
+func inactiveScheduleResult(sc store.Schedule, tz *time.Location) string {
+	ref := internalRef("日程", sc.ID)
+	switch sc.Status {
+	case store.ScheduleDone:
+		when := sc.FireAt
+		if sc.LastFired != nil {
+			when = *sc.LastFired
+		}
+		return fmt.Sprintf("%s 已于 %s 执行完成，没有未来执行；未作更改，历史记录继续保留用于审计。", ref, fmtTime(when, tz))
+	case store.ScheduleCancelled:
+		return fmt.Sprintf("%s 已取消，没有未来执行；未作更改。", ref)
+	default:
+		return fmt.Sprintf("%s 当前状态为 %s；未作更改。", ref, sc.Status)
+	}
 }
 
 func normalizeDailyAt(raw string) (string, error) {

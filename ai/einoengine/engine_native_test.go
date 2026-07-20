@@ -8,7 +8,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/session"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -77,9 +76,6 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 		visibleNames := make(map[string]bool, len(visible))
 		for _, info := range visible {
 			visibleNames[info.Name] = true
-			if info.Name == writeTodosToolName && info.Desc != conciseWriteTodosDescription {
-				return nil, fmt.Errorf("write_todos description was not compacted")
-			}
 			if info.Name == toolSearchToolName && info.Desc != conciseToolSearchDescription {
 				return nil, fmt.Errorf("tool_search description was not compacted")
 			}
@@ -97,7 +93,7 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 				Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
 			}}), nil
 		default:
-			if !visibleNames["tool_search"] || !visibleNames["write_todos"] || visibleNames["record_value"] {
+			if !visibleNames["tool_search"] || visibleNames["write_todos"] || visibleNames["record_value"] {
 				return nil, fmt.Errorf("unexpected initial tools: %v", visibleNames)
 			}
 			return schema.AssistantMessage("", []schema.ToolCall{{
@@ -138,16 +134,77 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	}
 }
 
-func TestDeepAgentComposesNativeAndProductInstructions(t *testing.T) {
-	if err := adk.SetLanguage(adk.LanguageChinese); err != nil {
+func TestDeepAgentBlocksUnloadedDeferredToolExecution(t *testing.T) {
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
+		visibleNames := make(map[string]bool, len(visible))
+		for _, info := range visible {
+			visibleNames[info.Name] = true
+		}
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == "record_value" &&
+			strings.Contains(last.Content, "尚未在当前轮次通过 tool_search 加载"):
+			if executed != 0 {
+				return nil, fmt.Errorf("unloaded tool reached its handler")
+			}
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-after-block", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			if !visibleNames["record_value"] {
+				return nil, fmt.Errorf("searched tool is not visible: %v", visibleNames)
+			}
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-after-search", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{}`},
+			}}), nil
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponse("guard-final", "已执行一次"), nil
+		default:
+			if visibleNames["record_value"] {
+				return nil, fmt.Errorf("deferred tool was initially visible")
+			}
+			// Simulate a model naming a deferred tool from the catalog without
+			// first loading its schema through Eino tool_search.
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "direct-unloaded", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		System: "完成用户要求。", UserText: "保存值",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
+	if result.Text != "已执行一次" || executed != 1 {
+		t.Fatalf("result=%+v executed=%d", result, executed)
+	}
+	if len(result.Steps) != 4 || result.Steps[0].ToolName != "record_value" ||
+		result.Steps[0].Err == "" || result.Steps[1].ToolName != toolSearchToolName ||
+		result.Steps[2].ToolName != "record_value" || result.Steps[2].Err != "" {
+		t.Fatalf("guarded tool steps = %+v", result.Steps)
+	}
+}
+
+func TestDeepAgentUsesProductInstruction(t *testing.T) {
 	state := &scriptedModelState{fn: func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
-		if !strings.Contains(input[0].Content, "重要：完全完成任务") ||
-			!strings.Contains(input[0].Content, "PRODUCT_CONTEXT_MARKER") {
-			return nil, fmt.Errorf("native and product instructions were not composed: %q", input[0].Content)
+		if got := strings.TrimSpace(input[0].Content); got != "PRODUCT_CONTEXT_MARKER" {
+			return nil, fmt.Errorf("deep agent did not use the product instruction directly: %q", got)
 		}
-		return finalResponse("composed-final", "组合正常"), nil
+		return finalResponse("product-final", "产品提示正常"), nil
 	}}
 	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
@@ -156,7 +213,7 @@ func TestDeepAgentComposesNativeAndProductInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Text != "组合正常" {
+	if result.Text != "产品提示正常" {
 		t.Fatalf("result=%+v", result)
 	}
 }

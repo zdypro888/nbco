@@ -207,22 +207,36 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 	if _, ok := firstPendingApprovalStep(res.Steps); ok {
 		return "pending_approval"
 	}
-	hadTool, hadError := false, false
+	actionTools := make(map[string]struct{}, len(plan.ExpectedTools))
+	for _, name := range plan.ExpectedTools {
+		actionTools[name] = struct{}{}
+	}
+	hadTool, hadSuccess, hadError, actionSuccess, actionError := false, false, false, false, false
 	for _, step := range res.Steps {
 		if step.Kind != ai.StepToolCall {
 			continue
 		}
 		hadTool = true
-		hadError = hadError || step.Err != ""
+		_, action := actionTools[step.ToolName]
+		if step.Err != "" {
+			hadError = true
+			actionError = actionError || action
+			continue
+		}
+		hadSuccess = true
+		actionSuccess = actionSuccess || action
 	}
-	if hadError {
-		return "tool_handler_error"
-	}
-	if plan.RequiresAction && hadTool {
+	if plan.RequiresAction && actionSuccess {
 		return "action_tool_returned"
 	}
-	if hadTool {
+	if actionError || (!hadSuccess && hadError) {
+		return "tool_handler_error"
+	}
+	if hadSuccess {
 		return "read_tool_returned"
+	}
+	if hadTool {
+		return "tool_handler_error"
 	}
 	return "answered_without_tool"
 }
