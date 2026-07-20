@@ -232,8 +232,10 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 	runner := adk.NewRunner(ctx, runnerConfig)
 	var blockedToolCall func(string, string) bool
+	var replayedToolCall func(string, string) bool
 	if toolScope != nil {
 		blockedToolCall = toolScope.blocked
+		replayedToolCall = toolScope.replayed
 	}
 	runOptions := turnRunOptions(e.cfg.Provider, req)
 	outputLimit := e.outputTokenLimit()
@@ -241,7 +243,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		outputLimit = req.MaxOutputTokens
 	}
 	result, err := collect(runner.Run(ctx, msgs, runOptions...), req.OnEvent, req.OnDelta, req.StreamReasoning,
-		outputLimit, blockedToolCall, toolCompletions(req.Tools))
+		outputLimit, blockedToolCall, replayedToolCall, toolCompletions(req.Tools))
 	if err != nil && managedSession {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
@@ -738,7 +740,7 @@ func readStream(sr *schema.StreamReader[*schema.Message], role schema.RoleType, 
 }
 
 // collect 消费 ADK 事件流：配对 tool 调用与结果、累计用量、取最终文本。
-func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, blockedToolCall func(string, string) bool, completions map[string]ai.ToolCompletion) (*ai.TurnResult, error) {
+func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), onDelta func(string), showReasoning bool, maxTokens int, blockedToolCall, replayedToolCall func(string, string) bool, completions map[string]ai.ToolCompletion) (*ai.TurnResult, error) {
 	res := &ai.TurnResult{}
 	// tool_call 步骤按 ToolCallID 待配对；结果事件到达时回填。
 	pending := map[string]int{} // tool call id -> res.Steps 下标
@@ -801,6 +803,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 					Args:       json.RawMessage(tc.Function.Arguments),
 					Completion: completions[tc.Function.Name],
 				}
+				if replayedToolCall != nil && replayedToolCall(tc.Function.Name, tc.ID) {
+					step.Replayed = true
+				}
 				pending[tc.ID] = len(res.Steps)
 				res.Steps = append(res.Steps, step)
 			}
@@ -821,6 +826,9 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 			if blockedToolCall != nil && blockedToolCall(msg.ToolName, msg.ToolCallID) {
 				res.Steps[idx].Err = "deferred tool was not loaded for the current turn"
 			}
+			if replayedToolCall != nil && replayedToolCall(msg.ToolName, msg.ToolCallID) {
+				res.Steps[idx].Replayed = true
+			}
 			if onEvent != nil {
 				onEvent(res.Steps[idx])
 			}
@@ -830,6 +838,16 @@ func collect(iter *adk.AsyncIterator[*adk.AgentEvent], onEvent func(ai.Step), on
 		return preservePartialAgentError(res, pending, terminalErr)
 	}
 	if finalText == "" {
+		for _, idx := range pending {
+			if idx < 0 || idx >= len(res.Steps) || res.Steps[idx].Err != "" {
+				continue
+			}
+			if res.Steps[idx].Replayed {
+				res.Steps[idx].Err = "exact side-effect replay suppressed before execution"
+			} else {
+				res.Steps[idx].Err = "tool call ended without a handler result"
+			}
+		}
 		if emptyTurnNeedsRepair(res, maxTokens) {
 			// A tool loop that exhausts its lifecycle, or a reasoning model that
 			// spends its output budget before visible text, may use the bounded

@@ -128,7 +128,46 @@ func TestSmokeRealTurnContextSelector(t *testing.T) {
 		(!containsString(selected.Tools, "list_schedules") && !containsString(selected.Tools, "query_data")) {
 		t.Fatalf("selector missed state read/write capabilities: %+v", selected)
 	}
+	if !selected.ActionExpected {
+		t.Fatalf("selector did not classify the requested cancellation as an action: %+v", selected)
+	}
 	t.Logf("real context selector passed: tools=%v usage=%+v", selected.Tools, result.Usage)
+}
+
+func TestSmokeRealReplyGrounding(t *testing.T) {
+	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
+		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real reply grounding")
+	}
+	engine, err := einoengine.New(context.Background(), config.AIConfig{
+		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
+		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	orchestrator := &Orchestrator{engine: engine}
+	request := &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, Model: os.Getenv("NBCO_SMOKE_MODEL"),
+		Tools: []ai.Tool{
+			{Name: "save_rule", Effect: ai.ToolEffectWrite},
+			{Name: "schedule_once_push", Effect: ai.ToolEffectWrite},
+		},
+	}
+	result := &ai.TurnResult{
+		Text: "规则已经去重，提醒机制也已设置。",
+		Steps: []ai.Step{{
+			Kind: ai.StepToolCall, ToolName: "save_rule",
+			Result: "规则已存在且内容一致，未重复创建（规则 #80）。",
+		}},
+	}
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "api", "整理规则并设置提醒", request, result, true, nil) {
+		t.Fatal("reply grounding did not run")
+	}
+	if strings.Contains(result.Text, "提醒机制也已设置") || strings.Contains(result.Text, "去重") ||
+		!strings.Contains(result.Text, "未") || !strings.Contains(result.Text, "规则") {
+		t.Fatalf("grounded reply is not evidence-bound: %q", result.Text)
+	}
+	t.Logf("real reply grounding passed: %q", result.Text)
 }
 
 func TestSmokeRealTurnContextSelectorWithAuthorizedCatalog(t *testing.T) {

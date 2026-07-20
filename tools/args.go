@@ -26,8 +26,12 @@ func withArgumentNormalization(t ai.Tool) ai.Tool {
 	inner := t.Handler
 	schema := t.InputSchema
 	validator, compileErr := compileToolSchema(t.Name, schema)
+	normalize := func(raw json.RawMessage) json.RawMessage {
+		return normalizeToolArgs(raw, schema)
+	}
+	t.NormalizeInput = normalize
 	t.Handler = func(ctx context.Context, raw json.RawMessage) (string, error) {
-		normalized := normalizeToolArgs(raw, schema)
+		normalized := normalize(raw)
 		if compileErr != nil {
 			return "", fmt.Errorf("工具 %s 的输入 schema 无效: %w", t.Name, compileErr)
 		}

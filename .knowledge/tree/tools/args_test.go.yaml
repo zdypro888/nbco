@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/args_test.go
-        hash: sha256:550bf8dcb34bdcfe93a6cf86dcec9e45227f3bce6314a4ad46d66e2aef011bd3
+        hash: sha256:312f8df310375adaf6d6ea10f6fba1c1e4b1fae7806cbd7f667d85709d8c3dd9
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/args_test.go
         symbol: TestArgumentBoundaryValidatesBeforeBusinessHandler
-        hash: sha256:6e43a4dd70bb5f4860041fedf98d4c0acf83f8b56cdc8510655ed90840574598
-        struct_hash: sha256:a04ab2b24072428d2f4e966ee616298d09c19427e15ac3cd985cd5deb4037b8c
-        doc_struct_hash: sha256:a04ab2b24072428d2f4e966ee616298d09c19427e15ac3cd985cd5deb4037b8c
-        lines: [12, 47]
+        hash: sha256:9f2deadfcf4748db9997c66b86aff03a417a8e7fdf7ec012fcebc99101dc0150
+        struct_hash: sha256:3bb4d0e8efefd500400d0b8cafe667614784b66e96907dde184faa71d1cf15b6
+        doc_struct_hash: sha256:3bb4d0e8efefd500400d0b8cafe667614784b66e96907dde184faa71d1cf15b6
+        lines: [12, 50]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: tools/args_test.go#TestToolResultLifecycleIsStructured
@@ -27,7 +27,7 @@ nodes:
         hash: sha256:122879b0e7610ec50bb9d73b71a027eacae09dae07be53964647248f15223906
         struct_hash: sha256:244400d7d1c8bf90d6210eb82be6be7a3ea966c5cfa8ecd214e02cc50531b42c
         doc_struct_hash: sha256:244400d7d1c8bf90d6210eb82be6be7a3ea966c5cfa8ecd214e02cc50531b42c
-        lines: [49, 61]
+        lines: [52, 64]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: tools/args_test.go#TestNormalizeToolArgsUsesSchemaTypesAndUnambiguousAliases
@@ -38,7 +38,7 @@ nodes:
         hash: sha256:b0ca14fe2734ab57008407bbe10cdd987458029901e387c1491cfc586e6e0da5
         struct_hash: sha256:954754f30a63544e22f0480b6c229fe913860cf6bdf5a70f3812d4f174a3c176
         doc_struct_hash: sha256:954754f30a63544e22f0480b6c229fe913860cf6bdf5a70f3812d4f174a3c176
-        lines: [63, 88]
+        lines: [66, 91]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsInternalIDOnlyWhenUnambiguous
@@ -49,7 +49,7 @@ nodes:
         hash: sha256:08bc580b22bd98f5794dc7ba95b07fac208bde0ffa57e6cc7b14a78044a4a3f5
         struct_hash: sha256:fa7b570daf332cd547f2b35940c233786784e494f32cd0bd8e2050290be07616
         doc_struct_hash: sha256:fa7b570daf332cd547f2b35940c233786784e494f32cd0bd8e2050290be07616
-        lines: [90, 106]
+        lines: [93, 109]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsNestedArray
@@ -60,7 +60,7 @@ nodes:
         hash: sha256:151b19c79cac7c4ebdb1940f2962bff9c8e048b363d8aae2425c95c333df3755
         struct_hash: sha256:57c8234ad800b042072efabd0866f75a91cc2f28e0906ed9de58298c678d8d2a
         doc_struct_hash: sha256:57c8234ad800b042072efabd0866f75a91cc2f28e0906ed9de58298c678d8d2a
-        lines: [108, 124]
+        lines: [111, 127]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsMapsGenericTimeToAt
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:517dd4f6113fc9cfb08cc1363fc36a4e4566ae56fbcf1ca5ee0dd03ec87d0b87
         struct_hash: sha256:29768699f09ce18e38d7f40e7d5712aefbb114ae482888e964718a3fa701cd9a
         doc_struct_hash: sha256:29768699f09ce18e38d7f40e7d5712aefbb114ae482888e964718a3fa701cd9a
-        lines: [126, 135]
+        lines: [129, 138]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/args_test.go#TestNormalizeToolArgsRejectsFractionalInteger
@@ -82,6 +82,6 @@ nodes:
         hash: sha256:26866fe582756d887327094d468bd6cb5b4f1cf5e1dbe30d761b31dbab112837
         struct_hash: sha256:7613cc47970b56a7f5cc31073467eaacfb2ee88674184e8f44b63a856a21ffc2
         doc_struct_hash: sha256:7613cc47970b56a7f5cc31073467eaacfb2ee88674184e8f44b63a856a21ffc2
-        lines: [137, 143]
+        lines: [140, 146]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

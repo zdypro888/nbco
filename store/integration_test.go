@@ -3784,6 +3784,160 @@ func TestKnowledgeRules(t *testing.T) {
 	}
 }
 
+func TestRuleUpsertKeepsOneActiveLogicalRule(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "rule-upsert-owner", true)
+
+	created, status, err := s.UpsertRule(ctx, "日本红日子", "节假日不上班", []string{"scope:global"}, boss.ID, false)
+	if err != nil || status != RuleCreated {
+		t.Fatalf("first upsert = %+v status=%q err=%v", created, status, err)
+	}
+	unchanged, status, err := s.UpsertRule(ctx, "日本红日子", "节假日不上班", []string{"scope:global"}, boss.ID, false)
+	if err != nil || status != RuleUnchanged || unchanged.ID != created.ID {
+		t.Fatalf("same upsert = %+v status=%q err=%v", unchanged, status, err)
+	}
+	updated, status, err := s.UpsertRule(ctx, " 日本红日子 ", "法定节假日不上班", []string{"scope:global"}, boss.ID, true)
+	if err != nil || status != RuleUpdated || updated.ID != created.ID || !updated.Pinned || updated.Content != "法定节假日不上班" {
+		t.Fatalf("updated upsert = %+v status=%q err=%v", updated, status, err)
+	}
+	versions, err := s.KnowledgeVersions(ctx, created.ID, 10)
+	if err != nil || len(versions) != 1 || versions[0].Content != "节假日不上班" {
+		t.Fatalf("upsert must snapshot changed rule: %+v err=%v", versions, err)
+	}
+	otherScope, status, err := s.UpsertRule(ctx, "日本红日子", "仅 Telegram 提醒", []string{"scope:telegram"}, boss.ID, false)
+	if err != nil || status != RuleCreated || otherScope.ID == created.ID {
+		t.Fatalf("different scope should be independent: %+v status=%q err=%v", otherScope, status, err)
+	}
+	all, err := s.ListRules(ctx, 10)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("active rules = %+v err=%v", all, err)
+	}
+}
+
+func TestRuleUpsertSerializesConcurrentIdenticalCreates(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "rule-concurrent-owner", true)
+
+	const workers = 8
+	type result struct {
+		id     int64
+		status RuleWriteStatus
+		err    error
+	}
+	results := make(chan result, workers)
+	for range workers {
+		go func() {
+			k, status, err := s.UpsertRule(ctx, "并发规则", "只保留一条", []string{"scope:global"}, boss.ID, false)
+			var id int64
+			if k != nil {
+				id = k.ID
+			}
+			results <- result{id: id, status: status, err: err}
+		}()
+	}
+	var canonical int64
+	created := 0
+	for range workers {
+		result := <-results
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		if canonical == 0 {
+			canonical = result.id
+		}
+		if result.id != canonical {
+			t.Fatalf("concurrent upsert returned different ids: %d and %d", canonical, result.id)
+		}
+		if result.status == RuleCreated {
+			created++
+		}
+	}
+	if created != 1 {
+		t.Fatalf("created count = %d, want 1", created)
+	}
+	all, err := s.ListRules(ctx, 10)
+	if err != nil || len(all) != 1 || all[0].ID != canonical {
+		t.Fatalf("active rules = %+v err=%v", all, err)
+	}
+}
+
+func TestMigration0065ArchivesExistingDuplicateRules(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	schema := fmt.Sprintf("migration_0065_%d", time.Now().UnixNano())
+	if _, err := tx.Exec(ctx, `CREATE SCHEMA `+schema); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `SET LOCAL search_path TO `+schema); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		CREATE TABLE users (id BIGINT PRIMARY KEY);
+		INSERT INTO users VALUES (1);
+		CREATE TABLE knowledge (
+			id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+			title TEXT NOT NULL, content TEXT NOT NULL, tags TEXT[] NOT NULL DEFAULT '{}',
+			author_id BIGINT NOT NULL REFERENCES users(id), kind TEXT NOT NULL DEFAULT 'fact',
+			pinned BOOLEAN NOT NULL DEFAULT FALSE, active BOOLEAN NOT NULL DEFAULT TRUE,
+			embedding REAL[], embed_model TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		);
+		CREATE TABLE knowledge_versions (
+			id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+			knowledge_id BIGINT NOT NULL REFERENCES knowledge(id) ON DELETE CASCADE,
+			version INT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+			tags TEXT[] NOT NULL DEFAULT '{}', kind TEXT NOT NULL DEFAULT 'fact',
+			pinned BOOLEAN NOT NULL DEFAULT FALSE, active BOOLEAN NOT NULL DEFAULT TRUE,
+			changed_by BIGINT REFERENCES users(id), change_note TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (knowledge_id, version)
+		);
+		INSERT INTO knowledge (title, content, tags, author_id, kind) VALUES
+			('日本红日子', 'v1', ARRAY['scope:global'], 1, 'policy'),
+			(' 日本红日子 ', 'v2', ARRAY['scope:global'], 1, 'policy'),
+			('日本红日子', 'v3', ARRAY['scope:global'], 1, 'policy'),
+			('日本红日子', 'telegram', ARRAY['scope:telegram'], 1, 'policy');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	migration, err := migrationsFS.ReadFile("migrations/0065_rule_identity.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, string(migration)); err != nil {
+		t.Fatal(err)
+	}
+	var activeGlobal, archived, snapshots int
+	var activeID int64
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*), max(id) FROM knowledge
+		 WHERE kind = 'policy' AND active AND 'scope:global' = ANY(tags)
+	`).Scan(&activeGlobal, &activeID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM knowledge WHERE kind = 'policy' AND NOT active`).Scan(&archived); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM knowledge_versions WHERE change_note = 'archived duplicate by migration 0065'`).Scan(&snapshots); err != nil {
+		t.Fatal(err)
+	}
+	if activeGlobal != 1 || activeID != 3 || archived != 2 || snapshots != 2 {
+		t.Fatalf("migration result active=%d id=%d archived=%d snapshots=%d", activeGlobal, activeID, archived, snapshots)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO knowledge (title, content, tags, author_id, kind)
+		VALUES ('日本红日子', 'duplicate', ARRAY['scope:global'], 1, 'policy')
+	`); !errors.Is(wrapErr(err), ErrConflict) {
+		t.Fatalf("post-migration duplicate insert err = %v", err)
+	}
+}
+
 func TestLearningCandidateExists(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

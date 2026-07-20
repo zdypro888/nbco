@@ -265,12 +265,21 @@ func (svc *Service) Search(ctx context.Context, query string, limit int) ([]*sto
 
 // SaveRule 存一条行为规则（kind=policy）并异步 embedding，路径同 Save。
 func (svc *Service) SaveRule(ctx context.Context, title, content string, tags []string, authorID int64, pinned bool) (*store.Knowledge, error) {
-	k, err := svc.store.CreateRule(ctx, title, content, tags, authorID, pinned)
+	k, _, err := svc.SaveRuleWithStatus(ctx, title, content, tags, authorID, pinned)
+	return k, err
+}
+
+// SaveRuleWithStatus exposes whether the logical policy was created, updated,
+// or already identical so callers can report the durable outcome accurately.
+func (svc *Service) SaveRuleWithStatus(ctx context.Context, title, content string, tags []string, authorID int64, pinned bool) (*store.Knowledge, store.RuleWriteStatus, error) {
+	k, status, err := svc.store.UpsertRule(ctx, title, content, tags, authorID, pinned)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	svc.embedAsync(k)
-	return k, nil
+	if status != store.RuleUnchanged {
+		svc.embedAsync(k)
+	}
+	return k, status, nil
 }
 
 // SaveSkill 存一条执行方法并异步 embedding。

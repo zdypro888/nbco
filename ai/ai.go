@@ -44,6 +44,10 @@ type Tool struct {
 	ApprovalRequired bool
 	// InputSchema 是 JSON Schema（object 类型）。
 	InputSchema map[string]any
+	// NormalizeInput applies the same schema-aware normalization used by the
+	// handler. Agent runtimes use it only to derive stable per-turn invocation
+	// identities; nil means canonical JSON is sufficient.
+	NormalizeInput func(json.RawMessage) json.RawMessage
 	// Handler 执行工具并返回给模型的文本结果。
 	// 业务错误（权限不足、目标不存在）应返回 (提示文本, nil) 让模型自行转述；
 	// 只有系统性故障才返回 error。
@@ -115,6 +119,10 @@ type Step struct {
 	Result     string
 	Err        string
 	Completion ToolCompletion
+	// Replayed means the model repeated the exact same write/execute invocation
+	// in one turn. The original call remains in Steps; this entry is evidence of
+	// the suppressed replay and did not invoke the business handler again.
+	Replayed bool
 }
 
 // Usage 一轮的用量统计（能取到多少记多少，取不到为零值）。

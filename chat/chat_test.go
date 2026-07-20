@@ -333,7 +333,8 @@ func TestTurnContextSelectionUsesAuthorizedAllowLists(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"tools":[{"name":"write","domain":"work"},"read"],
 		"knowledge_ids":[{"id":2},"999"],
-		"message_ids":[{"id":"11"}]
+		"message_ids":[{"id":"11"}],
+		"action_expected":true
 	}`), &selected); err != nil {
 		t.Fatal(err)
 	}
@@ -348,6 +349,61 @@ func TestTurnContextSelectionUsesAuthorizedAllowLists(t *testing.T) {
 	selectedTools := allowToolNames(selected.Tools, []ai.Tool{{Name: "read"}, {Name: "write"}}, 2)
 	if !reflect.DeepEqual(selectedTools, []string{"write", "read"}) {
 		t.Fatalf("selected tools = %v", selectedTools)
+	}
+	if !selected.ActionExpected {
+		t.Fatal("action_expected was lost by custom JSON decoder")
+	}
+}
+
+func TestReplyGroundingEvidenceSeparatesExecutionFromReplay(t *testing.T) {
+	evidence := buildReplyToolEvidence([]ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}}, []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "save", Args: json.RawMessage(`{"id":1}`), Result: "已保存"},
+		{Kind: ai.StepToolCall, ToolName: "save", Args: json.RawMessage(`{"id":1}`), Result: `{"status":"replayed"}`, Replayed: true},
+	})
+	if len(evidence) != 2 || !evidence[0].HandlerReturned || evidence[0].Effect != ai.ToolEffectWrite ||
+		evidence[1].HandlerReturned || !evidence[1].Replayed {
+		t.Fatalf("reply evidence = %+v", evidence)
+	}
+	if !shouldGroundReply(false, &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall}}}) ||
+		!shouldGroundReply(true, &ai.TurnResult{}) || shouldGroundReply(false, &ai.TurnResult{}) {
+		t.Fatal("reply grounding trigger is inconsistent")
+	}
+}
+
+func TestActionEvidenceFallbackNeverPreservesUnsupportedDraft(t *testing.T) {
+	result := &ai.TurnResult{
+		Text:  "已完成不存在的额外动作",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "save", Result: "只保存了一条规则"}},
+	}
+	if !applyActionEvidenceFallback(result, []ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}}, true, nil) {
+		t.Fatal("action fallback did not apply")
+	}
+	if strings.Contains(result.Text, "额外动作") || !strings.Contains(result.Text, "只保存了一条规则") {
+		t.Fatalf("fallback retained unsupported draft: %q", result.Text)
+	}
+}
+
+func TestGroundVisibleReplyUsesStatelessToolFreeSynthesis(t *testing.T) {
+	engine := &fakeEngine{}
+	orchestrator := &Orchestrator{engine: engine}
+	request := &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "9", EngineSession: "managed", Model: "test",
+		Tools: []ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}},
+	}
+	result := &ai.TurnResult{
+		Text:  "草稿声称做了额外操作",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "save", Result: "只保存了一条规则"}},
+	}
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "整理规则", request, result, true, nil) {
+		t.Fatal("grounding did not run")
+	}
+	grounding := engine.lastReq()
+	if grounding == nil || grounding.Mode != ai.TurnModeOneShot || grounding.EngineSession != "" ||
+		len(grounding.Tools) != 0 || grounding.SessionID != "reply-grounding" {
+		t.Fatalf("grounding request = %+v", grounding)
+	}
+	if !strings.Contains(grounding.UserText, "只保存了一条规则") || result.Text != "收到。" {
+		t.Fatalf("grounding payload/result mismatch: request=%s result=%q", grounding.UserText, result.Text)
 	}
 }
 

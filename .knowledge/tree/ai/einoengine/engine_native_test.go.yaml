@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/engine_native_test.go
-        hash: sha256:c0f77660cdb7f42c4b086c6ee9c1f455c4eb18ab35abf2bcd6643f1d41f13321
+        hash: sha256:482647493160129044a0416267719095667959294d01d535dea8937bf7ed109b
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -156,12 +156,34 @@ nodes:
       anchor:
         file: ai/einoengine/engine_native_test.go
         symbol: TestDeepAgentMayRepeatSameToolAndArguments
-        hash: sha256:94b72fe1671ba1103f553ddf902d356a6c7bc36645125b8ff533a7e1e3bcf32e
-        struct_hash: sha256:c54350f1224999aaed324806125950aba61cc38315ed1beb0ddbc79cdb4381c2
-        doc_struct_hash: sha256:c54350f1224999aaed324806125950aba61cc38315ed1beb0ddbc79cdb4381c2
-        lines: [319, 369]
+        hash: sha256:b1840dd3f7c942482d422102a19b56e96eb041adbf0580f34c399f76220bb115
+        struct_hash: sha256:f8d5222c693efe7b24631bd4f6c1b6b2279794ce1dd756f4e60f45e9666b5b29
+        doc_struct_hash: sha256:f8d5222c693efe7b24631bd4f6c1b6b2279794ce1dd756f4e60f45e9666b5b29
+        lines: [319, 370]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/engine_native_test.go#TestDeepAgentExecutesExactSideEffectOnceAndStopsReplayLoop
+      level: function
+      anchor:
+        file: ai/einoengine/engine_native_test.go
+        symbol: TestDeepAgentExecutesExactSideEffectOnceAndStopsReplayLoop
+        hash: sha256:081ab8db161e2bd5cc5e4ec4bac2dd02e4e8aedf43c9bb8a266cd32509e33a1a
+        struct_hash: sha256:aa80cf3a714b8c62daa79f78e4f88b1bd088a3eb909a605fe93a015aaa91b07c
+        doc_struct_hash: sha256:aa80cf3a714b8c62daa79f78e4f88b1bd088a3eb909a605fe93a015aaa91b07c
+        lines: [372, 426]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: ai/einoengine/engine_native_test.go#TestDeepAgentAllowsSameSideEffectToolWithDifferentArguments
+      level: function
+      anchor:
+        file: ai/einoengine/engine_native_test.go
+        symbol: TestDeepAgentAllowsSameSideEffectToolWithDifferentArguments
+        hash: sha256:5a06dad3bb1d88138cf405c65d10b1d05ab4b8c14fe163511ec6d28e13ced0ca
+        struct_hash: sha256:c96069e4a414444dc6c3c491598d5ea22a4a9909480ea1f0ab0ef1e8041f0c25
+        doc_struct_hash: sha256:c96069e4a414444dc6c3c491598d5ea22a4a9909480ea1f0ab0ef1e8041f0c25
+        lines: [428, 479]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
     - id: ai/einoengine/engine_native_test.go#TestOneShotUsesOneToolFreeGeneration
       level: function
       anchor:
@@ -170,7 +192,7 @@ nodes:
         hash: sha256:f353082f7d7a8f25e66ae02ebf548f06d89e9f814ad9e44c910367ff27278a27
         struct_hash: sha256:fa7940d6323bd8943c21150a5a10a775a88550de2aecf8e0e858d79017794ba9
         doc_struct_hash: sha256:fa7940d6323bd8943c21150a5a10a775a88550de2aecf8e0e858d79017794ba9
-        lines: [371, 407]
+        lines: [481, 517]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestOneShotRejectsAgentCapabilitiesAndUnknownMode
@@ -181,7 +203,7 @@ nodes:
         hash: sha256:d47559b0a9754c180e9c47a789095c02836ad1ca34af772be3cc295a7e916e08
         struct_hash: sha256:ac768ee81dac5122dafa49fb89a3cae77460fc4bdff066ed13830008d2f231d7
         doc_struct_hash: sha256:ac768ee81dac5122dafa49fb89a3cae77460fc4bdff066ed13830008d2f231d7
-        lines: [409, 440]
+        lines: [519, 550]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestOneShotCanCloseExistingDeepSession
@@ -192,7 +214,7 @@ nodes:
         hash: sha256:f52b7f505fc3932d34632849030c2996a14927be3f2b3e05210f505c49d32d1d
         struct_hash: sha256:7f878ad196f00ce6afad3185d0132ab8db103577f257a77a802fc15926fdb43a
         doc_struct_hash: sha256:7f878ad196f00ce6afad3185d0132ab8db103577f257a77a802fc15926fdb43a
-        lines: [442, 496]
+        lines: [552, 606]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestManagedSessionReplaysHistoryAcrossEngineInstances
@@ -203,7 +225,7 @@ nodes:
         hash: sha256:bab087d34f1225de8739834a3f1cb7cbea4627a92fa2792f4fb19df1752d84c9
         struct_hash: sha256:9ac644be2a4d2de99fd3bf410984e1b71ac65f67d63e3ac7b66ee9aa6d991176
         doc_struct_hash: sha256:9ac644be2a4d2de99fd3bf410984e1b71ac65f67d63e3ac7b66ee9aa6d991176
-        lines: [498, 538]
+        lines: [608, 648]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestDeepAgentLoadsSkillContentOnDemand
@@ -214,7 +236,7 @@ nodes:
         hash: sha256:492e62677ff42cf176012f996774d74228f7a79938fdbc4107363c177dd0ff5e
         struct_hash: sha256:1676d21b817586a5b290f63a2ebebc979e22a2bbe1fdc8f5ffd20a76c34a6bb2
         doc_struct_hash: sha256:1676d21b817586a5b290f63a2ebebc979e22a2bbe1fdc8f5ffd20a76c34a6bb2
-        lines: [540, 579]
+        lines: [650, 689]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestCapabilityChangeRotatesManagedSession
@@ -225,7 +247,7 @@ nodes:
         hash: sha256:4922e838e7286f474659ebbe0b6f4ad23837ef47b15a5adafdeb3a0bff7a7031
         struct_hash: sha256:20ac28c01a75da6166dc2cace6dc6505fadeef6a217658ab7cec3a222c09da6a
         doc_struct_hash: sha256:20ac28c01a75da6166dc2cace6dc6505fadeef6a217658ab7cec3a222c09da6a
-        lines: [581, 599]
+        lines: [691, 709]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestToolContractChangeRotatesManagedSessionWithStableScope
@@ -236,7 +258,7 @@ nodes:
         hash: sha256:541aad3aee54e0aec9f24381d62e83e165f31240973f34db3fd8dd413720fe3b
         struct_hash: sha256:bc5a25faf8cf9e462f6a316670815a5dbf135c50836e5ca5b0b03aa0e6a0fb98
         doc_struct_hash: sha256:bc5a25faf8cf9e462f6a316670815a5dbf135c50836e5ca5b0b03aa0e6a0fb98
-        lines: [601, 631]
+        lines: [711, 741]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestFailedManagedTurnRollsBackToLastCommit
@@ -247,7 +269,7 @@ nodes:
         hash: sha256:ae57cdc839f8e58650e6378119467ae89a9c00d2cacba281ba0de6c0d2df023c
         struct_hash: sha256:fa825007aabbb111944e711a7d0c2ef3e5c2e77b4747f4183104e19f1c62e9ef
         doc_struct_hash: sha256:fa825007aabbb111944e711a7d0c2ef3e5c2e77b4747f4183104e19f1c62e9ef
-        lines: [633, 676]
+        lines: [743, 786]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestDeepAgentDoesNotReactivateToolsFromEarlierTurns
@@ -258,6 +280,6 @@ nodes:
         hash: sha256:8539740363355ec62babff76bf7c1f406a62f42f122028ab461d1c1eadb6a53e
         struct_hash: sha256:437bfbefa585540054f794b0b7a329f7d3f0773f7b655b6a022e3870084de818
         doc_struct_hash: sha256:437bfbefa585540054f794b0b7a329f7d3f0773f7b655b6a022e3870084de818
-        lines: [678, 731]
+        lines: [788, 841]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z

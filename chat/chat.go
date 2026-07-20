@@ -385,6 +385,8 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			switch {
 			case s.Kind == ai.StepToolCall && s.Err != "":
 				slog.Warn("工具调用失败", "session", sess.ID, "tool", s.ToolName, "err", s.Err)
+			case s.Kind == ai.StepToolCall && s.Replayed:
+				slog.Warn("工具副作用重复调用已抑制", "session", sess.ID, "tool", s.ToolName)
 			case s.Kind == ai.StepToolCall:
 				slog.Info("工具调用", "session", sess.ID, "tool", s.ToolName, "result_len", len(s.Result))
 				slog.Debug("工具调用详情", "session", sess.ID, "tool", s.ToolName,
@@ -482,9 +484,12 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = repaired
 		}
 	}
-	// Do not post-filter business semantics here. Tool traces feed the audit
-	// ledger, but they must never trigger a second agent run or replace a valid
-	// model answer based on natural-language wording.
+	// Tool-using user turns get one stateless, tool-free evidence synthesis. It
+	// cannot replay side effects or change the native DeepAgent lifecycle; it
+	// only prevents the visible answer from outrunning actual handler results.
+	if !internal {
+		diag.ReplyGrounded = o.groundVisibleReply(ctx, u.ID, channel, text, req, res, plannedContext.ActionExpected, onDelta)
+	}
 	if engineOK {
 		o.noteEngineResult(true, nil)
 	}

@@ -56,11 +56,12 @@ func ruleTools(d Deps, u *store.User) []ai.Tool {
 					}
 				}
 				var k *store.Knowledge
+				var status store.RuleWriteStatus
 				var err error
 				if d.Knowledge != nil {
-					k, err = d.Knowledge.SaveRule(ctx, args.Title, args.Content, []string{"scope:" + scope}, u.ID, args.Pinned)
+					k, status, err = d.Knowledge.SaveRuleWithStatus(ctx, args.Title, args.Content, []string{"scope:" + scope}, u.ID, args.Pinned)
 				} else {
-					k, err = d.Store.CreateRule(ctx, args.Title, args.Content, []string{"scope:" + scope}, u.ID, args.Pinned)
+					k, status, err = d.Store.UpsertRule(ctx, args.Title, args.Content, []string{"scope:" + scope}, u.ID, args.Pinned)
 				}
 				if err != nil {
 					return "", err
@@ -69,7 +70,14 @@ func ruleTools(d Deps, u *store.User) []ai.Tool {
 				if args.Pinned {
 					mode = "常驻每轮系统提示"
 				}
-				return fmt.Sprintf("已保存规则（%s，作用域 %s，%s），即刻生效。", internalRef("规则", k.ID), scope, mode), nil
+				verb := "已创建"
+				switch status {
+				case store.RuleUpdated:
+					verb = "已更新"
+				case store.RuleUnchanged:
+					verb = "规则已存在且内容一致，未重复创建"
+				}
+				return fmt.Sprintf("%s（%s，作用域 %s，%s），即刻生效。", verb, internalRef("规则", k.ID), scope, mode), nil
 			}),
 
 		tool("list_rules", "查看全部行为规则（常驻在前）。改正文用 update_knowledge，删除用 delete_knowledge，调整常驻用 set_rule_pinned。",

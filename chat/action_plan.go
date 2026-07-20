@@ -39,7 +39,7 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 			}
 			toolCalls++
 			pending = pending || toolResultLooksPendingApproval(st.Result)
-			if toolCanProveAction(st.ToolName, byName) && !actualActionSet[st.ToolName] {
+			if !st.Replayed && toolCanProveAction(st.ToolName, byName) && !actualActionSet[st.ToolName] {
 				actualActionSet[st.ToolName] = true
 				actualActions = append(actualActions, st.ToolName)
 			}
@@ -73,6 +73,7 @@ func toolNames(toolset []ai.Tool) map[string]bool {
 type toolEvidence struct {
 	Tool            string `json:"tool"`
 	HandlerReturned bool   `json:"handler_returned"`
+	Replayed        bool   `json:"replayed,omitempty"`
 	Rejected        bool   `json:"rejected,omitempty"`
 	Completion      string `json:"completion,omitempty"`
 	Summary         string `json:"summary,omitempty"`
@@ -92,6 +93,7 @@ type turnDiagnostics struct {
 	ModelPeakToolCount   int      `json:"model_peak_tool_count,omitempty"`
 	ModelPeakSchemaChars int      `json:"model_peak_schema_chars,omitempty"`
 	ModelPeakTools       []string `json:"model_peak_tools,omitempty"`
+	ReplyGrounded        bool     `json:"reply_grounded,omitempty"`
 }
 
 func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
@@ -108,7 +110,8 @@ func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
 		}
 		out = append(out, toolEvidence{
 			Tool:            st.ToolName,
-			HandlerReturned: ok,
+			HandlerReturned: ok && !st.Replayed,
+			Replayed:        st.Replayed,
 			Rejected:        rejected,
 			Completion:      string(st.Completion),
 			Summary:         textfmt.TruncateRunes(textfmt.RedactSecrets(strings.TrimSpace(summary)), 220),
@@ -123,7 +126,7 @@ func countToolEvidence(steps []ai.Step) (total, success int) {
 			continue
 		}
 		total++
-		if st.Err == "" && !nbtools.ToolResultRejected(st.Result) {
+		if !st.Replayed && st.Err == "" && !nbtools.ToolResultRejected(st.Result) {
 			success++
 		}
 	}
@@ -224,6 +227,9 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 		}
 		hadTool = true
 		_, action := actionTools[step.ToolName]
+		if step.Replayed {
+			continue
+		}
 		if step.Err != "" || nbtools.ToolResultRejected(step.Result) {
 			hadError = true
 			actionError = actionError || action

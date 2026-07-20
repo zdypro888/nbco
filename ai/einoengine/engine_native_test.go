@@ -349,6 +349,7 @@ func TestDeepAgentMayRepeatSameToolAndArguments(t *testing.T) {
 		Tools: []ai.Tool{{
 			Name:        "record_value",
 			Description: "保存一个值",
+			Effect:      ai.ToolEffectRead,
 			InputSchema: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{"value": map[string]any{"type": "string"}},
@@ -365,6 +366,115 @@ func TestDeepAgentMayRepeatSameToolAndArguments(t *testing.T) {
 	}
 	if result.Text != "两次执行完成" || executed != 2 {
 		t.Fatalf("result=%q executed=%d steps=%+v", result.Text, executed, result.Steps)
+	}
+}
+
+func TestDeepAgentExecutesExactSideEffectOnceAndStopsReplayLoop(t *testing.T) {
+	var executed int
+	var modelCalls int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		modelCalls++
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-original", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"same"}`},
+			}}), nil
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: fmt.Sprintf("write-repeat-%d", modelCalls), Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{ "value": "same" }`},
+			}}), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-write", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		System: "完成目标。", UserText: "保存一次",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", Effect: ai.ToolEffectWrite,
+			InputSchema: map[string]any{
+				"type": "object", "properties": map[string]any{"value": map[string]any{"type": "string"}},
+			},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				executed++
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if executed != 1 || modelCalls > 4 {
+		t.Fatalf("executed=%d model_calls=%d result=%+v", executed, modelCalls, result)
+	}
+	replayed := 0
+	for _, step := range result.Steps {
+		if step.Replayed {
+			replayed++
+		}
+	}
+	if replayed < 1 || !result.OutputLikelyTruncated {
+		t.Fatalf("replay evidence/termination missing: %+v", result)
+	}
+}
+
+func TestDeepAgentAllowsSameSideEffectToolWithDifferentArguments(t *testing.T) {
+	var executed []string
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		last := input[len(input)-1]
+		switch {
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-alpha", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
+			}}), nil
+		case last.Role == schema.Tool && last.ToolName == "record_value" && len(executed) == 1:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-beta", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"beta"}`},
+			}}), nil
+		case last.Role == schema.Tool && last.ToolName == "record_value":
+			return finalResponse("different-final", "两个不同写入都已完成"), nil
+		default:
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-different", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
+		}
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		System: "完成目标。", UserText: "保存两个值",
+		Tools: []ai.Tool{{
+			Name: "record_value", Description: "保存值", Effect: ai.ToolEffectWrite,
+			InputSchema: map[string]any{
+				"type": "object", "properties": map[string]any{"value": map[string]any{"type": "string"}},
+			},
+			Handler: func(_ context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Value string `json:"value"`
+				}
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return "", err
+				}
+				executed = append(executed, args.Value)
+				return `{"ok":true}`, nil
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(executed, ",") != "alpha,beta" || result.Text != "两个不同写入都已完成" {
+		t.Fatalf("executed=%v result=%+v", executed, result)
 	}
 }
 

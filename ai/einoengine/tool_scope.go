@@ -2,11 +2,13 @@ package einoengine
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino/adk"
@@ -20,7 +22,7 @@ import (
 const (
 	// Bump when the durable Deep Agent's tool or lifecycle contract changes so
 	// managed sessions cannot replay traces produced by an incompatible runtime.
-	deepAgentRuntimeVersion = "native-deep-toolsearch-v7"
+	deepAgentRuntimeVersion = "native-deep-toolsearch-v8"
 
 	toolSearchToolName           = "tool_search"
 	conciseToolSearchDescription = "按能力关键词或名称查找并加载当前轮次需要的延迟工具。知道名称时用 select:<tool_name>；否则用简短能力关键词。返回的工具已立即可调用，无需重复搜索。"
@@ -34,17 +36,29 @@ type turnToolMiddleware struct {
 
 	dynamicNames map[string]struct{}
 	toolInfos    map[string]*schema.ToolInfo
+	tools        map[string]ai.Tool
 	exposure     *ai.ToolExposure
 
-	mu           sync.Mutex
-	selected     map[string]struct{}
-	blockedCalls map[string]struct{}
+	mu            sync.Mutex
+	selected      map[string]struct{}
+	blockedCalls  map[string]struct{}
+	replayedCalls map[string]struct{}
+	effectCalls   map[string]*effectCall
+	replayCounts  map[string]int
+}
+
+type effectCall struct {
+	done   chan struct{}
+	result string
+	err    error
 }
 
 func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, preferred []string, exposure *ai.ToolExposure) (*turnToolMiddleware, error) {
 	dynamicNames := make(map[string]struct{}, len(tools))
 	toolInfos := make(map[string]*schema.ToolInfo, len(tools))
+	toolsByName := make(map[string]ai.Tool, len(tools))
 	for _, item := range tools {
+		toolsByName[item.Name] = item
 		if item.LoadMode == ai.ToolLoadImmediate {
 			continue
 		}
@@ -62,11 +76,15 @@ func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, preferred []str
 		}
 	}
 	return &turnToolMiddleware{
-		dynamicNames: dynamicNames,
-		toolInfos:    toolInfos,
-		exposure:     exposure,
-		selected:     selected,
-		blockedCalls: make(map[string]struct{}),
+		dynamicNames:  dynamicNames,
+		toolInfos:     toolInfos,
+		tools:         toolsByName,
+		exposure:      exposure,
+		selected:      selected,
+		blockedCalls:  make(map[string]struct{}),
+		replayedCalls: make(map[string]struct{}),
+		effectCalls:   make(map[string]*effectCall),
+		replayCounts:  make(map[string]int),
 	}, nil
 }
 
@@ -121,6 +139,56 @@ func (m *turnToolMiddleware) BeforeModelRewriteState(
 	state.ToolInfos = infos
 	state.DeferredToolInfos = nil
 	m.observe(infos)
+	return ctx, state, nil
+}
+
+// AfterModelRewriteState stops a model that remains stuck on an already
+// replayed side effect. The first duplicate reaches the tool boundary and gets
+// a structured replay result, giving the agent one normal chance to continue
+// with other work. Repeating it again is a stagnation signal, so only those
+// duplicate calls are removed; unrelated calls in the same response continue.
+func (m *turnToolMiddleware) AfterModelRewriteState(
+	ctx context.Context,
+	state *adk.TypedChatModelAgentState[*schema.Message],
+	_ *adk.TypedModelContext[*schema.Message],
+) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
+	if state == nil || len(state.Messages) == 0 {
+		return ctx, state, nil
+	}
+	message := state.Messages[len(state.Messages)-1]
+	if message == nil || message.Role != schema.Assistant || len(message.ToolCalls) == 0 {
+		return ctx, state, nil
+	}
+
+	kept := make([]schema.ToolCall, 0, len(message.ToolCalls))
+	seenInMessage := make(map[string]struct{}, len(message.ToolCalls))
+	removed := 0
+	for _, call := range message.ToolCalls {
+		key, sideEffect := m.effectCallKey(call.Function.Name, call.Function.Arguments)
+		if !sideEffect {
+			kept = append(kept, call)
+			continue
+		}
+		if _, duplicate := seenInMessage[key]; duplicate {
+			m.markReplayed(call.Function.Name, call.ID)
+			removed++
+			continue
+		}
+		seenInMessage[key] = struct{}{}
+		if m.replayCount(key) > 0 {
+			m.markReplayed(call.Function.Name, call.ID)
+			removed++
+			continue
+		}
+		kept = append(kept, call)
+	}
+	if removed == 0 {
+		return ctx, state, nil
+	}
+	message.ToolCalls = kept
+	if len(kept) == 0 && strings.TrimSpace(message.Content) == "" {
+		message.Content = "本轮相同操作已经成功返回，系统已停止重复执行；请根据本轮实际工具结果向用户说明。"
+	}
 	return ctx, state, nil
 }
 
@@ -204,14 +272,91 @@ func (m *turnToolMiddleware) callable(name string) bool {
 
 func (m *turnToolMiddleware) guardInvokable(next compose.InvokableToolEndpoint) compose.InvokableToolEndpoint {
 	return func(ctx context.Context, input *compose.ToolInput) (*compose.ToolOutput, error) {
-		if input == nil || m.callable(input.Name) {
+		if input == nil {
 			return next(ctx, input)
 		}
-		m.mu.Lock()
-		m.blockedCalls[toolCallKey(input.Name, input.CallID)] = struct{}{}
-		m.mu.Unlock()
-		return &compose.ToolOutput{Result: deferredToolNotLoadedResult(input.Name)}, nil
+		if !m.callable(input.Name) {
+			m.mu.Lock()
+			m.blockedCalls[toolCallKey(input.Name, input.CallID)] = struct{}{}
+			m.mu.Unlock()
+			return &compose.ToolOutput{Result: deferredToolNotLoadedResult(input.Name)}, nil
+		}
+		key, sideEffect := m.effectCallKey(input.Name, input.Arguments)
+		if !sideEffect {
+			return next(ctx, input)
+		}
+		return m.invokeSideEffectOnce(ctx, input, key, next)
 	}
+}
+
+func (m *turnToolMiddleware) invokeSideEffectOnce(
+	ctx context.Context,
+	input *compose.ToolInput,
+	key string,
+	next compose.InvokableToolEndpoint,
+) (*compose.ToolOutput, error) {
+	m.mu.Lock()
+	if existing := m.effectCalls[key]; existing != nil {
+		m.replayedCalls[toolCallKey(input.Name, input.CallID)] = struct{}{}
+		m.replayCounts[key]++
+		m.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-existing.done:
+			if existing.err != nil {
+				return nil, existing.err
+			}
+			return &compose.ToolOutput{Result: replayedSideEffectResult(existing.result)}, nil
+		}
+	}
+	current := &effectCall{done: make(chan struct{})}
+	m.effectCalls[key] = current
+	m.mu.Unlock()
+
+	output, err := next(ctx, input)
+	current.err = err
+	if output != nil {
+		current.result = output.Result
+	}
+	m.mu.Lock()
+	if err != nil {
+		delete(m.effectCalls, key)
+	}
+	close(current.done)
+	m.mu.Unlock()
+	return output, err
+}
+
+func (m *turnToolMiddleware) effectCallKey(name, arguments string) (string, bool) {
+	if m == nil {
+		return "", false
+	}
+	item, ok := m.tools[name]
+	if !ok || (item.Effect != ai.ToolEffectWrite && item.Effect != ai.ToolEffectExecute) {
+		return "", false
+	}
+	raw := json.RawMessage(strings.TrimSpace(arguments))
+	if len(raw) == 0 {
+		raw = json.RawMessage("{}")
+	}
+	if item.NormalizeInput != nil {
+		raw = item.NormalizeInput(raw)
+	}
+	var value any
+	if json.Unmarshal(raw, &value) == nil {
+		if canonical, err := json.Marshal(value); err == nil {
+			raw = canonical
+		}
+	}
+	sum := sha256.Sum256(raw)
+	return name + "\x00" + fmt.Sprintf("%x", sum[:]), true
+}
+
+func (m *turnToolMiddleware) replayCount(key string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.replayCounts[key]
 }
 
 func (m *turnToolMiddleware) blocked(toolName, callID string) bool {
@@ -224,11 +369,39 @@ func (m *turnToolMiddleware) blocked(toolName, callID string) bool {
 	return blocked
 }
 
+func (m *turnToolMiddleware) replayed(toolName, callID string) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, replayed := m.replayedCalls[toolCallKey(toolName, callID)]
+	return replayed
+}
+
+func (m *turnToolMiddleware) markReplayed(toolName, callID string) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.replayedCalls[toolCallKey(toolName, callID)] = struct{}{}
+	m.mu.Unlock()
+}
+
 func toolCallKey(toolName, callID string) string { return toolName + "\x00" + callID }
 
 func deferredToolNotLoadedResult(name string) string {
 	return "工具 " + name +
 		" 未执行：它尚未在当前轮次通过 tool_search 加载。请先调用 tool_search，随后再调用该工具。"
+}
+
+func replayedSideEffectResult(firstResult string) string {
+	result, _ := json.Marshal(map[string]any{
+		"status":       "replayed",
+		"message":      "相同的写入或执行操作已在本轮成功返回，本次没有再次执行。请继续处理尚未完成的目标或给出最终答复，不要重复调用。",
+		"first_result": firstResult,
+	})
+	return string(result)
 }
 
 func (m *turnToolMiddleware) observe(infos []*schema.ToolInfo) {

@@ -44,6 +44,9 @@ func TestArgumentBoundaryValidatesBeforeBusinessHandler(t *testing.T) {
 	if err != nil || result != `{"ok":true}` || called != 1 {
 		t.Fatalf("normalized valid call: result=%q err=%v called=%d", result, err, called)
 	}
+	if wrapped.NormalizeInput == nil || string(wrapped.NormalizeInput(json.RawMessage(`{ "mode":"read", "worker_ref":"2.0" }`))) != `{"mode":"read","worker_id":2}` {
+		t.Fatalf("runtime invocation identity does not share handler normalization")
+	}
 }
 
 func TestToolResultLifecycleIsStructured(t *testing.T) {

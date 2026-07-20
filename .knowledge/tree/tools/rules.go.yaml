@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/rules.go
-        hash: sha256:3d896e4717cc39446840359ff3c10987717a2ebc721016745639a4c2f7a9d9f8
+        hash: sha256:20aae4c3574f5cb92fcb6d2de8df81ccc929765f6189deb9aea452abd5e8441f
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: tools/rules.go
         symbol: ruleTools
-        hash: sha256:63a37f5ab5939b0c6618b6061cb3f64b66dbc280631044b027a6e939d82cf813
-        struct_hash: sha256:9f0e1bf17270bedcce048a4c7dfaa59953ab0cc6f980a898e3ac5922216aa4d8
-        doc_struct_hash: sha256:1d86fced7d7d0f56736052921347c11c8d4577a8c8b4ad06002a0acb89c49c30
-        lines: [20, 125]
+        hash: sha256:3b5ba89a55c3587e03d1da02c2f852c7ebb3ecb9a7833bee65076c009cbbca34
+        struct_hash: sha256:fb20699586582acab7636ad6192f34da21024aa12eb6607401e695a1de4ba15c
+        doc_struct_hash: sha256:822ba22ba5cd5a112014f5c06804c1e742d42c2ff807691b4b55b5a7c5f7cd36
+        lines: [20, 133]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/rules.go#ruleScopeOf
@@ -49,6 +49,6 @@ nodes:
         hash: sha256:9a09e75e948a9962941f41534b434b5ca1bb8f0c4c3140761d8108179a8b9d71
         struct_hash: sha256:d667f5f70d4f68e22359d9f2bd70d422444780492285ae01bfdaafc58910d208
         doc_struct_hash: sha256:6a95c66d33e97ee69d6aaa0fb68141762e765a6ca05b1548f22eee6721857bf8
-        lines: [127, 135]
+        lines: [135, 143]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

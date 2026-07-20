@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -35,6 +37,14 @@ const (
 
 const knowledgeCols = `id, title, content, tags, author_id, kind, pinned, active, created_at, updated_at`
 
+type RuleWriteStatus string
+
+const (
+	RuleCreated   RuleWriteStatus = "created"
+	RuleUpdated   RuleWriteStatus = "updated"
+	RuleUnchanged RuleWriteStatus = "unchanged"
+)
+
 func scanKnowledge(row interface{ Scan(...any) error }) (*Knowledge, error) {
 	var k Knowledge
 	if err := row.Scan(&k.ID, &k.Title, &k.Content, &k.Tags, &k.AuthorID, &k.Kind, &k.Pinned, &k.Active, &k.CreatedAt, &k.UpdatedAt); err != nil {
@@ -55,12 +65,75 @@ func (s *Store) CreateKnowledge(ctx context.Context, title, content string, tags
 
 // CreateRule 存一条行为规则（kind=policy）。pinned 规则每轮常驻系统提示。
 func (s *Store) CreateRule(ctx context.Context, title, content string, tags []string, authorID int64, pinned bool) (*Knowledge, error) {
+	k, _, err := s.UpsertRule(ctx, title, content, tags, authorID, pinned)
+	return k, err
+}
+
+// UpsertRule writes one active logical policy per normalized title and scope.
+// It serializes concurrent saves by identity, snapshots real updates, and
+// returns unchanged without touching timestamps or embeddings.
+func (s *Store) UpsertRule(ctx context.Context, title, content string, tags []string, authorID int64, pinned bool) (*Knowledge, RuleWriteStatus, error) {
 	if tags == nil {
 		tags = []string{}
 	}
-	return scanKnowledge(s.pool.QueryRow(ctx,
-		`INSERT INTO knowledge (title, content, tags, author_id, kind, pinned) VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING `+knowledgeCols, title, content, tags, authorID, KnowledgeKindPolicy, pinned))
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var identity string
+	if err := tx.QueryRow(ctx, `SELECT nbco_rule_identity($1, $2, $3)`, KnowledgeKindPolicy, title, tags).Scan(&identity); err != nil {
+		return nil, "", err
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, identity); err != nil {
+		return nil, "", err
+	}
+
+	existing, err := scanKnowledge(tx.QueryRow(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge
+		  WHERE kind = $1 AND active AND rule_identity = $2
+		  FOR UPDATE`, KnowledgeKindPolicy, identity))
+	if errors.Is(err, ErrNotFound) {
+		created, insertErr := scanKnowledge(tx.QueryRow(ctx,
+			`INSERT INTO knowledge (title, content, tags, author_id, kind, pinned)
+			 VALUES ($1, $2, $3, $4, $5, $6)
+			 RETURNING `+knowledgeCols,
+			title, content, tags, authorID, KnowledgeKindPolicy, pinned))
+		if insertErr != nil {
+			return nil, "", insertErr
+		}
+		return created, RuleCreated, tx.Commit(ctx)
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	if existing.Title == title && existing.Content == content && slices.Equal(existing.Tags, tags) && existing.Pinned == pinned {
+		return existing, RuleUnchanged, tx.Commit(ctx)
+	}
+
+	by := authorID
+	if err := snapshotKnowledgeRow(ctx, tx, existing.ID, &by, "before rule upsert"); err != nil {
+		return nil, "", err
+	}
+	updated, err := scanKnowledge(tx.QueryRow(ctx,
+		`UPDATE knowledge
+		    SET title = $2,
+		        content = $3,
+		        tags = $4,
+		        pinned = $5,
+		        embedding = NULL,
+		        embed_model = '',
+		        updated_at = now()
+		  WHERE id = $1
+		  RETURNING `+knowledgeCols,
+		existing.ID, title, content, tags, pinned))
+	if err != nil {
+		return nil, "", err
+	}
+	return updated, RuleUpdated, tx.Commit(ctx)
 }
 
 // CreateSkill 存一条执行方法（kind=skill）。content 使用工具层约定的结构化文本。

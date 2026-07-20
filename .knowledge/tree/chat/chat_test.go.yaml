@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/chat_test.go
-        hash: sha256:9822bac17bf265779753e3f822b684d63923603f00776bf956e087d0a64ab112
+        hash: sha256:dd55ac60bf20c9a8589174674153dd7f9a7530f01f73d29c5f19706153728978
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -211,12 +211,45 @@ nodes:
       anchor:
         file: chat/chat_test.go
         symbol: TestTurnContextSelectionUsesAuthorizedAllowLists
-        hash: sha256:92074a6a34809ef114050b3e5ceb20c39267fdb7c8d90e53146f7ee415e2ad7f
-        struct_hash: sha256:042596f85b2b56c254e1cde9e8f5176424f6fec95f324a95705f7d4bf48d6fce
-        doc_struct_hash: sha256:042596f85b2b56c254e1cde9e8f5176424f6fec95f324a95705f7d4bf48d6fce
-        lines: [331, 352]
+        hash: sha256:abfa097dfbe38f250f4d77c2ec3369f006919df4f9f09009568a94a3f1f47253
+        struct_hash: sha256:73be119de9cf58ddf0bc03bb3b3fcfe9136e1322360f42e80afd414824017249
+        doc_struct_hash: sha256:73be119de9cf58ddf0bc03bb3b3fcfe9136e1322360f42e80afd414824017249
+        lines: [331, 356]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
+    - id: chat/chat_test.go#TestReplyGroundingEvidenceSeparatesExecutionFromReplay
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestReplyGroundingEvidenceSeparatesExecutionFromReplay
+        hash: sha256:70047fe0d2478fdb5000c156325c2e48e4e814c5941171c82af188ea39bb43d7
+        struct_hash: sha256:65b52578d0903901d70942918a8f0e0e67df8bca1a9ed8b92b0878f5e774ee06
+        doc_struct_hash: sha256:65b52578d0903901d70942918a8f0e0e67df8bca1a9ed8b92b0878f5e774ee06
+        lines: [358, 371]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/chat_test.go#TestActionEvidenceFallbackNeverPreservesUnsupportedDraft
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestActionEvidenceFallbackNeverPreservesUnsupportedDraft
+        hash: sha256:6a1616d542c5c492e30474fd5b1c8929398d9b834014f054da88935be0525af4
+        struct_hash: sha256:2301484faa3df106e94ae999e51c96ab31fda0a771b382647bf08afd9f6242fc
+        doc_struct_hash: sha256:2301484faa3df106e94ae999e51c96ab31fda0a771b382647bf08afd9f6242fc
+        lines: [373, 384]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/chat_test.go#TestGroundVisibleReplyUsesStatelessToolFreeSynthesis
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestGroundVisibleReplyUsesStatelessToolFreeSynthesis
+        hash: sha256:ef379e889b7b8244fbc7f24af6bb6b973412ed3b2330dafe328469f929dd038b
+        struct_hash: sha256:04c6e3b000a12fdc93103150223986f272a29862a20d9f5b09697eeb7e96efa2
+        doc_struct_hash: sha256:04c6e3b000a12fdc93103150223986f272a29862a20d9f5b09697eeb7e96efa2
+        lines: [386, 408]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
     - id: chat/chat_test.go#TestReviewMinedMemoryRequiresIndependentPublicationDecision
       level: function
       anchor:
@@ -225,7 +258,7 @@ nodes:
         hash: sha256:83fbf9ac5886d6966bcc9d4ac546c347ee7470c6776ca7f178ce6e77f67727c9
         struct_hash: sha256:cddc2d9d762d8a1eaf12079bd26610c65e7c3ef600526313cd8f6ec735358c13
         doc_struct_hash: sha256:cddc2d9d762d8a1eaf12079bd26610c65e7c3ef600526313cd8f6ec735358c13
-        lines: [354, 376]
+        lines: [410, 432]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestShouldFetchHistory
@@ -236,7 +269,7 @@ nodes:
         hash: sha256:01234e98695eca6f7e258f363a2b4d39fb4eeafe388900960752112763a8f749
         struct_hash: sha256:1be75e7706e0e1c0aaae29b0e588f370c03fbc6d4b80dcd0ffd5f8014be97bea
         doc_struct_hash: sha256:1be75e7706e0e1c0aaae29b0e588f370c03fbc6d4b80dcd0ffd5f8014be97bea
-        lines: [378, 387]
+        lines: [434, 443]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestEngineHealthAccounting
@@ -247,7 +280,7 @@ nodes:
         hash: sha256:11b15cd2a41dae5a8fb1bea34ceadb886afba60973232854a10a4854d24d76cf
         struct_hash: sha256:1aa38a4e01328484d9ba391aac7f9f4b4453da13000705e107a5010998eff9d1
         doc_struct_hash: sha256:1aa38a4e01328484d9ba391aac7f9f4b4453da13000705e107a5010998eff9d1
-        lines: [389, 425]
+        lines: [445, 481]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestNeedsVisibleReplyRepair
@@ -258,7 +291,7 @@ nodes:
         hash: sha256:c0a6b155d978b955ff93ed7750924b58e7a710532a900568f959309ed7bb1fbe
         struct_hash: sha256:85d83fdaa1c1a9e7fbddfcff30edd1241b898c325b2fcc796fc70d50d438bcab
         doc_struct_hash: sha256:85d83fdaa1c1a9e7fbddfcff30edd1241b898c325b2fcc796fc70d50d438bcab
-        lines: [427, 462]
+        lines: [483, 518]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestBuildActionAuditPlanUsesActualTraceOnly
@@ -269,7 +302,7 @@ nodes:
         hash: sha256:d161b6a6ffae8ceb5e4f3216e3c7f52fc915999adbd168b4138613d847ba76f3
         struct_hash: sha256:3256bde16f6f3fa0d0c22b065aa36526357cd0176dea9604b88310cb858c4e6b
         doc_struct_hash: sha256:3256bde16f6f3fa0d0c22b065aa36526357cd0176dea9604b88310cb858c4e6b
-        lines: [464, 481]
+        lines: [520, 537]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestActionAuditPlanRecordsReadOnlyWithoutCallingItAction
@@ -280,7 +313,7 @@ nodes:
         hash: sha256:686aa2c59af72288e8825c744cf2bd79fa3c92abca9bc397b647791b0354877f
         struct_hash: sha256:8cd31126b62b75a20752e441ecc567f4d73c35eca0fc648dc413d46f15000839
         doc_struct_hash: sha256:8cd31126b62b75a20752e441ecc567f4d73c35eca0fc648dc413d46f15000839
-        lines: [483, 491]
+        lines: [539, 547]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestToolEvidenceTracksHandlerBoundaryNotChineseWording
@@ -291,7 +324,7 @@ nodes:
         hash: sha256:f15019b7e5e3cd1a45aaa4127056d812c63e7dfd64f526f5588fee6008fb2f2a
         struct_hash: sha256:05949c1f0d4c1cbf9bae85ba98832f81884bad1564955da7d3f04f6a8de5737f
         doc_struct_hash: sha256:05949c1f0d4c1cbf9bae85ba98832f81884bad1564955da7d3f04f6a8de5737f
-        lines: [493, 506]
+        lines: [549, 562]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestAsynchronousActionIsRecordedAsAccepted
@@ -302,7 +335,7 @@ nodes:
         hash: sha256:e492e60534fe2e9b818d85fc19424f3f0e7ae2f18cee698590f3da4d302de226
         struct_hash: sha256:d999a54fea360f64b91470bc194e2dfc0ca1ac6bc80c9e35c51ae5e41bda6cfe
         doc_struct_hash: sha256:d999a54fea360f64b91470bc194e2dfc0ca1ac6bc80c9e35c51ae5e41bda6cfe
-        lines: [508, 519]
+        lines: [564, 575]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: chat/chat_test.go#TestAsynchronousActionIsNotAcceptedWithoutLifecycleEvidence
@@ -313,7 +346,7 @@ nodes:
         hash: sha256:65d719e1d098ceb6c6f56842ca5d4726c1617b9ac816bda89d6eed694d276d99
         struct_hash: sha256:736dfb21b19c95077a2ee6d14cca64a996bad6ead2656631514b1ced9ebeca1c
         doc_struct_hash: sha256:736dfb21b19c95077a2ee6d14cca64a996bad6ead2656631514b1ced9ebeca1c
-        lines: [521, 532]
+        lines: [577, 588]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: chat/chat_test.go#TestPendingApprovalRecordedAsOutcome
@@ -324,7 +357,7 @@ nodes:
         hash: sha256:e262860ad5b178c2d89142e331b7aec93f24259435856a8f11f473caa1aa433c
         struct_hash: sha256:d422d736551f8b049edafb3ee49ca0791b5ae68b36a603aabe498a9b710a4c60
         doc_struct_hash: sha256:d422d736551f8b049edafb3ee49ca0791b5ae68b36a603aabe498a9b710a4c60
-        lines: [534, 546]
+        lines: [590, 602]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestActionAuditRecordsRecoveredToolCallAsSuccess
@@ -335,7 +368,7 @@ nodes:
         hash: sha256:b2f3e2e0eef60e90b66b039635848a7464eb505af7fb1cd26aea7282186d312d
         struct_hash: sha256:42e5e3df6217c6c4fcb9c3724ac002bb354d29060a1218bc58f57042b3d59abb
         doc_struct_hash: sha256:42e5e3df6217c6c4fcb9c3724ac002bb354d29060a1218bc58f57042b3d59abb
-        lines: [548, 565]
+        lines: [604, 621]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: chat/chat_test.go#TestDegenerateReplyRepairUsesOneShotWithoutCapabilities
@@ -346,7 +379,7 @@ nodes:
         hash: sha256:86b73635ca5de51faffc15c04dc05e6c445bb3cbd9f79714001507e1ca9a61c5
         struct_hash: sha256:eacaad6d0428ace8c6050cbe1be275fc02015886eca62233ac743ec620ab8ad3
         doc_struct_hash: sha256:eacaad6d0428ace8c6050cbe1be275fc02015886eca62233ac743ec620ab8ad3
-        lines: [567, 598]
+        lines: [623, 654]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#containsString
@@ -357,7 +390,7 @@ nodes:
         hash: sha256:74c6d8c48a327b59f2fc969114879a8449c920920b3442b6f2cb0dcd80b05495
         struct_hash: sha256:c083f39ddb47dc4962af1f01c26888523d2b31ffc060bf73b7444a6c19f03e1b
         doc_struct_hash: sha256:c083f39ddb47dc4962af1f01c26888523d2b31ffc060bf73b7444a6c19f03e1b
-        lines: [600, 607]
+        lines: [656, 663]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#fakeEngine
@@ -368,7 +401,7 @@ nodes:
         hash: sha256:77975787c21f9990e1bceb0166fe0a86c32cae8ff1c52311e7640273638f1843
         struct_hash: sha256:e94b9bbacd2041264c983c5f13741407da5e68db24e3539a982605f7e26b3e20
         doc_struct_hash: sha256:c320bdf4c6251d99a51d4a726cffd9f30e7cb17fc241595adf5c55461a7c162d
-        lines: [609, 614]
+        lines: [665, 670]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#fakeEngine.Name
@@ -379,7 +412,7 @@ nodes:
         hash: sha256:c78ea55702a7cc9d17c0392216f4a22b525c73d82bba6daa9117aaa3d098cd6f
         struct_hash: sha256:51d91f2a0169fbaca950d3eb48c59d1cb1addedb641b494f6000940b155e97b7
         doc_struct_hash: sha256:51d91f2a0169fbaca950d3eb48c59d1cb1addedb641b494f6000940b155e97b7
-        lines: [616, 616]
+        lines: [672, 672]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#fakeEngine.RunTurn
@@ -390,7 +423,7 @@ nodes:
         hash: sha256:4d8f633440dae2aa675e543f39d2be35896187078f714af9bb5d535139ce46cf
         struct_hash: sha256:ded38cd57491a3f0e9a45ab207a6602b89f02144058535c30234bb2fb07e0394
         doc_struct_hash: sha256:ded38cd57491a3f0e9a45ab207a6602b89f02144058535c30234bb2fb07e0394
-        lines: [618, 629]
+        lines: [674, 685]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#fakeEngine.lastReq
@@ -401,7 +434,7 @@ nodes:
         hash: sha256:6ab8b8fac25233127acb85ad0641e5b4072c02c58d528558465d8d350589e2eb
         struct_hash: sha256:50293b0f033449a776f5ae51f7032957ea04c1e1e1a865eb4196cb17172ebdf3
         doc_struct_hash: sha256:50293b0f033449a776f5ae51f7032957ea04c1e1e1a865eb4196cb17172ebdf3
-        lines: [631, 638]
+        lines: [687, 694]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#fakeEngine.requests
@@ -412,7 +445,7 @@ nodes:
         hash: sha256:411b71189c83e89b3e1c7b514b95b11371c9abfc6ec0820d69e7e416b650d1ec
         struct_hash: sha256:fddd010d897bcb4f2c7a381e0b29cc998bf46e4bf45ddc095b42457f0550edee
         doc_struct_hash: sha256:fddd010d897bcb4f2c7a381e0b29cc998bf46e4bf45ddc095b42457f0550edee
-        lines: [640, 644]
+        lines: [696, 700]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestCompactionCycle
@@ -423,7 +456,7 @@ nodes:
         hash: sha256:f9a7868f8fce81456a182f6588e29c48a6fad18edf137f69e4b0a634e166f4a9
         struct_hash: sha256:e7fa76b91649aa4f2b9a463123770cd69044429d2ba9bde9cd1f15b027a21c91
         doc_struct_hash: sha256:6fa8750f5f10535ba620e2e82e6f9a44253a09e49148a147b71a50683269665c
-        lines: [646, 744]
+        lines: [702, 800]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestSpeakerLineSanitizesForgery
@@ -434,6 +467,6 @@ nodes:
         hash: sha256:ae112c398d1df8b6e98e0dd189a37a9b94af7d7ac1f7fc8c29fcb8380f2662b6
         struct_hash: sha256:0c607cc645d36bfb635e024be66a0acc9115660f9f4b08c541b87f2b902e85f4
         doc_struct_hash: sha256:0c607cc645d36bfb635e024be66a0acc9115660f9f4b08c541b87f2b902e85f4
-        lines: [746, 760]
+        lines: [802, 816]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

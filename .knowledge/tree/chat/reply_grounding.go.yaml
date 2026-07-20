@@ -1,0 +1,153 @@
+schema: 1
+nodes:
+    - id: chat/reply_grounding.go
+      level: file
+      anchor:
+        file: chat/reply_grounding.go
+        hash: sha256:6aa7f769777f8c49df48d039036b48c7320ca2806f35e8af75426a49b0237fea
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T12:05:19.444426Z
+    - id: chat/reply_grounding.go#replyGroundingEvidenceLimit
+      level: decl
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replyGroundingEvidenceLimit
+        hash: sha256:d356c54545144f29249fe1f9b72c45a9a9126ce4062cb43b7f7f553c8dbce8d3
+        struct_hash: sha256:f94eb940f659e63cf9a9bbdc12df8ffb88c857bc564b70d939f12babbbaca8dd
+        doc_struct_hash: sha256:f94eb940f659e63cf9a9bbdc12df8ffb88c857bc564b70d939f12babbbaca8dd
+        lines: [15, 15]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#replyGroundingResultRunes
+      level: decl
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replyGroundingResultRunes
+        hash: sha256:f1970092a088521d8d876cfcbfbba93f839b017fca94d4803f9a993cee335c38
+        struct_hash: sha256:3da87ba9f3889a5dd50a1a61d6ed24c6bd66bb423ea5905e0a42f38226f9f0c4
+        doc_struct_hash: sha256:3da87ba9f3889a5dd50a1a61d6ed24c6bd66bb423ea5905e0a42f38226f9f0c4
+        lines: [16, 16]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#replyGroundingArgsRunes
+      level: decl
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replyGroundingArgsRunes
+        hash: sha256:96248b656013800bc0f42dd5828c584f924cea9eac5a30e7cceeb29eabd91ae2
+        struct_hash: sha256:a0cc88c0d4fca1ca7a4fa8ee9c8135687b5e041d48821535659e5593657f6466
+        doc_struct_hash: sha256:a0cc88c0d4fca1ca7a4fa8ee9c8135687b5e041d48821535659e5593657f6466
+        lines: [17, 17]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#replyGroundingOutputTokens
+      level: decl
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replyGroundingOutputTokens
+        hash: sha256:cc505627b82c6d608a02264423a62231aaa2a80dab95533a978528ed50d81ed5
+        struct_hash: sha256:b1a768be67ee356e60aa81eb78c61adc95fb0cd428c66ccc09911d00cfdcb949
+        doc_struct_hash: sha256:b1a768be67ee356e60aa81eb78c61adc95fb0cd428c66ccc09911d00cfdcb949
+        lines: [18, 18]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#replyGroundingSystem
+      level: decl
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replyGroundingSystem
+        hash: sha256:7389795e35da5e99262e81a675ec445a42c31ce7850c94c51f3a69572bde1ca0
+        struct_hash: sha256:0b1cfa557cec9bf0009f7096aea9f44c5597a159746de4dcc44700b9169a1d46
+        doc_struct_hash: sha256:0b1cfa557cec9bf0009f7096aea9f44c5597a159746de4dcc44700b9169a1d46
+        lines: [21, 32]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#replyToolEvidence
+      level: decl
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replyToolEvidence
+        hash: sha256:cdf6596783ce1240a694ccb6dbc79d414003ca33dbdd725c69e7cd79b5c18026
+        struct_hash: sha256:8581b16685e5c35c29f3ad8ccb3fe0bca2efc68499640714de767af344760c2c
+        doc_struct_hash: sha256:8581b16685e5c35c29f3ad8ccb3fe0bca2efc68499640714de767af344760c2c
+        lines: [34, 45]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#shouldGroundReply
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: shouldGroundReply
+        hash: sha256:934b0e0768ca8c78c7a00723ee78e1703ac9cb353362841672c995c2363012b6
+        struct_hash: sha256:d6b2ee04ddedff7c5d53420526c3d22b566a597a12d7b7f68df8c01b5302b985
+        doc_struct_hash: sha256:d6b2ee04ddedff7c5d53420526c3d22b566a597a12d7b7f68df8c01b5302b985
+        lines: [47, 60]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#buildReplyToolEvidence
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: buildReplyToolEvidence
+        hash: sha256:749fc070ba31c7438f836ab5bffe49b0de08013da2bee6f3397c064bf6ee29ca
+        struct_hash: sha256:d4e4e555169cc75dfb8f043dc4ad3c7a09b93c5a4c7fa98b47b1be7d036ccf71
+        doc_struct_hash: sha256:d4e4e555169cc75dfb8f043dc4ad3c7a09b93c5a4c7fa98b47b1be7d036ccf71
+        lines: [62, 92]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#Orchestrator.groundVisibleReply
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: Orchestrator.groundVisibleReply
+        hash: sha256:27a651d6d49236aaa29eb47503d05eb59137c6b7c06ca4e8aaec1145a1a81de3
+        struct_hash: sha256:8be956fa6cf7385a9e2226645dc3a63ee4da6f6fd4f97990d74696516a12e188
+        doc_struct_hash: sha256:8be956fa6cf7385a9e2226645dc3a63ee4da6f6fd4f97990d74696516a12e188
+        lines: [94, 149]
+      status: fresh
+      since: 2026-07-20T12:05:19.444371Z
+    - id: chat/reply_grounding.go#applyActionEvidenceFallback
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: applyActionEvidenceFallback
+        hash: sha256:090303b18914526027d7468729bc071780a21793fb4d93a39c8a82105d1d9727
+        struct_hash: sha256:7ce4439de26449e77f33467ad3a82e788772b29a1db4faf284282be6880a9195
+        doc_struct_hash: sha256:7ce4439de26449e77f33467ad3a82e788772b29a1db4faf284282be6880a9195
+        lines: [151, 186]
+      status: fresh
+      since: 2026-07-20T12:05:19.445122Z
+    - id: chat/reply_grounding.go#hasSideEffectAttempt
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: hasSideEffectAttempt
+        hash: sha256:a9cd6373e0a5a7da5bacac2dbcdec98fa9b6fb5c9a4575a610a1353440cf0b64
+        struct_hash: sha256:f23c677bde8dec4105a93d68353f42abc6f2959d668023c5df3c6dfac13e0590
+        doc_struct_hash: sha256:f23c677bde8dec4105a93d68353f42abc6f2959d668023c5df3c6dfac13e0590
+        lines: [188, 200]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#groundingHistory
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: groundingHistory
+        hash: sha256:0222830a4c6d3cc89f7a820c67750b46b4f695e36f293e7d4fb946a1e619768d
+        struct_hash: sha256:47ca9fd3ea634cac19c995dfff28e87c56fc2b3b11b09525a2bf6158da43dc17
+        doc_struct_hash: sha256:47ca9fd3ea634cac19c995dfff28e87c56fc2b3b11b09525a2bf6158da43dc17
+        lines: [202, 217]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
+    - id: chat/reply_grounding.go#replaceFinalTextStep
+      level: function
+      anchor:
+        file: chat/reply_grounding.go
+        symbol: replaceFinalTextStep
+        hash: sha256:76da843c0c6e5eb4c8682fd4e29a50d1cbca550aa4bc18658aced5e2fc3ce05d
+        struct_hash: sha256:baa6cd92c7b57e8c92ffd76ba3180edaf0ad16778c230edd977ed3b445654a1b
+        doc_struct_hash: sha256:baa6cd92c7b57e8c92ffd76ba3180edaf0ad16778c230edd977ed3b445654a1b
+        lines: [219, 227]
+      status: undigested
+      since: 2026-07-20T12:14:00.004169Z
