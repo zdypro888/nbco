@@ -488,6 +488,34 @@ func TestDriveAgentTurnsStopsOnlyAfterRepeatedNoProgress(t *testing.T) {
 	}
 }
 
+func TestDriveAgentTurnsIgnoresAccumulatedContinuationEcho(t *testing.T) {
+	marks := completionMarks{
+		Summary: "<<<SUMMARY:echo-stall>>>", Lessons: "<<<LESSONS:echo-stall>>>",
+		NeedInput: "<<<NEED_INPUT:echo-stall>>>", End: "<<<END:echo-stall>>>",
+	}
+	continuation := agentContinuationWithMarks(marks)
+	base := "已完成一次搜索，但没有新的执行结果"
+	calls := 0
+	_, _, _, _, ok, needsInput, err := driveAgentTurns(base, nil, marks,
+		func(prompt string) (string, error) {
+			calls++
+			return base + strings.Repeat("\n› "+prompt, calls), nil
+		})
+	if !errors.Is(err, errAgentNoProgress) || ok || needsInput {
+		t.Fatalf("continuation echo must not count as progress: ok=%v input=%v err=%v", ok, needsInput, err)
+	}
+	// 第一次从旧 Agent 输出切换为“只有提示回显”会改变一次展示指纹；此后
+	// 累积多少份相同提示都不会再伪造进展。
+	if calls != maxStalledTurns+1 {
+		t.Fatalf("calls=%d want %d", calls, maxStalledTurns+1)
+	}
+	one := agentTurnFingerprint(base+"\n› "+continuation, continuation)
+	many := agentTurnFingerprint(base+strings.Repeat("\n› "+continuation, 5), continuation)
+	if one != many {
+		t.Fatalf("accumulated worker prompt echoes changed fingerprint: one=%q many=%q", one, many)
+	}
+}
+
 func TestCliArgs(t *testing.T) {
 	claude := (&Worker{cfg: Config{Engine: "claude"}}).cliArgs()
 	for _, arg := range claude {

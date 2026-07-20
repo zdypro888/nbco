@@ -547,3 +547,14 @@ nodes:
         lines: [33, 43]
       status: fresh
       since: 2026-07-20T18:31:59.173469Z
+    - id: cmd/nbco-worker/worker_test.go#TestDriveAgentTurnsIgnoresAccumulatedContinuationEcho
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestDriveAgentTurnsIgnoresAccumulatedContinuationEcho
+        hash: sha256:4169669ff7884db5c3d8947b58d7db2e3418e12613be02d4c618e3c9d040d74d
+        struct_hash: sha256:d0e789b1166e7b2af7f307ac109f7c8cff5f2eee558c198d4a2a3e2e76f537f3
+        doc_struct_hash: sha256:d0e789b1166e7b2af7f307ac109f7c8cff5f2eee558c198d4a2a3e2e76f537f3
+        lines: [491, 517]
+      status: fresh
+      since: 2026-07-20T19:05:03.623873Z

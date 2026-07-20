@@ -673,10 +673,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: driveAgentTurns
-        hash: sha256:b1edb8d1abca766648f50f32cb50c18f90fbc9f02f02b8bb5a434713370afcca
-        struct_hash: sha256:90dbf15dc7a8eccbd125062c384c2c6034d29d29e389a78a17da8ea646a8d39a
-        doc_struct_hash: sha256:9b0ece9e15839e326b1c9ee69f1564b4cb512a814b0411c1e103a3983c3bfa39
-        lines: [393, 425]
+        hash: sha256:06ed99ab71a7cb8ddcd7f0722825f3af5d3c2afb5ce718f64d4572c3e9c91a96
+        struct_hash: sha256:59fd327c3879a379d8ed782a7af1679efffc71cc7489af5e181e7e5098eb20b7
+        doc_struct_hash: sha256:731897330aa5ffdfdb791f4cd3e48b1ab7b7efbfc75754213770fc4f3c16a877
+        lines: [393, 426]
       status: fresh
       since: 2026-07-20T18:19:16.834966Z
     - id: cmd/nbco-worker/worker.go#agentContinuationWithMarks
@@ -690,3 +690,14 @@ nodes:
         lines: [936, 944]
       status: fresh
       since: 2026-07-20T18:19:16.838036Z
+    - id: cmd/nbco-worker/worker.go#agentTurnFingerprint
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker.go
+        symbol: agentTurnFingerprint
+        hash: sha256:309c74bc1043015198f83ea6dcb9eb11018c6a07a871dcbafc284f2087819247
+        struct_hash: sha256:b23130864ae6da5b4ee39ae2328126cf5e831b242122869c87e5dc400daf0562
+        doc_struct_hash: sha256:b23130864ae6da5b4ee39ae2328126cf5e831b242122869c87e5dc400daf0562
+        lines: [428, 444]
+      status: fresh
+      since: 2026-07-20T19:05:03.620245Z

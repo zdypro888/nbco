@@ -400,7 +400,8 @@ func driveAgentTurns(initial string, initialErr error, marks completionMarks, su
 	screen, summary, lessons, question string, ok, needsInput bool, err error,
 ) {
 	screen, err = initial, initialErr
-	lastProgress := agentTurnFingerprint(screen)
+	continuation := agentContinuationWithMarks(marks)
+	lastProgress := agentTurnFingerprint(screen, continuation)
 	stalled := 0
 	for {
 		summary, lessons, ok = parseCompletionWithMarks(screen, marks)
@@ -409,8 +410,8 @@ func driveAgentTurns(initial string, initialErr error, marks completionMarks, su
 			return
 		}
 
-		next, submitErr := submit(agentContinuationWithMarks(marks))
-		fingerprint := agentTurnFingerprint(next)
+		next, submitErr := submit(continuation)
+		fingerprint := agentTurnFingerprint(next, continuation)
 		if fingerprint == lastProgress {
 			stalled++
 		} else {
@@ -424,8 +425,22 @@ func driveAgentTurns(initial string, initialErr error, marks completionMarks, su
 	}
 }
 
-func agentTurnFingerprint(screen string) string {
-	return strings.Join(strings.Fields(denoise(tailLines(screen, 32))), " ")
+func agentTurnFingerprint(screen, continuation string) string {
+	normalized := strings.Join(strings.Fields(denoise(screen)), " ")
+	prompt := strings.Join(strings.Fields(denoise(continuation)), " ")
+	if prompt != "" {
+		if i := strings.LastIndex(normalized, prompt); i >= 0 {
+			// 只观察本轮续跑提示之后的内容。终端保留多少条旧提示、是否滚屏，
+			// 都不应让 Worker 自己发送的文本成为新进展。
+			normalized = normalized[i+len(prompt):]
+		} else {
+			normalized = strings.Join(strings.Fields(denoise(tailLines(screen, 32))), " ")
+		}
+	}
+	// Codex 在用户输入前绘制该提示符。续跑提示被移除后若只剩提示符，
+	// 它也不能成为“进展”；真实 Agent 输出使用另一套项目符号。
+	normalized = strings.ReplaceAll(normalized, "›", " ")
+	return strings.Join(strings.Fields(normalized), " ")
 }
 
 func (w *Worker) keepRunLease(ctx context.Context, run *Run) {
