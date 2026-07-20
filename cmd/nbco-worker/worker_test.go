@@ -437,6 +437,9 @@ func TestAgentContinuationRepeatsNonceWithoutParsingItsEcho(t *testing.T) {
 	if _, ok := parseInputRequestWithMarks(nudge, marks); ok {
 		t.Fatal("补提醒回显不能被误判为补充信息请求")
 	}
+	if !strings.Contains(nudge, "重复失败，不要原样重试") || !strings.Contains(nudge, "删除非必要参数") {
+		t.Fatalf("补提醒应要求 Agent 根据工具错误改变策略: %q", nudge)
+	}
 }
 
 func TestDriveAgentTurnsContinuesWhileProgressing(t *testing.T) {

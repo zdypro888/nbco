@@ -558,3 +558,14 @@ nodes:
         lines: [491, 517]
       status: fresh
       since: 2026-07-20T19:05:03.623873Z
+    - id: cmd/nbco-worker/worker_test.go#TestAgentContinuationRepeatsNonceWithoutParsingItsEcho
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestAgentContinuationRepeatsNonceWithoutParsingItsEcho
+        hash: sha256:75d7fa2f1a41952461a31c18e15c9f608eef6757b6a05411888ba85632072e9a
+        struct_hash: sha256:a59fe3ee53e6d03fd54082d10a7ebb1d12d03607b4d9025d3faddcc782eb4516
+        doc_struct_hash: sha256:a59fe3ee53e6d03fd54082d10a7ebb1d12d03607b4d9025d3faddcc782eb4516
+        lines: [423, 443]
+      status: fresh
+      since: 2026-07-20T19:19:31.52042Z

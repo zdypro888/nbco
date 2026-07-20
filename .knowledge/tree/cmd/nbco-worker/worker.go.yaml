@@ -684,10 +684,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: agentContinuationWithMarks
-        hash: sha256:0621a4667fb9a130f083778e1a95364264edd14b5bb07cca9ccd5966e11980c3
-        struct_hash: sha256:fc5c5d76686c97225ea5d4440c1b2486b24ecaf825af08673c33374e5d9d688d
-        doc_struct_hash: sha256:d112c47a34bd8c375c272f4162fecdbaa30532319e148c99614d75d46d0b7000
-        lines: [936, 944]
+        hash: sha256:4a8794889a549dc0964f147a43dbb2885f6a58eeda55c5a4932f929dd18fbb6a
+        struct_hash: sha256:382fbfd37fb065e0ea7ebeabf7da3c2a971b05be14ea340f43fd9acc07c299a9
+        doc_struct_hash: sha256:edd2966bc2f54c15d62994270c82c5f92a99cb57cb21af795cc4b752a7cd0078
+        lines: [952, 961]
       status: fresh
       since: 2026-07-20T18:19:16.838036Z
     - id: cmd/nbco-worker/worker.go#agentTurnFingerprint

@@ -954,6 +954,7 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 // closure: ending one model turn is not proof that the assigned task is done.
 func agentContinuationWithMarks(marks completionMarks) string {
 	return fmt.Sprintf("继续自主推进当前任务。检查已有结果与验收标准，立即执行仍缺少的步骤和验证，不要只描述下一步计划。\n"+
+		"如果同一工具或步骤重复失败，不要原样重试；根据实际错误修正输入、删除非必要参数，或改用等价路径。\n"+
 		"任务确实完成后，最后输出：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
 		"只有缺少分配者才能提供的关键信息时，输出：\n%s\n（一个具体、可直接回答的问题）\n%s",
 		marks.Summary, marks.Lessons, marks.End, marks.NeedInput, marks.End)
