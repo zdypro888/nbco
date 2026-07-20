@@ -60,6 +60,33 @@ func TestCancelCurrentRunCancelsOnlyMatchingLease(t *testing.T) {
 	}
 }
 
+func TestAcknowledgeRunRetriesAmbiguousHTTPFailure(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/heartbeat" || r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		calls++
+		if calls == 1 {
+			http.Error(w, "response lost", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+	w := &Worker{client: newClient(srv.URL, "worker-token")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := w.acknowledgeRun(ctx, &Run{ID: 42, ClaimID: "claim-42"}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("heartbeat calls = %d, want 2", calls)
+	}
+}
+
 func TestParseCompletionNoLessons(t *testing.T) {
 	out := markSummary + "\n改完了\n" + markLessons + "\n无\n" + markEnd
 	summary, lessons, ok := parseCompletion(out)

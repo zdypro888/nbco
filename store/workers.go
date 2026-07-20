@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	workerClaimTimeout = 3 * time.Hour
-	workerMaxFailures  = 5
+	workerClaimTimeout         = 3 * time.Hour
+	workerClaimDeliveryTimeout = 1 * time.Minute
+	workerMaxFailures          = 5
 )
 
 // Worker 绑定码：create_worker 只把这个短时效一次性码带回对话，真正的

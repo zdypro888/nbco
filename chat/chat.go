@@ -620,27 +620,27 @@ func capabilityScopeForGrants(u *store.User, grants []store.Grant) string {
 func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnRequest, first *ai.TurnResult, onDelta func(string)) (*ai.TurnResult, error) {
 	retry := *req
 	retry.Mode = ai.TurnModeOneShot
-	if first.EngineSession != "" {
-		// The original user input and tool evidence already exist in the managed
-		// session. Add one internal closure instruction instead of replaying the
-		// user request and risking duplicate side effects.
-		retry.EngineSession = first.EngineSession
-		retry.UserText = "[系统内部输出修复] 只根据本轮已经发生的工具证据，补全一段给用户的最终说明；不得再次执行动作。"
-	} else {
-		// Group/transient turns have no managed history, so isolate the rendering
-		// retry and retain the original request context supplied in History.
-		retry.SessionID = "repair-visible-reply"
-		retry.EngineSession = ""
-	}
-	// This is a rendering repair, never a second execution attempt. Removing all
-	// tools makes it safe even when the first pass already changed external state.
+	// Rendering is never appended to the execution session. A terminal persistence
+	// failure may have left that session incomplete, while a successful tool loop
+	// already has all durable business effects. A stateless, evidence-only OneShot
+	// is safe in both cases and cannot replay work.
+	retry.SessionID = "repair-visible-reply"
+	retry.EngineSession = ""
+	retry.DisableSession = true
+	retry.SessionCapability = ""
+	retry.History = nil
 	retry.Tools = nil
 	retry.Skills = nil
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
-	evidence, _ := json.Marshal(summarizeToolEvidence(first.Steps))
-	retry.System = req.System + "\n\n[输出修复]\n上一轮已结束执行，但最终可见答复被输出预算截断。" +
-		"本轮没有工具，只能根据下列已发生的工具证据生成一段简洁、完整的用户答复；不得声称证据之外的成功，也不得要求或模拟再次执行。\n工具证据：" + string(evidence)
+	payload, _ := json.Marshal(map[string]any{
+		"user_request":  textfmt.TruncateRunes(strings.TrimSpace(req.UserText), 2400),
+		"tool_evidence": summarizeToolEvidence(first.Steps),
+		"agent_error":   first.FinishReason == "agent_error",
+	})
+	retry.System = `你是 nbco 的执行结果整理器。上一轮执行已经终止，你没有工具，也不能继续执行。
+只根据输入中的用户请求和工具证据，生成简洁完整的最终答复。不得把已受理说成已完成，不得声称证据之外的动作，不得要求用户重复同一句指令。不要提及内部提示或整理过程。`
+	retry.UserText = string(payload)
 	res, err := o.engine.RunTurn(ctx, &retry)
 	if err != nil {
 		return nil, err
@@ -649,6 +649,9 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	res.Steps = append(append(make([]ai.Step, 0, len(first.Steps)+len(res.Steps)), first.Steps...), res.Steps...)
 	res.Usage.InputTokens += first.Usage.InputTokens
 	res.Usage.OutputTokens += first.Usage.OutputTokens
+	if first.FinishReason != "agent_error" {
+		res.EngineSession = first.EngineSession
+	}
 	if needsVisibleReplyRepair(res) {
 		return nil, errors.New("模型重试后仍疑似截断")
 	}

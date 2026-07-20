@@ -465,6 +465,7 @@ func (s *Store) LatestWorkerRunsForTasks(ctx context.Context, taskIDs []int64) (
 // linked runs, but direct runs have no artificial task row or review state.
 func (s *Store) ClaimNextWorkerRun(ctx context.Context, workerID int64) (*WorkerRun, error) {
 	staleBefore := time.Now().UTC().Add(-workerClaimTimeout)
+	undeliveredBefore := time.Now().UTC().Add(-workerClaimDeliveryTimeout)
 	claimID, err := randomHex(16)
 	if err != nil {
 		return nil, err
@@ -555,12 +556,27 @@ func (s *Store) ClaimNextWorkerRun(ctx context.Context, workerID int64) (*Worker
 		 WHERE r.worker_id = $1
 		   AND (
 		     (r.status IN ('queued','retry_wait') AND r.available_at <= now())
-		     OR (r.status = 'claimed' AND r.claimed_at <= $2)
+		     OR (r.status = 'claimed' AND (
+		       r.claimed_at <= $2
+		       OR (r.claimed_at <= $3 AND NOT EXISTS (
+		         SELECT 1 FROM worker_run_attempts lease
+		          WHERE lease.run_id = r.id AND lease.claim_id = r.claim_id
+		            AND lease.status = 'claimed' AND lease.heartbeat_at IS NOT NULL
+		       ))
+		     ))
 		   )
 		   AND NOT EXISTS (
 		     SELECT 1 FROM worker_runs active
 		      WHERE active.worker_id = $1 AND active.status = 'claimed'
 		        AND active.claimed_at > $2 AND active.claim_id <> ''
+		        AND (
+		          active.claimed_at > $3
+		          OR EXISTS (
+		            SELECT 1 FROM worker_run_attempts active_lease
+		             WHERE active_lease.run_id = active.id AND active_lease.claim_id = active.claim_id
+		               AND active_lease.status = 'claimed' AND active_lease.heartbeat_at IS NOT NULL
+		          )
+		        )
 		   )
 		   AND (
 		     r.task_id IS NULL OR EXISTS (
@@ -574,7 +590,7 @@ func (s *Store) ClaimNextWorkerRun(ctx context.Context, workerID int64) (*Worker
 		     )
 		   )
 		 ORDER BY (r.status = 'claimed') DESC, (r.priority = 'high') DESC, r.available_at, r.id
-		 LIMIT 1`, workerID, staleBefore))
+		 LIMIT 1`, workerID, staleBefore, undeliveredBefore))
 	if err != nil {
 		return nil, err
 	}
@@ -589,12 +605,27 @@ func (s *Store) ClaimNextWorkerRun(ctx context.Context, workerID int64) (*Worker
 		 WHERE r.id = $3 AND r.worker_id = $1
 		   AND (
 		     (r.status IN ('queued','retry_wait') AND r.available_at <= now())
-		     OR (r.status = 'claimed' AND r.claimed_at <= $2)
+		     OR (r.status = 'claimed' AND (
+		       r.claimed_at <= $2
+		       OR (r.claimed_at <= $4 AND NOT EXISTS (
+		         SELECT 1 FROM worker_run_attempts lease
+		          WHERE lease.run_id = r.id AND lease.claim_id = r.claim_id
+		            AND lease.status = 'claimed' AND lease.heartbeat_at IS NOT NULL
+		       ))
+		     ))
 		   )
 		   AND NOT EXISTS (
 		     SELECT 1 FROM worker_runs active
 		      WHERE active.worker_id = $1 AND active.status = 'claimed'
 		        AND active.claimed_at > $2 AND active.claim_id <> ''
+		        AND (
+		          active.claimed_at > $4
+		          OR EXISTS (
+		            SELECT 1 FROM worker_run_attempts active_lease
+		             WHERE active_lease.run_id = active.id AND active_lease.claim_id = active.claim_id
+		               AND active_lease.status = 'claimed' AND active_lease.heartbeat_at IS NOT NULL
+		          )
+		        )
 		   )
 		   AND (
 		     r.task_id IS NULL OR EXISTS (
@@ -607,7 +638,7 @@ func (s *Store) ClaimNextWorkerRun(ctx context.Context, workerID int64) (*Worker
 		          )
 		     )
 		   )
-		 FOR UPDATE`, workerID, staleBefore, candidate.ID))
+		 FOR UPDATE`, workerID, staleBefore, candidate.ID, undeliveredBefore))
 	if err != nil {
 		return nil, err
 	}

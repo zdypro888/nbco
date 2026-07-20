@@ -388,7 +388,8 @@ func TestGroundVisibleReplyUsesStatelessToolFreeSynthesis(t *testing.T) {
 	orchestrator := &Orchestrator{engine: engine}
 	request := &ai.TurnRequest{
 		Mode: ai.TurnModeDeep, SessionID: "9", EngineSession: "managed", Model: "test",
-		Tools: []ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}},
+		History: []ai.Message{{Role: ai.RoleAssistant, Content: "历史规则声称还会执行额外动作"}},
+		Tools:   []ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}},
 	}
 	result := &ai.TurnResult{
 		Text:  "草稿声称做了额外操作",
@@ -404,6 +405,31 @@ func TestGroundVisibleReplyUsesStatelessToolFreeSynthesis(t *testing.T) {
 	}
 	if !strings.Contains(grounding.UserText, "只保存了一条规则") || result.Text != "收到。" {
 		t.Fatalf("grounding payload/result mismatch: request=%s result=%q", grounding.UserText, result.Text)
+	}
+	if strings.Contains(grounding.UserText, "历史规则声称") || strings.Contains(grounding.UserText, "recent_context") {
+		t.Fatalf("action grounding was contaminated by historical claims: %s", grounding.UserText)
+	}
+}
+
+func TestReadOnlyGroundingKeepsAnalysisContext(t *testing.T) {
+	engine := &fakeEngine{}
+	orchestrator := &Orchestrator{engine: engine}
+	request := &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "10",
+		History: []ai.Message{{Role: ai.RoleUser, Content: "项目是 K 球"}},
+		Tools:   []ai.Tool{{Name: "query", Effect: ai.ToolEffectRead}},
+	}
+	result := &ai.TurnResult{
+		Text:  "查询结果分析",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "query", Result: `{"items":[]}`}},
+	}
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "现在怎么样", request, result, false, nil) {
+		t.Fatal("read-only grounding did not run")
+	}
+	grounding := engine.lastReq()
+	if grounding == nil || !strings.Contains(grounding.UserText, "recent_context") ||
+		!strings.Contains(grounding.UserText, "项目是 K 球") || !strings.Contains(grounding.UserText, "analysis_draft") {
+		t.Fatalf("read-only grounding lost analysis context: %+v", grounding)
 	}
 }
 
@@ -648,8 +674,11 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 		t.Fatalf("repair retained agent capabilities: tools=%d skills=%d",
 			len(retry.Tools), len(retry.Skills))
 	}
-	if retry.EngineSession != first.EngineSession {
-		t.Fatalf("repair session = %q want %q", retry.EngineSession, first.EngineSession)
+	if retry.EngineSession != "" || !retry.DisableSession || retry.SessionCapability != "" || len(retry.History) != 0 {
+		t.Fatalf("repair was not stateless: %+v", retry)
+	}
+	if retry.SessionID != "repair-visible-reply" || !strings.Contains(retry.UserText, "write") {
+		t.Fatalf("repair did not carry bounded evidence: %+v", retry)
 	}
 }
 

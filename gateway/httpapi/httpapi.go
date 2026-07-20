@@ -1049,12 +1049,13 @@ func (s *Server) userNames(ctx context.Context) (map[int64]string, error) {
 // --- AI 员工（worker）接口 ---
 
 const (
-	workerKnowledgeHits     = 4
-	workerHistoryEntries    = 10 // 领取任务时随带的最近过程记录条数（返工时含打回理由）
-	workerContextLineRunes  = 1800
-	workerContextTotalRunes = 16000
-	workerHistoryLineRunes  = 2000
-	workerHistoryTotalRunes = 12000
+	workerKnowledgeHits          = 4
+	workerHistoryEntries         = 10 // 领取任务时随带的最近过程记录条数（返工时含打回理由）
+	workerContextLineRunes       = 1800
+	workerContextTotalRunes      = 16000
+	workerHistoryLineRunes       = 2000
+	workerHistoryTotalRunes      = 12000
+	workerContextEnrichmentLimit = 5 * time.Second
 )
 
 type workerFileJSON struct {
@@ -1651,6 +1652,7 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
+	startedAt := time.Now()
 	ctx := r.Context()
 	_ = s.store.WorkerHeartbeat(ctx, u.ID)
 
@@ -1716,6 +1718,17 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	var pinnedRules []*store.Knowledge
+	if pinned, err := s.store.PinnedRules(ctx); err == nil {
+		pinnedRules = pinned
+	} else {
+		slog.Warn("worker 常驻规则加载失败", "worker", u.ID, "err", err)
+	}
+	if err := ctx.Err(); err != nil {
+		slog.Warn("worker 基础上下文组装被客户端取消，将释放 claim", "worker", u.ID, "run", run.ID, "err", err)
+		return
+	}
+	enrichmentCtx, cancelEnrichment := context.WithTimeout(ctx, workerContextEnrichmentLimit)
 	seenKnowledge := make(map[int64]bool)
 	appendKnowledge := func(prefix string, items []*store.Knowledge) {
 		for _, k := range items {
@@ -1729,9 +1742,9 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	var personal []*store.Knowledge
 	var personalErr error
 	if s.deps.Knowledge != nil {
-		personal, personalErr = s.deps.Knowledge.SearchByAuthor(ctx, u.ID, query, workerKnowledgeHits)
+		personal, personalErr = s.deps.Knowledge.SearchByAuthor(enrichmentCtx, u.ID, query, workerKnowledgeHits)
 	} else {
-		personal, personalErr = s.store.SearchKnowledgeByAuthor(ctx, u.ID, query, workerKnowledgeHits)
+		personal, personalErr = s.store.SearchKnowledgeByAuthor(enrichmentCtx, u.ID, query, workerKnowledgeHits)
 	}
 	if personalErr == nil {
 		appendKnowledge("我的历史经验：", personal)
@@ -1740,9 +1753,9 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		var scoped []*store.Knowledge
 		var scopedErr error
 		if s.deps.Knowledge != nil {
-			scoped, scopedErr = s.deps.Knowledge.SearchByTag(ctx, scopeTag, query, workerKnowledgeHits)
+			scoped, scopedErr = s.deps.Knowledge.SearchByTag(enrichmentCtx, scopeTag, query, workerKnowledgeHits)
 		} else {
-			scoped, scopedErr = s.store.SearchKnowledgeByTag(ctx, scopeTag, query, workerKnowledgeHits)
+			scoped, scopedErr = s.store.SearchKnowledgeByTag(enrichmentCtx, scopeTag, query, workerKnowledgeHits)
 		}
 		if scopedErr == nil {
 			appendKnowledge("本主题历史经验：", scoped)
@@ -1753,9 +1766,9 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		var project []*store.Knowledge
 		var projectErr error
 		if s.deps.Knowledge != nil {
-			project, projectErr = s.deps.Knowledge.SearchByTag(ctx, projectTag, query, workerKnowledgeHits)
+			project, projectErr = s.deps.Knowledge.SearchByTag(enrichmentCtx, projectTag, query, workerKnowledgeHits)
 		} else {
-			project, projectErr = s.store.SearchKnowledgeByTag(ctx, projectTag, query, workerKnowledgeHits)
+			project, projectErr = s.store.SearchKnowledgeByTag(enrichmentCtx, projectTag, query, workerKnowledgeHits)
 		}
 		if projectErr == nil {
 			appendKnowledge("本项目历史经验：", project)
@@ -1763,24 +1776,19 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	}
 	var ks []*store.Knowledge
 	if s.deps.Knowledge != nil {
-		ks, _ = s.deps.Knowledge.Search(ctx, query, workerKnowledgeHits)
+		ks, _ = s.deps.Knowledge.Search(enrichmentCtx, query, workerKnowledgeHits)
 	} else {
-		ks, _ = s.store.SearchKnowledge(ctx, query, workerKnowledgeHits)
+		ks, _ = s.store.SearchKnowledge(enrichmentCtx, query, workerKnowledgeHits)
 	}
 	appendKnowledge("", ks)
 	// 规则注入：常驻规则 + 与任务语义相关的动态规则中适用 worker 场景的，
 	// 放在全部经验之前（规则优先于经验）。
-	var rules []*store.Knowledge
-	if pinned, err := s.store.PinnedRules(ctx); err == nil {
-		rules = append(rules, pinned...)
-	} else {
-		slog.Warn("worker 常驻规则加载失败", "worker", u.ID, "err", err)
-	}
+	rules := append([]*store.Knowledge(nil), pinnedRules...)
 	var dynRules []*store.Knowledge
 	if s.deps.Knowledge != nil {
-		dynRules, _ = s.deps.Knowledge.SearchRules(ctx, query, workerKnowledgeHits)
+		dynRules, _ = s.deps.Knowledge.SearchRules(enrichmentCtx, query, workerKnowledgeHits)
 	} else {
-		dynRules, _ = s.store.SearchRules(ctx, query, workerKnowledgeHits)
+		dynRules, _ = s.store.SearchRules(enrichmentCtx, query, workerKnowledgeHits)
 	}
 	rules = append(rules, dynRules...)
 	var ruleLines []string
@@ -1797,17 +1805,27 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 	var skillLines []string
 	var skills []*store.Knowledge
 	if s.deps.Knowledge != nil {
-		skills, _ = s.deps.Knowledge.SearchSkills(ctx, query, workerKnowledgeHits)
+		skills, _ = s.deps.Knowledge.SearchSkills(enrichmentCtx, query, workerKnowledgeHits)
 	} else {
-		skills, _ = s.store.SearchSkills(ctx, query, workerKnowledgeHits)
+		skills, _ = s.store.SearchSkills(enrichmentCtx, query, workerKnowledgeHits)
 	}
 	for _, k := range skills {
 		if knowledge.RuleApplies(k.Tags, "worker", u.ID) {
 			skillLines = append(skillLines, "相关 skill 摘要："+k.Title+"："+workerSkillSummary(k.Content))
 		}
 	}
+	enrichmentErr := enrichmentCtx.Err()
+	cancelEnrichment()
+	if errors.Is(enrichmentErr, context.DeadlineExceeded) {
+		slog.Warn("worker 可选语义上下文达到预算，使用已取得内容继续交付", "worker", u.ID, "run", run.ID,
+			"limit", workerContextEnrichmentLimit)
+	}
 	lessons = append(skillLines, lessons...)
 	lessons = boundedWorkerLines(lessons, workerContextLineRunes, workerContextTotalRunes)
+	if err := ctx.Err(); err != nil {
+		slog.Warn("worker 领取上下文组装被客户端取消，将释放 claim", "worker", u.ID, "run", run.ID, "err", err)
+		return
+	}
 	// Linked work receives business progress (including review feedback); direct
 	// execution receives its own retry/progress history.
 	var history []string
@@ -1887,7 +1905,12 @@ func (s *Server) handleWorkerNext(w http.ResponseWriter, r *http.Request) {
 		}
 		command, commandPTY = input.Command, input.PTY
 	}
-	slog.Info("worker 领取执行", "worker", u.ID, "run", run.ID, "task", run.TaskID, "session", ws.ID, "scope", ws.ScopeKey, "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
+	if err := ctx.Err(); err != nil {
+		slog.Warn("worker 领取响应写回前客户端已取消，将释放 claim", "worker", u.ID, "run", run.ID, "err", err)
+		return
+	}
+	slog.Info("worker 领取执行", "worker", u.ID, "run", run.ID, "task", run.TaskID, "session", ws.ID, "scope", ws.ScopeKey,
+		"prepare_dur", time.Since(startedAt).Round(time.Millisecond), "knowledge_hits", len(lessons), "history", len(history), "attachments", len(attachments))
 	payload := map[string]any{
 		"id": run.ID, "task_id": run.TaskID, "executor": run.Executor,
 		"title": run.Title, "goal": run.Goal, "description": run.Description,

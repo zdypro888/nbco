@@ -25,6 +25,7 @@ const (
 	pollInterval      = 10 * time.Second // 无活时的轮询间隔
 	taskTimeout       = 2 * time.Hour    // 单任务总时限（卡死另有 waitOpts.Stuck 检测）
 	heartbeatInterval = 1 * time.Minute  // 活跃执行租约续期；不依赖 CLI 是否产生输出
+	ackRetryInterval  = 2 * time.Second  // 首次交付确认遇到不确定网络结果时幂等重试
 	progressInterval  = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
 	progressTail      = 25               // 每次快照回传的屏幕行数
 	maxNudges         = 2                // 未按格式收尾时的补提醒次数
@@ -122,6 +123,11 @@ func (w *Worker) Loop(ctx context.Context) {
 			w.waitForWork(ctx)
 			continue
 		}
+		if err := w.acknowledgeRun(ctx, task); err != nil {
+			log.Printf("确认任务 #%d 交付失败，等待服务端回收租约: %v", task.ID, err)
+			w.waitForWork(ctx)
+			continue
+		}
 		log.Printf("领到任务 #%d：%s", task.ID, task.Title)
 		w.execute(ctx, task, knowledge, history)
 	}
@@ -136,9 +142,33 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 	if task == nil {
 		return false, nil
 	}
+	if err := w.acknowledgeRun(ctx, task); err != nil {
+		return false, fmt.Errorf("确认任务 #%d 交付: %w", task.ID, err)
+	}
 	log.Printf("领到任务 #%d：%s", task.ID, task.Title)
 	w.execute(ctx, task, knowledge, history)
 	return true, nil
+}
+
+func (w *Worker) acknowledgeRun(ctx context.Context, run *Run) error {
+	if run == nil || run.ID <= 0 || strings.TrimSpace(run.ClaimID) == "" {
+		return errors.New("任务租约无效")
+	}
+	for {
+		ackCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		err := w.client.Heartbeat(ackCtx, run.ID, run.ClaimID)
+		cancel()
+		if err == nil || errors.Is(err, errWorkerLeaseLost) {
+			return err
+		}
+		timer := time.NewTimer(ackRetryInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func (w *Worker) reportCapabilities(ctx context.Context) {

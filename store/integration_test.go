@@ -1139,6 +1139,56 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	}
 }
 
+func TestWorkerClaimRecoversUndeliveredRunQuickly(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, worker.ID, "交付确认", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var heartbeat *time.Time
+	if err := s.pool.QueryRow(ctx,
+		`SELECT heartbeat_at FROM worker_run_attempts WHERE run_id = $1 AND claim_id = $2`, claimed.ID, claimed.ClaimID).Scan(&heartbeat); err != nil {
+		t.Fatal(err)
+	}
+	if heartbeat != nil {
+		t.Fatalf("new claim was acknowledged before worker receipt: %s", *heartbeat)
+	}
+	mustExec(t, s, `UPDATE worker_runs SET claimed_at = now() - interval '2 minutes' WHERE id = $1`, claimed.ID)
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || reclaimed.ID != claimed.ID || reclaimed.ClaimID == claimed.ClaimID {
+		t.Fatalf("undelivered claim was not recovered: old=%+v new=%+v err=%v", claimed, reclaimed, err)
+	}
+}
+
+func TestAcknowledgedWorkerClaimKeepsLongLease(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, worker.ID, "已交付长任务", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.HeartbeatWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE worker_runs SET claimed_at = now() - interval '2 minutes' WHERE id = $1`, claimed.ID)
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("acknowledged claim must use the full lease timeout: %v", err)
+	}
+}
+
 func TestWorkerHeartbeatRenewsLease(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

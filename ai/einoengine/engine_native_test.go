@@ -785,6 +785,72 @@ func TestFailedManagedTurnRollsBackToLastCommit(t *testing.T) {
 	}
 }
 
+func TestPartialAgentErrorRollsBackManagedTurn(t *testing.T) {
+	runtime := session.NewInMemoryStore[*schema.Message](nil)
+	var executed int
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		lastUser := ""
+		for i := len(input) - 1; i >= 0; i-- {
+			if input[i].Role == schema.User {
+				lastUser = input[i].Content
+				break
+			}
+		}
+		if lastUser == "bad turn" {
+			if input[len(input)-1].Role == schema.Tool {
+				return nil, fmt.Errorf("synthetic post-tool failure")
+			}
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "probe-bad", Type: "function",
+				Function: schema.FunctionCall{Name: "probe", Arguments: `{}`},
+			}}), nil
+		}
+		var users []string
+		for _, message := range input {
+			if message.Role == schema.User {
+				users = append(users, message.Content)
+			}
+		}
+		return finalResponse("final", strings.Join(users, "|")), nil
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
+	toolset := []ai.Tool{{
+		Name: "probe", Description: "probe", Effect: ai.ToolEffectRead, LoadMode: ai.ToolLoadImmediate,
+		InputSchema: map[string]any{"type": "object"},
+		Handler: func(context.Context, json.RawMessage) (string, error) {
+			executed++
+			return `{"ok":true}`, nil
+		},
+	}}
+	first, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		SessionID: "89", SessionCapability: "stable", System: "test", UserText: "first turn", Tools: toolset,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	partial, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		SessionID: "89", EngineSession: first.EngineSession, SessionCapability: "stable",
+		System: "test", UserText: "bad turn", Tools: toolset,
+	})
+	if err != nil {
+		t.Fatalf("partial tool evidence should be returned without an outer retry: %v", err)
+	}
+	if partial == nil || partial.FinishReason != "agent_error" || partial.EngineSession != "" || executed != 1 || len(partial.Steps) == 0 {
+		t.Fatalf("partial=%+v executed=%d", partial, executed)
+	}
+	third, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		SessionID: "89", EngineSession: first.EngineSession, SessionCapability: "stable",
+		System: "test", UserText: "third turn", Tools: toolset,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if third.Text != "first turn|third turn" || strings.Contains(third.Text, "bad turn") {
+		t.Fatalf("partial failed turn remained active after rollback: %q", third.Text)
+	}
+}
+
 func TestDeepAgentDoesNotReactivateToolsFromEarlierTurns(t *testing.T) {
 	runtime := session.NewInMemoryStore[*schema.Message](nil)
 	var currentTurn int

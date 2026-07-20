@@ -244,7 +244,8 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	}
 	result, err := collect(runner.Run(ctx, msgs, runOptions...), req.OnEvent, req.OnDelta, req.StreamReasoning,
 		outputLimit, blockedToolCall, replayedToolCall, toolCompletions(req.Tools))
-	if err != nil && managedSession {
+	terminalFailure := err != nil || result != nil && result.FinishReason == "agent_error"
+	if terminalFailure && managedSession {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		rollbackErr := e.rollbackFailedSession(cleanupCtx, engineSession)
 		cancel()
@@ -256,7 +257,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		result.Usage.InputTokens += summaryUsage.InputTokens
 		result.Usage.OutputTokens += summaryUsage.OutputTokens
 		result.ToolExposure = toolExposure
-		if managedSession {
+		if managedSession && !terminalFailure {
 			result.EngineSession = engineSession
 		}
 	}
