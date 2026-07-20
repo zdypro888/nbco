@@ -96,6 +96,16 @@ type TurnExtensionProvider func(context.Context, *store.User, string) (*TurnExte
 
 type readOnlyTurnKey struct{}
 type internalTurnKey struct{}
+type evidenceOnlyTurnKey struct{}
+
+// AutomationTurnOptions defines the trust and capability boundary for a
+// scheduler-owned turn. EvidenceOnly discards the first Agent draft during the
+// final synthesis; it is intended for factual system events whose wording must
+// not outrun the event payload and read-tool results.
+type AutomationTurnOptions struct {
+	ReadOnly     bool
+	EvidenceOnly bool
+}
 
 const (
 	engineAlertThreshold = 5                // 连续失败该次数后告警
@@ -160,7 +170,7 @@ func (o *Orchestrator) HandleReadOnlyMessage(ctx context.Context, u *store.User,
 // but does not persist the trigger/reply as chat history, semantic memory or a
 // durable Eino trace. Each occurrence must derive conclusions from its current
 // structured input and tools rather than inheriting stale automation output.
-func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.User, channel, executionKey, text string, readOnly bool) (string, error) {
+func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.User, channel, executionKey, text string, options AutomationTurnOptions) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	channel = strings.TrimSpace(channel)
@@ -180,8 +190,11 @@ func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.Use
 		return "", err
 	}
 	ctx = context.WithValue(ctx, internalTurnKey{}, true)
-	if readOnly {
+	if options.ReadOnly {
 		ctx = context.WithValue(ctx, readOnlyTurnKey{}, true)
+	}
+	if options.EvidenceOnly {
+		ctx = context.WithValue(ctx, evidenceOnlyTurnKey{}, true)
 	}
 	slog.Debug("自动化轮次", "user", u.ID, "execution", strings.TrimSpace(executionKey), "session", sess.ID)
 	return o.runTurn(ctx, u, sess, channel, text, nil, nil)
@@ -296,6 +309,7 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string), extension *TurnExtension) (string, error) {
 	start := time.Now()
 	internal, _ := ctx.Value(internalTurnKey{}).(bool)
+	evidenceOnly, _ := ctx.Value(evidenceOnlyTurnKey{}).(bool)
 	if !internal && !isGroupChannel(channel) {
 		extension = o.withProvidedExtension(ctx, u, channel, extension)
 	}
@@ -484,11 +498,17 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			res = repaired
 		}
 	}
-	// Tool-using user turns get one stateless, tool-free evidence synthesis. It
-	// cannot replay side effects or change the native DeepAgent lifecycle; it
-	// only prevents the visible answer from outrunning actual handler results.
-	if !internal {
-		diag.ReplyGrounded = o.groundVisibleReply(ctx, u.ID, channel, text, req, res, plannedContext.ActionExpected, onDelta)
+	// Tool-using user turns and factual system events get one stateless,
+	// tool-free evidence synthesis. It cannot replay side effects or change the
+	// native DeepAgent lifecycle; it only prevents the visible answer from
+	// outrunning authoritative inputs and handler results.
+	if !internal || evidenceOnly {
+		diag.ReplyGrounded = o.groundVisibleReply(ctx, u.ID, channel, text, req, res, plannedContext.ActionExpected, evidenceOnly, onDelta)
+	}
+	if evidenceOnly && !diag.ReplyGrounded {
+		err := errors.New("系统事件证据整理失败")
+		o.noteEngineResult(false, err)
+		return "", err
 	}
 	if engineOK {
 		o.noteEngineResult(true, nil)

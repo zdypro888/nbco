@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: events/events.go
-        hash: sha256:4b0824fa4ea9b6fe69dfe20b4aa938f1837bfd179e8d065457eca737179e0353
+        hash: sha256:d5322ab48cd33cd17014f3623f53b3a1d426d6b71a9e93fbbc5c61bb21622c09
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -156,10 +156,10 @@ nodes:
       anchor:
         file: events/events.go
         symbol: Bus.handle
-        hash: sha256:1c23fcc8414da66508592b207ca804a17c0169f2b70d094523b77bd1a259ec5f
-        struct_hash: sha256:5f1be52f41976a498b5cb91ed490ac334687a6717b0885f227649cb299d28623
-        doc_struct_hash: sha256:5f1be52f41976a498b5cb91ed490ac334687a6717b0885f227649cb299d28623
-        lines: [143, 238]
+        hash: sha256:990eac36ed1c9f4a087eef7684c9865df910d3d0869e38800ce60a2e0aef6a43
+        struct_hash: sha256:556e0abb642c31351f928d9e8da283e583ee5848ea12a61636fcb65d67055b14
+        doc_struct_hash: sha256:556e0abb642c31351f928d9e8da283e583ee5848ea12a61636fcb65d67055b14
+        lines: [143, 240]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#Bus.prepareEventDelivery
@@ -170,7 +170,7 @@ nodes:
         hash: sha256:3bd3cf3f2888fadafd824d2222262c2f43074740f66e42be21d95820119665ba
         struct_hash: sha256:5268eb7ff0187fd663d74c8ef92a4b3fbb8280149154aa5b0869cb3669896336
         doc_struct_hash: sha256:5268eb7ff0187fd663d74c8ef92a4b3fbb8280149154aa5b0869cb3669896336
-        lines: [240, 244]
+        lines: [242, 246]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#Bus.completeEvent
@@ -181,7 +181,7 @@ nodes:
         hash: sha256:109101f113b2c45bc667f15a4c6f2d54450f6acc000b82b99ea1aa6f1cd626c1
         struct_hash: sha256:59482bca574c1416aa705cbb4945407bca6a655ec40f2add2bfe2b28a949a066
         doc_struct_hash: sha256:59482bca574c1416aa705cbb4945407bca6a655ec40f2add2bfe2b28a949a066
-        lines: [246, 250]
+        lines: [248, 252]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#Bus.finalizeEventSkip
@@ -192,7 +192,7 @@ nodes:
         hash: sha256:a1c1be269ed31c63a4d3c3ece2c410a7537704356bda404a321b942454ee58d7
         struct_hash: sha256:1b22d876ab219e462e06fcaf8b8568c713299bfa82c308f6aa0047db7a985307
         doc_struct_hash: sha256:1b22d876ab219e462e06fcaf8b8568c713299bfa82c308f6aa0047db7a985307
-        lines: [252, 256]
+        lines: [254, 258]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#Bus.retry
@@ -203,7 +203,7 @@ nodes:
         hash: sha256:2e279ca185678a6d8428eba05ee7dd22b7be176c69b87e6e8227975f3ad4ba0a
         struct_hash: sha256:9876e2225e9b75cfee845a4cf9c2cb3c1069574d258b8c081594adc3d2b0fe1f
         doc_struct_hash: sha256:9876e2225e9b75cfee845a4cf9c2cb3c1069574d258b8c081594adc3d2b0fe1f
-        lines: [258, 267]
+        lines: [260, 269]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#Bus.send
@@ -214,7 +214,7 @@ nodes:
         hash: sha256:ebcf1a5f6de6cfb83ab4c0cdb6ccadffb7ec2f622a00cab9d357d68f6aba61b7
         struct_hash: sha256:35b0ce20be828b1dd449c85e46cdfd9ba28f8cd239cfb0197166cfcd0eafdac5
         doc_struct_hash: sha256:35b0ce20be828b1dd449c85e46cdfd9ba28f8cd239cfb0197166cfcd0eafdac5
-        lines: [269, 274]
+        lines: [271, 276]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#directive
@@ -225,7 +225,7 @@ nodes:
         hash: sha256:235c91feda87f6520023e00474e729b0300ba09ebd5652ebae6ee9e8fd57a559
         struct_hash: sha256:37845729aa166de22e0dff260283d6f59373508d4ca444a633c293ac0afcf30d
         doc_struct_hash: sha256:11be275076a56511af2cd86b4f30c0476fb7da506dcf561e63e1824ec01aa43b
-        lines: [276, 286]
+        lines: [278, 288]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: events/events.go#ShouldSkip
@@ -236,6 +236,6 @@ nodes:
         hash: sha256:4ed6af7accbb5cadb150262b7b4b2be93c32c8ccdb3886a8d79c7543dccddb88
         struct_hash: sha256:c1d2e3ff005ce93079ec76043cd3538faffdc62f668fcd329012fa506392d6cf
         doc_struct_hash: sha256:5422f92ffbd5a09e7517119c6a393ce9e604fe333ee7da37e15c2cc1c8acbfa1
-        lines: [288, 300]
+        lines: [290, 302]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

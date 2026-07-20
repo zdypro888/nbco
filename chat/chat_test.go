@@ -364,8 +364,9 @@ func TestReplyGroundingEvidenceSeparatesExecutionFromReplay(t *testing.T) {
 		evidence[1].HandlerReturned || !evidence[1].Replayed {
 		t.Fatalf("reply evidence = %+v", evidence)
 	}
-	if !shouldGroundReply(false, &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall}}}) ||
-		!shouldGroundReply(true, &ai.TurnResult{}) || shouldGroundReply(false, &ai.TurnResult{}) {
+	if !shouldGroundReply(false, false, &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall}}}) ||
+		!shouldGroundReply(true, false, &ai.TurnResult{}) || !shouldGroundReply(false, true, &ai.TurnResult{}) ||
+		shouldGroundReply(false, false, &ai.TurnResult{}) {
 		t.Fatal("reply grounding trigger is inconsistent")
 	}
 }
@@ -395,7 +396,7 @@ func TestGroundVisibleReplyUsesStatelessToolFreeSynthesis(t *testing.T) {
 		Text:  "草稿声称做了额外操作",
 		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "save", Result: "只保存了一条规则"}},
 	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "整理规则", request, result, true, nil) {
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "整理规则", request, result, true, false, nil) {
 		t.Fatal("grounding did not run")
 	}
 	grounding := engine.lastReq()
@@ -423,13 +424,37 @@ func TestReadOnlyGroundingKeepsAnalysisContext(t *testing.T) {
 		Text:  "查询结果分析",
 		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "query", Result: `{"items":[]}`}},
 	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "现在怎么样", request, result, false, nil) {
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "现在怎么样", request, result, false, false, nil) {
 		t.Fatal("read-only grounding did not run")
 	}
 	grounding := engine.lastReq()
 	if grounding == nil || !strings.Contains(grounding.UserText, "recent_context") ||
 		!strings.Contains(grounding.UserText, "项目是 K 球") || !strings.Contains(grounding.UserText, "analysis_draft") {
 		t.Fatalf("read-only grounding lost analysis context: %+v", grounding)
+	}
+}
+
+func TestEvidenceOnlyGroundingExcludesUntrustedAgentDraft(t *testing.T) {
+	engine := &fakeEngine{}
+	orchestrator := &Orchestrator{engine: engine}
+	request := &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "event",
+		History: []ai.Message{{Role: ai.RoleAssistant, Content: "历史中声称 API 成功"}},
+		Tools:   []ai.Tool{{Name: "list_worker_runs", Effect: ai.ToolEffectRead}},
+	}
+	result := &ai.TurnResult{
+		Text: "草稿错误声称已经取得比赛结果",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_worker_runs",
+			Result: "证据层级 process_execution；输出 HTTP 401 API key missing"}},
+	}
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "[系统事件] Worker 执行结束", request, result, false, true, nil) {
+		t.Fatal("evidence-only grounding did not run")
+	}
+	grounding := engine.lastReq()
+	if grounding == nil || !strings.Contains(grounding.UserText, `"source_kind":"system_event"`) ||
+		strings.Contains(grounding.UserText, "草稿错误") || strings.Contains(grounding.UserText, "历史中声称") ||
+		strings.Contains(grounding.UserText, "analysis_draft") || strings.Contains(grounding.UserText, "recent_context") {
+		t.Fatalf("evidence-only payload was contaminated: %+v", grounding)
 	}
 }
 

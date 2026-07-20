@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/reply_grounding.go
-        hash: sha256:5a1d8eaead81b50031e67c224028b24548b8cc9025a198ec86802b07f6497058
+        hash: sha256:898e6ef6fea5faa443ede413b5001cc4f9d0630e029beb8846bd3e782fc11102
         lines: [0, 0]
       status: undigested
       since: 2026-07-20T12:05:19.444426Z
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: chat/reply_grounding.go
         symbol: replyGroundingSystem
-        hash: sha256:d0f5cb8a747df7e2a0d177bde4af75b441c3f3bb4ee62b2c07216d79aa95c9ff
-        struct_hash: sha256:db634085381f9606924c998d3642fcbe8e640cea6e32275c15fba37f7b2338a4
-        doc_struct_hash: sha256:db634085381f9606924c998d3642fcbe8e640cea6e32275c15fba37f7b2338a4
-        lines: [21, 33]
+        hash: sha256:a1438eb208b75ebc5904aa992b47865295e75c45051e9276c34d43e1e3ddae9a
+        struct_hash: sha256:1912755d501790b7b4b1a32e5e1065b78cf4eccb74f98c75b362aac3527c1e3e
+        doc_struct_hash: sha256:1912755d501790b7b4b1a32e5e1065b78cf4eccb74f98c75b362aac3527c1e3e
+        lines: [21, 35]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
     - id: chat/reply_grounding.go#replyToolEvidence
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:cdf6596783ce1240a694ccb6dbc79d414003ca33dbdd725c69e7cd79b5c18026
         struct_hash: sha256:8581b16685e5c35c29f3ad8ccb3fe0bca2efc68499640714de767af344760c2c
         doc_struct_hash: sha256:8581b16685e5c35c29f3ad8ccb3fe0bca2efc68499640714de767af344760c2c
-        lines: [35, 46]
+        lines: [37, 48]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
     - id: chat/reply_grounding.go#shouldGroundReply
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: chat/reply_grounding.go
         symbol: shouldGroundReply
-        hash: sha256:934b0e0768ca8c78c7a00723ee78e1703ac9cb353362841672c995c2363012b6
-        struct_hash: sha256:d6b2ee04ddedff7c5d53420526c3d22b566a597a12d7b7f68df8c01b5302b985
-        doc_struct_hash: sha256:d6b2ee04ddedff7c5d53420526c3d22b566a597a12d7b7f68df8c01b5302b985
-        lines: [48, 61]
+        hash: sha256:f11ab2856c911508ca62cca2aaeca42e43748ff41dc1e091236b13e5dcf48cb7
+        struct_hash: sha256:3d1e0537535ba6e305da145f8939e59cd2156294f81cfffb9dfef28d3153806e
+        doc_struct_hash: sha256:3d1e0537535ba6e305da145f8939e59cd2156294f81cfffb9dfef28d3153806e
+        lines: [50, 63]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
     - id: chat/reply_grounding.go#buildReplyToolEvidence
@@ -93,7 +93,7 @@ nodes:
         hash: sha256:749fc070ba31c7438f836ab5bffe49b0de08013da2bee6f3397c064bf6ee29ca
         struct_hash: sha256:d4e4e555169cc75dfb8f043dc4ad3c7a09b93c5a4c7fa98b47b1be7d036ccf71
         doc_struct_hash: sha256:d4e4e555169cc75dfb8f043dc4ad3c7a09b93c5a4c7fa98b47b1be7d036ccf71
-        lines: [63, 93]
+        lines: [65, 95]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
     - id: chat/reply_grounding.go#Orchestrator.groundVisibleReply
@@ -101,23 +101,30 @@ nodes:
       anchor:
         file: chat/reply_grounding.go
         symbol: Orchestrator.groundVisibleReply
-        hash: sha256:4c0523c939f820dcabedf981e784eb1baf399b658dec5aedeab4cf11ec1fee83
-        struct_hash: sha256:598da8688504d76ab0099645b8c0889b148c576af420d43564232a53e323fa70
-        doc_struct_hash: sha256:598da8688504d76ab0099645b8c0889b148c576af420d43564232a53e323fa70
-        lines: [95, 150]
+        hash: sha256:68c523fcce3d39cfea26a78f7d045c3bb530ce8c296565e73d37a257af6da091
+        struct_hash: sha256:2d09e6c916621da758c137476bdbae110b047a19a825daed110540c372d8b363
+        doc_struct_hash: sha256:2d09e6c916621da758c137476bdbae110b047a19a825daed110540c372d8b363
+        lines: [97, 163]
       status: fresh
       since: 2026-07-20T12:05:19.444371Z
       entries:
         - id: e_2f3027fc
           kind: contract
           text: Side-effect result synthesis receives only the current user request and current tool evidence. Historical dialogue and rules are retained for read-only analysis but cannot prove persisted configuration parameters or subsystem behavior.
-          confidence: inferred
+          confidence: verified
           at: 2026-07-20T14:31:45.878385Z
+          confirmed_at: 2026-07-20T15:00:55.595232Z
+          author: codex-mcp-client
+        - id: e_b2e87c39
+          kind: contract
+          text: 'Factual event-bus turns set EvidenceOnly: final OneShot receives only source_text plus current read-tool evidence, never first Agent draft/history. If that synthesis fails, runTurn returns an error so the event bus persists and sends its factual fallback instead of an ungrounded model reply.'
+          confidence: inferred
+          at: 2026-07-20T15:00:50.108312Z
           author: codex-mcp-client
       keywords:
-        - action result provenance
-        - unsupported configuration claim
-        - historical rule contamination
+        - system event grounding
+        - evidence-only automation
+        - event hallucination fallback
     - id: chat/reply_grounding.go#applyActionEvidenceFallback
       level: function
       anchor:
@@ -126,7 +133,7 @@ nodes:
         hash: sha256:090303b18914526027d7468729bc071780a21793fb4d93a39c8a82105d1d9727
         struct_hash: sha256:7ce4439de26449e77f33467ad3a82e788772b29a1db4faf284282be6880a9195
         doc_struct_hash: sha256:7ce4439de26449e77f33467ad3a82e788772b29a1db4faf284282be6880a9195
-        lines: [152, 187]
+        lines: [165, 200]
       status: fresh
       since: 2026-07-20T12:05:19.445122Z
     - id: chat/reply_grounding.go#hasSideEffectAttempt
@@ -137,7 +144,7 @@ nodes:
         hash: sha256:a9cd6373e0a5a7da5bacac2dbcdec98fa9b6fb5c9a4575a610a1353440cf0b64
         struct_hash: sha256:f23c677bde8dec4105a93d68353f42abc6f2959d668023c5df3c6dfac13e0590
         doc_struct_hash: sha256:f23c677bde8dec4105a93d68353f42abc6f2959d668023c5df3c6dfac13e0590
-        lines: [189, 201]
+        lines: [202, 214]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
     - id: chat/reply_grounding.go#groundingHistory
@@ -148,7 +155,7 @@ nodes:
         hash: sha256:0222830a4c6d3cc89f7a820c67750b46b4f695e36f293e7d4fb946a1e619768d
         struct_hash: sha256:47ca9fd3ea634cac19c995dfff28e87c56fc2b3b11b09525a2bf6158da43dc17
         doc_struct_hash: sha256:47ca9fd3ea634cac19c995dfff28e87c56fc2b3b11b09525a2bf6158da43dc17
-        lines: [203, 218]
+        lines: [216, 231]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
     - id: chat/reply_grounding.go#replaceFinalTextStep
@@ -159,6 +166,6 @@ nodes:
         hash: sha256:76da843c0c6e5eb4c8682fd4e29a50d1cbca550aa4bc18658aced5e2fc3ce05d
         struct_hash: sha256:baa6cd92c7b57e8c92ffd76ba3180edaf0ad16778c230edd977ed3b445654a1b
         doc_struct_hash: sha256:baa6cd92c7b57e8c92ffd76ba3180edaf0ad16778c230edd977ed3b445654a1b
-        lines: [220, 228]
+        lines: [233, 241]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z

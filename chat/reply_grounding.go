@@ -22,10 +22,12 @@ const replyGroundingSystem = `你是 nbco 的执行结果整理器，不是执�
 只输出最终给用户看的答复，不输出 JSON、分析过程或工具轨迹。
 
 要求：
+- source_text 给出本轮目标或事件来源，tool_evidence 给出实际工具结果；source_kind=system_event 时 source_text 是系统事件证据而非用户指令。evidence_only=true 时只能从这两部分重新归纳，不得补入历史规则、先前草稿或常识猜测。
 - 保留草稿中有用且被证据支持的内容，语言自然、简洁，不要改成机械审计报告。
 - 面向用户直接说明结果，不提“草稿、证据、handler、工具轨迹、整理器”等内部过程词。
 - 已创建、已更新、已发送、已删除、已设置、已合并、已去重、已完成等外部状态，只能按本轮工具证据的真实结果陈述。
 - handler_returned 仅表示处理器返回；业务是否成功仍以 result 为准。replayed=true 表示该次没有再次执行。pending_approval=true 只表示等待用户确认。asynchronous 只表示已受理或排队，不表示最终完成。
+- 进程退出码、HTTP 状态、执行队列 completed、执行器上报 succeeded 都只证明各自技术层已经结束；除非输出或产物本身满足请求目标，或存在独立业务验收证据，否则不得升级成业务目标成功。
 - “本次未重复执行、未重复创建、目标已存在”等幂等结果，只证明这一次没有产生重复副作用；不证明历史记录已经被清理、合并、去重或修复。
 - 工具证据没有覆盖的动作不得写成已经完成。若用户要求了动作但本轮没有完成，直接说明本轮实际完成了什么、还缺什么；不要让用户重复发送同一句指令，也不要假装正在后台继续。
 - 已配置对象的参数、适用范围、触发条件和自动行为只能来自本轮工具参数与结果；规则、知识和历史对话表达的是意图或背景，不证明底层子系统已经实现这些行为。
@@ -45,8 +47,8 @@ type replyToolEvidence struct {
 	Completion      ai.ToolCompletion `json:"completion,omitempty"`
 }
 
-func shouldGroundReply(actionExpected bool, res *ai.TurnResult) bool {
-	if actionExpected {
+func shouldGroundReply(actionExpected, evidenceOnly bool, res *ai.TurnResult) bool {
+	if actionExpected || evidenceOnly {
 		return true
 	}
 	if res == nil {
@@ -98,22 +100,27 @@ func (o *Orchestrator) groundVisibleReply(
 	channel, userText string,
 	req *ai.TurnRequest,
 	res *ai.TurnResult,
-	actionExpected bool,
+	actionExpected, evidenceOnly bool,
 	onDelta func(string),
 ) bool {
-	if o == nil || o.engine == nil || req == nil || res == nil || !shouldGroundReply(actionExpected, res) {
+	if o == nil || o.engine == nil || req == nil || res == nil || !shouldGroundReply(actionExpected, evidenceOnly, res) {
 		return false
 	}
 	payloadData := map[string]any{
-		"user_request":    textfmt.TruncateRunes(strings.TrimSpace(userText), 2400),
+		"source_kind":     "user_request",
+		"source_text":     textfmt.TruncateRunes(strings.TrimSpace(userText), 4000),
 		"action_expected": actionExpected,
+		"evidence_only":   evidenceOnly,
 		"tool_evidence":   buildReplyToolEvidence(req.Tools, res.Steps),
+	}
+	if evidenceOnly {
+		payloadData["source_kind"] = "system_event"
 	}
 	// A false action claim in the first Agent answer is a strong model anchor.
 	// Action synthesis therefore starts from authoritative results only. For a
 	// read-only analysis the draft remains useful because it may contain a
 	// substantial cross-result summary that is expensive to reconstruct.
-	if !actionExpected && !hasSideEffectAttempt(req.Tools, res.Steps) {
+	if !evidenceOnly && !actionExpected && !hasSideEffectAttempt(req.Tools, res.Steps) {
 		payloadData["recent_context"] = groundingHistory(req.History, 8)
 		payloadData["analysis_draft"] = textfmt.TruncateRunes(strings.TrimSpace(res.Text), 4000)
 	}
@@ -132,11 +139,17 @@ func (o *Orchestrator) groundVisibleReply(
 	})
 	if err != nil {
 		slog.Warn("工具答复证据整理失败", "user", userID, "err", err)
+		if evidenceOnly {
+			return false
+		}
 		return applyActionEvidenceFallback(res, req.Tools, actionExpected, onDelta)
 	}
 	text := strings.TrimSpace(textfmt.StripReasoning(grounded.Text))
 	if text == "" || needsVisibleReplyRepair(grounded) {
 		slog.Warn("工具答复证据整理无有效正文", "user", userID)
+		if evidenceOnly {
+			return false
+		}
 		return applyActionEvidenceFallback(res, req.Tools, actionExpected, onDelta)
 	}
 	res.Text = text

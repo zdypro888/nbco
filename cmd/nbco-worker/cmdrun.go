@@ -208,16 +208,18 @@ func writeCommandScript(dir, command string) error {
 
 func commandSummary(command, mode string, res commandResult, err error) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "命令执行完成，退出码：%d\n", res.ExitCode)
+	fmt.Fprintf(&b, "命令进程已结束，退出码：%d\n", res.ExitCode)
+	b.WriteString("证据范围：退出码只描述命令进程；业务目标是否达成须依据输出或产物另行判断。\n")
 	fmt.Fprintf(&b, "执行模式：%s\n", mode)
 	if err != nil {
 		fmt.Fprintf(&b, "错误：%v\n", err)
 	}
+	if strings.TrimSpace(res.Output) != "" {
+		b.WriteString("输出：\n")
+		_, _ = io.WriteString(&b, res.Output)
+		b.WriteString("\n")
+	}
 	b.WriteString("命令：\n")
 	b.WriteString(command)
-	if strings.TrimSpace(res.Output) != "" {
-		b.WriteString("\n\n输出：\n")
-		_, _ = io.WriteString(&b, res.Output)
-	}
 	return b.String()
 }

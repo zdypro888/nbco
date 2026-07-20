@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: textfmt/telegramhtml/telegramhtml_test.go
+      level: file
+      anchor:
+        file: textfmt/telegramhtml/telegramhtml_test.go
+        hash: sha256:76dafaaea43a9ec013c0b0dcd406a3861ef2dfb2e06dbed2f18d88fb418fe038
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: textfmt/telegramhtml/telegramhtml_test.go#TestToHTMLRemovesUnsupportedTagsButKeepsContent
+      level: function
+      anchor:
+        file: textfmt/telegramhtml/telegramhtml_test.go
+        symbol: TestToHTMLRemovesUnsupportedTagsButKeepsContent
+        hash: sha256:6c7ab7c4723ad01b6692e323cb8a06951f40f7cebf5de47d00b0948e5a90e04a
+        struct_hash: sha256:735eb6cdc032a6ab8edea6a597b487a42cf81efe5e4d238868943c026a4366e0
+        doc_struct_hash: sha256:735eb6cdc032a6ab8edea6a597b487a42cf81efe5e4d238868943c026a4366e0
+        lines: [8, 18]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: textfmt/telegramhtml/telegramhtml_test.go#TestToHTMLDoesNotTreatComparisonsAsTags
+      level: function
+      anchor:
+        file: textfmt/telegramhtml/telegramhtml_test.go
+        symbol: TestToHTMLDoesNotTreatComparisonsAsTags
+        hash: sha256:ca284cc014eabbeec0a1052cf93d3edbf767518c5788ae07916d719e1a5ceeac
+        struct_hash: sha256:a7a5cd48351b38ab3c5907faa306e6347ad59358e17141b15b8234ee16a435d4
+        doc_struct_hash: sha256:a7a5cd48351b38ab3c5907faa306e6347ad59358e17141b15b8234ee16a435d4
+        lines: [20, 25]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z

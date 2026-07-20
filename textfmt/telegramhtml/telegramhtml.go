@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	tgAllowedHTMLTagRe = regexp.MustCompile(`(?i)(</?(b|strong|i|em|u|s|del|code|pre|blockquote)>|</a>|<a\s+href="https?://[^"<>\s]+">)`)
-	malformedCloseRe   = regexp.MustCompile(`(?i)</\s*(b|strong|i|em|u|s|del|code|pre|blockquote)\s*([:：，,。；;、])`)
+	tgAllowedHTMLTagRe           = regexp.MustCompile(`(?i)(</?(b|strong|i|em|u|s|del|code|pre|blockquote)>|</a>|<a\s+href="https?://[^"<>\s]+">)`)
+	unsupportedPresentationTagRe = regexp.MustCompile(`(?is)</?(?:font|span|div|p|hr|br|h[1-6]|ul|ol|li|section|article|header|footer|main|details|summary)\b[^<>]*>`)
+	malformedCloseRe             = regexp.MustCompile(`(?i)</\s*(b|strong|i|em|u|s|del|code|pre|blockquote)\s*([:：，,。；;、])`)
 
 	fencedCodeRe = regexp.MustCompile("(?s)```[a-zA-Z0-9_+-]*\n?(.*?)```")
 	inlineCodeRe = regexp.MustCompile("`([^`\n]+)`")
@@ -55,6 +56,10 @@ func ToHTML(s string) string {
 	s = convertHTMLTables(s, latePut)
 
 	s = tgAllowedHTMLTagRe.ReplaceAllStringFunc(s, earlyPut)
+	// Telegram rejects presentation tags such as <font> and <hr>. Once the
+	// supported subset has been stashed, remove unsupported tag syntax while
+	// keeping its visible body instead of escaping raw markup into the message.
+	s = unsupportedPresentationTagRe.ReplaceAllString(s, "")
 	esc := html.EscapeString(s)
 	for i, r := range earlyStash {
 		esc = strings.Replace(esc, fmt.Sprintf("\x01%d\x01", i), r, 1)

@@ -914,6 +914,7 @@ type workerRunJSON struct {
 	RequestedBy     int64      `json:"requested_by"`
 	RequestedByName string     `json:"requested_by_name,omitempty"`
 	Executor        string     `json:"executor"`
+	EvidenceScope   string     `json:"evidence_scope"`
 	Title           string     `json:"title"`
 	ScopeKey        string     `json:"scope_key,omitempty"`
 	ScopeTitle      string     `json:"scope_title,omitempty"`
@@ -933,7 +934,8 @@ type workerRunJSON struct {
 func toWorkerRunJSON(run *store.WorkerRun) workerRunJSON {
 	return workerRunJSON{
 		ID: run.ID, TaskID: run.TaskID, TaskRevision: run.TaskRevision, WorkerID: run.WorkerID, RequestedBy: run.RequestedBy,
-		Executor: string(run.Executor), Title: run.Title, ScopeKey: run.ScopeKey, ScopeTitle: run.ScopeTitle, Status: run.Status,
+		Executor: string(run.Executor), EvidenceScope: string(run.Executor.EvidenceScope()), Title: run.Title,
+		ScopeKey: run.ScopeKey, ScopeTitle: run.ScopeTitle, Status: run.Status,
 		Outcome: run.Outcome, ExitCode: run.ExitCode, Attempts: run.Attempts, Failures: run.Failures, AvailableAt: run.AvailableAt,
 		LastError: run.LastError, Summary: run.Summary, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt,
 		CompletedAt: run.CompletedAt,
@@ -2325,9 +2327,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 					u.Name, task.Title, task.ID, truncateRunes(req.Summary, 400), extra))
 		}
 	} else if !replayed && s.bus != nil && task == nil && run.RequestedBy != u.ID {
-		s.bus.EmitRequired("Worker 执行结束", run.RequestedBy,
-			fmt.Sprintf("AI 员工「%s」完成了「%s」（执行内部编号 %d，结果 %s）。摘要：%s",
-				u.Name, run.Title, run.ID, outcome, truncateRunes(req.Summary, 500)))
+		s.bus.EmitRequired("Worker 执行结束", run.RequestedBy, workerRunFinishedEventDetail(u.Name, run))
 	}
 	taskStatus := ""
 	if task != nil {
@@ -2335,6 +2335,40 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("worker 完成执行", "worker", u.ID, "run", run.ID, "task", run.TaskID, "outcome", outcome, "run_status", run.Status, "task_status", taskStatus, "exit_code", req.ExitCode, "lessons", req.Lessons != "", "replayed", replayed)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": "1", "outcome": outcome, "run_status": run.Status, "task_status": taskStatus, "replayed": replayed, "session_saved": sessionSaved})
+}
+
+func workerRunFinishedEventDetail(workerName string, run *store.WorkerRun) string {
+	if run == nil {
+		return "Worker 执行记录已结束，但结果记录不可用。"
+	}
+	goal := strings.TrimSpace(run.Goal)
+	if goal == "" {
+		goal = strings.TrimSpace(run.Title)
+	}
+	var b strings.Builder
+	outcome := strings.TrimSpace(run.Outcome)
+	if outcome == "" {
+		outcome = "unknown"
+	}
+	fmt.Fprintf(&b, "AI 员工「%s」的执行请求「%s」（执行内部编号 %d）已结束。", workerName, run.Title, run.ID)
+	fmt.Fprintf(&b, "执行器：%s；执行生命周期：%s；执行层结果：%s；证据层级：%s。",
+		run.Executor, run.Status, outcome, run.Executor.EvidenceScope())
+	if run.ExitCode != nil {
+		fmt.Fprintf(&b, "进程退出码：%d。", *run.ExitCode)
+	}
+	switch run.Executor.EvidenceScope() {
+	case workerproto.EvidenceProcessExecution:
+		b.WriteString("证据边界：这些字段只证明命令进程的执行状态；必须从输出或产物中找到满足请求目标的内容，才能说业务目标已经达成。")
+	case workerproto.EvidenceAgentSubmission:
+		b.WriteString("证据边界：这些字段只证明 Agent 已提交执行报告；是否满足业务目标仍以报告内容和业务任务验收状态为准。")
+	}
+	if goal != "" {
+		b.WriteString("请求目标：" + truncateRunes(goal, 300) + "。")
+	}
+	if summary := strings.TrimSpace(run.Summary); summary != "" {
+		b.WriteString("原始执行摘要：" + truncateRunes(summary, 1200))
+	}
+	return b.String()
 }
 
 func resolveWorkerSubmissionOutcome(value string, exitCode, legacyExitCode *int) (workerproto.Outcome, *int, bool) {

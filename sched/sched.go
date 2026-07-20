@@ -84,7 +84,7 @@ func (s *Scheduler) runAIReply(ctx context.Context, u *store.User, executionKey,
 		reply string
 		err   error
 	)
-	reply, err = s.orch.HandleAutomationMessage(turnCtx, u, s.channel, executionKey, directive, readOnly)
+	reply, err = s.orch.HandleAutomationMessage(turnCtx, u, s.channel, executionKey, directive, chat.AutomationTurnOptions{ReadOnly: readOnly})
 	if err != nil {
 		slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
 		return "", err

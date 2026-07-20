@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/workerproto"
 )
 
@@ -41,6 +42,27 @@ func TestResolveWorkerSubmissionOutcome(t *testing.T) {
 				t.Fatalf("exit code = %v, want %v", code, tt.wantCode)
 			}
 		})
+	}
+}
+
+func TestWorkerRunFinishedEventPreservesExecutionEvidenceBoundary(t *testing.T) {
+	zero := 0
+	run := &store.WorkerRun{
+		ID: 7, Executor: workerproto.ExecutorCommand, Title: "查询外部比赛结果", Goal: "返回比赛双方和比分",
+		Status: store.WorkerRunCompleted, Outcome: string(workerproto.OutcomeSucceeded), ExitCode: &zero,
+		Summary: `输出：{"status":401,"error":"API key missing"}`,
+	}
+	detail := workerRunFinishedEventDetail("NBAI", run)
+	for _, want := range []string{"process_execution", "只证明命令进程", "必须从输出或产物", "401", "返回比赛双方和比分"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("event detail missing %q: %s", want, detail)
+		}
+	}
+	if strings.Contains(detail, "完成了「") {
+		t.Fatalf("process completion must not be phrased as objective completion: %s", detail)
+	}
+	if got := toWorkerRunJSON(run).EvidenceScope; got != string(workerproto.EvidenceProcessExecution) {
+		t.Fatalf("worker run JSON evidence_scope = %q", got)
 	}
 }
 

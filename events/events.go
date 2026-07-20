@@ -191,7 +191,9 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 			}
 			mode = store.EventOutcomeHandled
 			if b.orch != nil {
-				reply, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail, event.NotificationRequired), true)
+				reply, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail, event.NotificationRequired), chat.AutomationTurnOptions{
+					ReadOnly: true, EvidenceOnly: true,
+				})
 			}
 			if b.orch == nil || err != nil || strings.TrimSpace(reply) == "" {
 				if err != nil {

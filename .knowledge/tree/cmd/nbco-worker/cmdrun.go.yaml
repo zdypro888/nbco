@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/cmdrun.go
-        hash: sha256:9ad39015b736081f9d1338ff47e86cc98745d729777f09418de8aa6ff7b2983f
+        hash: sha256:7208d1f4a841d5675e32d53928acda019d04c8e1fea755bfc3f857e8fe4c1cf9
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -211,9 +211,20 @@ nodes:
       anchor:
         file: cmd/nbco-worker/cmdrun.go
         symbol: commandSummary
-        hash: sha256:e88717c6e198aece9f40a0b418013adb00eb892aa894a0b9528b2cc7954c1bb9
-        struct_hash: sha256:bb07cb96f48f9217f7edd25c23403d33f5a4c89b8fcfd33319e022a3a9b904ad
-        doc_struct_hash: sha256:bb07cb96f48f9217f7edd25c23403d33f5a4c89b8fcfd33319e022a3a9b904ad
-        lines: [209, 223]
-      status: undigested
+        hash: sha256:81f0ada86038e616eef01c0f3b2f9ecc61497b33245dbc888678fda2144fbac9
+        struct_hash: sha256:35840b24a8f7e6aca7bd0c6e9de5b1504fe86bbaa6c836397c41888f4114eed5
+        doc_struct_hash: sha256:35840b24a8f7e6aca7bd0c6e9de5b1504fe86bbaa6c836397c41888f4114eed5
+        lines: [209, 225]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_48dbd845
+          kind: pitfall
+          text: Command summaries place stdout/stderr before the command text because event/tool excerpts are bounded from the front. Reversing the order can hide the only failure evidence behind a long generated command while still exposing exit 0.
+          confidence: inferred
+          at: 2026-07-20T15:00:50.209914Z
+          author: codex-mcp-client
+      keywords:
+        - command summary ordering
+        - bounded event output
+        - stdout before command

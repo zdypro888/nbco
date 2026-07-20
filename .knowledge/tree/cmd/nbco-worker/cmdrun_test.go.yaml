@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/cmdrun_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/cmdrun_test.go
+        hash: sha256:6a68d4acc61db533ed7f98e66be396fbbd318932b4be81f28feb172f9c80e8b3
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: cmd/nbco-worker/cmdrun_test.go#TestCommandSummaryPreservesResultSemanticsAndOutputPriority
+      level: function
+      anchor:
+        file: cmd/nbco-worker/cmdrun_test.go
+        symbol: TestCommandSummaryPreservesResultSemanticsAndOutputPriority
+        hash: sha256:faa7e75f516b895b680cfadbe2118cfcad89f3cc85128d6a64663cc96a13f492
+        struct_hash: sha256:26ab02ccf5545a9adef061fdd2a306922f4622962e89aeebcb2a7d7c9efe41ad
+        doc_struct_hash: sha256:26ab02ccf5545a9adef061fdd2a306922f4622962e89aeebcb2a7d7c9efe41ad
+        lines: [8, 22]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z

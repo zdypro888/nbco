@@ -413,7 +413,7 @@ function renderWorkerRunRows(runs = state.workerRuns.slice(0, 10)) {
         <td class="td-title"><div class="title-strong">${esc(run.title)}</div><div class="subline">${run.task_id ? `业务任务 TSK-${esc(run.task_id)}` : "独立执行"}${run.scope_title || run.scope_key ? ` · ${esc(run.scope_title || run.scope_key)}` : ""}</div></td>
         <td>${esc(run.worker_name || `#${run.worker_id}`)}</td>
         <td>${esc(run.requested_by_name || `#${run.requested_by}`)}</td>
-        <td>${esc(run.executor || "agent")}</td>
+        <td>${esc(run.executor || "agent")}<div class="subline">${esc(workerEvidenceScopeText(run.evidence_scope))}</div></td>
         <td>${esc(run.attempts || 0)} / ${esc(run.failures || 0)}</td>
         <td>${statusPill(run.status)}</td>
         <td>${fmtAge(run.updated_at)}</td>
@@ -822,6 +822,8 @@ function workerRunInspector(run) {
     <dt>Worker</dt><dd>${esc(run.worker_name || `#${run.worker_id}`)}</dd>
     <dt>发起人</dt><dd>${esc(run.requested_by_name || `#${run.requested_by}`)}</dd>
     <dt>执行器</dt><dd>${esc(run.executor || "agent")}</dd>
+    <dt>证据层级</dt><dd>${esc(workerEvidenceScopeText(run.evidence_scope))}</dd>
+    <dt>执行层结果</dt><dd>${esc(run.outcome || "尚未结束")}${run.exit_code !== null && run.exit_code !== undefined ? ` · exit ${esc(run.exit_code)}` : ""}</dd>
     <dt>上下文</dt><dd>${esc(run.scope_title || run.scope_key || "默认")}</dd>
     <dt>尝试 / 失败</dt><dd>${esc(run.attempts || 0)} / ${esc(run.failures || 0)}</dd>
     <dt>创建</dt><dd>${fmtTime(run.created_at)}</dd>
@@ -829,6 +831,12 @@ function workerRunInspector(run) {
   </dl>
   ${run.last_error ? `<div class="result bad">${esc(run.last_error)}</div>` : ""}
   ${run.summary ? `<div class="result"><strong>执行摘要</strong><br>${esc(run.summary)}</div>` : ""}`;
+}
+
+function workerEvidenceScopeText(scope) {
+  if (scope === "process_execution") return "进程执行证据，不等于业务验收";
+  if (scope === "agent_submission") return "Agent 提交证据，不等于独立验收";
+  return "执行记录";
 }
 
 function scheduleInspector(s) {

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: workerproto/workerproto.go
-        hash: sha256:89893f37532ae97418719237bdedc96cc6cd60957b3cc91067f802d6ee5dda33
+        hash: sha256:d0453958276391f14decefe408202d9b1cd9ccc780cef625ec28b5b0aedc3961
         lines: [0, 0]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
@@ -63,6 +63,73 @@ nodes:
         lines: [23, 25]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#EvidenceScope
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: EvidenceScope
+        hash: sha256:57500e89539232e1ca4e7c544d79d92c0fa2d4294326df84c5a82612c81b56d7
+        struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
+        doc_struct_hash: sha256:3c2997ca481d2cce19690e704c09b6f0aabb7e5d35ef2a8145d04e954764ae81
+        lines: [27, 31]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: workerproto/workerproto.go#EvidenceUnknown
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: EvidenceUnknown
+        hash: sha256:bb6ade62fbe80908ef9b3d1aa769130043957ca13966e0bb67b0ca35a204cd47
+        struct_hash: sha256:8c83e78226d6b8a744b365a3c43e22641e332686e30f49275ed27e5e212ebe7f
+        doc_struct_hash: sha256:8c83e78226d6b8a744b365a3c43e22641e332686e30f49275ed27e5e212ebe7f
+        lines: [34, 34]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: workerproto/workerproto.go#EvidenceProcessExecution
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: EvidenceProcessExecution
+        hash: sha256:a83fa2f9ff1c1f04c9741c61572dacbfc9d70c3c183ff9a7c389558ef49ba927
+        struct_hash: sha256:5fdd85b98d01bb94fa5757b79517c4d005b2f93819023fa09ede4dc367c8fd12
+        doc_struct_hash: sha256:5fdd85b98d01bb94fa5757b79517c4d005b2f93819023fa09ede4dc367c8fd12
+        lines: [35, 35]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: workerproto/workerproto.go#EvidenceAgentSubmission
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: EvidenceAgentSubmission
+        hash: sha256:a6dc35437043c43818dc7109468de55456bbb5690e192d4fb1bc2a4b7e37e057
+        struct_hash: sha256:80d093059b2bef94f73769fd0093964a30303f0fe04015ebd0995d37d3ea309b
+        doc_struct_hash: sha256:80d093059b2bef94f73769fd0093964a30303f0fe04015ebd0995d37d3ea309b
+        lines: [36, 36]
+      status: undigested
+      since: 2026-07-20T14:59:43.143721Z
+    - id: workerproto/workerproto.go#Executor.EvidenceScope
+      level: function
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: Executor.EvidenceScope
+        hash: sha256:f99ddbe637fe1af42e8645144f44c3f3bdfa71ee2f0e4c695e88f9de22266f8b
+        struct_hash: sha256:cce09553517dc40525a78b52ae1bc3b9aaedf32e4f9d699455155c7efc379b13
+        doc_struct_hash: sha256:cce09553517dc40525a78b52ae1bc3b9aaedf32e4f9d699455155c7efc379b13
+        lines: [39, 48]
+      status: fresh
+      since: 2026-07-20T14:59:43.143721Z
+      entries:
+        - id: e_1ce09157
+          kind: contract
+          text: 'WorkerRun outcome belongs to the executor evidence layer, never directly to business acceptance: command -> process_execution (exit/process only), agent -> agent_submission (report submission only). Business success must come from output/artifacts or the task review lifecycle.'
+          confidence: inferred
+          at: 2026-07-20T15:00:50.008573Z
+          author: codex-mcp-client
+      keywords:
+        - worker outcome semantics
+        - exit code business success
+        - process_execution
+        - agent_submission
     - id: workerproto/workerproto.go#Outcome
       level: decl
       anchor:
@@ -71,7 +138,7 @@ nodes:
         hash: sha256:e4004b42409337edb363bd95df2befae6ebab34fa25e8e1d1610ab527e9d1a9f
         struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
         doc_struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
-        lines: [27, 27]
+        lines: [50, 50]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: workerproto/workerproto.go#OutcomeSucceeded
@@ -82,7 +149,7 @@ nodes:
         hash: sha256:80dad2140cf222626995a869956fa5a792068b204ad378b1a634e06c1e5de668
         struct_hash: sha256:37116c78fffc55eed82475129fd8f72bdf008c9625dbfa7eee0c1c628350d20c
         doc_struct_hash: sha256:37116c78fffc55eed82475129fd8f72bdf008c9625dbfa7eee0c1c628350d20c
-        lines: [30, 30]
+        lines: [53, 53]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: workerproto/workerproto.go#OutcomeFailed
@@ -93,7 +160,7 @@ nodes:
         hash: sha256:c0c980e2662b7b263f30d59da272a7cc44587bf97bc3618f36c9db56e0e3dc4e
         struct_hash: sha256:58e3f28257335ccd16bd738029b185b6f02b78547fe8584ab8ec11099efee2c7
         doc_struct_hash: sha256:58e3f28257335ccd16bd738029b185b6f02b78547fe8584ab8ec11099efee2c7
-        lines: [31, 31]
+        lines: [54, 54]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: workerproto/workerproto.go#ParseOutcome
@@ -104,7 +171,7 @@ nodes:
         hash: sha256:71c953d957efcbf087a329cd49577bbb3c015b7bed2f4101e869d416c9dbb72c
         struct_hash: sha256:97d37a9339d50091eb445db641258a5a0acd252c6945668b1ca1ed834c300556
         doc_struct_hash: sha256:97d37a9339d50091eb445db641258a5a0acd252c6945668b1ca1ed834c300556
-        lines: [34, 40]
+        lines: [57, 63]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: workerproto/workerproto.go#Outcome.Valid
@@ -115,6 +182,6 @@ nodes:
         hash: sha256:bbdde43723e9cb1a3c452dfd1cd8721b4aea291f6a0f43df4edd805c11c6c8e4
         struct_hash: sha256:09aa1371f2088730352d201968a370646a0fd84f46105d4b8c479b9179199eb5
         doc_struct_hash: sha256:09aa1371f2088730352d201968a370646a0fd84f46105d4b8c479b9179199eb5
-        lines: [42, 44]
+        lines: [65, 67]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z

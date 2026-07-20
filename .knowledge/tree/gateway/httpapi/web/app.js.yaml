@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/web/app.js
-        hash: sha256:c95417341fd1264ba24ad877551ee31f267f096be53cf6feda67cf4a812a6c39
+        hash: sha256:a0e3fa4f8957c52d0f94de96278a7ec1162fee3e1677660294a0055eab2bb72a
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

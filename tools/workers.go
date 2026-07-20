@@ -119,10 +119,10 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					"在工作机上运行 nbco-worker bind &lt;server&gt; %s 即可重绑；新码兑换后旧 token 自动作废。", code, code), nil
 			}),
 
-		asynchronousTool(tool("run_worker_command", "让指定 AI worker 在其工作机主题目录中执行一条确定性的 shell/cmd 命令，并把输出作为执行进度和结果回传。适合探测状态、运行测试或已知的单步操作；它不会启动 Codex/Claude。需要读取输出后继续判断、初始化仓库、修改代码、研究或部署时，应使用 delegate_worker_agent 或对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是独立执行，不会伪装成业务任务。",
+		asynchronousTool(tool("run_worker_command", "让指定 AI worker 在其工作机主题目录中执行一条确定性的 shell/cmd 命令，并把输出作为执行进度和结果回传。仅适合命令自身的退出码可以完整表达技术执行结果的原子操作，例如运行测试或读取一个无需解释的状态；退出码 0 只证明命令进程正常结束，不证明业务目标已经达成。它不会启动 Codex/Claude。凡是需要解释 stdout、核验外部数据、根据结果继续判断、初始化仓库、修改代码、研究或部署，都应使用 delegate_worker_agent 或对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是独立执行，不会伪装成业务任务。",
 			obj(map[string]any{
 				"worker_id": p("integer", "目标 worker 用户ID"),
-				"command":   p("string", "要执行的命令，如 go test ./..."),
+				"command":   p("string", "要执行的原子命令，如 go test ./...；命令应保留真实退出状态，不要用无条件 echo、兜底管道或尾部成功命令掩盖失败"),
 				"pty":       p("boolean", "可选，是否用 PTY 执行；默认 false。普通命令不需要，交互/终端检测命令才需要"),
 				"title":     p("string", "任务标题，可选"),
 			}, "worker_id", "command"),
@@ -243,7 +243,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				return asynchronousAcceptedResult(fmt.Sprintf("已创建并持久化 Worker Agent 任务（%s），分配给 %s；主题 scope=%s。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话；本轮无需重复创建，进度和完成结果会由系统通知用户。", internalRef("任务", t.ID), w.Name, scopeKey)), nil
 			})),
 
-		tool("list_worker_runs", "查看 Worker 的执行队列和执行历史。执行记录与业务任务分开：直接命令只出现在这里，委派工作会同时关联 task_id。可用于读取实际结果、失败原因和重试状态。",
+		tool("list_worker_runs", "查看 Worker 的执行队列和执行历史。执行记录与业务任务分开：直接命令只出现在这里，委派工作会同时关联 task_id。每条记录明确给出证据层级；进程执行成功或 Agent 提交成功都不等于业务目标已经独立验收。可用于读取实际结果、失败原因和重试状态。",
 			obj(map[string]any{"scope": enumP("queue=执行中（默认）| history=历史 | all=全部", "queue", "history", "all")}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -270,10 +270,11 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 						result = strings.TrimSpace(run.LastError)
 					}
 					if result != "" {
-						result = "；结果：" + clipRunes(result, 500)
+						result = "；执行记录：" + clipRunes(result, 800)
 					}
-					fmt.Fprintf(&b, "- %s %s：%s（worker %d，%s%s，尝试 %d 次%s）\n",
-						internalRef("执行", run.ID), run.Title, run.Status, run.WorkerID, run.Executor, linked, run.Attempts, result)
+					fmt.Fprintf(&b, "- %s %s：%s（worker %d，执行器 %s，证据层级 %s%s，尝试 %d 次，执行层结果 %s%s）\n",
+						internalRef("执行", run.ID), run.Title, run.Status, run.WorkerID, run.Executor,
+						run.Executor.EvidenceScope(), linked, run.Attempts, firstNonEmpty(run.Outcome, "尚未结束"), result)
 				}
 				return b.String(), nil
 			}),

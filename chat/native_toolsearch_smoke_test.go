@@ -160,7 +160,7 @@ func TestSmokeRealReplyGrounding(t *testing.T) {
 			Result: "规则已存在且内容一致，未重复创建（规则 #80）。",
 		}},
 	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "api", "整理规则并设置提醒", request, result, true, nil) {
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "api", "整理规则并设置提醒", request, result, true, false, nil) {
 		t.Fatal("reply grounding did not run")
 	}
 	if strings.Contains(result.Text, "提醒机制也已设置") || strings.Contains(result.Text, "去重") ||
@@ -168,6 +168,95 @@ func TestSmokeRealReplyGrounding(t *testing.T) {
 		t.Fatalf("grounded reply is not evidence-bound: %q", result.Text)
 	}
 	t.Logf("real reply grounding passed: %q", result.Text)
+}
+
+func TestSmokeRealEvidenceOnlyWorkerResult(t *testing.T) {
+	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
+		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real evidence-only grounding")
+	}
+	engine, err := einoengine.New(context.Background(), config.AIConfig{
+		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
+		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	orchestrator := &Orchestrator{engine: engine}
+	request := &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, Model: os.Getenv("NBCO_SMOKE_MODEL"),
+		Tools: []ai.Tool{{Name: "list_worker_runs", Effect: ai.ToolEffectRead}},
+	}
+	result := &ai.TurnResult{
+		Text: "NBAI 已成功获取比赛数据。",
+		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_worker_runs",
+			Result: "执行器 command；证据层级 process_execution；进程退出码 0；请求目标：返回双方与比分；实际输出：HTTP 401 API key missing。"}},
+	}
+	if !orchestrator.groundVisibleReply(context.Background(), 1, "api", "[系统事件] Worker 执行已结束", request, result, false, true, nil) {
+		t.Fatal("evidence-only grounding did not run")
+	}
+	if strings.Contains(result.Text, "成功获取") || strings.Contains(result.Text, "已获取比赛") ||
+		(!strings.Contains(result.Text, "401") && !strings.Contains(result.Text, "未")) {
+		t.Fatalf("evidence-only reply promoted process completion to objective success: %q", result.Text)
+	}
+	t.Logf("real evidence-only grounding passed: %q", result.Text)
+}
+
+func TestSmokeRealWorkerChoosesAdaptiveAgentForResearch(t *testing.T) {
+	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
+		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real worker routing")
+	}
+	engine, err := einoengine.New(context.Background(), config.AIConfig{
+		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
+		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var directCalls, agentCalls atomic.Int32
+	tools := []ai.Tool{
+		{
+			Name: "list_workers", Effect: ai.ToolEffectRead, LoadMode: ai.ToolLoadImmediate,
+			Description: "列出当前用户可调用的 Worker 与稳定 ID。", InputSchema: map[string]any{"type": "object"},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				return `[{"id":2,"name":"NBAI","online":true}]`, nil
+			},
+		},
+		{
+			Name: "run_worker_command", Effect: ai.ToolEffectExecute, LoadMode: ai.ToolLoadImmediate,
+			Description: "只执行退出码可完整表达技术结果的确定性原子命令。退出码不证明业务目标；需要解释输出、核验外部数据或继续判断时必须使用 delegate_worker_agent。",
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{
+				"worker_id": map[string]any{"type": "integer"}, "command": map[string]any{"type": "string"},
+			}, "required": []string{"worker_id", "command"}},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				directCalls.Add(1)
+				return `{"status":"accepted"}`, nil
+			},
+		},
+		{
+			Name: "delegate_worker_agent", Effect: ai.ToolEffectExecute, LoadMode: ai.ToolLoadImmediate,
+			Description: "把需要访问资料、解释结果、连续判断或形成可核验结论的目标交给 Worker 的交互式 PTY Agent。",
+			InputSchema: map[string]any{"type": "object", "properties": map[string]any{
+				"worker_id": map[string]any{"type": "integer"}, "instruction": map[string]any{"type": "string"},
+			}, "required": []string{"worker_id", "instruction"}},
+			Handler: func(context.Context, json.RawMessage) (string, error) {
+				agentCalls.Add(1)
+				return `{"status":"accepted","completion":"asynchronous","run_id":42}`, nil
+			},
+		},
+	}
+	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, Model: os.Getenv("NBCO_SMOKE_MODEL"),
+		System:   "按目标和工具定义自主选择执行方式；需要执行时调用工具，异步受理后如实报告。",
+		UserText: "让 NBAI 调查一个需要访问外部资料、核对返回内容并形成可验证结论的问题。",
+		Tools:    tools,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agentCalls.Load() != 1 || directCalls.Load() != 0 {
+		t.Fatalf("worker research routing used wrong executor: agent=%d direct=%d result=%q steps=%+v",
+			agentCalls.Load(), directCalls.Load(), result.Text, result.Steps)
+	}
 }
 
 func TestSmokeRealTurnContextSelectorWithAuthorizedCatalog(t *testing.T) {
