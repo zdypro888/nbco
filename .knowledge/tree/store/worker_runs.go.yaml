@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/worker_runs.go
-        hash: sha256:2cfc256b74b1a48397badab7c33990cac153351cadd6a3a20aed6c2c5eddfa88
+        hash: sha256:a0a817a73a2ff15604bcec9ca3249c3f51d5563bb7381b6309522aa3ee934eec
         lines: [0, 0]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
@@ -376,12 +376,30 @@ nodes:
       anchor:
         file: store/worker_runs.go
         symbol: Store.ClaimNextWorkerRun
-        hash: sha256:1311473817aa51bda8bb018622b4a48e03647fcf00ec2b117405660dfe41d0a8
-        struct_hash: sha256:c4ef7bebb5be9a18d7dc69ffff3cba51bae3b905677e9618d16755d4f2483ae0
-        doc_struct_hash: sha256:640558cde80c8229a4610b353381ab3728abc50d02722f91f25a2742e5c501ca
-        lines: [464, 649]
-      status: undigested
+        hash: sha256:134fbd2e2d2bdf09d64962b4b1a4ebf3730d5ab5092b972c8e1bf2d88276ab92
+        struct_hash: sha256:ac83280a0eaf1abcd44106d0da8d5425b5c57d5162cff7f90876aab3352cdb18
+        doc_struct_hash: sha256:facc595939d2ba98bc3284de52630c43337cde33bb39d084e732beb9668760e8
+        lines: [464, 680]
+      status: fresh
       since: 2026-07-20T11:26:39.730689Z
+      entries:
+        - id: e_4d431d2a
+          kind: contract
+          text: For a newly claimed worker run, worker_run_attempts.heartbeat_at=NULL means the HTTP payload has not been confirmed by the worker. Such claims use the short delivery timeout; after the first heartbeat they use the normal long execution lease.
+          confidence: inferred
+          at: 2026-07-20T14:31:45.770775Z
+          author: codex-mcp-client
+        - id: e_611932bc
+          kind: pitfall
+          text: The worker must retry the first heartbeat after ambiguous HTTP failures. Returning to polling can strand a claim when the database update succeeded but the response was lost.
+          confidence: inferred
+          at: 2026-07-20T14:31:45.771212Z
+          author: codex-mcp-client
+      keywords:
+        - worker claim delivery acknowledgement
+        - undelivered lease
+        - heartbeat_at null
+        - stuck claimed run
     - id: store/worker_runs.go#Store.ReleaseWorkerRunClaim
       level: function
       anchor:
@@ -390,7 +408,7 @@ nodes:
         hash: sha256:86a4777b016886b1b952148e7c37d429b9ee73331839d87bea3e9847c4d5f76b
         struct_hash: sha256:0db2b294390cf4728e7335e4ec015126cedb39972ebf4b78ceb78caf1cff5300
         doc_struct_hash: sha256:0db2b294390cf4728e7335e4ec015126cedb39972ebf4b78ceb78caf1cff5300
-        lines: [651, 681]
+        lines: [682, 712]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.HeartbeatWorkerRun
@@ -401,7 +419,7 @@ nodes:
         hash: sha256:0a8dd8215d67e7047fb4ab6c1fe3c9632a526be7487cfb9672b380935ac4b966
         struct_hash: sha256:649f65b6d460c556d2cc29c06f60458628b7a4579d969c88722dc3b4cda1017d
         doc_struct_hash: sha256:84ac2e389f9041ca881d0474e61fafbf24a15df45615539c6f3c51ad8e82b502
-        lines: [683, 714]
+        lines: [714, 745]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.AddWorkerRunProgress
@@ -412,7 +430,7 @@ nodes:
         hash: sha256:47222400015e3c0e7b00398ec0ecbbaab734f83bf332e1994b3139533c3ffc6c
         struct_hash: sha256:fab160ef1b9a6f7c015c1752bc9e63e76db9f667bbc98c800fa041abfba071a6
         doc_struct_hash: sha256:fab160ef1b9a6f7c015c1752bc9e63e76db9f667bbc98c800fa041abfba071a6
-        lines: [716, 757]
+        lines: [747, 788]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.RequestWorkerRunInput
@@ -423,7 +441,7 @@ nodes:
         hash: sha256:3425a30ca4138005d755494961f66cd78a55127062a6b5b0ea6e5a20fb471b76
         struct_hash: sha256:4e0ff48fac4da65c311dc25c2df221272314761a287c54299e437ff7890900ef
         doc_struct_hash: sha256:4e0ff48fac4da65c311dc25c2df221272314761a287c54299e437ff7890900ef
-        lines: [759, 826]
+        lines: [790, 857]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.FailWorkerRun
@@ -434,7 +452,7 @@ nodes:
         hash: sha256:e598a3777b2f1023f5d40f79e848687dd7646f8548ec3bd964fedc7e2e8d5e88
         struct_hash: sha256:aab18423f3c2e1406c479990dc653b392c721d10cb258bd004a2fb860de1b618
         doc_struct_hash: sha256:aab18423f3c2e1406c479990dc653b392c721d10cb258bd004a2fb860de1b618
-        lines: [828, 919]
+        lines: [859, 950]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.CompleteWorkerRun
@@ -445,7 +463,7 @@ nodes:
         hash: sha256:94f52cc3405bd6a601d424aff2af9d8c95cdeac5306b1732d61c7f727cbe148f
         struct_hash: sha256:1776117bad85bcc33924069fef9934e2690978788525e68e10b35f24f211566b
         doc_struct_hash: sha256:1776117bad85bcc33924069fef9934e2690978788525e68e10b35f24f211566b
-        lines: [921, 1004]
+        lines: [952, 1035]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#cancelActiveWorkerRunsTx
@@ -456,7 +474,7 @@ nodes:
         hash: sha256:3104915bbc102b8ecbd898704e2faaefc8164435672d7525bf7f983fe1140e8a
         struct_hash: sha256:b2ff84c0c022d07f868f1b62ab2a4ab67cc643e23eeea32cf808ea237f4545e0
         doc_struct_hash: sha256:b2ff84c0c022d07f868f1b62ab2a4ab67cc643e23eeea32cf808ea237f4545e0
-        lines: [1006, 1036]
+        lines: [1037, 1067]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#latestTaskRunSpecTx
@@ -467,7 +485,7 @@ nodes:
         hash: sha256:b9f3cd6199ecb934c1a1875b66ed9f481a9d79141be996b372045841d5994a64
         struct_hash: sha256:a761ec28f8ab9f1ab20341f5271f0e7dfdd5744db92adc31c639d13f89dd3fc6
         doc_struct_hash: sha256:a761ec28f8ab9f1ab20341f5271f0e7dfdd5744db92adc31c639d13f89dd3fc6
-        lines: [1038, 1068]
+        lines: [1069, 1099]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#restartTaskWorkerRunTx
@@ -478,7 +496,7 @@ nodes:
         hash: sha256:79014798b5e564c6b75031b1b156de224612f31804a9aee4afc92e7c73438255
         struct_hash: sha256:9bf8f0e0f34348c30ac9922b9496c3642f028f7a5176002aa48b9f2c8356b49b
         doc_struct_hash: sha256:9bf8f0e0f34348c30ac9922b9496c3642f028f7a5176002aa48b9f2c8356b49b
-        lines: [1070, 1081]
+        lines: [1101, 1112]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.ListWorkerRuns
@@ -489,7 +507,7 @@ nodes:
         hash: sha256:0b5fbdccdd7690011d1556f367d568b693beccaddcf16cb894bbdeb94b442b35
         struct_hash: sha256:cab00e2876b15914604f44e7b2ee66ac3e46b48a07c29ad548b992da76ba7602
         doc_struct_hash: sha256:cab00e2876b15914604f44e7b2ee66ac3e46b48a07c29ad548b992da76ba7602
-        lines: [1083, 1122]
+        lines: [1114, 1153]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.CancelWorkerRun
@@ -500,7 +518,7 @@ nodes:
         hash: sha256:adb6a68eb2997c44a1eee316ce4290eb0371f7d803323f41804816a16597d6d0
         struct_hash: sha256:e9ec754bc1820acd33b1da59fc933e258a12d24ecb884a021b31b1ccc32639b1
         doc_struct_hash: sha256:e9ec754bc1820acd33b1da59fc933e258a12d24ecb884a021b31b1ccc32639b1
-        lines: [1124, 1155]
+        lines: [1155, 1186]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.WorkerRunProgress
@@ -511,6 +529,6 @@ nodes:
         hash: sha256:8096a36d0c931297740f7f0c9fdad84ad050b09619d0a26904da09adb59899c2
         struct_hash: sha256:2d23d8ef1c4841f0baf7f6270f39eeef89621bc15860d2d49a9a488aa705db26
         doc_struct_hash: sha256:2d23d8ef1c4841f0baf7f6270f39eeef89621bc15860d2d49a9a488aa705db26
-        lines: [1157, 1174]
+        lines: [1188, 1205]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z

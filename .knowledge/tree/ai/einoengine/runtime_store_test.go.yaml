@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/runtime_store_test.go
+      level: file
+      anchor:
+        file: ai/einoengine/runtime_store_test.go
+        hash: sha256:831bc0707bf51cb69268757998790c57ae279a097fcb2f1069677de112124b21
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T14:30:54.395109Z
+    - id: ai/einoengine/runtime_store_test.go#TestRedactSessionEventPayloadPreservesEscapedJSON
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_test.go
+        symbol: TestRedactSessionEventPayloadPreservesEscapedJSON
+        hash: sha256:ab68ae7c2fa3f1cc9c79e32b5d7baa8d99204cb48092bdb08d5e3d2c993407bd
+        struct_hash: sha256:483131bd8d4d6409ee05dda837ccca816f3cae8870eb10d66ed202a773f3f6f1
+        doc_struct_hash: sha256:483131bd8d4d6409ee05dda837ccca816f3cae8870eb10d66ed202a773f3f6f1
+        lines: [12, 52]
+      status: undigested
+      since: 2026-07-20T14:30:54.395109Z
+    - id: ai/einoengine/runtime_store_test.go#strconvQuote
+      level: function
+      anchor:
+        file: ai/einoengine/runtime_store_test.go
+        symbol: strconvQuote
+        hash: sha256:681d6187f6c26a3e9281650947412e924dc3538a52cb9ffc06bdd83fe503e306
+        struct_hash: sha256:476a5a1c87fd4fe03b5ad81b42ecdcab645bf0368b2297c5266c6a445f783a12
+        doc_struct_hash: sha256:476a5a1c87fd4fe03b5ad81b42ecdcab645bf0368b2297c5266c6a445f783a12
+        lines: [54, 57]
+      status: undigested
+      since: 2026-07-20T14:30:54.395109Z

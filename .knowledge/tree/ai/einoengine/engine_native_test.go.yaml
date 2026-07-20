@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/engine_native_test.go
-        hash: sha256:482647493160129044a0416267719095667959294d01d535dea8937bf7ed109b
+        hash: sha256:bd7a8dfcf4c0090884450083bce3b93ad1285cd86c013d6258a55fce8b3d7092
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -272,6 +272,17 @@ nodes:
         lines: [743, 786]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/engine_native_test.go#TestPartialAgentErrorRollsBackManagedTurn
+      level: function
+      anchor:
+        file: ai/einoengine/engine_native_test.go
+        symbol: TestPartialAgentErrorRollsBackManagedTurn
+        hash: sha256:44d182313e78ef1f1c8f61e38e1ba45633b239997eaa15c01a69ec5ea223c0e9
+        struct_hash: sha256:2e6364d72e9b82d82b58edf78762ef5e3a28e6d179f935cdc7cf20806ceeff85
+        doc_struct_hash: sha256:2e6364d72e9b82d82b58edf78762ef5e3a28e6d179f935cdc7cf20806ceeff85
+        lines: [788, 852]
+      status: undigested
+      since: 2026-07-20T14:30:54.395109Z
     - id: ai/einoengine/engine_native_test.go#TestDeepAgentDoesNotReactivateToolsFromEarlierTurns
       level: function
       anchor:
@@ -280,6 +291,6 @@ nodes:
         hash: sha256:8539740363355ec62babff76bf7c1f406a62f42f122028ab461d1c1eadb6a53e
         struct_hash: sha256:437bfbefa585540054f794b0b7a329f7d3f0773f7b655b6a022e3870084de818
         doc_struct_hash: sha256:437bfbefa585540054f794b0b7a329f7d3f0773f7b655b6a022e3870084de818
-        lines: [788, 841]
+        lines: [854, 907]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
