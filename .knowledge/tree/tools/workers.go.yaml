@@ -17,8 +17,19 @@ nodes:
         struct_hash: sha256:d9796bc6eea2ccb1f49ff2640be5c5137996619377242ffba5060ec672e6af98
         doc_struct_hash: sha256:fd9315c6d8df7d61c03b73d8d75673dd00931bea5660b2cdeed5438af6f83007
         lines: [15, 368]
-      status: undigested
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_3e60df86
+          kind: usage
+          text: Choose run_worker_command only when the command's own exit status completely expresses the technical result. Any goal requiring stdout interpretation, external-data verification, iterative decisions, repository initialization/modification, research, or deployment belongs to delegate_worker_agent/workflow; command outcomes remain process evidence even when exit=0.
+          confidence: inferred
+          at: 2026-07-20T15:05:04.950375Z
+          author: codex-mcp-client
+      keywords:
+        - run_worker_command boundary
+        - delegate worker research
+        - atomic command versus agent
     - id: tools/workers.go#workerCommandRunArgs
       level: decl
       anchor:
