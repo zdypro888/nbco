@@ -1,0 +1,32 @@
+schema: 1
+flow:
+    id: topic:agent-autonomy-boundaries
+    title: Eino Agent 自主性与确定性边界
+    steps:
+        - node: chat/chat.go#Orchestrator.runTurn
+          note: 产品轮次编排，Eino 原生 Agent 是唯一执行循环。
+          since: 2026-07-20T12:22:06.914195Z
+        - node: chat/turn_context.go#Orchestrator.planTurnContext
+          note: 语义预载认知工作集，不是权限或硬路由。
+          since: 2026-07-20T12:22:06.914195Z
+        - node: ai/einoengine/engine.go#Engine.newDeepAgent
+          note: Eino 原生规划、工具循环与文本终止。
+          since: 2026-07-20T12:22:06.914195Z
+        - node: ai/einoengine/tool_scope.go#turnToolMiddleware.guardInvokable
+          note: 执行边界只包含延迟工具授权与 exact side-effect 幂等。
+          since: 2026-07-20T12:22:06.914195Z
+        - node: chat/reply_grounding.go#Orchestrator.groundVisibleReply
+          note: 无工具、无会话的真实结果整理，不执行动作。
+          since: 2026-07-20T12:22:06.914195Z
+        - node: store/knowledge.go#Store.UpsertRule
+          note: 领域持久层用稳定身份和唯一约束承接幂等。
+          since: 2026-07-20T12:22:06.914195Z
+    conventions:
+        - 当前架构由 Eino DeepAgent 独占规划、工具组合和普通 assistant 文本终止；关键词路由、forced tool、自定义 final_response、语义协议重试和总工具调用次数上限均已因干扰原生循环而退役。
+        - 上下文选择器只预载相关 schema 与记忆，不裁剪授权目录、不强制调用，也不把候选工具等同于用户动作意图；权限由工具集和处理器裁剪。
+        - 确定性代码的职责限于平台不变量：权限与参数校验、同一轮同一规范参数的 write/execute 请求 at-most-once、领域稳定身份与数据库唯一性、真实审计；read 重复、不同参数以及后续轮次保持可用。
+        - 用户可见结果整理是无工具、无持久会话的本轮事实转述，不重新规划或重放副作用，也不按自然语言措辞建立完成门。
+        - 该边界的历史变更以相关节点 history 的生产证据、overturns/rebuttal 和原生循环回归为依据，避免在第二套 Agent 协议与完全无执行保护之间横跳。
+    troubleshoot: 出现 Agent 不执行、重复执行或回复超出工具事实时，诊断顺序分为认知发现、原生循环、执行幂等、领域唯一性、结果呈现五层；措辞补丁和全局调用限制不属于当前架构。
+    since: 2026-07-20T12:22:06.914195Z
+    author: codex-mcp-client
