@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/worker_sessions.go
-        hash: sha256:0d645480e2e73bcc1281015c13b9c0a0d56546b735281e388e9cd3ced73ab617
+        hash: sha256:0076463e99e69ca1fd86dca1ec241995ce0c5a2dadc28bf1ccca8019caae3438
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: WorkerSession
-        hash: sha256:2a4f0fd26aa7aa1cb69e4dda23f4d52ddefd0a3b4371894f1a86c8e949c34d2d
-        struct_hash: sha256:a672840f16651b027770e6ddfd21124b38a0a16fc4d53040c7c12d04ab0c27db
-        doc_struct_hash: sha256:2500cfd0cc10d3bcefba1bbcdf06786ebf2f362f5043824f36dd2c8cf0aff421
-        lines: [9, 27]
+        hash: sha256:3a92cafe1793fc550f18b9a743b5ea64cb4491fdb8d1af114039839084233aac
+        struct_hash: sha256:7845e606828e4fec291f47fa642da8d652edaf023f36d375d39d909cc061a257
+        doc_struct_hash: sha256:ca98a1c6ce4bcd274501fe8f791f28e64b8bf8ba9075e04c566ce23b98390fc3
+        lines: [9, 28]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/worker_sessions.go#scanWorkerSession
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: scanWorkerSession
-        hash: sha256:c5297f69c97b9d9be5e53ccff82294d6a754db30c953cde552cc2a2046b66bc0
-        struct_hash: sha256:8f2dabb1e233403eba3ac02456dd2682a7cfdfa7571db962b39bfebde8465c00
-        doc_struct_hash: sha256:8f2dabb1e233403eba3ac02456dd2682a7cfdfa7571db962b39bfebde8465c00
-        lines: [29, 35]
+        hash: sha256:6551cc9cf8b4a6a083fb5c7d3b2c56b8d404dbd40263d85ff326de728ada8baf
+        struct_hash: sha256:0cdab3a3dac115a75773bf46263d85d8d2e1ee8e09e8fdece62df56a775d310c
+        doc_struct_hash: sha256:0cdab3a3dac115a75773bf46263d85d8d2e1ee8e09e8fdece62df56a775d310c
+        lines: [30, 36]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/worker_sessions.go#workerSessionCols
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: workerSessionCols
-        hash: sha256:6ebebc00814b0afee32d7d96f3f06efa5f268878b87ae51e7a451ae5ecf3ea3d
-        struct_hash: sha256:2f7210c200f7db15bbf5d337a42e14e99fe508dd340818741375a5ba5388fffe
-        doc_struct_hash: sha256:2f7210c200f7db15bbf5d337a42e14e99fe508dd340818741375a5ba5388fffe
-        lines: [37, 37]
+        hash: sha256:96fd1ce9886e8aefcfc111a988fbf87bfa0ed98fc5cbebd7851f3233677aa74e
+        struct_hash: sha256:990e22e775415b263a268818b3309e80335a1e87e1483c390659d0e661d25f04
+        doc_struct_hash: sha256:990e22e775415b263a268818b3309e80335a1e87e1483c390659d0e661d25f04
+        lines: [38, 38]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/worker_sessions.go#Store.ClaimWorkerSession
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: Store.ClaimWorkerSession
-        hash: sha256:1d8ce0a1a5e5df08ccf283be4a5ffe6f466ffa88bfdfa6b7b08cae9ed6be61a9
-        struct_hash: sha256:b651cd2c2e3cab1f13cdb49fdc12c0b0a3cc6bcb4034fd52a4ac5b3c6a421a32
-        doc_struct_hash: sha256:26763d4913576d22fef5cd4e6498a348aee67eeed5efe79e6d691008fbe099b2
-        lines: [39, 60]
+        hash: sha256:ea38b072f7c620feb21d1d32e46d463f80e9d4f4a02b0199aa126a17f9bd409e
+        struct_hash: sha256:adda1210122e5846021320a0f5ab36bddb89d1551d669ef53d6c388869be7014
+        doc_struct_hash: sha256:99608fc3ce282c9230d15ff3b525494491ce458bbcd07a6aaab18eb2254112e5
+        lines: [40, 62]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/worker_sessions.go#Store.UpdateWorkerSession
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: Store.UpdateWorkerSession
-        hash: sha256:4bb81e8a6117539540f261681531794d5f89488ce3b46007838e17a88ac50cea
-        struct_hash: sha256:a86dfef53762c6ad3632ed16b24a61382858355ba1a59e74355429f9287106b6
-        doc_struct_hash: sha256:558d794621c9444b03da1178511fbd2b00483860c0d81ba2162ba5dcc40a023b
-        lines: [62, 77]
+        hash: sha256:5fa6ec064befada2ea4edce298eb40333721d7e6b6b44e864904b1d7f912f9b4
+        struct_hash: sha256:a703a527de9045ebac61e6dbc0c81b609a363b0b5fba2edc1b0b9118f5a978b4
+        doc_struct_hash: sha256:4e68b5e4a74ba20f4c2f353c34a4d4b01a85cc89789d59b3e154c2057c9201aa
+        lines: [64, 80]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/worker_sessions.go#Store.UpdateWorkerSessionForClaim
@@ -68,12 +68,23 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: Store.UpdateWorkerSessionForClaim
-        hash: sha256:cb8e4e5c81c5752dbfd57a9439f8ed1c6f07170fd8793709f707244b24588051
-        struct_hash: sha256:0b32ddcc3df0b2a3f84be668371ef79c842167b1787286073cc15f49f123d61c
-        doc_struct_hash: sha256:b9d548c065416399e59904d739425ac189ec19bde6043d269c9e5964c25f518a
-        lines: [79, 102]
+        hash: sha256:477dfc7e118361221f97f687b541d1ea4056f609bb1eb90de7850817e7c6c3b2
+        struct_hash: sha256:73ff5eb9ccf90b6e51294bb04974b30b8810dc55bcf0f932ce3a263ebd64dcf8
+        doc_struct_hash: sha256:3a628af7fb79a6392cd6e1326323aae89949a3d0a84a65b4914f1385ce323ace
+        lines: [82, 107]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/worker_sessions.go#Store.UpdateWorkerSessionForFinalization
+      level: function
+      anchor:
+        file: store/worker_sessions.go
+        symbol: Store.UpdateWorkerSessionForFinalization
+        hash: sha256:c47776b846931039bd98b0362719c9ae6ef392023421bba3447c755ad678ba33
+        struct_hash: sha256:e7fcf5f899ac3a388127363ffdd81b297c352d151ed6de54c9cab74208afcf30
+        doc_struct_hash: sha256:ca059c5c663dd21a817116e287f551c7c161109e4dbd22e510a4eb0653e99b3c
+        lines: [109, 139]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_sessions.go#normalizeWorkerSessionPart
       level: function
       anchor:
@@ -82,7 +93,7 @@ nodes:
         hash: sha256:91dee132cbcd8141df6bc7091ad702786b029edc62bc059acbfc5ccf2ddc6a23
         struct_hash: sha256:d98d9240505f493f6b822a18e917e140474ae34e0fd96ad3da7acb590ba68b8b
         doc_struct_hash: sha256:d98d9240505f493f6b822a18e917e140474ae34e0fd96ad3da7acb590ba68b8b
-        lines: [104, 110]
+        lines: [141, 147]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/worker_sessions.go#Store.LatestWorkerTaskID
@@ -93,6 +104,6 @@ nodes:
         hash: sha256:4aa1e9ffa935d5905cc034288fb5f0ee99c83d4c7382ffb4807a18eb21929d8e
         struct_hash: sha256:b7df5fe8b24cd08e75df32bc7fd89c3d57521fe5c1dc7164cf1d3c57dfd13eb2
         doc_struct_hash: sha256:5208a9efbfbc570f0bb16e9d6a4208f99d3e9594d1899433214e75b0d9c82fbb
-        lines: [112, 124]
+        lines: [149, 161]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

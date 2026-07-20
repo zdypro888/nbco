@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/integration_test.go
-        hash: sha256:89243584828040d8d6baf872f8d4abc2e0344e9ca3778fb6a89bcaa33db97751
+        hash: sha256:e6970b524bbb739068a66f4946f598f82150255587f521984c6b79885ceabf38
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: openTestStore
-        hash: sha256:afd670e75abd02051b7b924994daf8e3ee5fe956dabc50b808b5517ed94accd0
-        struct_hash: sha256:445a43aba659d9b43d976cf23ce0dd78d0481cf2817f1fb31d8abf3a013baebd
-        doc_struct_hash: sha256:445a43aba659d9b43d976cf23ce0dd78d0481cf2817f1fb31d8abf3a013baebd
+        hash: sha256:dc149e2fbe152fe7c6a4127f840f3b6339bc00978e84ada4fdd70f01ec655b0f
+        struct_hash: sha256:5956b8f4e8497337b88a537412af911e70e16e1497e3cc27a7764984400e3971
+        doc_struct_hash: sha256:5956b8f4e8497337b88a537412af911e70e16e1497e3cc27a7764984400e3971
         lines: [25, 73]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: mkUser
-        hash: sha256:c1d05b58ce33cd22c3a7bc274de9c8c0c3d1748ce49817d4d72f96c8baa8725c
-        struct_hash: sha256:cb4aa9ddcc6da89a8d84c823516f99df07b544122c53d5cb3ee2d4f16e80d304
-        doc_struct_hash: sha256:cb4aa9ddcc6da89a8d84c823516f99df07b544122c53d5cb3ee2d4f16e80d304
+        hash: sha256:bce1a381dc11aa3b49e0cb51ad7f46b6addf1fdf6f04e2242e42ccd633ddc72f
+        struct_hash: sha256:0447780c9f966eb17350f7e7671b2571ae43b55d5bb4dd7368d7c25dc89b7dc4
+        doc_struct_hash: sha256:0447780c9f966eb17350f7e7671b2571ae43b55d5bb4dd7368d7c25dc89b7dc4
         lines: [75, 82]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -35,9 +35,9 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: mkProject
-        hash: sha256:083b8c748ed37cc294505566b2ee8a2a58403a29c38cf36d2b22633f4399535b
-        struct_hash: sha256:59faeb52636e8632f6a8c1e69f65545910a74be41dec235ed238d1d979e6c275
-        doc_struct_hash: sha256:59faeb52636e8632f6a8c1e69f65545910a74be41dec235ed238d1d979e6c275
+        hash: sha256:5faaadd0cf98d06ba707e7ad36c64e614d5f9142fd9cf4acca6ed449068fdcf2
+        struct_hash: sha256:717bbffd31aafe409e82870efee9736dd5ffc76ece626df944f6aa08207c4dee
+        doc_struct_hash: sha256:717bbffd31aafe409e82870efee9736dd5ffc76ece626df944f6aa08207c4dee
         lines: [84, 91]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,9 +46,9 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: mkTask
-        hash: sha256:3423900b4a777fda90b15a0fe48043f4c0c7c4ace8d1b3bc1a3f8f0161a053cd
-        struct_hash: sha256:c3bd32dadd608a8454da4ca4a32f78591a8bf102f28b21ec393983c3a7fa917b
-        doc_struct_hash: sha256:c3bd32dadd608a8454da4ca4a32f78591a8bf102f28b21ec393983c3a7fa917b
+        hash: sha256:c15865c4bfe2aa20fb127486ab988b9a2d938dfbe56b824cd1cb5d023776e6a1
+        struct_hash: sha256:a02ff4600c4025d509a34e6927f20e752e7c7a272003fb3762a7ba3550ff63f1
+        doc_struct_hash: sha256:a02ff4600c4025d509a34e6927f20e752e7c7a272003fb3762a7ba3550ff63f1
         lines: [93, 102]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -57,21 +57,32 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: mustExec
-        hash: sha256:7a14bc2c12f1b21d9902423358e95bc0f2b4fc0d78a2b077334f3dd837f06613
-        struct_hash: sha256:1d968946c9cc604944bb4da563a4962c4b0a8dd6588ffb24f5c75740247ed6c4
-        doc_struct_hash: sha256:1d968946c9cc604944bb4da563a4962c4b0a8dd6588ffb24f5c75740247ed6c4
+        hash: sha256:183dc05446b0cf168e1f0ffbd1738954c766e0a7db4ff17682cf80e9d412295a
+        struct_hash: sha256:d871724ec75d798a8177bda985c39dec8518a3bfa5094ea255b84851847504da
+        doc_struct_hash: sha256:d871724ec75d798a8177bda985c39dec8518a3bfa5094ea255b84851847504da
         lines: [104, 109]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/integration_test.go#testWorkerFinalization
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: testWorkerFinalization
+        hash: sha256:8ff46f150c55c7f74e97de27318abbaeae1a3d8c793165e7c63c52f0104e4616
+        struct_hash: sha256:9f366299dc5e249b2f2638986c7fb255517526edd90fcba25d34625dab68cf4a
+        doc_struct_hash: sha256:9f366299dc5e249b2f2638986c7fb255517526edd90fcba25d34625dab68cf4a
+        lines: [111, 113]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestBindKeyFlow
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestBindKeyFlow
-        hash: sha256:5d13cbe821fd04b00637245982738bacc521575b23fbb31a47507c7cafae6492
-        struct_hash: sha256:21271e4edf97ce106a60ebcd9feefe539f0ef785d39482f922429008c5eeee5a
-        doc_struct_hash: sha256:21271e4edf97ce106a60ebcd9feefe539f0ef785d39482f922429008c5eeee5a
-        lines: [111, 157]
+        hash: sha256:247f49c8a61015b6528cb7219d2fe97c4fedae9536b32e7cb9008c32a3c664ba
+        struct_hash: sha256:aa230504695ac35c8b93e61254ea2c501fdae4da854b9244d329219a8c5e58f4
+        doc_struct_hash: sha256:aa230504695ac35c8b93e61254ea2c501fdae4da854b9244d329219a8c5e58f4
+        lines: [115, 161]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskReviewLifecycle
@@ -79,10 +90,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskReviewLifecycle
-        hash: sha256:7f23eb22dbbbdb1d553268f240f4368473549486db660788ed817c9d437c92af
-        struct_hash: sha256:60f846fc3287dad91959f37b8057afea80b2d249530501581cdede95dc702141
-        doc_struct_hash: sha256:60f846fc3287dad91959f37b8057afea80b2d249530501581cdede95dc702141
-        lines: [159, 208]
+        hash: sha256:994a1faf8f7d654577988d01db046faeb6d8bfd668c4a22e1ac31872932e57f5
+        struct_hash: sha256:fe074692df4559b206cb8f1525c3f1361017b6bec25c0fb36b744159d0ceae92
+        doc_struct_hash: sha256:fe074692df4559b206cb8f1525c3f1361017b6bec25c0fb36b744159d0ceae92
+        lines: [163, 212]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskQueue
@@ -90,10 +101,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskQueue
-        hash: sha256:97d0bfb85506e48d2c8ffab4d66711eeb01f197bbebe6691b2566a63d19bd081
-        struct_hash: sha256:ff6db1fa51c7f9d0a08f67865d7e4822424fdbca82c4683479d951760dc4293f
-        doc_struct_hash: sha256:ff6db1fa51c7f9d0a08f67865d7e4822424fdbca82c4683479d951760dc4293f
-        lines: [210, 269]
+        hash: sha256:98ec4bf13a1b9055a6b0ab746699cbf3670b9af7dabe63e5a61fefff80210902
+        struct_hash: sha256:bcb683d036fe27cd0db3cdc60c8e3d128cf8e96ef0af9ac489b39851ca6786a3
+        doc_struct_hash: sha256:bcb683d036fe27cd0db3cdc60c8e3d128cf8e96ef0af9ac489b39851ca6786a3
+        lines: [214, 273]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskCollaborationDeduplicatesOneDeliverable
@@ -101,10 +112,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskCollaborationDeduplicatesOneDeliverable
-        hash: sha256:7cc288765345c8a89de2675e2e43807ca083800f87593a78eb586a16c0f03520
-        struct_hash: sha256:1755fccfb968d73a09b302b21b135073acbe5689373e1bc099f9cb44c3627e67
-        doc_struct_hash: sha256:1755fccfb968d73a09b302b21b135073acbe5689373e1bc099f9cb44c3627e67
-        lines: [271, 438]
+        hash: sha256:abf41b89ae45137c82d0bde720d3f0fc1e72b23474397dd96a2f3d155c81682e
+        struct_hash: sha256:97d3232f30455cf714f400af7951ec21efa4a53b7ed9b03e0628c77f00979d13
+        doc_struct_hash: sha256:97d3232f30455cf714f400af7951ec21efa4a53b7ed9b03e0628c77f00979d13
+        lines: [275, 442]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission
@@ -112,54 +123,43 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission
-        hash: sha256:70bd4ed2b6e1d5eb20fc51424e66887576157c853526759333cac52243336735
-        struct_hash: sha256:db5ba8ab78616f38df298afe932b5116d05e30f1d47e19c33ad5c06adb1c16e9
-        doc_struct_hash: sha256:db5ba8ab78616f38df298afe932b5116d05e30f1d47e19c33ad5c06adb1c16e9
-        lines: [440, 495]
+        hash: sha256:9bf7357171817337cff2544306f433a477e26ae6340bdbe79ce89084a8936c5d
+        struct_hash: sha256:008e00ea21adf1b0a711a6f72d61bbbed08b228959328a7fe7ea897b0bc55197
+        doc_struct_hash: sha256:008e00ea21adf1b0a711a6f72d61bbbed08b228959328a7fe7ea897b0bc55197
+        lines: [444, 499]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: store/integration_test.go#TestWorkerSubmissionUsesCompletionPolicyAndOutcome
+    - id: store/integration_test.go#TestReviewerChangeAndSubmissionStayConsistent
       level: function
       anchor:
         file: store/integration_test.go
-        symbol: TestWorkerSubmissionUsesCompletionPolicyAndOutcome
-        hash: sha256:374ccc2a5a1e83da708b539bcf4315e1f6670ce1be7e4082337b96eae423243f
-        struct_hash: sha256:33d0a2a996f7a7756bfae18872bc67a95efe48daeec237df6b53a8dcf27cc532
-        doc_struct_hash: sha256:33d0a2a996f7a7756bfae18872bc67a95efe48daeec237df6b53a8dcf27cc532
-        lines: [497, 584]
+        symbol: TestReviewerChangeAndSubmissionStayConsistent
+        hash: sha256:59400fb08ec98073c55291cc7b470227ef199dda6c28b684562f17756e96b2ac
+        struct_hash: sha256:64010fd8ccf1a940ee1304d6b29fa127abe8f94531989c883c44a6a97b8c7d1a
+        doc_struct_hash: sha256:64010fd8ccf1a940ee1304d6b29fa127abe8f94531989c883c44a6a97b8c7d1a
+        lines: [501, 544]
       status: undigested
-      since: 2026-07-20T09:19:36.738992Z
-    - id: store/integration_test.go#TestTaskQueueLifecycleMigrationOnlyClosesUnreviewedCommands
+      since: 2026-07-20T11:26:39.730689Z
+    - id: store/integration_test.go#TestWorkerRunIsSeparateFromTaskAndReviewUsesResponsibility
       level: function
       anchor:
         file: store/integration_test.go
-        symbol: TestTaskQueueLifecycleMigrationOnlyClosesUnreviewedCommands
-        hash: sha256:d6e1195187cc721e2f86ad6d3d128f85e4180bc1f3e8565342cda2835e6ae643
-        struct_hash: sha256:0c1b874387c431a7d558aea0df598edbd98a5d0f1cea1a7ba0a2d1ef66b2d993
-        doc_struct_hash: sha256:0c1b874387c431a7d558aea0df598edbd98a5d0f1cea1a7ba0a2d1ef66b2d993
-        lines: [586, 648]
+        symbol: TestWorkerRunIsSeparateFromTaskAndReviewUsesResponsibility
+        hash: sha256:a560e4bc972ad84f80fda3111b58eb6674d0f55f7ba2f6cb81cf760a229071a3
+        struct_hash: sha256:8a0cd125549321f6e6542d4d873578c6e724aba6ac9bc3865fa609a27d253d68
+        doc_struct_hash: sha256:8a0cd125549321f6e6542d4d873578c6e724aba6ac9bc3865fa609a27d253d68
+        lines: [546, 621]
       status: undigested
-      since: 2026-07-20T08:38:49.997524Z
-    - id: store/integration_test.go#TestTaskCompletionContractMigrationMapsLegacyRepresentation
-      level: function
-      anchor:
-        file: store/integration_test.go
-        symbol: TestTaskCompletionContractMigrationMapsLegacyRepresentation
-        hash: sha256:a491b083f55e094ac4659edcf2606ab232a73f0d513c9e72e8e24ef42fe7dc49
-        struct_hash: sha256:e651bf5fa59c6a3460d06cc93edd6603ecd3ff0adaa2a5848dcaeba9ef1901aa
-        doc_struct_hash: sha256:e651bf5fa59c6a3460d06cc93edd6603ecd3ff0adaa2a5848dcaeba9ef1901aa
-        lines: [650, 692]
-      status: undigested
-      since: 2026-07-20T09:19:36.738992Z
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestReassignTaskRemovesConflictingRoleAndWritesAuditAtomically
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestReassignTaskRemovesConflictingRoleAndWritesAuditAtomically
-        hash: sha256:3e0f407c512d714907cb8fd723891a85c2d722fcc80857cdab4e42dac3bc40f9
-        struct_hash: sha256:fd9962637170bd7c80899da563220484907fb9e42d8aced221606bef54766c72
-        doc_struct_hash: sha256:fd9962637170bd7c80899da563220484907fb9e42d8aced221606bef54766c72
-        lines: [694, 736]
+        hash: sha256:1797903c73a42c63f106ad9bca154aa37fefc80a5b584a5963f1722d5f107cad
+        struct_hash: sha256:a3f79934859e49136d548cb9f5f5fda005e4ecb1210a48be4f047c456bbd2638
+        doc_struct_hash: sha256:a3f79934859e49136d548cb9f5f5fda005e4ecb1210a48be4f047c456bbd2638
+        lines: [623, 665]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestCreateOrMergeTaskMergesOperationalConstraints
@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestCreateOrMergeTaskMergesOperationalConstraints
-        hash: sha256:1c474f259cb6661b57a45e444ab1e7f10ca384d7f0b2e951f36aa8c70b29ff6a
-        struct_hash: sha256:0b8d1e47fe82bdd997487eb2e22089b57e41ea905f832cdb051abe7c3d7a18ef
-        doc_struct_hash: sha256:0b8d1e47fe82bdd997487eb2e22089b57e41ea905f832cdb051abe7c3d7a18ef
-        lines: [738, 785]
+        hash: sha256:8350045731ab95f22ea19ca6a0509a4ff381202d7d8305be53a1b3904066c2cf
+        struct_hash: sha256:79d134708f369fcb578217f83fb2d96a5843a92d351fe1e242b701275ad51b53
+        doc_struct_hash: sha256:79d134708f369fcb578217f83fb2d96a5843a92d351fe1e242b701275ad51b53
+        lines: [667, 714]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestCancelTaskMergesPeopleAttachmentsAndDependencies
@@ -178,10 +178,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestCancelTaskMergesPeopleAttachmentsAndDependencies
-        hash: sha256:2c5a49ac77faca9baefafbcb41cb719eb0c31c31276c8b3016bdb9acde654ef2
-        struct_hash: sha256:d294bebceb23b6db4524a6740bb2ec60950a0e0e73efbb5925c469ebbb3dccad
-        doc_struct_hash: sha256:d294bebceb23b6db4524a6740bb2ec60950a0e0e73efbb5925c469ebbb3dccad
-        lines: [787, 882]
+        hash: sha256:276e6a7bd22644ebe70453f584454f7016b137d9c7d243bdb1ceb63a2618bd7b
+        struct_hash: sha256:5be4c0d991687b1eb7b716ac8485fdb6fd684f0c5c8c03d5cb2aa906c09d644a
+        doc_struct_hash: sha256:5be4c0d991687b1eb7b716ac8485fdb6fd684f0c5c8c03d5cb2aa906c09d644a
+        lines: [716, 811]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskOutcomeStats
@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskOutcomeStats
-        hash: sha256:503ab899d1847dd844e9291b741228958fd045d3b08d8e87e0a1d464b83a089f
-        struct_hash: sha256:e7c1cef26c163af9f7e65220d3c7a2280f56a62417e4eef651b10eb62ede029b
-        doc_struct_hash: sha256:e7c1cef26c163af9f7e65220d3c7a2280f56a62417e4eef651b10eb62ede029b
-        lines: [884, 912]
+        hash: sha256:a2ecf82add81912050da8c0463eb9b5cda3c4a9d79ad5fbd8e18a2a21bc87b77
+        struct_hash: sha256:4fe7c9fd231dd157b3a2704fad6390e254ad662344ce9cc0bb3d22dc00a16a7c
+        doc_struct_hash: sha256:4fe7c9fd231dd157b3a2704fad6390e254ad662344ce9cc0bb3d22dc00a16a7c
+        lines: [813, 841]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestRecordActionTurn
@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestRecordActionTurn
-        hash: sha256:4becf01041f0cd8e6b22b7ddb3c8a1b7012fbbee669cbae1931b6d6e68a8cc42
-        struct_hash: sha256:370b219a9254462300dbdfc913022b29f857635917036f685d1b8e672524f522
-        doc_struct_hash: sha256:370b219a9254462300dbdfc913022b29f857635917036f685d1b8e672524f522
-        lines: [914, 981]
+        hash: sha256:05e4b6221c6c674b2aec5b8a95afa4dfc7fca26525e514cc7feb158479974484
+        struct_hash: sha256:18b3af95e87ec43ca468099a41a5339a5cd74d36563fbdd708fe4a9a77a3c6a2
+        doc_struct_hash: sha256:18b3af95e87ec43ca468099a41a5339a5cd74d36563fbdd708fe4a9a77a3c6a2
+        lines: [843, 910]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestListAuditActivity
@@ -211,10 +211,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestListAuditActivity
-        hash: sha256:a507f46bc24ddd5bf061a12fd6755245a18a6267a12f18a195fdded4adabca57
-        struct_hash: sha256:48723e365a4b5ff4104c92a19fe7b56e1dddfd096a835587ff9d467c94dee959
-        doc_struct_hash: sha256:48723e365a4b5ff4104c92a19fe7b56e1dddfd096a835587ff9d467c94dee959
-        lines: [983, 1028]
+        hash: sha256:ab1e22b8898da9f7f5845a54008bf5d78c3be5e2f652b7dce5b2e8d173dc424b
+        struct_hash: sha256:2e8a4d76e939773bcb364aeeb2532000fa239d9d1d0d2f13c65729aa2be36bf9
+        doc_struct_hash: sha256:2e8a4d76e939773bcb364aeeb2532000fa239d9d1d0d2f13c65729aa2be36bf9
+        lines: [912, 957]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestDataCollectionCampaignRefreshesOnUserInfoUpdate
@@ -222,10 +222,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestDataCollectionCampaignRefreshesOnUserInfoUpdate
-        hash: sha256:acbc4731b603720cc31010dbc200871b9ff6dc7bd95c282626e2a7b200052b93
-        struct_hash: sha256:d4caefdafe115212e7ed025ac521729608a82f3fc516e014ba65e55719240e02
-        doc_struct_hash: sha256:d4caefdafe115212e7ed025ac521729608a82f3fc516e014ba65e55719240e02
-        lines: [1030, 1082]
+        hash: sha256:ccbea4ba9154dbedbe05116493853252c3094e405a04168da17e12d02badaa7b
+        struct_hash: sha256:4242cb7424402fb4e12a01130f8cad68cbe4dc30097db7fba3b6c1efee7bb838
+        doc_struct_hash: sha256:4242cb7424402fb4e12a01130f8cad68cbe4dc30097db7fba3b6c1efee7bb838
+        lines: [959, 1011]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestChannelMessagesCrossSessionBoundaries
@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestChannelMessagesCrossSessionBoundaries
-        hash: sha256:dae1156462dd1622efd4363640c315a24dd7a851a8761e9a3e0689e3b8691bf2
-        struct_hash: sha256:be70346f341b312ae9d1da90824a3929fe658548fcf5ff26129f63b2c6a5dd22
-        doc_struct_hash: sha256:be70346f341b312ae9d1da90824a3929fe658548fcf5ff26129f63b2c6a5dd22
-        lines: [1084, 1121]
+        hash: sha256:2194fabb8953837066b8979e6a22250ed9668e65b69b5ee82e00148f7f3efcc0
+        struct_hash: sha256:a68ee9e022c3745326260ddc039b0d93a4d4f3eacb9289d24ad6bbef64c26836
+        doc_struct_hash: sha256:a68ee9e022c3745326260ddc039b0d93a4d4f3eacb9289d24ad6bbef64c26836
+        lines: [1013, 1050]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestAutomationScheduleUpsertIsIdempotent
@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestAutomationScheduleUpsertIsIdempotent
-        hash: sha256:b838b39fc61dfbfa1b95018ed6d46556b224fb1b4eb113ff3ef64e01da87d4ab
-        struct_hash: sha256:af813175cd8149080752ca363d2eb374462d109e66dd4b4e958b2316adb81aa9
-        doc_struct_hash: sha256:af813175cd8149080752ca363d2eb374462d109e66dd4b4e958b2316adb81aa9
-        lines: [1123, 1177]
+        hash: sha256:2b98a88918bb95b827d78bba72bd46e06de7a8f8250e513415f1396f95cabc72
+        struct_hash: sha256:d1a217699366746c91fe819ca7ece988ba60ae82ee34c3e7ae5f11d0b004718c
+        doc_struct_hash: sha256:d1a217699366746c91fe819ca7ece988ba60ae82ee34c3e7ae5f11d0b004718c
+        lines: [1052, 1106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkerClaimRecoversStaleTask
@@ -255,21 +255,32 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerClaimRecoversStaleTask
-        hash: sha256:8c6a2ee926f520ee96d7b130794aecb1760821b1b9e2d289ee469bce36271b27
-        struct_hash: sha256:7aa90ce2ab0e197ecdeddaa9fc88f0a16817286f19eaf8b43bd7f0e81b8078dd
-        doc_struct_hash: sha256:7aa90ce2ab0e197ecdeddaa9fc88f0a16817286f19eaf8b43bd7f0e81b8078dd
-        lines: [1179, 1211]
+        hash: sha256:6323f54287cdb6f9747b2c003cca07d844f31d58ef0bceb29c1d12e59396fcad
+        struct_hash: sha256:0e395b3f1e6f65c11ffc3391598b42bdb30f96f257e846d9492befc59147e3b9
+        doc_struct_hash: sha256:0e395b3f1e6f65c11ffc3391598b42bdb30f96f257e846d9492befc59147e3b9
+        lines: [1108, 1140]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/integration_test.go#TestWorkerHeartbeatRenewsLease
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestWorkerHeartbeatRenewsLease
+        hash: sha256:ace4f8245fb75fd5e6c22050096db27e893854d8038922e29c1154d95fb75bbc
+        struct_hash: sha256:1a4a7aa31d7a2f4f1d156d4a08a6220fe7ae8416228e81eed438fcdf48673a81
+        doc_struct_hash: sha256:1a4a7aa31d7a2f4f1d156d4a08a6220fe7ae8416228e81eed438fcdf48673a81
+        lines: [1142, 1170]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestWorkerConcurrentPollersHoldOnlyOneClaim
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerConcurrentPollersHoldOnlyOneClaim
-        hash: sha256:e28d24d95fb277c4031d6280fff62c9de43d87eeb26ec75a4a4835cff9830bac
-        struct_hash: sha256:9a954cc6e6e5617ae1f679c23e65812ce3b5b447b13349441f157daa0a2146ff
-        doc_struct_hash: sha256:9a954cc6e6e5617ae1f679c23e65812ce3b5b447b13349441f157daa0a2146ff
-        lines: [1213, 1270]
+        hash: sha256:8bae8469114b8f4910e197fa56431e5bfdd43cc25b72c720bf497f58927d1941
+        struct_hash: sha256:afccc2ee08330d69a5c579ebb9e9950c9f5cb4e13fa89dd316959998f033b0af
+        doc_struct_hash: sha256:afccc2ee08330d69a5c579ebb9e9950c9f5cb4e13fa89dd316959998f033b0af
+        lines: [1172, 1229]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkerRequestInputPausesUntilTaskUpdate
@@ -277,10 +288,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerRequestInputPausesUntilTaskUpdate
-        hash: sha256:b47ba660df7ad6b8d652886fbd0edb467b5515b7dcae04dd1296a3e7c801d304
-        struct_hash: sha256:9ca9c04d73135dfb6adc85da0d5d9c4f641189babffbd182fc85460863bd483c
-        doc_struct_hash: sha256:9ca9c04d73135dfb6adc85da0d5d9c4f641189babffbd182fc85460863bd483c
-        lines: [1272, 1332]
+        hash: sha256:ca820cc2905a61260470c0d4be903d2e452363774eba9bd316283385d5e77492
+        struct_hash: sha256:f5af12d1c9da94f35d1000c195ea65245eb4d5a38e6832b7608e2c9a32cdf4d4
+        doc_struct_hash: sha256:f5af12d1c9da94f35d1000c195ea65245eb4d5a38e6832b7608e2c9a32cdf4d4
+        lines: [1231, 1293]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkerFailureBackoffAndPause
@@ -288,10 +299,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerFailureBackoffAndPause
-        hash: sha256:8b40f7185513571bfe6ef23da38cc40e901e4dead31f21e1bc090c2d3dec7bd9
-        struct_hash: sha256:f03b61ef96d2b56493063e887cc7d03466b7f829e6bd0b0b7a076a8f0e180505
-        doc_struct_hash: sha256:f03b61ef96d2b56493063e887cc7d03466b7f829e6bd0b0b7a076a8f0e180505
-        lines: [1334, 1376]
+        hash: sha256:bb34013f153fb55385d21173f2290d1e054606e694c4799d20cbc5b242bb9d27
+        struct_hash: sha256:6316dc1c5f10187170907f858aaafc115afe1ec5f1749973340975f6f77bea51
+        doc_struct_hash: sha256:6316dc1c5f10187170907f858aaafc115afe1ec5f1749973340975f6f77bea51
+        lines: [1295, 1337]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim
@@ -299,21 +310,32 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim
-        hash: sha256:2b3e3e0976ff6e70580d9c0c768ae3d7c6e26532bdfe0dd441ca5361ced8d57f
-        struct_hash: sha256:9a72a935770a2356f38ce1d3aaf2843d902c74c5d668bb39d0e6ae56f6df9510
-        doc_struct_hash: sha256:9a72a935770a2356f38ce1d3aaf2843d902c74c5d668bb39d0e6ae56f6df9510
-        lines: [1378, 1417]
+        hash: sha256:e8f094f5292f6889a2e34798ba6e2cf594a00fe3627600a73e314324bb5acd27
+        struct_hash: sha256:161f8abeb73f7a13590ab0dfa5af63006731e7f02830fcd7f89daebcfa959fb9
+        doc_struct_hash: sha256:161f8abeb73f7a13590ab0dfa5af63006731e7f02830fcd7f89daebcfa959fb9
+        lines: [1339, 1396]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/integration_test.go#TestTaskStatusRejectsUnknownState
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestTaskStatusRejectsUnknownState
+        hash: sha256:c786547a4808888394e46c9c845c3abba5855945dd9ac91f9cd8085f2d9d2e10
+        struct_hash: sha256:b477c7440906041639ec400d7a05687b9cb0f56bd1331aab15202cafbd540636
+        doc_struct_hash: sha256:b477c7440906041639ec400d7a05687b9cb0f56bd1331aab15202cafbd540636
+        lines: [1398, 1409]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestRevokeWorkerResetsOpenTasks
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestRevokeWorkerResetsOpenTasks
-        hash: sha256:5a2be158ccff2810fb21d18f3aebc0368f1b27198ba7b7effbedf385bd82c3a2
-        struct_hash: sha256:3f0b4b280c8c8c1a9e552ec7f8fb07feb54c43c8f4d749bdcbf9eb447251ac21
-        doc_struct_hash: sha256:3e932145497f1ef204435eea1a56fdc83626c5bc224cdb985033ffd45100d65d
-        lines: [1419, 1458]
+        hash: sha256:db3810d70112a1d91f06488ea8c7fb777421b22f609a5ba1015eead68a2176a2
+        struct_hash: sha256:524dc0bfcd7fd1a79cd5d5a8784f2e3730da00c1ce5256f2a25e6a3b3c7f8129
+        doc_struct_hash: sha256:1d6eb59f85a6361536a8e51da89b74e704ede0e4da96854a39bd1f5066b79b1f
+        lines: [1411, 1452]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestOrphanedTasksAndDecisionQueue
@@ -321,10 +343,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestOrphanedTasksAndDecisionQueue
-        hash: sha256:75453a5d7d294fa994dd5f6cf2f6597af25d7bdd73610294a6b5fae5470d53f2
-        struct_hash: sha256:84dc572abeb73e6a4e2c65feb80125754cafdb4fb23414d56ea7fb96e598c10f
-        doc_struct_hash: sha256:84dc572abeb73e6a4e2c65feb80125754cafdb4fb23414d56ea7fb96e598c10f
-        lines: [1460, 1513]
+        hash: sha256:0491331256c546467370b2ea2e0ac90957bfe5bb9cf24b0d9d79c02abf130e7d
+        struct_hash: sha256:9bc9f370c9f03b55ee52587949323f8ada5aafec9926edcc14d9e175f7e3fab9
+        doc_struct_hash: sha256:9bc9f370c9f03b55ee52587949323f8ada5aafec9926edcc14d9e175f7e3fab9
+        lines: [1454, 1507]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestUpsertDecisionItemDoesNotReopenClosed
@@ -332,32 +354,32 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestUpsertDecisionItemDoesNotReopenClosed
-        hash: sha256:78363f2d0fa5c58327edbb90abacd9dfe84dbf58774ad5fcce5d226bb8f9a282
-        struct_hash: sha256:ca225bb8e5b550ef27f94fae18cf17a41ec276ffc9fd1b137aaaaf73a8c20973
-        doc_struct_hash: sha256:f352afa20692701dc8e57876a41acb820fb8d34510eda0796547050f27832577
-        lines: [1515, 1544]
+        hash: sha256:3473a483fc52f809a3f5941b0865a219cbe53cf0f351de46fdb6463da781fd71
+        struct_hash: sha256:7eb604f0fe4da2e74f3db6ead86a4820f4c048897c0dec8c83e79b5222996179
+        doc_struct_hash: sha256:00adb160791832ac26421094e60686a47f050aa425e5f026bf38ac7a89670045
+        lines: [1509, 1538]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: store/integration_test.go#TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable
+    - id: store/integration_test.go#TestReleaseWorkerRunClaimMakesTaskImmediatelyClaimable
       level: function
       anchor:
         file: store/integration_test.go
-        symbol: TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable
-        hash: sha256:48b4e15ad5b0158248c9deb74d0e250e5150c774f7b59454347dc3f69e7729c0
-        struct_hash: sha256:f72356e1e3c9ead031ad6fd3b361f216962225c2c405a52beb980c190643b3e2
-        doc_struct_hash: sha256:f72356e1e3c9ead031ad6fd3b361f216962225c2c405a52beb980c190643b3e2
-        lines: [1546, 1571]
+        symbol: TestReleaseWorkerRunClaimMakesTaskImmediatelyClaimable
+        hash: sha256:d0248ce3540b606e17387014188543c7c39c6d2be112161f3932b39b67cbd8d4
+        struct_hash: sha256:01ec609a119dcd74d1058334043afe3edcc3d66e5f7ee09f55c76e5a96d33de8
+        doc_struct_hash: sha256:01ec609a119dcd74d1058334043afe3edcc3d66e5f7ee09f55c76e5a96d33de8
+        lines: [1540, 1565]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestWorkerClaimRejectedTaskWithoutClaim
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerClaimRejectedTaskWithoutClaim
-        hash: sha256:3cd11eea995605b48d4cb9fda8b5486e2d5795dc78f11020d52e588d2a738215
-        struct_hash: sha256:70e17b2ce05895d02511ccb622a09466411e270a6e2479cf0984560122fbeea0
-        doc_struct_hash: sha256:70e17b2ce05895d02511ccb622a09466411e270a6e2479cf0984560122fbeea0
-        lines: [1573, 1605]
+        hash: sha256:e816b4266e597827fdfae1e22c0f42e9f4c4d177dbad4ad72275ab4351e0792f
+        struct_hash: sha256:363e304cd689a4951d2803c81f96e5f1027eae9cbe718461449f8059663ca4bc
+        doc_struct_hash: sha256:363e304cd689a4951d2803c81f96e5f1027eae9cbe718461449f8059663ca4bc
+        lines: [1567, 1599]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskFilesAndWorkerArtifacts
@@ -365,10 +387,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskFilesAndWorkerArtifacts
-        hash: sha256:3d49d450cb74be648ee31ffdc9e7cc70a7831665f981d1722f87e43c2ccc9418
-        struct_hash: sha256:956619c12c323dbc3c8900d2b9e8fe271d08ad1dee8e1e5a4b9c6eeabe4b30b7
-        doc_struct_hash: sha256:956619c12c323dbc3c8900d2b9e8fe271d08ad1dee8e1e5a4b9c6eeabe4b30b7
-        lines: [1607, 1715]
+        hash: sha256:a0d3240d75017925d21e90364d271b1a99ebc7da6b1b5fb6b1c40ab8c7847c9c
+        struct_hash: sha256:5676b98564e91e45f265e441211e92f3b86292ad7f4c303bbf1a8ba9b02db3d6
+        doc_struct_hash: sha256:5676b98564e91e45f265e441211e92f3b86292ad7f4c303bbf1a8ba9b02db3d6
+        lines: [1601, 1748]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestFileIntakeLifecycle
@@ -376,10 +398,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestFileIntakeLifecycle
-        hash: sha256:a5af7caeb2ec646f68181a2cbe650e87a2c3f4aab3b0e40e9399aa09d0184a2a
-        struct_hash: sha256:c3750084e1e5945fd97ea9c07a662ffb32af072b5e40573aa38b6abc3c631f1e
-        doc_struct_hash: sha256:c3750084e1e5945fd97ea9c07a662ffb32af072b5e40573aa38b6abc3c631f1e
-        lines: [1717, 1767]
+        hash: sha256:c87e118c9cc22cca090c0df5106e361791f04895a17a3cdca10a2febf7771a41
+        struct_hash: sha256:3a7e71a427235b0d521b8feaccedcdca041a7e06f11081498caa442d9f6cb0df
+        doc_struct_hash: sha256:3a7e71a427235b0d521b8feaccedcdca041a7e06f11081498caa442d9f6cb0df
+        lines: [1750, 1800]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestFileContentIndexLifecycleAndVisibility
@@ -387,10 +409,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestFileContentIndexLifecycleAndVisibility
-        hash: sha256:9d04165db523275fb60af8d177bdb8c609bbd7b14f7c7efc04472ea1392e2cd4
-        struct_hash: sha256:cf00a283b2c07d6760145cad2e3ccf7257415debcba3c13720dd5b0b58241730
-        doc_struct_hash: sha256:cf00a283b2c07d6760145cad2e3ccf7257415debcba3c13720dd5b0b58241730
-        lines: [1769, 1837]
+        hash: sha256:72f987ec8b6d839ea72f39eaeca5ca04ca32842ccf33d804dc8895ec133080bb
+        struct_hash: sha256:be1deb9f3fb0cf8ca347955d241f02fec2fbefbc54cf2306791d98976d15b5da
+        doc_struct_hash: sha256:be1deb9f3fb0cf8ca347955d241f02fec2fbefbc54cf2306791d98976d15b5da
+        lines: [1802, 1870]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestUnsupportedFileRetriesOnlyWhenExtractorCapabilitiesChange
@@ -398,10 +420,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestUnsupportedFileRetriesOnlyWhenExtractorCapabilitiesChange
-        hash: sha256:c55c7fc5440e759065d3b6e7f5ab16679a757af439bb99c36edf48d5ad0d8dbe
-        struct_hash: sha256:8e3e943f152ef797981fbc4df8dc142216b8ed12e3faa9091be0d12fe73dd2c2
-        doc_struct_hash: sha256:8e3e943f152ef797981fbc4df8dc142216b8ed12e3faa9091be0d12fe73dd2c2
-        lines: [1839, 1863]
+        hash: sha256:3e97562df1432d0f080157da420445f3b111822c1ec738bbd6430e25b5b18041
+        struct_hash: sha256:2f8f79400b83796661539cfdf3d5f6d671ae3f997d092ae36776b0846204f7e0
+        doc_struct_hash: sha256:2f8f79400b83796661539cfdf3d5f6d671ae3f997d092ae36776b0846204f7e0
+        lines: [1872, 1896]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestFileIndexAbandonedClaimsStopAndRecoverAfterRuntimeChange
@@ -409,10 +431,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestFileIndexAbandonedClaimsStopAndRecoverAfterRuntimeChange
-        hash: sha256:b6d606b6b387bf1596f8905ebee0ba6d3a38bfb8c3bd9fb986ee905f9651f2b6
-        struct_hash: sha256:cf2b8cdbc64d4ea00e81e3539e25d604101dbb5dc3a46e5a65a896e34a1bf9c3
-        doc_struct_hash: sha256:cf2b8cdbc64d4ea00e81e3539e25d604101dbb5dc3a46e5a65a896e34a1bf9c3
-        lines: [1865, 1909]
+        hash: sha256:3062eb8d77868127d5635f58d4584f6f2a13129271ad7f4e1dc89e979fefc446
+        struct_hash: sha256:66db8f34272c6330f24dcd7593a8cad17a002f6156a3364c2e638cbf297521f6
+        doc_struct_hash: sha256:66db8f34272c6330f24dcd7593a8cad17a002f6156a3364c2e638cbf297521f6
+        lines: [1898, 1942]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkspaceCandidatesAndDeleteFile
@@ -420,10 +442,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkspaceCandidatesAndDeleteFile
-        hash: sha256:a3343154880f89bd67d26294f1bdf263360882e1f9334d6a796fcad4a1c93ece
-        struct_hash: sha256:4793548519439733923beddee05e5b0a6a7fbca8ddee7ae616b3cf6477057f56
-        doc_struct_hash: sha256:4793548519439733923beddee05e5b0a6a7fbca8ddee7ae616b3cf6477057f56
-        lines: [1911, 1984]
+        hash: sha256:7e43b1b31364521aa9a2584a3355c97c55774ae71ec3245947e0e562d0f0c306
+        struct_hash: sha256:561d57257b51208d939a05ee5436632059719d923f2a58d41681675337e6721f
+        doc_struct_hash: sha256:561d57257b51208d939a05ee5436632059719d923f2a58d41681675337e6721f
+        lines: [1944, 2017]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestReadDataEnforcesRowAndFieldVisibility
@@ -431,10 +453,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestReadDataEnforcesRowAndFieldVisibility
-        hash: sha256:81495a143159237153cc20a63026027c1fc9370993eb71e23d56fa1eca481c96
-        struct_hash: sha256:800ae9ee5b8d69929d29241c0bfa68b086376602361430df392bde17faacf95d
-        doc_struct_hash: sha256:800ae9ee5b8d69929d29241c0bfa68b086376602361430df392bde17faacf95d
-        lines: [1986, 2056]
+        hash: sha256:4a203b50e13a7fa3f7f205f6ab0dc69c2313f5ae108b4e12dcab5683453c8856
+        struct_hash: sha256:82d37567e8431dfd1919791488cba6c96da493b7711c535565db3375a12a2cae
+        doc_struct_hash: sha256:82d37567e8431dfd1919791488cba6c96da493b7711c535565db3375a12a2cae
+        lines: [2019, 2089]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#dataReadIDs
@@ -442,10 +464,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: dataReadIDs
-        hash: sha256:af642e6c77a4e7bc0eca3eaf7e786ed7825c6f6867d0b7ed5bc4afe2143cf37b
-        struct_hash: sha256:1467b72e39be9844c28946fd7b9a3a91c3fe01af2d9477999ff675b5c84fc058
-        doc_struct_hash: sha256:1467b72e39be9844c28946fd7b9a3a91c3fe01af2d9477999ff675b5c84fc058
-        lines: [2058, 2073]
+        hash: sha256:c0ad5bb189521fd271be0c8d5a868cc50bc096fc2dda9648cb082b2a69e1042c
+        struct_hash: sha256:73b089f454c16be9b8b89bbeb481134651fcb8aff52f14a24efce2b8643e6aef
+        doc_struct_hash: sha256:73b089f454c16be9b8b89bbeb481134651fcb8aff52f14a24efce2b8643e6aef
+        lines: [2091, 2106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestReadDataAllSourcesCompile
@@ -453,10 +475,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestReadDataAllSourcesCompile
-        hash: sha256:f2d389a726b75a1cae94d43eb6806a934c0ba53f468cf211f75058c206a6901a
-        struct_hash: sha256:207141c1c54d90b083b50295672f365eac2b0b84d3d92c26a6d04af5507475eb
-        doc_struct_hash: sha256:207141c1c54d90b083b50295672f365eac2b0b84d3d92c26a6d04af5507475eb
-        lines: [2075, 2104]
+        hash: sha256:162b67be525a4af8b211b8cff5945f6566bcb9f2c04bddd5073736fca2f5f50e
+        struct_hash: sha256:4c323b1efbc0d111444ec378ae28b15a948214538be2ec629b18951bf3240ae5
+        doc_struct_hash: sha256:4c323b1efbc0d111444ec378ae28b15a948214538be2ec629b18951bf3240ae5
+        lines: [2108, 2137]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSelfAssignedSkipsReview
@@ -464,10 +486,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSelfAssignedSkipsReview
-        hash: sha256:8b0e591c6c57c6b88b92b57eed638369a2a578c4f71881bdac0ac1f6ccc5ff6f
-        struct_hash: sha256:eba054959dd15f0cbd9a409099a7b15afc3d682397f2f6430e6e7c0b450a7f25
-        doc_struct_hash: sha256:eba054959dd15f0cbd9a409099a7b15afc3d682397f2f6430e6e7c0b450a7f25
-        lines: [2106, 2117]
+        hash: sha256:3b5a6d796f340b9da670b109ea5e70e2cd94ce496c66cda807c3984796e36763
+        struct_hash: sha256:5536392f88e0b41dc5ec94622bb456dbf3d5673be4c459a00826b69702ce05a6
+        doc_struct_hash: sha256:5536392f88e0b41dc5ec94622bb456dbf3d5673be4c459a00826b69702ce05a6
+        lines: [2139, 2150]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSplitCascade
@@ -475,10 +497,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSplitCascade
-        hash: sha256:a6046f6fbfe8bb14f1f988fa63b2f8622b6c30d680f35bbbdc3cd21cba9ba852
-        struct_hash: sha256:cb21afafc1db577e13d71099e0fb21b83655a76649c728971fb42024b298423c
-        doc_struct_hash: sha256:cb21afafc1db577e13d71099e0fb21b83655a76649c728971fb42024b298423c
-        lines: [2119, 2161]
+        hash: sha256:09ce40db4f67a5b1c381c52ac3feef95b207c76d556063c0103dd8030648ccf5
+        struct_hash: sha256:59dffcd9a4b0c87daf72d013b05bb6d4162b557c585353ca233552652b799909
+        doc_struct_hash: sha256:59dffcd9a4b0c87daf72d013b05bb6d4162b557c585353ca233552652b799909
+        lines: [2152, 2194]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSplitCascadeSelfAssignShortcut
@@ -486,10 +508,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSplitCascadeSelfAssignShortcut
-        hash: sha256:8c90441155ba1a38122ebc3980ef2a36deeaf41529d920c10a015c52985642fc
-        struct_hash: sha256:615a8b4a5904d58e1daf939f873eea1de005914b373cb7f3cdef1143659cae49
-        doc_struct_hash: sha256:615a8b4a5904d58e1daf939f873eea1de005914b373cb7f3cdef1143659cae49
-        lines: [2163, 2185]
+        hash: sha256:db0cf8a8acd7bda17e1e99630cec0a72c3cb48edbca64408931cd41daa5ca17e
+        struct_hash: sha256:d34f35cee0555802c86d9691159d8151923d77584fcdd37ae50320ef5cc97f46
+        doc_struct_hash: sha256:d34f35cee0555802c86d9691159d8151923d77584fcdd37ae50320ef5cc97f46
+        lines: [2196, 2218]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestDeadlineClaims
@@ -497,10 +519,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestDeadlineClaims
-        hash: sha256:c25c89b4b07fd1598685a04ad6eb2198535540b7a3ba7e798a221ada194230f7
-        struct_hash: sha256:8a101d48d45a8e41506006b06e80b7d6646feb22bbeb7d602d3322bbbc488938
-        doc_struct_hash: sha256:8a101d48d45a8e41506006b06e80b7d6646feb22bbeb7d602d3322bbbc488938
-        lines: [2187, 2242]
+        hash: sha256:b3013c2a6fc1b54fe4f8f54d0f8d8dce401693b1c5527f245b642e18f86673c6
+        struct_hash: sha256:0924616f74b9a0890bc016ac3638d9b75470cffcb960e5b41fc38afe00e6782d
+        doc_struct_hash: sha256:0924616f74b9a0890bc016ac3638d9b75470cffcb960e5b41fc38afe00e6782d
+        lines: [2220, 2275]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestNudgeClaims
@@ -508,10 +530,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestNudgeClaims
-        hash: sha256:b57186c9dbf998dec4e79963139e79c478b70439f81fba527e4980a148f19917
-        struct_hash: sha256:f0ccd8a5d0ca8a501e3ccd7e821144f2c557d47f39f78a92a795f0d9b03d0244
-        doc_struct_hash: sha256:f0ccd8a5d0ca8a501e3ccd7e821144f2c557d47f39f78a92a795f0d9b03d0244
-        lines: [2244, 2289]
+        hash: sha256:1756d4dc4312fe4e601086ada8e9f276345e04bf10a15863a2be381351e1699a
+        struct_hash: sha256:d4bb12051876b3c99bbe6f865c5b7851620e58be36df2bd5928fec3ded8f8d24
+        doc_struct_hash: sha256:d4bb12051876b3c99bbe6f865c5b7851620e58be36df2bd5928fec3ded8f8d24
+        lines: [2277, 2322]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestOrphanedTasks
@@ -519,10 +541,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestOrphanedTasks
-        hash: sha256:42d6a102ce89ed894996cac85ee783b5df7dc730d4ffae653907becd232ae704
-        struct_hash: sha256:0cd3c6ac6fbdddab8bec5061e79e5e62ebb2a4902b8ae20b826d2657397365bf
-        doc_struct_hash: sha256:0cd3c6ac6fbdddab8bec5061e79e5e62ebb2a4902b8ae20b826d2657397365bf
-        lines: [2291, 2317]
+        hash: sha256:a9fecbab395eb547e102d83a79c852444c4a1e5027824af851b381ce9bc51f5b
+        struct_hash: sha256:9f0bba1fc39cf5448ac9f772d21bccf163ea7c67a595126dd52581818aa32591
+        doc_struct_hash: sha256:9f0bba1fc39cf5448ac9f772d21bccf163ea7c67a595126dd52581818aa32591
+        lines: [2324, 2353]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestKnowledge
@@ -530,10 +552,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestKnowledge
-        hash: sha256:727fe8bf768ad7ad57179303ae8c3799fd35da08acc379ab9a8e29e4d7627716
-        struct_hash: sha256:d7a2488f170aaaf2516797ee38e0b178884adcacdb3d7e9cb4f75e89df1b70bf
-        doc_struct_hash: sha256:d7a2488f170aaaf2516797ee38e0b178884adcacdb3d7e9cb4f75e89df1b70bf
-        lines: [2319, 2359]
+        hash: sha256:f67f109e7756224d176b852ea1993e368a123eb4a9f69bdc03bc25059b2a7b47
+        struct_hash: sha256:5d3e56123fcb0ee9d320ac824ec484542cbd5f341c35332ff6bd603c4290a3c0
+        doc_struct_hash: sha256:5d3e56123fcb0ee9d320ac824ec484542cbd5f341c35332ff6bd603c4290a3c0
+        lines: [2355, 2395]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestKnowledgeVersionsRollbackAndLearningGovernance
@@ -541,10 +563,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestKnowledgeVersionsRollbackAndLearningGovernance
-        hash: sha256:cbf7a88036f351d6e0ed7988e45e712c8590ed58b4f9e1013d6b3d5d6969c51f
-        struct_hash: sha256:46bbf241f5ee88f5e9e47fec1a1bfb5dd027250d289fac7f1e5f3f4d37446382
-        doc_struct_hash: sha256:46bbf241f5ee88f5e9e47fec1a1bfb5dd027250d289fac7f1e5f3f4d37446382
-        lines: [2361, 2452]
+        hash: sha256:1f4a9d8fee7111fca7e2ca9253bc0c8a77cedc2bc49052f88fb6aa7a72488ed3
+        struct_hash: sha256:e9ec2510fabb69829f30f7a20d6704fc53136a35ee0e48576a4b4f973fb82156
+        doc_struct_hash: sha256:e9ec2510fabb69829f30f7a20d6704fc53136a35ee0e48576a4b4f973fb82156
+        lines: [2397, 2488]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkerCapabilities
@@ -552,10 +574,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerCapabilities
-        hash: sha256:acfbc65c62fa5139c7e159eb7b79dbddebb0499b45afa6381800d68ba4fdb282
-        struct_hash: sha256:3d5425b9929842eea54c95fff69d3d0ab4ad18f413d55987a26d58988e34c1f7
-        doc_struct_hash: sha256:3d5425b9929842eea54c95fff69d3d0ab4ad18f413d55987a26d58988e34c1f7
-        lines: [2454, 2476]
+        hash: sha256:2200b06fa3c8dfde4c9776b8398ad2dad305f681786bc18d16dbde4275e580c3
+        struct_hash: sha256:ce4b8c6ddf72a852d3ac664d33cfad08c8315c869830172baca0950edbf9b517
+        doc_struct_hash: sha256:ce4b8c6ddf72a852d3ac664d33cfad08c8315c869830172baca0950edbf9b517
+        lines: [2490, 2512]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestDeletePublishedKnowledgeUnlinksLearningCandidate
@@ -563,10 +585,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestDeletePublishedKnowledgeUnlinksLearningCandidate
-        hash: sha256:6047fecd43fe8681d7aa7240f8fe74208983f260346a8e9bf2213b4b4b57a00c
-        struct_hash: sha256:0fb8afe28e115592ab24cfa1e6c12fb11732102ed422455a489b2988aab0ff97
-        doc_struct_hash: sha256:0fb8afe28e115592ab24cfa1e6c12fb11732102ed422455a489b2988aab0ff97
-        lines: [2478, 2505]
+        hash: sha256:5ec69ccb2db38f0b6dd439095b295a77e87365b359cf4270fa9872c3405a5d59
+        struct_hash: sha256:7df309ddc0ed4f988ea3e23fa3b267512d80304b6a9d44c50b39fb9e7b07ce1e
+        doc_struct_hash: sha256:7df309ddc0ed4f988ea3e23fa3b267512d80304b6a9d44c50b39fb9e7b07ce1e
+        lines: [2514, 2541]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSuperadminBootstrap
@@ -574,10 +596,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSuperadminBootstrap
-        hash: sha256:4905bc051790fc25717f665bef1ad132b9403fe09f1c5f696e5f5f656d949a15
-        struct_hash: sha256:0846a37e576cc11e6615468999a76296f5120500f5ecfcc5fcd0db3ab62d6b94
-        doc_struct_hash: sha256:0846a37e576cc11e6615468999a76296f5120500f5ecfcc5fcd0db3ab62d6b94
-        lines: [2507, 2540]
+        hash: sha256:80ea364913cc13895093dd63d235ddb346be49fbe60e5069b6309e9623119d6e
+        struct_hash: sha256:ea1dccaa361201f6d910ca86a8751287a3dda26e666564da4647b2810b01d552
+        doc_struct_hash: sha256:ea1dccaa361201f6d910ca86a8751287a3dda26e666564da4647b2810b01d552
+        lines: [2543, 2576]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSeedRoles
@@ -585,10 +607,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSeedRoles
-        hash: sha256:04cbc917a0189a58484985cba72253ebf38c4b608014233e34fb798fdcb0b837
-        struct_hash: sha256:78a3df92cfc5e4ebd16267114e804381a011950fb7632cc8c516a0094e1dca8b
-        doc_struct_hash: sha256:78a3df92cfc5e4ebd16267114e804381a011950fb7632cc8c516a0094e1dca8b
-        lines: [2542, 2569]
+        hash: sha256:1ae0882754115d7de98ac5c5ff9834489fdded2164ac2e35dd3c24bf1f42cd68
+        struct_hash: sha256:a2fbf5e147e8ef3242ab029b8dd475bac2dfe2db5dc2d90bce8a746ff211d9e2
+        doc_struct_hash: sha256:a2fbf5e147e8ef3242ab029b8dd475bac2dfe2db5dc2d90bce8a746ff211d9e2
+        lines: [2578, 2605]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestAPITokenRoundtrip
@@ -596,10 +618,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestAPITokenRoundtrip
-        hash: sha256:3aca9ca77272d56b8677fa08b6ba52e78932dfa6c39c2df332e77ce2448783b8
-        struct_hash: sha256:d02c208c354be375b9581d7f7c8dc26d109a21b5d6552418ff8e3bc6201de962
-        doc_struct_hash: sha256:d02c208c354be375b9581d7f7c8dc26d109a21b5d6552418ff8e3bc6201de962
-        lines: [2571, 2613]
+        hash: sha256:c88871c6bce78f352d6fce0cec2a1468189cb40fa09263374ac12e6a0f9bad15
+        struct_hash: sha256:8dd3ed7c923333e32839cdb296e78b3519a9aaa9066b5876220d0a7f627b91a3
+        doc_struct_hash: sha256:8dd3ed7c923333e32839cdb296e78b3519a9aaa9066b5876220d0a7f627b91a3
+        lines: [2607, 2649]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestPermsCRUD
@@ -607,10 +629,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestPermsCRUD
-        hash: sha256:09d8786e5235c1b50b6d149d69a037b7dda5081d39959365f04842fa73219057
-        struct_hash: sha256:c88e6469b014eff309858b9ce498ed82024a9ac344ec1ff3da1e97849c3253dd
-        doc_struct_hash: sha256:c88e6469b014eff309858b9ce498ed82024a9ac344ec1ff3da1e97849c3253dd
-        lines: [2615, 2638]
+        hash: sha256:bb01624c6d29caa97eef357e8727d0cb7972224c1072f297aca0e23144c430d3
+        struct_hash: sha256:52b1bbb71f75228a5781a3853e52c88586f1c147931e1acb28182d82513d2cdd
+        doc_struct_hash: sha256:52b1bbb71f75228a5781a3853e52c88586f1c147931e1acb28182d82513d2cdd
+        lines: [2651, 2674]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestDirectedDailySchedule
@@ -618,10 +640,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestDirectedDailySchedule
-        hash: sha256:7eeaff57f9b3c22a2fb3165af522740c4b92463b9dfbe555a02e272feeee8897
-        struct_hash: sha256:12959310c334233cbef3ceb138b8105076a0c4c0ef4294eaa3c754d81f0e8ea3
-        doc_struct_hash: sha256:c223131b167de84b5862ce076509ae8b494a01998430475c90565e9ba9e6c5b5
-        lines: [2640, 2728]
+        hash: sha256:99768cffc163f786d2869548c0d66cab0cfcddcd833bc8568294161c0f05e8a6
+        struct_hash: sha256:2a324ec812f0bf7ffe66b65d51d4ee782b294dd9120eb0e8e4c9317bc7f7e10c
+        doc_struct_hash: sha256:b91c9b762d991bd7780ec525eac4a89ad317f1042dcca1df9d1cbde997473adb
+        lines: [2676, 2764]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestReconcileScheduleTimezoneOnlyOnChange
@@ -629,10 +651,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestReconcileScheduleTimezoneOnlyOnChange
-        hash: sha256:b43ebd754d61c72fb668a827a4c497ab63c5f3194c4853b17fbb9a088ccf0ea5
-        struct_hash: sha256:e11930e4e9c0014aae5d1e057dfe93c056b9f6ba7fb642b35fa0c608fb83396f
-        doc_struct_hash: sha256:e11930e4e9c0014aae5d1e057dfe93c056b9f6ba7fb642b35fa0c608fb83396f
-        lines: [2730, 2785]
+        hash: sha256:e8283c8bb7c9888a4bd6b1a4e2dd1991e36688620e06f8606be983cddcc0512d
+        struct_hash: sha256:a1d39096dac0efc2c20cadbfca17c6a73afdfdb50f248e2a5dcd71ae341a2eb6
+        doc_struct_hash: sha256:a1d39096dac0efc2c20cadbfca17c6a73afdfdb50f248e2a5dcd71ae341a2eb6
+        lines: [2766, 2821]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: store/integration_test.go#TestQuarantineLegacyAutomationHistoryMigration
@@ -640,10 +662,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestQuarantineLegacyAutomationHistoryMigration
-        hash: sha256:fd65925e330f7e40d123cbc71e9766a317a153c74cce1400efdb10bd536fd51a
-        struct_hash: sha256:cdd4b98bc29c3677048fbe6da1e7166c2bb5e4aba3a9b01ffaa1ccecce6b654f
-        doc_struct_hash: sha256:cdd4b98bc29c3677048fbe6da1e7166c2bb5e4aba3a9b01ffaa1ccecce6b654f
-        lines: [2787, 2849]
+        hash: sha256:34b0e70a4fc91f5419ccf4f3f26bfeeeeae58a63fd5b246859b49beb976a3922
+        struct_hash: sha256:9b8fb50500ec633692ede1fa8d1a4780969c136e5889855fedf6631a2836ae52
+        doc_struct_hash: sha256:9b8fb50500ec633692ede1fa8d1a4780969c136e5889855fedf6631a2836ae52
+        lines: [2823, 2885]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSchedulesVisibleOrdersRecentHistoryFirst
@@ -651,10 +673,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSchedulesVisibleOrdersRecentHistoryFirst
-        hash: sha256:17a0c1197ea3ef2c57ab6609bad196877809af38d508e84665995ffb258d6f96
-        struct_hash: sha256:4cbc6eb8fa3494b6fb4e05c0dc5a7671a8a853e418dae2fd26dc432d7c338a4b
-        doc_struct_hash: sha256:4cbc6eb8fa3494b6fb4e05c0dc5a7671a8a853e418dae2fd26dc432d7c338a4b
-        lines: [2851, 2880]
+        hash: sha256:9de04c2a8f80aecefa2b34653e3597a2237d31724fe799d06145b87899360153
+        struct_hash: sha256:20f5979bd1c2851451193a4656304b8e2aa76273ecc81040b90f24549b947f1d
+        doc_struct_hash: sha256:20f5979bd1c2851451193a4656304b8e2aa76273ecc81040b90f24549b947f1d
+        lines: [2887, 2916]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestScheduleOccurrenceFansOutPerRecipient
@@ -662,10 +684,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestScheduleOccurrenceFansOutPerRecipient
-        hash: sha256:76e250cdd70f51355a489d0b056f23e6393708a2ca0c8723e49b564c25ce44fd
-        struct_hash: sha256:372ad76cb0c6a2231d3c0f23635931af9db3ed2dea8db74a4152ae6dda7922c3
-        doc_struct_hash: sha256:372ad76cb0c6a2231d3c0f23635931af9db3ed2dea8db74a4152ae6dda7922c3
-        lines: [2882, 2943]
+        hash: sha256:88c0bb1d96056c3d0a8f54a425265bc38bf19779a2a7078390b05ffcae496940
+        struct_hash: sha256:bd557d657ccd3419eb865afaa89cf6aa8e3d3adbecebe61b0d83462e5b0aaa94
+        doc_struct_hash: sha256:bd557d657ccd3419eb865afaa89cf6aa8e3d3adbecebe61b0d83462e5b0aaa94
+        lines: [2918, 2979]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestDurableEventAndAutomationRunClaims
@@ -673,10 +695,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestDurableEventAndAutomationRunClaims
-        hash: sha256:9a79dc54a128e04810aae336107af706a38d3e2582419b492650e8b406a0664c
-        struct_hash: sha256:253d8ed000b38dcde8c0550abc157c1196f520b7f9294c76c537cc6294d72a51
-        doc_struct_hash: sha256:253d8ed000b38dcde8c0550abc157c1196f520b7f9294c76c537cc6294d72a51
-        lines: [2945, 3088]
+        hash: sha256:87dcf2e9efbce8a92e01b7c0375084a951e8124fc84eca4db8013646c463d544
+        struct_hash: sha256:7aa05f52601f697f0edcde090c5331c29ef181c4e17e0c1cf7a62225bac53a16
+        doc_struct_hash: sha256:7aa05f52601f697f0edcde090c5331c29ef181c4e17e0c1cf7a62225bac53a16
+        lines: [2981, 3124]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestExhaustedInterruptedClaimsReachTerminalState
@@ -684,10 +706,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestExhaustedInterruptedClaimsReachTerminalState
-        hash: sha256:4aeac2580d6590bc5c80035d792524e1b4742e36e3b072a9cc15863990201eec
-        struct_hash: sha256:f0f0b5fe74e0c26821dbdaddadedf77c9261b9e825fa2e99af2e8dc2f10ddd1f
-        doc_struct_hash: sha256:f0f0b5fe74e0c26821dbdaddadedf77c9261b9e825fa2e99af2e8dc2f10ddd1f
-        lines: [3090, 3162]
+        hash: sha256:fa5865e7d8500f68ce50ea202b5cd32128887e105a62b561ec1ff334a441e463
+        struct_hash: sha256:2f8590f401fed9edd0814918da4b69f5a87750577c94d01363eaaeefb09c6ed3
+        doc_struct_hash: sha256:2f8590f401fed9edd0814918da4b69f5a87750577c94d01363eaaeefb09c6ed3
+        lines: [3126, 3198]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestGroupSessionAndSummary
@@ -695,32 +717,54 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestGroupSessionAndSummary
-        hash: sha256:f83c5f781fd531426a0c879ee9e6da9ffc1be63836ecf871fe885931e4b6d1f5
-        struct_hash: sha256:979b8e672c450474a2a3e09a0cc787a9d92daa7b91b2ad5c6e0bbab7e7e3aebf
-        doc_struct_hash: sha256:9c79239cf0cc0ff06ca3869481ab5050ab6ea965056a8588836e14da130e168b
-        lines: [3164, 3215]
+        hash: sha256:8cc9286ea88f7a122e659e9bb2a42799b727838ec59841b267b820d0160c86db
+        struct_hash: sha256:fa2fc94ba17bca43fe9144cd01003a3cd446d991b95c36aae1fb88cb542c9fe8
+        doc_struct_hash: sha256:5898e2cb46754591427a24c4606c194956627ef33b24527c245513b0cc208b49
+        lines: [3200, 3251]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: store/integration_test.go#TestSubmitWorkerTaskAtomic
+    - id: store/integration_test.go#TestCompleteWorkerRunAtomic
       level: function
       anchor:
         file: store/integration_test.go
-        symbol: TestSubmitWorkerTaskAtomic
-        hash: sha256:e0d977d1389c6952614150887a239c5462322fbea9c2fe57c8d2b7fdd17287da
-        struct_hash: sha256:7c26e2c80fca223ebb78eb42a9ca747651d1f5431beb0214ac6a541028dd8a49
-        doc_struct_hash: sha256:31b945bf7093227870989904f314ce036cee9da9810c7de14d06220875569bd1
-        lines: [3217, 3276]
+        symbol: TestCompleteWorkerRunAtomic
+        hash: sha256:6ea76065d98052e3701f6ba4307607fce94be03309d00059f48052e6e56c959f
+        struct_hash: sha256:75bc76c32d3e7775578381c1361a71a4316029ee142d079e7e988c72095899ba
+        doc_struct_hash: sha256:62a8de139dbf5294386245f2b7459bbf677ce25fa17b4b5753b9dc35362ea602
+        lines: [3253, 3312]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
+      since: 2026-07-20T11:26:39.730689Z
+    - id: store/integration_test.go#TestCompleteWorkerRunFinalizationIsIdempotent
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestCompleteWorkerRunFinalizationIsIdempotent
+        hash: sha256:31f323958151e3a0f69e2d94ac0e5ae34e4df6e2a5f1764c9210c630d4298473
+        struct_hash: sha256:c3c1707fa10f859b72856fc5032ec9be564faa1284aab93ffc082eb4b6d9d282
+        doc_struct_hash: sha256:c3c1707fa10f859b72856fc5032ec9be564faa1284aab93ffc082eb4b6d9d282
+        lines: [3314, 3351]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: store/integration_test.go#TestConcurrentWorkerFinalizationCommitsOnce
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestConcurrentWorkerFinalizationCommitsOnce
+        hash: sha256:03d51723a5d89436d4c0c73e69904a9ee8910a6870f40aef2020e8c02bf99f93
+        struct_hash: sha256:9d61a28c749417f73681c3ccb6ee02d68ab1c26c30e61ad6b4c0803ca11bd719
+        doc_struct_hash: sha256:9d61a28c749417f73681c3ccb6ee02d68ab1c26c30e61ad6b4c0803ca11bd719
+        lines: [3353, 3405]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestWorkerArtifactGating
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerArtifactGating
-        hash: sha256:6a6a5e4d461344be77b415b08449a7df07c41aac07b4ade4acb1bc961854d0f2
-        struct_hash: sha256:6588d962ed5df08f7254c41ecc152e2728d8a1c0071f2404a9a35d829891495e
-        doc_struct_hash: sha256:b45c166a9dabe8b8b232e4e8969b9e27e547ffb6643c3319e39a423bfcb63dee
-        lines: [3278, 3335]
+        hash: sha256:4e42bcf43964284533c623f8c072a644f1ccc2f4d403d1b2faf7a48394379c8e
+        struct_hash: sha256:cdb6f933d45e9f84c81d3d55c80256d3508b18de5c195c6877d7cf2a8f732bfa
+        doc_struct_hash: sha256:3727a6e30a254dc0370130c5e12b6d0c63fb9d7d23c618b96d8ba618173fc803
+        lines: [3407, 3464]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestKnowledgeEmbeddingAndSearch
@@ -728,10 +772,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestKnowledgeEmbeddingAndSearch
-        hash: sha256:008c60c38f0d217a2b1f5ed53e4b9083d6b3cde4a585ec1d38bbccf2e2865e7c
-        struct_hash: sha256:fa413ef959367ccb156abfa459ba27658e0e12014d510b1137f8ca0dc33d375f
-        doc_struct_hash: sha256:fa413ef959367ccb156abfa459ba27658e0e12014d510b1137f8ca0dc33d375f
-        lines: [3337, 3434]
+        hash: sha256:ebbcd4c0594312d2a0140318f3dd0059c0d7dc1b897b7e06770672d4b48a4e14
+        struct_hash: sha256:8c510736075fb342ceb83dadd2c72b8431390850b15cd91432a2aaeb2ba71ec8
+        doc_struct_hash: sha256:8c510736075fb342ceb83dadd2c72b8431390850b15cd91432a2aaeb2ba71ec8
+        lines: [3466, 3563]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkerBindCodes
@@ -739,10 +783,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerBindCodes
-        hash: sha256:a661e6763b5a3be58ae18a253bfcdddda1412f205faa725c7dbef354d55a5839
-        struct_hash: sha256:23cd0fb6169a650d8b9117bc9510ecadf05932b6c3585074a3042a1d7883a72d
-        doc_struct_hash: sha256:23cd0fb6169a650d8b9117bc9510ecadf05932b6c3585074a3042a1d7883a72d
-        lines: [3436, 3509]
+        hash: sha256:3ecb6c82fbffbec9994252e1d6eecf2f0e3a2a5f62570418bba45460c2866204
+        struct_hash: sha256:456dc26bdd4cb3d5a8fe74ab2191837b170bb0238e8b561ae2c547bd91154124
+        doc_struct_hash: sha256:456dc26bdd4cb3d5a8fe74ab2191837b170bb0238e8b561ae2c547bd91154124
+        lines: [3565, 3638]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestWorkerSessionClaimAndUpdate
@@ -750,10 +794,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestWorkerSessionClaimAndUpdate
-        hash: sha256:c3dde337a22d93fb6b4f33cb5417515be1ef76c61adf2b336c0e535acb759872
-        struct_hash: sha256:ed58b64a88ef50fadf51ad68a24f1aa158f796962be547f3d6dd477312998d03
-        doc_struct_hash: sha256:ed58b64a88ef50fadf51ad68a24f1aa158f796962be547f3d6dd477312998d03
-        lines: [3511, 3558]
+        hash: sha256:0888a41fef04cb6d5079beb3ea589a28c994b35e8674037e8f66a6527d69b757
+        struct_hash: sha256:a29e97d014b11bcd7456127a0e928d7d0990511efe0e58c7fb08715ce05b29ad
+        doc_struct_hash: sha256:a29e97d014b11bcd7456127a0e928d7d0990511efe0e58c7fb08715ce05b29ad
+        lines: [3640, 3699]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestKnowledgeRules
@@ -761,10 +805,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestKnowledgeRules
-        hash: sha256:5791fd41724e748ea50658d941dcd2f0064ddb7fe3fd71eaff1a8201b2d22066
-        struct_hash: sha256:18744fe722f3a7a1f1f7f1e4d898976e8a7f46a94f3bce49100471e823ddd46e
-        doc_struct_hash: sha256:18744fe722f3a7a1f1f7f1e4d898976e8a7f46a94f3bce49100471e823ddd46e
-        lines: [3560, 3644]
+        hash: sha256:68f121e1dcb30c07b8074dc1d266617eabe6d1413b9646cc15bb50cd07481a78
+        struct_hash: sha256:10fe23d42dfb60f2ac4961be697c82b0761d7a94d256102e7801303f1ce2bf23
+        doc_struct_hash: sha256:10fe23d42dfb60f2ac4961be697c82b0761d7a94d256102e7801303f1ce2bf23
+        lines: [3701, 3785]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestLearningCandidateExists
@@ -772,10 +816,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestLearningCandidateExists
-        hash: sha256:03eab89dbc7b24d31b0be0f960b6c6f1971829a1e000e5986e2e64655a9f8384
-        struct_hash: sha256:bfce2a5b3bfc99153a58c3d9f95d17a805c9ec8bae4fbb31d983de5999fd1da5
-        doc_struct_hash: sha256:bfce2a5b3bfc99153a58c3d9f95d17a805c9ec8bae4fbb31d983de5999fd1da5
-        lines: [3646, 3670]
+        hash: sha256:8df746c42061573196fa6467db9123d65699a996a337e0a19840f791ff0aac6f
+        struct_hash: sha256:7f5614780108e86d554cae6ac7318e2e12230d6f3068380d576794772b29200e
+        doc_struct_hash: sha256:7f5614780108e86d554cae6ac7318e2e12230d6f3068380d576794772b29200e
+        lines: [3787, 3811]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTelegramGroupState
@@ -783,10 +827,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTelegramGroupState
-        hash: sha256:6733fac6495b1de41eae28010675a881d379636ab3fb9d6aba81563fbe4ac102
-        struct_hash: sha256:13e02919ef4307762f5ea359d38965528852836de8e2b9722fa69c64aba65e40
-        doc_struct_hash: sha256:13e02919ef4307762f5ea359d38965528852836de8e2b9722fa69c64aba65e40
-        lines: [3672, 3712]
+        hash: sha256:5fe3516f1245ee96c0b5e38344613a817494ac9c44c37bfb072533494addbfba
+        struct_hash: sha256:04019cbc12282bbaf50a959023eab4f1c894ba53a019a935b86c494619f32b52
+        doc_struct_hash: sha256:04019cbc12282bbaf50a959023eab4f1c894ba53a019a935b86c494619f32b52
+        lines: [3813, 3853]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTelegramGroupMonitor
@@ -794,10 +838,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTelegramGroupMonitor
-        hash: sha256:9ee03abb6c639b3b5030c34274aed05bc4182a015403d8384148c5fcf49f4ffd
-        struct_hash: sha256:3f305f7282946ea8fefa89f3e1d1eeb74a90dd691ae7be0c59a25008bf7ac741
-        doc_struct_hash: sha256:3f305f7282946ea8fefa89f3e1d1eeb74a90dd691ae7be0c59a25008bf7ac741
-        lines: [3714, 3746]
+        hash: sha256:48f776fd6ca1401f491a8bc9ea70ca4dc34c7dc426427a284eadbf990f4fefb3
+        struct_hash: sha256:0fb9ffa5671b1ddbd54c45f6cb7e68d76bde408bff26de984b1c0e7a11f8c6e0
+        doc_struct_hash: sha256:0fb9ffa5671b1ddbd54c45f6cb7e68d76bde408bff26de984b1c0e7a11f8c6e0
+        lines: [3855, 3887]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTelegramGroupMonitorAtomicUpdate
@@ -805,10 +849,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTelegramGroupMonitorAtomicUpdate
-        hash: sha256:a7388dfd23b4a40ab01e00973a1d7d2cc90c8f104f1cec4f8037ed13b24f89ca
-        struct_hash: sha256:525a164453057d5e089e5ebda30beaa7475c75268b127caf2ebab2aabb9d8a21
-        doc_struct_hash: sha256:525a164453057d5e089e5ebda30beaa7475c75268b127caf2ebab2aabb9d8a21
-        lines: [3748, 3777]
+        hash: sha256:3e7c831e4c8f387e1c3135e2f2d6fd81c652500ff2ee717b7859db4a34d2847c
+        struct_hash: sha256:224965a95d24189827391691125f0b9cfefe285502eb447bfa1708a32fc8db8b
+        doc_struct_hash: sha256:224965a95d24189827391691125f0b9cfefe285502eb447bfa1708a32fc8db8b
+        lines: [3889, 3918]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTelegramPendingEmployeeInvite
@@ -816,10 +860,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTelegramPendingEmployeeInvite
-        hash: sha256:4205343abb269913520dc91ed67f02fca783cc37daeed62922ab4ad8166d76b2
-        struct_hash: sha256:dc3a8a3fa7af23107f0783b26a58a99a51a304af5289ad76afdf7e4d61c0c2f7
-        doc_struct_hash: sha256:dc3a8a3fa7af23107f0783b26a58a99a51a304af5289ad76afdf7e4d61c0c2f7
-        lines: [3779, 3814]
+        hash: sha256:efbd7bf2eaca4592f52133003bcec3ae67ff0987aadeb59e69757a5a88cc1bd5
+        struct_hash: sha256:8b93f58b74ec9892dfb487b2991f41136ff2a942b3267cae9493ca83c8715e7f
+        doc_struct_hash: sha256:8b93f58b74ec9892dfb487b2991f41136ff2a942b3267cae9493ca83c8715e7f
+        lines: [3920, 3955]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestLegacyHistoryMarkerMigrationIsIdempotent
@@ -827,10 +871,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestLegacyHistoryMarkerMigrationIsIdempotent
-        hash: sha256:4c65d1167f147f0d7b856a523586de41e71edc9a9f07a8917ecdc15d34ae1389
-        struct_hash: sha256:16c7312246bb060e81ef3749c90c63b08445b4376a4038c47bce20eff604c865
-        doc_struct_hash: sha256:16c7312246bb060e81ef3749c90c63b08445b4376a4038c47bce20eff604c865
-        lines: [3816, 3851]
+        hash: sha256:b127b70404550360beafa765a3f4bfd4897790163f44141cb842ae8149690ed3
+        struct_hash: sha256:dc7c19d6152d4b2f28519c2396e8a2b96775de55ba879a8e524f5e1e63153cde
+        doc_struct_hash: sha256:dc7c19d6152d4b2f28519c2396e8a2b96775de55ba879a8e524f5e1e63153cde
+        lines: [3957, 3992]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestScriptTools
@@ -838,10 +882,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestScriptTools
-        hash: sha256:e4802c94f7210093330aadca90f252f4a3166af392abd02bace75629327a7416
-        struct_hash: sha256:2b81812b2405bbb1b236a4ea294a46c950e0b1d7b934daecdb0a0edd6957c693
-        doc_struct_hash: sha256:2b81812b2405bbb1b236a4ea294a46c950e0b1d7b934daecdb0a0edd6957c693
-        lines: [3853, 3915]
+        hash: sha256:4a23100c5e32e5797788f8da9fecbfa8cd657ed5e126693e80f0c92de30409dd
+        struct_hash: sha256:b304851194d635a93daec9af2fb388f6b90e6d43a7d206248dd9c19e13d0563a
+        doc_struct_hash: sha256:b304851194d635a93daec9af2fb388f6b90e6d43a7d206248dd9c19e13d0563a
+        lines: [3994, 4056]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestMemoryMiningQueueIsDurableAndIdempotent
@@ -849,10 +893,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestMemoryMiningQueueIsDurableAndIdempotent
-        hash: sha256:be7d4707574d6c68f5942ffcc8063d9ea838dc5c5bce6e3f652448e5078a0a98
-        struct_hash: sha256:f153d6caa94ce9033b5ab284fe1b451c11f497b94a4605bf33f6f2869a619c30
-        doc_struct_hash: sha256:f153d6caa94ce9033b5ab284fe1b451c11f497b94a4605bf33f6f2869a619c30
-        lines: [3917, 3952]
+        hash: sha256:8f74ca1b52fc8998afd723207405cc04d7b301833571c63d7b09108929d0a41d
+        struct_hash: sha256:eed45e7fc457365b5ca530782f7a2542db70a3ff733a4ef5268dff951369a1b0
+        doc_struct_hash: sha256:eed45e7fc457365b5ca530782f7a2542db70a3ff733a4ef5268dff951369a1b0
+        lines: [4058, 4093]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestEpisodicMessageSearch
@@ -860,10 +904,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestEpisodicMessageSearch
-        hash: sha256:35b1401f044912ec8eec8f31b379e22928f82368cb0a7f962b95bb3fc54978ce
-        struct_hash: sha256:a7fbffc3d0fb9a7b725ca7b3c0eb375a1ca2b3c8767c7bc2516bae391025cd8d
-        doc_struct_hash: sha256:a7fbffc3d0fb9a7b725ca7b3c0eb375a1ca2b3c8767c7bc2516bae391025cd8d
-        lines: [3954, 4033]
+        hash: sha256:3e7655cef904233e6318f321bece53eeafb8006287487968c7f3f8033da931ac
+        struct_hash: sha256:79100fd672cbd921ef91525bc63abc8f233a14103be4dbbc6c55f9e7987354a8
+        doc_struct_hash: sha256:79100fd672cbd921ef91525bc63abc8f233a14103be4dbbc6c55f9e7987354a8
+        lines: [4095, 4174]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestGroupMessageSearchUsesExactSharedChannel
@@ -871,10 +915,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestGroupMessageSearchUsesExactSharedChannel
-        hash: sha256:748b5bdb1e5583a62ff3a115e54989a8363104add4ce0b2eb9277db5e774b90e
-        struct_hash: sha256:3bd6f88ddf5f028413b9398b1d6e33cc5a184f27cb6cd7324c738ba12e5162bc
-        doc_struct_hash: sha256:3bd6f88ddf5f028413b9398b1d6e33cc5a184f27cb6cd7324c738ba12e5162bc
-        lines: [4035, 4101]
+        hash: sha256:bf0311560b09fa5c196713317fbfd790d8ef524167ac36ee6e7b4d68f94d8894
+        struct_hash: sha256:419c68a3a759d05b676ea362083ecf7462086968442cf444ef1e50b97facd306
+        doc_struct_hash: sha256:419c68a3a759d05b676ea362083ecf7462086968442cf444ef1e50b97facd306
+        lines: [4176, 4242]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestSemanticMessageLookupIncludesImmediateContext
@@ -882,10 +926,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestSemanticMessageLookupIncludesImmediateContext
-        hash: sha256:0ff71ba44fe081a16623df90e8134aeb519f51e5116ec0a5898fcfc00fee9969
-        struct_hash: sha256:594de7c2244ba06546c428f8d6438486732c4d1f102dd3b4affc6911f34a6335
-        doc_struct_hash: sha256:594de7c2244ba06546c428f8d6438486732c4d1f102dd3b4affc6911f34a6335
-        lines: [4103, 4126]
+        hash: sha256:76a0b63c364f27815f9550b6320f9f3061d36d2faa20e31418c4379d69974aa5
+        struct_hash: sha256:37dbd56678427e66a99c8da64e6892387217c6f7afd74216e356faa9633d25bb
+        doc_struct_hash: sha256:37dbd56678427e66a99c8da64e6892387217c6f7afd74216e356faa9633d25bb
+        lines: [4244, 4267]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestChatContextEligibilityPreservesAuditButExcludesRecall
@@ -893,10 +937,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestChatContextEligibilityPreservesAuditButExcludesRecall
-        hash: sha256:d1c8a48d75e0a56bbbaaae798973ba704b082aace91f36bf74b85fa89e8e345a
-        struct_hash: sha256:2399a3c5be17fdaf915986da46247715b2f38709e7cc540ae9e2506132ef1124
-        doc_struct_hash: sha256:2399a3c5be17fdaf915986da46247715b2f38709e7cc540ae9e2506132ef1124
-        lines: [4128, 4163]
+        hash: sha256:049f6584efdfb6b21fe9e8d996e5e771c84384172f4c0c0ad852f5b49c2ae7dc
+        struct_hash: sha256:205303e82807ca151f1f9d5c0208ddde5200b9f472c0670362c3e4125a4cd66e
+        doc_struct_hash: sha256:205303e82807ca151f1f9d5c0208ddde5200b9f472c0670362c3e4125a4cd66e
+        lines: [4269, 4304]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestAutomaticHistoryCandidatesUseOnlyRawUserMessages
@@ -904,10 +948,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestAutomaticHistoryCandidatesUseOnlyRawUserMessages
-        hash: sha256:413afaa938f2f23527b38b00e190f245584eaa3f0aeee29519faca1e21bccc9a
-        struct_hash: sha256:a5ce992b02d6ac5c81f161b1b0e489557ebc43837a57c76eaf1eb9eb008063f0
-        doc_struct_hash: sha256:a5ce992b02d6ac5c81f161b1b0e489557ebc43837a57c76eaf1eb9eb008063f0
-        lines: [4165, 4189]
+        hash: sha256:4b6d92064c14b1a725a60ecea306842ac198c4d833bbcecb4cb4b634dbb58a10
+        struct_hash: sha256:4ae90cf0d3063689d1fd506df64f7f84041244f227e15f693f52b723a3ad8a6e
+        doc_struct_hash: sha256:4ae90cf0d3063689d1fd506df64f7f84041244f227e15f693f52b723a3ad8a6e
+        lines: [4306, 4330]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestKnowledgeLifecycleArchivesWithoutDeletingAudit
@@ -915,10 +959,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestKnowledgeLifecycleArchivesWithoutDeletingAudit
-        hash: sha256:37375777060b10bdd6d4e0b89734aff227a9eba82ab4075e59d56c233c80f4b4
-        struct_hash: sha256:6776f78e2fb03c2da7c6f67ae944f461887daa5ef3dcdffc8e6c4ede63d181d8
-        doc_struct_hash: sha256:6776f78e2fb03c2da7c6f67ae944f461887daa5ef3dcdffc8e6c4ede63d181d8
-        lines: [4191, 4235]
+        hash: sha256:2fc3b89c21b1992a72afc45fd2fb548b4f8c3d79c42af0478d04d53e0a8a6c2a
+        struct_hash: sha256:4a901625ee7ecad47069f00826698f322be71f4bf4684ea0ee829bd2ad78f495
+        doc_struct_hash: sha256:4a901625ee7ecad47069f00826698f322be71f4bf4684ea0ee829bd2ad78f495
+        lines: [4332, 4376]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestAIUsageStats
@@ -926,10 +970,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestAIUsageStats
-        hash: sha256:5025b2fcfef4e9f31cf9a1f9b9b835daa67f27b158fed7dff22fc4b95008e656
-        struct_hash: sha256:7ceadc506dc91353066af05bddd747abad4ff76205038054410f0ca9c1935142
-        doc_struct_hash: sha256:7ceadc506dc91353066af05bddd747abad4ff76205038054410f0ca9c1935142
-        lines: [4237, 4255]
+        hash: sha256:8f576dd6a30bd4aee8e327420eca2c47dac6f1c79c23a5432d370bfe2a2e77dd
+        struct_hash: sha256:b2b0771bda3a311afa7f386a1ea08fe3263e889802917c6cd96d18107a918533
+        doc_struct_hash: sha256:b2b0771bda3a311afa7f386a1ea08fe3263e889802917c6cd96d18107a918533
+        lines: [4378, 4396]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestTaskDependencyGating
@@ -937,10 +981,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTaskDependencyGating
-        hash: sha256:85e22dc152bacb130789e07dd40a4c204ecb68d9835ceb9453f7ed2642d5dba0
-        struct_hash: sha256:ad4fc65fec176ecc9e1a7b3596db6c68ed84d758e01287f3847f6d95b7b65dec
-        doc_struct_hash: sha256:ad4fc65fec176ecc9e1a7b3596db6c68ed84d758e01287f3847f6d95b7b65dec
-        lines: [4257, 4324]
+        hash: sha256:b7ad2b6d9981134a1af83883e73c68e2636bae75dca3b65158f0c63d540561d2
+        struct_hash: sha256:a298c9067244d6d6251e52a598b73663365556dd3460bcfe7feaee3bb13dcf7a
+        doc_struct_hash: sha256:a298c9067244d6d6251e52a598b73663365556dd3460bcfe7feaee3bb13dcf7a
+        lines: [4398, 4465]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestPendingApprovals
@@ -948,9 +992,9 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestPendingApprovals
-        hash: sha256:2c6255bb54d1ada9b70594ef8731cc2f9bf32a66bba1640c95d81fdfdca4a434
-        struct_hash: sha256:5898490c83d676ff9ee36230d3b1e21621b08d3147414ed834d564b374fedf2f
-        doc_struct_hash: sha256:5898490c83d676ff9ee36230d3b1e21621b08d3147414ed834d564b374fedf2f
-        lines: [4326, 4379]
+        hash: sha256:bf59202483cc3aa9c21b5c578abecdac3d827b2a560fc74fa95da1a3e8be5986
+        struct_hash: sha256:d3cd431f9432222d7b32a614bf9629eb9550a732f34e44043df78bb1c867e9ac
+        doc_struct_hash: sha256:d3cd431f9432222d7b32a614bf9629eb9550a732f34e44043df78bb1c867e9ac
+        lines: [4467, 4520]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

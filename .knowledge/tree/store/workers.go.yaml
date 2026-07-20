@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/workers.go
-        hash: sha256:74a7424d2f3934f1291127624e880f25699ccadfc4242dba9462a7e4164c6cc0
+        hash: sha256:6d2bf84f8223bd20918d2fab9b90d7d3788a3e6b62afdcd688412721f0850e6b
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: workerClaimTimeout
-        hash: sha256:a04dc86b0a7586f6aa73c472209e723ed4d5f7f89478910e8124a3743dea4294
-        struct_hash: sha256:d20b7292c63393173cc1f6e40e287fc60c00ae9285a0b76d3d290be902605059
-        doc_struct_hash: sha256:d20b7292c63393173cc1f6e40e287fc60c00ae9285a0b76d3d290be902605059
-        lines: [11, 11]
+        hash: sha256:7abce9b7d00dfa8445f4ea5659f60bccd78aa155124a2702f74109d608c4223d
+        struct_hash: sha256:d00376e804e4dbcfe1d3d2183503aca523cc8e8e3318d1314bcdb76460a6b5c7
+        doc_struct_hash: sha256:d00376e804e4dbcfe1d3d2183503aca523cc8e8e3318d1314bcdb76460a6b5c7
+        lines: [10, 10]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#workerMaxFailures
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: workerMaxFailures
-        hash: sha256:deeda8ef797597e5448e237f27bdce15732be379f87fe4547154fff34f1981d0
-        struct_hash: sha256:70a22d0316b79cc4e61bdabefb3d54aa966c370ffa914988c3d852eaca093fab
-        doc_struct_hash: sha256:70a22d0316b79cc4e61bdabefb3d54aa966c370ffa914988c3d852eaca093fab
-        lines: [12, 12]
+        hash: sha256:fd9bb5b9941665a5e86f7e012188f169c6ba01df3aae31ec05861578dad2fcbf
+        struct_hash: sha256:ec0e8c8f413b1731160ea0a40c985c1768aba3c8ee9b2e61a0b52add220527a3
+        doc_struct_hash: sha256:ec0e8c8f413b1731160ea0a40c985c1768aba3c8ee9b2e61a0b52add220527a3
+        lines: [11, 11]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#WorkerBindCodePrefix
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: WorkerBindCodePrefix
-        hash: sha256:e31b59f2bb1aab39d1597330762fff4c671403bfe7e92a3be7e63f3994dc88a2
-        struct_hash: sha256:965515400dda1f3990b0a1234fb97c574412b696a48b59b20b4df9c81297c295
-        doc_struct_hash: sha256:f01be73b108a83ef13bcbf3d6d310802c2bf71fcf51e777a2392f1b4f22cc169
-        lines: [18, 18]
+        hash: sha256:db53c1dec9dfe92f507b867e1dde050240cd27702074b7a670b1a46046e7a093
+        struct_hash: sha256:eb33581728254b47f384d6774fa556602f794fbc0fd1f5c8124290fc73138d96
+        doc_struct_hash: sha256:70acdbbf282a7ad2ae6b6d456a625f749834e8b4d724fabf457989a76415f54b
+        lines: [17, 17]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#workerBindCodeTTL
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: workerBindCodeTTL
-        hash: sha256:32c7cd4ccf582013b7fbb89c0f9cdf2561db7e5e586bdd1899acf9b403ef0311
-        struct_hash: sha256:26730d1f98d48f45c2729db88034bbcadadfcebc11c6715d095ab6fd38aafa4b
-        doc_struct_hash: sha256:d49effe7c0f81a1d06a31e8e7ba9c10acb97ff9a1c1693f4a36008f703aed656
-        lines: [19, 19]
+        hash: sha256:27f03a741a435e94023d7aa029ed2b795157888895903525914ea5548aaae35d
+        struct_hash: sha256:0f0eac82b8c74e400514ce7e9577470850b4c3c2389e87441a02dbd6c274fcbf
+        doc_struct_hash: sha256:d584f45332e46510454f2efad8ea904298b6b71a7a361a3fa8def08a26bf43c2
+        lines: [18, 18]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.CreateWorker
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.CreateWorker
-        hash: sha256:41a8510042b37967f8a887a46f62afaf82d46bcf9c9871236d8eb3deb9b82e6d
-        struct_hash: sha256:b10dc8b5266b83dbd6e14371068e89c771eb32b4aee820dbf477977b4d90bb07
-        doc_struct_hash: sha256:f695c8918180543475dfebf7a45661ff0906e2bc94b686ddc3e71cfec4b84c9e
-        lines: [22, 46]
+        hash: sha256:db63ae8bd8a2a9a0fee87119260be33472a12303d7e76a309af74826e0ed8be7
+        struct_hash: sha256:df188f3f920d23cd84d68672da402f81dfd03069e67f7867581e08befefac9d4
+        doc_struct_hash: sha256:5b89936adecf60d67c0a9d63d390a3a5e0cb7031fbd20356808770d075de922a
+        lines: [21, 45]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#newWorkerBindCode
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: newWorkerBindCode
-        hash: sha256:a050162f496433f60ab8a53aaf5884e3b74c8a0b512e8276e7688016f6f7d9de
-        struct_hash: sha256:22ca5547b6b448a01259852d126115daaf68adf13ad13f12fadbfbd89fda0d55
-        doc_struct_hash: sha256:22ca5547b6b448a01259852d126115daaf68adf13ad13f12fadbfbd89fda0d55
-        lines: [48, 54]
+        hash: sha256:427881c759e798b26b54edc065a71ec679010c141c778c36a7db43cc92195811
+        struct_hash: sha256:b87b36366d6312ad9c37ef27ff160aa5dc82db8db19fbe2e23a3cca39c5d7d04
+        doc_struct_hash: sha256:b87b36366d6312ad9c37ef27ff160aa5dc82db8db19fbe2e23a3cca39c5d7d04
+        lines: [47, 53]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.NewWorkerBindCode
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.NewWorkerBindCode
-        hash: sha256:a07110df68c106653149d68a89921c0097af0b564036f62028b1a9353bd850d3
-        struct_hash: sha256:427239cbee5e0368c64a94c0468a009d46870bd3c17dc7107344f221d15acf73
-        doc_struct_hash: sha256:9e1d0a80d7534d79a38ccd933a85625af245a95323d0749ecfb119708e751354
-        lines: [56, 83]
+        hash: sha256:4c098183aac13be140ea701421939d3c66616c1365bcd17a1e21720d4a3a0fc0
+        struct_hash: sha256:d077cf446adebd789aa1dd2794f9d976a24ec7de236af89bb89d275d89bb9fcd
+        doc_struct_hash: sha256:a0df7d14c3d31a1e2932c820bf2842317b09386fbcead8eb68aeb1a6ff0caaf9
+        lines: [55, 82]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.RedeemWorkerBindCode
@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.RedeemWorkerBindCode
-        hash: sha256:f4cf033f01167a8cee0d7e9e63b0c4d3db822060fd9cbae122bd773ed25a989a
-        struct_hash: sha256:28d6e88d30589a80a69f15e39b8f91a657501d1269ccbb5810a473173cb04454
-        doc_struct_hash: sha256:dc215e442f51d47e13067b0837d599c5309ef4887b872ab510f0ab89a7c4aa88
-        lines: [85, 126]
+        hash: sha256:e23ef3da8e26e1849995a7f4121a59adadb882e477e7c4561fae6e8336bf7c8c
+        struct_hash: sha256:0ed8508729dfe60bcf5dd4fc7c633299de493fced6bc2f034437d5a0dafce4a4
+        doc_struct_hash: sha256:4add964bff05690eb95c8254995774bfe32366c0a179cf84ed5559fd985ec479
+        lines: [84, 125]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.ListWorkers
@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.ListWorkers
-        hash: sha256:e7de9fef47d6f249ef0406ebb195910f3f1704d88d2a09d3c4257715d20940b9
-        struct_hash: sha256:e53fb8edb05802038d44d3771e47a1d236edeacfd58aedf0dfda71757086d67b
-        doc_struct_hash: sha256:8b4e5790aa357235f6efc5da7adf6ddc42449439152d13555266c8a1e01285f3
-        lines: [128, 151]
+        hash: sha256:efc4c8382b61e3c40fbe34957d59a3e817c3b96ba8cf82c0b2034448ed795a26
+        struct_hash: sha256:788f9bd1bff9c730629ad43020f78d8f45515273ef1cd02dd24b49a2f64c8d5f
+        doc_struct_hash: sha256:f2d521257a78f8fd19e9b415a392352e26955bf0aed71b8619bfcf50cfb4983a
+        lines: [127, 150]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.ListAdminWorkers
@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.ListAdminWorkers
-        hash: sha256:9acfeb2375040807fce9dff2b59070ab7a16d0821391c588b0ebaab8f0680974
-        struct_hash: sha256:b5e4bcb399f3e6273a5065392892afd31b4b5d0a02107d85068ae050c5600cea
-        doc_struct_hash: sha256:b9d0c1a26b2c9effb048acba3f18abbf2d584059643898ed91f6d9c05cf35d47
-        lines: [153, 179]
+        hash: sha256:c2149b3849b01fae116b51e3887d99ebd9584f6ead27ae3afcaeb86f92298e7e
+        struct_hash: sha256:83c7aa800f28f3c1f8ccd5b08943e3218b572bf396dd5a15feeef37891f511bd
+        doc_struct_hash: sha256:2a3a0c6b4cac7e2c6477389778f52ce51fd80156f958476083d145c693d9a4c6
+        lines: [152, 178]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.SetWorkerAdmin
@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.SetWorkerAdmin
-        hash: sha256:36bb7dafaf6962071ad96ddb1259641aa2f3c9f8dd1bb600df0afd767d1af0f8
-        struct_hash: sha256:ed1803834dbf5dcafe13306cb1fc0d7801e86b94dd23f164fc946fbd7c561ef4
-        doc_struct_hash: sha256:66f7b88fe435f973a4376d4b5dd8f4da23cfab6806a575173ff5d5dc265d4656
-        lines: [181, 195]
+        hash: sha256:c067d757d68f7e89e5d2b53e6b8e0c0a258b99797af4260cc455cfa10b97b54e
+        struct_hash: sha256:44485b89ae952067ca1ee5b12d452725f57fe5db2934f8f8e16010a126401e5c
+        doc_struct_hash: sha256:dba22acf3155610ce9e5907365f9ec28e276bd49a8883f0b3a197b7baaeec983
+        lines: [180, 194]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.WorkerHeartbeat
@@ -134,32 +134,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.WorkerHeartbeat
-        hash: sha256:1eb4c20ad778c35b38c3125f3b4ac6968e9a27acb39734b32285a9e9e18fd3c1
-        struct_hash: sha256:930d59e0ee1afcb04f81904aac9ead05a6026f4b13d71848d22c2d97a9e30a2e
-        doc_struct_hash: sha256:8fa0c7b4abddd456d7fd17ccd11cda7d658e6e272a97a0f26b4b40a3a9b5583f
-        lines: [197, 201]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/workers.go#Store.ClaimNextTask
-      level: function
-      anchor:
-        file: store/workers.go
-        symbol: Store.ClaimNextTask
-        hash: sha256:c19781e46f07a43f17fccb4bd2a693742215d10c2242373d73f6c2b1f4101376
-        struct_hash: sha256:d51a8adbd99a323364a9d74582471f1705fcf4ed8c8192ad73986d47c7b73437
-        doc_struct_hash: sha256:4aa0fe7b801e9a11324025373cb9c347a9dcb131350728426cc833c4a8a0a7f9
-        lines: [203, 265]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/workers.go#Store.FailWorkerTask
-      level: function
-      anchor:
-        file: store/workers.go
-        symbol: Store.FailWorkerTask
-        hash: sha256:01823d76cce421e6c80043a9f082a25bbb4e37f3ec67e61af70ff04f3a44fda9
-        struct_hash: sha256:15c4f4e232dfa16b6003f35c9b51b6d06e1f97131adcab283d8edeb2cf2a2a6e
-        doc_struct_hash: sha256:9389bb47449fede9061f1caec73e774d66ed92770095ec605f99f98238bad2d0
-        lines: [267, 324]
+        hash: sha256:8f7673db8645db163f702cd566aabb8982b8bc7394711aba2ace4a4aa38ad83a
+        struct_hash: sha256:f9d3a7d1518b0b76c75c8a133705cade8aa1301e01ba47b49a08e85b56ef86f1
+        doc_struct_hash: sha256:c4dd7fc74c1c4d0ea9351282ef757257f83b239dd302444c08e91e41cb0eca16
+        lines: [196, 200]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#workerFailureBackoff
@@ -167,21 +145,10 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: workerFailureBackoff
-        hash: sha256:9c2df5209f96433979a12f628c41af6e0ca24cdbcd2d2e7ae962de8561e828ba
-        struct_hash: sha256:f0d200f505952fbfc703b1c471fab5e065ba946dcfe5b5fe3baea2b057ceb42f
-        doc_struct_hash: sha256:f0d200f505952fbfc703b1c471fab5e065ba946dcfe5b5fe3baea2b057ceb42f
-        lines: [326, 335]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/workers.go#Store.ReleaseWorkerTaskClaim
-      level: function
-      anchor:
-        file: store/workers.go
-        symbol: Store.ReleaseWorkerTaskClaim
-        hash: sha256:e4f6128bf9c044b879e8281811ffb13a7827a84d75359269035df117d5bd799a
-        struct_hash: sha256:46c1db8b6c27c6407355aa85f7d51c6697cad5ab88c2bce6a4b931c8ec83956b
-        doc_struct_hash: sha256:680f2c8425b5a3189e5aa24820d7e3861cad183867f9565191774d86c1814b6e
-        lines: [337, 359]
+        hash: sha256:e7ef49395dd9a87276280b09f2bb2773d3245e17e568686e691b9bc64e5dd5a5
+        struct_hash: sha256:85431941261654f60a0d7359d88bfd3e6e491e2c74fa8bf377ab22fed0513c64
+        doc_struct_hash: sha256:85431941261654f60a0d7359d88bfd3e6e491e2c74fa8bf377ab22fed0513c64
+        lines: [202, 211]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/workers.go#Store.RevokeWorker
@@ -189,9 +156,9 @@ nodes:
       anchor:
         file: store/workers.go
         symbol: Store.RevokeWorker
-        hash: sha256:1bdc959169b641507fd03169c23eec6dec5fbb219c4f7719b1882c20131fec0e
-        struct_hash: sha256:4656af30e2edc0f9987798c4528b2e82eea8bb4159461723bb59929731719265
-        doc_struct_hash: sha256:6a4af582fa98abf128a4be4f03cc8fd029ff47fabd80bc3973f31e6f6e63eced
-        lines: [361, 398]
+        hash: sha256:34e2478de72b9a955af8365a950f0db0c2a47aeb3346324497a08b5b371d52c0
+        struct_hash: sha256:b2d8d382f0d314ae39ed1135b53216e37572f787d53c673dc0b3e6d0cd0d3025
+        doc_struct_hash: sha256:1114a6977bc229e23ef56ba679b17d8d7876cdaf1d0d7f147147e0d6aa8d6684
+        lines: [213, 281]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

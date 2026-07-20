@@ -91,7 +91,7 @@ func TestExecuteBuiltinCanRequestInputWithoutSubmitting(t *testing.T) {
 	defer srv.Close()
 
 	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
-	task := &Task{ID: 11, ClaimID: "claim11", Title: "初始化仓库"}
+	task := &Run{ID: 11, ClaimID: "claim11", Title: "初始化仓库"}
 	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
 
 	if hub.question != "请提供仓库 URL 和目标分支" {
@@ -118,7 +118,7 @@ func TestExecuteBuiltinRunsCommandAndSubmits(t *testing.T) {
 	defer srv.Close()
 
 	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin, WorkerName: "小码"})
-	task := &Task{ID: 7, ClaimID: "claim7", Title: "冒烟测试", Description: "跑一条命令"}
+	task := &Run{ID: 7, ClaimID: "claim7", Title: "冒烟测试", Description: "跑一条命令"}
 	dir := t.TempDir()
 	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, dir)
 
@@ -149,7 +149,7 @@ func TestExecuteBuiltinNoToolFallback(t *testing.T) {
 	defer srv.Close()
 
 	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
-	task := &Task{ID: 8, ClaimID: "claim8", Title: "空谈任务"}
+	task := &Run{ID: 8, ClaimID: "claim8", Title: "空谈任务"}
 	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
 
 	if hub.llmCalls != maxNudges+1 {
@@ -195,7 +195,7 @@ func TestAgentToolResultFedBack(t *testing.T) {
 	defer srv.Close()
 
 	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
-	task := &Task{ID: 9, ClaimID: "claim9", Title: "回喂测试"}
+	task := &Run{ID: 9, ClaimID: "claim9", Title: "回喂测试"}
 	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
 
 	if !strings.Contains(string(secondReq), "feedback-check") {
@@ -278,7 +278,7 @@ func TestLLMRetryRecovers(t *testing.T) {
 	defer srv.Close()
 
 	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
-	task := &Task{ID: 10, ClaimID: "claim10", Title: "重试任务"}
+	task := &Run{ID: 10, ClaimID: "claim10", Title: "重试任务"}
 	w.executeBuiltin(context.Background(), context.Background(), task, nil, nil, t.TempDir())
 
 	if fails != 0 {

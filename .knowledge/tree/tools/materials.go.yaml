@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/materials.go
-        hash: sha256:e3dbc471c2781c32ac7da25184d3db3eaad41cb11b9e3171c0748e372e8e2f05
+        hash: sha256:18cbb493ff6518258a7d889540dbe1b9d4cb98fb8ee8391412c7e6f0d93d07e6
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: MaterialLearningMarker
-        hash: sha256:e64fdd884576c8e2e3c5dafabe8259b531b5d96e4a030c4a27f7afac368bfc15
-        struct_hash: sha256:9ffaab5fde81ffccc96ade9bced22f4458f6e920a567263159f4ff94f12a5bd3
-        doc_struct_hash: sha256:d98c6c531b3f0e85e2026897bec43c7c21b1407d5a50d03b37bfd06cb29e6a93
-        lines: [14, 17]
+        hash: sha256:951ae46b6b1f3d9e82320234f819b17daf2db85dcd3a870ceba080a51a3aa229
+        struct_hash: sha256:bed21bedcdf347d6d214f8ede80b8710037cba56ac0f587bb99259ab61b92e3d
+        doc_struct_hash: sha256:02671851c1089a56e1ec6e957e2bd90d985d060e7b541ec24df239b5f482f060
+        lines: [15, 18]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#materialLearningMarker
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: materialLearningMarker
-        hash: sha256:bc816b3290a67cb916a1cd0f3c54152a1aff34717d947437b4a2bba02302da46
-        struct_hash: sha256:0f734e606415234fea1a169ed21e8716adc580701b5de18c0febb8084d1a7f9a
-        doc_struct_hash: sha256:0f734e606415234fea1a169ed21e8716adc580701b5de18c0febb8084d1a7f9a
-        lines: [18, 18]
+        hash: sha256:f4caeeff7f355b281c6ab8a404d4a60303caa6de434c03adc3b621221f234fa5
+        struct_hash: sha256:9b27c44bb18cbb1cfcbaf326bc0040cd3152c01dfa5101586e4595b14ca46a8b
+        doc_struct_hash: sha256:9b27c44bb18cbb1cfcbaf326bc0040cd3152c01dfa5101586e4595b14ca46a8b
+        lines: [19, 19]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#materialAnalysisArgs
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: materialAnalysisArgs
-        hash: sha256:0f39784d2a7d8c0f5772af6c0a6192d091f95e79319b45cc39d89eecc5f61242
-        struct_hash: sha256:e3032c49f62b04dab594e7c18a6acd2a475af343cc730a97f4da6a6da05fb62d
-        doc_struct_hash: sha256:e3032c49f62b04dab594e7c18a6acd2a475af343cc730a97f4da6a6da05fb62d
-        lines: [20, 25]
+        hash: sha256:90e6fab5fcbe472004619cf6a46ff9c848a1a41e94b6905c117b70f92ace7e0d
+        struct_hash: sha256:775384f83fe6d4d7f86452e2cb6f684616b7d3e5f7984abd74714750ef80c5d9
+        doc_struct_hash: sha256:775384f83fe6d4d7f86452e2cb6f684616b7d3e5f7984abd74714750ef80c5d9
+        lines: [21, 26]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#materialTools
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: materialTools
-        hash: sha256:003bbd1c34dff6df8d3372e217374a1f404ccb8d20f907d55c38f4cf04286430
-        struct_hash: sha256:702c5fc4ce4e8bde1f8ae0ab2f07c14c9877a9288c24d0ee7f08f6356c04a138
-        doc_struct_hash: sha256:702c5fc4ce4e8bde1f8ae0ab2f07c14c9877a9288c24d0ee7f08f6356c04a138
-        lines: [27, 44]
+        hash: sha256:0290c93d7a350648cfd0fca14e66ab317ac5243e0a624cbd00aa1f5683204b04
+        struct_hash: sha256:229302200c28f835e5ccceedea415c39f3d338a6e91e841b36b295c48e0691ae
+        doc_struct_hash: sha256:229302200c28f835e5ccceedea415c39f3d338a6e91e841b36b295c48e0691ae
+        lines: [28, 45]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#startMaterialAnalysis
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: startMaterialAnalysis
-        hash: sha256:c453334bb9cc8bbe37283c0704ef5ef59ccc030d7ff211e884767cc70894efcb
-        struct_hash: sha256:0de4d8ab5e62e22077c704cef5c99f29ff3c3633e5a704b903ef0816629ee870
-        doc_struct_hash: sha256:0de4d8ab5e62e22077c704cef5c99f29ff3c3633e5a704b903ef0816629ee870
-        lines: [46, 93]
+        hash: sha256:b2d576f215d1187369ba7348c181780dffb9e4b9f94d45814ba934c7051ce2df
+        struct_hash: sha256:d14fcda64e3cc2b13378c90e8044cee1363c680d67305ef502cdab5249c51be8
+        doc_struct_hash: sha256:d14fcda64e3cc2b13378c90e8044cee1363c680d67305ef502cdab5249c51be8
+        lines: [47, 95]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#pickMaterialWorker
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: pickMaterialWorker
-        hash: sha256:46b66663b23d60a0c1992fb8d381fa4c09a6d53398d947b03c3b24c7310e03a6
-        struct_hash: sha256:1ce87d2a24b5db26298a729fefab070896594b0469a7ee912e883d7acadc1965
-        doc_struct_hash: sha256:1ce87d2a24b5db26298a729fefab070896594b0469a7ee912e883d7acadc1965
-        lines: [95, 145]
+        hash: sha256:0acac592d19ae611f21f63e2933cfd64254f59fdcec128476260633f50a006e7
+        struct_hash: sha256:90c9c914eaab1717d1e1baf4b06eb6b42be0f2a20dc2e23f8f8f485186951b35
+        doc_struct_hash: sha256:90c9c914eaab1717d1e1baf4b06eb6b42be0f2a20dc2e23f8f8f485186951b35
+        lines: [97, 147]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#materialAnalysisPrompt
@@ -79,9 +79,9 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: materialAnalysisPrompt
-        hash: sha256:b5852ae589419de2f8327f8b444babce188f1c680e7810f266bb300c8b4fce8e
-        struct_hash: sha256:13badf050edff60ac68e4649a874660ee18be412f37c6689e2213838433382ed
-        doc_struct_hash: sha256:13badf050edff60ac68e4649a874660ee18be412f37c6689e2213838433382ed
-        lines: [147, 171]
+        hash: sha256:f56daef2e66973677e7bc791a9e6fc1a8a5f58b3ba273052793bd4ef36f75e1c
+        struct_hash: sha256:7308c4c25918bc520e98209230fc0f9dfa763d2b732bfab7bf311491b42d0380
+        doc_struct_hash: sha256:7308c4c25918bc520e98209230fc0f9dfa763d2b732bfab7bf311491b42d0380
+        lines: [149, 173]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/web/app.js
-        hash: sha256:8a3a446d01187704bfce043efd28041483b7c326589e2b95f1ab520ce78ff4bf
+        hash: sha256:c95417341fd1264ba24ad877551ee31f267f096be53cf6feda67cf4a812a6c39
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -15,7 +15,7 @@ nodes:
         symbol: esc
         hash: sha256:552be971e8ebf21667a339b7d226578bda83a350f8cfe88837ccec6c1c7cc5e2
         struct_hash: sha256:f201c70ba8485e645be20716df45a6e1b8014af788ffb51d3134fb3c32d9e521
-        lines: [65, 69]
+        lines: [67, 71]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#fmtTime
@@ -25,7 +25,7 @@ nodes:
         symbol: fmtTime
         hash: sha256:29ca1255aa17210b0a7898ae14b1a3124954960d9ea62949f443918e0c292573
         struct_hash: sha256:f19a8d980f1850c86aee1c06ab860ef24eab72728e7dcdde53371cfb7370aa45
-        lines: [71, 76]
+        lines: [73, 78]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#fmtClock
@@ -35,7 +35,7 @@ nodes:
         symbol: fmtClock
         hash: sha256:3c4fbe933bcad3d25499320e150d50d27e95ea83aef26fef3bad08ac56d28b4b
         struct_hash: sha256:98a97f54b1013a6978a4eb9997f28015a681abbd4260b90b67646d655e5b0606
-        lines: [78, 81]
+        lines: [80, 83]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#fmtBytes
@@ -45,7 +45,7 @@ nodes:
         symbol: fmtBytes
         hash: sha256:98887188091324665cab11b555007db369822a9b2dc011f66e9385077fb795ae
         struct_hash: sha256:c5925c7608b774ef2eab4d4cd997ccf8185798fa503b39e926ad3f457662e737
-        lines: [83, 89]
+        lines: [85, 91]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#parseIDs
@@ -55,7 +55,7 @@ nodes:
         symbol: parseIDs
         hash: sha256:c3a734c94a3df5970f7891694bfac05fcd9c546d4adc1c75042b8838e5ea45ff
         struct_hash: sha256:4dfda07bed2132da947901f200ebac2b802345320ff4a0f8a2ff32d5bbd48c57
-        lines: [91, 96]
+        lines: [93, 98]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#truncate
@@ -65,7 +65,7 @@ nodes:
         symbol: truncate
         hash: sha256:a10ced3990bf1ca3c4d75c4440100e5dd00830eadfbb5922229b7943e2cc16aa
         struct_hash: sha256:f79fc70c230d20ede8029bb8b48ee677676697782ffd4bbba843702a2ea8aa6b
-        lines: [98, 101]
+        lines: [100, 103]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#icon
@@ -75,7 +75,7 @@ nodes:
         symbol: icon
         hash: sha256:4a41ca4807de50004534d3f70171c80d761691f11cb3c356919e4320aaa1588c
         struct_hash: sha256:8af4a1f7ca93beea4bf83f590ed4e447de6e3ef6cd707eb07af66aacd06165e9
-        lines: [103, 105]
+        lines: [105, 107]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#addLog
@@ -85,7 +85,7 @@ nodes:
         symbol: addLog
         hash: sha256:805cfab05613de8ff66725d373ab76b5a12e48580f1845f4b3a1c454fcbe4d7f
         struct_hash: sha256:03e6f9f1a40fc9fe339fed56e5ace04d8783cdffd1c3e9be6881b47c968555e4
-        lines: [107, 111]
+        lines: [109, 113]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#api
@@ -95,7 +95,7 @@ nodes:
         symbol: api
         hash: sha256:2c707c01bbb58e6aa6e2aadb1fee3252af50bfb3650514cd70d6b30d26341de8
         struct_hash: sha256:db729b52f3a7f02c2859dc93712408291630717ff4eea15b30049ce6149771ac
-        lines: [113, 134]
+        lines: [115, 136]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderLogin
@@ -105,7 +105,7 @@ nodes:
         symbol: renderLogin
         hash: sha256:2f5906da155ffa96a255319374d7c90be4fa1fb3ec63869166ff59c7c047ad24
         struct_hash: sha256:603a975602b03ff22526fbe3753ab88376798032128ee5de5df520e210985b85
-        lines: [136, 151]
+        lines: [138, 153]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#navItems
@@ -115,7 +115,7 @@ nodes:
         symbol: navItems
         hash: sha256:99c19015e2ff24f42ecc4cb0b8cc00993efd764c3417a968907237289321d065
         struct_hash: sha256:ca7cb2dc4a05fa4795ae4154f680f4708e3d449b4395fcfed76753b074ddc4ea
-        lines: [153, 171]
+        lines: [155, 173]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderApp
@@ -125,7 +125,7 @@ nodes:
         symbol: renderApp
         hash: sha256:6a95aeda1cae0bd7026ed199393abcd3882b3f337979251eeb4cd8bce348f9b1
         struct_hash: sha256:6b745f725ece7b56bf699b2aeef01ebd27d5404cff6ae349914eeb480f2b67bf
-        lines: [173, 240]
+        lines: [175, 242]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#shortModel
@@ -135,7 +135,7 @@ nodes:
         symbol: shortModel
         hash: sha256:5f37ca5315755f8472d9747bc07bf53442902898b011a0592ec72ef2ca008750
         struct_hash: sha256:e3ea6e425f47c962ba9e18c0d07152c8ec7846b013c2c80368e67fae742520ee
-        lines: [242, 245]
+        lines: [244, 247]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderContent
@@ -145,7 +145,7 @@ nodes:
         symbol: renderContent
         hash: sha256:e6b9fd361aaa02b97551fe6fcf50e2fc58a3404ff2dd6e8f0014858a7207a3d0
         struct_hash: sha256:51dd0373ffdbd6f2d19c8cbf8b29cc91a0e452c6bf178468819a09357f9b5bcb
-        lines: [247, 288]
+        lines: [249, 290]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderCommandRoute
@@ -153,9 +153,9 @@ nodes:
       anchor:
         file: gateway/httpapi/web/app.js
         symbol: renderCommandRoute
-        hash: sha256:64999af283fa59447da2bfecfe5faec19e1de0d84624a7e97315304e17ccb0c5
-        struct_hash: sha256:bc5d18d699516f892e1616fa5a04042d9db74aa5b35a70786047379d7b6613fb
-        lines: [290, 327]
+        hash: sha256:46c57db80ecab19bd21fc9ae5e1d13a687b044c1175848b3d737013de136101d
+        struct_hash: sha256:8f10159f6b1505f0fce0af299fa411f31b3655e252250549b16823aed029745d
+        lines: [292, 336]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#metric
@@ -165,7 +165,7 @@ nodes:
         symbol: metric
         hash: sha256:657880251986984a0106cf8cf13463f5418863949a22fcc5e1fbf7d4a8361f22
         struct_hash: sha256:cbb0a69d6db3aa7963dbfbff7a1818ffbf51b08c0f0e05ab1f0543a228c904df
-        lines: [329, 336]
+        lines: [338, 345]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#queueSection
@@ -175,7 +175,7 @@ nodes:
         symbol: queueSection
         hash: sha256:1031c021c4230fcf9e1d5ee7ebed9b29fdac8d544a9e732d7fe75f2225f8a84b
         struct_hash: sha256:55ee2a735d3528e9dfab0ecb96c5125e432fe1f9bc9eb9719197d81da6cd5314
-        lines: [338, 349]
+        lines: [347, 358]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderMaterialRows
@@ -185,7 +185,7 @@ nodes:
         symbol: renderMaterialRows
         hash: sha256:406bba5798e565485bf95e95d47658bde90b7a0a3132429e008477bc85f8a47b
         struct_hash: sha256:e2f40f140b0b30dd0c98f38c8a59ef7381b836bd9f2aa60e31333fc9bab6e400
-        lines: [351, 372]
+        lines: [360, 381]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderTaskRows
@@ -193,8 +193,8 @@ nodes:
       anchor:
         file: gateway/httpapi/web/app.js
         symbol: renderTaskRows
-        hash: sha256:af50a3cf3af733af385e9945205581e486d17bcb9d5ebaef6858ef9db315e5a8
-        struct_hash: sha256:1cdb21846d9c60b4b4de1ea0a6055447468ef8765badfb5360001d3ae1dd9211
-        lines: [374, 395]
+        hash: sha256:98e6296bb04043f5205ed9483d5793c07bffb222891df4f1cf6993e478560310
+        struct_hash: sha256:405d32e84fd5ffb7c43269a6b4d844df089a31b14c80c3591d37626587bfd1d2
+        lines: [383, 404]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

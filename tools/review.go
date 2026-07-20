@@ -7,6 +7,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 // reviewBriefMaxProgress 简报里最多带多少条最近的过程记录。
@@ -77,19 +79,40 @@ func reviewTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				brief := buildReviewBrief(t, executor, progress, args.Note, d.TZ)
+				var fileIDs []int64
+				inputs, err := d.Store.TaskFileAttachments(ctx, t.ID)
+				if err != nil {
+					return "", err
+				}
+				for _, file := range inputs {
+					fileIDs = append(fileIDs, file.ID)
+				}
+				artifacts, err := d.Store.TaskArtifacts(ctx, t.ID)
+				if err != nil {
+					return "", err
+				}
+				for _, artifact := range artifacts {
+					fileIDs = append(fileIDs, artifact.File.ID)
+				}
+				runSpec := store.WorkerRunSpec{Executor: workerproto.ExecutorAgent}
+				if sourceRun, rerr := d.Store.LatestWorkerRunForTask(ctx, t.ID); rerr == nil {
+					runSpec.ScopeType = sourceRun.ScopeType
+					runSpec.ScopeKey = sourceRun.ScopeKey
+					runSpec.ScopeTitle = sourceRun.ScopeTitle
+				} else if !errors.Is(rerr, store.ErrNotFound) {
+					return "", rerr
+				}
 
-				rt, err := d.Store.CreateTask(ctx, &store.Task{
-					ProjectID:       t.ProjectID,
-					AssignerID:      u.ID,
-					AssigneeID:      reviewer.ID,
-					Title:           fmt.Sprintf("审核任务 %d：%s", t.ID, t.Title),
-					Goal:            "把关交付质量：核实交付是否真正满足验收标准，给出可执行的验收结论。",
-					Description:     brief,
-					Acceptance:      "完成汇报第一句必须是「建议通过」或「建议打回：<理由>」，并附核查依据。",
-					Priority:        "high",
-					WorkerScopeType: t.WorkerScopeType, WorkerScopeKey: t.WorkerScopeKey,
-					WorkerScopeTitle: t.WorkerScopeTitle,
-				})
+				rt, err := d.Store.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
+					ProjectID:   t.ProjectID,
+					AssignerID:  u.ID,
+					AssigneeID:  reviewer.ID,
+					Title:       fmt.Sprintf("审核任务 %d：%s", t.ID, t.Title),
+					Goal:        "把关交付质量：核实交付是否真正满足验收标准，给出可执行的验收结论。",
+					Description: brief,
+					Acceptance:  "完成汇报第一句必须是「建议通过」或「建议打回：<理由>」，并附核查依据。",
+					Priority:    "high",
+				}, fileIDs, "被审核任务的输入与产物", runSpec)
 				if err != nil {
 					return "", err
 				}

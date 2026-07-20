@@ -11,6 +11,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 type WorkflowTemplate struct {
@@ -258,7 +259,7 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 	if title == "" {
 		title = "升级 nbco 到 " + ref
 	}
-	t, err := createWorkerCommandTask(ctx, d, u, w, workerCommandTaskArgs{
+	run, err := createWorkerCommandRun(ctx, d, u, w, workerCommandRunArgs{
 		Title:       title,
 		Command:     command,
 		PTY:         false,
@@ -272,7 +273,7 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 	if err != nil {
 		return "", err
 	}
-	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「nbco 单 worker 升级」：创建任务（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一个 worker 任务里。", internalRef("任务", t.ID), w.Name)), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「nbco 单 worker 升级」：创建执行（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一条执行记录里。", internalRef("执行", run.ID), w.Name)), nil
 }
 
 func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw json.RawMessage) (string, error) {
@@ -321,18 +322,18 @@ func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw
 	if title == "" {
 		title = "修改 nbco：" + textTitle(goal, 32)
 	}
-	t, err := d.Store.CreateTask(ctx, &store.Task{
-		ProjectID:        pj.ID,
-		AssignerID:       u.ID,
-		AssigneeID:       w.ID,
-		Title:            title,
-		Goal:             "用一个可信 admin worker 完成 nbco 代码变更、验证与可选上线。",
-		Description:      nbcoCodeChangePrompt(goal, args.RepoDir, args.RepoURL, args.Branch, args.CommitPush, args.Deploy),
-		Acceptance:       "完成汇报必须包含：使用/创建的 agent session scope、源码位置、变更摘要、测试命令与结果、git 状态；如果 commit_push=true，包含提交与 push 结果；如果 deploy=true，包含部署命令、readyz、版本检查和失败回滚状态。",
-		Priority:         "high",
-		WorkerScopeType:  "repo",
-		WorkerScopeKey:   "repo:nbco",
-		WorkerScopeTitle: "NBCO codebase and deployment",
+	t, err := d.Store.CreateTaskWithWorkerRun(ctx, &store.Task{
+		ProjectID:   pj.ID,
+		AssignerID:  u.ID,
+		AssigneeID:  w.ID,
+		Title:       title,
+		Goal:        "用一个可信 admin worker 完成 nbco 代码变更、验证与可选上线。",
+		Description: nbcoCodeChangePrompt(goal, args.RepoDir, args.RepoURL, args.Branch, args.CommitPush, args.Deploy),
+		Acceptance:  "完成汇报必须包含：使用/创建的 agent session scope、源码位置、变更摘要、测试命令与结果、git 状态；如果 commit_push=true，包含提交与 push 结果；如果 deploy=true，包含部署命令、readyz、版本检查和失败回滚状态。",
+		Priority:    "high",
+	}, store.WorkerRunSpec{
+		Executor: workerproto.ExecutorAgent, ScopeType: "repo", ScopeKey: "repo:nbco",
+		ScopeTitle: "NBCO codebase and deployment",
 	})
 	if err != nil {
 		return "", err

@@ -3,7 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -14,12 +17,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 // fileTransferTimeout 单次文件收发的墙钟上限（兜底，防连接挂死；大文件不该被
 // 控制面的 30s 掐断）。
 const fileTransferTimeout = 30 * time.Minute
+
+var errWorkerLeaseLost = errors.New("worker execution lease lost")
+
+type httpStatusError struct {
+	Code int
+	Text string
+	Body string
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Text, e.Body)
+}
 
 // Client 调 nbco worker 接口。
 type Client struct {
@@ -116,22 +131,24 @@ func (c *Client) RegisterCapabilities(ctx context.Context, report CapabilityRepo
 	return c.post(ctx, "/api/worker/capabilities", report)
 }
 
-// Task 从 nbco 领到的任务。
-type Task struct {
-	ID               int64        `json:"id"`
-	ClaimID          string       `json:"claim_id"`
-	Title            string       `json:"title"`
-	Goal             string       `json:"goal"`
-	Description      string       `json:"description"`
-	Acceptance       string       `json:"acceptance"`
-	CompletionPolicy string       `json:"completion_policy"`
-	Command          string       `json:"command"`
-	CommandPTY       bool         `json:"command_pty"`
-	Attachments      []Attachment `json:"attachments"`
-	Session          SessionInfo  `json:"session"`
+// Run is one claimed execution. TaskID is present only for delegated business
+// work; direct commands have an independent execution lifecycle.
+type Run struct {
+	ID          int64                `json:"id"`
+	TaskID      *int64               `json:"task_id,omitempty"`
+	Executor    workerproto.Executor `json:"executor"`
+	ClaimID     string               `json:"claim_id"`
+	Title       string               `json:"title"`
+	Goal        string               `json:"goal"`
+	Description string               `json:"description"`
+	Acceptance  string               `json:"acceptance"`
+	Command     string               `json:"command"`
+	CommandPTY  bool                 `json:"command_pty"`
+	Attachments []Attachment         `json:"attachments"`
+	Session     SessionInfo          `json:"session"`
 }
 
-// SessionInfo is the server-owned topic context this task belongs to.
+// SessionInfo is the server-owned topic context this run belongs to.
 type SessionInfo struct {
 	ID               int64  `json:"id"`
 	Engine           string `json:"engine"`
@@ -143,7 +160,7 @@ type SessionInfo struct {
 	Summary          string `json:"summary,omitempty"`
 }
 
-// Attachment 是服务端随任务下发的文件附件。
+// Attachment 是服务端随执行下发的文件快照。
 type Attachment struct {
 	ID           int64  `json:"id"`
 	OriginalName string `json:"original_name"`
@@ -156,9 +173,9 @@ type Attachment struct {
 	LocalPath    string `json:"-"`
 }
 
-// Next 认领下一个任务；无任务返回全 nil。knowledge 是相关历史经验，
-// history 是该任务已有的过程记录（返工时含验收打回理由）。
-func (c *Client) Next(ctx context.Context, engine string) (*Task, []string, []string, error) {
+// Next 认领下一个执行；无待执行项时返回全 nil。knowledge 是相关历史经验，
+// history 是关联业务任务已有的过程记录（返工时含验收打回理由）。
+func (c *Client) Next(ctx context.Context, engine string) (*Run, []string, []string, error) {
 	u := c.base + "/api/worker/next"
 	if strings.TrimSpace(engine) != "" {
 		u += "?engine=" + url.QueryEscape(strings.TrimSpace(engine))
@@ -177,14 +194,18 @@ func (c *Client) Next(ctx context.Context, engine string) (*Task, []string, []st
 		return nil, nil, nil, c.errStatus(resp)
 	}
 	var body struct {
-		Task      Task     `json:"task"`
+		Run       Run      `json:"run"`
+		Legacy    Run      `json:"task"`
 		Knowledge []string `json:"knowledge"`
 		History   []string `json:"history"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, nil, nil, err
 	}
-	return &body.Task, body.Knowledge, body.History, nil
+	if body.Run.ID == 0 {
+		body.Run = body.Legacy
+	}
+	return &body.Run, body.Knowledge, body.History, nil
 }
 
 // llmCallTimeout 单次模型调用的墙钟上限（走 files client，不受 30s 控制面超时限制）。
@@ -231,53 +252,61 @@ func (c *Client) LLM(ctx context.Context, messages []chatMessage, tools []map[st
 }
 
 // Progress 回传一段执行进度。
-func (c *Client) Progress(ctx context.Context, taskID int64, claimID, content string) error {
-	return c.post(ctx, "/api/worker/progress", map[string]any{"task_id": taskID, "claim_id": claimID, "content": content})
+func (c *Client) Progress(ctx context.Context, runID int64, claimID, content string) error {
+	return c.post(ctx, "/api/worker/progress", map[string]any{"run_id": runID, "task_id": runID, "claim_id": claimID, "content": content})
 }
 
-func (c *Client) UpdateSession(ctx context.Context, taskID int64, claimID string, session SessionInfo, workdir string) error {
+func (c *Client) Heartbeat(ctx context.Context, runID int64, claimID string) error {
+	err := c.post(ctx, "/api/worker/heartbeat", map[string]any{"run_id": runID, "claim_id": claimID})
+	var statusErr *httpStatusError
+	if errors.As(err, &statusErr) && statusErr.Code == http.StatusConflict {
+		return errWorkerLeaseLost
+	}
+	return err
+}
+
+func (c *Client) UpdateSession(ctx context.Context, runID int64, claimID string, session SessionInfo, workdir string) error {
 	return c.post(ctx, "/api/worker/session", map[string]any{
-		"task_id": taskID, "claim_id": claimID,
+		"run_id": runID, "task_id": runID, "claim_id": claimID,
 		"worker_session_id": session.ID, "session_summary": session.Summary,
 		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
 	})
 }
 
-// RequestInput asks the task assigner for missing information without marking
-// the task as done. The server pauses the task and releases the claim until the
-// assigner updates or reassigns it, so it cannot be reclaimed as a stale run.
-func (c *Client) RequestInput(ctx context.Context, taskID int64, claimID, content string, session SessionInfo, workdir string) error {
-	return c.post(ctx, "/api/worker/request-input", map[string]any{
-		"task_id": taskID, "claim_id": claimID, "content": content,
+// RequestInput asks the assigner for missing information. The server releases
+// the run lease and, for business work, pauses its linked task until revision.
+func (c *Client) RequestInput(ctx context.Context, runID int64, claimID, content string, session SessionInfo, workdir string) error {
+	return c.postFinal(ctx, "/api/worker/request-input", map[string]any{
+		"run_id": runID, "task_id": runID, "claim_id": claimID, "content": content,
 		"worker_session_id": session.ID, "session_summary": "等待补充：" + strings.TrimSpace(content),
 		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
 	})
 }
 
-// Fail releases a task claim through the server's durable retry policy. Session
+// Fail releases a run claim through the server's durable retry policy. Session
 // metadata is sent as well so a later retry can resume the same native CLI
 // conversation and workspace instead of starting over.
-func (c *Client) Fail(ctx context.Context, taskID int64, claimID, cause string, session SessionInfo, workdir string) error {
-	return c.post(ctx, "/api/worker/fail", map[string]any{
-		"task_id": taskID, "claim_id": claimID, "error": cause,
+func (c *Client) Fail(ctx context.Context, runID int64, claimID, cause string, session SessionInfo, workdir string) error {
+	return c.postFinal(ctx, "/api/worker/fail", map[string]any{
+		"run_id": runID, "task_id": runID, "claim_id": claimID, "error": cause,
 		"worker_session_id": session.ID, "session_summary": "最近执行失败：" + strings.TrimSpace(cause),
 		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
 	})
 }
 
 type SubmissionResult struct {
-	Outcome  taskflow.ExecutionOutcome
+	Outcome  workerproto.Outcome
 	ExitCode *int
 }
 
 // Submit reports an execution-neutral outcome. ExitCode is optional evidence;
 // task completion behavior is owned by the server-side completion policy.
-func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, lessons string, session SessionInfo, workdir string, result SubmissionResult) error {
+func (c *Client) Submit(ctx context.Context, runID int64, claimID, summary, lessons string, session SessionInfo, workdir string, result SubmissionResult) error {
 	if !result.Outcome.Valid() {
 		return fmt.Errorf("invalid submission outcome %q", result.Outcome)
 	}
 	payload := map[string]any{
-		"task_id": taskID, "claim_id": claimID, "summary": summary, "lessons": lessons,
+		"run_id": runID, "task_id": runID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 		"worker_session_id": session.ID, "session_summary": sessionSummary(summary, lessons),
 		"engine_session_ref": session.EngineSessionRef, "workdir": workdir,
 		"outcome": result.Outcome,
@@ -285,7 +314,7 @@ func (c *Client) Submit(ctx context.Context, taskID int64, claimID, summary, les
 	if result.ExitCode != nil {
 		payload["exit_code"] = *result.ExitCode
 	}
-	return c.post(ctx, "/api/worker/submit", payload)
+	return c.postFinal(ctx, "/api/worker/submit", payload)
 }
 
 func sessionSummary(summary, lessons string) string {
@@ -340,9 +369,9 @@ func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
 }
 
 // UploadArtifact 上传一个已安全打开的产物文件（r 通常是校验过的 *os.File）。
-// task_id/claim_id 走 query（而非 multipart 字段），服务端可在解析文件体之前
-// 就校验 claim、拒绝时不把大文件 spool 到临时盘。
-func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, name string, r io.Reader) error {
+// run_id/claim_id 走 query（task_id 是滚动升级兼容别名），服务端可在解析
+// 文件体之前校验 claim，拒绝时不把大文件 spool 到临时盘。
+func (c *Client) UploadArtifact(ctx context.Context, runID int64, claimID, name string, r io.Reader) error {
 	ctx, cancel := context.WithTimeout(ctx, fileTransferTimeout)
 	defer cancel()
 	pr, pw := io.Pipe()
@@ -363,7 +392,7 @@ func (c *Client) UploadArtifact(ctx context.Context, taskID int64, claimID, name
 		}
 		writeErr <- err
 	}()
-	q := url.Values{"task_id": {fmt.Sprint(taskID)}, "claim_id": {claimID}}
+	q := url.Values{"run_id": {fmt.Sprint(runID)}, "task_id": {fmt.Sprint(runID)}, "claim_id": {claimID}}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts?"+q.Encode(), pr)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	c.auth(req)
@@ -403,9 +432,55 @@ func (c *Client) post(ctx context.Context, path string, payload any) error {
 	return nil
 }
 
+func (c *Client) postFinal(ctx context.Context, path string, payload map[string]any) error {
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return fmt.Errorf("生成最终化请求编号: %w", err)
+	}
+	payload["finalization_id"] = hex.EncodeToString(raw[:])
+	buf, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(buf))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		c.auth(req)
+		resp, err := c.http.Do(req)
+		if err == nil {
+			if resp.StatusCode == http.StatusOK {
+				_, _ = io.Copy(io.Discard, resp.Body)
+				_ = resp.Body.Close()
+				return nil
+			}
+			lastErr = c.errStatus(resp)
+			_ = resp.Body.Close()
+			if resp.StatusCode < 500 {
+				return lastErr
+			}
+		} else {
+			lastErr = err
+		}
+		if attempt < 2 {
+			timer := time.NewTimer(time.Duration(attempt+1) * 250 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return lastErr
+}
+
 func (c *Client) auth(req *http.Request) { req.Header.Set("Authorization", "Bearer "+c.token) }
 
 func (c *Client) errStatus(resp *http.Response) error {
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
-	return fmt.Errorf("%s: %s", resp.Status, strings.TrimSpace(string(b)))
+	return &httpStatusError{Code: resp.StatusCode, Text: resp.Status, Body: strings.TrimSpace(string(b))}
 }

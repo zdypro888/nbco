@@ -9,6 +9,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 // MaterialLearningMarker 是材料分析工具与 httpapi 之间的约定协议串：worker 汇报里
@@ -75,16 +76,17 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 	if title == "" {
 		title = "整理公司资料"
 	}
-	t, err := d.Store.CreateTaskWithFileAttachments(ctx, &store.Task{
+	t, err := d.Store.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
-		Title:           title,
-		Goal:            "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
-		Description:     materialAnalysisPrompt(instruction),
-		Acceptance:      "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
-		Priority:        "high",
-		WorkerScopeType: "materials", WorkerScopeKey: "materials:company-intelligence",
-		WorkerScopeTitle: "Company material analysis",
-	}, args.FileIDs, "公司资料分析输入")
+		Title:       title,
+		Goal:        "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
+		Description: materialAnalysisPrompt(instruction),
+		Acceptance:  "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
+		Priority:    "high",
+	}, args.FileIDs, "公司资料分析输入", store.WorkerRunSpec{
+		Executor: workerproto.ExecutorAgent, ScopeType: "materials",
+		ScopeKey: "materials:company-intelligence", ScopeTitle: "Company material analysis",
+	})
 	if err != nil {
 		return "", err
 	}

@@ -746,7 +746,7 @@ func (s *Scheduler) nudgeDirective(ctx context.Context, t *store.Task, u *store.
 		t.ID, t.Title, s.fmtTime(*t.Deadline), int(nudgeInterval.Hours()))
 	b.WriteString("请先用工具核实该任务最新状态、进度、清单与分配关系；最终回复会作为主动消息直接推送给执行人（当前用户）。\n")
 	b.WriteString("根据下面的情境自行决定语气、长度和结构：如果对方可能卡住，问清具体卡点；如果多次催办仍无进展，提醒影响并建议联系分配者调整任务、期限或资源。不要套固定模板。\n")
-	fmt.Fprintf(&b, "任务类型：%s；累计催办：%d 次。\n", store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand), t.NudgeCount)
+	fmt.Fprintf(&b, "任务类型：%s；累计催办：%d 次。\n", store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, ""), t.NudgeCount)
 	if st, err := s.store.StatsOfAssignee(ctx, u.ID); err == nil {
 		fmt.Fprintf(&b, "执行人近期履历：在办 %d，当前过期 %d，待验收 %d，累计通过 %d", st.Open, st.OverdueNow, st.Awaiting, st.Accepted)
 		if st.AcceptedWithDeadline > 0 {
@@ -754,7 +754,7 @@ func (s *Scheduler) nudgeDirective(ctx context.Context, t *store.Task, u *store.
 		}
 		b.WriteByte('\n')
 	}
-	kind := store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand)
+	kind := store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, "")
 	if out, err := s.store.TaskOutcomeStatsFor(ctx, u.ID, kind); err == nil && out.Total() > 0 {
 		fmt.Fprintf(&b, "同类任务验收结果：通过 %d / 总计 %d。\n", out.Accepted, out.Total())
 	}

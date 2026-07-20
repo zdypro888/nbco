@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 // 内置智能体（engine=builtin）：工作机上没有 claude/codex 时，worker 自己就是
@@ -100,14 +100,14 @@ func agentSystemPrompt(name string) string {
 
 // agentTaskText 智能体的任务输入：正文与 CLI 路径共用，收尾走 task_done 工具
 // 而非屏幕哨兵。
-func agentTaskText(task *Task, knowledge, history []string) string {
+func agentTaskText(task *Run, knowledge, history []string) string {
 	return taskBrief(task, knowledge, history) +
 		"\n请从摸清现状开始，用 run_command 逐步完成并验证；缺关键外部信息时 request_input，否则最后 task_done 提交。"
 }
 
 // executeBuiltin 内置智能体主循环：模型决策 → 本机执行 → 结果喂回，直到
 // task_done 或达到步数上限。进度、产物上传、提交验收全部复用 CLI 路径的机制。
-func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Task, knowledge, history []string, dir string) {
+func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledge, history []string, dir string) {
 	msgs := []chatMessage{
 		{Role: "system", Content: agentSystemPrompt(w.cfg.WorkerName)},
 		{Role: "user", Content: agentTaskText(task, knowledge, history)},
@@ -245,7 +245,7 @@ func compactTranscript(msgs []chatMessage) {
 }
 
 // agentRunCommand 执行模型请求的命令并把结果整理成工具答复（同时回传进度）。
-func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Task, dir, rawArgs string) string {
+func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Run, dir, rawArgs string) string {
 	var args struct {
 		Command    string `json:"command"`
 		TimeoutSec int    `json:"timeout_sec"`
@@ -282,10 +282,14 @@ func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Task, dir, r
 }
 
 // submitAgent 收尾：上传产物、拼报告、提交结果（与 CLI 路径同一套约定）。
-func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Task, dir, summary, lessons string) {
+func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Run, dir, summary, lessons string) {
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
+	if w.killed() {
+		log.Printf("执行 #%d 在上传产物时被取消", task.ID)
+		return
+	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir,
-		SubmissionResult{Outcome: taskflow.ExecutionSucceeded}); err != nil {
+		SubmissionResult{Outcome: workerproto.OutcomeSucceeded}); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交内置智能体任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/capabilities.go
-        hash: sha256:b0555a4b8ae2bba2483a5a40ad719a2bc0721c35fd09b6f39b3ab52f6336d41d
+        hash: sha256:f493a9d96158486a9854c10f98981398b2fb44b2d0e5f0a9b3e37447e4f25094
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/capabilities.go
         symbol: collectCapabilities
-        hash: sha256:4ca859d422eab32a0bf1e28a83175d2398a468e505e67c1c8fdee4b14eddb1b6
-        struct_hash: sha256:3ca56862cccd0bf9b055710b4346cbdc59446d03b6d9fbd0a29cd0817c0a21af
-        doc_struct_hash: sha256:3ca56862cccd0bf9b055710b4346cbdc59446d03b6d9fbd0a29cd0817c0a21af
+        hash: sha256:2ab5a47511cba35cfb14ee38413ae4ec1c31c45a11b5518a8ba7304cea2d7ad2
+        struct_hash: sha256:5089e6f888da3ee45845d512f19bb5d3bbf65edb216ba9708fe246d0a7617181
+        doc_struct_hash: sha256:5089e6f888da3ee45845d512f19bb5d3bbf65edb216ba9708fe246d0a7617181
         lines: [13, 55]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

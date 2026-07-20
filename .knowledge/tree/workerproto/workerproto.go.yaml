@@ -1,0 +1,120 @@
+schema: 1
+nodes:
+    - id: workerproto/workerproto.go
+      level: file
+      anchor:
+        file: workerproto/workerproto.go
+        hash: sha256:89893f37532ae97418719237bdedc96cc6cd60957b3cc91067f802d6ee5dda33
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#Executor
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: Executor
+        hash: sha256:855e14820d5dea079515233f95104bc7e6fa3229239f7eb66b234d8b003f7269
+        struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
+        doc_struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
+        lines: [8, 8]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#ExecutorAgent
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: ExecutorAgent
+        hash: sha256:0febf2391f9d1c51e050060d2af1e552f72b30f6ac2ec624ca5b3568b8727281
+        struct_hash: sha256:8b2c24261f5c9ced5e526e30878455d4c03525a70d8bb02e0a21b1d3904c522b
+        doc_struct_hash: sha256:8b2c24261f5c9ced5e526e30878455d4c03525a70d8bb02e0a21b1d3904c522b
+        lines: [11, 11]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#ExecutorCommand
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: ExecutorCommand
+        hash: sha256:b21f4d35921ffe8a881214d7e00a9a4fa463f19de2f04e794a2dfb4dc4d2e5d8
+        struct_hash: sha256:79962d08a23352d7e6574890e2e260d0bb5f0d8032ec1a8e24d75675a7bed704
+        doc_struct_hash: sha256:79962d08a23352d7e6574890e2e260d0bb5f0d8032ec1a8e24d75675a7bed704
+        lines: [12, 12]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#ParseExecutor
+      level: function
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: ParseExecutor
+        hash: sha256:6ffffe09e0e39d25ffefbe335decedd9ebe46a1066f2056a26851e833c540c3f
+        struct_hash: sha256:9c0e722f1986e4f6949234a813da70b381d16908a85047258ca971cb85ba5217
+        doc_struct_hash: sha256:9c0e722f1986e4f6949234a813da70b381d16908a85047258ca971cb85ba5217
+        lines: [15, 21]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#Executor.Valid
+      level: function
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: Executor.Valid
+        hash: sha256:f92739118ea03f0ed6a6d958420fb89e0d327ccf4b74c42ef4f7893d515a7286
+        struct_hash: sha256:0b9f9c84367421587e3146128b59f626e42b55c519e17e7f1be0f798d6ffb833
+        doc_struct_hash: sha256:0b9f9c84367421587e3146128b59f626e42b55c519e17e7f1be0f798d6ffb833
+        lines: [23, 25]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#Outcome
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: Outcome
+        hash: sha256:e4004b42409337edb363bd95df2befae6ebab34fa25e8e1d1610ab527e9d1a9f
+        struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
+        doc_struct_hash: sha256:f74a764ca2f52fadedb187e4617799f6c841a4d0b82faa40eb9763001afde57c
+        lines: [27, 27]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#OutcomeSucceeded
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: OutcomeSucceeded
+        hash: sha256:80dad2140cf222626995a869956fa5a792068b204ad378b1a634e06c1e5de668
+        struct_hash: sha256:37116c78fffc55eed82475129fd8f72bdf008c9625dbfa7eee0c1c628350d20c
+        doc_struct_hash: sha256:37116c78fffc55eed82475129fd8f72bdf008c9625dbfa7eee0c1c628350d20c
+        lines: [30, 30]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#OutcomeFailed
+      level: decl
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: OutcomeFailed
+        hash: sha256:c0c980e2662b7b263f30d59da272a7cc44587bf97bc3618f36c9db56e0e3dc4e
+        struct_hash: sha256:58e3f28257335ccd16bd738029b185b6f02b78547fe8584ab8ec11099efee2c7
+        doc_struct_hash: sha256:58e3f28257335ccd16bd738029b185b6f02b78547fe8584ab8ec11099efee2c7
+        lines: [31, 31]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#ParseOutcome
+      level: function
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: ParseOutcome
+        hash: sha256:71c953d957efcbf087a329cd49577bbb3c015b7bed2f4101e869d416c9dbb72c
+        struct_hash: sha256:97d37a9339d50091eb445db641258a5a0acd252c6945668b1ca1ed834c300556
+        doc_struct_hash: sha256:97d37a9339d50091eb445db641258a5a0acd252c6945668b1ca1ed834c300556
+        lines: [34, 40]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto.go#Outcome.Valid
+      level: function
+      anchor:
+        file: workerproto/workerproto.go
+        symbol: Outcome.Valid
+        hash: sha256:bbdde43723e9cb1a3c452dfd1cd8721b4aea291f6a0f43df4edd805c11c6c8e4
+        struct_hash: sha256:09aa1371f2088730352d201968a370646a0fd84f46105d4b8c479b9179199eb5
+        doc_struct_hash: sha256:09aa1371f2088730352d201968a370646a0fd84f46105d4b8c479b9179199eb5
+        lines: [42, 44]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z

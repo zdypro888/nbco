@@ -400,7 +400,7 @@ func TestMilestoneDeadlineClaims(t *testing.T) {
 	}
 }
 
-// TestReassignTaskPreservesHistory 改派保留进度历史 + 状态/claim 重置。
+// TestReassignTaskPreservesHistory 改派保留进度历史并重置业务状态。
 func TestReassignTaskPreservesHistory(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -438,10 +438,6 @@ func TestReassignTaskPreservesHistory(t *testing.T) {
 	}
 	if len(prog) != 1 || prog[0].Content != "已调研，待实施" {
 		t.Errorf("改派后进度历史应保留, got %+v", prog)
-	}
-	// claim 字段清空（新执行人可立即领取）。
-	if tk.WorkerClaimID != "" {
-		t.Errorf("改派后 worker_claim_id 应清空, got %q", tk.WorkerClaimID)
 	}
 	if tk.NudgeCount != 0 {
 		t.Errorf("改派后 nudge_count 应重置, got %d", tk.NudgeCount)

@@ -596,6 +596,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if args.Goal == nil && args.Description == nil && args.Acceptance == nil && strings.TrimSpace(args.Deadline) == "" {
 					return "没有提供要修改的任务内容。", nil
 				}
+				activeRun, _ := d.Store.ActiveWorkerRunForTask(ctx, t.ID)
 				deadline, derr := parseDeadline(args.Deadline, d.TZ)
 				if derr != nil {
 					return derr.Error(), nil
@@ -611,8 +612,8 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					switch t.Status {
 					case store.TaskInProgress:
 						_ = d.Store.AddProgress(ctx, t.ID, u.ID, "✏️ 任务要求已更新：请按最新目标/描述/验收标准重新执行。")
-						if d.Workers != nil {
-							d.Workers.Cancel(au.ID, t.ID)
+						if d.Workers != nil && activeRun != nil {
+							d.Workers.Cancel(au.ID, activeRun.ID)
 						}
 						wakeWorker(d, au)
 						return "已更新；AI 员工当前执行已终止，将按新要求重新领取。", nil
@@ -732,6 +733,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if !access.CanManage {
 					return "只有任务分配者或超级管理员能取消任务。", nil
 				}
+				activeRun, _ := d.Store.ActiveWorkerRunForTask(ctx, task.ID)
 				var replacement *int64
 				if args.SupersededBy > 0 {
 					replacement = &args.SupersededBy
@@ -747,9 +749,9 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 						return "", err
 					}
 				}
-				if d.Workers != nil {
+				if d.Workers != nil && activeRun != nil {
 					if owner, uerr := d.Store.UserByID(ctx, task.AssigneeID); uerr == nil && owner.IsWorker {
-						d.Workers.Cancel(owner.ID, task.ID)
+						d.Workers.Cancel(owner.ID, activeRun.ID)
 					}
 				}
 				recipients := map[int64]bool{task.AssigneeID: true}
@@ -798,13 +800,14 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if t.AssignerID != u.ID {
 					return "只有分配者能删除任务。", nil
 				}
+				activeRun, _ := d.Store.ActiveWorkerRunForTask(ctx, t.ID)
 				if err := d.Store.DeleteTask(ctx, t.ID); err != nil {
 					return "", err
 				}
 				// 执行人是 worker 且正在干这单：推实时取消，终止执行。
-				if d.Workers != nil {
+				if d.Workers != nil && activeRun != nil {
 					if au, uerr := d.Store.UserByID(ctx, t.AssigneeID); uerr == nil && au.IsWorker {
-						d.Workers.Cancel(au.ID, t.ID)
+						d.Workers.Cancel(au.ID, activeRun.ID)
 					}
 				}
 				return "已删除。", nil
@@ -847,6 +850,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "任务已提交待验收，改派会丢失验收记录；如要换人请先 reject_task 打回。", nil
 				}
 				oldAssigneeID := t.AssigneeID
+				activeRun, _ := d.Store.ActiveWorkerRunForTask(ctx, t.ID)
 				autoPickNote := ""
 				if args.AssigneeID == 0 {
 					picked, note, perr := pickWorkerAssignee(ctx, d, u, t.Title, t.Description, t.Acceptance)
@@ -876,17 +880,16 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if r := strings.TrimSpace(args.Reason); r != "" {
 					note += " 原因：" + r
 				}
-				// 先清 claim + 换人（ReassignTask 把 worker_claim_id 置空、状态回 pending）：
-				// 旧执行人的 submit/add_progress 是 claim 守卫的，claim 一空就写不进，杜绝竞态。
-				// 再 Cancel 只是让在跑的进程停手——顺序与 update_assigned_task 一致。
+				// 改派与旧 Worker Run 取消在同一事务内完成；旧租约随后无法再写进度或提交。
+				// WebSocket Cancel 只负责尽快停掉已在跑的本地进程。
 				t, err = d.Store.ReassignTaskWithProgress(ctx, t.ID, args.AssigneeID, u.ID, note)
 				if err != nil {
 					return "", err
 				}
 				// 只关 orphaned_task 决策（改派解决的正是孤儿状态）；overdue_task 可能仍有效，保留。
 				closeTaskDecisionsByKind(ctx, d, t.AssignerID, t.ID, "orphaned_task")
-				if oldAu, uerr := d.Store.UserByID(ctx, oldAssigneeID); uerr == nil && oldAu.IsWorker && d.Workers != nil {
-					d.Workers.Cancel(oldAu.ID, t.ID)
+				if oldAu, uerr := d.Store.UserByID(ctx, oldAssigneeID); uerr == nil && oldAu.IsWorker && d.Workers != nil && activeRun != nil {
+					d.Workers.Cancel(oldAu.ID, activeRun.ID)
 				}
 				// 通知新旧双方，唤醒新执行人。
 				notifyQuiet(ctx, d, oldAssigneeID,
@@ -1029,9 +1032,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: args.AssigneeID,
 					Title: args.Title, Goal: args.Goal, Description: args.Description,
 					Acceptance: args.Acceptance, Priority: args.Priority, Deadline: deadline,
-					DependsOn:       args.DependsOn,
-					WorkerScopeType: "project", WorkerScopeKey: fmt.Sprintf("project:%d", pj.ID),
-					WorkerScopeTitle: pj.Name,
+					DependsOn: args.DependsOn,
 				}, participantInputs, u.ID, args.AllowParallel)
 				if err != nil {
 					switch {
@@ -1376,7 +1377,7 @@ func recordTaskOutcome(ctx context.Context, d Deps, t *store.Task, reviewerID in
 	if d.Store == nil || t == nil {
 		return
 	}
-	kind := store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, t.WorkerCommand)
+	kind := store.InferTaskKind(t.Title, t.Goal, t.Description, t.Acceptance, "")
 	if err := d.Store.RecordTaskOutcome(ctx, store.TaskOutcomeInput{
 		TaskID:     t.ID,
 		AssigneeID: t.AssigneeID,
@@ -1441,11 +1442,6 @@ func taskLine(t *store.Task, tz *time.Location) string {
 	if t.Priority != "" && t.Priority != "normal" {
 		line += " 优先级 " + t.Priority
 	}
-	if t.WorkerRetryAt != nil {
-		line += fmt.Sprintf(" Worker重试 %s（连续失败 %d 次）", fmtTime(*t.WorkerRetryAt, tz), t.WorkerFailures)
-	} else if t.WorkerFailures > 0 {
-		line += fmt.Sprintf(" Worker连续失败 %d 次", t.WorkerFailures)
-	}
 	return line
 }
 
@@ -1483,15 +1479,11 @@ func renderTaskDetail(ctx context.Context, d Deps, t *store.Task) (string, error
 	if t.Acceptance != "" {
 		fmt.Fprintf(&b, "验收标准: %s\n", t.Acceptance)
 	}
-	if t.WorkerCommand != "" {
-		mode := "pipe"
-		if t.WorkerCommandPTY {
-			mode = "pty"
+	if run, rerr := d.Store.LatestWorkerRunForTask(ctx, t.ID); rerr == nil {
+		fmt.Fprintf(&b, "Worker 执行: %s（%s，尝试 %d 次）\n", internalRef("执行", run.ID), run.Status, run.Attempts)
+		if strings.TrimSpace(run.LastError) != "" {
+			fmt.Fprintf(&b, "Worker 最近错误: %s\n", run.LastError)
 		}
-		fmt.Fprintf(&b, "Worker 命令(%s): %s\n", mode, t.WorkerCommand)
-	}
-	if strings.TrimSpace(t.WorkerLastError) != "" {
-		fmt.Fprintf(&b, "Worker 最近错误: %s\n", t.WorkerLastError)
 	}
 	items, err := d.Store.Checklist(ctx, t.ID)
 	if err != nil {

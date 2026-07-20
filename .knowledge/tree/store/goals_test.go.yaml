@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/goals_test.go
-        hash: sha256:84fdd1d91f3f7e932143b378af4dfb4c4cad496572fcf7ae40f9e7b32479b48c
+        hash: sha256:c954f42051470956be3086738215d36c1434dd43e621fb53c3f54ec2d255e345
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: store/goals_test.go
         symbol: TestReassignTaskPreservesHistory
-        hash: sha256:885d009bb4d827c2683a8b339b4f982d979055e3ea966120746bb48f6aa2d303
-        struct_hash: sha256:0a475ba647ad71de1c914e1e5c249123f18b9b183f83c2b6d2bc2fc29adc93cc
-        doc_struct_hash: sha256:27f8424ece6f7cde2848fc01905d6cb43492c7efce7ecf302fd42a7a064bc95f
-        lines: [403, 449]
+        hash: sha256:290a4d76458eda997c792f3e24a85c562b04df2fa75defe1d4f48bd10d23e5eb
+        struct_hash: sha256:a219e4c5eadc761aa65b15fd4a99bd4799a3022ff379097b3819bee5eabceff4
+        doc_struct_hash: sha256:d14ea1557d0ca7d0f26d20fc3551939317f978f39d51ae1817aa14cf707b7db0
+        lines: [403, 445]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/goals_test.go#TestReassignTaskRejectsTerminalStatuses
@@ -137,7 +137,7 @@ nodes:
         hash: sha256:b0726e27bc9b1f47f31a02c41cb3d8e58242fd2df587640f6d7e08011275abfe
         struct_hash: sha256:819f9731a7a985bd4db4a0cfc62ab332b109afc2265250da7caf7c53f513b9ef
         doc_struct_hash: sha256:e11f026e9d6468d569d63f161c5760fb4edf2e80cc6b1bc30b2f90125840bcea
-        lines: [451, 478]
+        lines: [447, 474]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/goals_test.go#TestAIUsageGoalAttribution
@@ -148,6 +148,6 @@ nodes:
         hash: sha256:3eec2370541b231cb7dbc24ba7761bbfd30a111325734dc497014b49b3f55469
         struct_hash: sha256:cc11fafff2a8e2e0f2238a51a2c99632c8d910eec77a5c5baab80a4f038cd273
         doc_struct_hash: sha256:8e495d94e26a71da1772ff604e0e5094e30ee8600e8f5df03dadcb49301bef5b
-        lines: [480, 529]
+        lines: [476, 525]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

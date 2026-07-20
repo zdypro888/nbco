@@ -422,9 +422,6 @@ func (s *Store) CreateMilestoneTasks(ctx context.Context, subs []*Task) ([]*Task
 	defer func() { _ = tx.Rollback(ctx) }()
 	created := make([]*Task, 0, len(subs))
 	for _, t := range subs {
-		if !normalizeTaskCompletionPolicy(t) {
-			return nil, ErrConflict
-		}
 		deps, ok := normalizeTaskDeps(t.DependsOn)
 		if !ok {
 			return nil, ErrNotFound
@@ -455,11 +452,14 @@ func (s *Store) CreateMilestoneTasks(ctx context.Context, subs []*Task) ([]*Task
 			}
 		}
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, completion_policy, worker_command, worker_command_pty, priority, deadline, depends_on, milestone_id)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING `+taskCols,
-			t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, t.CompletionPolicy, t.WorkerCommand, t.WorkerCommandPTY, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, depends_on, milestone_id)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING `+taskCols,
+			t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
 		ct, err := scanTask(row)
 		if err != nil {
+			return nil, err
+		}
+		if _, err := enqueueTaskWorkerRunTx(ctx, tx, ct, nil); err != nil {
 			return nil, err
 		}
 		created = append(created, ct)

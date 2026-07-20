@@ -114,8 +114,12 @@ func (l *wsLink) session(ctx context.Context) error {
 			default: // 已有待处理的唤醒，合并
 			}
 		case workerhub.MsgCancel:
+			id := m.RunID
+			if id == 0 {
+				id = m.TaskID
+			}
 			select {
-			case l.cancel <- m.TaskID:
+			case l.cancel <- id:
 			default:
 			}
 		}

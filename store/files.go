@@ -600,19 +600,36 @@ func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64,
 // one transaction. Workers poll independently, so a task must never become
 // claimable before the attachments required to execute it are visible.
 func (s *Store) CreateTaskWithFileAttachments(ctx context.Context, task *Task, fileIDs []int64, caption string) (*Task, error) {
+	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, nil)
+}
+
+func (s *Store) CreateTaskWithFileAttachmentsAndWorkerRun(ctx context.Context, task *Task, fileIDs []int64, caption string, spec WorkerRunSpec) (*Task, error) {
+	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, &spec)
+}
+
+func (s *Store) createTaskWithFileAttachments(ctx context.Context, task *Task, fileIDs []int64, caption string, spec *WorkerRunSpec) (*Task, error) {
+	for _, fileID := range fileIDs {
+		if fileID <= 0 {
+			return nil, ErrNotFound
+		}
+	}
+	fileIDs = uniquePositiveIDs(fileIDs)
+	if len(fileIDs) > 0 {
+		if spec == nil {
+			spec = &WorkerRunSpec{}
+		}
+		spec.FileIDs = append([]int64(nil), fileIDs...)
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	created, err := createTaskTx(ctx, tx, task)
+	created, err := createTaskTx(ctx, tx, task, spec)
 	if err != nil {
 		return nil, err
 	}
 	for _, fileID := range fileIDs {
-		if fileID <= 0 {
-			return nil, ErrNotFound
-		}
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
 			 VALUES ($1, 'file', $2, $3, $4) ON CONFLICT DO NOTHING`,
@@ -626,7 +643,16 @@ func (s *Store) CreateTaskWithFileAttachments(ctx context.Context, task *Task, f
 // AddTaskAttachmentFileOnce returns true only when a new relationship was
 // created. The database unique index makes this safe across concurrent turns.
 func (s *Store) AddTaskAttachmentFileOnce(ctx context.Context, taskID, fileID int64, caption string) (bool, error) {
-	tag, err := s.pool.Exec(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	current, err := lockTaskForInputChangeTx(ctx, tx, taskID)
+	if err != nil {
+		return false, err
+	}
+	tag, err := tx.Exec(ctx,
 		`INSERT INTO task_attachments (task_id, kind, file_ref, caption, file_id)
 		 VALUES ($1, 'file', $2, $3, $4)
 		 ON CONFLICT DO NOTHING`,
@@ -634,7 +660,13 @@ func (s *Store) AddTaskAttachmentFileOnce(ctx context.Context, taskID, fileID in
 	if err != nil {
 		return false, wrapErr(err)
 	}
-	return tag.RowsAffected() == 1, nil
+	if tag.RowsAffected() == 0 {
+		return false, tx.Commit(ctx)
+	}
+	if _, err := reviseTaskForInputChangeTx(ctx, tx, current); err != nil {
+		return false, err
+	}
+	return true, tx.Commit(ctx)
 }
 
 // TaskFileAttachments 返回任务上的真实文件附件；旧 file_ref-only 附件不在这里返回。
@@ -660,17 +692,17 @@ func (s *Store) TaskFileAttachments(ctx context.Context, taskID int64) ([]File, 
 	return out, rows.Err()
 }
 
-// WorkerCanSubmitArtifact 预校验：任务仍是该 worker 手上、in_progress、claim 匹配时
-// 才允许上传产物。用于「落盘前」拦截过期/伪造 claim，避免写孤儿 blob。
-func (s *Store) WorkerCanSubmitArtifact(ctx context.Context, taskID, workerID int64, claimID string) (bool, error) {
+// WorkerCanSubmitArtifact validates the exact active execution lease before a
+// multipart body is accepted.
+func (s *Store) WorkerCanSubmitArtifact(ctx context.Context, runID, workerID int64, claimID string) (bool, error) {
 	if claimID == "" {
 		return false, nil
 	}
 	var ok bool
 	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM tasks
-		   WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3)`,
-		taskID, workerID, claimID).Scan(&ok)
+		`SELECT EXISTS(SELECT 1 FROM worker_runs
+		   WHERE id = $1 AND worker_id = $2 AND status = 'claimed' AND claim_id = $3)`,
+		runID, workerID, claimID).Scan(&ok)
 	return ok, err
 }
 
@@ -682,7 +714,8 @@ func (s *Store) DeleteOrphanFileRow(ctx context.Context, fileID int64) error {
 	_, err := s.pool.Exec(ctx,
 		`DELETE FROM files WHERE id = $1
 		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
-		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)`, fileID)
+		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)
+		   AND NOT EXISTS(SELECT 1 FROM worker_run_files WHERE file_id = $1)`, fileID)
 	return err
 }
 
@@ -693,7 +726,8 @@ func (s *Store) DeleteUnreferencedFile(ctx context.Context, fileID int64) error 
 	tag, err := s.pool.Exec(ctx,
 		`DELETE FROM files WHERE id = $1
 		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
-		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)`, fileID)
+		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)
+		   AND NOT EXISTS(SELECT 1 FROM worker_run_files WHERE file_id = $1)`, fileID)
 	if err != nil {
 		return wrapErr(err)
 	}
@@ -706,20 +740,48 @@ func (s *Store) DeleteUnreferencedFile(ctx context.Context, fileID int64) error 
 	return ErrConflict
 }
 
-// AddWorkerArtifact 仅当 worker 仍持有同一 claim 时，把文件登记为任务产物。
-func (s *Store) AddWorkerArtifact(ctx context.Context, taskID, workerID int64, claimID string, fileID int64, caption string) error {
-	tag, err := s.pool.Exec(ctx,
-		`INSERT INTO task_artifacts (task_id, file_id, claim_id, created_by, caption)
-		 SELECT id, $4, $3, $2, $5 FROM tasks
-		 WHERE id = $1 AND assignee_id = $2 AND status = 'in_progress' AND worker_claim_id = $3`,
-		taskID, workerID, claimID, fileID, caption)
+// AddWorkerArtifact records the file against the run. Linked business tasks
+// also receive the artifact projection used by review and subsequent rework.
+func (s *Store) AddWorkerArtifact(ctx context.Context, runID, workerID int64, claimID string, fileID int64, caption string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	taskID, err := lockWorkerRunTx(ctx, tx, runID, workerID)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE worker_runs SET claimed_at = now(), updated_at = now()
+		 WHERE id = $1 AND worker_id = $2 AND status = 'claimed' AND claim_id = $3
+		`, runID, workerID, claimID); err != nil {
+		return wrapErr(err)
+	}
+	attemptTag, err := tx.Exec(ctx,
+		`UPDATE worker_run_attempts SET heartbeat_at = now(), updated_at = now()
+		 WHERE run_id = $1 AND worker_id = $2 AND claim_id = $3 AND status = 'claimed'`, runID, workerID, claimID)
 	if err != nil {
 		return wrapErr(err)
 	}
-	if tag.RowsAffected() == 0 {
+	if attemptTag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	return nil
+	fileTag, err := tx.Exec(ctx,
+		`INSERT INTO worker_run_files (run_id, file_id, role, caption, created_by)
+		 VALUES ($1,$2,'artifact',$3,$4) ON CONFLICT DO NOTHING`,
+		runID, fileID, caption, workerID)
+	if err != nil {
+		return wrapErr(err)
+	}
+	if taskID != nil && fileTag.RowsAffected() == 1 {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO task_artifacts (task_id, file_id, claim_id, created_by, caption)
+			 VALUES ($1,$2,$3,$4,$5)`, *taskID, fileID, claimID, workerID, caption); err != nil {
+			return wrapErr(err)
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // TaskArtifacts 返回任务产物。
@@ -771,26 +833,56 @@ func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin 
 		          SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $2
 		        )
 		      )
+		    UNION ALL
+		    SELECT 1 FROM worker_run_files rf JOIN worker_runs r ON r.id = rf.run_id
+		      WHERE rf.file_id = $1 AND (r.requested_by = $2 OR r.worker_id = $2)
 		)`, fileID, userID).Scan(&ok)
 	return ok, err
 }
 
-// WorkerCanDownloadFile 判断 worker 是否能用当前 claim 下载某个任务输入文件。
-// 输入包括原始任务附件，以及返工时上一轮提交过的产物。
-func (s *Store) WorkerCanDownloadFile(ctx context.Context, taskID, workerID int64, claimID string, fileID int64) (bool, error) {
+// WorkerCanDownloadFile accepts run-specific input/artifacts and, for linked
+// runs, the task's original inputs and prior rework artifacts.
+func (s *Store) WorkerCanDownloadFile(ctx context.Context, runID, workerID int64, claimID string, fileID int64) (bool, error) {
 	if claimID == "" {
 		return false, nil
 	}
 	var ok bool
 	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS(
-		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
-		    WHERE a.task_id = $1 AND a.file_id = $4
-		      AND t.assignee_id = $2 AND t.status = 'in_progress' AND t.worker_claim_id = $3
+		    SELECT 1 FROM worker_run_files rf JOIN worker_runs r ON r.id = rf.run_id
+		    WHERE rf.run_id = $1 AND rf.file_id = $4
+		      AND r.worker_id = $2 AND r.status = 'claimed' AND r.claim_id = $3
 		    UNION ALL
-		    SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
-		    WHERE a.task_id = $1 AND a.file_id = $4
-		      AND t.assignee_id = $2 AND t.status = 'in_progress' AND t.worker_claim_id = $3
-		)`, taskID, workerID, claimID, fileID).Scan(&ok)
+		    SELECT 1 FROM worker_runs r JOIN task_attachments a ON a.task_id = r.task_id
+		    WHERE r.id = $1 AND a.file_id = $4
+		      AND r.worker_id = $2 AND r.status = 'claimed' AND r.claim_id = $3
+		    UNION ALL
+		    SELECT 1 FROM worker_runs r JOIN task_artifacts a ON a.task_id = r.task_id
+		    WHERE r.id = $1 AND a.file_id = $4
+		      AND r.worker_id = $2 AND r.status = 'claimed' AND r.claim_id = $3
+		)`, runID, workerID, claimID, fileID).Scan(&ok)
 	return ok, err
+}
+
+// WorkerRunFiles returns direct run inputs or previously uploaded artifacts.
+func (s *Store) WorkerRunFiles(ctx context.Context, runID int64, role string) ([]File, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT f.id, f.source, f.original_name, f.mime_type, f.size_bytes, f.sha256,
+		        f.storage_path, f.created_by, f.created_at
+		 FROM worker_run_files rf JOIN files f ON f.id = rf.file_id
+		 WHERE rf.run_id = $1 AND ($2 = '' OR rf.role = $2)
+		 ORDER BY rf.id`, runID, strings.TrimSpace(role))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []File
+	for rows.Next() {
+		file, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *file)
+	}
+	return out, rows.Err()
 }

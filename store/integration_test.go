@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 func openTestStore(t *testing.T) *Store {
@@ -106,6 +106,10 @@ func mustExec(t *testing.T, s *Store, sql string, args ...any) {
 	if _, err := s.pool.Exec(context.Background(), sql, args...); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func testWorkerFinalization(claimID, payload string) WorkerRunFinalization {
+	return WorkerRunFinalization{ID: "test-" + claimID, Hash: "test-" + payload}
 }
 
 func TestBindKeyFlow(t *testing.T) {
@@ -454,11 +458,11 @@ func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T)
 		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != workerTask.ID {
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != workerTask.ID {
 		t.Fatalf("worker claim = %+v err=%v", claimed, err)
 	}
-	submitted, _, err := s.SubmitWorkerTask(ctx, workerTask.ID, worker.ID, claimed.WorkerClaimID, "done", taskflow.ExecutionSucceeded)
+	_, submitted, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "done", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "done"))
 	if err != nil || submitted.Status != TaskDone {
 		t.Fatalf("explicit reviewer must keep worker task awaiting review: %+v err=%v", submitted, err)
 	}
@@ -494,200 +498,125 @@ func TestTaskReviewersArePreservedAcrossWorkerAndCascadeSubmission(t *testing.T)
 	}
 }
 
-func TestWorkerSubmissionUsesCompletionPolicyAndOutcome(t *testing.T) {
+func TestReviewerChangeAndSubmissionStayConsistent(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	boss := mkUser(t, s, "boss", true)
 	reviewer := mkUser(t, s, "reviewer", false)
+	task := mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, boss.ID, "并发验收策略", nil)
+	start := make(chan struct{})
+	errCh := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		_, _, err := s.SubmitTaskBy(ctx, task.ID, boss.ID)
+		errCh <- err
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		_, err := s.ReplaceTaskParticipants(ctx, task.ID, boss.ID,
+			[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}})
+		errCh <- err
+	}()
+	close(start)
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil && !errors.Is(err, ErrConflict) {
+			t.Fatalf("concurrent reviewer/submission error: %v", err)
+		}
+	}
+	fresh, err := s.TaskByID(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	participants, err := s.TaskParticipants(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasReviewer := len(participants) == 1 && participants[0].UserID == reviewer.ID && participants[0].Role == TaskParticipantReviewer
+	if fresh.Status == TaskAccepted && hasReviewer || fresh.Status == TaskDone && !hasReviewer {
+		t.Fatalf("submission/reviewer invariant broken: task=%+v participants=%+v", fresh, participants)
+	}
+}
+
+func TestWorkerRunIsSeparateFromTaskAndReviewUsesResponsibility(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
 	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	pj := mkProject(t, s, boss.ID)
-	if _, err := s.CreateTask(ctx, &Task{
+	delegated, err := s.CreateTask(ctx, &Task{
 		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "invalid completion contract", CompletionPolicy: "executor:command",
+		Title: "delegated work",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != delegated.ID {
+		t.Fatalf("claim delegated task = %+v err=%v", claimed, err)
+	}
+	if claimed.ScopeKey != fmt.Sprintf("project:%d", pj.ID) || claimed.ScopeTitle != pj.Name {
+		t.Fatalf("default project scope = %q/%q, want project identity/name", claimed.ScopeKey, claimed.ScopeTitle)
+	}
+	completedRun, completedTask, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "completed", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "completed"))
+	if err != nil || completedRun.Status != WorkerRunCompleted || completedTask.Status != TaskDone {
+		t.Fatalf("delegated work must await business review: run=%+v task=%+v err=%v", completedRun, completedTask, err)
+	}
+
+	self, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: worker.ID, AssigneeID: worker.ID,
+		Title: "self-owned worker maintenance",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != self.ID {
+		t.Fatalf("claim self task = %+v err=%v", claimed, err)
+	}
+	_, completedTask, _, _, err = s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "completed", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "completed"))
+	if err != nil || completedTask.Status != TaskAccepted {
+		t.Fatalf("self-owned work without reviewer should close: %+v err=%v", completedTask, err)
+	}
+	if _, err := s.CreateWorkerRun(ctx, WorkerRunSpec{
+		WorkerID: worker.ID, RequestedBy: boss.ID, Executor: workerproto.ExecutorCommand,
+		Input: json.RawMessage(`{"command":"   "}`), Title: "invalid command",
 	}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("invalid completion policy should be rejected, got %v", err)
-	}
-	auto, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title:            "executor-neutral auto task",
-		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != auto.ID {
-		t.Fatalf("claim auto task = %+v err=%v", claimed, err)
-	}
-	completed, _, err := s.SubmitWorkerTask(ctx, auto.ID, worker.ID, claimed.WorkerClaimID, "completed", taskflow.ExecutionSucceeded)
-	if err != nil || completed.Status != TaskAccepted {
-		t.Fatalf("successful auto policy should accept without inspecting executor: %+v err=%v", completed, err)
+		t.Fatalf("empty command execution must be rejected at the store boundary: %v", err)
 	}
 
-	reviewed, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title:            "reviewed auto task",
-		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
+	commandInput, _ := json.Marshal(WorkerCommandInput{Command: "true"})
+	direct, err := s.CreateWorkerRun(ctx, WorkerRunSpec{
+		WorkerID: worker.ID, RequestedBy: boss.ID, Executor: workerproto.ExecutorCommand,
+		Input: commandInput, Title: "direct command", ScopeType: "ops", ScopeKey: "ops:test",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ReplaceTaskParticipants(ctx, reviewed.ID, boss.ID,
-		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
-		t.Fatal(err)
+	claimed, err = s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.ID != direct.ID || claimed.TaskID != nil {
+		t.Fatalf("claim direct run = %+v err=%v", claimed, err)
 	}
-	claimed, err = s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != reviewed.ID {
-		t.Fatalf("claim reviewed command = %+v err=%v", claimed, err)
+	completedRun, completedTask, _, _, err = s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "exit 0", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "exit-0"))
+	if err != nil || completedTask != nil || completedRun.Status != WorkerRunCompleted {
+		t.Fatalf("direct execution must finish without a task: run=%+v task=%+v err=%v", completedRun, completedTask, err)
 	}
-	completed, _, err = s.SubmitWorkerTask(ctx, reviewed.ID, worker.ID, claimed.WorkerClaimID, "needs review", taskflow.ExecutionSucceeded)
-	if err != nil || completed.Status != TaskDone {
-		t.Fatalf("explicit reviewer must keep command awaiting review: %+v err=%v", completed, err)
-	}
-
-	failed, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title:            "failed auto task",
-		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
-	})
+	queue, err := s.TaskQueue(ctx, "all", 100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	claimed, err = s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != failed.ID {
-		t.Fatalf("claim failed command = %+v err=%v", claimed, err)
-	}
-	completed, _, err = s.SubmitWorkerTask(ctx, failed.ID, worker.ID, claimed.WorkerClaimID, "failed", taskflow.ExecutionFailed)
-	if err != nil || completed.Status != TaskDone {
-		t.Fatalf("failed outcome must remain reviewable: %+v err=%v", completed, err)
-	}
-
-	commandUnderReview, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "command representation does not control state", WorkerCommand: "true",
-		CompletionPolicy: string(taskflow.CompletionReviewRequired),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	claimed, err = s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != commandUnderReview.ID {
-		t.Fatalf("claim review task = %+v err=%v", claimed, err)
-	}
-	completed, _, err = s.SubmitWorkerTask(ctx, commandUnderReview.ID, worker.ID, claimed.WorkerClaimID, "completed", taskflow.ExecutionSucceeded)
-	if err != nil || completed.Status != TaskDone {
-		t.Fatalf("executor fields must not override review policy: %+v err=%v", completed, err)
-	}
-}
-
-func TestTaskQueueLifecycleMigrationOnlyClosesUnreviewedCommands(t *testing.T) {
-	s := openTestStore(t)
-	ctx := context.Background()
-	boss := mkUser(t, s, "migration-boss", true)
-	reviewer := mkUser(t, s, "migration-reviewer", false)
-	worker, _, err := s.CreateWorker(ctx, "migration-worker", boss.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pj := mkProject(t, s, boss.ID)
-	command, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "legacy command", WorkerCommand: "go test ./...",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	reviewed, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "legacy reviewed command", WorkerCommand: "deploy production",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.ReplaceTaskParticipants(ctx, reviewed.ID, boss.ID,
-		[]TaskParticipantInput{{UserID: reviewer.ID, Role: TaskParticipantReviewer}}); err != nil {
-		t.Fatal(err)
-	}
-	normal := mkTask(t, s, pj.ID, boss.ID, reviewer.ID, "legacy human task", nil)
-	if _, err := s.pool.Exec(ctx,
-		`UPDATE tasks SET status = 'done' WHERE id = ANY($1)`,
-		[]int64{command.ID, reviewed.ID, normal.ID}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.pool.Exec(ctx,
-		`INSERT INTO task_progress (task_id, author_id, content) VALUES
-		 ($1, $2, '🤖 完成汇报：命令执行完成，退出码：0' || chr(10) || '执行模式：pipe'),
-		 ($3, $2, '🤖 完成汇报：命令执行完成，退出码：0' || chr(10) || '执行模式：pipe')`,
-		command.ID, worker.ID, reviewed.ID); err != nil {
-		t.Fatal(err)
-	}
-	migration, err := migrationsFS.ReadFile("migrations/0062_task_queue_lifecycle.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for range 2 {
-		if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
-			t.Fatal(err)
+	for _, item := range queue {
+		if item.Title == direct.Title {
+			t.Fatalf("direct execution leaked into business task queue: %+v", item)
 		}
-	}
-	for _, want := range []struct {
-		id     int64
-		status string
-	}{{command.ID, TaskAccepted}, {reviewed.ID, TaskDone}, {normal.ID, TaskDone}} {
-		got, err := s.TaskByID(ctx, want.id)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Status != want.status {
-			t.Fatalf("task %d status = %s, want %s", want.id, got.Status, want.status)
-		}
-	}
-}
-
-func TestTaskCompletionContractMigrationMapsLegacyRepresentation(t *testing.T) {
-	s := openTestStore(t)
-	ctx := context.Background()
-	boss := mkUser(t, s, "completion-migration-boss", true)
-	worker, _, err := s.CreateWorker(ctx, "completion-migration-worker", boss.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pj := mkProject(t, s, boss.ID)
-	command, err := s.CreateTask(ctx, &Task{
-		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
-		Title: "legacy executor representation", WorkerCommand: "true",
-		CompletionPolicy: string(taskflow.CompletionSelfAcceptOnSuccess),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ordinary := mkTask(t, s, pj.ID, boss.ID, worker.ID, "ordinary delegated task", nil)
-
-	migration, err := migrationsFS.ReadFile("migrations/0063_task_completion_contract.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for range 2 {
-		if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	command, err = s.TaskByID(ctx, command.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ordinary, err = s.TaskByID(ctx, ordinary.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if command.CompletionPolicy != string(taskflow.CompletionAutoAcceptOnSuccess) {
-		t.Fatalf("legacy command policy = %q", command.CompletionPolicy)
-	}
-	if ordinary.CompletionPolicy != string(taskflow.CompletionSelfAcceptOnSuccess) {
-		t.Fatalf("ordinary task policy = %q", ordinary.CompletionPolicy)
 	}
 }
 
@@ -1187,26 +1116,56 @@ func TestWorkerClaimRecoversStaleTask(t *testing.T) {
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "跑测试", nil)
 
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != tk.ID || claimed.Status != TaskInProgress {
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != tk.ID || claimed.Status != WorkerRunClaimed {
 		t.Fatalf("首次认领 = %+v err=%v", claimed, err)
 	}
-	if claimed.WorkerClaimID == "" {
+	if claimed.ClaimID == "" {
 		t.Fatal("首次认领应返回 claim id")
 	}
-	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("未超时不应重复认领, got %v", err)
 	}
 	if _, err := s.pool.Exec(ctx,
-		`UPDATE tasks SET worker_claimed_at = now() - interval '4 hours' WHERE id = $1`, tk.ID); err != nil {
+		`UPDATE worker_runs SET claimed_at = now() - interval '4 hours' WHERE id = $1`, claimed.ID); err != nil {
 		t.Fatal(err)
 	}
-	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || reclaimed.ID != tk.ID || reclaimed.Status != TaskInProgress {
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || reclaimed.ID != claimed.ID || reclaimed.Status != WorkerRunClaimed {
 		t.Fatalf("超时任务应可重新认领 = %+v err=%v", reclaimed, err)
 	}
-	if reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
-		t.Fatalf("超时重领应刷新 claim id: old=%q new=%q", claimed.WorkerClaimID, reclaimed.WorkerClaimID)
+	if reclaimed.ClaimID == "" || reclaimed.ClaimID == claimed.ClaimID {
+		t.Fatalf("超时重领应刷新 claim id: old=%q new=%q", claimed.ClaimID, reclaimed.ClaimID)
+	}
+}
+
+func TestWorkerHeartbeatRenewsLease(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, worker.ID, "长任务", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE worker_runs SET claimed_at = now() - interval '4 hours' WHERE id = $1`, claimed.ID)
+	if err := s.HeartbeatWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("heartbeat-renewed lease must not be reclaimed: %v", err)
+	}
+	var heartbeat time.Time
+	if err := s.pool.QueryRow(ctx,
+		`SELECT heartbeat_at FROM worker_run_attempts WHERE run_id = $1 AND claim_id = $2`, claimed.ID, claimed.ClaimID).Scan(&heartbeat); err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(heartbeat) > time.Minute {
+		t.Fatalf("attempt heartbeat was not refreshed: %s", heartbeat)
 	}
 }
 
@@ -1224,8 +1183,8 @@ func TestWorkerConcurrentPollersHoldOnlyOneClaim(t *testing.T) {
 
 	start := make(chan struct{})
 	type result struct {
-		task *Task
-		err  error
+		run *WorkerRun
+		err error
 	}
 	results := make(chan result, 2)
 	var wg sync.WaitGroup
@@ -1234,20 +1193,20 @@ func TestWorkerConcurrentPollersHoldOnlyOneClaim(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			task, err := s.ClaimNextTask(ctx, worker.ID)
-			results <- result{task: task, err: err}
+			run, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+			results <- result{run: run, err: err}
 		}()
 	}
 	close(start)
 	wg.Wait()
 	close(results)
 	successes, empty := 0, 0
-	var claimed *Task
+	var claimed *WorkerRun
 	for result := range results {
 		switch {
 		case result.err == nil:
 			successes++
-			claimed = result.task
+			claimed = result.run
 		case errors.Is(result.err, ErrNotFound):
 			empty++
 		default:
@@ -1257,15 +1216,15 @@ func TestWorkerConcurrentPollersHoldOnlyOneClaim(t *testing.T) {
 	if successes != 1 || empty != 1 || claimed == nil {
 		t.Fatalf("concurrent claims success=%d empty=%d claimed=%+v", successes, empty, claimed)
 	}
-	if err := s.ReleaseWorkerTaskClaim(ctx, claimed.ID, worker.ID, claimed.WorkerClaimID); err != nil {
+	if err := s.ReleaseWorkerRunClaim(ctx, claimed.ID, worker.ID, claimed.ClaimID); err != nil {
 		t.Fatal(err)
 	}
-	next, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || next.ID != claimed.ID {
-		t.Fatalf("released delivery should be immediately reclaimable: next=%+v err=%v", next, err)
+	next, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatalf("release should make worker queue immediately claimable: next=%+v err=%v", next, err)
 	}
-	if next.WorkerClaimID == "" || next.WorkerClaimID == claimed.WorkerClaimID {
-		t.Fatalf("reclaim should issue a fresh claim id: old=%q new=%q", claimed.WorkerClaimID, next.WorkerClaimID)
+	if next.ClaimID == "" || next.ClaimID == claimed.ClaimID {
+		t.Fatalf("reclaim should issue a fresh claim id: old=%q new=%q", claimed.ClaimID, next.ClaimID)
 	}
 }
 
@@ -1278,25 +1237,27 @@ func TestWorkerRequestInputPausesUntilTaskUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	pj := mkProject(t, s, boss.ID)
-	tk, err := s.CreateTask(ctx, &Task{
+	tk, err := s.CreateTaskWithWorkerRun(ctx, &Task{
 		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID, Title: "分析仓库",
-		WorkerScopeType: "repo", WorkerScopeKey: "repo:example", WorkerScopeTitle: "Example repository",
+	}, WorkerRunSpec{
+		Executor:  workerproto.ExecutorAgent,
+		ScopeType: "repo", ScopeKey: "repo:example", ScopeTitle: "Example repository",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waiting, err := s.RequestWorkerInput(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "请提供仓库地址")
+	waitingRun, waitingTask, _, err := s.RequestWorkerRunInput(ctx, claimed.ID, worker.ID, claimed.ClaimID, "请提供仓库地址", testWorkerFinalization(claimed.ClaimID, "input"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if waiting.Status != TaskAwaitingInput || waiting.WorkerClaimID != "" {
-		t.Fatalf("request input result = %+v", waiting)
+	if waitingRun.Status != WorkerRunAwaitingInput || waitingRun.ClaimID != "" || waitingTask == nil || waitingTask.Status != TaskAwaitingInput {
+		t.Fatalf("request input result: run=%+v task=%+v", waitingRun, waitingTask)
 	}
-	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("awaiting_input task must not be reclaimed: %v", err)
 	}
 	// Even an old timestamp cannot turn a paused task into a stale execution claim.
@@ -1304,7 +1265,7 @@ func TestWorkerRequestInputPausesUntilTaskUpdate(t *testing.T) {
 		`UPDATE tasks SET updated_at = now() - interval '12 hours' WHERE id = $1`, tk.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("old awaiting_input task must stay paused: %v", err)
 	}
 	unchanged, err := s.UpdateTaskContent(ctx, tk.ID, nil, nil, nil, nil)
@@ -1322,11 +1283,11 @@ func TestWorkerRequestInputPausesUntilTaskUpdate(t *testing.T) {
 	if updated.Status != TaskPending {
 		t.Fatalf("updated waiting task status = %q, want pending", updated.Status)
 	}
-	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || reclaimed.ID != tk.ID {
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || reclaimed.TaskID == nil || *reclaimed.TaskID != tk.ID || reclaimed.ID == claimed.ID {
 		t.Fatalf("updated task should be claimable: %+v err=%v", reclaimed, err)
 	}
-	if reclaimed.WorkerScopeType != "repo" || reclaimed.WorkerScopeKey != "repo:example" {
+	if reclaimed.ScopeType != "repo" || reclaimed.ScopeKey != "repo:example" {
 		t.Fatalf("worker scope was not persisted: %+v", reclaimed)
 	}
 }
@@ -1344,33 +1305,33 @@ func TestWorkerFailureBackoffAndPause(t *testing.T) {
 
 	for attempt := 1; attempt <= workerMaxFailures; attempt++ {
 		if attempt > 1 {
-			if _, err := s.pool.Exec(ctx, `UPDATE tasks SET worker_retry_at=now()-interval '1 second' WHERE id=$1`, tk.ID); err != nil {
+			if _, err := s.pool.Exec(ctx, `UPDATE worker_runs SET available_at=now()-interval '1 second' WHERE task_id=$1 AND status='retry_wait'`, tk.ID); err != nil {
 				t.Fatal(err)
 			}
 		}
-		claimed, err := s.ClaimNextTask(ctx, worker.ID)
+		claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 		if err != nil {
 			t.Fatalf("attempt %d claim: %v", attempt, err)
 		}
-		failed, err := s.FailWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "agent unavailable")
+		failedRun, failedTask, _, err := s.FailWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "agent unavailable", testWorkerFinalization(claimed.ClaimID, fmt.Sprintf("fail-%d", attempt)))
 		if err != nil {
 			t.Fatalf("attempt %d fail: %v", attempt, err)
 		}
-		if failed.WorkerFailures != attempt || failed.WorkerLastError != "agent unavailable" {
-			t.Fatalf("attempt %d state = %+v", attempt, failed)
+		if failedRun.Attempts != attempt || failedRun.LastError != "agent unavailable" {
+			t.Fatalf("attempt %d state = %+v", attempt, failedRun)
 		}
 		if attempt < workerMaxFailures {
-			if failed.Status != TaskPending || failed.WorkerRetryAt == nil {
-				t.Fatalf("attempt %d should back off: %+v", attempt, failed)
+			if failedRun.Status != WorkerRunRetryWait || !failedRun.AvailableAt.After(time.Now().UTC()) || failedTask == nil || failedTask.Status != TaskPending {
+				t.Fatalf("attempt %d should back off: run=%+v task=%+v", attempt, failedRun, failedTask)
 			}
-			if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+			if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 				t.Fatalf("attempt %d should not be immediately reclaimable: %v", attempt, err)
 			}
-		} else if failed.Status != TaskAwaitingInput || failed.WorkerRetryAt != nil || failed.WorkerClaimID != "" {
-			t.Fatalf("exhausted task should pause: %+v", failed)
+		} else if failedRun.Status != WorkerRunAwaitingInput || failedRun.ClaimID != "" || failedTask == nil || failedTask.Status != TaskAwaitingInput {
+			t.Fatalf("exhausted task should pause: run=%+v task=%+v", failedRun, failedTask)
 		}
 	}
-	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("paused failed task must not be reclaimable: %v", err)
 	}
 }
@@ -1385,7 +1346,7 @@ func TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim(t *testing.T) {
 	}
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "旧要求", nil)
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1394,17 +1355,35 @@ func TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Status != TaskPending || updated.WorkerClaimID != "" {
+	if updated.Status != TaskPending {
 		t.Fatalf("worker content update must atomically reset claim: %+v", updated)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", taskflow.ExecutionSucceeded); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("old claim must not submit after content update: %v", err)
+	if updated.Revision != tk.Revision+1 {
+		t.Fatalf("worker content update revision=%d, want %d", updated.Revision, tk.Revision+1)
 	}
-	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	activeBefore, err := s.ActiveWorkerRunForTask(ctx, tk.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", taskflow.ExecutionSucceeded); err != nil {
+	unchanged, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	activeAfter, err := s.ActiveWorkerRunForTask(ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Revision != updated.Revision || activeAfter.ID != activeBefore.ID {
+		t.Fatalf("same-value update must not create a new revision/run: task=%+v before=%+v after=%+v", unchanged, activeBefore, activeAfter)
+	}
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "旧结果", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "old")); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("old claim must not submit after content update: %v", err)
+	}
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, reclaimed.ID, worker.ID, reclaimed.ClaimID, "新结果", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(reclaimed.ClaimID, "new")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil); !errors.Is(err, ErrNotFound) {
@@ -1413,6 +1392,19 @@ func TestUpdateWorkerTaskContentAtomicallyInvalidatesClaim(t *testing.T) {
 	got, err := s.TaskByID(ctx, tk.ID)
 	if err != nil || got.Status != TaskDone {
 		t.Fatalf("completed task status changed: %+v err=%v", got, err)
+	}
+}
+
+func TestTaskStatusRejectsUnknownState(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	task := mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, boss.ID, "状态约束", nil)
+	if _, err := s.UpdateTaskStatus(ctx, task.ID, "almost_done"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("unknown task status must be rejected: %v", err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE tasks SET status = 'almost_done' WHERE id = $1`, task.ID); err == nil {
+		t.Fatal("database status constraint must reject unknown task state")
 	}
 }
 
@@ -1428,8 +1420,9 @@ func TestRevokeWorkerResetsOpenTasks(t *testing.T) {
 	}
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "跑测试", nil)
-	// worker 认领 → in_progress + claim。
-	if _, err := s.ClaimNextTask(ctx, worker.ID); err != nil {
+	// worker 认领 → task in_progress + run claim。
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -1447,8 +1440,9 @@ func TestRevokeWorkerResetsOpenTasks(t *testing.T) {
 	if got.Status != TaskPending {
 		t.Errorf("吊销后任务状态 = %s, want pending", got.Status)
 	}
-	if got.WorkerClaimID != "" {
-		t.Errorf("吊销后 worker_claim_id 应清空, got %q", got.WorkerClaimID)
+	run, err := s.WorkerRunByID(ctx, claimed.ID)
+	if err != nil || run.Status != WorkerRunCancelled || run.ClaimID != "" {
+		t.Errorf("吊销后执行应取消且清空 claim: run=%+v err=%v", run, err)
 	}
 	// worker 已禁用。
 	w, _ := s.UserByID(ctx, worker.ID)
@@ -1543,7 +1537,7 @@ func TestUpsertDecisionItemDoesNotReopenClosed(t *testing.T) {
 	}
 }
 
-func TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable(t *testing.T) {
+func TestReleaseWorkerRunClaimMakesTaskImmediatelyClaimable(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	boss := mkUser(t, s, "boss", true)
@@ -1554,19 +1548,19 @@ func TestReleaseWorkerTaskClaimMakesTaskImmediatelyClaimable(t *testing.T) {
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "跑测试", nil)
 
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != tk.ID || claimed.WorkerClaimID == "" {
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != tk.ID || claimed.ClaimID == "" {
 		t.Fatalf("认领 = %+v err=%v", claimed, err)
 	}
-	if err := s.ReleaseWorkerTaskClaim(ctx, claimed.ID, worker.ID, claimed.WorkerClaimID); err != nil {
+	if err := s.ReleaseWorkerRunClaim(ctx, claimed.ID, worker.ID, claimed.ClaimID); err != nil {
 		t.Fatal(err)
 	}
-	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || reclaimed.ID != tk.ID {
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || reclaimed.ID != claimed.ID {
 		t.Fatalf("释放后应立即重领 = %+v err=%v", reclaimed, err)
 	}
-	if reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
-		t.Fatalf("重领应刷新 claim id: old=%q new=%q", claimed.WorkerClaimID, reclaimed.WorkerClaimID)
+	if reclaimed.ClaimID == "" || reclaimed.ClaimID == claimed.ClaimID {
+		t.Fatalf("重领应刷新 claim id: old=%q new=%q", claimed.ClaimID, reclaimed.ClaimID)
 	}
 }
 
@@ -1581,26 +1575,26 @@ func TestWorkerClaimRejectedTaskWithoutClaim(t *testing.T) {
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "返工任务", nil)
 
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "先交一版", taskflow.ExecutionSucceeded); err != nil {
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "先交一版", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "first")); err != nil {
 		t.Fatal(err)
 	}
 	rejected, err := s.RejectTask(ctx, tk.ID, boss.ID, "还要补文件")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rejected.Status != TaskPending || rejected.WorkerClaimID != "" {
+	if rejected.Status != TaskPending {
 		t.Fatalf("worker rejection must atomically return to pending: %+v", rejected)
 	}
-	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reclaimed.ID != tk.ID || reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
-		t.Fatalf("打回任务应刷新 claim 后重新认领: first=%q second=%+v", claimed.WorkerClaimID, reclaimed)
+	if reclaimed.TaskID == nil || *reclaimed.TaskID != tk.ID || reclaimed.ID == claimed.ID || reclaimed.ClaimID == "" || reclaimed.ClaimID == claimed.ClaimID {
+		t.Fatalf("打回任务应刷新 claim 后重新认领: first=%q second=%+v", claimed.ClaimID, reclaimed)
 	}
 }
 
@@ -1615,6 +1609,10 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	outsider := mkUser(t, s, "outsider", false)
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "处理附件", nil)
+	initialRun, err := s.LatestWorkerRunForTask(ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fileOwner := boss.ID
 	in, err := s.CreateFile(ctx, &File{
@@ -1626,6 +1624,21 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	}
 	if err := s.AddTaskAttachmentFile(ctx, tk.ID, in.ID, "输入"); err != nil {
 		t.Fatal(err)
+	}
+	updatedTask, err := s.TaskByID(ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputRun, err := s.LatestWorkerRunForTask(ctx, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedTask.Revision != tk.Revision+1 || inputRun.ID == initialRun.ID || inputRun.TaskRevision == nil || *inputRun.TaskRevision != updatedTask.Revision {
+		t.Fatalf("新增任务输入必须推进版本并替换执行: task=%+v initial=%+v current=%+v", updatedTask, initialRun, inputRun)
+	}
+	inputSnapshot, err := s.WorkerRunFiles(ctx, inputRun.ID, "input")
+	if err != nil || len(inputSnapshot) != 1 || inputSnapshot[0].ID != in.ID {
+		t.Fatalf("新增附件执行快照 = %+v err=%v", inputSnapshot, err)
 	}
 	atts, err := s.TaskFileAttachments(ctx, tk.ID)
 	if err != nil || len(atts) != 1 || atts[0].ID != in.ID {
@@ -1640,14 +1653,14 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	if ok, err := s.UserCanAccessFile(ctx, outsider.ID, false, in.ID); err != nil || ok {
 		t.Fatalf("无关用户不应可访问附件 ok=%v err=%v", ok, err)
 	}
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, "stale", in.ID); err != nil || ok {
+	if ok, err := s.WorkerCanDownloadFile(ctx, claimed.ID, worker.ID, "stale", in.ID); err != nil || ok {
 		t.Fatalf("旧 claim 不应可下载附件 ok=%v err=%v", ok, err)
 	}
-	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, in.ID); err != nil || !ok {
+	if ok, err := s.WorkerCanDownloadFile(ctx, claimed.ID, worker.ID, claimed.ClaimID, in.ID); err != nil || !ok {
 		t.Fatalf("worker 应可用当前 claim 下载自己的任务附件 ok=%v err=%v", ok, err)
 	}
 	out, err := s.CreateFile(ctx, &File{
@@ -1657,10 +1670,10 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, "stale", out.ID, "旧 claim"); !errors.Is(err, ErrNotFound) {
+	if err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, "stale", out.ID, "旧 claim"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 不应可登记产物: %v", err)
 	}
-	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, out.ID, "结果"); err != nil {
+	if err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claimed.ClaimID, out.ID, "结果"); err != nil {
 		t.Fatal(err)
 	}
 	arts, err := s.TaskArtifacts(ctx, tk.ID)
@@ -1670,10 +1683,10 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	if ok, err := s.UserCanAccessFile(ctx, boss.ID, false, out.ID); err != nil || !ok {
 		t.Fatalf("分配者应可访问产物 ok=%v err=%v", ok, err)
 	}
-	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, "stale", out.ID); err != nil || ok {
+	if ok, err := s.WorkerCanDownloadFile(ctx, claimed.ID, worker.ID, "stale", out.ID); err != nil || ok {
 		t.Fatalf("旧 claim 不应可下载历史产物 ok=%v err=%v", ok, err)
 	}
-	if ok, err := s.WorkerCanDownloadFile(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, out.ID); err != nil || !ok {
+	if ok, err := s.WorkerCanDownloadFile(ctx, claimed.ID, worker.ID, claimed.ClaimID, out.ID); err != nil || !ok {
 		t.Fatalf("worker 应可用当前 claim 下载历史产物 ok=%v err=%v", ok, err)
 	}
 
@@ -1691,6 +1704,26 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	atomicAttachments, err := s.TaskFileAttachments(ctx, atomicTask.ID)
 	if err != nil || len(atomicAttachments) != 1 || atomicAttachments[0].ID != in.ID {
 		t.Fatalf("原子任务附件 = %+v err=%v", atomicAttachments, err)
+	}
+	atomicRun, err := s.LatestWorkerRunForTask(ctx, atomicTask.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runInputs, err := s.WorkerRunFiles(ctx, atomicRun.ID, "input")
+	if err != nil || len(runInputs) != 1 || runInputs[0].ID != in.ID {
+		t.Fatalf("执行输入快照 = %+v err=%v", runInputs, err)
+	}
+	updatedDescription := "补充要求后仍需携带原始文件"
+	if _, err := s.UpdateTaskContent(ctx, atomicTask.ID, nil, &updatedDescription, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	restartedRun, err := s.LatestWorkerRunForTask(ctx, atomicTask.ID)
+	if err != nil || restartedRun.ID == atomicRun.ID {
+		t.Fatalf("任务要求更新后应创建新执行: old=%d new=%+v err=%v", atomicRun.ID, restartedRun, err)
+	}
+	restartedInputs, err := s.WorkerRunFiles(ctx, restartedRun.ID, "input")
+	if err != nil || len(restartedInputs) != 1 || restartedInputs[0].ID != in.ID {
+		t.Fatalf("重启执行必须保留输入快照 = %+v err=%v", restartedInputs, err)
 	}
 
 	var before, after int
@@ -2299,7 +2332,10 @@ func TestOrphanedTasks(t *testing.T) {
 	want := mkTask(t, s, pj.ID, boss.ID, disabled.ID, "需要改派", nil)
 	done := mkTask(t, s, pj.ID, boss.ID, disabled.ID, "已完成不算", nil)
 	normal := mkTask(t, s, pj.ID, boss.ID, active.ID, "正常任务", nil)
-	if _, err := s.UpdateTaskStatus(ctx, done.ID, TaskAccepted); err != nil {
+	if _, _, err := s.SubmitTask(ctx, done.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.AcceptTask(ctx, done.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.UpdateTaskStatus(ctx, normal.ID, TaskInProgress); err != nil {
@@ -3214,9 +3250,9 @@ func TestGroupSessionAndSummary(t *testing.T) {
 	}
 }
 
-// SubmitWorkerTask 只在任务仍是该 worker 手上的 in_progress 时提交，
+// CompleteWorkerRun 只在执行仍持有有效租约且业务任务未被修订时提交，
 // 覆盖「分配者同时改需求把任务重置为 pending」的竞态。
-func TestSubmitWorkerTaskAtomic(t *testing.T) {
+func TestCompleteWorkerRunAtomic(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	boss := mkUser(t, s, "boss", true)
@@ -3226,11 +3262,11 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 	}
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "写脚本", nil)
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if claimed.WorkerClaimID == "" {
+	if claimed.ClaimID == "" {
 		t.Fatal("认领应返回 worker claim id")
 	}
 	// 分配者此刻把任务重置为 pending（模拟改需求）。
@@ -3238,7 +3274,7 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	// worker 的提交应落空（任务已非 in_progress），不把旧交付当完成。
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", taskflow.ExecutionSucceeded); !errors.Is(err, ErrNotFound) {
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "旧结果", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "old")); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("重置为 pending 后提交应被拒: %v", err)
 	}
 	if ps, err := s.ProgressOf(ctx, tk.ID); err != nil || len(ps) != 0 {
@@ -3249,20 +3285,20 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 		t.Fatalf("任务应仍为 pending 待重做, got %s", got.Status)
 	}
 	// 重新认领后提交成功。
-	reclaimed, err := s.ClaimNextTask(ctx, worker.ID)
+	reclaimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reclaimed.WorkerClaimID == "" || reclaimed.WorkerClaimID == claimed.WorkerClaimID {
-		t.Fatalf("重新认领应换 claim id: old=%q new=%q", claimed.WorkerClaimID, reclaimed.WorkerClaimID)
+	if reclaimed.ClaimID == "" || reclaimed.ClaimID == claimed.ClaimID {
+		t.Fatalf("重新认领应换 claim id: old=%q new=%q", claimed.ClaimID, reclaimed.ClaimID)
 	}
-	if err := s.AddWorkerProgress(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧进度"); !errors.Is(err, ErrNotFound) {
+	if err := s.AddWorkerRunProgress(ctx, claimed.ID, worker.ID, claimed.ClaimID, "旧进度"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 进度应被拒: %v", err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, claimed.WorkerClaimID, "旧结果", taskflow.ExecutionSucceeded); !errors.Is(err, ErrNotFound) {
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "旧结果", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "old")); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 提交应被拒: %v", err)
 	}
-	if _, _, err := s.SubmitWorkerTask(ctx, tk.ID, worker.ID, reclaimed.WorkerClaimID, "新结果", taskflow.ExecutionSucceeded); err != nil {
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, reclaimed.ID, worker.ID, reclaimed.ClaimID, "新结果", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(reclaimed.ClaimID, "new")); err != nil {
 		t.Fatalf("正常提交应成功: %v", err)
 	}
 	got, _ = s.TaskByID(ctx, tk.ID)
@@ -3272,6 +3308,99 @@ func TestSubmitWorkerTaskAtomic(t *testing.T) {
 	ps, err := s.ProgressOf(ctx, tk.ID)
 	if err != nil || len(ps) != 1 || !strings.Contains(ps[0].Content, "新结果") {
 		t.Fatalf("成功提交才应写完成汇报: progress=%+v err=%v", ps, err)
+	}
+}
+
+func TestCompleteWorkerRunFinalizationIsIdempotent(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj := mkProject(t, s, boss.ID)
+	task := mkTask(t, s, pj.ID, boss.ID, worker.ID, "幂等提交", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	finalization := testWorkerFinalization(claimed.ClaimID, "same-payload")
+	completedRun, completedTask, _, replayed, err := s.CompleteWorkerRun(ctx,
+		claimed.ID, worker.ID, claimed.ClaimID, "唯一结果", "", workerproto.OutcomeSucceeded, nil, finalization)
+	if err != nil || replayed || completedRun.Status != WorkerRunCompleted || completedTask == nil || completedTask.ID != task.ID {
+		t.Fatalf("first finalization: run=%+v task=%+v replayed=%v err=%v", completedRun, completedTask, replayed, err)
+	}
+	if completedRun.TaskRevision == nil || *completedRun.TaskRevision != 1 || completedTask.Revision != 2 {
+		t.Fatalf("task revision boundary lost: run=%+v task=%+v", completedRun, completedTask)
+	}
+	_, replayedTask, _, replayed, err := s.CompleteWorkerRun(ctx,
+		claimed.ID, worker.ID, claimed.ClaimID, "唯一结果", "", workerproto.OutcomeSucceeded, nil, finalization)
+	if err != nil || !replayed || replayedTask == nil || replayedTask.ID != task.ID {
+		t.Fatalf("duplicate finalization: task=%+v replayed=%v err=%v", replayedTask, replayed, err)
+	}
+	progress, err := s.ProgressOf(ctx, task.ID)
+	if err != nil || len(progress) != 1 || !strings.Contains(progress[0].Content, "唯一结果") {
+		t.Fatalf("duplicate finalization wrote duplicate effects: progress=%+v err=%v", progress, err)
+	}
+	conflict := WorkerRunFinalization{ID: finalization.ID, Hash: "different-payload"}
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx,
+		claimed.ID, worker.ID, claimed.ClaimID, "篡改结果", "", workerproto.OutcomeSucceeded, nil, conflict); !errors.Is(err, ErrConflict) {
+		t.Fatalf("same finalization id with another payload must conflict: %v", err)
+	}
+}
+
+func TestConcurrentWorkerFinalizationCommitsOnce(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, worker.ID, "并发最终化", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	finalization := testWorkerFinalization(claimed.ClaimID, "concurrent")
+	start := make(chan struct{})
+	type result struct {
+		replayed bool
+		err      error
+	}
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, _, _, replayed, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+				"并发结果", "", workerproto.OutcomeSucceeded, nil, finalization)
+			results <- result{replayed: replayed, err: err}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	fresh, replay := 0, 0
+	for result := range results {
+		if result.err != nil {
+			t.Fatalf("concurrent finalization failed: %v", result.err)
+		}
+		if result.replayed {
+			replay++
+		} else {
+			fresh++
+		}
+	}
+	if fresh != 1 || replay != 1 {
+		t.Fatalf("finalization results fresh=%d replay=%d", fresh, replay)
+	}
+	progress, err := s.ProgressOf(ctx, task.ID)
+	if err != nil || len(progress) != 1 {
+		t.Fatalf("concurrent finalization effects=%+v err=%v", progress, err)
 	}
 }
 
@@ -3285,24 +3414,24 @@ func TestWorkerArtifactGating(t *testing.T) {
 		t.Fatal(err)
 	}
 	pj := mkProject(t, s, boss.ID)
-	tk := mkTask(t, s, pj.ID, boss.ID, worker.ID, "产物任务", nil)
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
+	mkTask(t, s, pj.ID, boss.ID, worker.ID, "产物任务", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim := claimed.WorkerClaimID
+	claim := claimed.ClaimID
 	if claim == "" {
 		t.Fatal("认领应生成 claim_id")
 	}
 
 	// 预校验：正确 claim 通过；空/错 claim、非 in_progress 拒绝。
-	if ok, _ := s.WorkerCanSubmitArtifact(ctx, tk.ID, worker.ID, claim); !ok {
+	if ok, _ := s.WorkerCanSubmitArtifact(ctx, claimed.ID, worker.ID, claim); !ok {
 		t.Fatal("有效 claim 应通过预校验")
 	}
-	if ok, _ := s.WorkerCanSubmitArtifact(ctx, tk.ID, worker.ID, "wrong"); ok {
+	if ok, _ := s.WorkerCanSubmitArtifact(ctx, claimed.ID, worker.ID, "wrong"); ok {
 		t.Fatal("错 claim 不应通过")
 	}
-	if ok, _ := s.WorkerCanSubmitArtifact(ctx, tk.ID, worker.ID, ""); ok {
+	if ok, _ := s.WorkerCanSubmitArtifact(ctx, claimed.ID, worker.ID, ""); ok {
 		t.Fatal("空 claim 不应通过")
 	}
 
@@ -3311,7 +3440,7 @@ func TestWorkerArtifactGating(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddWorkerArtifact(ctx, tk.ID, worker.ID, claim, f.ID, ""); err != nil {
+	if err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claim, f.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.DeleteOrphanFileRow(ctx, f.ID); err != nil {
@@ -3518,42 +3647,54 @@ func TestWorkerSessionClaimAndUpdate(t *testing.T) {
 	}
 	p := mkProject(t, s, boss.ID)
 	task := mkTask(t, s, p.ID, boss.ID, worker.ID, "nbco 功能开发", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	ws, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", task.ID)
+	ws, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", claimed.ID, &task.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ws.ID == 0 || ws.ScopeKey != "repo:nbco" || ws.UseCount != 1 {
 		t.Fatalf("unexpected session: %+v", ws)
 	}
-	ws2, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", task.ID)
+	ws2, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", claimed.ID, &task.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ws2.ID != ws.ID || ws2.UseCount != 2 {
 		t.Fatalf("session should be reused and counted: first=%+v second=%+v", ws, ws2)
 	}
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, task.ID, claimed.WorkerClaimID,
+	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, claimed.ID, claimed.ClaimID,
 		"执行中", "early-native-ref", "/root/src/nbco"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, task.ID, "stale-claim",
+	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, claimed.ID, "stale-claim",
 		"stale", "stale-ref", "/tmp/stale"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("stale claim must not overwrite worker session: %v", err)
 	}
-	if err := s.UpdateWorkerSession(ctx, ws.ID, worker.ID, task.ID, "完成了路由", "native-ref", "/root/src/nbco"); err != nil {
+	if err := s.UpdateWorkerSession(ctx, ws.ID, worker.ID, claimed.ID, &task.ID, "完成了路由", "native-ref", "/root/src/nbco"); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", task.ID)
+	got, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", claimed.ID, &task.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Summary != "完成了路由" || got.EngineSessionRef != "native-ref" || got.Workdir != "/root/src/nbco" {
 		t.Fatalf("session update not persisted: %+v", got)
+	}
+	newerTask := mkTask(t, s, p.ID, boss.ID, worker.ID, "nbco 后续开发", nil)
+	newerRun, err := s.LatestWorkerRunForTask(ctx, newerTask.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ClaimWorkerSession(ctx, worker.ID, "codex", "repo", "repo:nbco", "NBCO", newerRun.ID, &newerTask.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateWorkerSessionForClaim(ctx, ws.ID, worker.ID, claimed.ID, claimed.ClaimID,
+		"旧执行迟到", "old-ref", "/tmp/old"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("older run must not overwrite a session already handed to a newer run: %v", err)
 	}
 }
 
@@ -4275,15 +4416,15 @@ func TestTaskDependencyGating(t *testing.T) {
 		t.Fatalf("依赖应落库: %+v", test.DependsOn)
 	}
 	// 前置未验收：只能领到 dev。
-	claimed, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed.ID != dev.ID {
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != dev.ID {
 		t.Fatalf("应先领到开发任务: %+v err=%v", claimed, err)
 	}
-	if _, err := s.ClaimNextTask(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := s.ClaimNextWorkerRun(ctx, worker.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("测试任务被前置挡住，不应可领: %v", err)
 	}
 	// 提交+验收 dev 后，test 就绪。
-	if _, _, err := s.SubmitWorkerTask(ctx, dev.ID, worker.ID, claimed.WorkerClaimID, "done", taskflow.ExecutionSucceeded); err != nil {
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "done", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "done")); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.AcceptTask(ctx, dev.ID); err != nil {
@@ -4293,8 +4434,8 @@ func TestTaskDependencyGating(t *testing.T) {
 	if err != nil || len(ready) != 1 || ready[0].ID != test.ID {
 		t.Fatalf("ReadyDependents = %+v err=%v", ready, err)
 	}
-	claimed2, err := s.ClaimNextTask(ctx, worker.ID)
-	if err != nil || claimed2.ID != test.ID {
+	claimed2, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed2.TaskID == nil || *claimed2.TaskID != test.ID {
 		t.Fatalf("前置验收后应可领测试任务: %+v err=%v", claimed2, err)
 	}
 	if _, err := s.CreateTask(ctx, &Task{

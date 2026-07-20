@@ -208,9 +208,13 @@ func (s *Server) handleWorkerDownloadFile(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	taskID, err := parseID(r.URL.Query().Get("task_id"))
+	candidate := r.URL.Query().Get("run_id")
+	if strings.TrimSpace(candidate) == "" {
+		candidate = r.URL.Query().Get("task_id") // rolling-upgrade compatibility
+	}
+	runID, err := parseID(candidate)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id 必填"})
 		return
 	}
 	claimID := strings.TrimSpace(r.URL.Query().Get("claim_id"))
@@ -218,7 +222,12 @@ func (s *Server) handleWorkerDownloadFile(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "claim_id 必填"})
 		return
 	}
-	ok, err := s.store.WorkerCanDownloadFile(r.Context(), taskID, u.ID, claimID, id)
+	runID, err = s.store.ResolveWorkerRunID(r.Context(), runID, u.ID, claimID)
+	if err != nil {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权访问文件"})
+		return
+	}
+	ok, err := s.store.WorkerCanDownloadFile(r.Context(), runID, u.ID, claimID, id)
 	if err != nil || !ok {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权访问文件"})
 		return
@@ -231,12 +240,16 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	// task_id/claim_id 走 query：在解析（会把 200MB spool 到临时盘的）文件体【之前】
+	// run_id/claim_id 走 query：在解析（会把 200MB spool 到临时盘的）文件体【之前】
 	// 就校验 claim。未授权/过期直接 409 返回，不消费文件体——既杜绝孤儿 blob，也
 	// 堵死「拿 Worker Access Token 反复传 200MB 把临时盘写爆」。
-	taskID, perr := parseID(r.URL.Query().Get("task_id"))
+	candidate := r.URL.Query().Get("run_id")
+	if strings.TrimSpace(candidate) == "" {
+		candidate = r.URL.Query().Get("task_id") // rolling-upgrade compatibility
+	}
+	runID, perr := parseID(candidate)
 	if perr != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "task_id 必填"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id 必填"})
 		return
 	}
 	claimID := strings.TrimSpace(r.URL.Query().Get("claim_id"))
@@ -244,7 +257,12 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "claim_id 必填"})
 		return
 	}
-	ok, cerr := s.store.WorkerCanSubmitArtifact(r.Context(), taskID, u.ID, claimID)
+	runID, cerr := s.store.ResolveWorkerRunID(r.Context(), runID, u.ID, claimID)
+	if cerr != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "执行 claim 已失效"})
+		return
+	}
+	ok, cerr := s.store.WorkerCanSubmitArtifact(r.Context(), runID, u.ID, claimID)
 	if cerr != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "校验失败"})
 		return
@@ -259,7 +277,7 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	if err := s.store.AddWorkerArtifact(r.Context(), taskID, u.ID, claimID, f.ID, r.URL.Query().Get("caption")); err != nil {
+	if err := s.store.AddWorkerArtifact(r.Context(), runID, u.ID, claimID, f.ID, r.URL.Query().Get("caption")); err != nil {
 		// 预校验已过、此处失败=落盘期间 claim 恰好失效的极窄竞态。只删孤儿 files 行、
 		// 不碰内容寻址 blob（blob 可能被并发的同内容上传复用，物理回收交离线 GC）。
 		_ = s.store.DeleteOrphanFileRow(r.Context(), f.ID)

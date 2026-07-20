@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: workerproto/workerproto_test.go
+      level: file
+      anchor:
+        file: workerproto/workerproto_test.go
+        hash: sha256:ff527aaba67e7ce6a4b84f9057a500e1baec27ba45e3da16f9c93e2944514d95
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: workerproto/workerproto_test.go#TestExecutionContractValidation
+      level: function
+      anchor:
+        file: workerproto/workerproto_test.go
+        symbol: TestExecutionContractValidation
+        hash: sha256:3d25d1edd8c02dfb974e36a76fbae8f89a65cbd9b1a9110a14d2c4ed0a3c98bc
+        struct_hash: sha256:d481b16bb5e5b93fa85e3fd970591c38675998b2f38cdd7d56297a0c0ae69596
+        doc_struct_hash: sha256:d481b16bb5e5b93fa85e3fd970591c38675998b2f38cdd7d56297a0c0ae69596
+        lines: [5, 19]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z

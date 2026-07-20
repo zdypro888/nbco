@@ -11,6 +11,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 const skillSearchLimit = 8
@@ -147,18 +148,19 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if title == "" {
 					title = "执行 skill：" + k.Title
 				}
-				t, err := d.Store.CreateTaskWithFileAttachments(ctx, &store.Task{
-					ProjectID:       pj.ID,
-					AssignerID:      u.ID,
-					AssigneeID:      worker.ID,
-					Title:           title,
-					Goal:            "按已保存的 skill 执行本次任务，并把可复用结果沉淀回 nbco。",
-					Description:     workerSkillTaskPrompt(k, instruction),
-					Acceptance:      "完成汇报必须包含执行了哪条 skill、关键步骤结果、验证情况、产物清单；失败时说明阻塞点和下一步需要什么。",
-					Priority:        skillPriority(highRisk),
-					WorkerScopeType: "skill", WorkerScopeKey: fmt.Sprintf("skill:%d", k.ID),
-					WorkerScopeTitle: k.Title,
-				}, args.FileIDs, "skill 执行输入")
+				t, err := d.Store.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
+					ProjectID:   pj.ID,
+					AssignerID:  u.ID,
+					AssigneeID:  worker.ID,
+					Title:       title,
+					Goal:        "按已保存的 skill 执行本次任务，并把可复用结果沉淀回 nbco。",
+					Description: workerSkillTaskPrompt(k, instruction),
+					Acceptance:  "完成汇报必须包含执行了哪条 skill、关键步骤结果、验证情况、产物清单；失败时说明阻塞点和下一步需要什么。",
+					Priority:    skillPriority(highRisk),
+				}, args.FileIDs, "skill 执行输入", store.WorkerRunSpec{
+					Executor: workerproto.ExecutorAgent, ScopeType: "skill",
+					ScopeKey: fmt.Sprintf("skill:%d", k.ID), ScopeTitle: k.Title,
+				})
 				if err != nil {
 					return "", err
 				}

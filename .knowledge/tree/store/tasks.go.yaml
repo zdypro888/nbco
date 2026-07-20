@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/tasks.go
-        hash: sha256:2e20188ae52da0f3091d9282161465ed09593ad12ca7bbe58aab11d28cc306bd
+        hash: sha256:790d959725f1174962e35e8b0ce25ce246c471ff5d7fb33e88f92625cd14b1eb
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: ProjectActive
-        hash: sha256:185e23609a52b510b74ba7a2548f8564647713aea13ac7d4be1d2da070e2bce8
-        struct_hash: sha256:ed92f0b56dc3255f9f39f3ef8084abe45d0d24f2ebafc26db01d10573bbaef25
-        doc_struct_hash: sha256:422bb7a09f01a50c3581e82a61d69a60f70def98050d66023abcdf342a185677
-        lines: [17, 17]
+        hash: sha256:459d37b5391e5849d97d560ecdf6774e6fb261b285a32afc58b60e5b7594937f
+        struct_hash: sha256:44208d98f97d4549d020e17618162000d0d686308dac9fea10822a3cffeac84b
+        doc_struct_hash: sha256:769d1a52c26ec9ba005044e7d9d3db5188f11d368c12e08dec6a071cbfe78415
+        lines: [14, 14]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#ProjectArchived
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: ProjectArchived
-        hash: sha256:8fb56b95b96e51ef78e55030a3aba56d1bdfb28b6ed02062a531e09d8f0bf8cc
-        struct_hash: sha256:88da2b7a91c944c63ee0e95975ae0f2700d326e2096263e22c2c1ebd83b75f35
-        doc_struct_hash: sha256:6d1f867e27e8a410ea1ed116c3f9680a650fac69337f27957cbeb921825e1298
-        lines: [18, 18]
+        hash: sha256:899b9abd1a02d021c1735a4da6cab484eb6da658e0e65e339fde2fc27debb011
+        struct_hash: sha256:87968211cfacbd12f2521f4c1490f307ffd4752f06612ac8b6412b203dfe9c61
+        doc_struct_hash: sha256:99fc47d291f490cd29de320d5bd922a67d300ab1efdebed36228ed50a8b7dbe9
+        lines: [15, 15]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskPending
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskPending
-        hash: sha256:8182c3dc4d1713dd254e5522da145640854d48171abc6344ada975b503b5ad62
-        struct_hash: sha256:4c2dcc8b6e5af0c737899320a578130e09e9dd6a5cdd6b44919035c7f498ea90
-        doc_struct_hash: sha256:e9eb7ee648cd08812ba373cf42276175b7acb99acb99439505a178c8932baf3c
-        lines: [25, 25]
+        hash: sha256:755ad19405d87d661d1ad3b45991dfa1922b4d2a30e2bb751079ddece3749b06
+        struct_hash: sha256:65e33d05102983c76dca589e7356a81a6a66713f7456e9e986073084cb1c6c45
+        doc_struct_hash: sha256:85a9b553171d813f04752bdbe901b1f8295ab608b34ba528b8920e6095868c7f
+        lines: [22, 22]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskInProgress
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskInProgress
-        hash: sha256:f065757f1e0abc62bbd7c436a4525bb33899ffce597c78c1e7852e5b4d608a3e
-        struct_hash: sha256:f5a7d5228dd1b00b2eadeb745e4b9367f1db0e5f087dd78e5ed9979c42f0b159
-        doc_struct_hash: sha256:059fb1bb450900ed1017ce86d95115990862c67bd315e793b37ab3b042416239
-        lines: [26, 26]
+        hash: sha256:1d494425789ca767acdf1f845cb646b61d09f03fb211f24627ca09b56dd27d5e
+        struct_hash: sha256:289e93b29458cdeee9569045eca03e4899a8a940dd02fa5d29bcfb81810d82f7
+        doc_struct_hash: sha256:993250b9be79ad393726919aa0c8a352eebeb29aa2ae0264e05596103d1ab9ab
+        lines: [23, 23]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskAwaitingInput
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskAwaitingInput
-        hash: sha256:7ede6f992db3562678cb2631dbcc9faa8d0b0d2dd7b21cd23d5b092d0037c06f
-        struct_hash: sha256:7f2c2edaf1e9b5b5dc4a15dd7d04d4345f2c22ae56deff9096a087dee9006dd9
-        doc_struct_hash: sha256:d055d77d048378c4ca405d4d565d59c6cd7d96aa148ea8de2cb77f5e66a1ef2c
-        lines: [27, 27]
+        hash: sha256:844bd42f4e47b95509552775a3788f8be4acba3b9e392f691592a9a3430044d2
+        struct_hash: sha256:3b2d83f7488813773495bc68832da6c3e4aa4b2d2234c1759737a70d1b16b9bd
+        doc_struct_hash: sha256:5b1a89ea7a7f8587a3861ef41566637fdaa8212dced493e65ebfc9b0a1aa37e7
+        lines: [24, 24]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskDone
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskDone
-        hash: sha256:980cf73d9da9346b012529d78713e8d9568e2f4c1178ca3bb6ece762594a17d5
-        struct_hash: sha256:7c8e0a3755b561a1ac5b19c324bb945491808bf25f879705b1ff5036ba0f1ee4
-        doc_struct_hash: sha256:70cd388b6aca4fa2e6a0b21bdb76c3543257b9a076cf7ec16332e42a1c56c0b4
-        lines: [28, 28]
+        hash: sha256:c412c9e304638a0a941fe2ee7c67644cb9a435d8324122a30d2cfdc32ce9448a
+        struct_hash: sha256:3d4d166c11e9dfff31a3d0bd40a57b2abcdc94405f28b30e030823aeeae20206
+        doc_struct_hash: sha256:b8064cc4de7469873bbed720e9e29fccd8e0a4a644d45f85c6f6cebdfc4baf52
+        lines: [25, 25]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskAccepted
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskAccepted
-        hash: sha256:77332032a00ba4e21b0ca3c987c1d522e72519342edf601230e96e0427f0e9f9
-        struct_hash: sha256:25967f31095c9d66e37645afb7a32bbc647888dbb0c2983a0d60e5076b4de524
-        doc_struct_hash: sha256:ea8d418bc0f8a51920d39307e35393a2ac2327c1a99be7eb71b623b389856cb9
-        lines: [29, 29]
+        hash: sha256:49ac954679ecb17a430a86e45647fc059f21fe5dc78b0c23fc706bad8bb619a0
+        struct_hash: sha256:c07d07ba08377a7d401b422dc800d8c650b5fa329ccab7936bc6eda79aa1f312
+        doc_struct_hash: sha256:88f5635b0f966ffd06bc7b26df60570e65941b06c42a8e3f72e629f7bc717132
+        lines: [26, 26]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskSplit
@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskSplit
-        hash: sha256:309327edc4e5d82403acba1ba2517be1a6e7d6644affa9050edd19ab9d5e6883
-        struct_hash: sha256:fc67904d93583c425fdcbd44048ccb0c95b19dfd1eff30ecb38ab072847e5785
-        doc_struct_hash: sha256:7124cf44489101dc4f3b5a2da914bac79c7067da75694b6872e1e5a15d43081b
-        lines: [30, 30]
+        hash: sha256:e0c21f3a895c43511e05f1b04e17e0f731085ab3c1e9994b07e1bf6145089bdb
+        struct_hash: sha256:9a341076bbcd7aac2f85b16573beefbafbb3abf67e76de126445a94a76c0b88d
+        doc_struct_hash: sha256:3ecce01e6324cb79a83c5ef2410d500c4cd30da1c4564a02d6cd21b8a7a21bfe
+        lines: [27, 27]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskCancelled
@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskCancelled
-        hash: sha256:c3530f92133d8caedf41e3400da64a96d516b823856688720a7d3604a492360e
-        struct_hash: sha256:8e8704063d619e837af2a1001bed658f66127bde7fc8c6a8df139260316b6fc0
-        doc_struct_hash: sha256:88aaea5d425e06ef11a636b354e87fcf0182dc410195d8d0c4c5760348faeade
-        lines: [31, 31]
+        hash: sha256:c7f725a7e3aa554af070e71b95b93a40943ebd22fab0f0661619e204343f0a8f
+        struct_hash: sha256:809cec995a98f1a19077fb6e4c592dcd4d73033eb829cd1012071a6f79332eaa
+        doc_struct_hash: sha256:4c2132e0063d3befa1d5196934d37b7ad379c1bdacda9c1d89132f5954d7ac50
+        lines: [28, 28]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#taskReminderClaimLease
@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: taskReminderClaimLease
-        hash: sha256:5fe42e1829c267cc3ad8550a3bd025df986647af5ec9deb0c02379deed32c809
-        struct_hash: sha256:4334abae94a215bdab3439eefa319e43b7b7b4baf70b96c10790b00c78205d2f
-        doc_struct_hash: sha256:b0feecd7973f5478814309dd7007433ba2043ed0feb338939fa98cf288f0116b
-        lines: [33, 33]
+        hash: sha256:8e26bb43ad96f6405ed82c8603c56aab436eba234a52dea71b8fa8da7f117de3
+        struct_hash: sha256:081af31b895608efed4e3efce409c5f9ee2adbf3ba4880b647de694299182d99
+        doc_struct_hash: sha256:954661cfb5ffd554d6e4409f456408b41c4b1739197a4ea57787cb2e9e55c2b4
+        lines: [30, 30]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Project
@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Project
-        hash: sha256:d9c11080195d551316543ca68722dcbbdf6756be72d51d86cf341cf04751b1f9
-        struct_hash: sha256:d4e5f7439987e9390cbce8e622bf4af1680b90b925f4bf31d829d35039a31511
-        doc_struct_hash: sha256:ae6e090143048bf82b27fe0107f04c7acfd4766b19f43cf2d8419e4b5071ba6f
-        lines: [36, 44]
+        hash: sha256:f6e225507be4f5a1a8269a5e9c8a5b9725821f36acd5774eeef00935b2561473
+        struct_hash: sha256:ed46fc17401494d60283b653c74198a939d4c4f8dd9ecb5d1c7602d73a347f54
+        doc_struct_hash: sha256:3199823ab89ede05282649f5d77d481226c58d9086480107a468e497480e830f
+        lines: [33, 41]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#scanProject
@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: scanProject
-        hash: sha256:8e274a15ccec3b7c5416aabbf9ff47e30de15028eb909ae08a0c115042a6d0c0
-        struct_hash: sha256:648e163fffb333580d0cccdd5ccd41a7acc7c7bf52eed98841a7a9b98a2dd584
-        doc_struct_hash: sha256:648e163fffb333580d0cccdd5ccd41a7acc7c7bf52eed98841a7a9b98a2dd584
-        lines: [46, 50]
+        hash: sha256:581f6a9a8a396f687be6dc52d7587010dc54e815bfe150c69f2adf89a6da851c
+        struct_hash: sha256:ad97f9591c7cd320ab00112896a6dca7768376c7303aab4e11ba9d069717557e
+        doc_struct_hash: sha256:ad97f9591c7cd320ab00112896a6dca7768376c7303aab4e11ba9d069717557e
+        lines: [43, 47]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Task
@@ -145,10 +145,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Task
-        hash: sha256:81d0651a644a57d9f71577dcaf49ab4b06a725554939671549c53c9c4dd9cbe1
-        struct_hash: sha256:044b5cb18d9b97627f3280a56dcbba5ac1c0b1d08292d5a1ad6129465c27e25f
-        doc_struct_hash: sha256:6b7fdc6dee6dbf31cbee045961db9cdb5d0a7ef7ca5b9308c7a46c008012db6c
-        lines: [52, 92]
+        hash: sha256:ed900121890c03ba1bb4e5333246c5dca6627551f2a397965b8f7ba559f11858
+        struct_hash: sha256:db4809e57b67483e5b89d7d9ce32b274afeb7b7e6baa86635bc75f3389a79068
+        doc_struct_hash: sha256:76e891320a87df4a2d3235b87213be83a7fb2aebadcedf1aae4c0adeae3ee6c7
+        lines: [49, 78]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#ChecklistItem
@@ -156,10 +156,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: ChecklistItem
-        hash: sha256:2e46780edf63b660faf7e92cb494c10b225f2775fd7c6a266d16f6bfe619035a
-        struct_hash: sha256:c782eadfba6eecc52c6ae50e5ba290c54c69a6fb604af1799757c3230d73e12c
-        doc_struct_hash: sha256:7210ee86bd01f6bc3c2b1121c05eb7a7f0525c164f11251b129a947bd83b90ed
-        lines: [94, 101]
+        hash: sha256:38f899c9316f2968c65e7e2f6a664762c55baa5c1cf0da96ccd785f1f582cc6d
+        struct_hash: sha256:02152832b92c074d6ece9e8d454e76f6ad5889e0c99a66e97a8e2437c4d16d26
+        doc_struct_hash: sha256:19f5d948a74d47ebcf6dcdd1b6ee27adacfef77c2f6bf6a0b6015364405eab9c
+        lines: [80, 87]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Progress
@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Progress
-        hash: sha256:c4ed1885bb3ec349f150c5e870ee8cac5d9343cc1f4e39e47359e7654b705902
-        struct_hash: sha256:c47f3cba12d0de8ded90b79405a29851db1a460c5ad43e09be43c2bcf5f4e7d2
-        doc_struct_hash: sha256:668a65be5e6c7565f1e7688cfa4cecc644d5af4f4624b0f61ce4c27d9855dcf9
-        lines: [103, 110]
+        hash: sha256:b4ab739ef79666af5c3655df33e1e3b158c5b64edfc31cdd3f558e8ec02e9d3d
+        struct_hash: sha256:8c7181f37ca45ff0f74f6047b2d17b0fdf39cce406346ac7fec8cd739d40653b
+        doc_struct_hash: sha256:492d1ef60a4f2fd2bbb834a05b8d7c2e8fef17f3e1bfb5c982a0afcb5b1e4369
+        lines: [89, 96]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Attachment
@@ -178,10 +178,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Attachment
-        hash: sha256:2fad1a78fbea0a6d8cff724faa7641eeb63270383c9f44e58086d1f659c9a659
-        struct_hash: sha256:78daf1cfd877cacfcec2bbfc86a9f7fab6ab10c2314782e5a1509937c96a1eb6
-        doc_struct_hash: sha256:f73fc36bc455da45cf147bf48d01e108bf2002a991c8254a5acc78c67f7cfbd2
-        lines: [112, 120]
+        hash: sha256:23c1ef5d39212da00b7ad09cd184100a86f0f0a42c207e44eb8057f232ef22dd
+        struct_hash: sha256:7d1cb6764238af12246026d12bbde1d4c7906cd22b070400542849bb9b5749d7
+        doc_struct_hash: sha256:8c7d4a583e2c626539fb14698c0671cc68c432249de31f5545acf7aa76b56cb9
+        lines: [98, 106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#taskCols
@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: taskCols
-        hash: sha256:80a249fc1461f928cc246ae17116daf89e458e04cac012ba9c5be6a41ae7805a
-        struct_hash: sha256:449db9d5b3724540d298eba9b3f38269fe51fab3b7ddf9dc64bfa9498af86538
-        doc_struct_hash: sha256:449db9d5b3724540d298eba9b3f38269fe51fab3b7ddf9dc64bfa9498af86538
-        lines: [122, 122]
+        hash: sha256:3563fba9b6dfbf18a44b84caf64ee89626aa7133519f70cd19e4682361b9fcd9
+        struct_hash: sha256:7fb53661e3502a297a329be3a9cdb577350c06baf7caac96cf4c15161befe2e7
+        doc_struct_hash: sha256:7fb53661e3502a297a329be3a9cdb577350c06baf7caac96cf4c15161befe2e7
+        lines: [108, 108]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#successfulTaskCompletionStatusSQL
@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: successfulTaskCompletionStatusSQL
-        hash: sha256:108bcda68c49aed23d8a07d102a464a902007a560322ef3d05a064cb926021af
-        struct_hash: sha256:626b5c3b1ce58a5deb863a9687d19d62d07c77521bba695a2c15f88cfbff5002
-        doc_struct_hash: sha256:c1b23d61f07b4778cd39369938df3400696458b80ac354f0ba301a86fb912bef
-        lines: [124, 138]
+        hash: sha256:6d4d120d76fcfde20bdad65c4d8ff8049d0fb9b32da562331eb21c8473be7a73
+        struct_hash: sha256:87db3e775017c0547018cd0209465b245ebd245941c27a6985b8e3a02a49c2bd
+        doc_struct_hash: sha256:2b99675c5905eb76fb1d9e25eb038f8ac35cb985914607147758bf3102fdd42b
+        lines: [110, 121]
       status: undigested
       since: 2026-07-20T09:19:36.738992Z
     - id: store/tasks.go#taskColsWithAlias
@@ -211,10 +211,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: taskColsWithAlias
-        hash: sha256:f602498b00af163196de407673aba9c24d1fc07869413ae9c626dfce97193284
-        struct_hash: sha256:d8bba664436e1b2dace7fe2c33db22e1b180c126b97a0368c6b645f6edbc5596
-        doc_struct_hash: sha256:d8bba664436e1b2dace7fe2c33db22e1b180c126b97a0368c6b645f6edbc5596
-        lines: [140, 146]
+        hash: sha256:b92aae07b133f4484d69208adf4f49251d11359e21220f3b61c283c8e3117749
+        struct_hash: sha256:a2ffc69f68e8e29de0a11cfe0a37abd3e8b42fa9ff0f433fd3bab6d75dc9874f
+        doc_struct_hash: sha256:a2ffc69f68e8e29de0a11cfe0a37abd3e8b42fa9ff0f433fd3bab6d75dc9874f
+        lines: [123, 129]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#scanTask
@@ -222,10 +222,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: scanTask
-        hash: sha256:97df41f9d86d0b6deb45bb0310b06cfe6e9595c588c00db4a5bcd295586a5d84
-        struct_hash: sha256:4ce77ad9fad6e50c25c5d5e652b01abec1aeae253c51fdc9303f1be1c342a60d
-        doc_struct_hash: sha256:4ce77ad9fad6e50c25c5d5e652b01abec1aeae253c51fdc9303f1be1c342a60d
-        lines: [148, 160]
+        hash: sha256:357533c748652c9a0dc886d8cac71f37d14185ec2d7db9550a9c466b74fe6347
+        struct_hash: sha256:92ef68e129bd84c4d79c48b552b85ef0c872025c2782f7bb2092ea0030e14cd1
+        doc_struct_hash: sha256:92ef68e129bd84c4d79c48b552b85ef0c872025c2782f7bb2092ea0030e14cd1
+        lines: [131, 141]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.CreateProject
@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.CreateProject
-        hash: sha256:b1600300dadef1640ff6bb0962fe341dc0cf9b7fca203d4acb396105b4777523
-        struct_hash: sha256:3cdc7e6625e96c1450979baa20da9690650dcd2f4b29ed869fa450506f1569b1
-        doc_struct_hash: sha256:d5939e221aea4625d6ddc534d28620f74c567f6cc68b1b674a5cd77286723bec
-        lines: [164, 173]
+        hash: sha256:efe184cb1eb11557e613da89a25297ef02229c4a966ca3482f0df55d2c40e7e5
+        struct_hash: sha256:017bf20666646dfa535ef2b3def80f6eab75c11f058941f1a81644ea92ab2601
+        doc_struct_hash: sha256:3ba12e9b5f74425b8ffb8d065f3cc055cd8afd6c491b7ad1e4200fb077526671
+        lines: [145, 154]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ProjectByID
@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ProjectByID
-        hash: sha256:0e1eb7e465f04944f13b5dc2409719f38316ccf876a20c32f0530a397642e39d
-        struct_hash: sha256:fadf3c63babeafe249e7cd73f066597ad636766dc072b833932a1c15b80bee26
-        doc_struct_hash: sha256:1e703befd5d57514944c4bd433219e163381e90786b648d7e2974e509d32a414
-        lines: [175, 182]
+        hash: sha256:b5b6eb8043af932c2e4d549ceb4b9a38426528cf4399f6f3bb9f50447659428a
+        struct_hash: sha256:c76aeaf16a84e63a42c2d59cd5ff00c3c075845d8c411d753fd31660223613e7
+        doc_struct_hash: sha256:90690edc6c57964444096fcac22ea1001b7711bd06a1d7e2fd11a3f0096302e4
+        lines: [156, 163]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ProjectsByCreator
@@ -255,10 +255,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ProjectsByCreator
-        hash: sha256:35ea67a2421f33fd841e18f4b15483cc378d8cbae519c0feb983774a978b9240
-        struct_hash: sha256:5d9e437c1ef240265247b0cb665546254cca03e7d79735576ccedc0302fd2a14
-        doc_struct_hash: sha256:5b060f6f33c335df76b9ac939c5c49290987fd7cfd241b74288080f276d54545
-        lines: [184, 202]
+        hash: sha256:75e7246475daa190d4c9d9361fb8f275a7341c3bfa0874a61f0ea1a3fd57c807
+        struct_hash: sha256:039c12f70d8fc82c899091f6e7549744699296ff20fb3c4d28529051c1ac54d0
+        doc_struct_hash: sha256:3ae156f29ca0a4ce363aabf1e8fbd63c91c83aa536c3ba3b540eb81a6efb3dfd
+        lines: [165, 183]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ProjectsOfAssignee
@@ -266,10 +266,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ProjectsOfAssignee
-        hash: sha256:f49d2d56a3fa010bf1cc272968015353510fd1d5139ba0f177e87b6bd3e2d341
-        struct_hash: sha256:d2e940937b039eca267b32aafaecd0f282aabfe6f458231b24b7fcfeebf32011
-        doc_struct_hash: sha256:729ec790ef3e6e910a2e9298f8adcec9856f3cb6fbf183d8705a86bcc6e475c8
-        lines: [204, 226]
+        hash: sha256:6ebcd363725546d3f102237cc9513cc811519cea12faf78a931fddd619beccf3
+        struct_hash: sha256:c0e033796d7228755b8eeff95ad2b17cdb64f8edbec0c7f32ce6ef7ad6ffd71f
+        doc_struct_hash: sha256:7488929ff3daec41dfa8cbc5fbe4a6ff136add97e218439f560500f9786c2a85
+        lines: [185, 207]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ListProjects
@@ -277,10 +277,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ListProjects
-        hash: sha256:3e8ccd663a62bf55b3abf32bbce98adc0a6757af557b3bf79c0c6d37ae6484ce
-        struct_hash: sha256:b79c131702ac47933bfc2e1aa6b5a830186e9e3f8021319b4b8bd4b712db98fa
-        doc_struct_hash: sha256:4a288681a0dfcdac7cbb74f26b72657ea1f67eb691c7ad3d4c1562731d204f75
-        lines: [228, 245]
+        hash: sha256:a7a904a41b264439f3b19ddf330334271d2c1f1a5e1f9a618f433c1849072585
+        struct_hash: sha256:814e40952066d109445b711d06be3b4f868bd5228105ad7722b7aef9d48b2f80
+        doc_struct_hash: sha256:80e3101df7be18c3fa1bd2aad97dc2f94389ec54222fab7a473aa329f2f1106f
+        lines: [209, 226]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.SetProjectStatus
@@ -288,10 +288,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.SetProjectStatus
-        hash: sha256:59f19538d3f3f87f7f102f09beda7b71d4ebb13e5d74b75c0e7bae04a0d4dd7f
-        struct_hash: sha256:c1cefa3d23ec7a9cd4cc53d253c2f0673aa0237ed31996b6fd5bca2eebd1404d
-        doc_struct_hash: sha256:adb50a3eba61b58e6ce61a608d2005b8ea5c075b8d9e98a5717b23e14bdb1ff9
-        lines: [247, 250]
+        hash: sha256:62e552537d2f02e4c47b51d8ccfb4760a6e7a215f3129ed9678bd80dab543372
+        struct_hash: sha256:8f452ed22f3298d9c6171eff8b8b25b9db2a2883939d76b15bf2f376ad98d533
+        doc_struct_hash: sha256:50b1cdb3105b24c0556d12fe16359063692bcae86a996fbdc1dc7f8af26293ad
+        lines: [228, 231]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.EnsureWorkerOperationsProject
@@ -299,10 +299,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.EnsureWorkerOperationsProject
-        hash: sha256:9f73c77594a65ca855a89c2e3206c436e50313a39012162e0a9dc26f0284770f
-        struct_hash: sha256:7559ca78ed6688fd7a01ebfd0a991b218478a631868f048ec47a3b2dfcacd4b2
-        doc_struct_hash: sha256:226a32e506d76c202ab0b44fe202fc5e0973d08695e2e50b03ff555174c25b46
-        lines: [252, 278]
+        hash: sha256:79d4b7d429b983b6fa06edc802b9d1232f495cefec308f32fbec8b3c7f8e4ed9
+        struct_hash: sha256:4a642eb4416b1fc6d3731f6c3e1f5e8e041234768f9c37ae0e227712b3bd945e
+        doc_struct_hash: sha256:63f22c65738c58084a5634b9b47e3d784233482e5df4129e55ec11ed47fae7f6
+        lines: [233, 259]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.EnsureCompanyIntelligenceProject
@@ -310,10 +310,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.EnsureCompanyIntelligenceProject
-        hash: sha256:e796549e91249e9415523e179cb5aa1b108afa2f7d3b84c015cb3920c7691b90
-        struct_hash: sha256:ad9a1e569c7f2f3e3fb9e7cc432112d5d0bd463060cccfb27eefa907ea763864
-        doc_struct_hash: sha256:7e1964efb63bd64060d3ca8cc64162226ae7d0cdef3803475810a45434121d08
-        lines: [280, 296]
+        hash: sha256:3f03a06ada7c73fd8b80b7ed78ca80465ca75f3b070d0e577aa0af20645ec4a6
+        struct_hash: sha256:2a51f73d154bc69de69b40f2b34d7f57269247325995b476702a59b271aaf54f
+        doc_struct_hash: sha256:80e014319e96a333faf4c4bc182d8a24aac0c53b2658e6a366c0d9b0321303ec
+        lines: [261, 277]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.DeleteProject
@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.DeleteProject
-        hash: sha256:4699c0e6d2c1df274514b6a7206c990a41f9fcb615a92fed91a3738e1f412eec
-        struct_hash: sha256:cc87e73a2ed1e9f8b929ad6f7c9643787422de03d5f690d8dc4682ac8d117312
-        doc_struct_hash: sha256:6f39caa27a607fd398cc2bfff66b4b57fb375c5d717818593cd447e0351d1f0f
-        lines: [298, 323]
+        hash: sha256:f4eeb872be8948dd0626a9f7d91b4964d86114d65e7d54061afe7c549331b290
+        struct_hash: sha256:9c7328f9a9b31e6b873f1d123e39aae734c034fa847067a3de6b6fb3a721b769
+        doc_struct_hash: sha256:81470fb49ba83aa24085ee8521c28230a95081e3b0359dab1f7aed5d7f97f021
+        lines: [279, 304]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.CreateTask
@@ -332,43 +332,43 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.CreateTask
-        hash: sha256:384cf6b9a9d26ed9e9574293d87ef0e5ffe6d34fbc7907019b417804c23fc673
-        struct_hash: sha256:a55e22091907c13076c1d6a865d5007a1271c06c8b73625f8932c8ae544e9b96
-        doc_struct_hash: sha256:13ff615569f0b78c18e294384b15d47f7bd9e802b7ca10051fd7ed2101b9137f
-        lines: [327, 339]
+        hash: sha256:647ed546e207cd452c426a5d109bff634bbb7cd304d28024b36b88b7efcfa229
+        struct_hash: sha256:8a25a2f60c4b8cf8dac41b7f769284b2fa140fa67143bfe9651b90e84ef8a874
+        doc_struct_hash: sha256:a58e1488c220959fad15657008ff1d9082caf17cf498d4044a24296e73233ff8
+        lines: [308, 311]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/tasks.go#Store.CreateTaskWithWorkerRun
+      level: function
+      anchor:
+        file: store/tasks.go
+        symbol: Store.CreateTaskWithWorkerRun
+        hash: sha256:dec02a3f7f358c2e0fd09428498706247ee66a6fa16ed50e926044f9593cc48d
+        struct_hash: sha256:ffbd61076d860e69af6986513c230a17c3ebd95bd2596a97722f90897bbc2d19
+        doc_struct_hash: sha256:05bb6de115b48e72b23af16dadccb21de570053835b72910ccd50befe151ea10
+        lines: [313, 318]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: store/tasks.go#Store.createTask
+      level: function
+      anchor:
+        file: store/tasks.go
+        symbol: Store.createTask
+        hash: sha256:50d5ad59e2b7fda618de92645731d568788569193c71a516dedfbfffda5f3f24
+        struct_hash: sha256:0fa80441d2bf0834b2113faf21af48e7cc7bf85a2889b2147acd3dbf93d18d6a
+        doc_struct_hash: sha256:0fa80441d2bf0834b2113faf21af48e7cc7bf85a2889b2147acd3dbf93d18d6a
+        lines: [320, 331]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/tasks.go#createTaskTx
       level: function
       anchor:
         file: store/tasks.go
         symbol: createTaskTx
-        hash: sha256:a45353005c8926ffe468951b2c8dbf54187a293157bc3250998c1b40a21e9c0c
-        struct_hash: sha256:3014faadbde3376e41defa4d821e8f7c6558d3a1cf8d364ee335c93cc04acf2b
-        doc_struct_hash: sha256:3014faadbde3376e41defa4d821e8f7c6558d3a1cf8d364ee335c93cc04acf2b
-        lines: [341, 390]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/tasks.go#normalizeTaskCompletionPolicy
-      level: function
-      anchor:
-        file: store/tasks.go
-        symbol: normalizeTaskCompletionPolicy
-        hash: sha256:52584db6bf388b44e5e478d48ba6f40dfde60f3cd4f674ec03543b1dc1b806ae
-        struct_hash: sha256:ca55fbfca379e0fa06a002e75dd2e70d7c5f8da57a939a6d4446ec4b199f7d73
-        doc_struct_hash: sha256:ca55fbfca379e0fa06a002e75dd2e70d7c5f8da57a939a6d4446ec4b199f7d73
-        lines: [392, 396]
-      status: undigested
-      since: 2026-07-20T09:19:36.738992Z
-    - id: store/tasks.go#normalizeTaskWorkerScope
-      level: function
-      anchor:
-        file: store/tasks.go
-        symbol: normalizeTaskWorkerScope
-        hash: sha256:aa12c8cef4f6b6992d4364e397afab21d94de842aa87344df4cc76154e116fa9
-        struct_hash: sha256:40ea97849f659e136957e44e19f60ab3a931f8527d2af72d4c1aeaa8abdf168d
-        doc_struct_hash: sha256:4d772546a6c4e55c38740f7a067382051906f5fc91a98add8fc4bfc1747425d1
-        lines: [398, 415]
+        hash: sha256:5c902ac39151c426283e832d4a974c867c6e20d4cfee6e4df65c6fe2a37bd752
+        struct_hash: sha256:12d0622617afe7b86be870aca596052e8171487b106088377f4ae2be7056cf2c
+        doc_struct_hash: sha256:12d0622617afe7b86be870aca596052e8171487b106088377f4ae2be7056cf2c
+        lines: [333, 380]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#normalizeTaskDeps
@@ -376,10 +376,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: normalizeTaskDeps
-        hash: sha256:042c566c20dd88602a79a98a43e1bdb5bf81bb2139905e2057c4302729b94eca
-        struct_hash: sha256:0d36d89ab739a10fcabe89081c6e809131ad0258bb944490751158e9ee4eb567
-        doc_struct_hash: sha256:0d36d89ab739a10fcabe89081c6e809131ad0258bb944490751158e9ee4eb567
-        lines: [417, 434]
+        hash: sha256:6009c8cbf60d5790c9ad6d00707fdc8ca5745342aabb657ed887023a6c436888
+        struct_hash: sha256:d5962113877f56229864fa6484a82cd385fa80917b1185040199e2808c709ede
+        doc_struct_hash: sha256:d5962113877f56229864fa6484a82cd385fa80917b1185040199e2808c709ede
+        lines: [382, 399]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.TaskByID
@@ -387,10 +387,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.TaskByID
-        hash: sha256:a41a5cdfd7189895f58a4a221b32007069496f98125dc978b65afa88de1b6a1d
-        struct_hash: sha256:f2e49aaf7ff2d08ffeccf78c0996fb438b3eb29c9f8f3a763dca38c40e9e68fb
-        doc_struct_hash: sha256:1b0d82c441a089e418738076cd6411008a544a1052b0205dbf8d5f6bccc32d15
-        lines: [436, 439]
+        hash: sha256:bf008a9f31d074fd525f2c6f3a9cd4c37d4796f9a261f4454a571fd9de0a3604
+        struct_hash: sha256:311c065f3043ed622aed1bb0a1aa2076b029c6469659a5dd06f2092d08b23a01
+        doc_struct_hash: sha256:fda457cd19b2279296decb036bbd0dde680dad4e557d99f32b30d60244006748
+        lines: [401, 404]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.TasksOfAssignee
@@ -398,10 +398,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.TasksOfAssignee
-        hash: sha256:a1ab21813b8ac3e29a6d9aa76369afd28e343d7dc59dcac3f90cbde6ac23de88
-        struct_hash: sha256:8e7231b6b79551d3ae32d13f5a173f69abc0fe8f551ea29d982e3454b51870d9
-        doc_struct_hash: sha256:e723ebea2915919712c61adc6539606228356795d20ee45a4125795e9d802a72
-        lines: [441, 458]
+        hash: sha256:fcf4a37499839e54e1ea0b9a8214749007d7c5151d4afa9e532fa311e63d96f3
+        struct_hash: sha256:6234cda025ac365e4a5f36ecac4e2ac7e1d8710617d858a2381485e8d6ea2bb1
+        doc_struct_hash: sha256:a71e41179923acd703487b5fcbeac07e001046fe5d7622780586722db995e50b
+        lines: [406, 423]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.TasksOfAssigner
@@ -409,10 +409,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.TasksOfAssigner
-        hash: sha256:86b3930be562b749e424836d569e3a89c9e7ec5c150df6b92ed879b21f066e69
-        struct_hash: sha256:7291205aedf425fbf85664c3a816dda76aff2c692111810cee6652d32b00582a
-        doc_struct_hash: sha256:b98b80418492b61b6fb4c08a1e17279c04bacc70f51934cb7ae16e6a4876e491
-        lines: [460, 464]
+        hash: sha256:9137dd95fd4f00f009a4a7bc3767dee32036bc9e74f7bb4421cbca2deb659a87
+        struct_hash: sha256:98c68357f00e7b26a50a7367efb4a2c6e51cc8cece9a3513e6c2a5da90ebc3b4
+        doc_struct_hash: sha256:670f389ad9858d19677129f83784fda58920c4ca55f1a38e71c6240214c1d5b8
+        lines: [425, 429]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.TasksOfProject
@@ -420,10 +420,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.TasksOfProject
-        hash: sha256:85ab952b48692db52dc6803d4290093d396db67739a169afe4f19eeb170b7853
-        struct_hash: sha256:9f38f8f0db15a67a215a23799ad200719c5e5d133583c7037f0ea2db9ebfc498
-        doc_struct_hash: sha256:49d4ddd0ba6b61da090f76fec125bcae7c4d0404095b012a65b47067e6f05bcf
-        lines: [466, 469]
+        hash: sha256:23d4eb182a17a2b957cd980542dadf1c04538882c77ed6c7112585e2bd36fc8d
+        struct_hash: sha256:2c30d717918422017dd693bd217b15c24efb1cae1bc4c16e8dbf61f24d49b4ab
+        doc_struct_hash: sha256:6219edd95cc2f41d8a4a241c55e4e288831dd51a5a336a0ee5b7c957a8cbf4ac
+        lines: [431, 434]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.TaskQueue
@@ -431,10 +431,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.TaskQueue
-        hash: sha256:c482a937cb51169fcedc9c773865e4c70022ad84bc242f15b78008a4955338a1
-        struct_hash: sha256:82401b1a0d1ee9ce4e13272e17f56087858412f0df5c28b455f12a03d4a6d877
-        doc_struct_hash: sha256:a73a6017e70820ffaeacc4d0ce420d9d17c7b253bd51eb0c6f0cf7ec34b37874
-        lines: [471, 514]
+        hash: sha256:61462daf388b0249414c8400b7b20e10c3275517148fcc97bb0b66a00c76ec91
+        struct_hash: sha256:fc182ddcf590e3c40f0a9bb6d0e8012d6ae24f988eb37787d8a228f50621b051
+        doc_struct_hash: sha256:fe1bb481dac12e0a165281e3b8542205156b4f9b014d042fc8f8b94b56795532
+        lines: [436, 479]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.SubTasks
@@ -442,10 +442,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.SubTasks
-        hash: sha256:94ed18b81865bb3ad80ffa453cf5679891a17bc282abfabe2bb655d5a28a9b82
-        struct_hash: sha256:c2ce3c6332be3493cef96c0aaa78372e95bb7e61c15e26d0d6c954dab4700cd0
-        doc_struct_hash: sha256:475cc2203f39ea9e4e9bdfe7e37ee70869cab59e1ee8ed6d5e12006bc59baab6
-        lines: [516, 519]
+        hash: sha256:595e5903b6ec4767f68694a9ec3f9b5e520d26c87fc4874b4ee88e1761e962cf
+        struct_hash: sha256:016739a0c3f1464baf6606f284c2ffd4b345f1cbe9cebdf4aa42061edbe9cb84
+        doc_struct_hash: sha256:a22ccdb46e93a7bebd94bb15fd5d0f843e7d9511e369c25f356b3ab8efda185b
+        lines: [481, 484]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.UpdateTaskStatus
@@ -453,10 +453,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.UpdateTaskStatus
-        hash: sha256:8a8269f7c04160bcf468c6f57bfa7e328638b9b87bd7d3f9c3a27610fbcda1b1
-        struct_hash: sha256:d6a20083951dfdebae3a3ce9e012605572bfd98c349f54eccb9de17f9f4d2811
-        doc_struct_hash: sha256:138390d46b7e65080ec0ae284a698794232f3ea1150aa04677951cef45e7a5cc
-        lines: [521, 537]
+        hash: sha256:c2f32363f0f4bd0e018260392a3840a284cd062377c341dfc3b44ee26f7ca174
+        struct_hash: sha256:e19b5da15cf6d335acf8dcf4dfd51a2976559f428827cf1920956fb7a2932c2c
+        doc_struct_hash: sha256:4a08228707448f0051cf8786a4504a12b1679ff6183f401bee42a1718db8ff4a
+        lines: [486, 523]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ReassignTask
@@ -464,10 +464,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ReassignTask
-        hash: sha256:bbd3920c243d08278a2f5c00bcfd55a1ba7ccd471da07cb7334da55b91ca6c78
-        struct_hash: sha256:66c26f503f0b9f63952b7bd0cb6d49b0b03e0bf7314b5e9e59242a42d41aa631
-        doc_struct_hash: sha256:b9a5e0c06e3391432a1e8511cfb5ceec96d5fd04502722ad7f77036c879b2e4a
-        lines: [539, 547]
+        hash: sha256:588ebbd3dccec523394b7f5848cf28b6d466a3328b8e35b53fa4cac45bc77287
+        struct_hash: sha256:c2e4f22f71d72df42f3c50a21ec4cca1136bd1dbb4add9e4223215cca679e335
+        doc_struct_hash: sha256:7db347e3c3b73a2fa271f232ff34829488231f62939a1267be667e36ffd6cb5c
+        lines: [525, 533]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ReassignTaskWithProgress
@@ -475,10 +475,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ReassignTaskWithProgress
-        hash: sha256:31d40ecbc109369c83e0bcddce2d5c043fccced8a3323ee6ac8611dcaf755be1
-        struct_hash: sha256:8b35955342ba0d41cb0d3751bf534848e75cbc458f40e21bf8d829431ef5484d
-        doc_struct_hash: sha256:af19789d55a6f7f21cbe963a2d9ba7334c7bc553eafc7bf2b6e1c86a9417ffdc
-        lines: [549, 603]
+        hash: sha256:9d5088909bc671341dc89c66858b5a6ed87d5b85d2bd0e50221ed73739d3668a
+        struct_hash: sha256:61b6a75abbe2585604348671e05cce62636f3f57be3b14590cc2550482a9f602
+        doc_struct_hash: sha256:2e3ae6bbfbe7dbf5366c1b05b361a2dc458e6d5fbeb94054a8435238b74c3a8c
+        lines: [535, 599]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.UpdateTaskContent
@@ -486,10 +486,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.UpdateTaskContent
-        hash: sha256:7ffeb4dc24096e729298e7efbb3eef599b6fa608b996c4fe536aab1fa17eed19
-        struct_hash: sha256:5f26bba33fb91ab968baae52bc2bdaf17df16a919290577094e6facd0e9f124b
-        doc_struct_hash: sha256:68e2f90d208c90a99175c35983c49f47a4f596a692332c170c0746b0ed5432fe
-        lines: [605, 639]
+        hash: sha256:5eee0ee6e70b7ad96aaa1fc09083a809a3803bb1b787efde4d26df9fa37cdfdb
+        struct_hash: sha256:7c7389b02a00581353f0eff7a4a75fe104b0908d89f5523b15bb9414ce1342fb
+        doc_struct_hash: sha256:64344806e51060dda3942d20fa7f39aff14cf5884a26d1397861aa313786e6d8
+        lines: [601, 664]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.SubmitTask
@@ -497,10 +497,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.SubmitTask
-        hash: sha256:808d25569f85f5fe8431d0043a13f8be3bb31dd46f65a811e34feecae74267b3
-        struct_hash: sha256:f624bdc60255565533a8833304f0605e012bb9e608950722e4f1983d64f01ffb
-        doc_struct_hash: sha256:d7f02e1e659ee457cffd0836dd5b9c45f2ee2a01eb2f1e2721b3aa0fa2fa6b01
-        lines: [641, 644]
+        hash: sha256:9ac9d9c2569415a9df14dd16760fcb4d7a5523b51a444c855182266a67476930
+        struct_hash: sha256:8f5980447b5a336227e5259731ea72d8f821c627041f42c7dc324fe16f936730
+        doc_struct_hash: sha256:1b460fe4b9104691c59df207e4daead699ef162d671a08e3d61fafac4cb3a032
+        lines: [666, 669]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.SubmitTaskBy
@@ -508,21 +508,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.SubmitTaskBy
-        hash: sha256:61c74b2bfe23a010c301c3012533192ca0c2fd1765f2abdb80abbade44f8cd5c
-        struct_hash: sha256:3d65273f8d1f28e34ed070a6048f575a8ab7ecae9eb5449a5f18077fc13ce558
-        doc_struct_hash: sha256:eba562b65a6d4124273a80b41f2875a5105b457569e37865f308a8a56640234e
-        lines: [646, 689]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/tasks.go#Store.SubmitWorkerTask
-      level: function
-      anchor:
-        file: store/tasks.go
-        symbol: Store.SubmitWorkerTask
-        hash: sha256:c52fa089d2c8ac4232bdbe4a078c43ebd2f3360dd71a8f32586e830eb4c06094
-        struct_hash: sha256:81cde65fc56039588a22657dde11233d6477d98ecaea9fb0225fac8fb85111e9
-        doc_struct_hash: sha256:5b73e5e6da436050269fd7e957872fa86dc5257a239d480b5289cbd1cad363f1
-        lines: [691, 738]
+        hash: sha256:8f4509c693748c6bff984681bd5320c9792981f0055a8f659736f279f2724d26
+        struct_hash: sha256:51ec4500c0ff03772391b0a32c45f4b2e133c76892623f404e682a2a4185c7c2
+        doc_struct_hash: sha256:0b5d535f308cb61027def354c547ab719afd43e6b79cd66b3c9d1c989087e022
+        lines: [671, 712]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.AcceptTask
@@ -530,10 +519,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.AcceptTask
-        hash: sha256:daf0830085e84958fb024e6db378bb8a3f2a4de46a3990eab73f4606f91c5c19
-        struct_hash: sha256:0d019b01abb20237e6b4f4b9433ae4a99bb25adcd4ae9c6cd9d8a987a0ac940c
-        doc_struct_hash: sha256:971b6ed88ca425531a119c679d94c08d84d49cbb507150762dabe0be9bbbbbad
-        lines: [740, 767]
+        hash: sha256:2486a973eb56076300873a73d5bf01beb5903ebdc31a8f695277dba14701ab64
+        struct_hash: sha256:a9cbe7f345c2167ab2a0bd9c01ee25ac8df63310a2fa742eac8629f677f344cd
+        doc_struct_hash: sha256:c9cf5bc38cf61d270bf5d1b4abfbbb9527ed7dfb9b9cfdbfdefd045a25e55c57
+        lines: [714, 736]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.RejectTask
@@ -541,10 +530,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.RejectTask
-        hash: sha256:10903739a091b237829aa10ed5d2c480c218ff5fc4969ee584401d7c9d34159a
-        struct_hash: sha256:34e8e6ae1aa5ec7f3a2412ac67075057d4afff833399d0a889650d51ad0db99c
-        doc_struct_hash: sha256:9ecbe82e4869a7a63d71b94a7bc0b255f7fed1d7ce3034c92754008cb7712106
-        lines: [769, 802]
+        hash: sha256:b8080e0217945959bd519dca41618eae38ae75b4f8fb0d8d13cbb13053e7815e
+        struct_hash: sha256:0124964b1cf9ff67f973e7fc240a5bdffa0990ce9b050cec817bf28a0b7618db
+        doc_struct_hash: sha256:48678cce7030c447dccabc206e4f0abe88f8303e15ee8a85d8ff6d51ce49866b
+        lines: [738, 769]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#cascadeUp
@@ -552,10 +541,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: cascadeUp
-        hash: sha256:4a9279862e7ee7aef7630b8a17c5ab88f7e603dac4dad86fca1fbfb9c9abf385
-        struct_hash: sha256:2dfd69f68b8cebd5ba5e2b1d38f1251c453f90c0967cdaebe63571b0fc7e2c86
-        doc_struct_hash: sha256:3a5634a90a39528d43ac03cd389d84820f91df2d5588d1d7d7d3d35232bef9b1
-        lines: [804, 842]
+        hash: sha256:1726d824128c722380662feecb80b46bd202a4a6521edef99e7fdc5ae1584cea
+        struct_hash: sha256:618cd926ea033cf69f25689c39639fdb0eb912c40f8d8ac4cc7003dc4461fde9
+        doc_struct_hash: sha256:2478c8142a68f50820dda6c65f5782d64aebebad27f7945cb044c2cc2d9c8add
+        lines: [771, 804]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.TasksAwaitingReview
@@ -563,10 +552,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.TasksAwaitingReview
-        hash: sha256:36496688d188eb0eed78e339aed0ccdf27ef88d7d10ae563108ca085a0498375
-        struct_hash: sha256:87ea5a35b2c817e2acaabece4e903e38a15a5cd39a57b98a6e660f7ce7d76617
-        doc_struct_hash: sha256:51446083d96579d0f663b2dc6bc1265727499a50b1863146f82dd529a395bd78
-        lines: [844, 853]
+        hash: sha256:6cfa67a3587f4f7905d8dcd4fb157092956ee6bbe39a0096379977d8dd0e2374
+        struct_hash: sha256:968e20c66e541e550a25cd3e9bad65ee625d50318853d3c6997e07fe8fdb19ac
+        doc_struct_hash: sha256:447129cffa9c80c41a55e112759c0e0976542b0b350e3d1a7347672c1b480da0
+        lines: [806, 815]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.DueNudges
@@ -574,10 +563,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.DueNudges
-        hash: sha256:3d6aef05d6830ca9502ebe1f9e700b8795f764cefbdec0ed49cb152eef0089a5
-        struct_hash: sha256:fbcca675bf5b2666f3f773fa60bd4d8164ae6a3614e3c7cbd23e63626d5f63e7
-        doc_struct_hash: sha256:d81b1768bb262319b60d2e492339367f993dcbf28c861db9a1e6d6aa1e96ff4a
-        lines: [855, 877]
+        hash: sha256:479b51e6b36c001a76ab75b1e1d31eb321e99406aa8b7e64dc99c294074895ca
+        struct_hash: sha256:01bc5899178182af2088edda60ee0786b149400852932aac639d9b94faf2ac06
+        doc_struct_hash: sha256:989ad7310977d9b33b180bc70e1a085b9dd0844893f82f3c7057dfd7a64c5f7f
+        lines: [817, 839]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.DueDeadlineReminders
@@ -585,10 +574,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.DueDeadlineReminders
-        hash: sha256:51781129091d55255d6b52c17e31c57628ab38e1d3d0bc5d4a9bc89a1f6ca409
-        struct_hash: sha256:d5befccbdd139e961b13ab7d0aec61fd8b26a8d61c05f812783d0c9a9b38cacf
-        doc_struct_hash: sha256:2e0d9ccc2931ae6be9508029eced6cecb5ad6eb981639dba18180f63a4e79797
-        lines: [879, 892]
+        hash: sha256:7b01caaade4b57f5b910e0dfc2a8046ab6b0c7daebef1d281a3dde2b5471c988
+        struct_hash: sha256:3a5b7c296391cdd896e0c520d1951707efcf10f9bd882afa6bdc8249a283f389
+        doc_struct_hash: sha256:ab7cddf02a84b240c34ac08cc89a40306af444ee1846f7a15a8b92ffeeb9617a
+        lines: [841, 854]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.DueOverdueNotices
@@ -596,10 +585,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.DueOverdueNotices
-        hash: sha256:798b841951e05157afd8163f592b7f3bc6f364409c87bfc175ca2532d09f79b5
-        struct_hash: sha256:a3b774012d184b1111508ceeaa600b7137a03f389c5c4acc5d5d3557fe52a61f
-        doc_struct_hash: sha256:1e7683c62c60a27dae928d3d646e507ab2f7d0f0b5ba1d38f122df29cedb9e18
-        lines: [894, 907]
+        hash: sha256:6aa163af04c51b0d5b7974c54fa309889a63b389d143c1e397ec18e748aed700
+        struct_hash: sha256:421f51c5ad4de7c14ecfb0dcb8947c577b8a2eb0b080ac86249e8858e249007e
+        doc_struct_hash: sha256:13472e110d137bce24e3928c71a531fb19c7f4549dc277fb3f468c50fc7cad3f
+        lines: [856, 869]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.MarkDeadlineReminderSent
@@ -607,10 +596,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.MarkDeadlineReminderSent
-        hash: sha256:024d803062f0e83729d966d6fdc231fd9bac6d02e88d1e1563572de9e28d77bc
-        struct_hash: sha256:b23e7295aa6561a636065141999fb59c07472f35174044d76a9bc9a0d7100a3b
-        doc_struct_hash: sha256:b23e7295aa6561a636065141999fb59c07472f35174044d76a9bc9a0d7100a3b
-        lines: [909, 913]
+        hash: sha256:764cdcc4cfda7a43c124c50b25b35bcb47820418da62b832b324c72f1aeba1e6
+        struct_hash: sha256:bab58c04f7b646771adcf040aa5da3182134f306851d54da4a0365c2a482b0a6
+        doc_struct_hash: sha256:bab58c04f7b646771adcf040aa5da3182134f306851d54da4a0365c2a482b0a6
+        lines: [871, 875]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.MarkOverdueNoticeSent
@@ -618,10 +607,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.MarkOverdueNoticeSent
-        hash: sha256:2f370e07be0dce8493624c7b09ff573d03b4d8819e64fe0e9896f03effd3e9cd
-        struct_hash: sha256:815042e3ba556c54ba8bc6c5b1801d55fcebe206fb63fcd80d290b5d262c9986
-        doc_struct_hash: sha256:815042e3ba556c54ba8bc6c5b1801d55fcebe206fb63fcd80d290b5d262c9986
-        lines: [915, 919]
+        hash: sha256:f004eeae06b3957e9e3d4d83404b90957fa6a4a47497019c7eebefab87b894f8
+        struct_hash: sha256:b0edd4190494f28c389afd7067e2cda74fad04e630bfb5edf475843ea28e4f45
+        doc_struct_hash: sha256:b0edd4190494f28c389afd7067e2cda74fad04e630bfb5edf475843ea28e4f45
+        lines: [877, 881]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.MarkNudgeSent
@@ -629,10 +618,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.MarkNudgeSent
-        hash: sha256:efc6baf9bb401ede2962f8b683e88c3eb4461fa3e2211d204430b99aff481cea
-        struct_hash: sha256:73021c783219607b623cfad42331333db9f6c03ee2b3d6b35faebb1988d5ef85
-        doc_struct_hash: sha256:73021c783219607b623cfad42331333db9f6c03ee2b3d6b35faebb1988d5ef85
-        lines: [921, 925]
+        hash: sha256:e187b9c73f5e01d9afbd42d8847b334dbeb4178221765fe7eb0fdee0eb5d168a
+        struct_hash: sha256:81fdb270d72760fe5496b1728a48123915a97171c508418424f671f49b69cf8c
+        doc_struct_hash: sha256:81fdb270d72760fe5496b1728a48123915a97171c508418424f671f49b69cf8c
+        lines: [883, 887]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#TaskStats
@@ -640,10 +629,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: TaskStats
-        hash: sha256:ebd62aadc3e6cd2290694924a3ec22eacb20f5d91869a4ae52384060ea7ca368
-        struct_hash: sha256:c6fb082e8f92ba51600e41c3a7fb15748e26565839fc3e4d6a61f5510902d083
-        doc_struct_hash: sha256:f5aef6cb55da28faf85b00e48452fc4c21e8bdd4f67f64dd98c6e0adceb9e44b
-        lines: [927, 934]
+        hash: sha256:3bead9485c186572251e89fcd78f3cc7538d6962e0b1596714cbf0e90ad53f44
+        struct_hash: sha256:8dba1be2f894d783f87cc8cf8ed6789494a7d615ea8faf24da49160d10f0956f
+        doc_struct_hash: sha256:a62e4d9ed6e2c7fd7aacafd46b66d75ab5b75b40bb945047ad5b86e8162646c2
+        lines: [889, 896]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.GlobalTaskStats
@@ -651,10 +640,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.GlobalTaskStats
-        hash: sha256:ca0fcfc74dec58b5528a10be9320eb0a1adbaf6cdb6289b4787350846814953e
-        struct_hash: sha256:851a56cb52891b9d685d299b07646051c0ef228cbdc6f86115c3cb5d69c32bed
-        doc_struct_hash: sha256:6f81e3bffe5f1a17f9fbfad8a8e7f36c24f784747c6df41e7b52de1595725c93
-        lines: [936, 948]
+        hash: sha256:dabe7086e0ba359341330d39336eeeb603f148df80239ec0d04965d2396271b2
+        struct_hash: sha256:1159f7672394fb5ebb4cd5e5aab7787919cbd707318569a0b5e5477820a0e1dc
+        doc_struct_hash: sha256:05824f94653b16df7c14b186a7517e1f0aa3163123a9ffa4fff48d129ffb4ccf
+        lines: [898, 910]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#AssigneeStats
@@ -662,10 +651,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: AssigneeStats
-        hash: sha256:21690bbb7de37061ddd62f9131093cef5817985e2d7b6cb5c7b4f519b2018e17
-        struct_hash: sha256:055d2d55d3efdb4aee3161818e2c2715ead8f40a651a2f5be91602d02a103ba3
-        doc_struct_hash: sha256:d4d53495f11ac73343895de17b303f500ca8ea77c1f8d8bf764779c897f79963
-        lines: [950, 958]
+        hash: sha256:fbab81bbc35e419a5c1a0f7024ed48f0ffe528de8f71a84d5f5c9bdf314fa061
+        struct_hash: sha256:d42cdef9db1df1ea184483561cc97322434ea5cb2c4f46b1595d7611ea61f5af
+        doc_struct_hash: sha256:5f9da3d2873ba47fa982faed2ca456acac43fdf5505ed704e97b8061cf592e5b
+        lines: [912, 920]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.StatsOfAssignee
@@ -673,10 +662,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.StatsOfAssignee
-        hash: sha256:4abf19fd59bd08ed3b95bfc7d10d45782bd375d604e3a4a33bc313e81da1b6a1
-        struct_hash: sha256:7f95ee9708b8a34bbeb391de4ea003a85d9e92c33e83ba8629f3d8ca5df714cc
-        doc_struct_hash: sha256:c1b9e78d7ad6c4ff8289f5c5eb86f204cbf6a150802c239ff95f424aeed4fcbb
-        lines: [960, 974]
+        hash: sha256:28f5e32e6dcf14a7ebf6bd40a747e58b8df80bec867d61d193d6b65c563283d7
+        struct_hash: sha256:727436b83091e0cd1ee6b1fa248fce947666569c480973acc6f33f2080df6c0a
+        doc_struct_hash: sha256:db2574355817043443793545cc60be3e5d9afa12ec9cd1ea4be5d96a9f80085f
+        lines: [922, 936]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#ProjectCounts
@@ -684,10 +673,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: ProjectCounts
-        hash: sha256:98dff7bb5bd730411cfb521301e28f1b88f1d79442e96f6f5f67841e97d07e01
-        struct_hash: sha256:090844ccb5e343f6ffcabd079f3149d67449b4e34c5a8bcc14878793ac44bf6b
-        doc_struct_hash: sha256:3851bc088cc8b72e890ae64224c8326d5ec77b6b31f0664f5b1990256f639d5a
-        lines: [976, 981]
+        hash: sha256:2cdb7efcdd577fb0ad24523b9d41cf78ecc40988fc331a6e367a12396decb220
+        struct_hash: sha256:de1846015754c498d2c2e8a812245b8f927c610b396fc559769c5f81aae48c84
+        doc_struct_hash: sha256:327824935e4ea6243bd701083fe9bf1fb1f53540f2892d3bab9c06e0ee560ec5
+        lines: [938, 943]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ProjectTaskCounts
@@ -695,10 +684,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ProjectTaskCounts
-        hash: sha256:dfb98468626191a2283b53667018cfaf8ae60ef410cf364292c7fe008424ee42
-        struct_hash: sha256:11dd29156ea2d2aa49036210ebcd0cdc9328e42a749ebc128437d27217900ef9
-        doc_struct_hash: sha256:6a22e4a957d439d4033f29d67f417eddbc0b513b9cbb6cdc8b3cb57489229946
-        lines: [983, 1005]
+        hash: sha256:0b5ca3fd540f73e15ac85d2c711cdbd78aa241b09358e0c663af1b2b1f5d288b
+        struct_hash: sha256:ae728f449f65e64e7b5b607173b4a950ea4936cb274fcdcde4aa1345b53b2c05
+        doc_struct_hash: sha256:1e81bbe4df780e81807fde4e65f9c2e6e237ce8f6f4599c895098273911113ba
+        lines: [945, 967]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.OverdueTasks
@@ -706,10 +695,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.OverdueTasks
-        hash: sha256:74a95e2ecad26ca984d9520ba0fada5bae0213f32a9123ed01d0febdb284306f
-        struct_hash: sha256:a679f4f316dab1303192ec642d34227479f325d1c1e37898d6e48ea12b73a2be
-        doc_struct_hash: sha256:6e727d9cc5ea49729cf4f2bc11aedbdaa6cae6693d959deb5c797a331a170038
-        lines: [1007, 1013]
+        hash: sha256:6ef5356e57255ef6b83cec07af984e7c52c1717fbec8d06e6a372eaa504c4ead
+        struct_hash: sha256:377f2325cbe62102f4af7752bacc6800bf659003d31538e20ed3ad4d4c922f38
+        doc_struct_hash: sha256:d6f53c264b8c9a16480ab2b14e533db46fe2fa79a7cf962243d28d8207c0c32d
+        lines: [969, 975]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.SplitTask
@@ -717,10 +706,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.SplitTask
-        hash: sha256:b5f04ccbea8e305e8709d499b74eb21db4546940daa3a1ede758c5cfd5c71372
-        struct_hash: sha256:4b67170ccfe171c0c19fa0f632598cbd8be93f418c93ddeef2304df3e10bf131
-        doc_struct_hash: sha256:8af205521a47571241fd0a3bf7f8bc7a717a43585e18ce019012fa38c80e60f1
-        lines: [1015, 1057]
+        hash: sha256:78f89224da23ec89fd1744909b4397dffc5267fb63a7ca33c7a370609e6bea50
+        struct_hash: sha256:5662a53841e28a3bb199f255b11cff2fe536204d5b0845a06cb2327c32ae2467
+        doc_struct_hash: sha256:b356a2190436edbe5857eb771d626872db89d590e3f58453cd4dc8a6b834d32b
+        lines: [977, 1016]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.DeleteTask
@@ -728,10 +717,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.DeleteTask
-        hash: sha256:d9d65c7d137825e9a2a33dd64c0dc7026b77e4468906af97851326b1dd194f7c
-        struct_hash: sha256:5f9630be6a76e400ac355a2822de868fedf40049033d35391d588dc9bb73a656
-        doc_struct_hash: sha256:8a2c7caf1654794ca737fb5ca0579cf86126e2b1d722089913e403b0352bb2bb
-        lines: [1059, 1081]
+        hash: sha256:710b78fadc6792e7b6c40c5f3191363a1fe8a177fe01bd1c8fc06f9ee711afc4
+        struct_hash: sha256:698dd6a6673869cd87ab85354e7bf2a66af8aad1b80f402cb5c8b3f5cec47a46
+        doc_struct_hash: sha256:2e540c46886a44221d5a3563d254c21fe7d62999c4896d5a1eb2beba93b47a4a
+        lines: [1018, 1040]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.CancelTask
@@ -739,10 +728,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.CancelTask
-        hash: sha256:c746dd1d1a094af3d9874e1367f65bb7e11404eb301eee4206e5d897ecfca4b7
-        struct_hash: sha256:7d7c11b25e152c3a76ce61ca9efd2eeba7c4742bdea2b3a28bd54f85f7f5df6a
-        doc_struct_hash: sha256:77a7e2d44dd9bc9087f86ff321e0d84c33e06389cf2640d3f7b8f5521550283f
-        lines: [1083, 1263]
+        hash: sha256:f555f51f2c9c49f7c7f811e19ddbc7169abdafd0b6b2bf42a98484b7bffae414
+        struct_hash: sha256:3ebda0d4a5e46911e3af6e229336f085b0398b64ac1cd2f4b4a3a720fc38e514
+        doc_struct_hash: sha256:4061f7c3aa9d56727b0ca6debf91260470a90cf1cf44f33707e8ae74caaee971
+        lines: [1042, 1225]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.queryTasks
@@ -750,10 +739,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.queryTasks
-        hash: sha256:7c413a2cf61cff33dcee775eba3a472ed5b7f6cd51e6dcb45467561ee848be07
-        struct_hash: sha256:25ba57ad4801191ff08998d298c1a1d07305735ada7fbfe66f9e56ed097309f2
-        doc_struct_hash: sha256:25ba57ad4801191ff08998d298c1a1d07305735ada7fbfe66f9e56ed097309f2
-        lines: [1265, 1280]
+        hash: sha256:a081313fd50b531a76b598da1588487e8bf882d1879244b0882a4c556d76634c
+        struct_hash: sha256:2e215224bdf605c5cfb865ba8cc76b0a64b6bdf6954459fbd863d8f09c748ee9
+        doc_struct_hash: sha256:2e215224bdf605c5cfb865ba8cc76b0a64b6bdf6954459fbd863d8f09c748ee9
+        lines: [1227, 1242]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ReplaceChecklist
@@ -761,10 +750,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ReplaceChecklist
-        hash: sha256:78164c3cd015ffd5ea30f9864be572e1df626b8ae1d40eb11e3aa4a9417351ff
-        struct_hash: sha256:c327e309097a7e4aa59093d787d38aeb2b27ae19d96a47df9a20c76694722e10
-        doc_struct_hash: sha256:58c6a1b8b5f372f6eb362ac27fc1004eb6330c1bda464330445a01d364f0cc15
-        lines: [1284, 1301]
+        hash: sha256:ac1b6997e21ba85c9432d7c35bfe3c7627ad6db7c357aa69afdd2c70877dce42
+        struct_hash: sha256:146aa87d059742fe3265aa6adcd32f73fc129c14fe01da75c279b70200f5b248
+        doc_struct_hash: sha256:cf0336c305a5bf60ec52caa21afe57ecb987f9cd1cf5179810c7225bd2d7ad77
+        lines: [1246, 1263]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.Checklist
@@ -772,10 +761,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.Checklist
-        hash: sha256:22be516d705213f6f5aa2e3c650797d46d8311eead8d444d88ff7fb94e33cfb4
-        struct_hash: sha256:bd3f5399e3bf7b72e4ea09faf57fb88da8c872e295e8db70bdaac5aa1456b5af
-        doc_struct_hash: sha256:26711670054fe32410e9feed5353274a9bf4d42f5cc3454c08e6ae9592084b60
-        lines: [1303, 1320]
+        hash: sha256:b5977338dc4174b4801e72b14c841d834136cd8aa084d50ce17d0e6cae5ecbd6
+        struct_hash: sha256:2dd25a219c7f588833f006eb41cb615661dcc262933b2f8c957694dbc823eda8
+        doc_struct_hash: sha256:f33a461d0d9b5e873cfde9bf401eb053bdc62e17f338e930f0be29dee1958a8d
+        lines: [1265, 1282]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ToggleChecklist
@@ -783,10 +772,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ToggleChecklist
-        hash: sha256:67282c3bf4c399285eef3938ba4d8dac85a78e58ccda636e6a75764d28d1e521
-        struct_hash: sha256:3405185e303ca7571ad842b88119059ab13a16b513ee99e8fb28e17e00351d1b
-        doc_struct_hash: sha256:bed6d8abb57441e3b8b850d2092c2f2c8d3ddbeb6d260acb2e6ad4e8d646cd11
-        lines: [1322, 1326]
+        hash: sha256:5dda5c38f00f8b5c6726c89b36c3ae54a0346a975fe6607cb2763e3eed8ddaa1
+        struct_hash: sha256:18306fac5c67337aa8e3a6faa608a72dc382c3924787958cae8d87575766d1b7
+        doc_struct_hash: sha256:ed8aaeacd49a769dbf3e04f72bf6409225a9a608191732436610619042fa01f9
+        lines: [1284, 1288]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.AddProgress
@@ -794,32 +783,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.AddProgress
-        hash: sha256:f865412f1e4c0a8bf64a095a6a290338bc43e6083cb0758cc1f9754e2631f98f
-        struct_hash: sha256:825bcad9d335076cd30a9922b1308451e3e589df4532e24a2c68623c8167e550
-        doc_struct_hash: sha256:0c7bca77f675c26cae377bf12478172e2c89cd14529871d3201553f56d54b5e0
-        lines: [1328, 1333]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/tasks.go#Store.AddWorkerProgress
-      level: function
-      anchor:
-        file: store/tasks.go
-        symbol: Store.AddWorkerProgress
-        hash: sha256:b6ed237537e82f6f8f3b3aa305632c527043d73dab4e0f3132f643399bf3b792
-        struct_hash: sha256:e1c52cece14c195df734e407a7114e81ba99c642a9c2115582a0704a8e9eb4bc
-        doc_struct_hash: sha256:0d7e34e5139d98da4bf1f97d941e14e2f5a314a615f2bee399c3eb385dfd4cbe
-        lines: [1335, 1353]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/tasks.go#Store.RequestWorkerInput
-      level: function
-      anchor:
-        file: store/tasks.go
-        symbol: Store.RequestWorkerInput
-        hash: sha256:2cfb166fbed34aee8d69ede338a099d9f150bc8f9960c05e7274152dd783f958
-        struct_hash: sha256:d916fb317ac17edb6e182386da6a6e533aec2fc5a31f4ce8b7e747417c64199c
-        doc_struct_hash: sha256:e6867dcc9e0883f44367a9f93ae3a45b68e3b702903a273aaec62dea239ebbc1
-        lines: [1355, 1392]
+        hash: sha256:ca3f7f34dd937c0e618cae9a4cf64a4a9560c1ce8b3aad1dbcaf8843d18c3a63
+        struct_hash: sha256:ad663a6be5f462079b158eadba31fe47579db93adfe81c90820b698a6c5cf431
+        doc_struct_hash: sha256:2d0c632743a9b1b9d6a87ce3fcd301a6f25bea68dfd77f1c046ec103a5a4235f
+        lines: [1290, 1295]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ProgressOf
@@ -827,10 +794,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ProgressOf
-        hash: sha256:e67bb0c2d57cec4a5e2cd40fe5104190565aac1e11259884d45ca2c1e60b6619
-        struct_hash: sha256:07d2a7f01dcbcaf1386d4528f89f6231d2635f6eef16347a427ad6fa94f39259
-        doc_struct_hash: sha256:838a9a6716acbe52e1e6bfadce2486b5d386ad8020191c93c72b49458e25517c
-        lines: [1394, 1411]
+        hash: sha256:d857461dbfe2d62800e0f87259b51b10124d08c9d17506c38f0395adf066aa66
+        struct_hash: sha256:54c486fbfbf6886e245a2fe82cb74e71dc1683129ba2bcb6b3654bdc514801eb
+        doc_struct_hash: sha256:234ff7d2c6ae0caec785db0b83d598d21307cc43e47afdb079f6fad778970fc0
+        lines: [1297, 1314]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.LatestProgressForTasks
@@ -838,10 +805,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.LatestProgressForTasks
-        hash: sha256:784018152dfe645eef6f40691d890116fadfb194070b55ee6402fd8076bdd089
-        struct_hash: sha256:8ec54319a42847abe92b0070b558fa524061cc811567defdfbb0976a4027b67c
-        doc_struct_hash: sha256:989b485bf4ca93863b36ac0e5e74dc2e2bc53feafa89084de6cfaa494bf8eba6
-        lines: [1413, 1437]
+        hash: sha256:7412cf50bb4d76d59118a014d3332595ea699fb29b317f75d260a75c2a7c5389
+        struct_hash: sha256:d95c49a42fe77d72a79c4fd498a7da77963ca8c94af72daec08ef0c3bee61e70
+        doc_struct_hash: sha256:2b781f15c5ab5c4ba834450ea692f2d00303cc17c8bdc5b950f252163dd85602
+        lines: [1316, 1340]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: store/tasks.go#Store.AddAttachment
@@ -849,21 +816,43 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.AddAttachment
-        hash: sha256:924637de3b88cbb954383f01f6e329ea0c43cc290b8a11e3ebf77b5b032b8b48
-        struct_hash: sha256:de20d5d5cc6029c4b8aff35cb6ee6fe6a40d571d274aa29b23a5f090c3dd0101
-        doc_struct_hash: sha256:15aeda34a68ddd7633105611cdc58f5f939e2c7590ecf5dc2f04ee2c0a1df9ad
-        lines: [1439, 1443]
+        hash: sha256:d88e883897f6f26af0bb00a2a3f71b804f424cc88187344bd965386de74f6ebf
+        struct_hash: sha256:882b3ac99605da791c5bf658495a496b5bac2cd2239dddf00e64fc424cbd3cee
+        doc_struct_hash: sha256:259bb8b15475d9fa59602c6bf697dfb866729e5beffb8fbf93e7e96b6a3810b4
+        lines: [1342, 1346]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/tasks.go#lockTaskForInputChangeTx
+      level: function
+      anchor:
+        file: store/tasks.go
+        symbol: lockTaskForInputChangeTx
+        hash: sha256:f8cc400138b8ff22ea35bf43cf096a48e49670ab0c47b1e9d7eb76acd6f583fa
+        struct_hash: sha256:8cb64e355c8b1f013db93973fbcdb9411a4b8aed0f1f798de9656c9e58bc0a52
+        doc_struct_hash: sha256:8cb64e355c8b1f013db93973fbcdb9411a4b8aed0f1f798de9656c9e58bc0a52
+        lines: [1348, 1353]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: store/tasks.go#reviseTaskForInputChangeTx
+      level: function
+      anchor:
+        file: store/tasks.go
+        symbol: reviseTaskForInputChangeTx
+        hash: sha256:fdd0e6ec1f732e32c28bb3da239c974b8c15569cae37d0fdf863f6af1ac9d7c5
+        struct_hash: sha256:382760e7927c18513fc715aa55f6c49313e46c5bd9f214d605eef0a5605be11d
+        doc_struct_hash: sha256:382760e7927c18513fc715aa55f6c49313e46c5bd9f214d605eef0a5605be11d
+        lines: [1355, 1375]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/tasks.go#Store.AddAttachmentOnce
       level: function
       anchor:
         file: store/tasks.go
         symbol: Store.AddAttachmentOnce
-        hash: sha256:33b3ab3325e2523f004ab031b1da12940cac85dc431ca7e0803dadbe42229163
-        struct_hash: sha256:607f33cfb117e531f1e01fe120af24709b619749a792c6c127bb68b07dc8aa34
-        doc_struct_hash: sha256:607f33cfb117e531f1e01fe120af24709b619749a792c6c127bb68b07dc8aa34
-        lines: [1445, 1455]
+        hash: sha256:f1723f0435e7d71cc316ff86343db5ba2d1db4d62068152ab247a54da9c16dde
+        struct_hash: sha256:11918bd650674b2e00863b03341bbcaf18cda74eb75fd2bafd7ba6d91e56ce27
+        doc_struct_hash: sha256:11918bd650674b2e00863b03341bbcaf18cda74eb75fd2bafd7ba6d91e56ce27
+        lines: [1377, 1402]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.AttachmentsOf
@@ -871,10 +860,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.AttachmentsOf
-        hash: sha256:c76c5d9adec9e3ded636af2b487b2129cafade9087b87d3624d28ddc63faa9ad
-        struct_hash: sha256:709f7c9a9f3035de1073d117112bc4e087a636981003ae152da52a1b6f5c420e
-        doc_struct_hash: sha256:41aaef1729ec33c1905859fbaa19cc903c33a0241e17d94535afcf4f97340bbf
-        lines: [1457, 1474]
+        hash: sha256:3bce415b70d3cbfa2fb369bfb9ea15ed7de596190bb25719e7cc1b5f8cd18c05
+        struct_hash: sha256:42e6e3863127601e44d24528e9e1e82b169590cf5888b55c8c7f2f1e27057437
+        doc_struct_hash: sha256:061a9fe88ae63f254902df46d903d416cea5cbfa519cb3552a2007803c5f5080
+        lines: [1404, 1421]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#nonEmpty
@@ -882,10 +871,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: nonEmpty
-        hash: sha256:03f66088f6543c60be389e39e3d5efe146a6f59640de5284afce2bffb1338183
-        struct_hash: sha256:d003fcc879b484c11972b327190fac700d5ce0ea15e6b7c444648c74c702084a
-        doc_struct_hash: sha256:d003fcc879b484c11972b327190fac700d5ce0ea15e6b7c444648c74c702084a
-        lines: [1476, 1481]
+        hash: sha256:12e46f35263c2a89c129a28aba89d3ea90a7f9196bb3e82b92cbc61690f77724
+        struct_hash: sha256:90a181763e087d446c74fc4a4eb4adb4eea595cb490de9aec3eb45cb10aa3f52
+        doc_struct_hash: sha256:90a181763e087d446c74fc4a4eb4adb4eea595cb490de9aec3eb45cb10aa3f52
+        lines: [1423, 1428]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.ReadyDependents
@@ -893,9 +882,9 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.ReadyDependents
-        hash: sha256:a663ebb5a870ca2f5263c6fd0095f20ac64a166f7c064429aef5b65dd285b65b
-        struct_hash: sha256:888e059619380285456f92c0776e87ef19de38ac930e2ecf4ef8798cb4170d7e
-        doc_struct_hash: sha256:f6ecbecb5bc869dc9be55a467ab64d2394bbe51d3c49f74e62feedfa9f3ebcb4
-        lines: [1483, 1491]
+        hash: sha256:89d3f406ff56f73ccc35e2b15f18042f32768330919ded6748b5fa9523957233
+        struct_hash: sha256:9457a828b057a09edc6829d0b616ecd2383f620f9d51adada30d3445a63e17b0
+        doc_struct_hash: sha256:fb91935c6f1fdfcfe7ffc490b6689fc3e3d2a668047b656f5a1858c5fd2148ab
+        lines: [1430, 1438]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

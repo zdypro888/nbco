@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 func TestClientMe(t *testing.T) {
@@ -34,11 +35,70 @@ func TestClientMe(t *testing.T) {
 	}
 }
 
+func TestClientNextAcceptsLegacyTaskEnvelope(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/next" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"task":{"id":42,"claim_id":"claim-1","title":"legacy","command":"true"},"knowledge":["known"],"history":["seen"]}`))
+	}))
+	defer srv.Close()
+
+	run, knowledge, history, err := newClient(srv.URL, "tok-worker-a").Next(context.Background(), "command")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run == nil || run.ID != 42 || run.ClaimID != "claim-1" || run.Command != "true" {
+		t.Fatalf("legacy run = %+v", run)
+	}
+	if len(knowledge) != 1 || knowledge[0] != "known" || len(history) != 1 || history[0] != "seen" {
+		t.Fatalf("legacy context: knowledge=%v history=%v", knowledge, history)
+	}
+}
+
+func TestClientHeartbeatCarriesRunLease(t *testing.T) {
+	var body struct {
+		RunID   int64  `json:"run_id"`
+		ClaimID string `json:"claim_id"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/heartbeat" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+	if err := newClient(srv.URL, "tok-worker-a").Heartbeat(context.Background(), 42, "claim-1"); err != nil {
+		t.Fatal(err)
+	}
+	if body.RunID != 42 || body.ClaimID != "claim-1" {
+		t.Fatalf("heartbeat body = %+v", body)
+	}
+}
+
+func TestClientHeartbeatReportsLostLease(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "stale claim", http.StatusConflict)
+	}))
+	defer srv.Close()
+
+	err := newClient(srv.URL, "tok-worker-a").Heartbeat(context.Background(), 42, "claim-1")
+	if !errors.Is(err, errWorkerLeaseLost) {
+		t.Fatalf("heartbeat error = %v, want errWorkerLeaseLost", err)
+	}
+}
+
 func TestClientRequestInput(t *testing.T) {
 	var body struct {
+		RunID            int64  `json:"run_id"`
 		TaskID           int64  `json:"task_id"`
 		ClaimID          string `json:"claim_id"`
 		Content          string `json:"content"`
+		FinalizationID   string `json:"finalization_id"`
 		WorkerSessionID  int64  `json:"worker_session_id"`
 		EngineSessionRef string `json:"engine_session_ref"`
 	}
@@ -62,7 +122,7 @@ func TestClientRequestInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.Content != "请提供 repo URL" {
+	if body.RunID != 42 || body.TaskID != 42 || body.ClaimID != "claim-1" || body.Content != "请提供 repo URL" || body.FinalizationID == "" {
 		t.Fatalf("request body = %+v", body)
 	}
 	if body.WorkerSessionID != 9 || body.EngineSessionRef == "" {
@@ -72,9 +132,11 @@ func TestClientRequestInput(t *testing.T) {
 
 func TestClientFailCarriesClaimAndSession(t *testing.T) {
 	var body struct {
+		RunID            int64  `json:"run_id"`
 		TaskID           int64  `json:"task_id"`
 		ClaimID          string `json:"claim_id"`
 		Error            string `json:"error"`
+		FinalizationID   string `json:"finalization_id"`
 		WorkerSessionID  int64  `json:"worker_session_id"`
 		EngineSessionRef string `json:"engine_session_ref"`
 		Workdir          string `json:"workdir"`
@@ -94,17 +156,19 @@ func TestClientFailCarriesClaimAndSession(t *testing.T) {
 	if err := newClient(srv.URL, "tok-worker-a").Fail(context.Background(), 42, "claim-1", "agent crashed", session, "/tmp/repo"); err != nil {
 		t.Fatal(err)
 	}
-	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.Error != "agent crashed" ||
-		body.WorkerSessionID != 9 || body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" {
+	if body.RunID != 42 || body.TaskID != 42 || body.ClaimID != "claim-1" || body.Error != "agent crashed" ||
+		body.WorkerSessionID != 9 || body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" || body.FinalizationID == "" {
 		t.Fatalf("fail body = %+v", body)
 	}
 }
 
 func TestClientSubmitCarriesStructuredOutcome(t *testing.T) {
 	var body struct {
-		TaskID   int64                     `json:"task_id"`
-		Outcome  taskflow.ExecutionOutcome `json:"outcome"`
-		ExitCode *int                      `json:"exit_code"`
+		RunID          int64               `json:"run_id"`
+		TaskID         int64               `json:"task_id"`
+		Outcome        workerproto.Outcome `json:"outcome"`
+		ExitCode       *int                `json:"exit_code"`
+		FinalizationID string              `json:"finalization_id"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/worker/submit" {
@@ -120,11 +184,39 @@ func TestClientSubmitCarriesStructuredOutcome(t *testing.T) {
 	exitCode := 7
 	if err := newClient(srv.URL, "tok-worker-a").Submit(context.Background(), 42, "claim-1",
 		"execution failed", "", SessionInfo{}, "/tmp/repo",
-		SubmissionResult{Outcome: taskflow.ExecutionFailed, ExitCode: &exitCode}); err != nil {
+		SubmissionResult{Outcome: workerproto.OutcomeFailed, ExitCode: &exitCode}); err != nil {
 		t.Fatal(err)
 	}
-	if body.TaskID != 42 || body.Outcome != taskflow.ExecutionFailed || body.ExitCode == nil || *body.ExitCode != 7 {
+	if body.RunID != 42 || body.TaskID != 42 || body.Outcome != workerproto.OutcomeFailed || body.ExitCode == nil || *body.ExitCode != 7 || body.FinalizationID == "" {
 		t.Fatalf("submit body = %+v", body)
+	}
+}
+
+func TestClientFinalizationRetryKeepsRequestID(t *testing.T) {
+	var attempts int
+	var ids []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		var body struct {
+			FinalizationID string `json:"finalization_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, body.FinalizationID)
+		if attempts == 1 {
+			http.Error(w, "temporary", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+
+	if err := newClient(srv.URL, "tok-worker-a").RequestInput(context.Background(), 42, "claim-1", "need input", SessionInfo{}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 || len(ids) != 2 || ids[0] == "" || ids[0] != ids[1] {
+		t.Fatalf("finalization retry changed identity: attempts=%d ids=%v", attempts, ids)
 	}
 }
 
@@ -138,6 +230,7 @@ func TestClientSubmitRejectsMissingOutcome(t *testing.T) {
 
 func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
 	var body struct {
+		RunID            int64  `json:"run_id"`
 		TaskID           int64  `json:"task_id"`
 		ClaimID          string `json:"claim_id"`
 		WorkerSessionID  int64  `json:"worker_session_id"`
@@ -159,7 +252,7 @@ func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
 	if err := newClient(srv.URL, "tok-worker-a").UpdateSession(context.Background(), 42, "claim-1", session, "/tmp/repo"); err != nil {
 		t.Fatal(err)
 	}
-	if body.TaskID != 42 || body.ClaimID != "claim-1" || body.WorkerSessionID != 9 ||
+	if body.RunID != 42 || body.TaskID != 42 || body.ClaimID != "claim-1" || body.WorkerSessionID != 9 ||
 		body.EngineSessionRef == "" || body.Workdir != "/tmp/repo" {
 		t.Fatalf("session body = %+v", body)
 	}

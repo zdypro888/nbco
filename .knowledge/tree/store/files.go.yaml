@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/files.go
-        hash: sha256:cec2d8876e9060a6ef43bfe8a87a342a2399fdd4c80118a462e2f1c69f11cd4c
+        hash: sha256:85c75358372f252e529b2a901c52515f070f0d60fdebeb373c2ec52a2a737df5
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -365,21 +365,43 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.CreateTaskWithFileAttachments
-        hash: sha256:eb2c1f428f9a89187c9adb4d764b1eea84fb3c28fc10331c46559355be970673
-        struct_hash: sha256:077bb024b322b629004d1724e1b64a46c0babc997a960c45716028521f3f4af0
-        doc_struct_hash: sha256:dbe16bafc41803438e309a40ae7e120ecbbbcd1af114174a66faf487e606065b
-        lines: [599, 624]
+        hash: sha256:81f86ab22398711030d8cae531c046e5ed0892cc1166f09bba184405a87f24c0
+        struct_hash: sha256:b730128ee432f5e14f0e427f19b1c928718b04ad9303f381129c6088f4e8d51d
+        doc_struct_hash: sha256:0a9fa5bc8d9845a145406c346bcafbabd66152d15f62b75e774a63cee62cc405
+        lines: [599, 604]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/files.go#Store.CreateTaskWithFileAttachmentsAndWorkerRun
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: Store.CreateTaskWithFileAttachmentsAndWorkerRun
+        hash: sha256:4a9feedd07787cc49fda412c62644db23e9e8a8a89fd4d58013d856c36eea12d
+        struct_hash: sha256:92b9c18bd36dd3c43e49b801f8c3c164d0f72eaa1b99958efa1856adeee7a8ad
+        doc_struct_hash: sha256:92b9c18bd36dd3c43e49b801f8c3c164d0f72eaa1b99958efa1856adeee7a8ad
+        lines: [606, 608]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
+    - id: store/files.go#Store.createTaskWithFileAttachments
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: Store.createTaskWithFileAttachments
+        hash: sha256:39f352009b14007211ac696a5a31e385fcb0ccaafd05853f96e0230d367731e3
+        struct_hash: sha256:9b636f958aac95247daf934dfd3aad4d83b0d1903ccd7c0dcf5754cf4c1d3814
+        doc_struct_hash: sha256:9b636f958aac95247daf934dfd3aad4d83b0d1903ccd7c0dcf5754cf4c1d3814
+        lines: [610, 641]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z
     - id: store/files.go#Store.AddTaskAttachmentFileOnce
       level: function
       anchor:
         file: store/files.go
         symbol: Store.AddTaskAttachmentFileOnce
-        hash: sha256:c61890fda486f5e322ed7e3b5660cf2e35a91a02574795986e1475c489bd91b7
-        struct_hash: sha256:d729e44d0dafd935778719b8bf4736230975de70472ee61312b2a7a4c14ece20
-        doc_struct_hash: sha256:e97f066958880100b24f9d7e2efc31195cb76da4cce14523f918222647cf9eca
-        lines: [626, 638]
+        hash: sha256:6e34b695a0d4b877c88428be4ad7d7e4b801125055065b2fa63d748eabb2dd12
+        struct_hash: sha256:8ad9e073d03b85eb5f2b80421d1b7f8478a1f78dbc00c2dad5672ac62953076a
+        doc_struct_hash: sha256:09154a186bab26f77c57e05d2f717ae120ee7d3ab59f48e54a6fb68a07057f74
+        lines: [643, 670]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.TaskFileAttachments
@@ -390,7 +412,7 @@ nodes:
         hash: sha256:c686d025a10b6c739edd977950c1cd61956325243c2fbc28fbe36047d2dda3f2
         struct_hash: sha256:dec016d935055dc3247b92caf7f3568fc36fce41eaa1258bdd692ac43d7be322
         doc_struct_hash: sha256:ee9b2684912fe89610f1db87d008e8601e9de49c067634148f407ee17e82d621
-        lines: [640, 661]
+        lines: [672, 693]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.WorkerCanSubmitArtifact
@@ -398,10 +420,10 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.WorkerCanSubmitArtifact
-        hash: sha256:7df9d55daf96a9a2181da5cfdb027e28a20cf1fe4912b2b07e9897da8f4fd566
-        struct_hash: sha256:d17355667bb4fb6222e838044b5a6b59df7936a10701c78515a0924de40e2479
-        doc_struct_hash: sha256:b687df280e8c7bd25bc5351166b08da61e87d0797598f6f49a596ec92484a8c1
-        lines: [663, 675]
+        hash: sha256:043d1836c7e552ff603f1a876bc30b10fe849a70408a740c15576daaf87e3d86
+        struct_hash: sha256:391d7a343c8cc19580d97b20e6943e79ee88617546627205c3f94e82db4e81cc
+        doc_struct_hash: sha256:9c50d445ec66fed5536f20f758ad91b4221f295a4ed092c4615db92f6a45ce72
+        lines: [695, 707]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.DeleteOrphanFileRow
@@ -409,10 +431,10 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.DeleteOrphanFileRow
-        hash: sha256:6c3ca17bc79da349e2b1f0fefa47a8bd1499eb7a96284c293898b09d4aba3180
-        struct_hash: sha256:2b94cfff7bfac6a006a31d2c19d9e1eb9b7db761ced65d1290fdd7c2b1a0ab3f
-        doc_struct_hash: sha256:0f7a6f39162027d9ae2c751af42e9d1eef5c041d93790973fdf31216ce37b9d2
-        lines: [677, 687]
+        hash: sha256:18133ac0246fd7792be5eebc0c5fe4e637fdc28e68a77bf66d76eeb13a10b9da
+        struct_hash: sha256:638bd2e9e90c8f925cf2a28dec646c79801e6a6f0cd20ee3b26c37c65f47c009
+        doc_struct_hash: sha256:03d2f447d5860f62e6248fc9a97dc6d3a616310ef8608c6e5f25b1efb636d123
+        lines: [709, 720]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.DeleteUnreferencedFile
@@ -420,10 +442,10 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.DeleteUnreferencedFile
-        hash: sha256:87b54b6fde0bb93934a44b0c5311674b438380a84b2dd8f998b84b4dc920566d
-        struct_hash: sha256:70bcd1aab031e8c66ea261fed04a10879698c15b71dce0b691318bb05b0ce488
-        doc_struct_hash: sha256:a6a9cab672e0476178b6decf3ee60638967b9d3d8c490ca05040e86f9c7af01b
-        lines: [689, 707]
+        hash: sha256:43906ce11e713646c14fa5123a378be027f7fc7b4c7286147a02796379b13485
+        struct_hash: sha256:b2e7f0c90db18fefb8836781de4913883883757bfc5d963eeb6ffaece8a33221
+        doc_struct_hash: sha256:9c3c19a6b407d55d40309ab146a5646a4f5f785d58f108bc935b4b41ae4cfc98
+        lines: [722, 741]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.AddWorkerArtifact
@@ -431,10 +453,10 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.AddWorkerArtifact
-        hash: sha256:5ed7e62acd256b705e394072a2ac3c8b3aef821d630dc52f00913afa9c41ed02
-        struct_hash: sha256:fcf062dab9aec9ea820857882ef6e2dc2f1ef072dc996bfe6a45df07a61de171
-        doc_struct_hash: sha256:ca28f4c6f779c07a93f7537a1bd76b4846e945ad5022dc53fa75e981791af13e
-        lines: [709, 723]
+        hash: sha256:95b8609089d2b513a2c873316575871343d07ea1a268af029824793a0a2a6b77
+        struct_hash: sha256:77d7e3518a1869608afb43ab2ab31d721f1f78c8828d2c9f5de97dbce02d28f3
+        doc_struct_hash: sha256:aa14e06d9a7c75934e8e098c80369a7cf58a247d210b697ebafb29f1ccf5cb55
+        lines: [743, 785]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.TaskArtifacts
@@ -445,7 +467,7 @@ nodes:
         hash: sha256:76c016694b8732410651fc8b5343af49686c96e13ab5e8afd400e8c8321b0c33
         struct_hash: sha256:018b4cf1da6f13d8c3c0668a3fc55d2972c8d4127d869852aa7bd6f1846a1788
         doc_struct_hash: sha256:4d5b2162f2821bfbdf184e68130631834c6c264717d5667c1fa27431693252d1
-        lines: [725, 749]
+        lines: [787, 811]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.UserCanAccessFile
@@ -453,10 +475,10 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.UserCanAccessFile
-        hash: sha256:eb3d898e598324217e76b6dc214723164b3b58207dbc95754f4415ce6b890877
-        struct_hash: sha256:39f2b41568cba95a062a310e48f967855e17d7e968b2ec157e9dca7515dd3fb1
-        doc_struct_hash: sha256:16305ec8a820c504c8249ed878b977aa1737951064862e8468468b0516c3a366
-        lines: [751, 776]
+        hash: sha256:d8ad404af86139a6bfe71eee55ca2bb7fb751ffae7f332a7beaa79867f9019ac
+        struct_hash: sha256:b812000077e62cbe27c34cad04396ac5a01e9a977de0f77342ec80f60982fed6
+        doc_struct_hash: sha256:28bc74d0ecbd0b2c2246f04893070814e31101d55aac61a62d575a8318b9f989
+        lines: [813, 841]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.WorkerCanDownloadFile
@@ -464,9 +486,20 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.WorkerCanDownloadFile
-        hash: sha256:40edb9fd375c2b3ecfc7ce566c8fa31ff7ea03580e3733d5999e2a42a9a3c1b4
-        struct_hash: sha256:05517be5c69ab07d7a83cc0f011ffde62ab0da4dbdb313e3dddcd1ff9037272c
-        doc_struct_hash: sha256:2e39235d3fd6f6a3af27a91e776e0934f8617e46a366292aa0cb977f6d32d9aa
-        lines: [778, 796]
+        hash: sha256:8a38a7f7b7cdc39cd56133fef623e870223668d4c7216af216e4a52e800056a9
+        struct_hash: sha256:46e9c0c54674fd2b384713af29c4801dae3ba9363be0154a6cbace10eef3f880
+        doc_struct_hash: sha256:8ad4852047e8f7b3a2dd50073893da9640a12b0e7b3c5010343d07a3ad2f3dad
+        lines: [843, 865]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/files.go#Store.WorkerRunFiles
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: Store.WorkerRunFiles
+        hash: sha256:7bc146c7be13b0a337961ea4a195b4cf901fdd61b3320a0913fcd14efa531248
+        struct_hash: sha256:dd3be3ab061c0bdaf4e6a7aa18f440630991efde538477ae64d445b5cf997a99
+        doc_struct_hash: sha256:9fbf0cf90e34a54387683ca4193a3cfbc72d032ccb518c6bce1e82678a1db85e
+        lines: [867, 888]
+      status: undigested
+      since: 2026-07-20T11:26:39.730689Z

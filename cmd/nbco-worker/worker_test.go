@@ -29,6 +29,37 @@ func TestParseCompletion(t *testing.T) {
 	}
 }
 
+func TestCancelCurrentRunCancelsOnlyMatchingLease(t *testing.T) {
+	w := &Worker{}
+	runCtx, cancel := context.WithCancel(context.Background())
+	w.registerRun(42, cancel)
+	t.Cleanup(func() {
+		cancel()
+		w.unregisterRun()
+	})
+
+	if w.cancelCurrentRun(7, "different run") {
+		t.Fatal("a cancellation for another run must not affect the active run")
+	}
+	select {
+	case <-runCtx.Done():
+		t.Fatal("a cancellation for another run cancelled the active context")
+	default:
+	}
+
+	if !w.cancelCurrentRun(42, "lease rejected") {
+		t.Fatal("the matching active run was not cancelled")
+	}
+	select {
+	case <-runCtx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("the matching run context was not cancelled")
+	}
+	if !w.killed() {
+		t.Fatal("the matching run must be marked as killed")
+	}
+}
+
 func TestParseCompletionNoLessons(t *testing.T) {
 	out := markSummary + "\n改完了\n" + markLessons + "\n无\n" + markEnd
 	summary, lessons, ok := parseCompletion(out)
@@ -44,7 +75,7 @@ func TestParseCompletionMissing(t *testing.T) {
 }
 
 func TestParseCompletionSkipsPromptEcho(t *testing.T) {
-	echo := buildPrompt(&Task{Title: "测试"}, nil, nil)
+	echo := buildPrompt(&Run{Title: "测试"}, nil, nil)
 	// 只有回显（含占位说明）：不算收尾。
 	if s, _, ok := parseCompletion(echo); ok {
 		t.Fatalf("只看到 prompt 回显不应判定完成: %q", s)
@@ -110,7 +141,7 @@ func TestParseCompletionEchoWrapped(t *testing.T) {
 
 func TestBuildPrompt(t *testing.T) {
 	p := buildPrompt(
-		&Task{Title: "写登录页", Goal: "让用户能登录", Description: "实现表单", Acceptance: "能提交"},
+		&Run{Title: "写登录页", Goal: "让用户能登录", Description: "实现表单", Acceptance: "能提交"},
 		[]string{"经验A：先看规范"},
 		[]string{"🔍 验收未通过：缺少错误态"},
 	)
@@ -121,13 +152,13 @@ func TestBuildPrompt(t *testing.T) {
 		}
 	}
 	// 无历史时不渲染历史段。
-	if p2 := buildPrompt(&Task{Title: "T"}, nil, nil); strings.Contains(p2, "此前的过程记录") {
+	if p2 := buildPrompt(&Run{Title: "T"}, nil, nil); strings.Contains(p2, "此前的过程记录") {
 		t.Error("无历史不应有历史段")
 	}
 }
 
 func TestBuildPromptWithAttachmentsAndArtifacts(t *testing.T) {
-	p := buildPrompt(&Task{
+	p := buildPrompt(&Run{
 		Title: "处理报告",
 		Attachments: []Attachment{{
 			ID: 7, OriginalName: "report.pdf", MIMEType: "application/pdf",
@@ -146,7 +177,7 @@ func TestBuildPromptWithAttachmentsAndArtifacts(t *testing.T) {
 }
 
 func TestBuildPromptAttachmentFallbackMatchesDownloadedName(t *testing.T) {
-	p := buildPrompt(&Task{
+	p := buildPrompt(&Run{
 		Title: "处理附件",
 		Attachments: []Attachment{{
 			ID: 12, OriginalName: "../合同?.pdf", MIMEType: "application/pdf", SizeBytes: 5,
@@ -171,7 +202,7 @@ func TestExecuteCommandInfrastructureFailureUsesDurableFail(t *testing.T) {
 	worker := &Worker{client: newClient(server.URL, "test-token")}
 	runCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	worker.executeCommand(context.Background(), runCtx, &Task{
+	worker.executeCommand(context.Background(), runCtx, &Run{
 		ID: 9, ClaimID: "claim-9", Command: "printf should-not-complete",
 	}, t.TempDir())
 
@@ -207,7 +238,7 @@ func TestWorkDirIncludesClaimID(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	w := &Worker{}
-	dir, err := w.workDir(&Task{ID: 42, ClaimID: "abc123"})
+	dir, err := w.workDir(&Run{ID: 42, ClaimID: "abc123"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +252,7 @@ func TestWorkDirUsesSessionScope(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	w := &Worker{}
-	dir, err := w.workDir(&Task{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeType: "project", ScopeKey: "project:7"}})
+	dir, err := w.workDir(&Run{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeType: "project", ScopeKey: "project:7"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +266,7 @@ func TestWorkDirRepoScopeCreatesWorkspaceForAgentBootstrap(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	w := &Worker{}
-	task := &Task{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeType: "repo", ScopeKey: "repo:nbco"}}
+	task := &Run{ID: 42, ClaimID: "abc123", Session: SessionInfo{Engine: "codex", ScopeType: "repo", ScopeKey: "repo:nbco"}}
 	want := filepath.Join(home, "nbco-work", "sessions", safeScopePath("codex"), safeScopePath("repo:nbco"))
 	dir, err := w.workDir(task)
 	if err != nil {
@@ -253,7 +284,7 @@ func TestWorkDirUsesConfiguredWorkspace(t *testing.T) {
 	root := t.TempDir()
 	w := &Worker{cfg: Config{SessionWorkspaces: map[string]string{"repo:nbco": root}}}
 	remembered := filepath.Join(t.TempDir(), "remembered")
-	dir, err := w.workDir(&Task{ID: 42, Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco", Workdir: remembered}})
+	dir, err := w.workDir(&Run{ID: 42, Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco", Workdir: remembered}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +296,7 @@ func TestWorkDirUsesConfiguredWorkspace(t *testing.T) {
 func TestWorkDirUsesRememberedWorkspace(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "remembered")
 	w := &Worker{}
-	dir, err := w.workDir(&Task{ID: 42, Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco", Workdir: root}})
+	dir, err := w.workDir(&Run{ID: 42, Session: SessionInfo{Engine: "codex", ScopeKey: "repo:nbco", Workdir: root}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -658,7 +689,7 @@ sleep 60
 
 	o := waitOpts{Poll: 50 * time.Millisecond, Stable: 800 * time.Millisecond,
 		Settle: 5 * time.Second, Stuck: 10 * time.Second, Busy: busyRe}
-	screen, err := sess.submitAndWait(ctx, buildPrompt(&Task{ID: 1, Title: "建文件"}, nil, nil), o)
+	screen, err := sess.submitAndWait(ctx, buildPrompt(&Run{ID: 1, Title: "建文件"}, nil, nil), o)
 	if err != nil {
 		t.Fatalf("waitIdle: %v\n屏幕：\n%s", err, screen)
 	}
@@ -689,7 +720,7 @@ func TestSmokeClaude(t *testing.T) {
 
 	warmup(ctx, sess.Screen, sess.Write)
 
-	task := &Task{ID: 999, Title: "创建问候文件",
+	task := &Run{ID: 999, Title: "创建问候文件",
 		Description: "在当前工作目录创建 hello.txt，内容为一行：你好nbco", Acceptance: "hello.txt 存在且内容正确"}
 	screen, err := sess.submitAndWait(ctx, buildPrompt(task, nil, nil), defaultWaitOpts())
 	if err != nil {

@@ -1,45 +1,91 @@
 package tools
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
-func TestBuildReviewBrief(t *testing.T) {
-	task := &store.Task{ID: 12, Title: "写登录页", Goal: "让用户能登录",
-		Description: "实现表单", Acceptance: "能提交且有错误态"}
-	progress := []store.Progress{
-		{Content: "开工了", CreatedAt: time.Date(2026, 7, 4, 10, 0, 0, 0, time.UTC)},
-		{Content: "🤖 完成汇报：做完了", CreatedAt: time.Date(2026, 7, 4, 11, 0, 0, 0, time.UTC)},
+func TestDelegateReviewCarriesExecutionScopeAndEvidence(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	boss := mkToolsUser(t, s, "boss", true)
+	executor, _, err := s.CreateWorker(ctx, "executor", boss.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	brief := buildReviewBrief(task, "小码", progress, "重点看安全", time.UTC)
-	for _, want := range []string{
-		"任务内部编号 12", "写登录页", "让用户能登录", "实现表单", "能提交且有错误态",
-		"小码", "重点看安全", "完成汇报：做完了", "nbco-work/task-12",
-		"建议通过", "建议打回", "不要轻信汇报文字",
-	} {
-		if !strings.Contains(brief, want) {
-			t.Errorf("简报缺 %q", want)
-		}
+	reviewer, _, err := s.CreateWorker(ctx, "reviewer", boss.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-}
+	pj := mkToolsProject(t, s, boss.ID)
+	input, err := s.CreateFile(ctx, &store.File{
+		Source: "test", OriginalName: "input.txt", MIMEType: "text/plain",
+		SHA256: "review-input", StoragePath: "re/review-input", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := s.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: executor.ID,
+		Title: "implement feature", Acceptance: "tests pass",
+	}, []int64{input.ID}, "source input", store.WorkerRunSpec{
+		Executor: workerproto.ExecutorAgent, ScopeType: "repo",
+		ScopeKey: "repo:product", ScopeTitle: "Product repository",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.ClaimNextWorkerRun(ctx, executor.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact, err := s.CreateFile(ctx, &store.File{
+		Source: "test", OriginalName: "result.txt", MIMEType: "text/plain",
+		SHA256: "review-result", StoragePath: "re/review-result", CreatedBy: &executor.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddWorkerArtifact(ctx, run.ID, executor.ID, run.ClaimID, artifact.ID, "delivery"); err != nil {
+		t.Fatal(err)
+	}
+	if _, completed, _, _, err := s.CompleteWorkerRun(ctx, run.ID, executor.ID, run.ClaimID,
+		"implemented", "", workerproto.OutcomeSucceeded, nil,
+		store.WorkerRunFinalization{ID: "review-source-final", Hash: "review-source-hash"}); err != nil || completed.Status != store.TaskDone {
+		t.Fatalf("complete source task: task=%+v err=%v", completed, err)
+	}
 
-func TestBuildReviewBriefCapsProgress(t *testing.T) {
-	task := &store.Task{ID: 1, Title: "T"}
-	var progress []store.Progress
-	for i := 0; i < reviewBriefMaxProgress+10; i++ {
-		progress = append(progress, store.Progress{Content: strings.Repeat("x", 5), CreatedAt: time.Now()})
+	out := callToolByName(t, reviewTools(Deps{Store: s, TZ: time.UTC}, boss), "delegate_review", map[string]any{
+		"task_id": task.ID, "reviewer_id": reviewer.ID,
+	})
+	if !strings.Contains(out, "已委派") {
+		t.Fatalf("delegate_review output = %q", out)
 	}
-	progress[len(progress)-1].Content = "最后一条"
-	progress[0].Content = "第一条"
-	brief := buildReviewBrief(task, "谁", progress, "", time.UTC)
-	if !strings.Contains(brief, "最后一条") || strings.Contains(brief, "第一条") {
-		t.Error("应保留最近的记录、截断最早的记录")
+	reviews, err := s.TasksOfAssignee(ctx, reviewer.ID, true)
+	if err != nil || len(reviews) != 1 {
+		t.Fatalf("review tasks = %+v err=%v", reviews, err)
 	}
-	if !strings.Contains(brief, "仅列最近") {
-		t.Error("截断时应注明")
+	reviewRun, err := s.LatestWorkerRunForTask(ctx, reviews[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reviewRun.ScopeType != "repo" || reviewRun.ScopeKey != "repo:product" || reviewRun.ScopeTitle != "Product repository" {
+		t.Fatalf("review execution lost source scope: %+v", reviewRun)
+	}
+	files, err := s.TaskFileAttachments(ctx, reviews[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[int64]bool{}
+	for _, file := range files {
+		seen[file.ID] = true
+	}
+	if !seen[input.ID] || !seen[artifact.ID] {
+		t.Fatalf("review evidence incomplete: files=%+v", files)
 	}
 }

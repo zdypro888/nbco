@@ -11,8 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zdypro888/nbco/store"
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 func TestResolveWorkerSubmissionOutcome(t *testing.T) {
@@ -22,14 +21,14 @@ func TestResolveWorkerSubmissionOutcome(t *testing.T) {
 		value      string
 		exitCode   *int
 		legacyCode *int
-		want       taskflow.ExecutionOutcome
+		want       workerproto.Outcome
 		wantCode   *int
 		ok         bool
 	}{
-		{name: "explicit success", value: "succeeded", exitCode: &zero, want: taskflow.ExecutionSucceeded, wantCode: &zero, ok: true},
-		{name: "explicit failure without process", value: "failed", want: taskflow.ExecutionFailed, ok: true},
-		{name: "legacy agent submission", want: taskflow.ExecutionSucceeded, ok: true},
-		{name: "legacy non-zero command", legacyCode: &seven, want: taskflow.ExecutionFailed, wantCode: &seven, ok: true},
+		{name: "explicit success", value: "succeeded", exitCode: &zero, want: workerproto.OutcomeSucceeded, wantCode: &zero, ok: true},
+		{name: "explicit failure without process", value: "failed", want: workerproto.OutcomeFailed, ok: true},
+		{name: "legacy agent submission", want: workerproto.OutcomeSucceeded, ok: true},
+		{name: "legacy non-zero command", legacyCode: &seven, want: workerproto.OutcomeFailed, wantCode: &seven, ok: true},
 		{name: "invalid", value: "command_succeeded", ok: false},
 	}
 	for _, tt := range tests {
@@ -166,25 +165,6 @@ func TestWorkerDownloadRejectsUnknownName(t *testing.T) {
 	s.handleWorkerDownloadBinary(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown download status = %d", rec.Code)
-	}
-}
-
-func TestWorkerSessionScopeUsesPersistedIdentity(t *testing.T) {
-	s := &Server{}
-	typ, key, title := s.workerSessionScope(context.Background(), &store.Task{
-		ID: 9, Title: "arbitrary title", WorkerScopeType: "repo",
-		WorkerScopeKey: "repo:nbco", WorkerScopeTitle: "NBCO repository",
-	})
-	if typ != "repo" || key != "repo:nbco" || title != "NBCO repository" {
-		t.Fatalf("explicit scope = (%q, %q, %q)", typ, key, title)
-	}
-
-	// Content must never promote a task into a persistent repository session.
-	typ, key, _ = s.workerSessionScope(context.Background(), &store.Task{
-		ID: 10, Title: "修改 nbco 并部署代码",
-	})
-	if typ != "task" || key != "task:10" {
-		t.Fatalf("text-derived scope leaked through: (%q, %q)", typ, key)
 	}
 }
 

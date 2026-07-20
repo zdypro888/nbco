@@ -9,7 +9,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 // workerTools AI 员工管理：列出对所有人开放（只看自己名下）；创建/绑定码/命令/
@@ -119,7 +119,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 					"在工作机上运行 nbco-worker bind &lt;server&gt; %s 即可重绑；新码兑换后旧 token 自动作废。", code, code), nil
 			}),
 
-		asynchronousTool(tool("run_worker_command", "让指定 AI worker 在其工作机任务目录中执行一条确定性的 shell/cmd 命令，并把输出作为任务进度和完成汇报回传。适合探测状态、运行测试或已知的单步操作；它不会启动 Codex/Claude。需要读取输出后继续判断、初始化仓库、修改代码、研究或部署时，应使用 delegate_worker_agent 或对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是显式命令任务，不是常驻远控。",
+		asynchronousTool(tool("run_worker_command", "让指定 AI worker 在其工作机主题目录中执行一条确定性的 shell/cmd 命令，并把输出作为执行进度和结果回传。适合探测状态、运行测试或已知的单步操作；它不会启动 Codex/Claude。需要读取输出后继续判断、初始化仓库、修改代码、研究或部署时，应使用 delegate_worker_agent 或对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是独立执行，不会伪装成业务任务。",
 			obj(map[string]any{
 				"worker_id": p("integer", "目标 worker 用户ID"),
 				"command":   p("string", "要执行的命令，如 go test ./..."),
@@ -151,7 +151,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if title == "" {
 					title = "执行命令"
 				}
-				t, err := createWorkerCommandTask(ctx, d, u, w, workerCommandTaskArgs{
+				run, err := createWorkerCommandRun(ctx, d, u, w, workerCommandRunArgs{
 					Title: title, Command: cmd, PTY: args.PTY,
 					Description: "命令任务会在 worker 的主题工作目录中执行；如需回传文件，请按 worker 任务提示写入本轮产物目录。",
 					Acceptance:  "完成汇报包含退出码和输出摘要；如生成产物文件，应自动上传。",
@@ -163,7 +163,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if args.PTY {
 					mode = "pty"
 				}
-				return asynchronousAcceptedResult(fmt.Sprintf("已创建并持久化 worker 命令任务（%s），分配给 %s。命令会在该 worker 的任务工作目录中以 %s 模式执行；本轮无需重复创建，进度和完成结果会由系统通知用户。", internalRef("任务", t.ID), w.Name, mode)), nil
+				return asynchronousAcceptedResult(fmt.Sprintf("已创建并持久化 worker 执行（%s），分配给 %s。命令会在该 worker 的主题工作目录中以 %s 模式执行；本轮无需重复创建，进度和结果会由系统通知用户。", internalRef("执行", run.ID), w.Name, mode)), nil
 			})),
 
 		asynchronousTool(tool("delegate_worker_agent", "把需要观察结果、连续判断或多步处理的目标交给指定 AI worker 的 Codex/Claude 交互式 Agent。任务不包含预制 shell 命令，worker 必定通过 PTY 启动或恢复原生 Agent 会话；同一 worker 使用相同 scope_key 时会恢复该主题的工作目录、会话和摘要。适用于代码、研究、资料处理、排障等自适应工作。已知且无需判断的单条命令才使用 run_worker_command。非超管仅限自己名下的 worker。",
@@ -228,19 +228,81 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				t, err := d.Store.CreateTaskWithFileAttachments(ctx, &store.Task{
+				t, err := d.Store.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
 					ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
 					Title: args.Title, Goal: args.Title, Description: args.Instruction,
 					Acceptance: args.Acceptance, Priority: priority,
-					WorkerScopeType: scopeType, WorkerScopeKey: scopeKey,
-					WorkerScopeTitle: firstNonEmpty(strings.TrimSpace(args.ScopeTitle), args.Title),
-				}, fileIDs, "Agent 任务输入")
+				}, fileIDs, "Agent 任务输入", store.WorkerRunSpec{
+					Executor: workerproto.ExecutorAgent, ScopeType: scopeType, ScopeKey: scopeKey,
+					ScopeTitle: firstNonEmpty(strings.TrimSpace(args.ScopeTitle), args.Title),
+				})
 				if err != nil {
 					return "", err
 				}
 				wakeWorker(d, w)
 				return asynchronousAcceptedResult(fmt.Sprintf("已创建并持久化 Worker Agent 任务（%s），分配给 %s；主题 scope=%s。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话；本轮无需重复创建，进度和完成结果会由系统通知用户。", internalRef("任务", t.ID), w.Name, scopeKey)), nil
 			})),
+
+		tool("list_worker_runs", "查看 Worker 的执行队列和执行历史。执行记录与业务任务分开：直接命令只出现在这里，委派工作会同时关联 task_id。可用于读取实际结果、失败原因和重试状态。",
+			obj(map[string]any{"scope": enumP("queue=执行中（默认）| history=历史 | all=全部", "queue", "history", "all")}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Scope string `json:"scope"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				runs, err := d.Store.ListWorkerRuns(ctx, u.ID, u.IsSuperadmin, args.Scope, 100)
+				if err != nil {
+					return "", err
+				}
+				if len(runs) == 0 {
+					return "（没有匹配的 Worker 执行记录。）", nil
+				}
+				var b strings.Builder
+				for _, run := range runs {
+					linked := ""
+					if run.TaskID != nil {
+						linked = "，关联" + internalRef("任务", *run.TaskID)
+					}
+					result := strings.TrimSpace(run.Summary)
+					if result == "" {
+						result = strings.TrimSpace(run.LastError)
+					}
+					if result != "" {
+						result = "；结果：" + clipRunes(result, 500)
+					}
+					fmt.Fprintf(&b, "- %s %s：%s（worker %d，%s%s，尝试 %d 次%s）\n",
+						internalRef("执行", run.ID), run.Title, run.Status, run.WorkerID, run.Executor, linked, run.Attempts, result)
+				}
+				return b.String(), nil
+			}),
+
+		tool("cancel_worker_run", "取消一条未关联业务任务的 Worker 执行，并保留执行历史。关联任务的执行必须通过 cancel_assigned_task、reassign_task 或更新任务来管理，避免绕过业务状态。",
+			obj(map[string]any{
+				"run_id": p("integer", "Worker 执行ID"),
+				"reason": p("string", "取消原因"),
+			}, "run_id", "reason"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					RunID  int64  `json:"run_id"`
+					Reason string `json:"reason"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				run, err := d.Store.CancelWorkerRun(ctx, args.RunID, u.ID, u.IsSuperadmin, args.Reason)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "执行不存在、已结束、不是你发起的，或它关联了业务任务。", nil
+					}
+					return "", err
+				}
+				if d.Workers != nil {
+					d.Workers.Cancel(run.WorkerID, run.ID)
+				}
+				return fmt.Sprintf("已取消 %s，执行历史保留。", internalRef("执行", run.ID)), nil
+			}),
 
 		tool("revoke_worker", "停用一个 AI worker 并吊销其 Worker Access Token（历史任务保留）。非超管只能停用自己名下的 worker。",
 			obj(map[string]any{"worker_id": p("integer", "worker 用户ID")}, "worker_id"),
@@ -304,7 +366,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 	}
 }
 
-type workerCommandTaskArgs struct {
+type workerCommandRunArgs struct {
 	Title       string
 	Command     string
 	PTY         bool
@@ -316,11 +378,7 @@ type workerCommandTaskArgs struct {
 	ScopeTitle  string
 }
 
-func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args workerCommandTaskArgs) (*store.Task, error) {
-	pj, err := d.Store.EnsureWorkerOperationsProject(ctx, u.ID)
-	if err != nil {
-		return nil, err
-	}
+func createWorkerCommandRun(ctx context.Context, d Deps, u, w *store.User, args workerCommandRunArgs) (*store.WorkerRun, error) {
 	title := strings.TrimSpace(args.Title)
 	if title == "" {
 		title = "执行命令"
@@ -345,19 +403,21 @@ func createWorkerCommandTask(ctx context.Context, d Deps, u, w *store.User, args
 		scopeKey = fmt.Sprintf("ops:worker:%d", w.ID)
 		scopeTitle = "Worker operations"
 	}
-	t, err := d.Store.CreateTask(ctx, &store.Task{
-		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: w.ID,
-		Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
+	input, err := json.Marshal(store.WorkerCommandInput{Command: strings.TrimSpace(args.Command), PTY: args.PTY})
+	if err != nil {
+		return nil, err
+	}
+	run, err := d.Store.CreateWorkerRun(ctx, store.WorkerRunSpec{
+		WorkerID: w.ID, RequestedBy: u.ID, Executor: workerproto.ExecutorCommand,
+		Input: input, Title: title, Goal: "在 worker 工作机上执行显式命令并回传结果。",
 		Description: description, Acceptance: acceptance, Priority: priority,
-		CompletionPolicy: string(taskflow.CompletionAutoAcceptOnSuccess),
-		WorkerCommand:    strings.TrimSpace(args.Command), WorkerCommandPTY: args.PTY,
-		WorkerScopeType: scopeType, WorkerScopeKey: scopeKey, WorkerScopeTitle: scopeTitle,
+		ScopeType: scopeType, ScopeKey: scopeKey, ScopeTitle: scopeTitle,
 	})
 	if err != nil {
 		return nil, err
 	}
 	wakeWorker(d, w)
-	return t, nil
+	return run, nil
 }
 
 func normalizeAgentScope(value string) (scopeType, scopeKey, message string) {

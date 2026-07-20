@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/httpapi_test.go
-        hash: sha256:41d9263f256274482cecc4adacfcd729f3164f6afbe5a3f1e7f8b6b47453abdd
+        hash: sha256:f675ee862cf5e4bf25dac0abef64457d0a81099e4edefd25fc15d0a064a3d1e1
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestResolveWorkerSubmissionOutcome
-        hash: sha256:c721f91f8676d64e5975bc3c443ee70f66e3be0d4cb9f4cd373a96655bc0ab11
-        struct_hash: sha256:bb1730d413f341a3872ec6beeafc545d73d919f7230b0a5fd842806a875af562
-        doc_struct_hash: sha256:bb1730d413f341a3872ec6beeafc545d73d919f7230b0a5fd842806a875af562
-        lines: [18, 46]
+        hash: sha256:608060c8cb077143b1630af6b5a2659908ee5825388985378307845b90ec57e9
+        struct_hash: sha256:77b10e7b246d3fccfa001f05f96edfe4e3d50dee5239587924b6ae73a7866664
+        doc_struct_hash: sha256:77b10e7b246d3fccfa001f05f96edfe4e3d50dee5239587924b6ae73a7866664
+        lines: [17, 45]
       status: undigested
       since: 2026-07-20T09:19:36.738992Z
     - id: gateway/httpapi/httpapi_test.go#TestDecodeJSONLimitsBody
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestDecodeJSONLimitsBody
-        hash: sha256:4730023a5b5b46e091022f3f4da8fba2d3fec63e0ef3134db7df3cda7f05c8ae
-        struct_hash: sha256:0a7d1432d4e5134a1cf3f3be061df90f8a7bbe958767d1d097d8570900b3f845
-        doc_struct_hash: sha256:0a7d1432d4e5134a1cf3f3be061df90f8a7bbe958767d1d097d8570900b3f845
-        lines: [48, 58]
+        hash: sha256:6d184ee27162712970a11fb6f4759d258e172999b9846590a0fa11b2ad532615
+        struct_hash: sha256:381f3ced94527b6556eb33ce7581d9a0411e59f80941055889e7c3b480ee5d0e
+        doc_struct_hash: sha256:381f3ced94527b6556eb33ce7581d9a0411e59f80941055889e7c3b480ee5d0e
+        lines: [47, 57]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestHandleVersion
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestHandleVersion
-        hash: sha256:835298854e5f796f22f4f53ec2c00e0fbec125b542e32870c2a4aa9963d0b001
-        struct_hash: sha256:791666112bf49d6dc347f1d8236eba1eb961962051979641094fbd23f0818781
-        doc_struct_hash: sha256:791666112bf49d6dc347f1d8236eba1eb961962051979641094fbd23f0818781
-        lines: [60, 71]
+        hash: sha256:955d8831c0a5cb5215c992c09c826e707b22955988fa1cc22d64dad0659081df
+        struct_hash: sha256:11f9e656e49fd42d6d9c4b2aa950b0c76cfa173acba7614d5fb312bfcdc4dacc
+        doc_struct_hash: sha256:11f9e656e49fd42d6d9c4b2aa950b0c76cfa173acba7614d5fb312bfcdc4dacc
+        lines: [59, 70]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestHandlerSetsSecurityHeaders
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestHandlerSetsSecurityHeaders
-        hash: sha256:dbe26891feb0e02a051ccb921a30e0973e686baebe9af94fafb63f71a7b94384
-        struct_hash: sha256:2139a50fe4e3d21c8519c2d71f29c1efacca1ddf3d7dff4b0cfb0cd98a34ad6c
-        doc_struct_hash: sha256:2139a50fe4e3d21c8519c2d71f29c1efacca1ddf3d7dff4b0cfb0cd98a34ad6c
-        lines: [73, 84]
+        hash: sha256:1d1449a867efeaa6d544d52601cb91e385bcfcd49e91569a589cea78073b06a1
+        struct_hash: sha256:c34b3ac0154c66116b3728bba85e1e7e820fc9a480ce7120355396d4aa2d2ef7
+        doc_struct_hash: sha256:c34b3ac0154c66116b3728bba85e1e7e820fc9a480ce7120355396d4aa2d2ef7
+        lines: [72, 83]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestControlCenterUsesPerResponseCSPNonce
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestControlCenterUsesPerResponseCSPNonce
-        hash: sha256:59380a85fa5a1b3cf728524add8c2c9cce65bfa32d9e0e751c0f481386fb172d
-        struct_hash: sha256:d765b3e613dd5cf4d1e5fffc012b40fa11bd1ec02b490d55712b17543312796d
-        doc_struct_hash: sha256:d765b3e613dd5cf4d1e5fffc012b40fa11bd1ec02b490d55712b17543312796d
-        lines: [86, 120]
+        hash: sha256:6418cb79444b2370892a947ca6ed08d28511ad5dac8945711a0c43f27d869343
+        struct_hash: sha256:14388e1fdba54983c5481d5eddf094fdfb52c5384d3994fcaac0ef19092858eb
+        doc_struct_hash: sha256:14388e1fdba54983c5481d5eddf094fdfb52c5384d3994fcaac0ef19092858eb
+        lines: [85, 119]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestIHTMLStandaloneRootRedirectsIntoControlCenter
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestIHTMLStandaloneRootRedirectsIntoControlCenter
-        hash: sha256:ebb9c1f5524ac0bf83dd462dfd2b8301bfe65d4382d21b99e36e8f168d673adf
-        struct_hash: sha256:de8b7d0415d83b00c7a0dc2fb8f514721517f6deb6ece97871333e90bb77e41e
-        doc_struct_hash: sha256:de8b7d0415d83b00c7a0dc2fb8f514721517f6deb6ece97871333e90bb77e41e
-        lines: [122, 139]
+        hash: sha256:c6ed479794467f1141e909c77c813f713dfc9fad77258acda30d03f840320eca
+        struct_hash: sha256:b4b25a7f9c69cbb9e0a4211014444c5c18869d28f2aa3c761d33120f71347af9
+        doc_struct_hash: sha256:b4b25a7f9c69cbb9e0a4211014444c5c18869d28f2aa3c761d33120f71347af9
+        lines: [121, 138]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestWorkerDownloadBinary
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestWorkerDownloadBinary
-        hash: sha256:1a0db162800c0f4724e4211df58a75b9863ca95e50adfd600c58008431b7f067
-        struct_hash: sha256:7ece3d3c250820b265e174051312bb1cf886364b341965addf346fabdc23a1b5
-        doc_struct_hash: sha256:7ece3d3c250820b265e174051312bb1cf886364b341965addf346fabdc23a1b5
-        lines: [141, 159]
+        hash: sha256:0f795a0b8551f26275568bb840ff32dd7bcf536d76582754b6da59aea30e1a1d
+        struct_hash: sha256:84029d649b55fc1f7596b2f3fc1b04573e51248671bc425522abb9dba3003e0c
+        doc_struct_hash: sha256:84029d649b55fc1f7596b2f3fc1b04573e51248671bc425522abb9dba3003e0c
+        lines: [140, 158]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestWorkerDownloadRejectsUnknownName
@@ -90,21 +90,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestWorkerDownloadRejectsUnknownName
-        hash: sha256:bfb9be09b962578d033ef2dbdb959e030dd409bf5ca0f952f6fce1e37425603c
-        struct_hash: sha256:4e722882858832f79cd4f5181ab01de31496d6d0f0f522e9a6a8aadeaf75a1e9
-        doc_struct_hash: sha256:4e722882858832f79cd4f5181ab01de31496d6d0f0f522e9a6a8aadeaf75a1e9
-        lines: [161, 170]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/httpapi/httpapi_test.go#TestWorkerSessionScopeUsesPersistedIdentity
-      level: function
-      anchor:
-        file: gateway/httpapi/httpapi_test.go
-        symbol: TestWorkerSessionScopeUsesPersistedIdentity
-        hash: sha256:fbe05c0d784a6513edd1d3050e5c0fa04c07c613839869c7390f7494f1001833
-        struct_hash: sha256:ff53896978b16837389ab525be2ddf439dbd53d96873016ad9dd9ea75817db46
-        doc_struct_hash: sha256:ff53896978b16837389ab525be2ddf439dbd53d96873016ad9dd9ea75817db46
-        lines: [172, 189]
+        hash: sha256:3ef61e7fd00ed6e02425d5fecc090de20c10dc6daea5f59cf6bae63faf3193f9
+        struct_hash: sha256:b0914480c769dee337ba866e04d400678976336464997e1fc9b8bac043d99686
+        doc_struct_hash: sha256:b0914480c769dee337ba866e04d400678976336464997e1fc9b8bac043d99686
+        lines: [160, 169]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestBoundedWorkerLinesCapsEachLineAndTotal
@@ -112,10 +101,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestBoundedWorkerLinesCapsEachLineAndTotal
-        hash: sha256:4c514015b2031a9ca93996ce65ed0ce4c099128456b873cb9484744ded038557
-        struct_hash: sha256:8246d314aa5e9e75d3d3871957c995ecf5cc44b7d2b446a20cd5f9973125b130
-        doc_struct_hash: sha256:8246d314aa5e9e75d3d3871957c995ecf5cc44b7d2b446a20cd5f9973125b130
-        lines: [191, 203]
+        hash: sha256:5f35e2b53390b93f36dd7c3afa942672f0f8fbb30be7111a58f22add556ffe75
+        struct_hash: sha256:824bfffa741783f95b2a341401c76f929aa44d7304b31b3924300c85b7a15da0
+        doc_struct_hash: sha256:824bfffa741783f95b2a341401c76f929aa44d7304b31b3924300c85b7a15da0
+        lines: [171, 183]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestLLMSemaphoreLazyInit
@@ -123,10 +112,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestLLMSemaphoreLazyInit
-        hash: sha256:8bf154f0359f84045bef46533274ee7c5bb7a00b0a818847b53b1a288916560e
-        struct_hash: sha256:b2175791295d87722bc7e9da3e9807e9812f83b1a4a6f38006280afab0691e4b
-        doc_struct_hash: sha256:b2175791295d87722bc7e9da3e9807e9812f83b1a4a6f38006280afab0691e4b
-        lines: [205, 220]
+        hash: sha256:c4eac2c98223bdfeaf6a0063fc027b5539b4ae4b0eec66025e69469ef76c102d
+        struct_hash: sha256:99cfc4effa0f087a3e619c4dd3d0eaa0b928579d05f380aec80245adb059877e
+        doc_struct_hash: sha256:99cfc4effa0f087a3e619c4dd3d0eaa0b928579d05f380aec80245adb059877e
+        lines: [185, 200]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestApplyWorkerLLMBudget
@@ -134,10 +123,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestApplyWorkerLLMBudget
-        hash: sha256:cd2d4e4d78280398c68349537848b8fa73cc9cb435ef645e9d403a2504966d5a
-        struct_hash: sha256:6fa252e91ec698ee1778e1e273f6d7a4fbe415ac1f21a6134f51419b9de1878b
-        doc_struct_hash: sha256:6fa252e91ec698ee1778e1e273f6d7a4fbe415ac1f21a6134f51419b9de1878b
-        lines: [222, 245]
+        hash: sha256:b6e5446f8dbcdf6630d6c8b0df675516bd3565671d45cd0716a2c8ecf9492a3c
+        struct_hash: sha256:1da1b97e64996324e5b83abc7cd1b2cb9347d9be3e6c171b1b2b403b5ef6d563
+        doc_struct_hash: sha256:1da1b97e64996324e5b83abc7cd1b2cb9347d9be3e6c171b1b2b403b5ef6d563
+        lines: [202, 225]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestLoadedRuntimeModelsUsesOllamaPS
@@ -145,10 +134,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestLoadedRuntimeModelsUsesOllamaPS
-        hash: sha256:80fff0d1f3280a14d7bd1feef2d0548a29bcd7122bda3b25eaa45c6c86125bb3
-        struct_hash: sha256:83fadf26bfddb74d79ccbd8d7d8b1b3a703cdfd5bfe2654c795401441f08f923
-        doc_struct_hash: sha256:83fadf26bfddb74d79ccbd8d7d8b1b3a703cdfd5bfe2654c795401441f08f923
-        lines: [247, 270]
+        hash: sha256:fb1dacbf96922777365f026b49eda52f45e1743a5180a6de86c9a2d0df3e212e
+        struct_hash: sha256:63d12520912dffbf8294de98a701946e89ef64f4d1ff8df4ddf07586f32e68ce
+        doc_struct_hash: sha256:63d12520912dffbf8294de98a701946e89ef64f4d1ff8df4ddf07586f32e68ce
+        lines: [227, 250]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestValidRuntimeModelName
@@ -156,10 +145,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestValidRuntimeModelName
-        hash: sha256:b1782ee32ab9b6797a9650d06e2e4d793e848deb46ec14839ee5d0ffd654dad2
-        struct_hash: sha256:224639ebef35379697141bbf2f99d10f9b267922d8aa1af3432744c9f7bd0c1b
-        doc_struct_hash: sha256:224639ebef35379697141bbf2f99d10f9b267922d8aa1af3432744c9f7bd0c1b
-        lines: [272, 283]
+        hash: sha256:44f1f694a25a2d46ed22c7e06ac8255d043aa619eea4bd5765b6a4ee87d2d45c
+        struct_hash: sha256:efe832ee08b57c5334df21287f0a195e2430aeb593a755a3b8e2c8308ee1560c
+        doc_struct_hash: sha256:efe832ee08b57c5334df21287f0a195e2430aeb593a755a3b8e2c8308ee1560c
+        lines: [252, 263]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi_test.go#TestWorkerLLMClaudeConversion
@@ -167,9 +156,9 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi_test.go
         symbol: TestWorkerLLMClaudeConversion
-        hash: sha256:dcb0332af95ed378b0c15982051f9d433365a53860dfb1ac6e0ef5b028d78595
-        struct_hash: sha256:4392552347ac3cdd4257f40b68ff51df1b36f494ac5c30b58e3ce92897f4a2db
-        doc_struct_hash: sha256:4392552347ac3cdd4257f40b68ff51df1b36f494ac5c30b58e3ce92897f4a2db
-        lines: [285, 354]
+        hash: sha256:383dbe2eca3d556be51fceb4d90ce709bd36b96553af4b3342779b5f2453873e
+        struct_hash: sha256:181d3b2b111c8b5ce94d5e851576d45a42316ef5b6f0a5c6cfcb7f346f70e640
+        doc_struct_hash: sha256:181d3b2b111c8b5ce94d5e851576d45a42316ef5b6f0a5c6cfcb7f346f70e640
+        lines: [265, 334]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

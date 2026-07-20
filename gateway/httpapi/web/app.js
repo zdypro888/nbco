@@ -16,6 +16,8 @@ const state = {
   taskQueue: [],
   taskReview: [],
   taskHistory: [],
+  workerRuns: [],
+  workerRunHistory: [],
   schedules: [],
   workers: [],
   workflows: [],
@@ -290,8 +292,11 @@ function renderContent() {
 function renderCommandRoute() {
   const pendingFiles = state.files.length;
   const queuedTasks = taskQueueSource().filter(t => ["pending", "in_progress", "awaiting_input"].includes(t.status));
+  const workerRuns = state.me?.is_superadmin ? state.workerRuns : [];
   const reviewTasks = state.me?.is_superadmin ? state.taskReview : state.tasks.review;
   const taskCounts = countTaskStatuses(queuedTasks);
+  const claimedRuns = workerRuns.filter(run => run.status === "claimed").length;
+  const waitingRuns = workerRuns.filter(run => run.status === "awaiting_input" || run.status === "retry_wait").length;
   const activeSchedules = (state.schedules || []).filter(s => s.status === "active");
   const approvals = state.approvals || [];
   const riskCount = state.me?.is_superadmin ? approvals.length : 0;
@@ -308,16 +313,20 @@ function renderCommandRoute() {
   return `
     <div class="metrics">
       ${metric("folder-up", "待处理材料", pendingFiles, `${selectedFileList().length} 个已选`)}
-      ${metric("player-play", "运行队列", queuedTasks.length, `${taskCounts.pending} 待处理 · ${taskCounts.in_progress} 进行中 · ${taskCounts.awaiting_input} 待补充`)}
+      ${metric("checkbox", "业务任务", queuedTasks.length, `${taskCounts.pending} 待处理 · ${taskCounts.in_progress} 进行中 · ${taskCounts.awaiting_input} 待补充`)}
+      ${metric("player-play", "Worker 执行", workerRuns.length, `${claimedRuns} 正在执行 · ${waitingRuns} 重试或待输入`)}
       ${metric("clipboard-check", "待验收", reviewTasks.length, "已停止执行，等待确认结果")}
       ${metric("robot", "Worker 可用", activeWorkers, `总数 ${state.workers.length}`)}
       ${metric("calendar-time", "定时自动化", activeSchedules.length, `${state.schedules.length} 条可见规则`)}
       ${metric("alert-triangle", "需要确认", riskCount + decisions, `${decisions} 个决策项`)}
     </div>
     ${queueSection("待处理材料", pendingFiles, renderMaterialRows(), materialActions)}
-    ${queueSection("运行队列", queuedTasks.length, renderTaskRows(queuedTasks.slice(0, 12)), `
+    ${queueSection("业务任务", queuedTasks.length, renderTaskRows(queuedTasks.slice(0, 12)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
+    ${state.me?.is_superadmin ? queueSection("Worker 执行队列", workerRuns.length, renderWorkerRunRows(workerRuns.slice(0, 12)), `
+      <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
+    `) : ""}
     ${queueSection("待验收", reviewTasks.length, renderTaskRows(reviewTasks.slice(0, 12)), "")}
     ${queueSection("定时自动化", activeSchedules.length, renderScheduleRows(activeSchedules.slice(0, 8)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
@@ -375,13 +384,13 @@ function renderTaskRows(tasks = taskQueueSource().slice(0, 10)) {
   if (!tasks.length) return `<div class="empty">当前没有任务。</div>`;
   return `
     <table class="data-table">
-      <thead><tr><th></th><th>ID</th><th>命令</th><th>Worker/员工</th><th>发起人</th><th>开始时间</th><th>进度</th><th>状态</th><th>预计完成</th></tr></thead>
+      <thead><tr><th></th><th>ID</th><th>任务</th><th>责任人</th><th>发起人</th><th>创建时间</th><th>进度</th><th>状态</th><th>截止 / 更新</th></tr></thead>
       <tbody>${tasks.map(t => {
         const progress = taskProgress(t.status);
         const selected = state.selected?.kind === "task" && Number(state.selected.id) === Number(t.id);
         return `<tr class="selectable ${selected ? "selected" : ""}" data-select-kind="task" data-id="${t.id}">
           <td><input type="checkbox"></td>
-          <td>RUN-${t.id}</td>
+          <td>TSK-${t.id}</td>
 		  <td class="td-title"><div class="title-strong">${esc(t.title)}</div><div class="subline">优先级 ${esc(t.priority || "normal")}${taskWorkerState(t)}</div></td>
           <td>${taskOwnerCell(t)}</td>
           <td>${esc(t.assigner_name || "")}</td>
@@ -391,6 +400,24 @@ function renderTaskRows(tasks = taskQueueSource().slice(0, 10)) {
           <td>${t.deadline ? fmtTime(t.deadline) : `更新于 ${fmtAge(t.updated_at)}`}</td>
         </tr>`;
       }).join("")}</tbody>
+    </table>`;
+}
+
+function renderWorkerRunRows(runs = state.workerRuns.slice(0, 10)) {
+  if (!runs.length) return `<div class="empty">当前没有 Worker 执行。</div>`;
+  return `
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>执行目标</th><th>Worker</th><th>发起人</th><th>执行器</th><th>尝试 / 失败</th><th>状态</th><th>最近更新</th></tr></thead>
+      <tbody>${runs.map(run => `<tr class="selectable" data-select-kind="workerRun" data-id="${run.id}">
+        <td>RUN-${run.id}</td>
+        <td class="td-title"><div class="title-strong">${esc(run.title)}</div><div class="subline">${run.task_id ? `业务任务 TSK-${esc(run.task_id)}` : "独立执行"}${run.scope_title || run.scope_key ? ` · ${esc(run.scope_title || run.scope_key)}` : ""}</div></td>
+        <td>${esc(run.worker_name || `#${run.worker_id}`)}</td>
+        <td>${esc(run.requested_by_name || `#${run.requested_by}`)}</td>
+        <td>${esc(run.executor || "agent")}</td>
+        <td>${esc(run.attempts || 0)} / ${esc(run.failures || 0)}</td>
+        <td>${statusPill(run.status)}</td>
+        <td>${fmtAge(run.updated_at)}</td>
+      </tr>`).join("")}</tbody>
     </table>`;
 }
 
@@ -457,11 +484,13 @@ function renderTasksRoute() {
 	const assignedActive = state.tasks.assigned.filter(t => ["pending", "in_progress", "awaiting_input"].includes(t.status));
 	const assignedHistory = state.tasks.assigned.filter(t => ["accepted", "split", "cancelled"].includes(t.status));
 	if (state.me?.is_superadmin) {
-		return `${queueSection("全局运行队列", state.taskQueue.length, taskTable(state.taskQueue), `
+		return `${queueSection("业务任务队列", state.taskQueue.length, taskTable(state.taskQueue), `
 			<button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
 		`)}
 		${queueSection("全局待验收", state.taskReview.length, taskTable(state.taskReview), "")}
-		${queueSection("任务历史", state.taskHistory.length, taskTable(state.taskHistory), "")}
+		${queueSection("业务任务历史", state.taskHistory.length, taskTable(state.taskHistory), "")}
+		${queueSection("Worker 执行队列", state.workerRuns.length, renderWorkerRunRows(state.workerRuns), "")}
+		${queueSection("Worker 执行历史", state.workerRunHistory.length, renderWorkerRunRows(state.workerRunHistory), "")}
 		${queueSection("定时自动化", state.schedules.length, renderScheduleRows(state.schedules), `
 			<button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
 		`)}`;
@@ -660,6 +689,10 @@ function renderInspector() {
     el.innerHTML = inspectorFrame("任务详情", "checkbox", taskInspector(selected.item));
     return;
   }
+  if (selected.kind === "workerRun") {
+    el.innerHTML = inspectorFrame("Worker 执行详情", "player-play", workerRunInspector(selected.item));
+    return;
+  }
   if (selected.kind === "schedule") {
     el.innerHTML = inspectorFrame("定时自动化", "calendar-time", scheduleInspector(selected.item));
     return;
@@ -747,6 +780,7 @@ function taskInspector(task) {
     <dl class="kv">
       <dt>任务</dt><dd>#${task.id} ${esc(task.title)}</dd>
       <dt>状态</dt><dd>${statusPill(task.status)}</dd>
+	  <dt>需求版本</dt><dd>v${esc(task.revision || 1)}</dd>
       <dt>责任人</dt><dd>${esc(task.assignee_name || "")}</dd>
       <dt>参与者</dt><dd>${esc(participants || "无额外参与者")}</dd>
       <dt>发起人</dt><dd>${esc(task.assigner_name || "")}</dd>
@@ -758,24 +792,43 @@ function taskInspector(task) {
 		${task.cancel_reason ? `<dt>取消原因</dt><dd>${esc(task.cancel_reason)}</dd>` : ""}
 		${task.superseded_by ? `<dt>替代任务</dt><dd>#${esc(task.superseded_by)}</dd>` : ""}
 		<dt>催办次数</dt><dd>${esc(task.nudge_count || 0)}</dd>
-		${task.worker_failures ? `<dt>Worker 失败</dt><dd>${esc(task.worker_failures)} 次${task.worker_retry_at ? `，${fmtTime(task.worker_retry_at)} 重试` : ""}</dd>` : ""}
+		${task.execution ? `<dt>最近执行</dt><dd>RUN-${esc(task.execution.id)} · ${statusPill(task.execution.status)} · ${esc(task.execution.attempts || 0)} 次尝试</dd>` : ""}
 	  </dl>
 	  ${task.goal ? `<div class="result"><strong>目标</strong><br>${esc(task.goal)}</div>` : ""}
 	  ${task.description ? `<div class="result"><strong>描述</strong><br>${esc(task.description)}</div>` : ""}
 	  ${task.acceptance ? `<div class="result"><strong>验收标准</strong><br>${esc(task.acceptance)}</div>` : ""}
 	  ${task.latest_progress ? `<div class="result"><strong>最新进度 / 结果${task.latest_progress_at ? ` · ${fmtTime(task.latest_progress_at)}` : ""}</strong><br>${esc(task.latest_progress)}</div>` : ""}
-	  ${task.worker_last_error ? `<div class="result bad">${esc(task.worker_last_error)}</div>` : ""}
+	  ${task.execution?.last_error ? `<div class="result bad">${esc(task.execution.last_error)}</div>` : ""}
 	  ${actions}
 	  ${state.actionResult ? actionResult() : ""}
 	  `;
 }
 
 function taskWorkerState(task, block = false) {
-	if (!task?.worker_failures) return "";
-	const text = task.worker_retry_at
-		? `Worker 失败 ${task.worker_failures} 次，${fmtTime(task.worker_retry_at)} 重试`
-		: `Worker 连续失败 ${task.worker_failures} 次`;
+	const run = task?.execution;
+	if (!run) return "";
+	const parts = [`RUN-${run.id}`, statusText(run.status)];
+	if (run.failures) parts.push(`失败 ${run.failures} 次`);
+	const text = parts.join(" · ");
 	return block ? `<div class="subline">${esc(text)}</div>` : ` · ${esc(text)}`;
+}
+
+function workerRunInspector(run) {
+  if (!run) return `<div class="empty">执行记录不存在或已刷新。</div>`;
+  return `<dl class="kv">
+    <dt>执行</dt><dd>RUN-${esc(run.id)} ${esc(run.title)}</dd>
+    <dt>状态</dt><dd>${statusPill(run.status)}</dd>
+    <dt>业务任务</dt><dd>${run.task_id ? `TSK-${esc(run.task_id)} · v${esc(run.task_revision || 1)}` : "独立执行"}</dd>
+    <dt>Worker</dt><dd>${esc(run.worker_name || `#${run.worker_id}`)}</dd>
+    <dt>发起人</dt><dd>${esc(run.requested_by_name || `#${run.requested_by}`)}</dd>
+    <dt>执行器</dt><dd>${esc(run.executor || "agent")}</dd>
+    <dt>上下文</dt><dd>${esc(run.scope_title || run.scope_key || "默认")}</dd>
+    <dt>尝试 / 失败</dt><dd>${esc(run.attempts || 0)} / ${esc(run.failures || 0)}</dd>
+    <dt>创建</dt><dd>${fmtTime(run.created_at)}</dd>
+    <dt>更新</dt><dd>${fmtTime(run.updated_at)}</dd>
+  </dl>
+  ${run.last_error ? `<div class="result bad">${esc(run.last_error)}</div>` : ""}
+  ${run.summary ? `<div class="result"><strong>执行摘要</strong><br>${esc(run.summary)}</div>` : ""}`;
 }
 
 function scheduleInspector(s) {
@@ -963,6 +1016,7 @@ function selectedItem() {
   if (!selected) return null;
   if (selected.kind === "file") return { ...selected, item: state.files.find(f => Number(f.id) === Number(selected.id)) };
   if (selected.kind === "task") return { ...selected, item: allTaskSource().find(t => Number(t.id) === Number(selected.id)) };
+  if (selected.kind === "workerRun") return { ...selected, item: [...state.workerRuns, ...state.workerRunHistory].find(run => Number(run.id) === Number(selected.id)) };
   if (selected.kind === "schedule") return { ...selected, item: state.schedules.find(s => Number(s.id) === Number(selected.id)) };
   if (selected.kind === "worker") return { ...selected, item: state.workers.find(w => Number(w.id) === Number(selected.id)) };
   if (selected.kind === "risk") return selected;
@@ -1097,9 +1151,22 @@ function statusPill(status) {
     done: ["teal", "待验收"],
     accepted: ["green", "已完成"],
     split: ["blue", "已拆分"],
+    queued: ["amber", "排队中"],
+    claimed: ["blue", "执行中"],
+    retry_wait: ["amber", "等待重试"],
+    completed: ["green", "执行完成"],
   };
   const [cls, label] = map[status] || ["blue", status || "未知"];
   return `<span class="pill ${cls}">${esc(label)}</span>`;
+}
+
+function statusText(status) {
+  const labels = {
+    pending: "待处理", in_progress: "运行中", awaiting_input: "待补充", done: "待验收",
+    accepted: "已完成", split: "已拆分", cancelled: "已取消", queued: "排队中",
+    claimed: "执行中", retry_wait: "等待重试", completed: "执行完成",
+  };
+  return labels[status] || status || "未知";
 }
 
 function logPill(level) {
@@ -1147,7 +1214,7 @@ async function loadRoute(route) {
       return;
     }
     if (route === "files") await settleLoads("文件中心", [loadFiles(), loadAdminData(["workers", "capabilities"])]);
-    else if (route === "tasks") await settleLoads("任务中心", [loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue"])]);
+    else if (route === "tasks") await settleLoads("任务中心", [loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workerRuns"])]);
     else if (route === "workers") await loadAdminData(["workers"]);
     else if (route === "model") await loadAdminData(["ai", "capabilities"]);
     else if (route === "ops") await loadAdminData(["ops", "ai", "workers", "actionTurns"]);
@@ -1163,7 +1230,7 @@ async function loadRoute(route) {
 }
 
 async function loadCommandData() {
-  await settleLoads("控制中心", [loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workers", "workflows", "capabilities", "decisions", "approvals", "actionTurns", "ops", "ai"])]);
+  await settleLoads("控制中心", [loadFiles(), loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workerRuns", "workers", "workflows", "capabilities", "decisions", "approvals", "actionTurns", "ops", "ai"])]);
 }
 
 async function settleLoads(label, jobs) {
@@ -1203,6 +1270,10 @@ async function loadAdminData(parts) {
 		jobs.push(api("/api/admin/task-queue?scope=queue").then(d => { state.taskQueue = d.tasks || []; }));
 		jobs.push(api("/api/admin/task-queue?scope=review").then(d => { state.taskReview = d.tasks || []; }));
 		jobs.push(api("/api/admin/task-queue?scope=history").then(d => { state.taskHistory = d.tasks || []; }));
+	}
+	if (state.me?.is_superadmin && parts.includes("workerRuns")) {
+		jobs.push(api("/api/admin/worker-runs?scope=queue").then(d => { state.workerRuns = d.runs || []; }));
+		jobs.push(api("/api/admin/worker-runs?scope=history").then(d => { state.workerRunHistory = d.runs || []; }));
 	}
   if (parts.includes("workers")) jobs.push(api("/api/admin/workers").then(d => { state.workers = d.workers || []; }));
   if (parts.includes("workflows")) jobs.push(api("/api/admin/workflows").then(d => { state.workflows = d.workflows || []; }));

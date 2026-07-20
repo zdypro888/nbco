@@ -19,7 +19,8 @@ const (
 // Msg 实时通道消息（双向共用同一信封）。
 type Msg struct {
 	Type   string `json:"type"`
-	TaskID int64  `json:"task_id,omitempty"`
+	RunID  int64  `json:"run_id,omitempty"`
+	TaskID int64  `json:"task_id,omitempty"` // one-version worker compatibility
 }
 
 // Conn 一条已认证的 worker 连接，由网关层实现；Send 必须并发安全。
@@ -69,9 +70,9 @@ func (h *Hub) Wake(workerID int64) {
 	h.send(workerID, Msg{Type: MsgWake})
 }
 
-// Cancel 通知 worker 终止某任务。同样尽力而为。
-func (h *Hub) Cancel(workerID, taskID int64) {
-	h.send(workerID, Msg{Type: MsgCancel, TaskID: taskID})
+// Cancel 通知 worker 终止某次执行。同样尽力而为。
+func (h *Hub) Cancel(workerID, runID int64) {
+	h.send(workerID, Msg{Type: MsgCancel, RunID: runID, TaskID: runID})
 }
 
 func (h *Hub) send(workerID int64, m Msg) {

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -17,16 +18,17 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/zdypro888/nbco/taskflow"
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 const (
-	pollInterval     = 10 * time.Second // 无活时的轮询间隔
-	taskTimeout      = 2 * time.Hour    // 单任务总时限（卡死另有 waitOpts.Stuck 检测）
-	progressInterval = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
-	progressTail     = 25               // 每次快照回传的屏幕行数
-	maxNudges        = 2                // 未按格式收尾时的补提醒次数
-	taskIORelDir     = ".nbco-task/current"
+	pollInterval      = 10 * time.Second // 无活时的轮询间隔
+	taskTimeout       = 2 * time.Hour    // 单任务总时限（卡死另有 waitOpts.Stuck 检测）
+	heartbeatInterval = 1 * time.Minute  // 活跃执行租约续期；不依赖 CLI 是否产生输出
+	progressInterval  = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
+	progressTail      = 25               // 每次快照回传的屏幕行数
+	maxNudges         = 2                // 未按格式收尾时的补提醒次数
+	taskIORelDir      = ".nbco-task/current"
 )
 
 // 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
@@ -167,15 +169,23 @@ func (w *Worker) watchCancel(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case id := <-w.link.cancel:
-			w.mu.Lock()
-			if w.curTask == id && w.curCancel != nil {
-				w.curKilled = true
-				w.curCancel()
-				log.Printf("任务 #%d 被服务端取消，正在终止", id)
-			}
-			w.mu.Unlock()
+			w.cancelCurrentRun(id, "收到服务端实时取消")
 		}
 	}
+}
+
+func (w *Worker) cancelCurrentRun(id int64, reason string) bool {
+	w.mu.Lock()
+	if w.curTask != id || w.curCancel == nil {
+		w.mu.Unlock()
+		return false
+	}
+	w.curKilled = true
+	cancel := w.curCancel
+	w.mu.Unlock()
+	cancel()
+	log.Printf("执行 #%d 已失去租约，正在终止（%s）", id, reason)
+	return true
 }
 
 func (w *Worker) registerRun(id int64, cancel context.CancelFunc) {
@@ -201,7 +211,7 @@ func (w *Worker) killed() bool {
 
 // execute 在 PTY 里驱动交互式 CLI 完成任务：warmup → 粘贴任务 → 等回复结束 →
 // 解析收尾（不合格就补提醒）→ 提交验收。进度以屏幕快照周期回传。
-func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []string) {
+func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []string) {
 	dir, err := w.workDir(task)
 	if err != nil {
 		w.failTask(ctx, task, "创建工作目录失败: "+err.Error(), task.Session, "")
@@ -216,8 +226,13 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	defer cancel()
 	w.registerRun(task.ID, cancel)
 	defer w.unregisterRun()
+	go w.keepRunLease(runCtx, task)
 
 	if err := w.prepareFiles(runCtx, task, dir); err != nil {
+		if w.killed() {
+			log.Printf("执行 #%d 在下载输入时被取消", task.ID)
+			return
+		}
 		w.failTask(ctx, task, "下载任务附件失败: "+err.Error(), task.Session, dir)
 		return
 	}
@@ -238,6 +253,9 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	}
 	sess, err := startSession(runCtx, dir, w.cfg.Bin, invocation.Args...)
 	if err != nil {
+		if w.killed() {
+			return
+		}
 		w.failTask(ctx, task, "启动 "+w.cfg.Bin+" 失败: "+err.Error(), task.Session, dir)
 		return
 	}
@@ -249,6 +267,9 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		persistNewSession = true
 		sess, err = startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
 		if err != nil {
+			if w.killed() {
+				return
+			}
 			w.failTask(ctx, task, "恢复会话失败，重新启动 "+w.cfg.Bin+" 也失败: "+err.Error(), task.Session, dir)
 			return
 		}
@@ -310,12 +331,16 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 		return
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
+	if w.killed() {
+		log.Printf("执行 #%d 在上传产物时被取消", task.ID)
+		return
+	}
 	submitSession := task.Session
 	if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
 		submitSession.EngineSessionRef = ref
 	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir,
-		SubmissionResult{Outcome: taskflow.ExecutionSucceeded}); err != nil {
+		SubmissionResult{Outcome: workerproto.OutcomeSucceeded}); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交任务结果失败: "+err.Error(), submitSession, dir)
 		w.handoffDeferredRestart()
@@ -325,7 +350,29 @@ func (w *Worker) execute(ctx context.Context, task *Task, knowledge, history []s
 	w.handoffDeferredRestart()
 }
 
-func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir string) {
+func (w *Worker) keepRunLease(ctx context.Context, run *Run) {
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			heartbeatCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			err := w.client.Heartbeat(heartbeatCtx, run.ID, run.ClaimID)
+			cancel()
+			if errors.Is(err, errWorkerLeaseLost) {
+				w.cancelCurrentRun(run.ID, "续租被服务端拒绝")
+				return
+			}
+			if err != nil && ctx.Err() == nil {
+				log.Printf("执行 #%d 续租失败（下一周期重试）: %v", run.ID, err)
+			}
+		}
+	}
+}
+
+func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Run, dir string) {
 	command := strings.TrimSpace(task.Command)
 	if err := writeCommandScript(dir, command); err != nil {
 		w.report(ctx, task.ID, task.ClaimID, "⚠️ 保存命令记录失败: "+err.Error())
@@ -357,11 +404,17 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 		return
 	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
-	outcome := taskflow.ExecutionSucceeded
-	if res.ExitCode != 0 {
-		outcome = taskflow.ExecutionFailed
+	if w.killed() {
+		log.Printf("命令执行 #%d 在上传产物时被取消", task.ID)
+		return
 	}
-	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "命令任务默认使用 stdout/stderr pipe 执行；需要终端交互时可显式启用 PTY；产物仍通过 "+taskArtifactRelDir()+"/ 回传。", task.Session, dir,
+	outcome := workerproto.OutcomeSucceeded
+	if res.ExitCode != 0 {
+		outcome = workerproto.OutcomeFailed
+	}
+	// Deterministic commands produce execution evidence, not reusable lessons.
+	// Learning remains reserved for an agent's explicit, task-derived findings.
+	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "", task.Session, dir,
 		SubmissionResult{Outcome: outcome, ExitCode: &res.ExitCode}); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交命令任务结果失败: "+err.Error(), task.Session, dir)
@@ -372,7 +425,7 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Task, dir str
 	w.handoffDeferredRestart()
 }
 
-func (w *Worker) failTask(ctx context.Context, task *Task, cause string, session SessionInfo, workdir string) {
+func (w *Worker) failTask(ctx context.Context, task *Run, cause string, session SessionInfo, workdir string) {
 	if task == nil || strings.TrimSpace(task.ClaimID) == "" {
 		return
 	}
@@ -395,7 +448,7 @@ func (w *Worker) handoffDeferredRestart() {
 	}
 }
 
-func (w *Worker) persistNativeSession(ctx context.Context, task *Task, dir string, since time.Time) {
+func (w *Worker) persistNativeSession(ctx context.Context, task *Run, dir string, since time.Time) {
 	if task == nil || task.Session.ID <= 0 || strings.TrimSpace(task.ClaimID) == "" {
 		return
 	}
@@ -424,7 +477,7 @@ func (w *Worker) persistNativeSession(ctx context.Context, task *Task, dir strin
 	}
 }
 
-func (w *Worker) appendArtifactReport(ctx context.Context, task *Task, dir, summary string) string {
+func (w *Worker) appendArtifactReport(ctx context.Context, task *Run, dir, summary string) string {
 	uploaded, failed, rejected, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, taskArtifactRelDir()))
 	if uerr != nil {
 		w.report(ctx, task.ID, task.ClaimID, "⚠️ 遍历产物目录出错: "+uerr.Error())
@@ -485,7 +538,7 @@ func (w *Worker) cliArgs() []string {
 	}
 }
 
-func (w *Worker) workDir(task *Task) (string, error) {
+func (w *Worker) workDir(task *Run) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -556,7 +609,7 @@ func taskArtifactRelDir() string {
 	return filepath.ToSlash(filepath.Join(taskIORelDir, "artifacts"))
 }
 
-func (w *Worker) prepareFiles(ctx context.Context, task *Task, dir string) error {
+func (w *Worker) prepareFiles(ctx context.Context, task *Run, dir string) error {
 	ioDir := filepath.Join(dir, taskIORelDir)
 	if err := os.RemoveAll(ioDir); err != nil {
 		return err
@@ -722,13 +775,13 @@ func (w *Worker) report(ctx context.Context, taskID int64, claimID, content stri
 }
 
 // buildPrompt 把任务、历史经验与过程记录拼成给 CLI 的指令，并要求结构化收尾。
-func buildPrompt(task *Task, knowledge, history []string) string {
+func buildPrompt(task *Run, knowledge, history []string) string {
 	return buildPromptWithMarks(task, knowledge, history, defaultCompletionMarks)
 }
 
 // taskBrief 任务正文（标题/目标/描述/验收/过程记录/经验/附件清单）：
 // PTY CLI 提示与内置智能体共用同一份信息组装。
-func taskBrief(task *Task, knowledge, history []string) string {
+func taskBrief(task *Run, knowledge, history []string) string {
 	var b strings.Builder
 	if task.Session.ScopeKey != "" {
 		title := strings.TrimSpace(task.Session.Title)
@@ -786,7 +839,7 @@ func taskBrief(task *Task, knowledge, history []string) string {
 	return b.String()
 }
 
-func buildPromptWithMarks(task *Task, knowledge, history []string, marks completionMarks) string {
+func buildPromptWithMarks(task *Run, knowledge, history []string, marks completionMarks) string {
 	var b strings.Builder
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	b.WriteString(taskBrief(task, knowledge, history))

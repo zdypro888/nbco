@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: workerhub/hub.go
-        hash: sha256:7b9349f58eb14a048a92d8247392498a741a321e2e1f195ce5bd0b7b85c59f1a
+        hash: sha256:97954f85ca4a9f80b810d147f2358c00493bc521c3400ce003472b3c87cc5513
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: workerhub/hub.go
         symbol: Msg
-        hash: sha256:016e50dfe15634fd464b73fd22e29900677399f83c8169e32c14cfbfce7821a4
-        struct_hash: sha256:4fa16ca7bd6b6c0795464d96beb17e3e58c53c4a59edc509ccef909ff748e709
-        doc_struct_hash: sha256:17652b8364cf7a65a8a641926686c3cd75d1e70a0fe626eced27cbedb11c43d5
-        lines: [19, 23]
+        hash: sha256:cbc24d939f19d75c79088c6c183f507c2b734e191cf7902b635598f9ff1f0edd
+        struct_hash: sha256:0c5d6fa8ae1e3aa7423afb8a5b5557e1701bd235e472900d3135d61d9168549a
+        doc_struct_hash: sha256:d6f8ef6c696bd7db70059cf0f0b677726294f55e4cb0ad2831db88a50c11ced7
+        lines: [19, 24]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Conn
@@ -60,7 +60,7 @@ nodes:
         hash: sha256:337925ddadb8cb360c40322f25994f65d2e8f5265423f5c4eb2bd4fab7b484b5
         struct_hash: sha256:331d7079b6a2fc9fe89fcfdf5474d38eff405f2f7dcb9cd51f502fd0e78fb838
         doc_struct_hash: sha256:c6ec2a85b45b6a49f2f5252ed9e0475287c491ff229b41b548f55b0e87df21b9
-        lines: [25, 28]
+        lines: [26, 29]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:40e97eafa8d8fc438c71007e4c06016fd5a22acd88dc7a15e0cea863654e2f9e
         struct_hash: sha256:6836e246ae5f0f377074c5e175dd9d9240fd82621cdbfaa96d3d43a32ed75e6f
         doc_struct_hash: sha256:5b65c8024e31e3e9fa86a4ea61cb5b59a7a3add2c6bedfc0bf6197e962c78137
-        lines: [30, 34]
+        lines: [31, 35]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#New
@@ -82,7 +82,7 @@ nodes:
         hash: sha256:cd4b85a939f78b9711aaffc02847955fefc0036626b0ce1dd666c35195ecb6ef
         struct_hash: sha256:2215de025c7740e682b669d2b94e343634b254123f27af8d239313dc9897e936
         doc_struct_hash: sha256:2215de025c7740e682b669d2b94e343634b254123f27af8d239313dc9897e936
-        lines: [36, 38]
+        lines: [37, 39]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.Attach
@@ -93,7 +93,7 @@ nodes:
         hash: sha256:f17e2b32759026307bf8134dc18783eea207262e46e375655a7c7e4cdf8a5d1c
         struct_hash: sha256:e863bdc4367e004b1916a7cd7d718b2a7ed63653a7b8c28fe6ccfefb8bf72ded
         doc_struct_hash: sha256:4af920375e43c617bfa37336662aedd2bdacfdc1da70178760fa39b72ef9870c
-        lines: [40, 47]
+        lines: [41, 48]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.Detach
@@ -104,7 +104,7 @@ nodes:
         hash: sha256:97d73f460b32db89188217537804dd1e01d097f4282478ab3522ead6f009242b
         struct_hash: sha256:f0a86cd121ee092d6b145761ed3fe4b7af6d12880eb90c3cd8fbe723f6ca3d24
         doc_struct_hash: sha256:72b8d2806e697c680b2f26a28f87fd759d95ca573e0ad4c30791cc496185207b
-        lines: [49, 57]
+        lines: [50, 58]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.Online
@@ -115,7 +115,7 @@ nodes:
         hash: sha256:d1a7cd702d9bde96fc7b002a62637c8801ed8941f42b393639f81a2c1f107730
         struct_hash: sha256:bcd2ef1a87da5a2071be6fd6f78537ef8ec75a3bddceb7e1cc04d25cda92dc01
         doc_struct_hash: sha256:0f89cbd382202d5ed73b2a0ad524728d24133736e1a76b3f22aaac292db38985
-        lines: [59, 64]
+        lines: [60, 65]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.Wake
@@ -126,7 +126,7 @@ nodes:
         hash: sha256:3e88306a0f665691348afa516328bbe8b499f95ba25d68e8a6fe40cfa974764b
         struct_hash: sha256:b481580a735e2528329db831f8946fd8190304a06d61bb279da17a009687b6b4
         doc_struct_hash: sha256:7ffb26a1c2a7450420e62f3863201fd40aacd999f519becd31274a6bb112cbf3
-        lines: [66, 70]
+        lines: [67, 71]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.Cancel
@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: workerhub/hub.go
         symbol: Hub.Cancel
-        hash: sha256:8395021a431fd9ba5bb8767dd0600368f09885c58e66f5e2c9a622a38c7f08bf
-        struct_hash: sha256:3b727d8e8f097ad5a957b31d794a6577163a85d8468088b02d62c13f3bed2e8a
-        doc_struct_hash: sha256:33837bf6833c8c659725ed1ffe17bad2940981ff6d5cb76cbcfda0073cea22a0
-        lines: [72, 75]
+        hash: sha256:c6231c1f0047d56ac2bfcbf0fe8cfd3d90978643c758600f4277528fce2b1a72
+        struct_hash: sha256:f28f49b7bda927b89125fe95b07e2b4f3d4579c0da2a7e4c700279d93b98cf06
+        doc_struct_hash: sha256:a4b1b767191c5897e46fd7c3c4e495a0cfb0f587b48bfb377800f87cb48bcda7
+        lines: [73, 76]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.send
@@ -148,6 +148,6 @@ nodes:
         hash: sha256:441033574d385000c8536aefe16e789ef43fdc1ed234889b5c3dc44b202c50ff
         struct_hash: sha256:ab6bece967d826def271fe63c53630c718d3a16ec21bf0024941519c25f667ff
         doc_struct_hash: sha256:ab6bece967d826def271fe63c53630c718d3a16ec21bf0024941519c25f667ff
-        lines: [77, 84]
+        lines: [78, 85]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

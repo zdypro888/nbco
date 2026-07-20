@@ -18,7 +18,7 @@ func collectCapabilities(cfg Config) CapabilityReport {
 	if bin == "" {
 		bin = engine
 	}
-	caps := []string{"shell", "files", "text"}
+	caps := []string{"shell", "files", "text", "run-protocol-v2"}
 	switch strings.ToLower(engine) {
 	case "claude", "codex":
 		caps = append(caps, "code", "repo", "long-context", "interactive-pty")

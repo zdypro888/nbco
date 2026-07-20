@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/agent.go
-        hash: sha256:a8dc2ad62dda060d1613eedc82e1ac94a8e94dfb8ab9862aae7874523fc58dc8
+        hash: sha256:a2ac27dbc290471a13c3c6b0dbac4c8dd6da915e786f99f781d3997a5c05a8b3
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: engineBuiltin
-        hash: sha256:17e0005b90e2ba48dad1f3d44997d40cb223493fb6139a56a54407669ecafe51
-        struct_hash: sha256:0ac20bea19ca1d2924e5a6488a5583554b2c1f398b0865b273c0f01fadd7eeff
-        doc_struct_hash: sha256:c453ad3f35c7c865f141fce8806863f7a1825a2ef366423252da2c4cc6059225
+        hash: sha256:75a141bc1ca76acc2ed1c77decc20d7d2892e0355ee1447051f797a543ca23b7
+        struct_hash: sha256:0c24b712d518f8566f47b1fb286b2c5c84821b98ffaf1362a606f28e67560a7f
+        doc_struct_hash: sha256:280b52d092a59648a583096f65708e5cc145b1a52d21c77003a944e5711cdd24
         lines: [15, 19]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentMaxSteps
-        hash: sha256:b8862f1b3981e26c204f37013c00ea0655dfb1d9028a8404982d8112f2503fb2
-        struct_hash: sha256:9e98a5e5e8f3971a32ba1e85a360bda5431973872ff0d802b41d390aaaadb222
-        doc_struct_hash: sha256:9e98a5e5e8f3971a32ba1e85a360bda5431973872ff0d802b41d390aaaadb222
+        hash: sha256:963c112721310eae0cc6a5470e744606a16f2b31275cccc0037bd335cd15cad8
+        struct_hash: sha256:6c353557f07c5d05d86703974cdde8030ca49c71bbf721276e10786b8698cfac
+        doc_struct_hash: sha256:6c353557f07c5d05d86703974cdde8030ca49c71bbf721276e10786b8698cfac
         lines: [22, 22]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -35,9 +35,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentCmdTimeout
-        hash: sha256:728aa329b386acccba0e6b90992e86e575d90fb8ed3b4ba9cade404b09dc98f9
-        struct_hash: sha256:c21fc71ce3e03dd28da21722a58eaa456ddcdb7cb114796d5792b10439eb19da
-        doc_struct_hash: sha256:c21fc71ce3e03dd28da21722a58eaa456ddcdb7cb114796d5792b10439eb19da
+        hash: sha256:baca5a7ac51aa74b9d82122e3795a7b2852900e4e433dc1658099d55e388f981
+        struct_hash: sha256:f97810308c66c680628d3c3bfc261e7a88028e0273680d6f2cb64755957f798c
+        doc_struct_hash: sha256:f97810308c66c680628d3c3bfc261e7a88028e0273680d6f2cb64755957f798c
         lines: [23, 23]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,9 +46,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentCmdTimeoutMax
-        hash: sha256:df53343a71208283ee6e94cff47e07aef473f3b8988a9d7e417de69f19c91420
-        struct_hash: sha256:dcd88fdacf758126493525c7baeb2a86df4cc418764928ac573238999ca5070a
-        doc_struct_hash: sha256:dcd88fdacf758126493525c7baeb2a86df4cc418764928ac573238999ca5070a
+        hash: sha256:48978e41f96d145510f1cebac98af040f3e007d24a32aac41190c8d90749e100
+        struct_hash: sha256:de7d202e63ddab554afacbc5b5958eac872d0569b5c4c3a9ce228cec42c53c15
+        doc_struct_hash: sha256:de7d202e63ddab554afacbc5b5958eac872d0569b5c4c3a9ce228cec42c53c15
         lines: [24, 24]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -57,9 +57,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentToolOutLimit
-        hash: sha256:98cb6e685a046504d5af4e0c9142aef0499b5d006f89e04b6596d6f0b91552d1
-        struct_hash: sha256:a7d38812732adbecdd51b787cd79b1760a6f2aff44a37b0f2e4a7b7558127fdf
-        doc_struct_hash: sha256:a7d38812732adbecdd51b787cd79b1760a6f2aff44a37b0f2e4a7b7558127fdf
+        hash: sha256:18f45c949c6888c1f2048e3d40289ef961cd1bc3eaa78c0fdd14af85c82b2afb
+        struct_hash: sha256:b69be7e37218889a3d2038a9cd21b6070132934a7b58d4e43fd89cd747d7599b
+        doc_struct_hash: sha256:b69be7e37218889a3d2038a9cd21b6070132934a7b58d4e43fd89cd747d7599b
         lines: [25, 25]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -68,9 +68,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentThoughtLimit
-        hash: sha256:eba328cd12399f1e9980e1a28fcce21a60da6d6097fc4943eb7840f0fd9b8486
-        struct_hash: sha256:1cd977cc1921455501c14993b6ee93d90ec9e2309b2f3673c113c66cdc0d1cf9
-        doc_struct_hash: sha256:1cd977cc1921455501c14993b6ee93d90ec9e2309b2f3673c113c66cdc0d1cf9
+        hash: sha256:d56edc470db3d9d74691f05567622b975d5bf3a854d8e317591bd9a79a9920b7
+        struct_hash: sha256:388a044cc0760a34d04f40f51876f31c0cdcbea03f3fe79a2262abc86dd1def0
+        doc_struct_hash: sha256:388a044cc0760a34d04f40f51876f31c0cdcbea03f3fe79a2262abc86dd1def0
         lines: [26, 26]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -79,9 +79,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentTranscriptBudget
-        hash: sha256:b6354f13f447fd006dcea58cc177e7502ef22a51aa95c763bd324b4a3990f406
-        struct_hash: sha256:7e811a1eddee9c67b964c86a25053c7c0e65fabe783ab43b43c6f33f53814552
-        doc_struct_hash: sha256:57ec44835f1ce6cc9e5487f1c58b00abcd8934ac182531e9a22c4b60f92a30cb
+        hash: sha256:f2539f154cd5fe96e5c737920dc1a15d6549b501de3468c40343152f6c6277b1
+        struct_hash: sha256:cb0fc9472c0a077784da18b4d8d3a22d368ace6fb09ee370fc72eea162e373dd
+        doc_struct_hash: sha256:907e8ff6d376ba60e452cea35e8b888ba75b2cc3e78c5c464d443f44bf2439ec
         lines: [28, 30]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -90,9 +90,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentKeepRecentTools
-        hash: sha256:bc10e1e42a0c3a861d410587b799ffb030a46a1a728a6517c7d0b8dadea9c071
-        struct_hash: sha256:fd05a44feaf3d9d7ee275bc4934423233e352e32c7f6ee91f6bac953a66bee3e
-        doc_struct_hash: sha256:f943594a99261d88cefd60322257d2cead63fe997e59427523b1eb5403dd29f2
+        hash: sha256:80e3b4468096971b2ede0d16f5886c50d4f46cf7eed64ec6586a316e34d5a3ed
+        struct_hash: sha256:2acf0e1cc16ddecc3ff3db76b27e5d510f5f2bcdf37e95613185442a90a8e4ff
+        doc_struct_hash: sha256:224499d1e9834c58f9ba15c6cbf4c8761fad7357716520fc9165cf2f99f37680
         lines: [31, 33]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -101,9 +101,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentLLMRetries
-        hash: sha256:bc16d18e3e4b46b0dcb3652a304e1cc0357faabb6130143b48d4cd66b6ced7f4
-        struct_hash: sha256:d037df0ec9925d74e78401ee7e3c91f47c74f56f829b26bbbbdc2e628f14aa26
-        doc_struct_hash: sha256:da1c6d9626aa54e736b9f1df2cc37a97ca8f4e6e41f06f9842e75d207db6f024
+        hash: sha256:6106583b7dd2cf8be20a741d4ef8468bede3ee1c39f3a80ece505f1af9536ba0
+        struct_hash: sha256:da2f66db5ad1192a94f87ccf32e31b0167fc453455f8c7b4b30ce2554a0defe2
+        doc_struct_hash: sha256:dc83d75ebf150e381998c3cd0d4207cb4545b435b6753ec8ba04fac335e18fbc
         lines: [34, 35]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -112,9 +112,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentRetryBackoff
-        hash: sha256:beb07f743573a532964f7a69d59e1ce6d4fa7c59ea540bf0745aa30f49bc1211
-        struct_hash: sha256:67bf054eade2a26fec847faabd9abd122bda491ff814c0ae31288c722c07eee0
-        doc_struct_hash: sha256:ff98c1e1f66eb61f367b1ed22132840765736af7bdf6d6cf90ef6d3154bc8634
+        hash: sha256:ccbfe5d4f09fab0b363d223bf80b3a62ba13ace25f94781450de089980369054
+        struct_hash: sha256:fc7fd6678923a60d9768112d9a2c2e31a6ff9ae4d7f77f19800f14b40ad128c7
+        doc_struct_hash: sha256:0e4e540905d9fad07c00d07ee56cc10c83115100f2d0569477df16ca9a4d5f41
         lines: [38, 39]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -123,9 +123,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: chatMessage
-        hash: sha256:63e6b709cac6865229038e982086af688c82947da7652db474bc5c38c61bf9bc
-        struct_hash: sha256:9ee57f9e0b25bb52e1e2421ed7722db1b5f4868a813077701a4bab3a510e5e18
-        doc_struct_hash: sha256:9ee57f9e0b25bb52e1e2421ed7722db1b5f4868a813077701a4bab3a510e5e18
+        hash: sha256:235d3eff2dd1b699208e13af30a86df787a506e87d39c9b95f543d16bc5eae47
+        struct_hash: sha256:94206a76a2eafec215943457ad8b6608869bdf2f9c1264c52fd26d4b6fb8574f
+        doc_struct_hash: sha256:94206a76a2eafec215943457ad8b6608869bdf2f9c1264c52fd26d4b6fb8574f
         lines: [43, 48]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -134,9 +134,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: toolCall
-        hash: sha256:be27e9bc2d71c9607809ffec8f786348bc43082dfd86279279d6db1d5dc0584f
-        struct_hash: sha256:5c4defdd30e7f2dc0034d1b26ff4f1938373352dd1d6dec81d5953ac7812fc47
-        doc_struct_hash: sha256:5c4defdd30e7f2dc0034d1b26ff4f1938373352dd1d6dec81d5953ac7812fc47
+        hash: sha256:bdf7ce4731979c4fb0000ec8a8bb859ecfad8b1401dc9387157b58b439122dbb
+        struct_hash: sha256:24ee0f324c8b5d0000200f60b0722be14b2ff7264e58073ccc53ed296f3155a0
+        doc_struct_hash: sha256:24ee0f324c8b5d0000200f60b0722be14b2ff7264e58073ccc53ed296f3155a0
         lines: [50, 54]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -145,9 +145,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: toolCallFunc
-        hash: sha256:a12aab87b1f676db432f5d7d58c37f6accdd0f42a446792b1d6b428382f4df3a
-        struct_hash: sha256:d89537139e9194632f0f4badd8ee50c8548b1d45e663085c4c83348bad175fc2
-        doc_struct_hash: sha256:d89537139e9194632f0f4badd8ee50c8548b1d45e663085c4c83348bad175fc2
+        hash: sha256:32b44e9d7caee3ddef07013e2ba856d10761663f4706037890806af339887a9f
+        struct_hash: sha256:7cf360df39b3e51a04499464908398aca3a949e869e86556bee1d5c50408bcf6
+        doc_struct_hash: sha256:7cf360df39b3e51a04499464908398aca3a949e869e86556bee1d5c50408bcf6
         lines: [56, 59]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -156,9 +156,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentTools
-        hash: sha256:a1a3ebff1235f27ebfe932f7a6ae1ff2c4c63f779dee9abab4e633a234ed60d0
-        struct_hash: sha256:f78509e41260ac47fd81a046776ddac937a918ce950cb950be6b89013dd6412f
-        doc_struct_hash: sha256:51ef36f775dfab6b0fa7865ab6cc94a5902b01cd4c341996c858eec27d025f58
+        hash: sha256:6064cbaf31f385c456f53d9de8315e52154d547f4c8550c9600e1c61d7a2c0a8
+        struct_hash: sha256:77be392e808330b0ff004a559e13d08e48523a4d40e23a860982dbfc89384b6e
+        doc_struct_hash: sha256:ed56b6e30a5b761b8d3b0a4bfd12d33a29e1c685983af1047b6affa2985ca8bb
         lines: [61, 87]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -167,9 +167,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentSystemPrompt
-        hash: sha256:328f053c6de76b91be8b19dc706c62751e53f915db1baff6e52f4e276581ebd5
-        struct_hash: sha256:9cc41fbe838d41480ddbe8ba792ee580893b089a3f4767022d3a9dd4bdebce96
-        doc_struct_hash: sha256:9cc41fbe838d41480ddbe8ba792ee580893b089a3f4767022d3a9dd4bdebce96
+        hash: sha256:380152eb19f33465c062221b17064af632b7424ced4cdf1f4462eaaac94b8161
+        struct_hash: sha256:99b7aa159192e61e937fa7cd0db357e68d9135a4169941564ab495f73bde6ca6
+        doc_struct_hash: sha256:99b7aa159192e61e937fa7cd0db357e68d9135a4169941564ab495f73bde6ca6
         lines: [89, 99]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -178,9 +178,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: agentTaskText
-        hash: sha256:dea7ceb2202791a594766f92b97a2286b886a7ca41e581a7b6471abb8375b239
-        struct_hash: sha256:21edd8145c6b455babb171f53154249551c46add0a1088ec57200b1fb4740254
-        doc_struct_hash: sha256:d87ab26f88c22ac80148c85db3450718436fb171f3b911d20b94ed41da53cf4b
+        hash: sha256:5f2a9e759d5896310103a36062cd0374583ebbf46b75769a4385b223dd1aad92
+        struct_hash: sha256:4d1377982ab738c3db67bed9cac7442926af508c5a65b38072ca514b65f7623b
+        doc_struct_hash: sha256:6e49257824027dfb82ce4c68b60d3790e680afb9ade0f75ca60c5992721013b4
         lines: [101, 106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -189,9 +189,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: Worker.executeBuiltin
-        hash: sha256:36750236e16afefc82a54cf2cf738b19513ae674ce36e04c97b405b047b781a4
-        struct_hash: sha256:8e59a630899b15291e83c02099f787c2d8767f9d2f0b93431c0aa78d07427860
-        doc_struct_hash: sha256:8e09e82eaf90cc63f46405c1fe0d1a9aa6e970eba9cef354090130aedcd2e515
+        hash: sha256:4057a777267239f180692d2928134af3c62df191fde9d2e63fb62e644da35ebe
+        struct_hash: sha256:295ab38e49a9e1f8169c1ebb3e5d922522aa74e72496bb0932184665516fa8ea
+        doc_struct_hash: sha256:81601a3585b75e6c48cd90a96d156927b9833c2949d47a27b3835c2a71f17155
         lines: [108, 188]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -200,9 +200,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: Worker.llmWithRetry
-        hash: sha256:49f82109cbe28aa12d8ca56fc3ceeff3bae990ce0e28814619758b59a51bd70a
-        struct_hash: sha256:15b3aacc3cc05c3b6c26cda24cdda4082c526e26990248334926892af8386d1b
-        doc_struct_hash: sha256:e56021d9185b54fcd9fa03ff30285ec434f0dc6c5eaeb6ca5fb55bbbb5a1c55a
+        hash: sha256:3cc4af4ade3fa9a77f78dda95026b7d48d48efb024b5262bb5e2a18ace9a21f4
+        struct_hash: sha256:b4373dac30f8c0c229721e953960eec004adf82cdccbf6598f1917c155b2cd75
+        doc_struct_hash: sha256:9a8220f4491b86327f8df9d33ce5b01ce097c4706ff2b3925adf9004104ab7ff
         lines: [190, 213]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -211,9 +211,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: compactTranscript
-        hash: sha256:c080dd949ec78df1c840235ad91feaffde8d1e1f6b50bd5e932639c392a21613
-        struct_hash: sha256:296a6bac6d4080099edfd00ca896c4ac0046b84beaf71a7819972500858c8aca
-        doc_struct_hash: sha256:43a07490b844660101ff69f2e4006476d59b22d8c08319e2734a374690aeabcf
+        hash: sha256:7db31a984edf0be9f4fd6c10dc68797fbbe446e7f878391d1b69bbbca5d5edbb
+        struct_hash: sha256:68784af7c013cf95c2d11b14c77ff334402af783ab67906787398a1b2f304ba3
+        doc_struct_hash: sha256:756033fd44344dd4a7505f2d836f74e53a3e068e903e9233b60c7d128008ae7b
         lines: [215, 245]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -222,9 +222,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: Worker.agentRunCommand
-        hash: sha256:e02c926ca53f38e78a87ca42c03b14c32b59b6eb8221ad1b7e52ae08ae877c5e
-        struct_hash: sha256:f2874f77274ac7e5b63255164e23d8d9347ec041449f8813cbcdf930572696c9
-        doc_struct_hash: sha256:37d86d6c3b77c1f126b2ffbac9e729e2953ed81206b66256e18011908fb07b6b
+        hash: sha256:61f41046a3f3193d48a986649c4810dad5ed3f56fac14fdaa5ceef67289f257f
+        struct_hash: sha256:16d6870a45ef8ad451fa4b138b61511c2401119693a3c1f07050a743eff0d0f3
+        doc_struct_hash: sha256:7c72233db8e887843f55d394c68728fb57616648bca26432de6e39a3df92a574
         lines: [247, 282]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: Worker.submitAgent
-        hash: sha256:95e668a45ec3a83b31bac2bf9c56653815d9c8e605804903fdeef84365772b31
-        struct_hash: sha256:f0a264589d1387b695e179b656b62d9fa1db63f6871b264b2b31d6d6b8f40988
-        doc_struct_hash: sha256:34e502e7214dc3afb1cf7c6d4d6b891111f883b34d2f07144c157b1e5e51073c
-        lines: [284, 296]
+        hash: sha256:420e6da0c5bfb59a0e264a83d85aa61100332660ff38161f9f54553d60838f1d
+        struct_hash: sha256:8156183516c250afe4713a7bb612646cf97ef55c664c0b54dcdbbf444512c03f
+        doc_struct_hash: sha256:9caa8f023d75f01ebec3f1f7b2715233a08fb6cf8428ce82a5a534f9d77ef0ae
+        lines: [284, 300]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/agent.go#clipTail
@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: clipTail
-        hash: sha256:21dbee0563d6247476a2b750d21a28a948d296f9a0d9c152674b83b4b58fe5c5
-        struct_hash: sha256:7b5cb4c1f2d79bb77dfadf7c98b59e25177a44468983c85df80be9fa4afb516d
-        doc_struct_hash: sha256:c57c0176e1c5e57b64bc7db43a09a38c0a2253eb3b41deddf807154c118605e5
-        lines: [298, 308]
+        hash: sha256:4bf87c4e02b9e1e4a221532ca885475ba08887adf9e480520d217cf66adf17a7
+        struct_hash: sha256:1f89769ffe06901b33132b09c580dc7d37259b5a69e57b9aaf2fa413e68a0182
+        doc_struct_hash: sha256:829dd3eeb88079fdb3e07482752d215fe7a2804630faf15e998de47d46c3044d
+        lines: [302, 312]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/agent.go#clipHead
@@ -255,9 +255,9 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: clipHead
-        hash: sha256:7235087256f0c6aba7bdf23753eca2965eab3df2f560096a8de54feda646d465
-        struct_hash: sha256:49041d22ed0f95d54b142b3a16e122af6f31b2a1c1bb6176c1d2c646d8b2aec0
-        doc_struct_hash: sha256:1393f3ba65ff9dd77c2a4d51022e8784c008cc96e59e56f95006c80519a25f5b
-        lines: [310, 317]
+        hash: sha256:b24ecdd0f4a50ba2d9d86bdc6290cc012ead09717a0cac859306f74e1d5dbe93
+        struct_hash: sha256:82307f8459b9bcf71818d78c1f6e9fa5812ceda7bcac566bf3757eb0db07b0cd
+        doc_struct_hash: sha256:031c42080cf9ccb90e15c647c2adfc56286cff52346fba0213e293eb437ac31b
+        lines: [314, 321]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

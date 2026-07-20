@@ -60,10 +60,6 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 	t.Goal = strings.TrimSpace(t.Goal)
 	t.Description = strings.TrimSpace(t.Description)
 	t.Acceptance = strings.TrimSpace(t.Acceptance)
-	normalizeTaskWorkerScope(t)
-	if !normalizeTaskCompletionPolicy(t) {
-		return nil, ErrConflict
-	}
 	t.Priority = nonEmpty(strings.TrimSpace(t.Priority), "normal")
 	deps, ok := normalizeTaskDeps(t.DependsOn)
 	if !ok {
@@ -101,7 +97,7 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 		}
 	}
 	if task == nil {
-		task, err = createTaskTx(ctx, tx, t)
+		task, err = createTaskTx(ctx, tx, t, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -110,6 +106,11 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 		task, updatedFields, err = mergeTaskConstraintsTx(ctx, tx, task, t)
 		if err != nil {
 			return nil, err
+		}
+		if len(updatedFields) > 0 {
+			if _, _, err := restartTaskWorkerRunTx(ctx, tx, task, "任务约束已更新"); err != nil {
+				return nil, err
+			}
 		}
 		if task.AssigneeID != t.AssigneeID {
 			participants = append([]TaskParticipantInput{{UserID: t.AssigneeID, Role: TaskParticipantCollaborator}}, participants...)
@@ -144,18 +145,11 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 }
 
 // mergeTaskConstraintsTx preserves the single-deliverable identity while
-// deterministically merging operational constraints. Duplicate assignments may
+// deterministically merging business constraints. Duplicate assignments may
 // tighten priority/deadline and add older same-project prerequisites. Fields
-// that would change the execution identity are rejected instead of being
+// that would change the deliverable identity are rejected instead of being
 // silently discarded.
 func mergeTaskConstraintsTx(ctx context.Context, tx pgx.Tx, current, incoming *Task) (*Task, []string, error) {
-	if current.WorkerCommand != incoming.WorkerCommand ||
-		current.WorkerCommandPTY != incoming.WorkerCommandPTY ||
-		current.CompletionPolicy != incoming.CompletionPolicy ||
-		current.WorkerScopeType != incoming.WorkerScopeType ||
-		current.WorkerScopeKey != incoming.WorkerScopeKey {
-		return nil, nil, ErrConflict
-	}
 	if current.MilestoneID != nil && incoming.MilestoneID != nil && *current.MilestoneID != *incoming.MilestoneID {
 		return nil, nil, ErrConflict
 	}
@@ -197,7 +191,7 @@ func mergeTaskConstraintsTx(ctx context.Context, tx pgx.Tx, current, incoming *T
 	}
 	merged, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET priority = $2, deadline = $3, depends_on = $4,
-		                    milestone_id = $5, updated_at = now()
+		                    milestone_id = $5, revision = revision + 1, updated_at = now()
 		  WHERE id = $1 RETURNING `+taskCols,
 		current.ID, priority, deadline, deps, milestoneID))
 	return merged, updated, err
@@ -397,6 +391,9 @@ func (s *Store) ReplaceTaskParticipants(ctx context.Context, taskID, addedBy int
 	task, err := scanTask(tx.QueryRow(ctx, `SELECT `+taskCols+` FROM tasks WHERE id = $1 FOR UPDATE`, taskID))
 	if err != nil {
 		return nil, err
+	}
+	if task.Status == TaskAccepted || task.Status == TaskSplit || task.Status == TaskCancelled {
+		return nil, ErrConflict
 	}
 	normalized, err := normalizeParticipantInputs(task, in)
 	if err != nil {

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/ws.go
-        hash: sha256:af5c8b051e5effc938931eabb2fdb6501d6afb434437cb816e0a8a0c5dac01d1
+        hash: sha256:1860411c51d15e92cf26462d0ceda0cc294e17f7b398d09c5ff3537804a2125c
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/ws.go
         symbol: wsLink.session
-        hash: sha256:95a6850f725e0aa0b8854cff95ffdbb41ae63d1dda69789901edf615f40f385c
-        struct_hash: sha256:0ce9601f03fc5ebf62e320a88081fb78fe645d2689e07f31846a0e7e2ba006b6
-        doc_struct_hash: sha256:8b8da6edd515f90d921910f887f23c1c0721a03d555f22497c83eee4f9b066bc
-        lines: [66, 123]
+        hash: sha256:224652a7e758b398cdf27504ba5d4611c98ddec4275bd3b79a6e62130f3032a9
+        struct_hash: sha256:544532f69228e605445011e84c566262a383eca8898b7362a21745a8ad4eed4d
+        doc_struct_hash: sha256:3a833d06b6007c64db1ae88476cfca74d936e251122093f8a66bfdbb35a7cbe2
+        lines: [66, 127]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/ws.go#wsLink.wsURL
@@ -104,6 +104,6 @@ nodes:
         hash: sha256:74ab3e8d0af95c20958398fa1b9bd236e106531512bb11f7c1de065a1b8e1208
         struct_hash: sha256:826668a4db04ac443f7d4e59b540ac25b8dbe4114983e4bfe196398f5be66e5e
         doc_struct_hash: sha256:89afaeaefc2d6c0203946e3ebc0d93b477632030298083ddba712ba4a8a01699
-        lines: [125, 135]
+        lines: [129, 139]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

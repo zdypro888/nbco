@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: sched/sched.go
-        hash: sha256:6043696d4f3ab92626ac1c39fd87c72f1db7f55a19582356336bb86624193f64
+        hash: sha256:0e5b077b3d46c51dd3b10160497f2d838886f77ddac6e33a0db462115d17fa3a
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -541,9 +541,9 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.nudgeDirective
-        hash: sha256:60cbec1e5c1e4bf8bb6400e5d4e6bebc9d1208214fc486cc0362e68c28becd92
-        struct_hash: sha256:119a47be8268173d0517c661e08adcdadaa73d47e675fa4cc2d5d5b9f7a53241
-        doc_struct_hash: sha256:119a47be8268173d0517c661e08adcdadaa73d47e675fa4cc2d5d5b9f7a53241
+        hash: sha256:d6c14c9382e3c88e8a5a1e1603e1b1810ff615236a6316b242ed133c8d328326
+        struct_hash: sha256:63e76aa22ea532d7659f6bc859031133c52397f657627719aee2d4565aa52ffb
+        doc_struct_hash: sha256:63e76aa22ea532d7659f6bc859031133c52397f657627719aee2d4565aa52ffb
         lines: [743, 778]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
