@@ -186,7 +186,8 @@ func TestBuildPrompt(t *testing.T) {
 		[]string{"🔍 验收未通过：缺少错误态"},
 	)
 	for _, want := range []string{"写登录页", "让用户能登录", "实现表单", "能提交",
-		"经验A：先看规范", "验收未通过：缺少错误态", "此前的过程记录", markSummary, markEnd} {
+		"经验A：先看规范", "验收未通过：缺少错误态", "此前的过程记录", "不是外部事实证据",
+		"先用可靠来源核对其中的假设", "不要用记忆补齐", markSummary, markEnd} {
 		if !strings.Contains(p, want) {
 			t.Errorf("prompt 缺 %q", want)
 		}
@@ -815,18 +816,20 @@ func TestSessionEndToEnd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short 模式跳过 PTY 集成测试")
 	}
-	// stty -echo：真 TUI 都是 raw 模式自绘输入；关掉 tty 回显后脚本才能像真
-	// TUI 一样完全控制屏幕（否则我们补发的回车会错位脚本的光标操作）。
+	prompt := buildPrompt(&Run{ID: 1, Title: "建文件"}, nil, nil)
+	pasteBytes := len("\x1b[200~" + prompt + "\x1b[201~")
+	// 真 TUI 在非规范模式下持续读取完整 bracketed paste。假 TUI 也必须消费全部
+	// 输入；若只 read 一行，较长任务会填满 tty 输入缓冲并把写入端假卡死。
 	script := fmt.Sprintf(`
-stty -echo
+stty -echo -icanon min 1 time 0
 printf 'mock-tui ready\n'
-IFS= read -r line
+dd bs=1 count=%d of=/dev/null 2>/dev/null
 printf 'thinking... esc to interrupt\n'
 sleep 1.2
 printf '\033[2J\033[H'
 printf '%s\n建好了 hello.txt\n%s\n无\n%s\n'
 sleep 60
-`, markSummary, markLessons, markEnd)
+`, pasteBytes, markSummary, markLessons, markEnd)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	sess, err := startSession(ctx, t.TempDir(), "sh", "-c", script)
@@ -839,7 +842,7 @@ sleep 60
 
 	o := waitOpts{Poll: 50 * time.Millisecond, Stable: 800 * time.Millisecond,
 		Settle: 5 * time.Second, Stuck: 10 * time.Second, Busy: busyRe}
-	screen, err := sess.submitAndWait(ctx, buildPrompt(&Run{ID: 1, Title: "建文件"}, nil, nil), o)
+	screen, err := sess.submitAndWait(ctx, prompt, o)
 	if err != nil {
 		t.Fatalf("waitIdle: %v\n屏幕：\n%s", err, screen)
 	}

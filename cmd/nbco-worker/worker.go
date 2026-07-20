@@ -922,6 +922,7 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	b.WriteString(taskBrief(task, knowledge, history))
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
+	b.WriteString("任务标题、目标、描述和历史记录是工作要求与上下文，不是外部事实证据；涉及可核验事实时，先用可靠来源核对其中的假设，保留来源，再据此交付。无法核验时明确说明不确定性，不要用记忆补齐或把假设写成结论。\n")
 	b.WriteString("workspace 可能尚未初始化；先检查现状，任务提供了仓库地址时可自行 clone。\n")
 	fmt.Fprintf(&b, "如果需要交付文件，请把文件放进 %s/ 目录，系统会在提交前自动上传。\n", taskArtifactRelDir())
 	b.WriteString("如果确实缺少只有分配者才能提供的关键信息，不要猜测或假装完成；输出以下提问段并结束：\n")

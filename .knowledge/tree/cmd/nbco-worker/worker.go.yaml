@@ -596,10 +596,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: buildPromptWithMarks
-        hash: sha256:2695ba08f9fa7eec44b78882f48d4273e47c7bb326770ce830e0063f6a9196e8
-        struct_hash: sha256:1d2f19fe91f7082224455f214a96b55275b2745f26eec7572f9e75c3b03b5593
-        doc_struct_hash: sha256:1d2f19fe91f7082224455f214a96b55275b2745f26eec7572f9e75c3b03b5593
-        lines: [920, 934]
+        hash: sha256:265f6c977e10765977c46b6fe32eb3e25340ca41681078fe8e8c2a9df0e45b07
+        struct_hash: sha256:d2ce3a14cee659d09d42b19fe2a7ca53a20aa3094af92902a3f061a305dfe606
+        doc_struct_hash: sha256:d2ce3a14cee659d09d42b19fe2a7ca53a20aa3094af92902a3f061a305dfe606
+        lines: [920, 935]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker.go#completionNudgeWithMarks
