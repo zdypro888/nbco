@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/session.go
         symbol: waitOpts
-        hash: sha256:1b8ecce2f274fb947c80c23fe5f361c8e109da6111b6e29cfc69073288a992b7
-        struct_hash: sha256:a1f492b9ae27ee4dd8c92061eaf024f0435affad32e6942bb7dc746f5a39273e
-        doc_struct_hash: sha256:2bcecd9e906e6c8b7c78f5d51d51ce68adcf81b684559b007f2825bbb0904d72
-        lines: [32, 49]
+        hash: sha256:b0d65b33968e416a4ac03c52255edb6a2ae96cfc47f8c9c682511845371f3664
+        struct_hash: sha256:53f2c4c50b7719b2c9495b2b9436cb1ae7baf16b4a8f8871059a2117fcc3e43e
+        doc_struct_hash: sha256:94cc68594feac7d2518698f045acf29c627217fbc53e798e8b90d1c308c610f9
+        lines: [32, 53]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/session.go#busyRe
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/session.go
         symbol: defaultWaitOpts
-        hash: sha256:11eb0c6140067da5e6b1646229f1888d9ff53aaae4c52e9489201430d85184fb
-        struct_hash: sha256:afbca19a6086bf82d18dc2d0fce1b370502ce963c455f93f07342156849ae131
-        doc_struct_hash: sha256:afbca19a6086bf82d18dc2d0fce1b370502ce963c455f93f07342156849ae131
-        lines: [54, 63]
+        hash: sha256:b3cb91f399bc2f66cead04e917deeedce87a42cabd91e9848657202343b22003
+        struct_hash: sha256:9147053c6f9c4782b6b91534ca6d0bbb7606a157a7d093086d812ff3a917ef35
+        doc_struct_hash: sha256:9147053c6f9c4782b6b91534ca6d0bbb7606a157a7d093086d812ff3a917ef35
+        lines: [58, 68]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/session.go#cliSession
@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/session.go
         symbol: waitIdle
-        hash: sha256:069e722fc3f8a36518b5a9c0f83c41b6cdf8273ab2d6ecbe89a383b1a3acf71d
-        struct_hash: sha256:c0afc6b022c6ed391a5b03827c087e44125efa88f047a8a8a2120f44d04d1202
-        doc_struct_hash: sha256:7cce0d961e39a747c6ae0802bd5b48c507117e0df703a94b32cc9beaeb9fcfd1
-        lines: [222, 292]
+        hash: sha256:bc16c6c952f37dd5167b914e1ffc3df60333fa103ce05a6edf23caba21a1d0dc
+        struct_hash: sha256:69360c4c68aaf90b7dd6f7798150003328df718ecca35afdee0a0bd1c176547e
+        doc_struct_hash: sha256:32c7fe41f84c9192fac6db8a3121ee4caf250cc4552afb244989591166cd7fe1
+        lines: [227, 300]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/session.go#noiseDigitsRe

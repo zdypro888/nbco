@@ -596,10 +596,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: buildPromptWithMarks
-        hash: sha256:265f6c977e10765977c46b6fe32eb3e25340ca41681078fe8e8c2a9df0e45b07
-        struct_hash: sha256:d2ce3a14cee659d09d42b19fe2a7ca53a20aa3094af92902a3f061a305dfe606
-        doc_struct_hash: sha256:d2ce3a14cee659d09d42b19fe2a7ca53a20aa3094af92902a3f061a305dfe606
-        lines: [920, 935]
+        hash: sha256:14bf31db7eb0624e1fd2c3f94e122dfa998a5c19f64f24e296c1506276ee8125
+        struct_hash: sha256:a42bbcaa5d9cf3ecc55a081569da41835b489b3deccd711c7124bbc4f80ac72b
+        doc_struct_hash: sha256:a42bbcaa5d9cf3ecc55a081569da41835b489b3deccd711c7124bbc4f80ac72b
+        lines: [935, 951]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker.go#completionNudgeWithMarks
@@ -684,10 +684,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: agentContinuationWithMarks
-        hash: sha256:4a8794889a549dc0964f147a43dbb2885f6a58eeda55c5a4932f929dd18fbb6a
-        struct_hash: sha256:382fbfd37fb065e0ea7ebeabf7da3c2a971b05be14ea340f43fd9acc07c299a9
-        doc_struct_hash: sha256:edd2966bc2f54c15d62994270c82c5f92a99cb57cb21af795cc4b752a7cd0078
-        lines: [952, 961]
+        hash: sha256:97b5ef01f6728dc1b08b85e06f25cada8b45652da2d6e70f089a81e41be3ac74
+        struct_hash: sha256:9be3628ea2caaadecd11ea7d0c95aa7878cc6cb55d9abac274b69497b92878f7
+        doc_struct_hash: sha256:16544ebe8c1930f7d4b48e494156df6403f6f6729fd023f214836d85a7306eab
+        lines: [953, 963]
       status: fresh
       since: 2026-07-20T18:19:16.838036Z
     - id: cmd/nbco-worker/worker.go#agentTurnFingerprint
