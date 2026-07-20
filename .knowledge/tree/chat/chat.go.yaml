@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/chat.go
-        hash: sha256:68c975b53adcf9c3fd488496e76781cd4030233cd67e195234ae1f787841f21a
+        hash: sha256:5f33c0a35803c0e58b744623cdf459c1886ac3975c339224e9689fbcc1aa6c96
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -1348,9 +1348,9 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.systemPrompt
-        hash: sha256:80a282031032f2f2fbb80d92aac5ea3181e64649d0fe894c4cd013722ef4f024
-        struct_hash: sha256:201a0171062046ab65f461a79ea290aaec7d40fc67c8d837a5162fd47e648109
-        doc_struct_hash: sha256:fe3a0480ad7ab333cabb55234f74cf1cccc32d6742ff5ccb436236551d55029d
-        lines: [2227, 2292]
+        hash: sha256:bcfa2bf4378320f702972e2b6384ee235662efea71e5b78063d3549c7a4216b6
+        struct_hash: sha256:fb786a084d86db08f9036ea3ab1b503da58a68c52443d16ba0a643500c627611
+        doc_struct_hash: sha256:7a0541dff1cf434577eea6cdeeb576c7e943c72738412c66f144872a366832fd
+        lines: [2227, 2293]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

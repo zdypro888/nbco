@@ -136,6 +136,13 @@ type turnContextAction struct {
 	Tools   []string `json:"tools,omitempty"`
 }
 
+type turnContextExecutionTarget struct {
+	Kind   string `json:"kind"`
+	ID     int64  `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
 // planTurnContext performs one bounded semantic retrieval pass over authorized
 // capability metadata, permission-checked memory candidates, recent dialogue,
 // and actual tool traces. It only chooses the first model working set; Eino's
@@ -165,6 +172,7 @@ func (o *Orchestrator) planTurnContext(
 		"recent_messages":   turnContextMessages(history, o.tz),
 		"recent_actions":    turnContextActions(actions),
 		"tools":             turnContextTools(toolset),
+		"execution_targets": o.turnContextExecutionTargets(ctx, u, toolset),
 		"memory_candidates": turnContextMemories(knowledgeCandidates, messageCandidates),
 	})
 	if err != nil {
@@ -208,13 +216,45 @@ func turnContextSelectionPrompt(payload []byte) string {
 
 目标：
 - 从已授权工具元数据中选择当前请求及其必要前置读取最相关的工具，最多 12 个。按语义能力选择，不按字面关键词匹配；不要执行工具，不判断动作已经完成。
-- action_expected 只表示当前请求是否要求改变外部持久状态、发送内容或启动实际工作；查询、解释、分析和讨论为 false。它只用于结果核验，不强制调用任何具体工具。
+- execution_targets 是当前用户有权调用的稳定执行目标目录。用户明确指定其中的执行者，或明确指定 Worker、脚本、工作流、工具、渠道等执行介质时，该选择本身是目标约束，不是可替换的实现建议；选择解析目标并通过该介质启动工作的工具，不要改用中枢自己的读取能力代做。
+- action_expected 只表示当前请求是否要求改变外部持久状态、发送内容或启动实际工作。中枢直接查询、解释、分析和讨论为 false；通过用户指定的执行者或介质启动查询、分析等实际工作为 true。它只用于结果核验，不强制调用任何具体工具。
 - 可变业务状态、历史执行结果或指代不明确时，优先选能读取权威状态的通用或领域工具；写入/执行目标同时选择必要的读取和写入工具。
 - recent_actions 只说明之前真实调用过哪些工具及审计结果，用于连续选择能力，不替代当前领域状态。
 - 从 memory_candidates 中各选最多 3 条直接有助于理解当前目标的条目。历史用户消息可证明用户过去说过什么，但不证明可变状态仍然成立。
 - 所有名称和 ID 必须来自输入候选；不相关时数组可以为空。
 
 输入：` + string(payload)
+}
+
+func (o *Orchestrator) turnContextExecutionTargets(ctx context.Context, u *store.User, toolset []ai.Tool) []turnContextExecutionTarget {
+	workerDomainAvailable := slices.ContainsFunc(toolset, func(item ai.Tool) bool {
+		return item.Domain == tools.CapabilityWorkers
+	})
+	if !workerDomainAvailable || o == nil || o.store == nil || u == nil {
+		return nil
+	}
+	ownerID := u.ID
+	if u.IsSuperadmin {
+		ownerID = 0
+	}
+	workers, err := o.store.ListWorkers(ctx, ownerID)
+	if err != nil {
+		slog.Warn("读取本轮可执行目标失败，能力选择继续降级", "user", u.ID, "err", err)
+		return nil
+	}
+	if len(workers) > turnContextCandidateLimit {
+		workers = workers[:turnContextCandidateLimit]
+	}
+	targets := make([]turnContextExecutionTarget, 0, len(workers))
+	for _, worker := range workers {
+		if worker == nil {
+			continue
+		}
+		targets = append(targets, turnContextExecutionTarget{
+			Kind: "worker", ID: worker.ID, Name: textfmt.TruncateRunes(worker.Name, 80), Status: string(worker.Status),
+		})
+	}
+	return targets
 }
 
 func (o *Orchestrator) turnMemoryCandidates(ctx context.Context, u *store.User, channel, text string) ([]*store.Knowledge, []store.ChatMessage) {

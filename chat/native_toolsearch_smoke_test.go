@@ -247,7 +247,7 @@ func TestSmokeRealWorkerChoosesAdaptiveAgentForResearch(t *testing.T) {
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
 		Mode: ai.TurnModeDeep, Model: os.Getenv("NBCO_SMOKE_MODEL"),
 		System:   "按目标和工具定义自主选择执行方式；需要执行时调用工具，异步受理后如实报告。",
-		UserText: "让 NBAI 调查一个需要访问外部资料、核对返回内容并形成可验证结论的问题。",
+		UserText: "再次尝试用NBAI查询世界杯结果。",
 		Tools:    tools,
 	})
 	if err != nil {
@@ -272,20 +272,27 @@ func TestSmokeRealTurnContextSelectorWithAuthorizedCatalog(t *testing.T) {
 	}
 	catalog := nbtools.ForUser(nbtools.Deps{}, &store.User{ID: 1, Name: "PRO", IsSuperadmin: true}, nil)
 	cases := []struct {
-		name    string
-		request string
-		anyOf   []string
+		name           string
+		request        string
+		anyOf          []string
+		checkAction    bool
+		actionExpected bool
 	}{
 		{name: "rename worker", request: "把我的 AI worker UTM 改名为 NBAI", anyOf: []string{"update_user_info"}},
 		{name: "broadcast", request: "给全体真人员工发送一条完善个人档案的通知", anyOf: []string{"send_message"}},
 		{name: "delegate agent", request: "让 NBAI 使用 Codex 查询并整理这个技术问题", anyOf: []string{"delegate_worker_agent"}},
+		{name: "named worker research", request: "再次尝试用NBAI查询世界杯结果。", anyOf: []string{"delegate_worker_agent"}, checkAction: true, actionExpected: true},
 		{name: "ambiguous history", request: "我记得之前交代人事有件事情，查清现在是什么状态", anyOf: []string{"query_data", "search_history", "list_schedules", "get_assigned_tasks"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			payload, err := json.Marshal(map[string]any{
 				"request": tc.request, "recent_messages": []any{}, "recent_actions": []any{},
-				"tools": turnContextTools(catalog), "memory_candidates": []any{},
+				"tools": turnContextTools(catalog),
+				"execution_targets": []turnContextExecutionTarget{
+					{Kind: "worker", ID: 2, Name: "NBAI", Status: string(store.UserActive)},
+				},
+				"memory_candidates": []any{},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -309,6 +316,9 @@ func TestSmokeRealTurnContextSelectorWithAuthorizedCatalog(t *testing.T) {
 			}
 			if !matched {
 				t.Fatalf("selector tools=%v, expected one of %v", selected.Tools, tc.anyOf)
+			}
+			if tc.checkAction && selected.ActionExpected != tc.actionExpected {
+				t.Fatalf("selector action_expected=%v, expected %v; tools=%v", selected.ActionExpected, tc.actionExpected, selected.Tools)
 			}
 			t.Logf("selected=%v usage=%+v", selected.Tools, result.Usage)
 		})

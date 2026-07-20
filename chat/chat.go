@@ -2248,6 +2248,7 @@ func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel 
 
 	b.WriteString("[自主执行]\n")
 	b.WriteString("- 不要请求用户记工具名，不要猜测不存在的能力，也不要因为第一步返回结果就提前结束多步骤工作。\n")
+	b.WriteString("- 用户明确指定执行者、Worker、脚本、工作流、工具、渠道或其他执行介质时，该选择是目标约束；除非不可用、无权限或用户同意，不得由中枢直接处理或换用其他介质代替。\n")
 	b.WriteString("- 工具返回待确认、排队或处理中时，准确报告当前状态；工具返回可继续处理的中间结果时继续规划。\n\n")
 
 	b.WriteString("[系统输入约定]\n")

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/workers.go
-        hash: sha256:6971c99221ca49a53e72ca5d9dc30b00b86a1ab6fa0ed0a4a63df826d51c585c
+        hash: sha256:2d7312f8024c1512c1426b9f60fec8a2301da4a169fa10820ba55f9376daa470
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: workerTools
-        hash: sha256:2c0637a201aaab5f5b68a210f9df85c074e73753179f8a249f6820371ed5ff90
-        struct_hash: sha256:d9796bc6eea2ccb1f49ff2640be5c5137996619377242ffba5060ec672e6af98
-        doc_struct_hash: sha256:fd9315c6d8df7d61c03b73d8d75673dd00931bea5660b2cdeed5438af6f83007
+        hash: sha256:151d6c3c5634f0cf7ac8ce4db737184d88fa0615c0966c6a2b110902d5b4da30
+        struct_hash: sha256:770ed317e56d20a005b6ec493e4e511f50749b4a382202869843855092fbdb04
+        doc_struct_hash: sha256:c143c7894c4431d2d56f9cbfa9791690d56d6152fe430f9d5024ce6455ef510b
         lines: [15, 368]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
@@ -23,8 +23,9 @@ nodes:
         - id: e_3e60df86
           kind: usage
           text: Choose run_worker_command only when the command's own exit status completely expresses the technical result. Any goal requiring stdout interpretation, external-data verification, iterative decisions, repository initialization/modification, research, or deployment belongs to delegate_worker_agent/workflow; command outcomes remain process evidence even when exit=0.
-          confidence: inferred
+          confidence: verified
           at: 2026-07-20T15:05:04.950375Z
+          confirmed_at: 2026-07-20T17:12:21.910036Z
           author: codex-mcp-client
       keywords:
         - run_worker_command boundary

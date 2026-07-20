@@ -16,7 +16,7 @@ import (
 // 停用按 manage_worker 主动权限裁剪（toolPerm 注册表），且 handler 内做目标级
 // 校验——非超管只能操作自己名下（owner）的 worker。
 func workerTools(d Deps, u *store.User) []ai.Tool {
-	list := tool("list_workers", "查看 AI 员工（client 用交互式 PTY 驱动 CLI 干活的虚拟成员）及其在线状态。", obj(nil),
+	list := immediateTool(tool("list_workers", "查看 AI 员工（client 用交互式 PTY 驱动 CLI 干活的虚拟成员）及其在线状态。", obj(nil),
 		func(ctx context.Context, _ json.RawMessage) (string, error) {
 			owner := u.ID
 			if u.IsSuperadmin {
@@ -61,7 +61,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				fmt.Fprintf(&b, "- %s：%s（%s%s%s）\n", internalRef("worker", w.ID), w.Name, status, admin, capText)
 			}
 			return b.String(), nil
-		})
+		}))
 
 	return []ai.Tool{
 		list,
@@ -166,7 +166,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				return asynchronousAcceptedResult(fmt.Sprintf("已创建并持久化 worker 执行（%s），分配给 %s。命令会在该 worker 的主题工作目录中以 %s 模式执行；本轮无需重复创建，进度和结果会由系统通知用户。", internalRef("执行", run.ID), w.Name, mode)), nil
 			})),
 
-		asynchronousTool(tool("delegate_worker_agent", "把需要观察结果、连续判断或多步处理的目标交给指定 AI worker 的 Codex/Claude 交互式 Agent。任务不包含预制 shell 命令，worker 必定通过 PTY 启动或恢复原生 Agent 会话；同一 worker 使用相同 scope_key 时会恢复该主题的工作目录、会话和摘要。适用于代码、研究、资料处理、排障等自适应工作。已知且无需判断的单条命令才使用 run_worker_command。非超管仅限自己名下的 worker。",
+		immediateTool(asynchronousTool(tool("delegate_worker_agent", "把需要观察结果、连续判断或多步处理的目标交给指定 AI worker 的 Codex/Claude 交互式 Agent。任务不包含预制 shell 命令，worker 必定通过 PTY 启动或恢复原生 Agent 会话；同一 worker 使用相同 scope_key 时会恢复该主题的工作目录、会话和摘要。适用于代码、研究、资料处理、排障等自适应工作。已知且无需判断的单条命令才使用 run_worker_command。非超管仅限自己名下的 worker。",
 			obj(map[string]any{
 				"worker_id":   p("integer", "目标 worker 用户ID"),
 				"title":       p("string", "简短任务标题"),
@@ -241,7 +241,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				}
 				wakeWorker(d, w)
 				return asynchronousAcceptedResult(fmt.Sprintf("已创建并持久化 Worker Agent 任务（%s），分配给 %s；主题 scope=%s。worker 会通过交互式 PTY 启动或恢复该主题的原生 Agent 会话；本轮无需重复创建，进度和完成结果会由系统通知用户。", internalRef("任务", t.ID), w.Name, scopeKey)), nil
-			})),
+			}))),
 
 		tool("list_worker_runs", "查看 Worker 的执行队列和执行历史。执行记录与业务任务分开：直接命令只出现在这里，委派工作会同时关联 task_id。每条记录明确给出证据层级；进程执行成功或 Agent 提交成功都不等于业务目标已经独立验收。可用于读取实际结果、失败原因和重试状态。",
 			obj(map[string]any{"scope": enumP("queue=执行中（默认）| history=历史 | all=全部", "queue", "history", "all")}),

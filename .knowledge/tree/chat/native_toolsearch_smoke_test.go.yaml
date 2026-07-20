@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/native_toolsearch_smoke_test.go
-        hash: sha256:16dadc238979ff26b1b396bf9f816b3a2b7d8c52e392cc844449c64d75f5d8a8
+        hash: sha256:30d7a041da3df9711c161347693003846c7c945e9961d3517232edcfe9a4fd79
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T21:51:50.732439Z
@@ -57,9 +57,9 @@ nodes:
       anchor:
         file: chat/native_toolsearch_smoke_test.go
         symbol: TestSmokeRealWorkerChoosesAdaptiveAgentForResearch
-        hash: sha256:33a1719172ace024b33bc5badb591fb03ab7582b8496df35d47929194b09e717
-        struct_hash: sha256:23f1e69a88bc7d3c688c473b387ebff4943a624285bddab689971c7568741c8b
-        doc_struct_hash: sha256:23f1e69a88bc7d3c688c473b387ebff4943a624285bddab689971c7568741c8b
+        hash: sha256:a15cb18ef836e93484c39f08252c38772eca3e31b0d8cbddde4ee561d6bc429d
+        struct_hash: sha256:6340658d7c5ab3cdac1bc8178ad59209109dbd55067c4550923abfe91b2aea52
+        doc_struct_hash: sha256:6340658d7c5ab3cdac1bc8178ad59209109dbd55067c4550923abfe91b2aea52
         lines: [204, 260]
       status: undigested
       since: 2026-07-20T14:59:43.143721Z
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: chat/native_toolsearch_smoke_test.go
         symbol: TestSmokeRealTurnContextSelectorWithAuthorizedCatalog
-        hash: sha256:3c5c077f02107b53ad4f0e0213b710808643b98a6fc15c91ffa6e8eba1bf0094
-        struct_hash: sha256:833e5cef181de12d19d49ffe049f6c800c43e39f9059555f74b960edc03de7e1
-        doc_struct_hash: sha256:833e5cef181de12d19d49ffe049f6c800c43e39f9059555f74b960edc03de7e1
-        lines: [262, 316]
+        hash: sha256:88f94f0d97d704a930fb7d1546c70328405ec7086cfc39b8c470adad1d55b22f
+        struct_hash: sha256:66704b63559f28035c774a04ea42c75dab0c14162df2a9da72a01f18b141808d
+        doc_struct_hash: sha256:66704b63559f28035c774a04ea42c75dab0c14162df2a9da72a01f18b141808d
+        lines: [262, 326]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealTurnContextSelectorKeepsStatusQueriesReadOnly
@@ -82,7 +82,7 @@ nodes:
         hash: sha256:853c05455d71a5a1f0432062af56b1a59ea1a94979c6e1bc7e33347ee60885f5
         struct_hash: sha256:27a0b394fed5368180bd65afa483b2bfb769f998b118b995790b284d92333065
         doc_struct_hash: sha256:27a0b394fed5368180bd65afa483b2bfb769f998b118b995790b284d92333065
-        lines: [318, 360]
+        lines: [328, 370]
       status: fresh
       since: 2026-07-20T08:12:20.012031Z
     - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealScheduleFollowUp
@@ -93,7 +93,7 @@ nodes:
         hash: sha256:f869661f2322c8cf2d230b34214f832589f4f3c4f3c4cdc47e9238763f1b1e2b
         struct_hash: sha256:91a9cf86906cf2bf62bf9c347a58831a3a91b63d189e958befdb8c5632821cd1
         doc_struct_hash: sha256:91a9cf86906cf2bf62bf9c347a58831a3a91b63d189e958befdb8c5632821cd1
-        lines: [362, 452]
+        lines: [372, 462]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: chat/native_toolsearch_smoke_test.go#TestSmokeRealDeliveredScheduleStatusDoesNotResend
@@ -104,6 +104,6 @@ nodes:
         hash: sha256:d1b598cd14961d5fc9a12b6c3e18101b59be29d3faddba2882be3f0f3fb0f4a9
         struct_hash: sha256:01fcbcf603f89d0c770bc3c6b4257070117bed47e96b0873158a5f90bd0ad478
         doc_struct_hash: sha256:01fcbcf603f89d0c770bc3c6b4257070117bed47e96b0873158a5f90bd0ad478
-        lines: [454, 526]
+        lines: [464, 536]
       status: fresh
       since: 2026-07-20T08:12:20.013979Z

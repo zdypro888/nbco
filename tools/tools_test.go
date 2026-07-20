@@ -218,6 +218,9 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if got := byName["list_capabilities"]; got.LoadMode != string(ai.ToolLoadImmediate) {
 		t.Fatalf("list_capabilities should be part of the immediate capability kernel: %+v", got)
 	}
+	if got := byName["list_workers"]; got.LoadMode != string(ai.ToolLoadImmediate) {
+		t.Fatalf("list_workers should keep named worker resolution in the immediate capability kernel: %+v", got)
+	}
 	if got := byName["low_level_db_query"].Domain; got != CapabilityOps {
 		t.Fatalf("low_level_db_query domain=%q", got)
 	}
@@ -244,6 +247,12 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	}
 	if got := byName["delegate_worker_agent"]; got.Effect != ToolEffectExecute || got.RequiredAction != perm.ActManageWorker || got.GroupAllowed {
 		t.Fatalf("delegate_worker_agent 元数据错误: %+v", got)
+	}
+	if got := byName["delegate_worker_agent"]; got.LoadMode != string(ai.ToolLoadImmediate) {
+		t.Fatalf("delegate_worker_agent should keep adaptive delegation immediately visible: %+v", got)
+	}
+	if got := byName["run_worker_command"]; got.LoadMode == string(ai.ToolLoadImmediate) {
+		t.Fatalf("low-level command execution should remain deferred: %+v", got)
 	}
 	for _, name := range []string{"run_worker_command", "delegate_worker_agent", "analyze_company_materials", "start_worker_skill", "start_workflow"} {
 		if got := byName[name].Completion; got != string(ai.ToolCompletionAsynchronous) {
