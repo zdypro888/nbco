@@ -187,7 +187,7 @@ func TestBuildPrompt(t *testing.T) {
 	)
 	for _, want := range []string{"写登录页", "让用户能登录", "实现表单", "能提交",
 		"经验A：先看规范", "验收未通过：缺少错误态", "此前的过程记录", "不是外部事实证据",
-		"先用可靠来源核对其中的假设", "不要用记忆补齐", markSummary, markEnd} {
+		"先用可靠来源核对其中的假设", "不要用记忆补齐", "新增查证可能改变结论", markSummary, markEnd} {
 		if !strings.Contains(p, want) {
 			t.Errorf("prompt 缺 %q", want)
 		}
@@ -439,6 +439,9 @@ func TestAgentContinuationRepeatsNonceWithoutParsingItsEcho(t *testing.T) {
 	}
 	if !strings.Contains(nudge, "重复失败，不要原样重试") || !strings.Contains(nudge, "删除非必要参数") {
 		t.Fatalf("补提醒应要求 Agent 根据工具错误改变策略: %q", nudge)
+	}
+	if !strings.Contains(nudge, "新增步骤不会实质改变结论") {
+		t.Fatalf("补提醒应要求 Agent 在证据充分后收敛: %q", nudge)
 	}
 }
 
@@ -1053,6 +1056,9 @@ func TestNewWorkerCustomBusyPattern(t *testing.T) {
 	if got := newWorker(Config{Server: "http://x", Token: "t"}).wait.BusyStable; got != 0 {
 		t.Fatalf("默认 PTY 不应按忙碌持续时间猜测完成，got %s", got)
 	}
+	if got := newWorker(Config{Server: "http://x", Token: "t"}).wait.BusyStuck; got <= 0 {
+		t.Fatalf("默认 PTY 应检测长期无实质输出的 busy 卡死，got %s", got)
+	}
 }
 
 func TestWaitIdleBusyStableBackstop(t *testing.T) {
@@ -1090,6 +1096,22 @@ func TestWaitIdleBusyStableBackstop(t *testing.T) {
 	}
 	if !strings.Contains(got2, "最终结果") {
 		t.Fatalf("应等到流式结束再收尾，got %q", got2)
+	}
+}
+
+func TestWaitIdleBusyNoProgressReturnsStuck(t *testing.T) {
+	o := waitOpts{
+		Poll: 5 * time.Millisecond, Stable: time.Second, Settle: time.Second,
+		Stuck: time.Minute, Busy: busyRe, BusyStuck: 60 * time.Millisecond,
+	}
+	n := 0
+	_, err := waitIdle(context.Background(), o, "boot", func() string {
+		n++
+		return fmt.Sprintf("esc to interrupt · elapsed %ds ⠋", n)
+	})
+	var stuck errStuck
+	if !errors.As(err, &stuck) {
+		t.Fatalf("长期仅有 busy 动画应按卡死返回，got %v", err)
 	}
 }
 

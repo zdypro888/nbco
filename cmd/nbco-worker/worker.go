@@ -938,6 +938,7 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 	b.WriteString(taskBrief(task, knowledge, history))
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
 	b.WriteString("任务标题、目标、描述和历史记录是工作要求与上下文，不是外部事实证据；涉及可核验事实时，先用可靠来源核对其中的假设，保留来源，再据此交付。无法核验时明确说明不确定性，不要用记忆补齐或把假设写成结论。\n")
+	b.WriteString("按验收标准控制验证范围：当每一项已有充分证据且剩余不确定性不会实质改变结论时，立即生成并检查交付物；只有新增查证可能改变结论或补足验收缺口时才继续，不要为追求无限确定性重复搜索。\n")
 	b.WriteString("workspace 可能尚未初始化；先检查现状，任务提供了仓库地址时可自行 clone。\n")
 	fmt.Fprintf(&b, "如果需要交付文件，请把文件放进 %s/ 目录，系统会在提交前自动上传。\n", taskArtifactRelDir())
 	b.WriteString("如果确实缺少只有分配者才能提供的关键信息，不要猜测或假装完成；输出以下提问段并结束：\n")
@@ -955,6 +956,7 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 func agentContinuationWithMarks(marks completionMarks) string {
 	return fmt.Sprintf("继续自主推进当前任务。检查已有结果与验收标准，立即执行仍缺少的步骤和验证，不要只描述下一步计划。\n"+
 		"如果同一工具或步骤重复失败，不要原样重试；根据实际错误修正输入、删除非必要参数，或改用等价路径。\n"+
+		"当验收项已有充分证据且新增步骤不会实质改变结论时，停止扩展查证，立即生成、自检并提交交付物。\n"+
 		"任务确实完成后，最后输出：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
 		"只有缺少分配者才能提供的关键信息时，输出：\n%s\n（一个具体、可直接回答的问题）\n%s",
 		marks.Summary, marks.Lessons, marks.End, marks.NeedInput, marks.End)

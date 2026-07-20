@@ -46,6 +46,10 @@ type waitOpts struct {
 	// 个阈值；只有屏幕彻底冻结才触发。<=0 关闭（内置引擎的 busy 标记随忙闲出没，
 	// 不需要它）。
 	BusyStable time.Duration
+	// BusyStuck 是真实交互 CLI 的失活边界：Busy 仍在但去噪后的屏幕长期没有
+	// 任何实质变化，通常意味着模型请求或工具卡死。它返回 errStuck 让任务走
+	// 正常失败/重试链路，而不是把纯 spinner 当成可持续两小时的有效工作。
+	BusyStuck time.Duration
 }
 
 // busyRe：claude 与 codex 工作中都渲染 "esc to interrupt"，空闲时消失。
@@ -59,6 +63,7 @@ func defaultWaitOpts() waitOpts {
 		Stuck:      10 * time.Minute,
 		Busy:       busyRe,
 		BusyStable: 0,
+		BusyStuck:  10 * time.Minute,
 	}
 }
 
@@ -271,6 +276,9 @@ func waitIdle(ctx context.Context, o waitOpts, baseline string, screen func() st
 			if busyRefAt.IsZero() || d != busyRef {
 				busyRef, busyRefAt = d, time.Now()
 				continue
+			}
+			if o.BusyStuck > 0 && time.Since(busyRefAt) >= o.BusyStuck {
+				return cur, errStuck{}
 			}
 			// 去噪后连续 BusyStable 无实质变化：几乎必是 busy_pattern 误匹配到常驻
 			// 文本（提示符/横幅）叠加纯动画，而非真在干活——兜底判完成，避免空转。
