@@ -63,3 +63,14 @@ nodes:
         lines: [84, 99]
       status: fresh
       since: 2026-07-21T17:27:25.306662Z
+    - id: gateway/httpapi/ihtml_chat_test.go#TestIHTMLUsersAPIDocumentsItsResponseContract
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat_test.go
+        symbol: TestIHTMLUsersAPIDocumentsItsResponseContract
+        hash: sha256:192a18b11a6c059339f497ae94622e30c7aff1119bc5b529ee5570ced6881fac
+        struct_hash: sha256:57481744a6eae6539dde813bd1d5b67cd3363e1aec0e770c651019006966d937
+        doc_struct_hash: sha256:57481744a6eae6539dde813bd1d5b67cd3363e1aec0e770c651019006966d937
+        lines: [101, 114]
+      status: fresh
+      since: 2026-07-21T17:34:40.253348Z

@@ -97,3 +97,18 @@ func TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces(t *testing.T) {
 	}
 	t.Fatal("ui_list_host_apis tool is missing")
 }
+
+func TestIHTMLUsersAPIDocumentsItsResponseContract(t *testing.T) {
+	for _, spec := range nbcoIHTMLAPIs() {
+		if spec.Name != "nbco_users" {
+			continue
+		}
+		for _, expected := range []string{"user_id", "is_worker", "info", "{users:["} {
+			if !strings.Contains(spec.Description, expected) {
+				t.Fatalf("users API description is missing %q: %s", expected, spec.Description)
+			}
+		}
+		return
+	}
+	t.Fatal("nbco_users API is missing")
+}

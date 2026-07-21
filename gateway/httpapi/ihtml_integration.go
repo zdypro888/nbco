@@ -159,7 +159,7 @@ func nbcoIHTMLAPIs() []ihtml.APISpec {
 	return []ihtml.APISpec{
 		{Name: "nbco_overview", Title: "运营总览", Method: "GET", Path: "/api/overview", Description: "当前用户可见的运营概览。"},
 		{Name: "nbco_me", Title: "当前身份", Method: "GET", Path: "/api/me", Description: "当前用户的稳定内部 ID、名称和权限摘要。"},
-		{Name: "nbco_users", Title: "成员目录", Method: "GET", Path: "/api/users", Description: "权限感知的成员目录；稳定用户 ID 和名称可见，动态字段按当前身份自动裁剪。支持 q、status、kind、limit、offset 查询参数。"},
+		{Name: "nbco_users", Title: "成员目录", Method: "GET", Path: "/api/users", Description: "权限感知的成员目录。支持 q、status(active|disabled)、kind(human|worker)、limit(1..100)、offset 查询参数。响应为 {users:[{user_id,name,status,is_superadmin,is_worker,owner_id,worker_last_seen,info,created_at}],limit,offset,next_offset}；员工自定义字段位于 info 对象中，并已按当前身份裁剪。必须使用稳定 user_id 标识成员，使用 is_worker 区分真人与 Worker。"},
 		{Name: "nbco_my_tasks", Title: "我的任务", Method: "GET", Path: "/api/me/tasks", Description: "当前用户的待办任务。"},
 		{Name: "nbco_my_review", Title: "待我验收", Method: "GET", Path: "/api/me/review", Description: "当前用户待验收的任务。"},
 		{Name: "nbco_my_assigned", Title: "我分配的任务", Method: "GET", Path: "/api/me/assigned", Description: "当前用户分配给他人的任务。"},
