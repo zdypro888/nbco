@@ -123,9 +123,9 @@ nodes:
       anchor:
         file: gateway/httpapi/web/app.js
         symbol: renderApp
-        hash: sha256:6a95aeda1cae0bd7026ed199393abcd3882b3f337979251eeb4cd8bce348f9b1
-        struct_hash: sha256:6b745f725ece7b56bf699b2aeef01ebd27d5404cff6ae349914eeb480f2b67bf
-        lines: [175, 242]
+        hash: sha256:e751a415afeca7eb9ceb6d89c2fcb228e2a47caf69bda6abfbb43ccf45a8a08d
+        struct_hash: sha256:29215bcc350aa05b3fd6286d228b2915185c6ddf73b59d9a7d9449a4a3a56be8
+        lines: [175, 246]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#shortModel
@@ -135,7 +135,7 @@ nodes:
         symbol: shortModel
         hash: sha256:5f37ca5315755f8472d9747bc07bf53442902898b011a0592ec72ef2ca008750
         struct_hash: sha256:e3ea6e425f47c962ba9e18c0d07152c8ec7846b013c2c80368e67fae742520ee
-        lines: [244, 247]
+        lines: [248, 251]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderContent

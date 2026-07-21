@@ -214,12 +214,16 @@ function renderApp() {
           <input id="globalSearch" placeholder="搜索命令 / 任务 / 员工 / 文件 / 日志">
         </div>
         <div class="status-strip">
-          <span><span class="dot ${engineFails ? "red" : "green"}"></span>${statusText}</span>
-          <span>${tg ? "Mini App 模式：开" : "Mini App 模式：关"}</span>
-          <span>Worker ${activeWorkers}/${state.workers.length}</span>
-          ${state.me?.is_superadmin ? `<span title="${esc(currentModel)}">模型 ${esc(shortModel(currentModel))}</span>` : ""}
-          <button class="btn subtle" data-action="refresh">${icon("refresh")}刷新</button>
-          <button class="btn subtle" data-action="logout">${icon("logout")}退出</button>
+          <div class="status-meta">
+            <span class="status-item"><span class="dot ${engineFails ? "red" : "green"}"></span>${statusText}</span>
+            <span class="status-item">${tg ? "Mini App 模式：开" : "Mini App 模式：关"}</span>
+            <span class="status-item">Worker ${activeWorkers}/${state.workers.length}</span>
+            ${state.me?.is_superadmin ? `<span class="status-item status-model" title="${esc(currentModel)}"><span>模型</span><span class="status-model-name">${esc(shortModel(currentModel))}</span></span>` : ""}
+          </div>
+          <div class="status-actions">
+            <button class="btn subtle" data-action="refresh">${icon("refresh")}刷新</button>
+            <button class="btn subtle" data-action="logout">${icon("logout")}退出</button>
+          </div>
         </div>
       </header>
       <main class="main-shell">
