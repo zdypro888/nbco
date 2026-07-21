@@ -255,10 +255,10 @@ nodes:
       anchor:
         file: store/governance.go
         symbol: Store.ListDecisionItems
-        hash: sha256:499685a92defa89d88885c1faf55da2ff3692f6e58018d0ca109e37455419c79
-        struct_hash: sha256:3c1a321cafb510acbcaf5b0190dbc1de44f1f7f02ada875edfc70d03a6a60c7c
-        doc_struct_hash: sha256:3c1a321cafb510acbcaf5b0190dbc1de44f1f7f02ada875edfc70d03a6a60c7c
-        lines: [312, 336]
+        hash: sha256:a24d3a0382e20fc3330d8aff4c0087da9fc2328def5e77c167c93b97adcc4ffa
+        struct_hash: sha256:eeb64aaa57df6827d4acd82b18acf824f791a10de004cd02a116f03786461f94
+        doc_struct_hash: sha256:eeb64aaa57df6827d4acd82b18acf824f791a10de004cd02a116f03786461f94
+        lines: [312, 338]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.BuildDecisionQueue
@@ -266,10 +266,10 @@ nodes:
       anchor:
         file: store/governance.go
         symbol: Store.BuildDecisionQueue
-        hash: sha256:4384334a32c593219fc7b073cb6b1fc04b798dd2c0c2917b8e16ff7ae458e3ea
-        struct_hash: sha256:1a9ef594faa7342862930870704051b5385bc72e81e6144157199329d519a5b8
-        doc_struct_hash: sha256:1a9ef594faa7342862930870704051b5385bc72e81e6144157199329d519a5b8
-        lines: [338, 391]
+        hash: sha256:8e5860d0069c00a680af4b453c8fcc10cb634888d9eead0adce25c085079c86f
+        struct_hash: sha256:cec68a3e5502f9d261df7ec3c3ad2579694c43e64b68d8d1379e0b61abbf3e76
+        doc_struct_hash: sha256:cec68a3e5502f9d261df7ec3c3ad2579694c43e64b68d8d1379e0b61abbf3e76
+        lines: [355, 411]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.OrphanedTasks
@@ -470,3 +470,14 @@ nodes:
         lines: [583, 595]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/governance.go#Store.closeDanglingTaskDecisionItems
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: Store.closeDanglingTaskDecisionItems
+        hash: sha256:299f599d2458eda9e10732e1f99e8916d967eea9429b29bb25bbe431ea2fccf5
+        struct_hash: sha256:8bf80bc90c6998da097751c48f6a288b5b6df96d797e4f15570b111a3150ed91
+        doc_struct_hash: sha256:d1ec8b6b506175198a41c054fe4ac0d76fe0ef2ca39639d4fc28af347f692801
+        lines: [340, 353]
+      status: fresh
+      since: 2026-07-21T20:53:24.239374Z

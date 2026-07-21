@@ -365,10 +365,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestOrphanedTasksAndDecisionQueue
-        hash: sha256:0491331256c546467370b2ea2e0ac90957bfe5bb9cf24b0d9d79c02abf130e7d
-        struct_hash: sha256:9bc9f370c9f03b55ee52587949323f8ada5aafec9926edcc14d9e175f7e3fab9
-        doc_struct_hash: sha256:9bc9f370c9f03b55ee52587949323f8ada5aafec9926edcc14d9e175f7e3fab9
-        lines: [1504, 1557]
+        hash: sha256:08b96350e6ca27881a7e938ea9d1525f140a3d8ca9ffb7b258a054a001511061
+        struct_hash: sha256:7c4116e80906fb97dd94e78ab6e308216879aaa04f099677e00d96067efb94a5
+        doc_struct_hash: sha256:7c4116e80906fb97dd94e78ab6e308216879aaa04f099677e00d96067efb94a5
+        lines: [1504, 1575]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/integration_test.go#TestUpsertDecisionItemDoesNotReopenClosed
@@ -1053,3 +1053,14 @@ nodes:
         lines: [4672, 4725]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/integration_test.go#TestDeleteTaskClosesSubtreeDecisionsAndDependencies
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestDeleteTaskClosesSubtreeDecisionsAndDependencies
+        hash: sha256:6e397caa0829b94814a34002de11ee837f3ba1563c2ac696bf14c64ecf9a5d21
+        struct_hash: sha256:f959730a21a4f58ec9850cdc39d3d8ea8be0d2dc690ccd3be20f8870a99b9058
+        doc_struct_hash: sha256:f959730a21a4f58ec9850cdc39d3d8ea8be0d2dc690ccd3be20f8870a99b9058
+        lines: [1577, 1627]
+      status: fresh
+      since: 2026-07-21T20:53:24.277987Z

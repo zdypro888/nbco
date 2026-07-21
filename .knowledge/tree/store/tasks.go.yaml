@@ -717,10 +717,10 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.DeleteTask
-        hash: sha256:710b78fadc6792e7b6c40c5f3191363a1fe8a177fe01bd1c8fc06f9ee711afc4
-        struct_hash: sha256:698dd6a6673869cd87ab85354e7bf2a66af8aad1b80f402cb5c8b3f5cec47a46
-        doc_struct_hash: sha256:2e540c46886a44221d5a3563d254c21fe7d62999c4896d5a1eb2beba93b47a4a
-        lines: [1018, 1040]
+        hash: sha256:dcbfc0fd5854413f4e82c77e341d9dd513392a5fa6ade7388b60378738ebd7a3
+        struct_hash: sha256:6aac2ab737c2adaabc0e3587649c57a28776b1917152a0ee3f8d568e81f3a190
+        doc_struct_hash: sha256:e528a9b311e4c547ee53b4a55803b77a37ec8910011b84a93f0bed3cd42930f5
+        lines: [1018, 1075]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/tasks.go#Store.CancelTask

@@ -1543,6 +1543,24 @@ func TestOrphanedTasksAndDecisionQueue(t *testing.T) {
 	if !found {
 		t.Errorf("决策队列应含 orphaned_task 指向任务 %d", tk.ID)
 	}
+	missingTaskID := int64(9_999_999)
+	if _, err := s.UpsertDecisionItem(ctx, DecisionItem{
+		OwnerID: boss.ID, Kind: "review", Title: "已不存在的任务", RefType: "task", RefID: &missingTaskID, Priority: "high",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.BuildDecisionQueue(ctx, boss.ID); err != nil {
+		t.Fatal(err)
+	}
+	items, err = s.ListDecisionItems(ctx, boss.ID, "open", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range items {
+		if d.Kind == "review" && d.RefID != nil && *d.RefID == missingTaskID {
+			t.Fatalf("刷新后不应保留失效验收项: %+v", d)
+		}
+	}
 	// CloseDecisionsByRef：改派后关闭指向该任务的决策项。
 	n, err := s.CloseDecisionsByRef(ctx, boss.ID, "task", tk.ID)
 	if err != nil || n == 0 {
@@ -1552,6 +1570,58 @@ func TestOrphanedTasksAndDecisionQueue(t *testing.T) {
 	for _, d := range items {
 		if d.Kind == "orphaned_task" {
 			t.Errorf("关闭后不应还有 open 的 orphaned_task, got %+v", d)
+		}
+	}
+}
+
+func TestDeleteTaskClosesSubtreeDecisionsAndDependencies(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker := mkUser(t, s, "worker", false)
+	pj := mkProject(t, s, boss.ID)
+	parent := mkTask(t, s, pj.ID, boss.ID, worker.ID, "父任务", nil)
+	parentID := parent.ID
+	child, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, ParentID: &parentID, AssignerID: boss.ID, AssigneeID: worker.ID, Title: "子任务",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependent, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: worker.ID, Title: "依赖子任务",
+		DependsOn: []int64{child.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, taskID := range []int64{parent.ID, child.ID} {
+		id := taskID
+		if _, err := s.UpsertDecisionItem(ctx, DecisionItem{
+			OwnerID: boss.ID, Kind: "review", Title: "待验收", RefType: "task", RefID: &id,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DeleteTask(ctx, parent.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, taskID := range []int64{parent.ID, child.ID} {
+		if _, err := s.TaskByID(ctx, taskID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("任务 %d 删除后查询错误 = %v, want ErrNotFound", taskID, err)
+		}
+	}
+	remaining, err := s.TaskByID(ctx, dependent.ID)
+	if err != nil || len(remaining.DependsOn) != 0 {
+		t.Fatalf("下游依赖未清理: task=%+v err=%v", remaining, err)
+	}
+	items, err := s.ListDecisionItems(ctx, boss.ID, "open", 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.RefType == "task" && item.RefID != nil && (*item.RefID == parent.ID || *item.RefID == child.ID) {
+			t.Fatalf("删除任务树后仍有开放决策: %+v", item)
 		}
 	}
 }

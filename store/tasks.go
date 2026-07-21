@@ -1022,11 +1022,46 @@ func (s *Store) DeleteTask(ctx context.Context, id int64) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	// 把被删任务从其他任务的 depends_on 里剔除：语义上「前置被取消 = 不再等待」，
+	rows, err := tx.Query(ctx,
+		`WITH RECURSIVE task_tree AS (
+		   SELECT id FROM tasks WHERE id = $1
+		   UNION ALL
+		   SELECT child.id FROM tasks child JOIN task_tree parent ON child.parent_id = parent.id
+		 ) SELECT id FROM task_tree`, id)
+	if err != nil {
+		return err
+	}
+	var deletedIDs []int64
+	for rows.Next() {
+		var taskID int64
+		if err := rows.Scan(&taskID); err != nil {
+			rows.Close()
+			return err
+		}
+		deletedIDs = append(deletedIDs, taskID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	if len(deletedIDs) == 0 {
+		return ErrNotFound
+	}
+
+	// 把整棵被删任务树从其他任务的 depends_on 里剔除：语义上「前置被取消 = 不再等待」，
 	// 同时防悬挂 id——依赖检查的 NOT EXISTS 对已消失的前置恒为真，下游会在前置
 	// 从未完成的情况下被 worker 领走。
 	if _, err := tx.Exec(ctx,
-		`UPDATE tasks SET depends_on = array_remove(depends_on, $1) WHERE $1 = ANY(depends_on)`, id); err != nil {
+		`UPDATE tasks
+		    SET depends_on = ARRAY(SELECT dep FROM unnest(depends_on) dep WHERE NOT dep = ANY($1::bigint[])),
+		        updated_at = now()
+		  WHERE depends_on && $1::bigint[]`, deletedIDs); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE decision_items SET status = 'closed', updated_at = now()
+		  WHERE status = 'open' AND ref_type = 'task' AND ref_id = ANY($1::bigint[])`, deletedIDs); err != nil {
 		return err
 	}
 	tag, err := tx.Exec(ctx, `DELETE FROM tasks WHERE id = $1`, id)

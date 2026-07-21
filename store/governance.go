@@ -319,6 +319,8 @@ func (s *Store) ListDecisionItems(ctx context.Context, ownerID int64, status str
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+decisionItemCols+` FROM decision_items
 		  WHERE owner_id = $1 AND status = $2
+		    AND ($2 <> 'open' OR ref_type <> 'task'
+		      OR EXISTS (SELECT 1 FROM tasks t WHERE t.id = decision_items.ref_id))
 		  ORDER BY (priority = 'high') DESC, id DESC LIMIT $3`, ownerID, status, limit)
 	if err != nil {
 		return nil, err
@@ -333,6 +335,21 @@ func (s *Store) ListDecisionItems(ctx context.Context, ownerID int64, status str
 		out = append(out, d)
 	}
 	return out, rows.Err()
+}
+
+// closeDanglingTaskDecisionItems closes decisions whose referenced task no
+// longer exists. State transitions close their own decisions at commit time;
+// this refresh-side repair covers historical rows and out-of-band deletion.
+func (s *Store) closeDanglingTaskDecisionItems(ctx context.Context, ownerID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE decision_items d
+		    SET status = 'closed', updated_at = now()
+		  WHERE d.owner_id = $1 AND d.status = 'open' AND d.ref_type = 'task'
+		    AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.id = d.ref_id)`, ownerID)
+	if err != nil {
+		return wrapErr(err)
+	}
+	return nil
 }
 
 func (s *Store) BuildDecisionQueue(ctx context.Context, ownerID int64) (int, error) {
@@ -386,6 +403,9 @@ func (s *Store) BuildDecisionQueue(ctx context.Context, ownerID int64) (int, err
 			return count, err
 		}
 		count++
+	}
+	if err := s.closeDanglingTaskDecisionItems(ctx, ownerID); err != nil {
+		return count, err
 	}
 	return count, nil
 }
