@@ -3,6 +3,8 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -10,6 +12,25 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 )
+
+func TestPinnedIHTMLRuntimeExposesCallableHTTPClient(t *testing.T) {
+	handler, err := ihtml.NewHandler(ihtml.NewMemoryStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = handler.Close() })
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/ihtml.js", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("ihtml runtime status = %d", recorder.Code)
+	}
+	source := recorder.Body.String()
+	for _, expected := range []string{"function createHTTPClient", "const client = (path, options) => request(path, options)", "lib.runtime.createHTTPClient"} {
+		if !strings.Contains(source, expected) {
+			t.Fatalf("pinned ihtml runtime is missing %q", expected)
+		}
+	}
+}
 
 func TestIHTMLAgentToolsUseScopedService(t *testing.T) {
 	handler, err := ihtml.NewHandler(ihtml.NewMemoryStore())

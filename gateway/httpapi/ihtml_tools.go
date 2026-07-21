@@ -14,7 +14,7 @@ import (
 func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 	return []ai.Tool{
 		ihtmlTool("ui_list_host_apis",
-			"列出宿主登记、会自动携带当前用户身份的同源 HTTP API。构建需要实时业务数据的页面前调用；页面只能通过 ihtml.http 使用这些接口。",
+			"列出宿主登记、会自动携带当前用户身份的同源 HTTP API。构建需要实时业务数据的页面前调用；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他方法使用 ihtml.http.post/put(path, body, options) 或 ihtml.http.del(path, options)。",
 			ai.ToolEffectRead, false, objectSchema(nil),
 			func(context.Context, json.RawMessage) (string, error) {
 				return marshalToolResult(apis)

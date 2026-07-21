@@ -167,9 +167,9 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_chat.go
         symbol: ihtmlTurnSystem
-        hash: sha256:cac88816d83555bacbd97862653d72b390a849649e8a2b10f124b41fe11e3d33
-        struct_hash: sha256:62f3e2c018b7a6274399d06a2be75bef602a2f51c179ef5d6f7b90650b4239f2
-        doc_struct_hash: sha256:62f3e2c018b7a6274399d06a2be75bef602a2f51c179ef5d6f7b90650b4239f2
+        hash: sha256:ac19c2db9e5c5a436df6b956c0196628ff2ba2be922e829d55bb4da522d1dc32
+        struct_hash: sha256:329fd2b5183c4cb3ae58ec634a8990947785ea02a636d2c9940628ca9d04e920
+        doc_struct_hash: sha256:329fd2b5183c4cb3ae58ec634a8990947785ea02a636d2c9940628ca9d04e920
         lines: [285, 303]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

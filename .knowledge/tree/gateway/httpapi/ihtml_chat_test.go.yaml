@@ -52,3 +52,14 @@ nodes:
         lines: [66, 82]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_chat_test.go#TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_chat_test.go
+        symbol: TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces
+        hash: sha256:0fce2084ca2d6ed04e7b5eaec447d92eb741449854a01451ec6bd6af809ca734
+        struct_hash: sha256:4640129179ca7334c4722220409e077c3f3c002f3ff178fb75440d6652193289
+        doc_struct_hash: sha256:4640129179ca7334c4722220409e077c3f3c002f3ff178fb75440d6652193289
+        lines: [84, 99]
+      status: fresh
+      since: 2026-07-21T17:27:25.306662Z

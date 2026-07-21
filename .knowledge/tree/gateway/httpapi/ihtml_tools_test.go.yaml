@@ -30,3 +30,14 @@ nodes:
         lines: [73, 95]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools_test.go#TestPinnedIHTMLRuntimeExposesCallableHTTPClient
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools_test.go
+        symbol: TestPinnedIHTMLRuntimeExposesCallableHTTPClient
+        hash: sha256:88d5c26ac0da249336cd677ba3fe76f4a19fce6be10b74826c17002ce06e76f8
+        struct_hash: sha256:04c01f8d0341a452f59c248ef6a0db90c268eb977304432ae08429fde3e156b7
+        doc_struct_hash: sha256:04c01f8d0341a452f59c248ef6a0db90c268eb977304432ae08429fde3e156b7
+        lines: [16, 33]
+      status: fresh
+      since: 2026-07-21T17:27:25.30713Z

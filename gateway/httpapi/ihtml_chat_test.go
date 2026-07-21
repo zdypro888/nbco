@@ -72,11 +72,28 @@ func TestIHTMLTurnUsesLatestUserMessageAndBoundsBrowserContext(t *testing.T) {
 	}
 	system := ihtmlTurnSystem([]ihtml.APISpec{{Name: "overview", Method: "GET", Path: "/api/overview"}})
 	if !strings.Contains(system, "同一个 nbco Agent") || !strings.Contains(system, "ui_list_state") ||
-		!strings.Contains(system, `"path":"/api/overview"`) {
+		!strings.Contains(system, `"path":"/api/overview"`) || !strings.Contains(system, "ihtml.http(path, options)") {
 		t.Fatalf("unexpected host system prompt length/content: %d", len([]rune(system)))
 	}
 	browser := ihtmlBrowserContext(ihtml.ChatClientContext{Page: ihtml.ChatClientPage{VisibleText: strings.Repeat("x", 5000)}})
 	if len([]rune(browser)) > 2500 || !strings.Contains(browser, `"visible_text"`) {
 		t.Fatalf("unexpected browser context length/content: %d", len([]rune(browser)))
 	}
+}
+
+func TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces(t *testing.T) {
+	const callable = "ihtml.http(path, options)"
+	if system := crossChannelIHTMLSystem("https://nbco.example"); !strings.Contains(system, callable) {
+		t.Fatalf("cross-channel contract does not document callable HTTP: %q", system)
+	}
+	for _, item := range ihtmlAgentTools(nil) {
+		if item.Name != "ui_list_host_apis" {
+			continue
+		}
+		if !strings.Contains(item.Description, callable) {
+			t.Fatalf("host API tool does not document callable HTTP: %q", item.Description)
+		}
+		return
+	}
+	t.Fatal("ui_list_host_apis tool is missing")
 }

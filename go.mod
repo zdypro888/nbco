@@ -17,7 +17,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/qdrant/go-client v1.18.3
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
-	github.com/zdypro888/ihtml v0.0.0-20260719135547-7bb80a688309
+	github.com/zdypro888/ihtml v0.0.0-20260721172549-69667d9b0592
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/net v0.57.0
 	golang.org/x/sync v0.22.0

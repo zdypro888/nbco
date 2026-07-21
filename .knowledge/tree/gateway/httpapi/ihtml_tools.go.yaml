@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_tools.go
         symbol: ihtmlAgentTools
-        hash: sha256:e28bb299d0d970e57b4aec1f161dd7823f4fa8568e73318bc80a46991e485933
-        struct_hash: sha256:b855ad3fed1895d7975a698b9ad859991297c2f0819d992818eefa61015f8ca5
-        doc_struct_hash: sha256:b855ad3fed1895d7975a698b9ad859991297c2f0819d992818eefa61015f8ca5
+        hash: sha256:a66a362d87004eaa1c88d86290cfe209928aa5dd5ec50f882f7ad8ddc5612487
+        struct_hash: sha256:53437c19206163579cbe901f8cca76b6a115f167b69a50c47bebccd7ba71639c
+        doc_struct_hash: sha256:53437c19206163579cbe901f8cca76b6a115f167b69a50c47bebccd7ba71639c
         lines: [14, 244]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
