@@ -65,7 +65,7 @@ func withApproval(s *store.Store, userID int64, t ai.Tool) ai.Tool {
 	}
 	inner := t.Handler
 	name := t.Name
-	t.Description += "【高危：首次调用仅登记待确认动作；须向用户复述操作并获明确同意后，以完全相同参数再次调用才执行】"
+	t.Description += "【两阶段审批：不要在首次调用前口头询问确认；先用最终参数调用一次，系统只登记待确认动作、不会执行。收到待确认结果后向用户复述；下一条用户消息明确同意后，再以完全相同参数调用才执行】"
 	if s == nil {
 		t.Handler = func(context.Context, json.RawMessage) (string, error) {
 			return "高危操作需要可用的存储审批状态；当前入口未装配存储，不能执行。", nil

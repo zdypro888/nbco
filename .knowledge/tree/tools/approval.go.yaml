@@ -90,9 +90,9 @@ nodes:
       anchor:
         file: tools/approval.go
         symbol: withApproval
-        hash: sha256:958a5c8844693173248cfa526270dd52cf3419cc355594a9269114a9ba5ba538
-        struct_hash: sha256:83b19214c37fb01c4b98bddae27509992f73b5b753a12c09f6ea799cdfcd9ca1
-        doc_struct_hash: sha256:4f39b29883a9e6d393248412dff229285afa6ccabdce37a43f5b62842fb037a1
+        hash: sha256:cb790fdcabb898818ba21e8ab1c19dc057729e2acee2e1f6be8ac0a6b9057076
+        struct_hash: sha256:12f40e8b11e522e162f64fbcd742897669baaad73ae9a01cf5261d459bf6028a
+        doc_struct_hash: sha256:f3fa3a93bca611e0639c812e1133be84bbac115c6f04cc6a377844239e6a493d
         lines: [61, 97]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

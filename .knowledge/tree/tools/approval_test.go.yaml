@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: tools/approval_test.go
+      level: file
+      anchor:
+        file: tools/approval_test.go
+        hash: sha256:f368fe7686bf8c34dd62cc5b534f67681fbe00bb7bbc1a7349b7ec8abe24d5e9
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-21T20:56:19.89777Z
+    - id: tools/approval_test.go#TestApprovalToolContractForbidsPreconfirmation
+      level: function
+      anchor:
+        file: tools/approval_test.go
+        symbol: TestApprovalToolContractForbidsPreconfirmation
+        hash: sha256:af51d2b5b0ccc0fa91289c53e28a65d6069788f6514397893a4d3c91ad9b8c0c
+        struct_hash: sha256:5df0bec8944d3de02d093f29db696e4003c8a6202c3a20a873378a1cb5c5112c
+        doc_struct_hash: sha256:5df0bec8944d3de02d093f29db696e4003c8a6202c3a20a873378a1cb5c5112c
+        lines: [12, 24]
+      status: fresh
+      since: 2026-07-21T20:56:19.897734Z
