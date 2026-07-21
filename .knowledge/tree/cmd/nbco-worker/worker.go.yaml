@@ -673,12 +673,23 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: driveAgentTurns
-        hash: sha256:06ed99ab71a7cb8ddcd7f0722825f3af5d3c2afb5ce718f64d4572c3e9c91a96
-        struct_hash: sha256:59fd327c3879a379d8ed782a7af1679efffc71cc7489af5e181e7e5098eb20b7
-        doc_struct_hash: sha256:731897330aa5ffdfdb791f4cd3e48b1ab7b7efbfc75754213770fc4f3c16a877
-        lines: [393, 426]
+        hash: sha256:8ff2ff8649abfcc69fdb81f905bd1fc98ff72c30106c052c2336902a119bbec5
+        struct_hash: sha256:10ddef7bddbb12ddccd0531b7262dec1eddcd4eb7873f4972168c958fd6f4f32
+        doc_struct_hash: sha256:d25025f8dbb2cd2a7ea8adda4b85e8aa0e338eb419201fae1fa03644f08a57ad
+        lines: [429, 437]
       status: fresh
       since: 2026-07-20T18:19:16.834966Z
+      entries:
+        - id: e_a4fdad12
+          kind: usage
+          text: 这是无监督兼容包装器，仅保留确定性的终端指纹兜底供测试和无 judge 调用；生产 PTY 路径必须调用 driveAgentTurnsWithJudge，不能把此包装器重新接回 Worker.execute。
+          confidence: inferred
+          at: 2026-07-21T04:55:48.146048Z
+          author: codex-mcp-client
+      keywords:
+        - driveagentturns wrapper
+        - screen fingerprint fallback
+        - worker tests
     - id: cmd/nbco-worker/worker.go#agentContinuationWithMarks
       level: function
       anchor:
