@@ -28,7 +28,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 
 - **自有 Tool 抽象**（`ai.Tool`：名称 + JSON Schema + handler），不绑任何框架。eino、对外 MCP、HTTP API 都是同一套工具的薄适配。
 - **中枢只走 API 引擎**：`eino` 引擎直调模型 API（客户自带 key 的产品路径）。本机 CLI 只允许由 `nbco-worker` 通过交互式 PTY 驱动，严禁 `claude -p` / `codex exec` 这类 headless 入口。
-- **Eino 双执行模式**：主对话和可能产生动作的系统轮次使用 `DeepAgent`；`write_todos` 负责复杂目标的轮内计划，`tool_search` 延迟发现权限内工具，skill middleware 按需加载完整流程，summarization 管理长上下文。Memory Miner、摘要压缩和受控内部分析使用普通 `ChatModelAgent` 的 `OneShot` 模式，严格禁止工具和 skill，只做一次生成。模式由调用场景显式指定，不根据用户措辞做关键词路由或额外模型分类。Deep 会话事件和 interrupt/cancel checkpoint 持久化到 PostgreSQL，服务重启后继续使用同一 agent 上下文；OneShot 只在输出修复时允许收尾既有 Deep 会话，不自行创建持久会话。
+- **Eino 双执行模式**：主对话和可能产生动作的系统轮次只经过一个 `DeepAgent`，由其原生循环负责规划、工具选择、skill 加载、连续执行与最终回答；`tool_search` 延迟发现权限内业务工具，summarization 管理长上下文，patchtoolcalls 修复中断会话的悬空工具调用。nbco 不在 Agent 前再跑意图分类或工具路由，也不在 Agent 后重写正常答复。Memory Miner、摘要压缩和受控内部分析使用普通 `ChatModelAgent` 的 `OneShot` 模式，严格禁止工具和 skill，只做一次生成。Deep 会话事件和 interrupt/cancel checkpoint 持久化到 PostgreSQL，服务重启后继续使用同一 agent 上下文；OneShot 仅用于独立的结构化分析和终端输出截断修复，不参与业务决策。
 - **工具即权限边界**：每个工具 handler 内部做权限校验（超管专属工具只组装给超管），每次调用写审计日志。
 - **分渠道排版**：系统提示按会话渠道注入格式指引——Telegram 用其 HTML 子集（粗体/代码/引用）+ emoji，网关先按 HTML 发送、格式非法自动降级纯文本；Web/API 输出纯文本。
 - **[ihtml](https://github.com/zdypro888/ihtml) 动态工作台**：`/ui/` 以固定提交版本作为 Go 库挂进控制中心，Item、页面、KV 和修订与 nbco 共用 PostgreSQL，并按稳定内部用户 ID 隔离。ihtml 不再创建第二套模型或 Agent；它通过 `chat.TurnExtension` 把当前用户作用域的 `ui_*` 能力接入同一个 Orchestrator/Eino DeepAgent，继续复用模型切换、会话、权限、知识、skill、审计和上下文压缩。控制中心每次响应签发 CSP nonce，动态脚本无需放开全站 `unsafe-inline`。
@@ -341,7 +341,7 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 提出持久要求时，Memory Miner 先抽取、再由独立治理子调用判断发布/待审/拒绝；冲突候选不会并排自动生效。少数 `pinned` 底线规则每轮常驻，其余规则按当前输入语义召回并校验作用域。知识、规则和 Skill 都支持 `set_knowledge_active` 可逆归档；归档后立即退出提示注入、搜索和 Qdrant 对账，原文、版本与审计仍保留。
-- **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 可显式检索双方历史。授权私聊原文、Eino managed session 和 Worker 主题会话在 PostgreSQL 中保持原值，保证后续 Agent/PTY 恢复时不丢参数和凭据；embedding、Memory Miner、学习候选和审计摘要使用独立的脱敏投影。自动预取只从用户原话和正式知识开始，再由无工具 AI 相关性路由筛选；旧 AI 答复不会被自动当成事实回灌。短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
+- **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 作为常驻只读能力交给 DeepAgent，是否检索、检索什么由 Agent 根据当前目标决定。授权私聊原文、Eino managed session 和 Worker 主题会话在 PostgreSQL 中保持原值，保证后续 Agent/PTY 恢复时不丢参数和凭据；embedding、Memory Miner、学习候选和审计摘要使用独立的脱敏投影。旧 AI 答复不会被自动当成当前事实回灌；短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，生效知识/规则/Skill、会话中可用于上下文的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除或归档实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量

@@ -7,7 +7,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 )
 
-func routedToolNames(toolset []ai.Tool) []string {
+func catalogToolNames(toolset []ai.Tool) []string {
 	names := make([]string, 0, len(toolset))
 	for _, item := range toolset {
 		names = append(names, item.Name)

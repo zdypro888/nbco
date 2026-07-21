@@ -8,17 +8,6 @@ nodes:
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: chat/tool_catalog.go#routedToolNames
-      level: function
-      anchor:
-        file: chat/tool_catalog.go
-        symbol: routedToolNames
-        hash: sha256:4ee72bc8ef9e59f9286bb519dc35a9a82b62cfd0eb882762234a0d8631c1f2b7
-        struct_hash: sha256:9e3c9aee1514f90e1b2a43b701d08a8cab7e9e04cc4f1c3d6ee4df6a1091c6c0
-        doc_struct_hash: sha256:9e3c9aee1514f90e1b2a43b701d08a8cab7e9e04cc4f1c3d6ee4df6a1091c6c0
-        lines: [10, 17]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
     - id: chat/tool_catalog.go#toolSchemaChars
       level: function
       anchor:
@@ -43,3 +32,16 @@ nodes:
         - model visible tools
         - action_turn diagnostics
         - 174 tools
+    - id: chat/tool_catalog.go#catalogToolNames
+      level: function
+      anchor:
+        file: chat/tool_catalog.go
+        symbol: catalogToolNames
+        hash: sha256:7cda67c02704f42858b8afb3669b42b5a0317ff94b76e07fc6899bf3e60f9a02
+        struct_hash: sha256:9e3c9aee1514f90e1b2a43b701d08a8cab7e9e04cc4f1c3d6ee4df6a1091c6c0
+        doc_struct_hash: sha256:9e3c9aee1514f90e1b2a43b701d08a8cab7e9e04cc4f1c3d6ee4df6a1091c6c0
+        lines: [10, 17]
+      status: fresh
+      since: 2026-07-21T10:55:06.372246Z
+      lineage:
+        - chat/tool_catalog.go#routedToolNames

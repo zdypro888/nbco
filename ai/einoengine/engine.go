@@ -22,6 +22,7 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/dynamictool/toolsearch"
+	"github.com/cloudwego/eino/adk/middlewares/patchtoolcalls"
 	skillmw "github.com/cloudwego/eino/adk/middlewares/skill"
 	"github.com/cloudwego/eino/adk/middlewares/summarization"
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
@@ -380,7 +381,7 @@ func (e *Engine) newDeepAgent(
 	summaryUsage *ai.Usage,
 	toolExposure *ai.ToolExposure,
 ) (adk.Agent, *turnToolMiddleware, error) {
-	toolScope, err := newTurnToolMiddleware(ctx, req.Tools, req.PreferredTools, toolExposure)
+	toolScope, err := newTurnToolMiddleware(ctx, req.Tools, toolExposure)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -394,7 +395,21 @@ func (e *Engine) newDeepAgent(
 		}
 		dynamicTools = append(dynamicTools, adapted)
 	}
-	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 4)
+	handlers := make([]adk.TypedChatModelAgentMiddleware[*schema.Message], 0, 5)
+	// Let Eino normalize interrupted durable histories before any middleware
+	// inspects them. The synthetic result deliberately reports an unknown
+	// outcome: a process may have stopped after a side effect but before its
+	// result was persisted, so the Agent must verify state instead of replaying
+	// the call blindly.
+	patchMiddleware, err := patchtoolcalls.New(ctx, &patchtoolcalls.Config{
+		PatchedContentGenerator: func(_ context.Context, toolName, toolCallID string) (string, error) {
+			return fmt.Sprintf("工具调用 %s（ID 为 %s）在会话中断前没有留下结果，执行状态未知。不要假定成功或失败；如仍与当前请求相关，先用只读能力核实当前状态，再决定是否继续。", toolName, toolCallID), nil
+		},
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("构建 Eino 工具调用修复中间件: %w", err)
+	}
+	handlers = append(handlers, patchMiddleware)
 	if len(dynamicTools) > 0 {
 		middleware, err := toolsearch.New(ctx, &toolsearch.Config{DynamicTools: dynamicTools})
 		if err != nil {

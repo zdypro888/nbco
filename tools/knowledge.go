@@ -41,7 +41,7 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已存入知识库（%s）。", internalRef("知识", k.ID)), nil
 			}),
 
-		tool("search_knowledge", "检索公司知识库（语义+关键词混合召回，按相关度排序）。回答公司事实类问题、决策/方案/流程前先查这里。",
+		immediateTool(tool("search_knowledge", "检索公司知识库（语义+关键词混合召回，按相关度排序）。回答公司事实类问题、决策/方案/流程前先查这里。",
 			obj(map[string]any{"query": p("string", "查询（自然语言或关键词皆可）")}, "query"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -59,7 +59,7 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return renderKnowledgeList(ks), nil
-			}),
+			})),
 
 		tool("get_knowledge", "查看一条知识的完整内容。",
 			obj(map[string]any{"id": p("integer", "知识ID")}, "id"),

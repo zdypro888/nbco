@@ -96,35 +96,6 @@ nodes:
         lines: [65, 95]
       status: undigested
       since: 2026-07-20T12:14:00.004169Z
-    - id: chat/reply_grounding.go#Orchestrator.groundVisibleReply
-      level: function
-      anchor:
-        file: chat/reply_grounding.go
-        symbol: Orchestrator.groundVisibleReply
-        hash: sha256:68c523fcce3d39cfea26a78f7d045c3bb530ce8c296565e73d37a257af6da091
-        struct_hash: sha256:2d09e6c916621da758c137476bdbae110b047a19a825daed110540c372d8b363
-        doc_struct_hash: sha256:2d09e6c916621da758c137476bdbae110b047a19a825daed110540c372d8b363
-        lines: [97, 163]
-      status: fresh
-      since: 2026-07-20T12:05:19.444371Z
-      entries:
-        - id: e_2f3027fc
-          kind: contract
-          text: Side-effect result synthesis receives only the current user request and current tool evidence. Historical dialogue and rules are retained for read-only analysis but cannot prove persisted configuration parameters or subsystem behavior.
-          confidence: verified
-          at: 2026-07-20T14:31:45.878385Z
-          confirmed_at: 2026-07-20T15:00:55.595232Z
-          author: codex-mcp-client
-        - id: e_b2e87c39
-          kind: contract
-          text: 'Factual event-bus turns set EvidenceOnly: final OneShot receives only source_text plus current read-tool evidence, never first Agent draft/history. If that synthesis fails, runTurn returns an error so the event bus persists and sends its factual fallback instead of an ungrounded model reply.'
-          confidence: inferred
-          at: 2026-07-20T15:00:50.108312Z
-          author: codex-mcp-client
-      keywords:
-        - system event grounding
-        - evidence-only automation
-        - event hallucination fallback
     - id: chat/reply_grounding.go#applyActionEvidenceFallback
       level: function
       anchor:

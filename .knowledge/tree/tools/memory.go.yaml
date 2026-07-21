@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: tools/memory.go
         symbol: memoryTools
-        hash: sha256:7012913bc8c19483f5610014d9763f5e56545346d5df6233c02995e5bd6e1549
-        struct_hash: sha256:fabd7a04b6858eeacabec7418521323aa900faa3d606e5a5f035f1722f883f92
-        doc_struct_hash: sha256:71b2f6d5743d7f4b062d9f48200cb41231166abbfa02f462fc3faae0bc84ca67
+        hash: sha256:91e80bdf8f1de201392764c13025b2a347f6ce3d4388631c4725a8197c2f9651
+        struct_hash: sha256:154ef626cf16907f22fb4524293ed640e845c6dd38ed9be6c54e6dbba5ddb9b8
+        doc_struct_hash: sha256:f486183e5efdf6aa0c8ec1905e98fe8b8a6e2d184499b244e59b7fdf803e4034
         lines: [17, 104]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

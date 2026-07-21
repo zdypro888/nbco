@@ -18,7 +18,7 @@ const historySearchLimit = 8
 // ai_usage_stats 限超管（注册表兜底）。
 func memoryTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("search_history", "跨会话检索当前用户的历史对话（语义+关键词）。用于回忆用户原话、讨论过程和旧答复；AI 历史文本不是当前事实或动作成功证据，涉及现状时还要查询对应结构化数据。只能搜到当前用户自己的私聊会话。",
+		immediateTool(tool("search_history", "跨会话检索当前用户的历史对话（语义+关键词）。用于回忆用户原话、讨论过程和旧答复；AI 历史文本不是当前事实或动作成功证据，涉及现状时还要查询对应结构化数据。只能搜到当前用户自己的私聊会话。",
 			obj(map[string]any{"query": p("string", "要找的话题（自然语言）")}, "query"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -56,7 +56,7 @@ func memoryTools(d Deps, u *store.User) []ai.Tool {
 					fmt.Fprintf(&b, "- [%s·%s] %s\n", fmtTime(m.CreatedAt, d.TZ), who, truncate(content, 300))
 				}
 				return b.String(), nil
-			}),
+			})),
 
 		tool("ai_usage_stats", "查看 AI 用量统计：今天/7天/30天 token 总量与调用次数，7天内按人排行，以及按战略目标的执行成本。"+
 			"注意：目标维度只反映 AI 员工执行成本（worker 调用模型），不含对话/催办/周报等系统轮次，也未归因的目标为空——评估目标 ROI 时以 worker 执行成本为准。",

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/session"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -78,8 +79,9 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 		visibleNames := make(map[string]bool, len(visible))
 		for _, info := range visible {
 			visibleNames[info.Name] = true
-			if info.Name == toolSearchToolName && info.Desc != conciseToolSearchDescription {
-				return nil, fmt.Errorf("tool_search description was not compacted")
+			if info.Name == toolSearchToolName && !strings.Contains(info.Desc, "延迟") &&
+				!strings.Contains(strings.ToLower(info.Desc), "deferred") {
+				return nil, fmt.Errorf("official tool_search contract was not preserved")
 			}
 		}
 		last := input[len(input)-1]
@@ -136,7 +138,7 @@ func TestDeepAgentSearchesAndExecutesDeferredTool(t *testing.T) {
 	}
 }
 
-func TestDeepAgentPreloadsRelevantToolsAndKeepsGenericReadVisible(t *testing.T) {
+func TestDeepAgentKeepsImmediateToolsVisibleAndDefersBusinessTools(t *testing.T) {
 	var executed int
 	state := &scriptedModelState{}
 	state.fn = func(input []*schema.Message, visible []*schema.ToolInfo) (*schema.Message, error) {
@@ -145,23 +147,30 @@ func TestDeepAgentPreloadsRelevantToolsAndKeepsGenericReadVisible(t *testing.T) 
 			visibleNames[info.Name] = true
 		}
 		last := input[len(input)-1]
-		if last.Role == schema.Tool && last.ToolName == "record_value" {
+		switch {
+		case last.Role == schema.Tool && last.ToolName == "record_value":
 			return finalResponse("preferred-final", "已记录"), nil
+		case last.Role == schema.Tool && last.ToolName == toolSearchToolName:
+			if !visibleNames["record_value"] || visibleNames["unrelated_tool"] {
+				return nil, fmt.Errorf("native tool search scope = %v", visibleNames)
+			}
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "write-after-search", Type: "function",
+				Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
+			}}), nil
+		default:
+			if !visibleNames[toolSearchToolName] || !visibleNames["query_data"] || visibleNames["record_value"] || visibleNames["unrelated_tool"] {
+				return nil, fmt.Errorf("initial native tool scope = %v", visibleNames)
+			}
+			return schema.AssistantMessage("", []schema.ToolCall{{
+				ID: "search-record", Type: "function",
+				Function: schema.FunctionCall{Name: toolSearchToolName, Arguments: `{"query":"select:record_value"}`},
+			}}), nil
 		}
-		if !visibleNames[toolSearchToolName] || !visibleNames["query_data"] || !visibleNames["record_value"] {
-			return nil, fmt.Errorf("initial cognitive working set = %v", visibleNames)
-		}
-		if visibleNames["unrelated_tool"] {
-			return nil, fmt.Errorf("unrelated deferred schema leaked into first iteration")
-		}
-		return schema.AssistantMessage("", []schema.ToolCall{{
-			ID: "preferred-write", Type: "function",
-			Function: schema.FunctionCall{Name: "record_value", Arguments: `{"value":"alpha"}`},
-		}}), nil
 	}
 	engine := newNativeTestEngine(&scriptedModel{state: state}, nil)
 	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-		System: "完成用户要求。", UserText: "记录 alpha", PreferredTools: []string{"record_value", "not_authorized"},
+		System: "完成用户要求。", UserText: "记录 alpha",
 		Tools: []ai.Tool{
 			{
 				Name: "query_data", Description: "通用状态读取", LoadMode: ai.ToolLoadImmediate,
@@ -188,10 +197,8 @@ func TestDeepAgentPreloadsRelevantToolsAndKeepsGenericReadVisible(t *testing.T) 
 	if result.Text != "已记录" || executed != 1 {
 		t.Fatalf("result=%+v executed=%d", result, executed)
 	}
-	for _, step := range result.Steps {
-		if step.ToolName == toolSearchToolName {
-			t.Fatalf("preloaded schema should not require lexical tool_search: %+v", result.Steps)
-		}
+	if len(result.Steps) < 2 || result.Steps[0].ToolName != toolSearchToolName || result.Steps[1].ToolName != "record_value" {
+		t.Fatalf("native search sequence = %+v", result.Steps)
 	}
 }
 
@@ -644,6 +651,46 @@ func TestManagedSessionReplaysHistoryAcrossEngineInstances(t *testing.T) {
 	}
 	if second.EngineSession != first.EngineSession || second.Text != "users=2" {
 		t.Fatalf("second=%+v first_session=%q", second, first.EngineSession)
+	}
+}
+
+func TestManagedSessionRepairsInterruptedToolCallBeforeModel(t *testing.T) {
+	runtime := session.NewInMemoryStore[*schema.Message](nil)
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		for _, message := range input {
+			if message.Role == schema.Tool && message.ToolCallID == "interrupted-call" {
+				if !strings.Contains(message.Content, "执行状态未知") || !strings.Contains(message.Content, "先用只读能力核实") {
+					return nil, fmt.Errorf("unexpected repaired result: %q", message.Content)
+				}
+				return finalResponse("recovered", "已恢复会话"), nil
+			}
+		}
+		return nil, fmt.Errorf("model did not receive a repaired tool result: %+v", input)
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
+	req := &ai.TurnRequest{SessionID: "43", System: "resume", UserText: "继续"}
+	sessionID := engine.engineSessionID(req)
+	dangling := schema.AssistantMessage("", []schema.ToolCall{{
+		ID: "interrupted-call", Type: "function",
+		Function: schema.FunctionCall{Name: "external_write", Arguments: `{}`},
+	}})
+	if err := runtime.AppendEvents(context.Background(), sessionID, []*adk.SessionEvent[*schema.Message]{
+		{EventID: "old-user", Kind: adk.SessionEventMessage, Message: schema.UserMessage("执行旧操作")},
+		{EventID: "old-call", Kind: adk.SessionEventMessage, Message: dangling},
+		{EventID: "old-commit", Kind: adk.SessionEventSessionStatusIdle, Lifecycle: &adk.LifecycleEvent{
+			State: adk.SessionRunStateIdle, StopReason: &adk.StopReason{Type: "end_turn"},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := engine.RunTurn(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "已恢复会话" || result.EngineSession != sessionID {
+		t.Fatalf("result=%+v session=%q", result, sessionID)
 	}
 }
 

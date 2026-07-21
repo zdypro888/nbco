@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.newDeepAgent
-        hash: sha256:99e6e6af24c29ecdbb0eb25311225f841b483c238e1b378c8ac1f3dec6f8d50c
-        struct_hash: sha256:3a460134bd8fa409448543c4fe46458b23201cbbc472ab2f1698551e1c88439c
-        doc_struct_hash: sha256:3a460134bd8fa409448543c4fe46458b23201cbbc472ab2f1698551e1c88439c
-        lines: [376, 470]
+        hash: sha256:15ed85da8ffaccfbfc4067a01bdb6b77b0304e8234f45d20e9900b1d9cf27554
+        struct_hash: sha256:76b31b8afc4404cf0c533fb0f14419d9510cb37b9525dcd17e33218295da29cf
+        doc_struct_hash: sha256:76b31b8afc4404cf0c533fb0f14419d9510cb37b9525dcd17e33218295da29cf
+        lines: [377, 485]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -255,16 +255,23 @@ nodes:
           at: 2026-07-19T22:19:05.469949Z
           confirmed_at: 2026-07-20T02:48:02.173123Z
           author: codex-mcp-client
+        - id: e_e3fe262f
+          kind: pitfall
+          text: patchtoolcalls 生成的悬空工具结果必须表达“执行状态未知”而不是成功或失败：进程可能在副作用完成后、结果持久化前中断。恢复后的 Agent 应先通过只读能力核实业务状态；不能根据机械补丁直接重放写操作。
+          confidence: verified
+          at: 2026-07-21T10:55:42.813432Z
+          confirmed_at: 2026-07-21T10:55:50.170612Z
+          author: codex-mcp-client
       keywords:
-        - tool_search
-        - deferred tools
-        - final_response
-        - 本轮工具隔离
-        - 模型可见工具
-        - 结构化终止
-        - 原生 deep 指令
+        - patchtoolcalls
+        - 悬空工具调用
+        - 状态未知
+        - 先核实再重试
+        - eino
       lineage:
         - chat/tool_selector.go#Orchestrator.selectPreferredTools
+        - chat/turn_context.go#Orchestrator.planTurnContext
+        - chat/turn_context.go#turnContextSelectionPrompt
     - id: ai/einoengine/engine.go#sessionResetter
       level: decl
       anchor:
@@ -438,10 +445,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: collect
-        hash: sha256:11e7e36bdc67140b959a931e8f58a3bf2169345aaefcab0373cdaf4a8b328f6c
-        struct_hash: sha256:c5d217df162c547abed918c2f115ab4236fae48a3daed649b26c54bb8bbdd3e3
-        doc_struct_hash: sha256:d818757695e34ca67e48ad146f21a63bfb87e467855f3b6978150e1e2874b82e
-        lines: [743, 867]
+        hash: sha256:58f01a6b7b406a33db1a3d86000a41352535f45c556824522cc61ac7a250a717
+        struct_hash: sha256:b74bae82d900cadb992586a0f49c49750735b35cc28e7d802caa4500722f54c2
+        doc_struct_hash: sha256:3e2ca7557f25a76c7a289f86010fc6059c137313111f7e0b325bf0ed7c4898a0
+        lines: [758, 882]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:

@@ -191,11 +191,6 @@ type TurnRequest struct {
 	Model string
 	// Tools 本轮可用工具集（已按用户权限裁剪）。
 	Tools []Tool
-	// PreferredTools is a relevance-ranked subset of Tools whose schemas should
-	// be visible on the first model iteration. It is only a cognitive retrieval
-	// hint: it grants no permission, does not restrict the full catalog, and the
-	// native tool_search path remains available for every deferred tool.
-	PreferredTools []string
 	// Skills 是已按语义相关性和用户/渠道作用域裁剪的候选执行方法。
 	// 引擎只暴露元数据，由模型按需加载完整 Content。
 	Skills []Skill

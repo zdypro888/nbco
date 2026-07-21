@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -180,24 +179,6 @@ func TestCapabilityScopeTracksAuthorization(t *testing.T) {
 	}
 }
 
-func TestMentionedPromptUsers(t *testing.T) {
-	users := []*store.User{
-		{ID: 1, Name: "PRO", Status: store.UserActive},
-		{ID: 2, Name: "JA", Status: store.UserActive},
-		{ID: 3, Name: "黄桑", Status: store.UserActive},
-		{ID: 4, Name: "Tom", Status: store.UserDisabled},
-	}
-	if got := mentionedPromptUsers("这个 major 问题先别找 ja", 1, users, 4); len(got) != 1 || got[0].Name != "JA" {
-		t.Fatalf("短英文名应按边界匹配: %+v", got)
-	}
-	if got := mentionedPromptUsers("major 问题", 1, users, 4); len(got) != 0 {
-		t.Fatalf("短英文名不应命中普通单词片段: %+v", got)
-	}
-	if got := mentionedPromptUsers("黄桑 看一下 Tom", 1, users, 4); len(got) != 1 || got[0].Name != "黄桑" {
-		t.Fatalf("应按出现顺序命中活跃用户并跳过停用用户: %+v", got)
-	}
-}
-
 func TestRenderPromptUserInfoSkipsSensitiveFields(t *testing.T) {
 	u := &store.User{Info: map[string]string{
 		"position": "CEO",
@@ -308,171 +289,6 @@ func TestMemoryEvidenceCoverage(t *testing.T) {
 	}
 }
 
-func TestRenderRetrievalBlock(t *testing.T) {
-	tz := time.UTC
-	ks := []*store.Knowledge{
-		{ID: 12, Title: "客户A付款条件", Content: "net 60，按季度对账", Tags: []string{"scope:global", "客户", "财务"}},
-	}
-	ms := []store.ChatMessage{
-		{Role: "user", Content: "上次定的客户A付款条件", CreatedAt: time.Date(2026, 6, 21, 10, 3, 0, 0, tz)},
-		{Role: "assistant", Content: "[历史消息时间 2026-06-21 10:05 +00:00 (UTC)] 已记录到知识库", CreatedAt: time.Date(2026, 6, 21, 10, 5, 0, 0, tz)},
-	}
-	out := renderRetrievalBlock(ks, ms, tz)
-	for _, want := range []string{"已预取", "#12", "客户A付款条件", "net 60", "客户, 财务", "用户", "AI", "06-21 10:03"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("预取块缺 %q，实际：%s", want, out)
-		}
-	}
-	if strings.Contains(out, "scope:global") {
-		t.Errorf("scope 内部标签不应展示：%s", out)
-	}
-	if strings.Contains(out, "历史消息时间") {
-		t.Errorf("预取块不应回灌内部时间标记：%s", out)
-	}
-	if renderRetrievalBlock(nil, nil, tz) != "" {
-		t.Error("空输入应返回空串")
-	}
-	// 长内容按 rune 截断。
-	long := strings.Repeat("字", 200)
-	got := renderRetrievalBlock([]*store.Knowledge{{ID: 1, Title: "T", Content: long}}, nil, tz)
-	if strings.Contains(got, strings.Repeat("字", retrievalSnippetChars+1)) {
-		t.Error("内容应被截断到 retrievalSnippetChars")
-	}
-	if !strings.Contains(got, "…") {
-		t.Error("截断后应有省略号")
-	}
-}
-
-func TestTurnContextSelectionUsesAuthorizedAllowLists(t *testing.T) {
-	var selected turnContextSelection
-	if err := json.Unmarshal([]byte(`{
-		"tools":[{"name":"write","domain":"work"},"read"],
-		"knowledge_ids":[{"id":2},"999"],
-		"message_ids":[{"id":"11"}],
-		"action_expected":true
-	}`), &selected); err != nil {
-		t.Fatal(err)
-	}
-	ks := []*store.Knowledge{{ID: 1, Title: "one"}, {ID: 2, Title: "two"}}
-	ms := []store.ChatMessage{{ID: 10, Content: "old"}, {ID: 11, Content: "relevant"}}
-	gotK := allowKnowledgeIDs(selected.KnowledgeIDs, ks, 1)
-	gotM := allowMessageIDs(selected.MessageIDs, ms, 1)
-	if len(gotK) != 1 || gotK[0].ID != 2 || len(gotM) != 1 || gotM[0].ID != 11 {
-		t.Fatalf("selected knowledge/messages = %+v / %+v", gotK, gotM)
-	}
-	selected.Tools = append(selected.Tools, "missing", "write")
-	selectedTools := allowToolNames(selected.Tools, []ai.Tool{{Name: "read"}, {Name: "write"}}, 2)
-	if !reflect.DeepEqual(selectedTools, []string{"write", "read"}) {
-		t.Fatalf("selected tools = %v", selectedTools)
-	}
-	if !selected.ActionExpected {
-		t.Fatal("action_expected was lost by custom JSON decoder")
-	}
-}
-
-func TestReplyGroundingEvidenceSeparatesExecutionFromReplay(t *testing.T) {
-	evidence := buildReplyToolEvidence([]ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}}, []ai.Step{
-		{Kind: ai.StepToolCall, ToolName: "save", Args: json.RawMessage(`{"id":1}`), Result: "已保存"},
-		{Kind: ai.StepToolCall, ToolName: "save", Args: json.RawMessage(`{"id":1}`), Result: `{"status":"replayed"}`, Replayed: true},
-	})
-	if len(evidence) != 2 || !evidence[0].HandlerReturned || evidence[0].Effect != ai.ToolEffectWrite ||
-		evidence[1].HandlerReturned || !evidence[1].Replayed {
-		t.Fatalf("reply evidence = %+v", evidence)
-	}
-	if !shouldGroundReply(false, false, &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall}}}) ||
-		!shouldGroundReply(true, false, &ai.TurnResult{}) || !shouldGroundReply(false, true, &ai.TurnResult{}) ||
-		shouldGroundReply(false, false, &ai.TurnResult{}) {
-		t.Fatal("reply grounding trigger is inconsistent")
-	}
-}
-
-func TestActionEvidenceFallbackNeverPreservesUnsupportedDraft(t *testing.T) {
-	result := &ai.TurnResult{
-		Text:  "已完成不存在的额外动作",
-		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "save", Result: "只保存了一条规则"}},
-	}
-	if !applyActionEvidenceFallback(result, []ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}}, true, nil) {
-		t.Fatal("action fallback did not apply")
-	}
-	if strings.Contains(result.Text, "额外动作") || !strings.Contains(result.Text, "只保存了一条规则") {
-		t.Fatalf("fallback retained unsupported draft: %q", result.Text)
-	}
-}
-
-func TestGroundVisibleReplyUsesStatelessToolFreeSynthesis(t *testing.T) {
-	engine := &fakeEngine{}
-	orchestrator := &Orchestrator{engine: engine}
-	request := &ai.TurnRequest{
-		Mode: ai.TurnModeDeep, SessionID: "9", EngineSession: "managed", Model: "test",
-		History: []ai.Message{{Role: ai.RoleAssistant, Content: "历史规则声称还会执行额外动作"}},
-		Tools:   []ai.Tool{{Name: "save", Effect: ai.ToolEffectWrite}},
-	}
-	result := &ai.TurnResult{
-		Text:  "草稿声称做了额外操作",
-		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "save", Result: "只保存了一条规则"}},
-	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "整理规则", request, result, true, false, nil) {
-		t.Fatal("grounding did not run")
-	}
-	grounding := engine.lastReq()
-	if grounding == nil || grounding.Mode != ai.TurnModeOneShot || grounding.EngineSession != "" ||
-		len(grounding.Tools) != 0 || grounding.SessionID != "reply-grounding" {
-		t.Fatalf("grounding request = %+v", grounding)
-	}
-	if !strings.Contains(grounding.UserText, "只保存了一条规则") || result.Text != "收到。" {
-		t.Fatalf("grounding payload/result mismatch: request=%s result=%q", grounding.UserText, result.Text)
-	}
-	if strings.Contains(grounding.UserText, "历史规则声称") || strings.Contains(grounding.UserText, "recent_context") {
-		t.Fatalf("action grounding was contaminated by historical claims: %s", grounding.UserText)
-	}
-}
-
-func TestReadOnlyGroundingKeepsAnalysisContext(t *testing.T) {
-	engine := &fakeEngine{}
-	orchestrator := &Orchestrator{engine: engine}
-	request := &ai.TurnRequest{
-		Mode: ai.TurnModeDeep, SessionID: "10",
-		History: []ai.Message{{Role: ai.RoleUser, Content: "项目是 K 球"}},
-		Tools:   []ai.Tool{{Name: "query", Effect: ai.ToolEffectRead}},
-	}
-	result := &ai.TurnResult{
-		Text:  "查询结果分析",
-		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "query", Result: `{"items":[]}`}},
-	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "现在怎么样", request, result, false, false, nil) {
-		t.Fatal("read-only grounding did not run")
-	}
-	grounding := engine.lastReq()
-	if grounding == nil || !strings.Contains(grounding.UserText, "recent_context") ||
-		!strings.Contains(grounding.UserText, "项目是 K 球") || !strings.Contains(grounding.UserText, "analysis_draft") {
-		t.Fatalf("read-only grounding lost analysis context: %+v", grounding)
-	}
-}
-
-func TestEvidenceOnlyGroundingExcludesUntrustedAgentDraft(t *testing.T) {
-	engine := &fakeEngine{}
-	orchestrator := &Orchestrator{engine: engine}
-	request := &ai.TurnRequest{
-		Mode: ai.TurnModeDeep, SessionID: "event",
-		History: []ai.Message{{Role: ai.RoleAssistant, Content: "历史中声称 API 成功"}},
-		Tools:   []ai.Tool{{Name: "list_worker_runs", Effect: ai.ToolEffectRead}},
-	}
-	result := &ai.TurnResult{
-		Text: "草稿错误声称已经取得比赛结果",
-		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_worker_runs",
-			Result: "证据层级 process_execution；输出 HTTP 401 API key missing"}},
-	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "telegram", "[系统事件] Worker 执行结束", request, result, false, true, nil) {
-		t.Fatal("evidence-only grounding did not run")
-	}
-	grounding := engine.lastReq()
-	if grounding == nil || !strings.Contains(grounding.UserText, `"source_kind":"system_event"`) ||
-		strings.Contains(grounding.UserText, "草稿错误") || strings.Contains(grounding.UserText, "历史中声称") ||
-		strings.Contains(grounding.UserText, "analysis_draft") || strings.Contains(grounding.UserText, "recent_context") {
-		t.Fatalf("evidence-only payload was contaminated: %+v", grounding)
-	}
-}
-
 func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 	var mined minedMemory
 	if err := json.Unmarshal([]byte(`{
@@ -494,17 +310,6 @@ func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 	}
 	if got := review.decision(store.KnowledgeKindFact, 0); got != "publish" {
 		t.Fatalf("knowledge decision = %q", got)
-	}
-}
-
-func TestShouldFetchHistory(t *testing.T) {
-	for _, channel := range []string{"api", "telegram", "telegram:group:-42"} {
-		if !shouldFetchHistory(channel) {
-			t.Errorf("有效渠道 %q 应允许按自身权限域预取历史", channel)
-		}
-	}
-	if shouldFetchHistory("  ") {
-		t.Error("空渠道不应预取历史")
 	}
 }
 
@@ -583,22 +388,22 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 	}
 }
 
-func TestBuildActionAuditPlanUsesActualTraceOnly(t *testing.T) {
+func TestBuildActionAuditUsesActualTraceOnly(t *testing.T) {
 	toolset := []ai.Tool{
 		{Name: "schedule_once_push", Effect: ai.ToolEffectWrite},
 		{Name: "list_schedules", Effect: ai.ToolEffectRead},
 	}
-	plan := buildActionAuditPlan("明天早上提醒大家", toolset, &ai.TurnResult{})
-	if plan == nil || plan.RequiresAction || len(plan.ExpectedTools) != 0 {
-		t.Fatalf("没有实际工具调用时不得猜测动作: %+v", plan)
+	audit := buildActionAudit("明天早上提醒大家", toolset, &ai.TurnResult{})
+	if audit == nil || audit.RequiresAction || len(audit.ActionTools) != 0 {
+		t.Fatalf("没有实际工具调用时不得猜测动作: %+v", audit)
 	}
-	if plan.Source != "tool_trace" || actionTurnOutcome(plan, &ai.TurnResult{}) != "answered_without_tool" {
-		t.Fatalf("trace-only audit = %+v", plan)
+	if actionTurnOutcome(audit, &ai.TurnResult{}) != "answered_without_tool" {
+		t.Fatalf("trace-only audit = %+v", audit)
 	}
 	res := &ai.TurnResult{Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "schedule_once_push", Result: "已创建"}}}
-	plan = buildActionAuditPlan("明天早上提醒大家", toolset, res)
-	if !plan.RequiresAction || !containsString(plan.ExpectedTools, "schedule_once_push") || actionTurnOutcome(plan, res) != "action_tool_returned" {
-		t.Fatalf("actual action trace = %+v outcome=%s", plan, actionTurnOutcome(plan, res))
+	audit = buildActionAudit("明天早上提醒大家", toolset, res)
+	if !audit.RequiresAction || !containsString(audit.ActionTools, "schedule_once_push") || actionTurnOutcome(audit, res) != "action_tool_returned" {
+		t.Fatalf("actual action trace = %+v outcome=%s", audit, actionTurnOutcome(audit, res))
 	}
 }
 
@@ -606,7 +411,7 @@ func TestActionAuditPlanRecordsReadOnlyWithoutCallingItAction(t *testing.T) {
 	readOnly := &ai.TurnResult{
 		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_data_collection_campaigns", Result: "（没有资料收集活动）"}},
 	}
-	plan := buildActionAuditPlan("员工有在完善自己的信息吗", []ai.Tool{{Name: "list_data_collection_campaigns", Effect: ai.ToolEffectRead}}, readOnly)
+	plan := buildActionAudit("员工有在完善自己的信息吗", []ai.Tool{{Name: "list_data_collection_campaigns", Effect: ai.ToolEffectRead}}, readOnly)
 	if plan == nil || plan.RequiresAction || actionTurnOutcome(plan, readOnly) != "read_tool_returned" {
 		t.Fatalf("read-only trace was mislabeled: %+v", plan)
 	}
@@ -632,7 +437,7 @@ func TestAsynchronousActionIsRecordedAsAccepted(t *testing.T) {
 		Kind: ai.StepToolCall, ToolName: "delegate_worker_agent", Result: `{"status":"accepted","completion":"asynchronous","message":"任务已持久化"}`,
 		Completion: ai.ToolCompletionAsynchronous,
 	}}}
-	plan := buildActionAuditPlan("安排处理", []ai.Tool{{
+	plan := buildActionAudit("安排处理", []ai.Tool{{
 		Name: "delegate_worker_agent", Effect: ai.ToolEffectExecute, Completion: ai.ToolCompletionAsynchronous,
 	}}, res)
 	if got := actionTurnOutcome(plan, res); got != "action_accepted" {
@@ -645,7 +450,7 @@ func TestAsynchronousActionIsNotAcceptedWithoutLifecycleEvidence(t *testing.T) {
 		Kind: ai.StepToolCall, ToolName: "start_workflow", Result: "必须先确认",
 		Completion: ai.ToolCompletionAsynchronous,
 	}}}
-	plan := buildActionAuditPlan("开始升级", []ai.Tool{{
+	plan := buildActionAudit("开始升级", []ai.Tool{{
 		Name: "start_workflow", Effect: ai.ToolEffectExecute, Completion: ai.ToolCompletionAsynchronous,
 	}}, res)
 	if got := actionTurnOutcome(plan, res); got != "action_tool_returned" {
@@ -659,7 +464,7 @@ func TestPendingApprovalRecordedAsOutcome(t *testing.T) {
 		ToolName: "run_worker_command",
 		Result:   tools.PendingApprovalMarker + " ⚠️ 高危操作已登记为待确认动作。",
 	}}
-	outcome := actionTurnOutcome(&actionPlan{RequiresAction: true}, &ai.TurnResult{
+	outcome := actionTurnOutcome(&actionAudit{RequiresAction: true}, &ai.TurnResult{
 		Steps: steps,
 	})
 	if outcome != "pending_approval" {
@@ -673,7 +478,7 @@ func TestActionAuditRecordsRecoveredToolCallAsSuccess(t *testing.T) {
 		{Kind: ai.StepToolCall, ToolName: "tool_search", Result: `{"matches":["delegate_worker_agent"]}`},
 		{Kind: ai.StepToolCall, ToolName: "delegate_worker_agent", Result: "已创建任务"},
 	}}
-	plan := buildActionAuditPlan("安排 worker 处理", []ai.Tool{
+	plan := buildActionAudit("安排 worker 处理", []ai.Tool{
 		{Name: "delegate_worker_agent", Effect: ai.ToolEffectExecute},
 		{Name: "tool_search", Effect: ai.ToolEffectRead},
 	}, res)

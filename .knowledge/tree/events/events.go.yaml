@@ -156,9 +156,9 @@ nodes:
       anchor:
         file: events/events.go
         symbol: Bus.handle
-        hash: sha256:990eac36ed1c9f4a087eef7684c9865df910d3d0869e38800ce60a2e0aef6a43
-        struct_hash: sha256:556e0abb642c31351f928d9e8da283e583ee5848ea12a61636fcb65d67055b14
-        doc_struct_hash: sha256:556e0abb642c31351f928d9e8da283e583ee5848ea12a61636fcb65d67055b14
+        hash: sha256:a6e068e4921859e6379c299b0c7b302408ae953121a0c3b4a28f86a9ef28f1bf
+        struct_hash: sha256:bdbccc1348019891a3d857307c5ea35d0969bcdc629d6473d3808ce6c6731435
+        doc_struct_hash: sha256:bdbccc1348019891a3d857307c5ea35d0969bcdc629d6473d3808ce6c6731435
         lines: [143, 240]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

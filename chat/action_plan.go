@@ -11,19 +11,13 @@ import (
 	nbtools "github.com/zdypro888/nbco/tools"
 )
 
-type actionPlan struct {
-	RequiresAction  bool     `json:"requires_action"`
-	Intent          string   `json:"intent"`
-	ExpectedTools   []string `json:"expected_tools"`
-	SuccessEvidence []string `json:"success_evidence"`
-	MissingInfo     []string `json:"missing_info"`
-	Confidence      float64  `json:"confidence"`
-
-	Source string `json:"-"`
-	Raw    string `json:"-"`
+type actionAudit struct {
+	RequiresAction bool
+	Intent         string
+	ActionTools    []string
 }
 
-func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *actionPlan {
+func buildActionAudit(text string, toolset []ai.Tool, res *ai.TurnResult) *actionAudit {
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
@@ -52,13 +46,10 @@ func buildActionAuditPlan(text string, toolset []ai.Tool, res *ai.TurnResult) *a
 	if len(actualActions) > 0 || pending {
 		intent = "本轮调用了写入或执行工具"
 	}
-	return &actionPlan{
-		RequiresAction:  len(actualActions) > 0 || pending,
-		Intent:          intent,
-		ExpectedTools:   actualActions,
-		SuccessEvidence: []string{"记录实际工具调用及 handler 返回；业务状态仍以领域数据为准"},
-		Confidence:      1,
-		Source:          "tool_trace",
+	return &actionAudit{
+		RequiresAction: len(actualActions) > 0 || pending,
+		Intent:         intent,
+		ActionTools:    actualActions,
 	}
 }
 
@@ -87,13 +78,11 @@ type turnDiagnostics struct {
 	FullToolCount        int      `json:"full_tool_count,omitempty"`
 	ToolSchemaChars      int      `json:"tool_schema_chars,omitempty"`
 	Tools                []string `json:"tools,omitempty"`
-	PreferredTools       []string `json:"preferred_tools,omitempty"`
 	AgentIterations      int      `json:"agent_iterations,omitempty"`
 	ModelCalls           int      `json:"model_calls,omitempty"`
 	ModelPeakToolCount   int      `json:"model_peak_tool_count,omitempty"`
 	ModelPeakSchemaChars int      `json:"model_peak_schema_chars,omitempty"`
 	ModelPeakTools       []string `json:"model_peak_tools,omitempty"`
-	ReplyGrounded        bool     `json:"reply_grounded,omitempty"`
 }
 
 func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
@@ -161,17 +150,13 @@ func firstPendingApprovalStep(steps []ai.Step) (ai.Step, bool) {
 	return ai.Step{}, false
 }
 
-func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, plan *actionPlan, res *ai.TurnResult, diag turnDiagnostics) {
-	if o == nil || o.store == nil || u == nil || sess == nil || plan == nil {
+func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, audit *actionAudit, res *ai.TurnResult, diag turnDiagnostics) {
+	if o == nil || o.store == nil || u == nil || sess == nil || audit == nil {
 		return
 	}
-	outcome := actionTurnOutcome(plan, res)
+	outcome := actionTurnOutcome(audit, res)
 	evidence := map[string]any{
-		"planner_source":   plan.Source,
-		"confidence":       plan.Confidence,
-		"success_evidence": plan.SuccessEvidence,
-		"missing_info":     plan.MissingInfo,
-		"tool_evidence":    summarizeToolEvidence(nil),
+		"tool_evidence": summarizeToolEvidence(nil),
 	}
 	if diag.Route != "" || diag.ToolCount > 0 || diag.SystemChars > 0 {
 		evidence["turn_context"] = diag
@@ -194,9 +179,9 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		UserTextHash:     contentHash(text),
 		UserTextExcerpt:  textfmt.RedactSecrets(text),
 		ReplyExcerpt:     replyExcerpt,
-		RequiresAction:   plan.RequiresAction,
-		Intent:           plan.Intent,
-		ExpectedTools:    plan.ExpectedTools,
+		RequiresAction:   audit.RequiresAction,
+		Intent:           audit.Intent,
+		ExpectedTools:    audit.ActionTools,
 		Evidence:         evidence,
 		Outcome:          outcome,
 		ToolCount:        toolCount,
@@ -206,8 +191,8 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 	}
 }
 
-func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
-	if plan == nil {
+func actionTurnOutcome(audit *actionAudit, res *ai.TurnResult) string {
+	if audit == nil {
 		return "not_recorded"
 	}
 	if res == nil {
@@ -216,8 +201,8 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 	if _, ok := firstPendingApprovalStep(res.Steps); ok {
 		return "pending_approval"
 	}
-	actionTools := make(map[string]struct{}, len(plan.ExpectedTools))
-	for _, name := range plan.ExpectedTools {
+	actionTools := make(map[string]struct{}, len(audit.ActionTools))
+	for _, name := range audit.ActionTools {
 		actionTools[name] = struct{}{}
 	}
 	hadTool, hadSuccess, hadError, actionSuccess, actionAccepted, actionError := false, false, false, false, false, false
@@ -239,7 +224,7 @@ func actionTurnOutcome(plan *actionPlan, res *ai.TurnResult) string {
 		actionSuccess = actionSuccess || action
 		actionAccepted = actionAccepted || (action && step.Completion == ai.ToolCompletionAsynchronous && nbtools.ToolResultAccepted(step.Result))
 	}
-	if plan.RequiresAction && actionSuccess {
+	if audit.RequiresAction && actionSuccess {
 		if actionAccepted {
 			return "action_accepted"
 		}

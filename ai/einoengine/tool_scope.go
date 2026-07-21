@@ -22,10 +22,9 @@ import (
 const (
 	// Bump when the durable Deep Agent's tool or lifecycle contract changes so
 	// managed sessions cannot replay traces produced by an incompatible runtime.
-	deepAgentRuntimeVersion = "native-deep-toolsearch-v8"
+	deepAgentRuntimeVersion = "native-deep-toolsearch-v9"
 
-	toolSearchToolName           = "tool_search"
-	conciseToolSearchDescription = "按能力关键词或名称查找并加载当前轮次需要的延迟工具。知道名称时用 select:<tool_name>；否则用简短能力关键词。返回的工具已立即可调用，无需重复搜索。"
+	toolSearchToolName = "tool_search"
 )
 
 // turnToolMiddleware keeps deferred tools selected in older managed-session
@@ -53,7 +52,7 @@ type effectCall struct {
 	err    error
 }
 
-func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, preferred []string, exposure *ai.ToolExposure) (*turnToolMiddleware, error) {
+func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, exposure *ai.ToolExposure) (*turnToolMiddleware, error) {
 	dynamicNames := make(map[string]struct{}, len(tools))
 	toolInfos := make(map[string]*schema.ToolInfo, len(tools))
 	toolsByName := make(map[string]ai.Tool, len(tools))
@@ -69,18 +68,12 @@ func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, preferred []str
 		}
 		toolInfos[item.Name] = info
 	}
-	selected := make(map[string]struct{}, len(preferred))
-	for _, name := range preferred {
-		if _, ok := dynamicNames[name]; ok {
-			selected[name] = struct{}{}
-		}
-	}
 	return &turnToolMiddleware{
 		dynamicNames:  dynamicNames,
 		toolInfos:     toolInfos,
 		tools:         toolsByName,
 		exposure:      exposure,
-		selected:      selected,
+		selected:      make(map[string]struct{}),
 		blockedCalls:  make(map[string]struct{}),
 		replayedCalls: make(map[string]struct{}),
 		effectCalls:   make(map[string]*effectCall),
@@ -123,17 +116,6 @@ func (m *turnToolMiddleware) BeforeModelRewriteState(
 		if info := m.toolInfos[name]; info != nil {
 			infos = append(infos, info)
 			existing[name] = struct{}{}
-		}
-	}
-	for i, info := range infos {
-		if info == nil {
-			continue
-		}
-		switch info.Name {
-		case toolSearchToolName:
-			clone := *info
-			clone.Desc = conciseToolSearchDescription
-			infos[i] = &clone
 		}
 	}
 	state.ToolInfos = infos

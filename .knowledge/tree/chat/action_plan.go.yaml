@@ -8,56 +8,6 @@ nodes:
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: chat/action_plan.go#actionPlan
-      level: decl
-      anchor:
-        file: chat/action_plan.go
-        symbol: actionPlan
-        hash: sha256:e7aae82c12072759b8a04bd1aa87ef6bd98af7b6ca0d2afc5fdc6f1443246522
-        struct_hash: sha256:df993cb82b6449f3c1cfd3c5617e43d898cd58a5b3222d04fdfd737ab2907daf
-        doc_struct_hash: sha256:df993cb82b6449f3c1cfd3c5617e43d898cd58a5b3222d04fdfd737ab2907daf
-        lines: [14, 24]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: chat/action_plan.go#buildActionAuditPlan
-      level: function
-      anchor:
-        file: chat/action_plan.go
-        symbol: buildActionAuditPlan
-        hash: sha256:0b0aa1c305bc31c5b6e2e1bacdc78d221b0244a1795149cde6a513c40eaa43ce
-        struct_hash: sha256:dc8a9629cae565cc4fd114a7a733b6db0f40d06b8ac151c3b01ef49fe936b6a1
-        doc_struct_hash: sha256:dc8a9629cae565cc4fd114a7a733b6db0f40d06b8ac151c3b01ef49fe936b6a1
-        lines: [26, 63]
-      status: fresh
-      since: 2026-07-19T18:32:51.345695Z
-      entries:
-        - id: e_e43b8a2c
-          kind: contract
-          text: 当前 action plan 是纯事后 tool-trace 审计：RequiresAction 和 ExpectedTools 仅由已经发生的 write/execute 调用或待审批结果推导。零工具轮次无论用户目标/助手承诺是什么都会得到 RequiresAction=false、ExpectedTools=[]，最终 outcome=answered_without_tool；该账本因此不能充当未闭合目标的可恢复执行状态。
-          confidence: verified
-          at: 2026-07-19T19:27:16.898859Z
-          confirmed_at: 2026-07-19T22:19:37.026273Z
-          author: codex-mcp-client
-        - id: e_d7341080
-          kind: pitfall
-          text: 若要恢复未执行承诺，必须在引擎执行前或结构化终止时建立独立 execution contract；不能从本函数的事后轨迹重建，因为零工具时意图信息已被有意丢弃。
-          confidence: verified
-          at: 2026-07-19T19:27:16.898925Z
-          confirmed_at: 2026-07-19T22:19:37.204734Z
-          author: codex-mcp-client
-        - id: e_7ff5a228
-          kind: contract
-          text: 动作账本只基于实际 tool trace：ExpectedTools 记录尝试过的写入/执行工具；actionTurnOutcome 优先识别待审批，其次识别最终成功的 ExpectedTools。先失败后同轮恢复成功应记 action_tool_returned，早期失败仍完整保留在 tool_evidence；若动作工具始终失败，即使只读工具成功也记 tool_handler_error。
-          confidence: inferred
-          at: 2026-07-20T02:48:10.570001Z
-          author: codex-mcp-client
-      keywords:
-        - 工具恢复
-        - 部分失败
-        - action_tool_returned
-        - tool_handler_error
-        - 审计归类
-        - tool evidence
     - id: chat/action_plan.go#toolNames
       level: function
       anchor:
@@ -162,10 +112,10 @@ nodes:
       anchor:
         file: chat/action_plan.go
         symbol: Orchestrator.recordActionTurn
-        hash: sha256:ef5cf6ef1017cff9241c0acdde0434067274c1e4e5c8eac9825f4b28c34077ae
-        struct_hash: sha256:30b65140f9f84d6eac565c8263acb246d0471247938f3804c34102555800ed78
-        doc_struct_hash: sha256:30b65140f9f84d6eac565c8263acb246d0471247938f3804c34102555800ed78
-        lines: [164, 207]
+        hash: sha256:e2e8ff19ca0017c1cb7428b76f9c5c16fb1f237102284603e27cae0f86a7a71e
+        struct_hash: sha256:9136f671a9f904e6157254b7dc1a45dfdb29b2654b2c4cf61ed837b7bde5c0e3
+        doc_struct_hash: sha256:9136f671a9f904e6157254b7dc1a45dfdb29b2654b2c4cf61ed837b7bde5c0e3
+        lines: [153, 192]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/action_plan.go#actionTurnOutcome
@@ -179,3 +129,65 @@ nodes:
         lines: [209, 258]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: chat/action_plan.go#buildActionAudit
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: buildActionAudit
+        hash: sha256:c403a2f22726fdd28250c53f995fee372c424cb23a67e237e0b7f54b7a187e9a
+        struct_hash: sha256:f22f11d0d6cbef681a1eebbf68c1603a793276e346b612a87e06975125819359
+        doc_struct_hash: sha256:f22f11d0d6cbef681a1eebbf68c1603a793276e346b612a87e06975125819359
+        lines: [20, 54]
+      status: fresh
+      since: 2026-07-21T10:54:43.989798Z
+      entries:
+        - id: e_e43b8a2c
+          kind: contract
+          text: 当前 action plan 是纯事后 tool-trace 审计：RequiresAction 和 ExpectedTools 仅由已经发生的 write/execute 调用或待审批结果推导。零工具轮次无论用户目标/助手承诺是什么都会得到 RequiresAction=false、ExpectedTools=[]，最终 outcome=answered_without_tool；该账本因此不能充当未闭合目标的可恢复执行状态。
+          confidence: inferred
+          at: 2026-07-19T19:27:16.898859Z
+          confirmed_at: 2026-07-19T22:19:37.026273Z
+          author: codex-mcp-client
+          superseded_by: e_3187426f
+        - id: e_d7341080
+          kind: pitfall
+          text: 若要恢复未执行承诺，必须在引擎执行前或结构化终止时建立独立 execution contract；不能从本函数的事后轨迹重建，因为零工具时意图信息已被有意丢弃。
+          confidence: inferred
+          at: 2026-07-19T19:27:16.898925Z
+          confirmed_at: 2026-07-19T22:19:37.204734Z
+          author: codex-mcp-client
+          superseded_by: e_3187426f
+        - id: e_7ff5a228
+          kind: contract
+          text: 动作账本只基于实际 tool trace：ExpectedTools 记录尝试过的写入/执行工具；actionTurnOutcome 优先识别待审批，其次识别最终成功的 ExpectedTools。先失败后同轮恢复成功应记 action_tool_returned，早期失败仍完整保留在 tool_evidence；若动作工具始终失败，即使只读工具成功也记 tool_handler_error。
+          confidence: suspect
+          at: 2026-07-20T02:48:10.570001Z
+          author: codex-mcp-client
+          superseded_by: e_3187426f
+        - id: e_3187426f
+          kind: contract
+          text: actionAudit 是 DeepAgent 返回后的纯观测账本：ActionTools 只记录本轮真实出现的 write/execute 或待审批调用，并映射到历史数据库列 expected_tools；零工具轮次记 answered_without_tool。它不得触发重试、补执行、改写回复或充当持久任务队列。
+          confidence: verified
+          at: 2026-07-21T10:55:42.680941Z
+          confirmed_at: 2026-07-21T10:55:49.942536Z
+          author: codex-mcp-client
+      keywords:
+        - 事后审计
+        - actiontools
+        - 实际工具轨迹
+        - 非执行控制
+      lineage:
+        - chat/action_plan.go#buildActionAuditPlan
+    - id: chat/action_plan.go#actionAudit
+      level: decl
+      anchor:
+        file: chat/action_plan.go
+        symbol: actionAudit
+        hash: sha256:ff46ee4fdc9dc79ef581f413c0faedc6c7adda24e7d00d25af7282345990d78c
+        struct_hash: sha256:b7893ad0fe87d3833ba9a569a48702fcbe85bec122bb52372b2f8322485ed034
+        doc_struct_hash: sha256:b7893ad0fe87d3833ba9a569a48702fcbe85bec122bb52372b2f8322485ed034
+        lines: [14, 18]
+      status: fresh
+      since: 2026-07-21T10:55:06.370963Z
+      lineage:
+        - chat/action_plan.go#actionPlan

@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: tools/knowledge.go
         symbol: knowledgeTools
-        hash: sha256:d804b6b39912b9ce5e296cd644bfa38f2c4ffc2a5b26f9ce3be5fadb2dbf8cfd
-        struct_hash: sha256:0aae8d073679496e13d7a104f9b63f477266cdda1b8445091ba95d4ae1d71fe6
-        doc_struct_hash: sha256:d127279d0d709d91a546bce809dee40d3c1cbe884173680215054820499fe4fa
+        hash: sha256:c663aaf8e4be8505ca9cc171564dd1d2e9fcb3f76ccba1ea2de870eda9c0d9dd
+        struct_hash: sha256:749c510fe2b2686baa9b1526c3ff868e2a6c7cc6fcffa468508e7764a698fa91
+        doc_struct_hash: sha256:039b7f1cd3fcf423e10061b08535581814bbd90460ecd1498904cb32178c4f41
         lines: [16, 207]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

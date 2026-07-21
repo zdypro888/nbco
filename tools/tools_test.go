@@ -221,6 +221,11 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if got := byName["list_workers"]; got.LoadMode != string(ai.ToolLoadImmediate) {
 		t.Fatalf("list_workers should keep named worker resolution in the immediate capability kernel: %+v", got)
 	}
+	for _, name := range []string{"search_knowledge", "search_history"} {
+		if got := byName[name]; got.LoadMode != string(ai.ToolLoadImmediate) {
+			t.Fatalf("%s should keep permission-aware memory retrieval immediately visible: %+v", name, got)
+		}
+	}
 	if got := byName["low_level_db_query"].Domain; got != CapabilityOps {
 		t.Fatalf("low_level_db_query domain=%q", got)
 	}
@@ -342,7 +347,7 @@ func TestRenderActionTurnsIncludesToolEvidence(t *testing.T) {
 		SuccessToolCount: 1,
 		CreatedAt:        time.Date(2026, 7, 9, 20, 30, 0, 0, time.UTC),
 	}})
-	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "send_message:returned", "已发送给 3 人", "route=people,action", "catalog=22/152", "model_calls=4", "finish_reason"} {
+	for _, want := range []string{"历史记录：曾判定已执行", "handler 返回 1/1", "发送通知", "实际动作工具", "send_message:returned", "已发送给 3 人", "route=people,action", "catalog=22/152", "model_calls=4", "finish_reason"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("动作账本渲染缺 %q:\n%s", want, got)
 		}

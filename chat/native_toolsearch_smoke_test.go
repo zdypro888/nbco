@@ -13,8 +13,6 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/ai/einoengine"
 	"github.com/zdypro888/nbco/config"
-	"github.com/zdypro888/nbco/store"
-	nbtools "github.com/zdypro888/nbco/tools"
 )
 
 func TestSmokeRealNativeToolSearch(t *testing.T) {
@@ -80,127 +78,6 @@ func TestSmokeRealNativeToolSearch(t *testing.T) {
 		calls.Load(), result.Text, result.ToolExposure, result.Steps)
 }
 
-func TestSmokeRealTurnContextSelector(t *testing.T) {
-	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
-		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real turn context selection")
-	}
-	engine, err := einoengine.New(context.Background(), config.AIConfig{
-		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
-		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog := []ai.Tool{
-		{Name: "query_data", Domain: "ops", Effect: ai.ToolEffectRead, LoadMode: ai.ToolLoadImmediate, Description: "跨业务对象读取当前权威状态和历史事实。"},
-		{Name: "list_schedules", Domain: "comms", Effect: ai.ToolEffectRead, Description: "读取定时提醒、计划推送和自动化的当前状态。"},
-		{Name: "cancel_schedule", Domain: "comms", Effect: ai.ToolEffectWrite, Description: "取消仍有未来执行的定时提醒或计划推送。"},
-		{Name: "get_my_tasks", Domain: "work", Effect: ai.ToolEffectRead, Description: "读取当前用户作为执行人的普通工作任务，不包含定时提醒。"},
-	}
-	for i := 0; i < 170; i++ {
-		catalog = append(catalog, ai.Tool{
-			Name: fmt.Sprintf("unrelated_capability_%03d", i), Domain: "other", Effect: ai.ToolEffectRead,
-			Description: "与当前请求无关的占位能力。",
-		})
-	}
-	payload, err := json.Marshal(map[string]any{
-		"request":         "核实我之前安排的周一提醒；如果仍有未来执行就取消。",
-		"recent_messages": []any{}, "recent_actions": []any{},
-		"tools": turnContextTools(catalog), "memory_candidates": []any{},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-		Mode:   ai.TurnModeOneShot,
-		System: "只做相关性检索并输出请求要求的 JSON。", UserText: turnContextSelectionPrompt(payload),
-		MaxOutputTokens: turnContextSelectionBudget, Reasoning: ai.ReasoningDisabled, JSONOutput: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var selected turnContextSelection
-	if err := json.Unmarshal([]byte(extractJSONObject(result.Text)), &selected); err != nil {
-		t.Fatalf("selector output %q: %v", result.Text, err)
-	}
-	selected.Tools = allowToolNames(selected.Tools, catalog, turnContextToolLimit)
-	if !containsString(selected.Tools, "cancel_schedule") ||
-		(!containsString(selected.Tools, "list_schedules") && !containsString(selected.Tools, "query_data")) {
-		t.Fatalf("selector missed state read/write capabilities: %+v", selected)
-	}
-	if !selected.ActionExpected {
-		t.Fatalf("selector did not classify the requested cancellation as an action: %+v", selected)
-	}
-	t.Logf("real context selector passed: tools=%v usage=%+v", selected.Tools, result.Usage)
-}
-
-func TestSmokeRealReplyGrounding(t *testing.T) {
-	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
-		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real reply grounding")
-	}
-	engine, err := einoengine.New(context.Background(), config.AIConfig{
-		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
-		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	orchestrator := &Orchestrator{engine: engine}
-	request := &ai.TurnRequest{
-		Mode: ai.TurnModeDeep, Model: os.Getenv("NBCO_SMOKE_MODEL"),
-		Tools: []ai.Tool{
-			{Name: "save_rule", Effect: ai.ToolEffectWrite},
-			{Name: "schedule_once_push", Effect: ai.ToolEffectWrite},
-		},
-	}
-	result := &ai.TurnResult{
-		Text: "规则已经去重，提醒机制也已设置。",
-		Steps: []ai.Step{{
-			Kind: ai.StepToolCall, ToolName: "save_rule",
-			Result: "规则已存在且内容一致，未重复创建（规则 #80）。",
-		}},
-	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "api", "整理规则并设置提醒", request, result, true, false, nil) {
-		t.Fatal("reply grounding did not run")
-	}
-	if strings.Contains(result.Text, "提醒机制也已设置") || strings.Contains(result.Text, "去重") ||
-		!strings.Contains(result.Text, "未") || !strings.Contains(result.Text, "规则") {
-		t.Fatalf("grounded reply is not evidence-bound: %q", result.Text)
-	}
-	t.Logf("real reply grounding passed: %q", result.Text)
-}
-
-func TestSmokeRealEvidenceOnlyWorkerResult(t *testing.T) {
-	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
-		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real evidence-only grounding")
-	}
-	engine, err := einoengine.New(context.Background(), config.AIConfig{
-		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
-		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	orchestrator := &Orchestrator{engine: engine}
-	request := &ai.TurnRequest{
-		Mode: ai.TurnModeDeep, Model: os.Getenv("NBCO_SMOKE_MODEL"),
-		Tools: []ai.Tool{{Name: "list_worker_runs", Effect: ai.ToolEffectRead}},
-	}
-	result := &ai.TurnResult{
-		Text: "NBAI 已成功获取比赛数据。",
-		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_worker_runs",
-			Result: "执行器 command；证据层级 process_execution；进程退出码 0；请求目标：返回双方与比分；实际输出：HTTP 401 API key missing。"}},
-	}
-	if !orchestrator.groundVisibleReply(context.Background(), 1, "api", "[系统事件] Worker 执行已结束", request, result, false, true, nil) {
-		t.Fatal("evidence-only grounding did not run")
-	}
-	if strings.Contains(result.Text, "成功获取") || strings.Contains(result.Text, "已获取比赛") ||
-		(!strings.Contains(result.Text, "401") && !strings.Contains(result.Text, "未")) {
-		t.Fatalf("evidence-only reply promoted process completion to objective success: %q", result.Text)
-	}
-	t.Logf("real evidence-only grounding passed: %q", result.Text)
-}
-
 func TestSmokeRealWorkerChoosesAdaptiveAgentForResearch(t *testing.T) {
 	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
 		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real worker routing")
@@ -257,116 +134,6 @@ func TestSmokeRealWorkerChoosesAdaptiveAgentForResearch(t *testing.T) {
 		t.Fatalf("worker research routing used wrong executor: agent=%d direct=%d result=%q steps=%+v",
 			agentCalls.Load(), directCalls.Load(), result.Text, result.Steps)
 	}
-}
-
-func TestSmokeRealTurnContextSelectorWithAuthorizedCatalog(t *testing.T) {
-	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
-		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real authorized catalog selection")
-	}
-	engine, err := einoengine.New(context.Background(), config.AIConfig{
-		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
-		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog := nbtools.ForUser(nbtools.Deps{}, &store.User{ID: 1, Name: "PRO", IsSuperadmin: true}, nil)
-	cases := []struct {
-		name           string
-		request        string
-		anyOf          []string
-		checkAction    bool
-		actionExpected bool
-	}{
-		{name: "rename worker", request: "把我的 AI worker UTM 改名为 NBAI", anyOf: []string{"update_user_info"}},
-		{name: "broadcast", request: "给全体真人员工发送一条完善个人档案的通知", anyOf: []string{"send_message"}},
-		{name: "delegate agent", request: "让 NBAI 使用 Codex 查询并整理这个技术问题", anyOf: []string{"delegate_worker_agent"}},
-		{name: "named worker research", request: "再次尝试用NBAI查询世界杯结果。", anyOf: []string{"delegate_worker_agent"}, checkAction: true, actionExpected: true},
-		{name: "ambiguous history", request: "我记得之前交代人事有件事情，查清现在是什么状态", anyOf: []string{"query_data", "search_history", "list_schedules", "get_assigned_tasks"}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			payload, err := json.Marshal(map[string]any{
-				"request": tc.request, "recent_messages": []any{}, "recent_actions": []any{},
-				"tools": turnContextTools(catalog),
-				"execution_targets": []turnContextExecutionTarget{
-					{Kind: "worker", ID: 2, Name: "NBAI", Status: string(store.UserActive)},
-				},
-				"memory_candidates": []any{},
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			result, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
-				Mode: ai.TurnModeOneShot, System: "只做相关性检索并输出请求要求的 JSON。",
-				UserText: turnContextSelectionPrompt(payload), MaxOutputTokens: turnContextSelectionBudget,
-				Reasoning: ai.ReasoningDisabled, JSONOutput: true,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			var selected turnContextSelection
-			if err := json.Unmarshal([]byte(extractJSONObject(result.Text)), &selected); err != nil {
-				t.Fatalf("selector output %q: %v", result.Text, err)
-			}
-			selected.Tools = allowToolNames(selected.Tools, catalog, turnContextToolLimit)
-			matched := false
-			for _, name := range tc.anyOf {
-				matched = matched || containsString(selected.Tools, name)
-			}
-			if !matched {
-				t.Fatalf("selector tools=%v, expected one of %v", selected.Tools, tc.anyOf)
-			}
-			if tc.checkAction && selected.ActionExpected != tc.actionExpected {
-				t.Fatalf("selector action_expected=%v, expected %v; tools=%v", selected.ActionExpected, tc.actionExpected, selected.Tools)
-			}
-			t.Logf("selected=%v usage=%+v", selected.Tools, result.Usage)
-		})
-	}
-}
-
-func TestSmokeRealTurnContextSelectorKeepsStatusQueriesReadOnly(t *testing.T) {
-	if os.Getenv("NBCO_SMOKE_NATIVE_SEARCH") == "" {
-		t.Skip("set NBCO_SMOKE_NATIVE_SEARCH=1 and NBCO_SMOKE_* to run real turn context selection")
-	}
-	engine, err := einoengine.New(context.Background(), config.AIConfig{
-		Engine: config.EngineEino, Provider: os.Getenv("NBCO_SMOKE_PROVIDER"), APIKey: os.Getenv("NBCO_SMOKE_KEY"),
-		BaseURL: os.Getenv("NBCO_SMOKE_BASE"), Model: os.Getenv("NBCO_SMOKE_MODEL"), MaxTurns: 8,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog := nbtools.ForUser(nbtools.Deps{}, &store.User{ID: 1, Name: "PRO", IsSuperadmin: true}, nil)
-	payload, err := json.Marshal(map[string]any{
-		"request": "现在发送了吗",
-		"recent_messages": []any{
-			map[string]any{"role": "user", "content": "周一把金色项目成员名单发给杨桑确认。"},
-			map[string]any{"role": "assistant", "content": "已设置单次日程，计划在日本时间 7 月 20 日 10:30 发送。"},
-		},
-		"recent_actions": []any{}, "tools": turnContextTools(catalog), "memory_candidates": []any{},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	result, err := engine.RunTurn(runCtx, &ai.TurnRequest{
-		Mode: ai.TurnModeOneShot, System: "只做相关性检索并输出请求要求的 JSON。",
-		UserText: turnContextSelectionPrompt(payload), MaxOutputTokens: turnContextSelectionBudget,
-		Reasoning: ai.ReasoningDisabled, JSONOutput: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var selected turnContextSelection
-	if err := json.Unmarshal([]byte(extractJSONObject(result.Text)), &selected); err != nil {
-		t.Fatalf("selector output %q: %v", result.Text, err)
-	}
-	selected.Tools = allowToolNames(selected.Tools, catalog, turnContextToolLimit)
-	if !containsString(selected.Tools, "list_schedules") || containsString(selected.Tools, "send_message") {
-		t.Fatalf("status query selected an unsafe working set: %v", selected.Tools)
-	}
-	t.Logf("status query selected read-only working set: %v", selected.Tools)
 }
 
 func TestSmokeRealScheduleFollowUp(t *testing.T) {
@@ -446,9 +213,8 @@ func TestSmokeRealScheduleFollowUp(t *testing.T) {
 			{Role: ai.RoleUser, Content: "已经发了吗？"},
 			{Role: ai.RoleAssistant, Content: "已发送给杨桑。"},
 		},
-		UserText:       "这件事解决了。删除吧",
-		Tools:          catalog,
-		PreferredTools: []string{"list_schedules", "cancel_schedule"},
+		UserText: "这件事解决了。删除吧",
+		Tools:    catalog,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -520,9 +286,8 @@ func TestSmokeRealDeliveredScheduleStatusDoesNotResend(t *testing.T) {
 			{Role: ai.RoleUser, Content: "周一把金色项目成员名单发给杨桑确认。"},
 			{Role: ai.RoleAssistant, Content: "已设置单次日程，计划在日本时间 7 月 20 日 10:30 发送。"},
 		},
-		UserText:       "现在发送了吗",
-		Tools:          catalog,
-		PreferredTools: []string{"list_schedules"},
+		UserText: "现在发送了吗",
+		Tools:    catalog,
 	})
 	if err != nil {
 		t.Fatalf("delivered status run failed after schedules=%d sends=%d: %v", scheduleCalls.Load(), sendCalls.Load(), err)

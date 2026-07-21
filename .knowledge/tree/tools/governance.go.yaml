@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: tools/governance.go
         symbol: renderActionTurns
-        hash: sha256:9e60df5d39d684d91d3a9f79b7c9b6d1b0729264c74d8e1411d2afabbc8eff52
-        struct_hash: sha256:57961b11e3a592272b31e02fe332f96b28435586c54d4a667def78943aabeb08
-        doc_struct_hash: sha256:57961b11e3a592272b31e02fe332f96b28435586c54d4a667def78943aabeb08
-        lines: [472, 532]
+        hash: sha256:3672d8aae3cc491435941786486234c4747c7b6e5b892e147df7e4ef1ae35922
+        struct_hash: sha256:d9f4bb2d058c6f5c1fddf0c90f6cfba05ed85d6e98bc51ac745b133705fe4aec
+        doc_struct_hash: sha256:d9f4bb2d058c6f5c1fddf0c90f6cfba05ed85d6e98bc51ac745b133705fe4aec
+        lines: [471, 531]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/governance.go#actionOutcomeLabel

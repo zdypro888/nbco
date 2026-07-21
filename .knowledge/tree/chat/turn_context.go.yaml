@@ -206,28 +206,6 @@ nodes:
         lines: [139, 144]
       status: undigested
       since: 2026-07-20T17:12:41.381526Z
-    - id: chat/turn_context.go#Orchestrator.planTurnContext
-      level: function
-      anchor:
-        file: chat/turn_context.go
-        symbol: Orchestrator.planTurnContext
-        hash: sha256:df049f2e01da519e4a8996ee87f8295885dfc3b0ff91db383ebe7f426c9fc647
-        struct_hash: sha256:2a18909ad846fcfb9e9362ef682987f3e446de059eb646d19b59d60a210b0914
-        doc_struct_hash: sha256:fbcc7d007f433c7b56ed9f6ebd699c7a2a94d26ad515dbcee20f2f461fce26fe
-        lines: [146, 211]
-      status: fresh
-      since: 2026-07-20T03:54:13.311603Z
-    - id: chat/turn_context.go#turnContextSelectionPrompt
-      level: function
-      anchor:
-        file: chat/turn_context.go
-        symbol: turnContextSelectionPrompt
-        hash: sha256:d521461f7c9fed8857d0f8502863b8fc1104734a878819545cd88a712db6158b
-        struct_hash: sha256:891f9a0a3ef215a574f7b6ec66d81fedba87dd6e068fab242a7b52e21c80245c
-        doc_struct_hash: sha256:891f9a0a3ef215a574f7b6ec66d81fedba87dd6e068fab242a7b52e21c80245c
-        lines: [213, 227]
-      status: undigested
-      since: 2026-07-20T08:38:49.997524Z
     - id: chat/turn_context.go#Orchestrator.turnContextExecutionTargets
       level: function
       anchor:

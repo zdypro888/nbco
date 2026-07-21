@@ -49,7 +49,7 @@ nodes:
         hash: sha256:db1cb62c833b64b248c64f3cfebaf29f79a911fa3e90913d3d74d906fc1ae14b
         struct_hash: sha256:50c14e1c85d95bd1003319742c4eeee8a3a6bc357a19088c843f77bccde4dbbd
         doc_struct_hash: sha256:b2d78e7483be629d18a5688fa59263b60fd1829acbe3be807bced5509aa2757d
-        lines: [31, 48]
+        lines: [30, 47]
       status: fresh
       since: 2026-07-19T22:18:48.167719Z
     - id: ai/einoengine/tool_scope.go#effectCall
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: ai/einoengine/tool_scope.go
         symbol: newTurnToolMiddleware
-        hash: sha256:6d33639613636dcf81203a677cb4e0f607676fbfb51f86e83a150a1ef1a1d113
-        struct_hash: sha256:55087c61a6d5e6bd22d3f40b2e9d3120eabfa9f8c37443bfcce084c27b12655f
-        doc_struct_hash: sha256:55087c61a6d5e6bd22d3f40b2e9d3120eabfa9f8c37443bfcce084c27b12655f
-        lines: [56, 89]
+        hash: sha256:b3f952c9124f3fd36bc221d87fcec107b1443431c442e3f436354c86ed64bfab
+        struct_hash: sha256:a7cf5c3bd72f95444170586d226af7cc46f35b59e77c2b62f077609b16a18e07
+        doc_struct_hash: sha256:a7cf5c3bd72f95444170586d226af7cc46f35b59e77c2b62f077609b16a18e07
+        lines: [55, 82]
       status: fresh
       since: 2026-07-20T03:54:13.32795Z
     - id: ai/einoengine/tool_scope.go#turnToolMiddleware.BeforeModelRewriteState

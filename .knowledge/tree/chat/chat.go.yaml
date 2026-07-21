@@ -343,12 +343,43 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:c9f1f8c0ad88a5ea6774e067e2193d0f967a4c42c580ee92604457b2656e11ce
-        struct_hash: sha256:ecab3cae35a0a0c2ae9c1830a6cbc01b8067a5fbd5da3a4dd9a0b574ff6087d1
-        doc_struct_hash: sha256:354229ca46c4d02780c6765c8986918cf705ce72761f6c8d3348385c71fe83c8
-        lines: [307, 558]
-      status: undigested
+        hash: sha256:8519cb6676184758862fd3559cbbebff5dc4253ee27084085bf14d73a949ed17
+        struct_hash: sha256:37cba2e2260c6862557bd417e8cac66a6aed8a92427a51b30f327d3100123599
+        doc_struct_hash: sha256:91d5d82a2602ee7f8f254a2f737545045ccb3fbe3da7924ba6c45f3bfea4f065
+        lines: [299, 532]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_2f3027fc
+          kind: contract
+          text: Side-effect result synthesis receives only the current user request and current tool evidence. Historical dialogue and rules are retained for read-only analysis but cannot prove persisted configuration parameters or subsystem behavior.
+          confidence: refuted
+          at: 2026-07-20T14:31:45.878385Z
+          confirmed_at: 2026-07-20T15:00:55.595232Z
+          author: codex-mcp-client
+          refuted_by: chg_20260721T105531Z_8013216fe0a8c209
+        - id: e_b2e87c39
+          kind: contract
+          text: 'Factual event-bus turns set EvidenceOnly: final OneShot receives only source_text plus current read-tool evidence, never first Agent draft/history. If that synthesis fails, runTurn returns an error so the event bus persists and sends its factual fallback instead of an ungrounded model reply.'
+          confidence: refuted
+          at: 2026-07-20T15:00:50.108312Z
+          author: codex-mcp-client
+          refuted_by: chg_20260721T105531Z_3bfecdfa758cdf34
+        - id: e_fc00c159
+          kind: pitfall
+          text: 不要把终端截断恢复误读为正常轮次的回复控制层：runTurn 只在 needsVisibleReplyRepair 识别到空/极短且达到输出上限的残片时运行无工具、无会话 OneShot；正常 DeepAgent assistant 输出不做二次合成，自动化只通过 ReadOnly 裁剪能力。
+          confidence: verified
+          at: 2026-07-21T10:55:42.540554Z
+          confirmed_at: 2026-07-21T10:55:49.698102Z
+          author: codex-mcp-client
+      keywords:
+        - eino 单循环
+        - 正常答复不改写
+        - 截断恢复
+        - 自动化只读
+      lineage:
+        - chat/turn_context.go#Orchestrator.planTurnContext
+        - chat/reply_grounding.go#Orchestrator.groundVisibleReply
     - id: chat/chat.go#Orchestrator.withProvidedExtension
       level: function
       anchor:
@@ -398,12 +429,14 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.repairDegenerateTurn
-        hash: sha256:6605939b42879543bb0645c096f5b0116cd465ce72073537c970f3aa6d9b470a
-        struct_hash: sha256:e3a26f6bf67ea89e951b2b1577173e159e72b9babbdab2675c0e6a969ed129f7
-        doc_struct_hash: sha256:e3a26f6bf67ea89e951b2b1577173e159e72b9babbdab2675c0e6a969ed129f7
-        lines: [644, 683]
+        hash: sha256:0626679de03530822855ab2514f338704be0b271d47e4ca1a19d064098051e06
+        struct_hash: sha256:f5ebc3959c5eb017a2d48530e4bb0035c318d7122af12f93ea3299647265fbcf
+        doc_struct_hash: sha256:f5ebc3959c5eb017a2d48530e4bb0035c318d7122af12f93ea3299647265fbcf
+        lines: [618, 657]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+      lineage:
+        - chat/reply_grounding.go#Orchestrator.groundVisibleReply
     - id: chat/chat.go#needsVisibleReplyRepair
       level: function
       anchor:
@@ -1348,9 +1381,9 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.systemPrompt
-        hash: sha256:bcfa2bf4378320f702972e2b6384ee235662efea71e5b78063d3549c7a4216b6
-        struct_hash: sha256:fb786a084d86db08f9036ea3ab1b503da58a68c52443d16ba0a643500c627611
-        doc_struct_hash: sha256:7a0541dff1cf434577eea6cdeeb576c7e943c72738412c66f144872a366832fd
-        lines: [2227, 2293]
+        hash: sha256:d675c0b640eb7f52622c012a06017e66dd85320647240930cd5d6553937d64b9
+        struct_hash: sha256:eb6b596b54e45f3ddbb54da444b5681b6fc8df53220a9d2a1c22144bc18e09a6
+        doc_struct_hash: sha256:df74c4b5d7023e546dda6de4c70b97f4131709b087da8a64413dde0e70ce9ac8
+        lines: [2071, 2137]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

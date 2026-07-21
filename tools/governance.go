@@ -445,9 +445,8 @@ func renderSystemActivity(tz *time.Location, items []*store.AuditActivity) strin
 }
 
 type actionTurnDetails struct {
-	PlannerSource string `json:"planner_source"`
-	FinishReason  string `json:"finish_reason"`
-	TurnContext   struct {
+	FinishReason string `json:"finish_reason"`
+	TurnContext  struct {
 		Route                string   `json:"route"`
 		SystemChars          int      `json:"system_chars"`
 		HistoryChars         int      `json:"history_chars"`
@@ -501,7 +500,7 @@ func renderActionTurns(ctx context.Context, s *store.Store, tz *time.Location, i
 			_ = json.Unmarshal(it.Evidence, &details)
 		}
 		if len(it.ExpectedTools) > 0 {
-			fmt.Fprintf(&b, "  预计工具：%s\n", strings.Join(it.ExpectedTools, ", "))
+			fmt.Fprintf(&b, "  实际动作工具：%s\n", strings.Join(it.ExpectedTools, ", "))
 		}
 		if len(details.ToolEvidence) > 0 {
 			b.WriteString("  工具证据：\n")
