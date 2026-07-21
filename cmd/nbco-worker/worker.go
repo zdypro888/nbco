@@ -28,7 +28,7 @@ const (
 	ackRetryInterval  = 2 * time.Second  // 首次交付确认遇到不确定网络结果时幂等重试
 	progressInterval  = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
 	progressTail      = 25               // 每次快照回传的屏幕行数
-	maxStalledTurns   = 3                // 连续无可见进展才判卡；有进展的交互不限制轮数
+	maxStalledTurns   = 3                // 同一停滞根因连续出现才判卡；真实进展不限制轮数
 	taskIORelDir      = ".nbco-task/current"
 )
 
@@ -323,18 +323,54 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 	defer close(stopProg)
 	go w.relayProgress(ctx, task.ID, task.ClaimID, sess, stopProg)
 
+	supervisor := newAgentSupervisor(w, task, knowledge, history, dir)
 	screen, werr := sess.submitAndWait(runCtx, prompt, w.wait)
 	turns := 1
 	var summary, lessons, question string
 	var ok, needsInput bool
-	screen, summary, lessons, question, ok, needsInput, werr = driveAgentTurns(
-		screen, werr, marks,
-		func(continuation string) (string, error) {
-			turns++
-			log.Printf("任务 #%d 尚未收尾，继续自主执行（交互回合 %d）", task.ID, turns)
-			return sess.submitAndWait(runCtx, continuation, w.wait)
-		},
-	)
+	submitTurn := func(continuation string) (string, error) {
+		turns++
+		log.Printf("任务 #%d 尚未收尾，继续自主执行（交互回合 %d）", task.ID, turns)
+		return sess.submitAndWait(runCtx, continuation, w.wait)
+	}
+	reviewFailures := map[string]int{}
+	for {
+		screen, summary, lessons, question, ok, needsInput, werr = driveAgentTurnsWithJudge(
+			screen, werr, marks, submitTurn,
+			func(current string) (agentTurnAssessment, error) {
+				assessment, err := supervisor.assessTurn(runCtx, current)
+				if err == nil && assessment.Evaluated && assessment.stalled() {
+					w.report(ctx, task.ID, task.ClaimID, "🧭 执行监督发现没有形成新进展："+assessment.Reason)
+				}
+				return assessment, err
+			},
+		)
+		if !ok || needsInput || werr != nil {
+			break
+		}
+
+		assessment, reviewErr := supervisor.reviewCompletion(runCtx, summary, screen)
+		if reviewErr != nil {
+			ok = false
+			werr = fmt.Errorf("独立完成评估不可用: %w", reviewErr)
+			break
+		}
+		if assessment.passed() {
+			break
+		}
+
+		reviewFailures[assessment.Signature]++
+		w.report(ctx, task.ID, task.ClaimID, "🔎 独立完成评估要求返工："+assessment.Reason)
+		if reviewFailures[assessment.Signature] >= maxRepeatedReviewFailures {
+			ok = false
+			werr = fmt.Errorf("独立评估连续指出同一未解决问题（%s）: %s", assessment.Signature, assessment.Reason)
+			break
+		}
+		// 返工必须换一组完成 nonce。否则终端仍保留上一版完成块时，解析器会在
+		// 新回复尚未收尾前重新捞到旧块，把旧交付再次送审。
+		marks = newCompletionMarks()
+		screen, werr = submitTurn(agentRevisionWithMarks(marks, assessment))
+	}
 
 	// 被服务端取消（任务已删或改派）：报告后直接退出，不上传不提交。
 	if w.killed() {
@@ -390,19 +426,24 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 	w.handoffDeferredRestart()
 }
 
-// driveAgentTurns turns an interactive CLI into a task-level agent loop. A
-// model may legitimately end one chat turn after describing or performing an
-// intermediate step; that is not task completion. As long as the rendered
-// terminal keeps changing, the worker asks it to continue and lets the outer
-// task context own the wall-clock bound. Only repeated identical terminal
-// states are treated as a stalled agent.
+// driveAgentTurns retains the deterministic screen-fingerprint fallback used
+// by tests and callers without a semantic supervisor. Production CLI execution
+// uses driveAgentTurnsWithJudge so changed prose or file churn is not mistaken
+// for verified progress; the outer task context remains the wall-clock bound.
 func driveAgentTurns(initial string, initialErr error, marks completionMarks, submit func(string) (string, error)) (
 	screen, summary, lessons, question string, ok, needsInput bool, err error,
 ) {
+	return driveAgentTurnsWithJudge(initial, initialErr, marks, submit, nil)
+}
+
+func driveAgentTurnsWithJudge(initial string, initialErr error, marks completionMarks, submit func(string) (string, error),
+	judge func(string) (agentTurnAssessment, error),
+) (screen, summary, lessons, question string, ok, needsInput bool, err error) {
 	screen, err = initial, initialErr
 	continuation := agentContinuationWithMarks(marks)
 	lastProgress := agentTurnFingerprint(screen, continuation)
 	stalled := 0
+	lastStallSignature := ""
 	for {
 		summary, lessons, ok = parseCompletionWithMarks(screen, marks)
 		question, needsInput = parseInputRequestWithMarks(screen, marks)
@@ -410,16 +451,44 @@ func driveAgentTurns(initial string, initialErr error, marks completionMarks, su
 			return
 		}
 
-		next, submitErr := submit(continuation)
+		nextPrompt := continuation
+		judgeFallback := judge == nil
+		if judge != nil {
+			assessment, judgeErr := judge(screen)
+			judgeFallback = judgeErr != nil
+			if judgeErr == nil && assessment.Evaluated {
+				switch {
+				case assessment.stalled():
+					if assessment.Signature == lastStallSignature {
+						stalled++
+					} else {
+						lastStallSignature = assessment.Signature
+						stalled = 1
+					}
+					if stalled >= maxStalledTurns {
+						err = fmt.Errorf("%w: %s", errAgentNoProgress, assessment.Reason)
+						return
+					}
+					nextPrompt = agentRecoveryContinuationWithMarks(marks, assessment)
+				case assessment.progressing():
+					stalled = 0
+					lastStallSignature = ""
+				}
+			}
+		}
+
+		next, submitErr := submit(nextPrompt)
 		fingerprint := agentTurnFingerprint(next, continuation)
-		if fingerprint == lastProgress {
-			stalled++
-		} else {
-			stalled = 0
-			lastProgress = fingerprint
+		if judgeFallback {
+			if fingerprint == lastProgress {
+				stalled++
+			} else {
+				stalled = 0
+				lastProgress = fingerprint
+			}
 		}
 		screen, err = next, submitErr
-		if err == nil && stalled >= maxStalledTurns {
+		if err == nil && judgeFallback && stalled >= maxStalledTurns {
 			err = errAgentNoProgress
 		}
 	}
@@ -960,6 +1029,18 @@ func agentContinuationWithMarks(marks completionMarks) string {
 		"任务确实完成后，最后输出：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
 		"只有缺少分配者才能提供的关键信息时，输出：\n%s\n（一个具体、可直接回答的问题）\n%s",
 		marks.Summary, marks.Lessons, marks.End, marks.NeedInput, marks.End)
+}
+
+func agentRecoveryContinuationWithMarks(marks completionMarks, assessment agentTurnAssessment) string {
+	return fmt.Sprintf("独立执行监督判断当前没有形成新的可验证进展。\n问题：%s\n改进方向：%s\n"+
+		"不要为原做法辩解，也不要原样重复失败步骤；先检查真实状态和错误输出，再采用能改变结果的路径。\n%s",
+		strings.TrimSpace(assessment.Reason), strings.TrimSpace(assessment.Guidance), agentContinuationWithMarks(marks))
+}
+
+func agentRevisionWithMarks(marks completionMarks, assessment agentTurnAssessment) string {
+	return fmt.Sprintf("独立完成评估未通过，本次结果不能提交。\n未满足项：%s\n返工要求：%s\n"+
+		"请直接检查并修正实际交付物，重新验证全部验收标准；不要只改总结或解释。完成后重新输出本轮完成标记。\n%s",
+		strings.TrimSpace(assessment.Reason), strings.TrimSpace(assessment.Guidance), agentContinuationWithMarks(marks))
 }
 
 // parseCompletion 从渲染屏幕上解析收尾三段。粘贴的任务原文可能被 TUI 回显

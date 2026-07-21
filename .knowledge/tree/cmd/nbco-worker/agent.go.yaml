@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/agent.go
         symbol: Worker.executeBuiltin
-        hash: sha256:67c859f43cb0bbb94b36b7b6d8700be1381810bc2dc431f6a71aa8aae6d8a37f
-        struct_hash: sha256:ba5ba4fd966fd3abf73a96379d4f63e14e0a17373fb5ffceb3b1517f36eb76f8
-        doc_struct_hash: sha256:1288fa6357d1d33e6c680c52db90410ae95072e2f47d5a8eedbd648ff6d516d0
-        lines: [109, 189]
+        hash: sha256:3480f7aa6536edbee1c1d4a6926fb401b42813dce8e0748a9a17767555e8afe7
+        struct_hash: sha256:674db3abbdeaf379ca30e4125510ce5a3f647be57ea3a147f3303c81121a4fda
+        doc_struct_hash: sha256:684262a09b3555027647b49739b2a5cca8419547e74ef1a760a631ae5be4c8cb
+        lines: [108, 252]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/agent.go#Worker.llmWithRetry

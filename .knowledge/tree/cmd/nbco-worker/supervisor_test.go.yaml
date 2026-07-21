@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/supervisor_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/supervisor_test.go
+        hash: sha256:ed50aeb421f6ceddd5975e30b43241a4e4bc879d3e762b7a95a77ba4257fb51d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-21T04:37:52.827146Z
+    - id: cmd/nbco-worker/supervisor_test.go#TestAgentSupervisorAuditsNarrativeOnlyTurns
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor_test.go
+        symbol: TestAgentSupervisorAuditsNarrativeOnlyTurns
+        hash: sha256:3b7236988ab1654a15d79d3d9fbf6c3b7b6acc20ecf88b3883d01125453d20ff
+        struct_hash: sha256:cb77819a2deb08cd3dd4973f85bd42f9706ad3df94c646aa5a1d9e4f429de6af
+        doc_struct_hash: sha256:cb77819a2deb08cd3dd4973f85bd42f9706ad3df94c646aa5a1d9e4f429de6af
+        lines: [69, 113]
+      status: fresh
+      since: 2026-07-21T04:37:52.827115Z
+    - id: cmd/nbco-worker/supervisor_test.go#TestAgentSupervisorReviewsCompletionEvidence
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor_test.go
+        symbol: TestAgentSupervisorReviewsCompletionEvidence
+        hash: sha256:4ec5bcd5c47efc96b78daadc44a6618a8f0f80fbb10b926cf089eac66ee124c6
+        struct_hash: sha256:20d4298498b616047274a7b7339484e05df6d02a1db2e1e7924eb9f0715d5700
+        doc_struct_hash: sha256:20d4298498b616047274a7b7339484e05df6d02a1db2e1e7924eb9f0715d5700
+        lines: [115, 145]
+      status: fresh
+      since: 2026-07-21T04:37:52.827821Z
+    - id: cmd/nbco-worker/supervisor_test.go#TestWorkspaceChangeEvidenceIncludesOnlyTaskChanges
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor_test.go
+        symbol: TestWorkspaceChangeEvidenceIncludesOnlyTaskChanges
+        hash: sha256:fa5347003d94a7cfd67c40097221b075acd6194edceec945cfac0ea5fae22e2f
+        struct_hash: sha256:41286542afa1b63f7fdd554e3bfd7bd9fa1ae5e45adaf325718cc56a6f4ac5fb
+        doc_struct_hash: sha256:41286542afa1b63f7fdd554e3bfd7bd9fa1ae5e45adaf325718cc56a6f4ac5fb
+        lines: [92, 126]
+      status: fresh
+      since: 2026-07-21T04:51:44.266678Z
+    - id: cmd/nbco-worker/supervisor_test.go#TestArtifactEvidenceRejectsFIFOWithoutBlocking
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor_test.go
+        symbol: TestArtifactEvidenceRejectsFIFOWithoutBlocking
+        hash: sha256:5b23f8a900c9a0de5a83e5d92b38ae80bb68fdc34f191156b612354cd8e9a7c4
+        struct_hash: sha256:d779238c3bfce92d4972d5d38d7d71e0a917caea53a5691435de28c1f0ac9511
+        doc_struct_hash: sha256:d779238c3bfce92d4972d5d38d7d71e0a917caea53a5691435de28c1f0ac9511
+        lines: [250, 269]
+      status: fresh
+      since: 2026-07-21T04:51:44.267469Z

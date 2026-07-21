@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,21 +14,48 @@ import (
 
 // fakeHub 模拟中枢：/api/worker/llm 按脚本逐次返回消息，progress/submit 落记录。
 type fakeHub struct {
-	mu       sync.Mutex
-	script   []chatMessage // 每次 LLM 调用弹出一条
-	llmCalls int
-	progress []string
-	summary  string
-	lessons  string
-	question string
-	failure  string
+	mu              sync.Mutex
+	script          []chatMessage // 每次 Agent LLM 调用弹出一条
+	assessments     []agentTurnAssessment
+	llmCalls        int
+	supervisorCalls int
+	progress        []string
+	summary         string
+	lessons         string
+	question        string
+	failure         string
 }
 
 func (h *fakeHub) handler(t *testing.T) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/worker/llm", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Messages []chatMessage `json:"messages"`
+			Tools    []struct {
+				Function struct {
+					Name string `json:"name"`
+				} `json:"function"`
+			} `json:"tools"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		h.mu.Lock()
 		defer h.mu.Unlock()
+		if len(req.Tools) == 1 && req.Tools[0].Function.Name == "report_worker_assessment" {
+			assessment := agentTurnAssessment{Status: "pass", Signature: "acceptance_satisfied", Reason: "验收证据完整"}
+			if len(req.Messages) > 0 && strings.Contains(req.Messages[0].Content, "本次是过程评估") {
+				assessment = agentTurnAssessment{Status: "progressing", Signature: "verified_progress", Reason: "出现新的执行证据"}
+			}
+			if h.supervisorCalls < len(h.assessments) {
+				assessment = h.assessments[h.supervisorCalls]
+			}
+			h.supervisorCalls++
+			args, _ := json.Marshal(assessment)
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []map[string]any{{"message": callTool("review", "report_worker_assessment", string(args))}}})
+			return
+		}
 		if h.llmCalls >= len(h.script) {
 			t.Errorf("LLM 调用超出脚本（第 %d 次）", h.llmCalls+1)
 			http.Error(w, "script exhausted", http.StatusInternalServerError)
@@ -125,6 +153,9 @@ func TestExecuteBuiltinRunsCommandAndSubmits(t *testing.T) {
 	if hub.llmCalls != 2 {
 		t.Fatalf("应恰好两次模型调用, got %d", hub.llmCalls)
 	}
+	if hub.supervisorCalls != 1 {
+		t.Fatalf("完成前应有一次独立评估, got %d", hub.supervisorCalls)
+	}
 	if hub.summary != "已完成 echo 验证" || hub.lessons != "builtin 冒烟经验" {
 		t.Fatalf("提交内容不对: summary=%q lessons=%q", hub.summary, hub.lessons)
 	}
@@ -134,6 +165,75 @@ func TestExecuteBuiltinRunsCommandAndSubmits(t *testing.T) {
 	}
 	if !strings.Contains(joined, "builtin-agent-ok") {
 		t.Errorf("进度里应有命令输出，got:\n%s", joined)
+	}
+}
+
+func TestExecuteBuiltinRevisesBeforeSubmitting(t *testing.T) {
+	hub := &fakeHub{
+		script: []chatMessage{
+			callTool("done-1", "task_done", `{"summary":"未经验证的结果"}`),
+			callTool("c1", "run_command", `{"command":"echo verified"}`),
+			callTool("done-2", "task_done", `{"summary":"已生成并验证结果"}`),
+		},
+		assessments: []agentTurnAssessment{
+			{Status: "revise", Signature: "missing_verification", Reason: "没有验证证据", Guidance: "生成交付物并检查"},
+			{Status: "pass", Signature: "acceptance_satisfied", Reason: "交付物与摘要一致"},
+		},
+	}
+	srv := httptest.NewServer(hub.handler(t))
+	defer srv.Close()
+
+	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
+	w.executeBuiltin(context.Background(), context.Background(), &Run{ID: 12, ClaimID: "claim12", Title: "完成评估"}, nil, nil, t.TempDir())
+
+	if hub.summary != "已生成并验证结果" || hub.failure != "" {
+		t.Fatalf("返工后提交异常: summary=%q failure=%q", hub.summary, hub.failure)
+	}
+	if hub.supervisorCalls != 2 {
+		t.Fatalf("supervisor calls=%d want 2", hub.supervisorCalls)
+	}
+}
+
+func TestExecuteBuiltinStopsRepeatedRejectedCompletion(t *testing.T) {
+	assessment := agentTurnAssessment{
+		Status: "revise", Signature: "same_missing_evidence", Reason: "始终没有证据", Guidance: "先执行验证",
+	}
+	hub := &fakeHub{
+		assessments: []agentTurnAssessment{assessment, assessment, assessment},
+	}
+	for i := 0; i < maxRepeatedReviewFailures; i++ {
+		hub.script = append(hub.script, callTool(fmt.Sprintf("done-%d", i), "task_done", `{"summary":"仍声称完成"}`))
+	}
+	srv := httptest.NewServer(hub.handler(t))
+	defer srv.Close()
+
+	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
+	w.executeBuiltin(context.Background(), context.Background(), &Run{ID: 13, ClaimID: "claim13", Title: "重复无效完成"}, nil, nil, t.TempDir())
+
+	if hub.summary != "" || !strings.Contains(hub.failure, "同一未解决问题") {
+		t.Fatalf("重复未解决结果不得提交: summary=%q failure=%q", hub.summary, hub.failure)
+	}
+}
+
+func TestExecuteBuiltinStopsRepeatedSemanticStall(t *testing.T) {
+	assessment := agentTurnAssessment{
+		Status: "stalled", Signature: "same_failed_strategy", Reason: "命令变化但没有形成验收证据", Guidance: "改用可验证的数据源",
+	}
+	hub := &fakeHub{assessments: []agentTurnAssessment{assessment, assessment, assessment}}
+	for i := 0; i < agentProgressAuditInterval*maxStalledTurns; i++ {
+		hub.script = append(hub.script, callTool(fmt.Sprintf("cmd-%d", i), "run_command", fmt.Sprintf(`{"command":"echo attempt-%d"}`, i)))
+	}
+	srv := httptest.NewServer(hub.handler(t))
+	defer srv.Close()
+
+	w := newWorker(Config{Server: srv.URL, Token: "t", Engine: engineBuiltin})
+	w.executeBuiltin(context.Background(), context.Background(), &Run{ID: 14, ClaimID: "claim14", Title: "变化叙述但无进展"}, nil, nil, t.TempDir())
+
+	if hub.summary != "" || !strings.Contains(hub.failure, "同一无效策略") {
+		t.Fatalf("语义停滞不得继续或提交: summary=%q failure=%q", hub.summary, hub.failure)
+	}
+	if hub.supervisorCalls != maxStalledTurns {
+		t.Fatalf("supervisor calls=%d want %d", hub.supervisorCalls, maxStalledTurns)
 	}
 }
 

@@ -580,3 +580,25 @@ nodes:
         lines: [1102, 1116]
       status: fresh
       since: 2026-07-20T19:49:19.362402Z
+    - id: cmd/nbco-worker/worker_test.go#TestDriveAgentTurnsSupervisorStopsChangingNarrative
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestDriveAgentTurnsSupervisorStopsChangingNarrative
+        hash: sha256:443294f664bc7267af469ded93ebf9ad7530c01e2b1387579c5f9eda0d1c5d28
+        struct_hash: sha256:7e7b71cfc2983b700d0a90d763a1681bcde8fcda8f17949b6d3f3449d697c468
+        doc_struct_hash: sha256:7e7b71cfc2983b700d0a90d763a1681bcde8fcda8f17949b6d3f3449d697c468
+        lines: [525, 553]
+      status: fresh
+      since: 2026-07-21T04:37:52.821967Z
+    - id: cmd/nbco-worker/worker_test.go#TestAgentRevisionRequiresFreshCompletionMarks
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker_test.go
+        symbol: TestAgentRevisionRequiresFreshCompletionMarks
+        hash: sha256:56686821a5ec27f5c9e4bf562805ab823a7308670ae7c4f89b0617202158c4d9
+        struct_hash: sha256:70939381fe9a617f19fcaa1f1271595817e09ec4b5515fc871702edfd02fc4ae
+        doc_struct_hash: sha256:70939381fe9a617f19fcaa1f1271595817e09ec4b5515fc871702edfd02fc4ae
+        lines: [573, 585]
+      status: fresh
+      since: 2026-07-21T04:37:52.826084Z

@@ -310,10 +310,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: Worker.execute
-        hash: sha256:cc46ac24fd0c47ba91e5d31a31166e498687f6f13282d9bc8c39e45fe0a855d9
-        struct_hash: sha256:345fda277d88818863cb98acec4f24837dce11821e21a414bfbdd892fad544a6
-        doc_struct_hash: sha256:a9c72336290a7de71bdffb4a9c68b13d9de925a45bc98472da81b3e78a6c7d79
-        lines: [244, 391]
+        hash: sha256:d83936f3777aba3866bba52ae7d1d025820116e3040093f573aedf219e3ced0e
+        struct_hash: sha256:3a932d99164724542d4713c7a4b08a84d2ac0a829e5b2bbd642f148da131dc32
+        doc_struct_hash: sha256:a412046073c20ffa8263e53e2c0fd88626017976798a75682a26598909d3366f
+        lines: [244, 427]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker.go#Worker.keepRunLease
@@ -701,3 +701,55 @@ nodes:
         lines: [428, 444]
       status: fresh
       since: 2026-07-20T19:05:03.620245Z
+    - id: cmd/nbco-worker/worker.go#driveAgentTurnsWithJudge
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker.go
+        symbol: driveAgentTurnsWithJudge
+        hash: sha256:b78ae1a788a0c7ed870cf829886b7adbff02e218c3ffa689284be26b4ceb3b06
+        struct_hash: sha256:583d8ea30c54ffba4830e729273a250633aea665c922af054dbfa8f1c2f61dca
+        doc_struct_hash: sha256:583d8ea30c54ffba4830e729273a250633aea665c922af054dbfa8f1c2f61dca
+        lines: [441, 497]
+      status: fresh
+      since: 2026-07-21T04:37:52.811793Z
+      entries:
+        - id: e_bdc875dd
+          kind: contract
+          text: 生产 PTY 循环先解析本轮 nonce 的完成/补充信息标记；未收尾时由语义监督按同一根因累计停滞，真实进展不设总回合上限。监督暂不可用才退回终端指纹兜底。
+          confidence: inferred
+          at: 2026-07-21T04:51:55.660411Z
+          author: codex-mcp-client
+        - id: e_086602b0
+          kind: pitfall
+          text: 终端文本变化、提示回显数量变化和工作区文件 churn 都不能单独证明任务进展；把其中任一项直接当 pass 会让重复失败无限续跑。
+          confidence: inferred
+          at: 2026-07-21T04:51:55.661092Z
+          author: codex-mcp-client
+      keywords:
+        - worker 无效纠错
+        - pty 进展监督
+        - semantic stall
+        - changing narrative
+        - completion marker
+    - id: cmd/nbco-worker/worker.go#agentRecoveryContinuationWithMarks
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker.go
+        symbol: agentRecoveryContinuationWithMarks
+        hash: sha256:17a3653cd1041649b593253f01d3fb43125435f393eb740bf1b6bfc8b33601c4
+        struct_hash: sha256:2c53594180798994345695a6d526f5bd4776cfb6b4f385acff306e131d7bc668
+        doc_struct_hash: sha256:2c53594180798994345695a6d526f5bd4776cfb6b4f385acff306e131d7bc668
+        lines: [1036, 1040]
+      status: fresh
+      since: 2026-07-21T04:37:52.814971Z
+    - id: cmd/nbco-worker/worker.go#agentRevisionWithMarks
+      level: function
+      anchor:
+        file: cmd/nbco-worker/worker.go
+        symbol: agentRevisionWithMarks
+        hash: sha256:335e6f0cfeb995f859e0094b64ea1b7f7d1bf99827a8f07f6e0d119d325cae4a
+        struct_hash: sha256:0b139123438765b4ebf8880cbd1d21dcf0884a973eeb933d9deb04559dacd99e
+        doc_struct_hash: sha256:0b139123438765b4ebf8880cbd1d21dcf0884a973eeb933d9deb04559dacd99e
+        lines: [1042, 1046]
+      status: fresh
+      since: 2026-07-21T04:37:52.818128Z

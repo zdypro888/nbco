@@ -522,6 +522,68 @@ func TestDriveAgentTurnsIgnoresAccumulatedContinuationEcho(t *testing.T) {
 	}
 }
 
+func TestDriveAgentTurnsSupervisorStopsChangingNarrative(t *testing.T) {
+	marks := completionMarks{
+		Summary: "<<<SUMMARY:judge-stall>>>", Lessons: "<<<LESSONS:judge-stall>>>",
+		NeedInput: "<<<NEED_INPUT:judge-stall>>>", End: "<<<END:judge-stall>>>",
+	}
+	submits := 0
+	_, _, _, _, ok, needsInput, err := driveAgentTurnsWithJudge(
+		"第一次说明仍在修复", nil, marks,
+		func(prompt string) (string, error) {
+			submits++
+			if !strings.Contains(prompt, "独立执行监督判断") || !strings.Contains(prompt, "换一条可验证路径") {
+				t.Fatalf("监督返工提示未注入具体指导: %q", prompt)
+			}
+			return fmt.Sprintf("第%d次换一种说法但没有新证据", submits+1), nil
+		},
+		func(string) (agentTurnAssessment, error) {
+			return agentTurnAssessment{
+				Status: "stalled", Signature: "same_failed_strategy", Reason: "仍在重复失败策略",
+				Guidance: "换一条可验证路径", Evaluated: true,
+			}, nil
+		},
+	)
+	if !errors.Is(err, errAgentNoProgress) || ok || needsInput {
+		t.Fatalf("changing prose with one stalled cause must stop: ok=%v input=%v err=%v", ok, needsInput, err)
+	}
+	if submits != maxStalledTurns-1 {
+		t.Fatalf("submits=%d want %d", submits, maxStalledTurns-1)
+	}
+}
+
+func TestDriveAgentTurnsSupervisorAllowsVerifiedProgress(t *testing.T) {
+	marks := completionMarks{
+		Summary: "<<<SUMMARY:judge-progress>>>", Lessons: "<<<LESSONS:judge-progress>>>",
+		NeedInput: "<<<NEED_INPUT:judge-progress>>>", End: "<<<END:judge-progress>>>",
+	}
+	final := marks.Summary + "\n已完成真实修改并验证\n" + marks.Lessons + "\n无\n" + marks.End
+	screen, summary, _, _, ok, needsInput, err := driveAgentTurnsWithJudge(
+		"已取得第一份可靠证据", nil, marks,
+		func(string) (string, error) { return final, nil },
+		func(string) (agentTurnAssessment, error) {
+			return agentTurnAssessment{Status: "progressing", Signature: "new_evidence", Evaluated: true}, nil
+		},
+	)
+	if err != nil || !ok || needsInput || screen != final || summary != "已完成真实修改并验证" {
+		t.Fatalf("verified progress was interrupted: screen=%q summary=%q ok=%v input=%v err=%v", screen, summary, ok, needsInput, err)
+	}
+}
+
+func TestAgentRevisionRequiresFreshCompletionMarks(t *testing.T) {
+	oldMarks := newCompletionMarks()
+	newMarks := newCompletionMarks()
+	oldResult := oldMarks.Summary + "\n旧结果\n" + oldMarks.Lessons + "\n无\n" + oldMarks.End
+	revision := agentRevisionWithMarks(newMarks, agentTurnAssessment{Reason: "旧结果不合格", Guidance: "修正交付物"})
+	screen := oldResult + "\n" + revision + "\n正在返工"
+	if _, _, ok := parseCompletionWithMarks(screen, newMarks); ok {
+		t.Fatal("返工未输出新 nonce 完成块前不能复用旧完成结果")
+	}
+	if _, _, ok := parseCompletionWithMarks(screen, oldMarks); !ok {
+		t.Fatal("test fixture should contain the old valid completion block")
+	}
+}
+
 func TestCliArgs(t *testing.T) {
 	claude := (&Worker{cfg: Config{Engine: "claude"}}).cliArgs()
 	for _, arg := range claude {

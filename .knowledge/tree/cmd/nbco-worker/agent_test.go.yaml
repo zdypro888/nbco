@@ -118,3 +118,36 @@ nodes:
         lines: [259, 290]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/agent_test.go#TestExecuteBuiltinRevisesBeforeSubmitting
+      level: function
+      anchor:
+        file: cmd/nbco-worker/agent_test.go
+        symbol: TestExecuteBuiltinRevisesBeforeSubmitting
+        hash: sha256:7ca7192f670b9645b0d72eb0eddc854359b07c5114ca002a0e88f073d45c61b7
+        struct_hash: sha256:05f12efe0ba13d158c219b0c27c0a984771cc50e22f5578c17c11fc92972d412
+        doc_struct_hash: sha256:05f12efe0ba13d158c219b0c27c0a984771cc50e22f5578c17c11fc92972d412
+        lines: [171, 195]
+      status: fresh
+      since: 2026-07-21T04:51:44.262993Z
+    - id: cmd/nbco-worker/agent_test.go#TestExecuteBuiltinStopsRepeatedRejectedCompletion
+      level: function
+      anchor:
+        file: cmd/nbco-worker/agent_test.go
+        symbol: TestExecuteBuiltinStopsRepeatedRejectedCompletion
+        hash: sha256:98053961412f6be2a536da6cfd37649e159d9873e9613d8768b9536b7c93706a
+        struct_hash: sha256:f7f7ced4e0605043128d9462612eae6ba3b82683e3f1be685ca24759f9ee122f
+        doc_struct_hash: sha256:f7f7ced4e0605043128d9462612eae6ba3b82683e3f1be685ca24759f9ee122f
+        lines: [197, 216]
+      status: fresh
+      since: 2026-07-21T04:51:44.264403Z
+    - id: cmd/nbco-worker/agent_test.go#TestExecuteBuiltinStopsRepeatedSemanticStall
+      level: function
+      anchor:
+        file: cmd/nbco-worker/agent_test.go
+        symbol: TestExecuteBuiltinStopsRepeatedSemanticStall
+        hash: sha256:707b78ae9aacdd0229110115f6e7b499d030127ff587bce23812c509dc3fe035
+        struct_hash: sha256:a7b575c11ba84f81ed3c7f400f09b6ae061aaaa8e444abb2200f90013ea02fcd
+        doc_struct_hash: sha256:a7b575c11ba84f81ed3c7f400f09b6ae061aaaa8e444abb2200f90013ea02fcd
+        lines: [218, 238]
+      status: fresh
+      since: 2026-07-21T04:51:44.265801Z

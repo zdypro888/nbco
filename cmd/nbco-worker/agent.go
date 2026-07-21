@@ -19,7 +19,6 @@ import (
 const engineBuiltin = "builtin"
 
 const (
-	agentMaxSteps      = 40               // 单任务的模型步数上限（防失控循环）
 	agentCmdTimeout    = 10 * time.Minute // run_command 默认时限
 	agentCmdTimeoutMax = 30 * time.Minute // run_command 可指定的最大时限
 	agentToolOutLimit  = 12 << 10         // 单条命令输出喂回模型的截断（保尾部）
@@ -106,16 +105,21 @@ func agentTaskText(task *Run, knowledge, history []string) string {
 		"\n请从摸清现状开始，用 run_command 逐步完成并验证；缺关键外部信息时 request_input，否则最后 task_done 提交。"
 }
 
-// executeBuiltin 内置智能体主循环：模型决策 → 本机执行 → 结果喂回，直到
-// task_done 或达到步数上限。进度、产物上传、提交验收全部复用 CLI 路径的机制。
+// executeBuiltin 内置智能体主循环：模型决策 → 本机执行 → 独立监督 → 结果喂回，
+// 直到 task_done 通过完成评估。任务总 context 控制墙钟；重复无动作或同一停滞
+// 根因控制收敛，不用任意总步数截断仍在形成真实进展的任务。
 func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledge, history []string, dir string) {
 	msgs := []chatMessage{
 		{Role: "system", Content: agentSystemPrompt(w.cfg.WorkerName)},
 		{Role: "user", Content: agentTaskText(task, knowledge, history)},
 	}
 	w.report(ctx, task.ID, task.ClaimID, "🤖 内置智能体开始执行（中枢模型驱动）")
+	supervisor := newAgentSupervisor(w, task, knowledge, history, dir)
 	noTool := 0
-	for step := 1; step <= agentMaxSteps; step++ {
+	lastStallSignature := ""
+	stalled := 0
+	reviewFailures := map[string]int{}
+	for {
 		if w.killed() {
 			w.report(ctx, task.ID, task.ClaimID, "⛔ 任务被服务端取消，已终止执行。")
 			return
@@ -131,7 +135,7 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 			return
 		}
 		if len(msg.ToolCalls) == 0 {
-			// 光说不练：说明记进度，提醒几次后把最后发言当总结提交。
+			// 光说不练：说明记进度；重复出现则失败，绝不把叙述当完成结果。
 			if t := strings.TrimSpace(msg.Content); t != "" {
 				w.report(ctx, task.ID, task.ClaimID, "💭 "+clipHead(t, agentThoughtLimit))
 			}
@@ -146,17 +150,47 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 		}
 		noTool = 0
 		msgs = append(msgs, msg)
+		continueAgent := false
 		for _, tc := range msg.ToolCalls {
 			switch tc.Function.Name {
 			case "task_done":
+				if len(msg.ToolCalls) != 1 {
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID,
+						Content: "task_done 必须在其他工具结果已返回且完成验证后的独立回合调用，不能和执行工具并行。"})
+					continueAgent = true
+					continue
+				}
 				var args struct {
 					Summary string `json:"summary"`
 					Lessons string `json:"lessons"`
 				}
-				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+				if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: "task_done 参数解析失败：" + err.Error()})
+					continueAgent = true
+					continue
+				}
 				summary := strings.TrimSpace(args.Summary)
 				if summary == "" {
-					summary = "任务完成（智能体未提供总结）。"
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: "summary 不能为空"})
+					continueAgent = true
+					continue
+				}
+				assessment, reviewErr := supervisor.reviewCompletion(runCtx, summary, builtinAgentEvidence(msgs))
+				if reviewErr != nil {
+					w.failTask(ctx, task, "内置智能体独立完成评估不可用: "+reviewErr.Error(), task.Session, dir)
+					return
+				}
+				if assessment.revise() {
+					reviewFailures[assessment.Signature]++
+					w.report(ctx, task.ID, task.ClaimID, "🔎 独立完成评估要求返工："+assessment.Reason)
+					if reviewFailures[assessment.Signature] >= maxRepeatedReviewFailures {
+						w.failTask(ctx, task, fmt.Sprintf("独立评估连续指出同一未解决问题（%s）: %s", assessment.Signature, assessment.Reason), task.Session, dir)
+						return
+					}
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID,
+						Content: "完成评估未通过，不能提交。问题：" + assessment.Reason + "\n返工要求：" + assessment.Guidance})
+					continueAgent = true
+					continue
 				}
 				w.submitAgent(ctx, runCtx, task, dir, summary, strings.TrimSpace(args.Lessons))
 				return
@@ -184,8 +218,47 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 					Content: "未知工具 " + tc.Function.Name + "，可用工具：run_command、request_input、task_done。"})
 			}
 		}
+		if continueAgent {
+			continue
+		}
+		assessment, assessErr := supervisor.assessTurn(runCtx, builtinAgentEvidence(msgs))
+		if assessErr != nil {
+			log.Printf("任务 #%d 内置智能体过程监督暂不可用，沿用任务 context 继续: %v", task.ID, assessErr)
+			continue
+		}
+		if !assessment.Evaluated {
+			continue
+		}
+		if assessment.progressing() {
+			lastStallSignature = ""
+			stalled = 0
+			continue
+		}
+		if assessment.Signature == lastStallSignature {
+			stalled++
+		} else {
+			lastStallSignature = assessment.Signature
+			stalled = 1
+		}
+		w.report(ctx, task.ID, task.ClaimID, "🧭 执行监督发现没有形成新进展："+assessment.Reason)
+		if stalled >= maxStalledTurns {
+			w.failTask(ctx, task, fmt.Sprintf("内置智能体连续重复同一无效策略（%s）: %s", assessment.Signature, assessment.Reason), task.Session, dir)
+			return
+		}
+		msgs = append(msgs, chatMessage{Role: "user",
+			Content: "独立执行监督判断当前没有形成新的可验证进展。问题：" + assessment.Reason +
+				"\n请按这个方向改变策略：" + assessment.Guidance})
 	}
-	w.failTask(ctx, task, fmt.Sprintf("内置智能体达到 %d 步上限仍未收尾", agentMaxSteps), task.Session, dir)
+}
+
+func builtinAgentEvidence(msgs []chatMessage) string {
+	const recentMessages = 12
+	start := max(0, len(msgs)-recentMessages)
+	raw, err := json.Marshal(msgs[start:])
+	if err != nil {
+		return "无法编码最近执行记录：" + err.Error()
+	}
+	return string(raw)
 }
 
 // llmWithRetry 模型调用带瞬时故障重试；任务被取消/杀死时立即放弃。
