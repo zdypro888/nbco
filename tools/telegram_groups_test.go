@@ -73,14 +73,29 @@ func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
 			t.Fatalf("group messages missing %q:\n%s", want, got)
 		}
 	}
+	empty := renderTelegramGroupMessages(
+		store.TelegramGroupState{Title: "项目群"},
+		store.ChannelMessagePage{},
+		from,
+		to,
+		tz,
+	)
+	for _, want := range []string{"recorded_messages=0", "唯一可支持的结论", "禁止据此推断", "成员休假"} {
+		if !strings.Contains(empty, want) {
+			t.Fatalf("empty group result missing %q:\n%s", want, empty)
+		}
+	}
 }
 
-func TestTelegramGroupDigestDirectiveUsesMessageFactTool(t *testing.T) {
+func TestTelegramGroupDigestDirectiveDeclaresSchedulerFactBoundary(t *testing.T) {
 	got := telegramGroupDigestDirective(store.TelegramGroupState{ChatID: -100123, Title: "项目群"}, "只看风险")
-	for _, want := range []string{"list_telegram_group_messages", "telegram:group:-100123", "实际消息", "只看风险"} {
+	for _, want := range []string{"telegram:group:-100123", "调度器会直接提供", "实际已记录消息", "只看风险"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("digest directive missing %q: %s", want, got)
 		}
+	}
+	if strings.Contains(got, "调用 list_telegram_group_messages") {
+		t.Fatalf("digest should not ask OneShot generation to call tools: %s", got)
 	}
 }
 
@@ -124,7 +139,7 @@ func TestTelegramGroupMessageAndDigestToolsIntegration(t *testing.T) {
 		t.Fatalf("set digest = %q err=%v", setOut, err)
 	}
 	sc, err := s.AutomationSchedule(ctx, boss.ID, telegramGroupDigestSourceKind, "-100123")
-	if err != nil || sc.SourceKind != telegramGroupDigestSourceKind || !strings.Contains(sc.Message, "list_telegram_group_messages") {
+	if err != nil || sc.SourceKind != telegramGroupDigestSourceKind || !strings.Contains(sc.Message, "调度器会直接提供") {
 		t.Fatalf("digest schedule = %+v err=%v", sc, err)
 	}
 	if sc.Title != "项目群 每日摘要" {

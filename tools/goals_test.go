@@ -437,6 +437,11 @@ func TestCloseMilestoneEmitsEventOnAchievedByNonOwner(t *testing.T) {
 	if !strings.Contains(got, "已达成") {
 		t.Fatalf("close_milestone achieved reply = %q", got)
 	}
+	for _, want := range []string{"所属目标", "仍为 active", "不会自动关闭目标"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("close_milestone lifecycle boundary missing %q: %q", want, got)
+		}
+	}
 	if len(rec.events) != 1 || rec.events[0].kind != "里程碑达成" || rec.events[0].decider != owner.ID {
 		t.Fatalf("应 emit 里程碑达成 给 owner, got %+v", rec.events)
 	}

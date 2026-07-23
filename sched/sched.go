@@ -13,9 +13,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/notify"
@@ -44,6 +46,10 @@ const (
 	// sendConcurrency 模板类推送/查询的并发上限（廉价、网络受限，可高于 AI）。
 	sendConcurrency = 16
 	messageTimeout  = 30 * time.Second
+	// Background reports have a bounded objective and must not spend the
+	// interactive DeepAgent budget wandering through unrelated tools.
+	automationMaxIterations = 12
+	groupDigestMessageLimit = 240
 )
 
 // Scheduler 调度器。
@@ -78,13 +84,21 @@ func New(s *store.Store, n notify.Notifier, orch *chat.Orchestrator, bus *events
 const aiTurnTimeout = 4 * time.Minute
 
 func (s *Scheduler) runAIReply(ctx context.Context, u *store.User, executionKey, directive, label string, readOnly bool) (string, error) {
+	options := chat.AutomationTurnOptions{ReadOnly: readOnly}
+	if readOnly {
+		options.MaxIterations = automationMaxIterations
+	}
+	return s.runAIReplyWithOptions(ctx, u, executionKey, directive, label, options)
+}
+
+func (s *Scheduler) runAIReplyWithOptions(ctx context.Context, u *store.User, executionKey, directive, label string, options chat.AutomationTurnOptions) (string, error) {
 	turnCtx, cancel := context.WithTimeout(ctx, aiTurnTimeout)
 	defer cancel()
 	var (
 		reply string
 		err   error
 	)
-	reply, err = s.orch.HandleAutomationMessage(turnCtx, u, s.channel, executionKey, directive, chat.AutomationTurnOptions{ReadOnly: readOnly})
+	reply, err = s.orch.HandleAutomationMessage(turnCtx, u, s.channel, executionKey, directive, options)
 	if err != nil {
 		slog.Error("定时 AI 轮次失败", "kind", label, "user", u.ID, "err", err)
 		return "", err
@@ -374,11 +388,18 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 	if d.Mode == store.ScheduleModeAI {
 		message = strings.TrimSpace(d.ResultText)
 		if message == "" && s.orch != nil {
-			directive := s.scheduleAIDirective(ctx, d, time.Now())
-			message, err = s.runAIReply(ctx, u, fmt.Sprintf("schedule:%d", d.ScheduleID), directive, "定时推送", true)
-			if err != nil {
-				s.retryScheduleRecipient(ctx, d, "生成定时推送失败: "+err.Error())
+			prepared, prepareErr := s.prepareScheduleAI(ctx, d, time.Now())
+			if prepareErr != nil {
+				s.retryScheduleRecipient(ctx, d, "准备定时推送失败: "+prepareErr.Error())
 				return
+			}
+			message = prepared.DirectResult
+			if message == "" {
+				message, err = s.runAIReplyWithOptions(ctx, u, fmt.Sprintf("schedule:%d", d.ScheduleID), prepared.Directive, "定时推送", prepared.Options)
+				if err != nil {
+					s.retryScheduleRecipient(ctx, d, "生成定时推送失败: "+err.Error())
+					return
+				}
 			}
 			if message = textfmt.TruncateRunes(strings.TrimSpace(message), 12000); message == "" {
 				s.retryScheduleRecipient(ctx, d, "未生成可投递内容")
@@ -405,14 +426,21 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 	}
 }
 
-func (s *Scheduler) scheduleAIDirective(ctx context.Context, d *store.ScheduleDelivery, generatedAt time.Time) string {
+type preparedScheduleAI struct {
+	Directive    string
+	DirectResult string
+	Options      chat.AutomationTurnOptions
+}
+
+func (s *Scheduler) prepareScheduleAI(ctx context.Context, d *store.ScheduleDelivery, generatedAt time.Time) (preparedScheduleAI, error) {
 	tz := s.tz
 	if tz == nil {
 		tz = time.Local
 	}
 	authoredAt := d.CreatedAt
 	var source *store.ChatMessage
-	if sc, err := s.store.ScheduleByID(ctx, d.ScheduleID); err == nil {
+	sc, err := s.store.ScheduleByID(ctx, d.ScheduleID)
+	if err == nil {
 		authoredAt = sc.CreatedAt
 		if sc.SourceMessageID != nil {
 			if message, err := s.store.ChatMessageByID(ctx, *sc.SourceMessageID); err == nil {
@@ -421,10 +449,128 @@ func (s *Scheduler) scheduleAIDirective(ctx context.Context, d *store.ScheduleDe
 				slog.Warn("读取日程来源消息失败", "schedule", d.ScheduleID, "message", *sc.SourceMessageID, "err", err)
 			}
 		}
+		if sc.SourceKind == store.ScheduleSourceTelegramGroupDigest {
+			return s.prepareTelegramGroupDigest(ctx, sc, d, generatedAt, tz)
+		}
 	} else if !errors.Is(err, store.ErrNotFound) {
-		slog.Warn("读取日程来源失败", "schedule", d.ScheduleID, "err", err)
+		return preparedScheduleAI{}, fmt.Errorf("读取日程来源: %w", err)
 	}
-	return renderScheduleAIDirective(d, authoredAt, generatedAt, source, tz)
+	return preparedScheduleAI{
+		Directive: renderScheduleAIDirective(d, authoredAt, generatedAt, source, tz),
+		Options: chat.AutomationTurnOptions{
+			ReadOnly:      true,
+			MaxIterations: automationMaxIterations,
+		},
+	}, nil
+}
+
+type telegramGroupDigestMessage struct {
+	At      string `json:"at"`
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type telegramGroupDigestContext struct {
+	Group            string                       `json:"group"`
+	TimeZone         string                       `json:"time_zone"`
+	ObservedFrom     string                       `json:"observed_from"`
+	ObservedTo       string                       `json:"observed_to"`
+	RecordedMessages int64                        `json:"recorded_messages"`
+	IncludedMessages int                          `json:"included_messages"`
+	Truncated        bool                         `json:"truncated"`
+	Focus            string                       `json:"focus,omitempty"`
+	Messages         []telegramGroupDigestMessage `json:"messages"`
+}
+
+func (s *Scheduler) prepareTelegramGroupDigest(
+	ctx context.Context,
+	sc *store.Schedule,
+	d *store.ScheduleDelivery,
+	generatedAt time.Time,
+	tz *time.Location,
+) (preparedScheduleAI, error) {
+	chatID, err := strconv.ParseInt(strings.TrimSpace(sc.SourceKey), 10, 64)
+	if err != nil {
+		return preparedScheduleAI{}, fmt.Errorf("Telegram 群摘要来源无效: %w", err)
+	}
+	group, err := s.store.TelegramGroupState(ctx, chatID)
+	if err != nil {
+		return preparedScheduleAI{}, fmt.Errorf("读取 Telegram 群: %w", err)
+	}
+	planned := d.OccurrenceAt.In(tz)
+	from := time.Date(planned.Year(), planned.Month(), planned.Day(), 0, 0, 0, 0, tz)
+	to := generatedAt.In(tz)
+	dayEnd := from.AddDate(0, 0, 1)
+	if to.After(dayEnd) {
+		to = dayEnd
+	}
+	if !to.After(from) {
+		to = planned
+	}
+	page, err := s.store.ListChannelMessages(
+		ctx,
+		fmt.Sprintf("telegram:group:%d", chatID),
+		from,
+		to,
+		groupDigestMessageLimit,
+	)
+	if err != nil {
+		return preparedScheduleAI{}, fmt.Errorf("读取 Telegram 群消息: %w", err)
+	}
+	title := strings.TrimSpace(group.Title)
+	if title == "" {
+		title = "未命名群"
+	}
+	if page.Total == 0 {
+		return preparedScheduleAI{
+			DirectResult: renderEmptyTelegramGroupDigest(title, from, to, tz),
+			Options:      chat.AutomationTurnOptions{ReadOnly: true, Mode: ai.TurnModeOneShot},
+		}, nil
+	}
+	return preparedScheduleAI{
+		Directive: renderTelegramGroupDigestDirective(title, sc.Message, page, from, to, tz),
+		Options:   chat.AutomationTurnOptions{ReadOnly: true, Mode: ai.TurnModeOneShot},
+	}, nil
+}
+
+func renderEmptyTelegramGroupDigest(title string, from, to time.Time, tz *time.Location) string {
+	return fmt.Sprintf(
+		"📭 <b>%s 每日摘要</b>\n观察窗口：%s 至 %s（%s）\n系统在该时间范围内没有保存到群消息，因此没有可整理的讨论内容。这只说明 nbco 未记录到消息，不能据此判断 Telegram 群内绝对无人发言、成员是否休假或群外工作状态。",
+		title,
+		from.In(tz).Format("2006-01-02 15:04"),
+		to.In(tz).Format("2006-01-02 15:04"),
+		tz.String(),
+	)
+}
+
+func renderTelegramGroupDigestDirective(
+	title, focus string,
+	page store.ChannelMessagePage,
+	from, to time.Time,
+	tz *time.Location,
+) string {
+	payload := telegramGroupDigestContext{
+		Group:            title,
+		TimeZone:         tz.String(),
+		ObservedFrom:     from.In(tz).Format(time.RFC3339),
+		ObservedTo:       to.In(tz).Format(time.RFC3339),
+		RecordedMessages: page.Total,
+		IncludedMessages: len(page.Messages),
+		Truncated:        page.Total > int64(len(page.Messages)),
+		Focus:            textfmt.TruncateRunes(strings.TrimSpace(focus), 1200),
+		Messages:         make([]telegramGroupDigestMessage, 0, len(page.Messages)),
+	}
+	for _, message := range page.Messages {
+		payload.Messages = append(payload.Messages, telegramGroupDigestMessage{
+			At:      message.CreatedAt.In(tz).Format(time.RFC3339),
+			Role:    message.Role,
+			Content: textfmt.TruncateRunes(strings.TrimSpace(message.Content), 1200),
+		})
+	}
+	data, _ := json.Marshal(payload)
+	return "[系统定时触发·Telegram 群摘要]（此输入来自系统调度器，不是用户本人）\n" +
+		"只根据 <group_digest_context> 内系统实际保存的消息生成简洁摘要，覆盖事实、进展、问题/风险、决策和待跟进事项。不得补充模型常识、节假日、群外状态或未被消息证明的因果关系；不得把消息数说成人数。观察窗口未覆盖全天或消息被截断时必须明确说明。直接输出给摘要订阅者看的内容，不展示内部上下文。\n" +
+		"<group_digest_context>" + string(data) + "</group_digest_context>"
 }
 
 type schedulePromptSource struct {

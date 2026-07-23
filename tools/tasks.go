@@ -39,7 +39,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				return renderTasks(ts, d.TZ), nil
 			}),
 
-		tool("get_my_all_tasks", "查看当前用户相关的所有普通工作任务（含负责、协作、验收、关注以及已完成/已拆分任务），不包含定时提醒、计划推送或持久自动化；后者使用 list_schedules。",
+		tool("get_my_all_tasks", "一次查看当前用户相关的所有普通工作任务（含负责、协作、验收、关注以及已完成/已拆分任务）。用户笼统询问“我的任务”时优先只调用本工具；只有明确询问“我分配出去的任务”才另用 get_assigned_tasks。不包含定时提醒、计划推送或持久自动化；后者使用 list_schedules。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				ts, err := d.Store.TasksOfAssignee(ctx, u.ID, false)
@@ -936,7 +936,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("项目「%s」已创建（%s）。", pj.Name, internalRef("项目", pj.ID)), nil
+				return fmt.Sprintf("项目「%s」已创建（%s），当前状态 active（尚未归档）。", pj.Name, internalRef("项目", pj.ID)), nil
 			}),
 
 		tool("list_my_projects", "查看我创建的项目。", obj(nil),

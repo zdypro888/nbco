@@ -144,7 +144,14 @@ func convertTables(s string, stashPut func(string) string) string {
 func tidyTableRow(row string) string {
 	cells := strings.Split(strings.Trim(row, "|"), "|")
 	for i := range cells {
-		cells[i] = strings.TrimSpace(cells[i])
+		cell := strings.TrimSpace(cells[i])
+		// A Markdown table is rendered as <pre>, where Telegram does not parse
+		// nested Markdown or HTML presentation. Keep only the visible cell text
+		// so markers such as **status** never leak to the user.
+		cell = stripTagRe.ReplaceAllString(cell, "")
+		cell = boldRe.ReplaceAllString(cell, "$1")
+		cell = linkRe.ReplaceAllString(cell, "$1 ($2)")
+		cells[i] = cell
 	}
 	return strings.Join(cells, "  ")
 }

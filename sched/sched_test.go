@@ -157,3 +157,43 @@ func TestScheduleAIDirectiveCarriesStructuredContext(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderTelegramGroupDigestDirectiveCarriesClosedFacts(t *testing.T) {
+	from := time.Date(2026, 7, 23, 0, 0, 0, 0, tz)
+	to := from.Add(19 * time.Hour)
+	page := store.ChannelMessagePage{
+		Total: 2,
+		Messages: []store.ChatMessage{
+			{Role: "user", Content: "【Alice】BrandOS 已交付", CreatedAt: from.Add(9 * time.Hour)},
+			{Role: "user", Content: "【Bob】支付仍需复测", CreatedAt: from.Add(10 * time.Hour)},
+		},
+	}
+	got := renderTelegramGroupDigestDirective("日本公司成员", "只看风险", page, from, to, tz)
+	for _, want := range []string{
+		"Telegram 群摘要",
+		`"group":"日本公司成员"`,
+		`"recorded_messages":2`,
+		`"included_messages":2`,
+		"BrandOS 已交付",
+		"支付仍需复测",
+		"只看风险",
+		"不得补充模型常识",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("group digest directive missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "list_telegram_group_messages") {
+		t.Fatalf("OneShot group digest must not depend on a tool loop:\n%s", got)
+	}
+}
+
+func TestRenderEmptyTelegramGroupDigestDoesNotInferAbsence(t *testing.T) {
+	from := time.Date(2026, 7, 23, 0, 0, 0, 0, tz)
+	got := renderEmptyTelegramGroupDigest("日本公司成员", from, from.Add(19*time.Hour), tz)
+	for _, want := range []string{"没有保存到群消息", "不能据此判断", "绝对无人发言", "成员是否休假"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("empty digest missing %q: %s", want, got)
+		}
+	}
+}

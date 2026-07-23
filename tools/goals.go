@@ -51,7 +51,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("目标「%s」已创建（%s）。用 add_milestone 拆解里程碑。", g.Title, internalRef("目标", g.ID)), nil
+				return fmt.Sprintf("目标「%s」已创建（%s），当前状态 active（尚未达成或归档）。用 add_milestone 拆解里程碑。", g.Title, internalRef("目标", g.ID)), nil
 			}),
 
 		tool("add_milestone",
@@ -93,7 +93,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("里程碑「%s」已加到目标「%s」（%s）。用 decompose_milestone 落成任务。", m.Title, g.Title, internalRef("里程碑", m.ID)), nil
+				return fmt.Sprintf("里程碑「%s」已加到目标「%s」（%s），当前状态 active。用 decompose_milestone 落成任务。", m.Title, g.Title, internalRef("里程碑", m.ID)), nil
 			}),
 
 		tool("decompose_milestone",
@@ -398,7 +398,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				if args.Status == store.GoalAchieved && g.OwnerID != u.ID {
 					emitRequiredEvent(d, "里程碑达成", g.OwnerID, buildMilestoneClosedDetail(ctx, d.Store, m, g, u.Name))
 				}
-				return fmt.Sprintf("里程碑「%s」%s。", m.Title, label), nil
+				return fmt.Sprintf("里程碑「%s」%s；所属目标「%s」仍为 %s，本操作不会自动关闭目标或归档项目。", m.Title, label, g.Title, g.Status), nil
 			}),
 
 		tool("link_task_to_milestone",

@@ -55,6 +55,19 @@ func TestToTelegramHTMLTable(t *testing.T) {
 	}
 }
 
+func TestToTelegramHTMLTableStripsInlinePresentationMarkup(t *testing.T) {
+	got := toTelegramHTML("| 层级 | 内容 | 状态 |\n|---|---|---|\n| 📁 **项目** | BrandOS | ✅ **已创建** |\n| 🎯 <b>目标</b> | [详情](https://example.com) | active |")
+	want := "<pre>层级  内容  状态\n📁 项目  BrandOS  ✅ 已创建\n🎯 目标  详情 (https://example.com)  active</pre>"
+	if !strings.Contains(got, want) {
+		t.Fatalf("table presentation markup leaked:\n%s", got)
+	}
+	for _, bad := range []string{"**", "<b>目标</b>"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("table still contains %q:\n%s", bad, got)
+		}
+	}
+}
+
 func TestToTelegramHTMLRawHTMLTable(t *testing.T) {
 	got := toTelegramHTML("名单：\n<table>\n<tr><th>ID</th><th>姓名</th><th>状态</th></tr>\n<tr><td>#3</td><td>黄桑</td><td>active</td></tr>\n</table>\n完")
 	for _, bad := range []string{"<table", "</table", "<tr", "<td", "&lt;table", "&lt;td"} {

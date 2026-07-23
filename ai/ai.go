@@ -208,6 +208,10 @@ type TurnRequest struct {
 	// MaxOutputTokens bounds this call independently from the engine default.
 	// It is primarily used by internal OneShot selectors and extractors.
 	MaxOutputTokens int
+	// MaxIterations optionally lowers the DeepAgent lifecycle limit for bounded
+	// background work. Zero keeps the engine-wide limit; callers cannot raise
+	// the configured ceiling.
+	MaxIterations int
 	// Reasoning controls provider reasoning for this call. Unsupported providers
 	// keep their normal behavior.
 	Reasoning ReasoningMode

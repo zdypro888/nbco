@@ -252,7 +252,7 @@ type pushScheduleArgs struct {
 
 func scheduleOncePushTool(d Deps, u *store.User) ai.Tool {
 	return tool("schedule_once_push",
-		"设置只发生一次的定向推送；周期性推送使用 schedule_recurring_push。目标可以是自己、某个成员或全体。mode=ai 时到点结合原始消息、触发时间和实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。",
+		"设置只发生一次的定向推送；周期性推送使用 schedule_recurring_push。target 省略/self 只发给当前用户；_all 会向每名活跃真人分别投递，只有用户明确要求全体接收时才能使用。mode=ai 时到点结合原始消息、触发时间和实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。Telegram 群每日摘要必须使用 set_telegram_group_digest，不要用本工具模拟。",
 		obj(map[string]any{
 			"target":  p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
 			"mode":    enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),
@@ -297,7 +297,7 @@ func scheduleOncePushTool(d Deps, u *store.User) ai.Tool {
 
 func scheduleRecurringPushTool(d Deps, u *store.User) ai.Tool {
 	return tool("schedule_recurring_push",
-		"设置按日历规则重复发生的定向推送；只发生一次的推送使用 schedule_once_push。目标可以是自己、某个成员或全体。mode=ai 时每次结合实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。",
+		"设置按日历规则重复发生的定向推送；只发生一次的推送使用 schedule_once_push。target 省略/self 只发给当前用户；_all 会向每名活跃真人分别投递，只有用户明确要求全体接收时才能使用。mode=ai 时每次结合实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。Telegram 群每日摘要必须使用 set_telegram_group_digest，不要用本工具模拟。",
 		obj(map[string]any{
 			"target":   p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
 			"mode":     enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),

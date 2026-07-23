@@ -454,6 +454,7 @@ func (e *Engine) newDeepAgent(
 	handlers = append(handlers, summaryMiddleware)
 	handlers = append(handlers, toolScope)
 
+	maxIterations := deepMaxIterations(e.maxTurns, req.MaxIterations)
 	agent, err := deep.New(ctx, &deep.Config{
 		Name:        "nbco",
 		Description: "nbco 公司运营中枢",
@@ -462,7 +463,7 @@ func (e *Engine) newDeepAgent(
 		// instruction through the framework's supported configuration point.
 		Instruction:  req.System,
 		ChatModel:    model,
-		MaxIteration: e.maxTurns,
+		MaxIteration: maxIterations,
 		// nbco has durable tasks, goals and workflows. Deep's ephemeral coding
 		// checklist adds two model turns to simple operational actions without
 		// improving recoverability.
@@ -482,6 +483,13 @@ func (e *Engine) newDeepAgent(
 		return nil, nil, fmt.Errorf("构建 Eino DeepAgent: %w", err)
 	}
 	return agent, toolScope, nil
+}
+
+func deepMaxIterations(configured, requested int) int {
+	if requested > 0 && requested < configured {
+		return requested
+	}
+	return configured
 }
 
 type sessionResetter interface {

@@ -952,3 +952,20 @@ func TestDeepAgentDoesNotReactivateToolsFromEarlierTurns(t *testing.T) {
 		t.Fatalf("second=%+v", second)
 	}
 }
+
+func TestDeepMaxIterationsOnlyLowersConfiguredCeiling(t *testing.T) {
+	for _, tc := range []struct {
+		configured int
+		requested  int
+		want       int
+	}{
+		{64, 0, 64},
+		{64, 12, 12},
+		{64, 64, 64},
+		{64, 128, 64},
+	} {
+		if got := deepMaxIterations(tc.configured, tc.requested); got != tc.want {
+			t.Fatalf("deepMaxIterations(%d, %d) = %d, want %d", tc.configured, tc.requested, got, tc.want)
+		}
+	}
+}

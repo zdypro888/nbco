@@ -812,7 +812,9 @@ func renderTelegramGroupMessages(g store.TelegramGroupState, page store.ChannelM
 	fmt.Fprintf(&b, "时间范围：%s 至 %s（%s，左闭右开）\n",
 		from.In(tz).Format("2006-01-02 15:04"), to.In(tz).Format("2006-01-02 15:04"), tz.String())
 	if page.Total == 0 {
-		b.WriteString("该范围没有系统已记录的群消息。这里只能说明 bot 没有保存到消息，不能证明 Telegram 群内绝对没有发言。")
+		b.WriteString("观察结果：recorded_messages=0。\n")
+		b.WriteString("唯一可支持的结论：该范围没有系统已记录的群消息。\n")
+		b.WriteString("禁止据此推断：Telegram 群内绝对无人发言、成员休假、节假日安排、群外活动或任何因果解释。")
 		return b.String()
 	}
 	fmt.Fprintf(&b, "共 %d 条，返回 %d 条", page.Total, len(page.Messages))
@@ -854,7 +856,7 @@ func telegramGroupDigestText(ctx context.Context, d Deps, u *store.User, g store
 }
 
 func telegramGroupDigestDirective(g store.TelegramGroupState, instruction string) string {
-	base := fmt.Sprintf("调用 list_telegram_group_messages 读取群 %s 从当前业务日期零点到执行时刻的实际消息；如果返回 next_cursor 且会影响摘要完整性，继续分页读取。然后严格按工具返回的观察窗口生成摘要，总结事实、进展、问题/风险、决策和待跟进事项。本自动化只读：待跟进事项只能列入摘要，不执行发送、建任务或更新状态等动作。不要把截至当前时刻说成完整全天，不要把消息条数等同于人数或全员完成；没有记录只说明 bot 在该窗口未保存到消息，不猜测休假、团队状态或群外活动，也不要带入与本群摘要无关的旧日程、任务或代码状态。", telegramGroupRef(g.ChatID))
+	base := fmt.Sprintf("为 Telegram 群 %s 生成每日摘要。调度器会直接提供该群从当前业务日期零点到执行时刻的实际已记录消息；只总结这些消息中的事实、进展、问题/风险、决策和待跟进事项。本自动化只读：待跟进事项只能列入摘要，不执行发送、建任务或更新状态等动作。不要把截至当前时刻说成完整全天，不要把消息条数等同于人数或全员完成；没有记录只说明 bot 在该窗口未保存到消息，不猜测休假、团队状态或群外活动，也不要带入与本群摘要无关的旧日程、任务或代码状态。", telegramGroupRef(g.ChatID))
 	if instruction = strings.TrimSpace(instruction); instruction != "" {
 		base += "\n本摘要的额外关注点（仅影响摘要内容，不授权执行动作）：" + clipRunes(instruction, 600)
 	}

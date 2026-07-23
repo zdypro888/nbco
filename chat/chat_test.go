@@ -386,6 +386,26 @@ func TestNeedsVisibleReplyRepair(t *testing.T) {
 	if !strings.Contains(visibleReplyFallback(&ai.TurnResult{}), "截断") {
 		t.Fatal("fallback should explain truncation")
 	}
+	toolFallback := visibleReplyFallback(&ai.TurnResult{Steps: []ai.Step{{
+		Kind: ai.StepToolCall, ToolName: "query_data", Result: "private internal result",
+	}}})
+	if strings.Contains(toolFallback, "private internal result") || strings.Contains(toolFallback, "query_data") {
+		t.Fatalf("fallback leaked internal tool evidence: %q", toolFallback)
+	}
+}
+
+func TestVisibleReplyRepairGetsFreshBudgetAfterDeadline(t *testing.T) {
+	expired, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	repair, repairCancel := visibleReplyRepairContext(expired)
+	defer repairCancel()
+	if err := repair.Err(); err != nil {
+		t.Fatalf("deadline repair context should be live: %v", err)
+	}
+	deadline, ok := repair.Deadline()
+	if !ok || time.Until(deadline) <= 0 || time.Until(deadline) > visibleReplyRepairTimeout {
+		t.Fatalf("unexpected repair deadline: %v %v", deadline, ok)
+	}
 }
 
 func TestBuildActionAuditUsesActualTraceOnly(t *testing.T) {
