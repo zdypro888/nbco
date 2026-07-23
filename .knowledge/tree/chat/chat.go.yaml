@@ -266,10 +266,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.HandleAutomationMessage
-        hash: sha256:48f0a34ba1491b69a0eb792de364e53516126a514a5f472c64183d6333cf9ad8
-        struct_hash: sha256:4cf4c7c82a17b60f2fbd076d616e2cb99f3835ead20f32e8589b5adfe9e0ed36
-        doc_struct_hash: sha256:0aecf679dca9d6b827a47afa3205af06384a140cca55812963cbc1e0053596fe
-        lines: [168, 201]
+        hash: sha256:af95aca953f61b3de6608697028b3f57cd54ef0088fabae4e9be5438fcaa20ae
+        struct_hash: sha256:4cc0d9a7db53fcf65174fc12c0ab0ab4a8c9cf98ef2f01739b375bea69a72e01
+        doc_struct_hash: sha256:1bda30b4597238d2c687c419955d9ac0204e8e94f9671a6b4a2d67088c0e4877
+        lines: [166, 197]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.HandleMessageStream
@@ -343,10 +343,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:8519cb6676184758862fd3559cbbebff5dc4253ee27084085bf14d73a949ed17
-        struct_hash: sha256:37cba2e2260c6862557bd417e8cac66a6aed8a92427a51b30f327d3100123599
-        doc_struct_hash: sha256:91d5d82a2602ee7f8f254a2f737545045ccb3fbe3da7924ba6c45f3bfea4f065
-        lines: [299, 532]
+        hash: sha256:9e9429a2b2454f9d592d8b5449d5a39606351c19b4b38f50f47dbacc043e8eb7
+        struct_hash: sha256:2bd9026058fe6b3e08ab2404d570ff4f24ca7500acdf8142685ad50526bae8a9
+        doc_struct_hash: sha256:3955b17633596e614a0d3bbaed414c4fe10382eae726e0fad9145429b11fd207
+        lines: [303, 551]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -429,10 +429,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.repairDegenerateTurn
-        hash: sha256:0626679de03530822855ab2514f338704be0b271d47e4ca1a19d064098051e06
-        struct_hash: sha256:f5ebc3959c5eb017a2d48530e4bb0035c318d7122af12f93ea3299647265fbcf
-        doc_struct_hash: sha256:f5ebc3959c5eb017a2d48530e4bb0035c318d7122af12f93ea3299647265fbcf
-        lines: [618, 657]
+        hash: sha256:aa04eb3a7fddb15a5f426078808ee586819f7d94828862b99509ed3507c7cba0
+        struct_hash: sha256:334647c1c82cb52bbaa6b13989c824d09a44385598780243b1e0e9e805c24555
+        doc_struct_hash: sha256:334647c1c82cb52bbaa6b13989c824d09a44385598780243b1e0e9e805c24555
+        lines: [637, 678]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
       lineage:
@@ -464,10 +464,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: visibleReplyFallback
-        hash: sha256:2ce3f26128f6997b1531d45bb24d5deca704c2705829bbd59ab42f7ab0bdc67c
-        struct_hash: sha256:d7e8748f90b434da94037f1ae29962cf0aa3d191a64ddbeec936857c9a2c7b24
-        doc_struct_hash: sha256:d7e8748f90b434da94037f1ae29962cf0aa3d191a64ddbeec936857c9a2c7b24
-        lines: [718, 735]
+        hash: sha256:277918553ecb5e4bd5a699d961f6cbb1b9a34888067a57fb77da7b0cc2bb3c2b
+        struct_hash: sha256:f6a0b06beaf39ea772bc2873fbda0cd4142ea4d7917896639a017cb0ec347165
+        doc_struct_hash: sha256:f6a0b06beaf39ea772bc2873fbda0cd4142ea4d7917896639a017cb0ec347165
+        lines: [728, 733]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#countToolCalls
@@ -1381,9 +1381,9 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.systemPrompt
-        hash: sha256:d675c0b640eb7f52622c012a06017e66dd85320647240930cd5d6553937d64b9
-        struct_hash: sha256:eb6b596b54e45f3ddbb54da444b5681b6fc8df53220a9d2a1c22144bc18e09a6
-        doc_struct_hash: sha256:df74c4b5d7023e546dda6de4c70b97f4131709b087da8a64413dde0e70ce9ac8
-        lines: [2071, 2137]
+        hash: sha256:000ec4933191af367257d271a172bb22c292be666b2b635fe593fe711143e732
+        struct_hash: sha256:000b7d82e4458df496188890fdacf54c7d4a78b4cfea15c3a14235c0f83e0b48
+        doc_struct_hash: sha256:00cf2bdf8f043c1ad4c773a69013bb82f18feb9929f5df6b8c3a25dfc5e36432
+        lines: [2095, 2163]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

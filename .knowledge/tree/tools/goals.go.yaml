@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/goals.go
         symbol: goalTools
-        hash: sha256:f69e24236118775f7e3bcf273ebeae4f3b3abff12607714bbd9a615cd27717ae
-        struct_hash: sha256:a76dbfcb5adfefbbedfffab06c3eb30af2328e4837b4dbc586a99de7d9e35b7e
-        doc_struct_hash: sha256:a76dbfcb5adfefbbedfffab06c3eb30af2328e4837b4dbc586a99de7d9e35b7e
+        hash: sha256:a0c591752f630eaf041c9f25407335331c2789aa6b315f8152617ac20334665b
+        struct_hash: sha256:8e704dc64343fd6f9afe0e5f691cb9d9b1cae5c72d52211c062ea8c1c0b558f0
+        doc_struct_hash: sha256:8e704dc64343fd6f9afe0e5f691cb9d9b1cae5c72d52211c062ea8c1c0b558f0
         lines: [21, 599]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

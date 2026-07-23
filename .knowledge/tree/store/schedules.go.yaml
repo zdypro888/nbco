@@ -558,3 +558,14 @@ nodes:
         lines: [628, 634]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.UpdateScheduleTimingVisible
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.UpdateScheduleTimingVisible
+        hash: sha256:5978452a88698ba5e39b7a63013077161d6ba318ca9692253f244cf4c7a59ca5
+        struct_hash: sha256:74f00d4daf04f7b2c4f03c11eefd8218d90f3ba24199a00fa127f9017adb7635
+        doc_struct_hash: sha256:2902f4a78de0124ded3ee0e132bde57f24932a5ac4a5f231b68f60d085a3da51
+        lines: [327, 352]
+      status: fresh
+      since: 2026-07-23T14:41:23.066695Z

@@ -365,10 +365,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.deliverScheduleRecipient
-        hash: sha256:294b928404c15a49ec57ed89170211729462f12b56353ce0e55afe09dd79040e
-        struct_hash: sha256:7c26088d07c9b5ed9e5e6c8be36d6a0e76b6c989c51b8d97ef5d188b41c89015
-        doc_struct_hash: sha256:7c26088d07c9b5ed9e5e6c8be36d6a0e76b6c989c51b8d97ef5d188b41c89015
-        lines: [356, 406]
+        hash: sha256:50b71e4edd6b348547d0a9bd067424076583f555a5fc3bf6db9ca9584eb3e671
+        struct_hash: sha256:38a3627635f9359b11de936df33453b060dd05da75b9f6989309fd2985377ca3
+        doc_struct_hash: sha256:38a3627635f9359b11de936df33453b060dd05da75b9f6989309fd2985377ca3
+        lines: [370, 427]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.scheduleAIDirective
@@ -679,3 +679,67 @@ nodes:
         lines: [1141, 1143]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: sched/sched.go#Scheduler.prepareScheduleAI
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: Scheduler.prepareScheduleAI
+        hash: sha256:6819faa5c8fa12dad2c9324fc8122736055fbb704fa3de7bad6b8e7dfd81865f
+        struct_hash: sha256:eee643b202b732454bff5606cae45a74e8be2cfdf64bd0d00f5bb8040aa99558
+        doc_struct_hash: sha256:eee643b202b732454bff5606cae45a74e8be2cfdf64bd0d00f5bb8040aa99558
+        lines: [435, 465]
+      status: fresh
+      since: 2026-07-23T14:08:26.547315Z
+    - id: sched/sched.go#Scheduler.prepareTelegramGroupDigest
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: Scheduler.prepareTelegramGroupDigest
+        hash: sha256:06341734e689b7ed52b1ded65af6a0d2529dd9879f78e0b3fe3d0cefb273fe70
+        struct_hash: sha256:dde6fc95bcf03bc33e4ae377c97fe0559a15fc6733012abc3bfd9c56a84f716d
+        doc_struct_hash: sha256:dde6fc95bcf03bc33e4ae377c97fe0559a15fc6733012abc3bfd9c56a84f716d
+        lines: [485, 534]
+      status: fresh
+      since: 2026-07-23T14:08:26.551685Z
+      entries:
+        - id: e_a20c298c
+          kind: contract
+          text: source_kind=telegram_group_digest 的日程不是通用个性化广播：接收人必须由日程 target 决定（通常 self），调度器按 occurrence 所在业务日构造封闭群消息窗口并直接读取事实；有消息交 Eino OneShot 无工具总结，无消息确定性返回事实边界。重试沿用 schedule_delivery.result_text，避免再次生成。
+          confidence: inferred
+          at: 2026-07-23T14:09:07.165337Z
+          author: codex-mcp-client
+        - id: e_16d8e20a
+          kind: pitfall
+          text: 不要把 Telegram 群摘要改回“每个接收人运行 DeepAgent 再调用 list_telegram_group_messages”。这会把确定性读取变成工具发现问题，_all 配置时按人数放大模型轮次，并可能在超时兜底中外发内部工具证据。
+          confidence: inferred
+          at: 2026-07-23T14:09:07.166531Z
+          author: codex-mcp-client
+      keywords:
+        - telegram群摘要
+        - group digest
+        - source_kind
+        - oneshot
+        - 逐接收人扇出
+        - 定时摘要
+    - id: sched/sched.go#renderTelegramGroupDigestDirective
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: renderTelegramGroupDigestDirective
+        hash: sha256:3055ffef06a96e7c418c1a25d5c5a7dc6d4540d670493b879de0c259a34b6f74
+        struct_hash: sha256:6702fb0c5ebfe4aaee6a2a82e01665c612f2b047b9c80cf728361efa98aace56
+        doc_struct_hash: sha256:6702fb0c5ebfe4aaee6a2a82e01665c612f2b047b9c80cf728361efa98aace56
+        lines: [546, 574]
+      status: fresh
+      since: 2026-07-23T14:08:26.556177Z
+    - id: sched/sched.go#Scheduler.runAIReplyWithOptions
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: Scheduler.runAIReplyWithOptions
+        hash: sha256:99b66448893577b05be740630e4008679869f12a3bd831c8d666760f03055fb8
+        struct_hash: sha256:9afdb251a4663fa18a590b3e7dbe9bb14bc86d4bc77f96d7b81591fdf9aa69de
+        doc_struct_hash: sha256:9afdb251a4663fa18a590b3e7dbe9bb14bc86d4bc77f96d7b81591fdf9aa69de
+        lines: [94, 107]
+      status: fresh
+      since: 2026-07-23T14:08:26.565063Z

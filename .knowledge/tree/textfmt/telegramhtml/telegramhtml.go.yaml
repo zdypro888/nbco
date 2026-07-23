@@ -222,9 +222,9 @@ nodes:
       anchor:
         file: textfmt/telegramhtml/telegramhtml.go
         symbol: tidyTableRow
-        hash: sha256:be9d1b468105c05eddcd1e18f771d24177c5f81706ddd7ebde4abc5cd30bceb0
-        struct_hash: sha256:189d241b1e48afb4d11a4e5dfc7abf66f5054b4f1d036ae28465817fb18b0cc1
-        doc_struct_hash: sha256:189d241b1e48afb4d11a4e5dfc7abf66f5054b4f1d036ae28465817fb18b0cc1
-        lines: [144, 150]
+        hash: sha256:ed54066c4a1641ce0dfe830a1b6533420bd99b4792d1ee0f3e3861edc22b59c6
+        struct_hash: sha256:23141246529b0beef56e65d3e29eca7f8b9b11ae3f3229fb4c7aee6bb34f6af0
+        doc_struct_hash: sha256:23141246529b0beef56e65d3e29eca7f8b9b11ae3f3229fb4c7aee6bb34f6af0
+        lines: [144, 157]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

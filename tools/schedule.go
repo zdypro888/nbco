@@ -115,7 +115,105 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 		scheduleOncePushTool(d, u),
 		scheduleRecurringPushTool(d, u),
 
-		tool("cancel_schedule", "取消尚未执行的定时提醒、计划推送或持久自动化；它们属于日程，不是普通工作任务。优先传 schedule_id；不知道编号时传 query，工具会在当前可见的活跃日程中按标题、内容和来源查找，只有唯一匹配才取消。超级管理员可取消全局日程。",
+		tool("update_schedule", "原子修改现有定时提醒、计划推送或持久自动化的时间规则。它保留原日程ID、接收范围、模式、内容、来源绑定和执行历史；修改时间、星期或间隔时必须使用本工具，不要先取消再重建。优先传 schedule_id；不知道编号时传 query，只有唯一活跃匹配才更新。不同种类支持的字段：once=at，repeat=first_at/interval_seconds，daily=daily_at/weekdays。",
+			obj(map[string]any{
+				"schedule_id":      p("integer", "日程ID（可选，优先）"),
+				"query":            p("string", "不知道 ID 时按标题、内容或来源检索（可选）"),
+				"at":               p("string", "once 的新触发时间 ISO8601"),
+				"first_at":         p("string", "repeat 的新下次触发时间 ISO8601（可选）"),
+				"interval_seconds": p("integer", "repeat 的新间隔秒数（可选，≥60）"),
+				"daily_at":         p("string", "daily 的新触发时刻 HH:MM（可选）"),
+				"weekdays":         p("string", "daily 的星期过滤；空字符串表示每天（可选）"),
+			}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					ScheduleID      int64   `json:"schedule_id"`
+					Query           string  `json:"query"`
+					At              *string `json:"at"`
+					FirstAt         *string `json:"first_at"`
+					IntervalSeconds *int64  `json:"interval_seconds"`
+					DailyAt         *string `json:"daily_at"`
+					Weekdays        *string `json:"weekdays"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				sc, message, err := resolveActiveSchedule(ctx, d, u, args.ScheduleID, args.Query)
+				if err != nil || message != "" {
+					return message, err
+				}
+				fireAt, intervalS := sc.FireAt, sc.IntervalS
+				dailyAt, weekdays := sc.DailyAt, sc.Weekdays
+				now := time.Now()
+				switch sc.Kind {
+				case store.ScheduleOnce:
+					if args.At == nil || args.FirstAt != nil || args.IntervalSeconds != nil || args.DailyAt != nil || args.Weekdays != nil {
+						return "once 日程只能提供 at，且必须提供新的未来触发时间。", nil
+					}
+					next, err := parseDeadline(*args.At, d.TZ)
+					if err != nil {
+						return err.Error(), nil
+					}
+					if next == nil || !next.After(now) {
+						return "at 必须是未来时间。", nil
+					}
+					fireAt = next.UTC()
+				case store.ScheduleRepeat:
+					if args.At != nil || args.DailyAt != nil || args.Weekdays != nil ||
+						(args.FirstAt == nil && args.IntervalSeconds == nil) {
+						return "repeat 日程只能修改 first_at 或 interval_seconds，且至少提供一项。", nil
+					}
+					if args.FirstAt != nil {
+						next, err := parseDeadline(*args.FirstAt, d.TZ)
+						if err != nil {
+							return err.Error(), nil
+						}
+						if next == nil || !next.After(now) {
+							return "first_at 必须是未来时间。", nil
+						}
+						fireAt = next.UTC()
+					}
+					if args.IntervalSeconds != nil {
+						if *args.IntervalSeconds < minRepeatInterval {
+							return fmt.Sprintf("间隔不能小于 %d 秒。", minRepeatInterval), nil
+						}
+						intervalS = *args.IntervalSeconds
+					}
+				case store.ScheduleDaily:
+					if args.At != nil || args.FirstAt != nil || args.IntervalSeconds != nil ||
+						(args.DailyAt == nil && args.Weekdays == nil) {
+						return "daily 日程只能修改 daily_at 或 weekdays，且至少提供一项。", nil
+					}
+					if args.DailyAt != nil {
+						dailyAt, err = normalizeDailyAt(*args.DailyAt)
+						if err != nil {
+							return err.Error(), nil
+						}
+					}
+					if args.Weekdays != nil {
+						weekdays, err = normalizeWeekdays(*args.Weekdays)
+						if err != nil {
+							return err.Error(), nil
+						}
+					}
+					fireAt = store.NextDailyFire(now, dailyAt, weekdays, d.TZ)
+				default:
+					return "该日程种类暂不支持修改时间规则。", nil
+				}
+				updated, err := d.Store.UpdateScheduleTimingVisible(
+					ctx, sc.ID, u.ID, u.IsSuperadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID(ctx),
+				)
+				if err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "日程不存在、已结束或不在你的可见范围。", nil
+					}
+					return "", err
+				}
+				return fmt.Sprintf("已更新%s：%s；接收范围、内容、模式和来源绑定均保持不变。",
+					internalRef("日程", updated.ID), scheduleTimingDescription(updated, d.TZ)), nil
+			}),
+
+		tool("cancel_schedule", "取消尚未执行的定时提醒、计划推送或持久自动化；它们属于日程，不是普通工作任务。只有用户明确要停止日程时才使用；修改时间、星期或间隔必须使用 update_schedule，不能取消后重建。优先传 schedule_id；不知道编号时传 query，工具会在当前可见的活跃日程中按标题、内容和来源查找，只有唯一匹配才取消。超级管理员可取消全局日程。",
 			obj(map[string]any{
 				"schedule_id": p("integer", "日程ID（可选，优先）"),
 				"query":       p("string", "不知道 ID 时按标题、内容或来源检索（可选）"),
@@ -173,7 +271,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已取消%s。", internalRef("日程", args.ScheduleID)), nil
 			}),
 
-		tool("list_schedules", "查看可见的定时提醒、计划推送和持久自动化；这些属于日程，不是普通工作任务。超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all，避免执行后的单次日程从视图消失。返回稳定日程 ID、状态和触发时间，可用于取消或核实；逐次投递结果可用 query_data(source=deliveries) 深挖。",
+		tool("list_schedules", "查看可见的定时提醒、计划推送和持久自动化；这些属于日程，不是普通工作任务。超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all，避免执行后的单次日程从视图消失。返回稳定日程 ID、状态和触发时间；修改已有日程使用 update_schedule，停止才使用 cancel_schedule；逐次投递结果可用 query_data(source=deliveries) 深挖。",
 			obj(map[string]any{
 				"status": enumP("状态筛选，可省略", store.ScheduleActive, store.ScheduleDone, store.ScheduleCancelled, "all"),
 				"limit":  p("integer", "最多返回条数，默认100，最大500"),
@@ -406,6 +504,57 @@ func preparePushSchedule(ctx context.Context, d Deps, u *store.User, args pushSc
 		UserID: receiver, Target: target, Mode: mode, Message: content,
 		Title: strings.TrimSpace(args.Title), CreatedBy: u.ID, SourceMessageID: sourceMessageID(ctx),
 	}, "", nil
+}
+
+func resolveActiveSchedule(ctx context.Context, d Deps, u *store.User, scheduleID int64, query string) (*store.Schedule, string, error) {
+	if scheduleID <= 0 {
+		if strings.TrimSpace(query) == "" {
+			return nil, "请提供 schedule_id；不知道编号时请提供可用于消歧的 query。", nil
+		}
+		matches, err := findVisibleSchedules(ctx, d, u, query, store.ScheduleActive)
+		if err != nil {
+			return nil, "", err
+		}
+		switch len(matches) {
+		case 0:
+			return nil, "没有找到匹配的活跃定时提醒、计划推送或自动化。", nil
+		case 1:
+			scheduleID = matches[0].ID
+		default:
+			return nil, "匹配到多条活跃日程，请根据稳定 ID 指定一条：\n" + renderScheduleCandidates(matches, d.TZ), nil
+		}
+	}
+	sc, err := d.Store.ScheduleByID(ctx, scheduleID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, "日程不存在或不在你的可见范围。", nil
+		}
+		return nil, "", err
+	}
+	if !scheduleVisibleTo(sc, u) {
+		return nil, "日程不存在或不在你的可见范围。", nil
+	}
+	if sc.Status != store.ScheduleActive {
+		return nil, inactiveScheduleResult(*sc, d.TZ), nil
+	}
+	return sc, "", nil
+}
+
+func scheduleTimingDescription(sc *store.Schedule, tz *time.Location) string {
+	switch sc.Kind {
+	case store.ScheduleOnce:
+		return "将在 " + fmtTime(sc.FireAt, tz) + " 触发一次"
+	case store.ScheduleRepeat:
+		return fmt.Sprintf("下次 %s，之后每 %d 秒", fmtTime(sc.FireAt, tz), sc.IntervalS)
+	case store.ScheduleDaily:
+		desc := "每天 " + sc.DailyAt
+		if sc.Weekdays != "" {
+			desc += "（周" + sc.Weekdays + "）"
+		}
+		return desc + "，下次 " + fmtTime(sc.FireAt, tz)
+	default:
+		return "下次 " + fmtTime(sc.FireAt, tz)
+	}
 }
 
 func findVisibleSchedules(ctx context.Context, d Deps, u *store.User, query, status string) ([]store.ScheduleView, error) {

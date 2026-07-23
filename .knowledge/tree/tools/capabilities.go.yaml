@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: tools/capabilities.go
         symbol: toolDomain
-        hash: sha256:267e8747ed26ac40452079bb39b5aeeed1ec7a35ce6c5ef49bd441acbaef2c19
-        struct_hash: sha256:63b54c398cd1ab9e379705c8e9cd6fd618eb5c0d253a17efbd3ced002fe4164e
-        doc_struct_hash: sha256:63b54c398cd1ab9e379705c8e9cd6fd618eb5c0d253a17efbd3ced002fe4164e
-        lines: [73, 254]
+        hash: sha256:ae8241add73ead5c33d3a8fa77d705b6e675dfee858fd288bc0372f36571248c
+        struct_hash: sha256:97e7ad9949406d40582b88e09a4215537d6dd17b7c7492d0e74c05078aaaa074
+        doc_struct_hash: sha256:97e7ad9949406d40582b88e09a4215537d6dd17b7c7492d0e74c05078aaaa074
+        lines: [73, 255]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/capabilities.go#toolEffect
@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: tools/capabilities.go
         symbol: toolEffect
-        hash: sha256:95ef3aaed5038137a2943f2406f96f7f413aa05fdea82eb95310670056b5d2b7
-        struct_hash: sha256:2f64bfb1b7c32028550401043a91698fce71c232c738ef0a61242f97353fb097
-        doc_struct_hash: sha256:2f64bfb1b7c32028550401043a91698fce71c232c738ef0a61242f97353fb097
-        lines: [256, 424]
+        hash: sha256:81ad3f696f5b8f264e9fcddbf7bcee2c67e3d9c0769449fcc3107065b96a14e2
+        struct_hash: sha256:fad6818041f48830dd6ac894669267ed4b5d3e2726c41aae5be887f29ee58c68
+        doc_struct_hash: sha256:fad6818041f48830dd6ac894669267ed4b5d3e2726c41aae5be887f29ee58c68
+        lines: [257, 426]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/capabilities.go#capabilityTools

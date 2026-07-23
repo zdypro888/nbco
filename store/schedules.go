@@ -324,6 +324,33 @@ func (s *Store) CancelScheduleVisible(ctx context.Context, id, userID int64, sup
 	return tx.Commit(ctx)
 }
 
+// UpdateScheduleTimingVisible changes only the timing rule of an active
+// schedule. Audience, execution mode, source identity, content and history stay
+// attached to the same row, so rescheduling cannot silently widen its scope or
+// turn a domain automation into a generic push.
+func (s *Store) UpdateScheduleTimingVisible(
+	ctx context.Context,
+	id, userID int64,
+	superadmin bool,
+	fireAt time.Time,
+	intervalS int64,
+	dailyAt, weekdays string,
+	sourceMessageID *int64,
+) (*Schedule, error) {
+	return scanSchedule(s.pool.QueryRow(ctx,
+		`UPDATE schedules SET
+		   fire_at = $4,
+		   interval_s = $5,
+		   daily_at = $6,
+		   weekdays = $7,
+		   source_message_id = COALESCE($8, source_message_id),
+		   delivery_claimed_at = NULL,
+		   updated_at = now()
+		 WHERE id = $1 AND ($3 OR user_id = $2 OR created_by = $2) AND status = 'active'
+		 RETURNING `+scheduleCols,
+		id, userID, superadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID))
+}
+
 // DueSchedules 原子认领到期任务。这里只写短租约，不推进 fire_at/状态；
 // 调度器投递成功后调用 MarkScheduleDelivered ack。进程崩溃或发送失败时，
 // 租约过期后可重试，避免提醒被提前标记为已发送而丢失。

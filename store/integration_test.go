@@ -2940,6 +2940,43 @@ func TestReconcileScheduleTimezoneOnlyOnChange(t *testing.T) {
 	}
 }
 
+func TestUpdateScheduleTimingVisibleKeepsStableFields(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "schedule-owner", false)
+	other := mkUser(t, s, "schedule-other", false)
+	sourceMessageID := int64(11)
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: owner.ID, CreatedBy: owner.ID, Kind: ScheduleDaily,
+		Message: "日报内容", Title: "日报",
+		FireAt: time.Now().UTC().Add(time.Hour), DailyAt: "18:00",
+		Target: ScheduleTargetSelf, Mode: ScheduleModeAI,
+		SourceKind: ScheduleSourceTelegramGroupDigest, SourceKey: "group-1",
+		SourceMessageID: &sourceMessageID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	if _, err := s.UpdateScheduleTimingVisible(ctx, sc.ID, other.ID, false, next, 0, "19:00", "1,2,3,4,5", nil); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unrelated user updated schedule: %v", err)
+	}
+	newSourceMessageID := int64(12)
+	got, err := s.UpdateScheduleTimingVisible(ctx, sc.ID, owner.ID, false, next, 0, "19:00", "1,2,3,4,5", &newSourceMessageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != sc.ID || got.UserID != sc.UserID || got.CreatedBy != sc.CreatedBy ||
+		got.Target != sc.Target || got.Mode != sc.Mode || got.Message != sc.Message ||
+		got.Title != sc.Title || got.SourceKind != sc.SourceKind || got.SourceKey != sc.SourceKey {
+		t.Fatalf("stable schedule fields changed: before=%+v after=%+v", sc, got)
+	}
+	if !got.FireAt.Equal(next) || got.DailyAt != "19:00" || got.Weekdays != "1,2,3,4,5" ||
+		got.SourceMessageID == nil || *got.SourceMessageID != newSourceMessageID {
+		t.Fatalf("timing patch not applied: %+v", got)
+	}
+}
+
 func TestQuarantineLegacyAutomationHistoryMigration(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

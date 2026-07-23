@@ -455,6 +455,7 @@ var groupSensitive = map[string]bool{
 	"list_decision_queue":             true,
 	"schedule_once_push":              true, // 定向推送涉及他人，回私聊设更稳妥
 	"schedule_recurring_push":         true,
+	"update_schedule":                 true,
 	"set_telegram_group_listen":       true,
 	"set_telegram_group_auto_invite":  true,
 	"set_telegram_group_monitor":      true,

@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: tools/telegram_groups.go
         symbol: renderTelegramGroupMessages
-        hash: sha256:4660125788c570033ab551fff5ab12dabcd095f32c19f07238a349be1aa5ad78
-        struct_hash: sha256:2db4e70da16bcbadbea6f1313585ef37b95869db186e39703e72f26ec1cff86d
-        doc_struct_hash: sha256:2db4e70da16bcbadbea6f1313585ef37b95869db186e39703e72f26ec1cff86d
-        lines: [806, 836]
+        hash: sha256:f50de1d7b492679cfa72e5fa7d168362811c39635d32b635bf1d4034d3bb9edd
+        struct_hash: sha256:922a732d9dabc1b11bc2eb22b90d2fd1f14318eaae16d4e1a445b134f631831f
+        doc_struct_hash: sha256:922a732d9dabc1b11bc2eb22b90d2fd1f14318eaae16d4e1a445b134f631831f
+        lines: [806, 838]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/telegram_groups.go#telegramGroupDigestText
@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: tools/telegram_groups.go
         symbol: telegramGroupDigestDirective
-        hash: sha256:bfc6b19c07e1b2496ec78ff5825b16383e99760c6c5a60e09fbaa4ed43ce895f
-        struct_hash: sha256:e2c8f4adb89c4205587c2de43866e6750750e6c23de631efd7f6b4105b28c29d
-        doc_struct_hash: sha256:e2c8f4adb89c4205587c2de43866e6750750e6c23de631efd7f6b4105b28c29d
-        lines: [856, 862]
+        hash: sha256:69f0a885e645b7e9f50b7d2716dc20cee25766b91aa0e9d66051db422da81e33
+        struct_hash: sha256:f2b882f26671ad2b4c26c5c74f6752e560a0dbb3ab85c14a01e3cfa83b5188d1
+        doc_struct_hash: sha256:f2b882f26671ad2b4c26c5c74f6752e560a0dbb3ab85c14a01e3cfa83b5188d1
+        lines: [858, 864]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/telegram_groups.go#telegramGroupTitle

@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: TurnRequest
-        hash: sha256:b1aab1c2de0ae1ea7b34c0559391689809a5be00332a09f35078b9223f20c96d
-        struct_hash: sha256:6257b1c925a5533aff140b2ca4662194ac0b914706dc0d9a42e412df6741109a
-        doc_struct_hash: sha256:bd5ad20e49ce21cb9b17c3628bb22147852ad3099ee92925773878006dec457c
-        lines: [168, 217]
+        hash: sha256:ece12866b2a7ac3dd125d14d389251a7db064ba2e21d8f450af305432fcce35d
+        struct_hash: sha256:bdc32bafbc6b002759b5d5fdd014a042dce75cac533fb7bb0675ab23c22b3a62
+        doc_struct_hash: sha256:899de8686e650402f7e2c5d6ff9abac0d68c651463f9eb99901af76fc8651d45
+        lines: [168, 221]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/ai.go#TurnResult

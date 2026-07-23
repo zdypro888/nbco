@@ -266,10 +266,10 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: groupSensitive
-        hash: sha256:64fcaa3e5e6276b64e574fbbdfa165801f0fd2ec365c570ca23f61c67aff577b
-        struct_hash: sha256:c2e8f042481a9f217af7dc14c1632276b153303a48a1b944e387d5d37e6ebea1
-        doc_struct_hash: sha256:4ef94f5d3308756787f0b64416369cc55afb40d9aa3587ca2a81bea907336268
-        lines: [386, 470]
+        hash: sha256:31bbc7214efe72d068a01a47054b5d0b28fa63a817d007a6eb7bc91ace10e21d
+        struct_hash: sha256:bb510f43ef8e18920466065b44ade237048192987592f952cc20324a31b6c1b9
+        doc_struct_hash: sha256:49b3e498f967a70e3904c70ab5046705e82b3a176ca693936cccc3d0dd20ed7d
+        lines: [386, 471]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#StripGroupSensitive

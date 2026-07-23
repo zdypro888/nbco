@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.newDeepAgent
-        hash: sha256:15ed85da8ffaccfbfc4067a01bdb6b77b0304e8234f45d20e9900b1d9cf27554
-        struct_hash: sha256:76b31b8afc4404cf0c533fb0f14419d9510cb37b9525dcd17e33218295da29cf
-        doc_struct_hash: sha256:76b31b8afc4404cf0c533fb0f14419d9510cb37b9525dcd17e33218295da29cf
-        lines: [377, 485]
+        hash: sha256:e7cef8f8721808d7042e975a1a158ef931c2c7fcaa3042d4a648e504603060aa
+        struct_hash: sha256:a9d55d68bdd1ce7070ca90bde7019ef1002a438f5aa341ca342313cd70241730
+        doc_struct_hash: sha256:a9d55d68bdd1ce7070ca90bde7019ef1002a438f5aa341ca342313cd70241730
+        lines: [377, 486]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:

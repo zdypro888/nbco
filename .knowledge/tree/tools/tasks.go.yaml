@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/tasks.go
         symbol: taskTools
-        hash: sha256:5af30a1115059ee60bcac92fad5aa026ec11f885eb9cb027e77426a8c4d8c7f8
-        struct_hash: sha256:7ada66831361562311470e63421b7e418661494137f0bf0f2441a6220564e978
-        doc_struct_hash: sha256:4a2a878729c4622f70dfda2530896cb94239c1050e602d12ab57e3549ff45c9d
+        hash: sha256:15271ea71d4ffbb827ca1350e98f7ca62ad3960b4af611d18fc8eab90d9fad4c
+        struct_hash: sha256:84caef54bcc993a30018ffd3ba576bbad65845dbc17c417e8c4c7a789f6ddcd5
+        doc_struct_hash: sha256:14258d8889cd67ee89028d89dc16de2290a5a0625e865634605386ca187e798c
         lines: [19, 1147]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
