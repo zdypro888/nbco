@@ -408,6 +408,20 @@ func TestVisibleReplyRepairGetsFreshBudgetAfterDeadline(t *testing.T) {
 	}
 }
 
+func TestTurnFinalizationGetsFreshBoundedBudget(t *testing.T) {
+	expired, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	finalize, finalizeCancel := turnFinalizationContext(expired)
+	defer finalizeCancel()
+	if err := finalize.Err(); err != nil {
+		t.Fatalf("finalization context should be live after turn deadline: %v", err)
+	}
+	deadline, ok := finalize.Deadline()
+	if !ok || time.Until(deadline) <= 0 || time.Until(deadline) > turnFinalizationTimeout {
+		t.Fatalf("unexpected finalization deadline: %v %v", deadline, ok)
+	}
+}
+
 func TestBuildActionAuditUsesActualTraceOnly(t *testing.T) {
 	toolset := []ai.Tool{
 		{Name: "schedule_once_push", Effect: ai.ToolEffectWrite},
@@ -597,6 +611,27 @@ func (f *fakeEngine) requests() []*ai.TurnRequest {
 	return append([]*ai.TurnRequest(nil), f.reqs...)
 }
 
+type deadlineRepairEngine struct{}
+
+func (*deadlineRepairEngine) Name() string { return "eino" }
+
+func (*deadlineRepairEngine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+	switch req.SessionID {
+	case "memory-miner":
+		return &ai.TurnResult{Text: `{"rules":[],"skills":[],"knowledge":[]}`}, nil
+	case "repair-visible-reply":
+		return &ai.TurnResult{Text: "恢复后的完整答复已经生成并保存。"}, nil
+	default:
+		<-ctx.Done()
+		return &ai.TurnResult{
+			Text:                  "of",
+			FinishReason:          "agent_error",
+			OutputLikelyTruncated: true,
+			Usage:                 ai.Usage{OutputTokens: 4096},
+		}, nil
+	}
+}
+
 func TestConversationCanonicalStoragePreservesAuthorizedSecrets(t *testing.T) {
 	dsn := os.Getenv("NBCO_TEST_PG_DSN")
 	if dsn == "" {
@@ -646,6 +681,67 @@ func TestConversationCanonicalStoragePreservesAuthorizedSecrets(t *testing.T) {
 	}
 	if len(messages) != 2 || !strings.Contains(messages[0].Content, secret) || !strings.Contains(messages[1].Content, secret) {
 		t.Fatalf("canonical conversation was destructively redacted: %+v", messages)
+	}
+}
+
+func TestTurnFinalizationPersistsAfterDeadlineRepair(t *testing.T) {
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	lockConn, err := s.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_lock($1)`, 7767002); err != nil {
+		lockConn.Release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = lockConn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, 7767002)
+		lockConn.Release()
+	})
+
+	u, err := s.CreateUser(ctx, "终端提交测试员", false, store.Identity{
+		Provider: "test", ExternalID: fmt.Sprintf("deadline-finalize-%d", time.Now().UnixNano()),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = s.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
+
+	o := New(s, &deadlineRepairEngine{}, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, 500*time.Millisecond)
+	channel := fmt.Sprintf("api:deadline-finalize:%d", time.Now().UnixNano())
+	reply, err := o.HandleMessage(ctx, u, channel, "执行一个会耗尽轮次预算的任务")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "恢复后的完整答复已经生成并保存。" {
+		t.Fatalf("reply = %q", reply)
+	}
+	sess, err := s.ActiveSession(ctx, u.ID, channel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	messages, err := s.MessagesAfter(ctx, sess.ID, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 2 || messages[1].Role != string(ai.RoleAssistant) || messages[1].Content != reply {
+		t.Fatalf("deadline-repaired transcript was not committed: %+v", messages)
+	}
+	turns, err := s.ListActionTurnsBySession(ctx, u.ID, sess.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(turns) != 1 || turns[0].ReplyExcerpt != reply {
+		t.Fatalf("deadline-repaired action turn was not committed: %+v", turns)
 	}
 }
 

@@ -517,30 +517,35 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	slog.Debug("轮次答复", "session", sess.ID, "reply_len", len(res.Text), "reply_sha", contentHash(res.Text))
 	storedReply := normalizeAssistantReply(channel, res.Text)
 
-	// 成本计量：每轮 token 用量落库（尽力而为）。
-	o.recordUsage(ctx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
 	actionAudit := buildActionAudit(text, toolset, res)
-	o.recordActionTurn(ctx, u, sess, channel, text, actionAudit, res, diag)
+	finalizeCtx, finalizeCancel := turnFinalizationContext(ctx)
+	defer finalizeCancel()
 
-	// 落库：助手答复 + 引擎侧会话标识。审计层已记录工具轨迹。
+	// Agent may consume the entire turn deadline before terminal repair succeeds.
+	// Once a final result exists, commit the canonical transcript first under an
+	// independent bounded budget so delivery and durable history cannot diverge.
 	var assistantMsgID int64
 	if internal {
 		// The scheduler stores and retries the generated result independently.
-	} else if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleAssistant), storedReply); err != nil {
+	} else if id, err := o.store.AppendMessage(finalizeCtx, sess.ID, string(ai.RoleAssistant), storedReply); err != nil {
 		slog.Warn("助手消息落库失败", "err", err)
 	} else {
 		assistantMsgID = id
 		o.embedMessage(id, storedReply)
 	}
+	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
+		if err := o.store.SetSessionEngineRef(finalizeCtx, sess.ID, res.EngineSession); err != nil {
+			slog.Warn("引擎会话标识落库失败", "err", err)
+		}
+	}
+	o.recordActionTurn(finalizeCtx, u, sess, channel, text, actionAudit, res, diag)
+	// 成本计量：每轮 token 用量落库（尽力而为）。
+	o.recordUsage(finalizeCtx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
+
 	// 长期记忆提炼是异步、受治理的业务过程。每个有实际内容的轮次都交给
 	// miner 判断是否值得学习，不再依赖另一轮规划模型给出的 learn 布尔值。
 	if !internal {
 		o.maybeMineMemory(u, channel, storedUserText, storedReply, res.Steps, sess.ID, userMsgID, assistantMsgID)
-	}
-	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
-		if err := o.store.SetSessionEngineRef(ctx, sess.ID, res.EngineSession); err != nil {
-			slog.Warn("引擎会话标识落库失败", "err", err)
-		}
 	}
 	// 群会话会被旁听消息从 agent loop 之外写入，不能使用 Eino managed
 	// session；继续保留产品层滚动摘要，确保两次 @ 之间的群聊上下文不丢。
@@ -677,7 +682,14 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	return res, nil
 }
 
-const visibleReplyRepairTimeout = time.Minute
+const (
+	visibleReplyRepairTimeout = time.Minute
+	turnFinalizationTimeout   = 30 * time.Second
+)
+
+func turnFinalizationContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), turnFinalizationTimeout)
+}
 
 func visibleReplyRepairContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	if errors.Is(ctx.Err(), context.Canceled) {

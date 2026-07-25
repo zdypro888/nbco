@@ -525,3 +525,25 @@ nodes:
         lines: [927, 941]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: chat/chat_test.go#TestTurnFinalizationPersistsAfterDeadlineRepair
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestTurnFinalizationPersistsAfterDeadlineRepair
+        hash: sha256:3e2fe3b9e78b9d006bb73e314560b5fcffecf40979d6a054b4703a221a47ccf6
+        struct_hash: sha256:ed1e564f18d2ed345313b646de1ae72fb4b3319b5781147c877b4f0e2c933c02
+        doc_struct_hash: sha256:ed1e564f18d2ed345313b646de1ae72fb4b3319b5781147c877b4f0e2c933c02
+        lines: [687, 746]
+      status: fresh
+      since: 2026-07-25T04:57:17.550908Z
+    - id: chat/chat_test.go#TestTurnFinalizationGetsFreshBoundedBudget
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestTurnFinalizationGetsFreshBoundedBudget
+        hash: sha256:615fce0556394f43ee4f3b061bd00ce8244bf291af102db188418b88f5b47d7a
+        struct_hash: sha256:37822356d3720336428905c5a968780a44be5aa0abcba46845fbb86229c0f655
+        doc_struct_hash: sha256:37822356d3720336428905c5a968780a44be5aa0abcba46845fbb86229c0f655
+        lines: [411, 423]
+      status: fresh
+      since: 2026-07-25T04:57:17.553838Z

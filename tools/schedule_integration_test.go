@@ -62,7 +62,14 @@ func TestUpdateSchedulePreservesAudienceAndAutomationIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalMessageID := int64(41)
+	sess, err := s.StartSession(ctx, owner.ID, "test:schedule-tool-update", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalMessageID, err := s.AppendMessage(ctx, sess.ID, "user", "创建日本公司成员每日摘要")
+	if err != nil {
+		t.Fatal(err)
+	}
 	sc, err := s.CreateSchedule(ctx, &store.Schedule{
 		UserID: owner.ID, CreatedBy: owner.ID, Kind: store.ScheduleDaily,
 		Title: "日本公司成员每日摘要", Message: "汇总当天群消息",
@@ -82,13 +89,17 @@ func TestUpdateSchedulePreservesAudienceAndAutomationIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	updateMessageID, err := s.AppendMessage(ctx, sess.ID, "user", "把摘要改到十九点")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var updateToolFound bool
 	for _, tl := range scheduleTools(Deps{Store: s, TZ: tokyo}, owner) {
 		if tl.Name != "update_schedule" {
 			continue
 		}
 		updateToolFound = true
-		out, err := tl.Handler(WithApprovalTurn(ctx, 7, 99), raw)
+		out, err := tl.Handler(WithApprovalTurn(ctx, sess.ID, updateMessageID), raw)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,7 +120,7 @@ func TestUpdateSchedulePreservesAudienceAndAutomationIdentity(t *testing.T) {
 		got.SourceKind != sc.SourceKind || got.SourceKey != sc.SourceKey {
 		t.Fatalf("reschedule changed stable schedule identity: before=%+v after=%+v", sc, got)
 	}
-	if got.DailyAt != "19:00" || got.SourceMessageID == nil || *got.SourceMessageID != 99 {
+	if got.DailyAt != "19:00" || got.SourceMessageID == nil || *got.SourceMessageID != updateMessageID {
 		t.Fatalf("reschedule timing/provenance = %+v", got)
 	}
 	localFire := got.FireAt.In(tokyo)

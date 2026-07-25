@@ -19,3 +19,14 @@ nodes:
         lines: [12, 54]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
+    - id: tools/schedule_integration_test.go#TestUpdateSchedulePreservesAudienceAndAutomationIdentity
+      level: function
+      anchor:
+        file: tools/schedule_integration_test.go
+        symbol: TestUpdateSchedulePreservesAudienceAndAutomationIdentity
+        hash: sha256:20ac242d261796a9a5ac93d6856b1677c4de52967d2d2857d4eca0143899101f
+        struct_hash: sha256:fcd42fbc0878d79df2d814bcd3319e5b6a9176872af86ff4ec940d408b010cfa
+        doc_struct_hash: sha256:fcd42fbc0878d79df2d814bcd3319e5b6a9176872af86ff4ec940d408b010cfa
+        lines: [57, 130]
+      status: fresh
+      since: 2026-07-25T04:57:24.807345Z

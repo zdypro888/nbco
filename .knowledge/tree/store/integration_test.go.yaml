@@ -1064,3 +1064,14 @@ nodes:
         lines: [1577, 1627]
       status: fresh
       since: 2026-07-21T20:53:24.277987Z
+    - id: store/integration_test.go#TestUpdateScheduleTimingVisibleKeepsStableFields
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestUpdateScheduleTimingVisibleKeepsStableFields
+        hash: sha256:204cbb7dc64efbe0350610de5e5e53694acaad2542527ea6e9131505b582a080
+        struct_hash: sha256:459b616b3fad86e0ca73f119bc52432d7c7a55d3e9757a50b6290a6c7936c309
+        doc_struct_hash: sha256:459b616b3fad86e0ca73f119bc52432d7c7a55d3e9757a50b6290a6c7936c309
+        lines: [2943, 2988]
+      status: fresh
+      since: 2026-07-25T04:57:24.806436Z

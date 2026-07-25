@@ -2945,7 +2945,14 @@ func TestUpdateScheduleTimingVisibleKeepsStableFields(t *testing.T) {
 	ctx := context.Background()
 	owner := mkUser(t, s, "schedule-owner", false)
 	other := mkUser(t, s, "schedule-other", false)
-	sourceMessageID := int64(11)
+	sess, err := s.StartSession(ctx, owner.ID, "test:schedule-update", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceMessageID, err := s.AppendMessage(ctx, sess.ID, "user", "创建日报日程")
+	if err != nil {
+		t.Fatal(err)
+	}
 	sc, err := s.CreateSchedule(ctx, &Schedule{
 		UserID: owner.ID, CreatedBy: owner.ID, Kind: ScheduleDaily,
 		Message: "日报内容", Title: "日报",
@@ -2961,7 +2968,10 @@ func TestUpdateScheduleTimingVisibleKeepsStableFields(t *testing.T) {
 	if _, err := s.UpdateScheduleTimingVisible(ctx, sc.ID, other.ID, false, next, 0, "19:00", "1,2,3,4,5", nil); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unrelated user updated schedule: %v", err)
 	}
-	newSourceMessageID := int64(12)
+	newSourceMessageID, err := s.AppendMessage(ctx, sess.ID, "user", "把日报改到十九点")
+	if err != nil {
+		t.Fatal(err)
+	}
 	got, err := s.UpdateScheduleTimingVisible(ctx, sc.ID, owner.ID, false, next, 0, "19:00", "1,2,3,4,5", &newSourceMessageID)
 	if err != nil {
 		t.Fatal(err)
