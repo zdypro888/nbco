@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
@@ -13,23 +12,6 @@ import (
 )
 
 const memoryMinerPollInterval = 10 * time.Second
-
-// maybeMineMemory durably queues a candidate turn; the extraction model decides
-// whether it contains reusable knowledge. Queue pressure or a restart cannot
-// discard work, and publication still goes through nbco governance rules.
-func (o *Orchestrator) maybeMineMemory(u *store.User, channel, userText, assistantText string, steps []ai.Step, sessionID, userMsgID, assistantMsgID int64) {
-	if o == nil || o.store == nil || u == nil || strings.HasPrefix(userText, "[系统") ||
-		userMsgID <= 0 || assistantMsgID <= 0 {
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := o.store.EnqueueMemoryMiningJob(ctx, u.ID, channel, sessionID, userMsgID, assistantMsgID, verifiedMemoryToolEvidence(steps), false); err != nil {
-		slog.Warn("Memory Miner 入队失败", "user", u.ID, "session", sessionID, "err", err)
-		return
-	}
-	o.wakeMemoryMiner()
-}
 
 func (o *Orchestrator) wakeMemoryMiner() {
 	if o == nil || o.memoryWake == nil {

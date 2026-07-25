@@ -2,8 +2,10 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
@@ -151,8 +153,21 @@ func firstPendingApprovalStep(steps []ai.Step) (ai.Step, bool) {
 }
 
 func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, audit *actionAudit, res *ai.TurnResult, diag turnDiagnostics) {
-	if o == nil || o.store == nil || u == nil || sess == nil || audit == nil {
+	if o == nil || o.store == nil {
 		return
+	}
+	in := buildActionTurnInput(u, sess, channel, text, audit, res, diag)
+	if in == nil {
+		return
+	}
+	if err := o.store.RecordActionTurn(ctx, *in); err != nil {
+		slog.Warn("动作轮次记录失败", "session", sess.ID, "user", u.ID, "err", err)
+	}
+}
+
+func buildActionTurnInput(u *store.User, sess *store.ChatSession, channel, text string, audit *actionAudit, res *ai.TurnResult, diag turnDiagnostics) *store.ActionTurnInput {
+	if u == nil || sess == nil || audit == nil {
+		return nil
 	}
 	outcome := actionTurnOutcome(audit, res)
 	evidence := map[string]any{
@@ -172,7 +187,7 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		replyExcerpt = textfmt.RedactSecrets(textfmt.SanitizeVisibleReply(res.Text))
 	}
 	sid := sess.ID
-	if err := o.store.RecordActionTurn(ctx, store.ActionTurnInput{
+	return &store.ActionTurnInput{
 		UserID:           u.ID,
 		SessionID:        &sid,
 		Channel:          channel,
@@ -186,9 +201,63 @@ func (o *Orchestrator) recordActionTurn(ctx context.Context, u *store.User, sess
 		Outcome:          outcome,
 		ToolCount:        toolCount,
 		SuccessToolCount: successToolCount,
-	}); err != nil {
-		slog.Warn("动作轮次记录失败", "session", sess.ID, "user", u.ID, "err", err)
 	}
+}
+
+// executionContinuityContext replays a small, structured projection of recent
+// tool-backed turns. The visible transcript remains the conversational source
+// of truth; this ledger supplies facts that a concise final reply may omit.
+func (o *Orchestrator) executionContinuityContext(ctx context.Context, u *store.User, sess *store.ChatSession) string {
+	if o == nil || o.store == nil || u == nil || sess == nil {
+		return ""
+	}
+	turns, err := o.store.ListActionTurnsBySession(ctx, u.ID, sess.ID, 6)
+	if err != nil {
+		slog.Warn("读取近期执行事实失败", "session", sess.ID, "user", u.ID, "err", err)
+		return ""
+	}
+	type executionFact struct {
+		UserText     string         `json:"user_text"`
+		Reply        string         `json:"reply"`
+		Outcome      string         `json:"outcome"`
+		ToolCount    int            `json:"tool_count"`
+		ToolEvidence []toolEvidence `json:"tool_evidence,omitempty"`
+		OccurredAt   time.Time      `json:"occurred_at"`
+	}
+	facts := make([]executionFact, 0, 3)
+	for _, turn := range turns {
+		if turn == nil || (turn.ToolCount == 0 && !turn.RequiresAction) {
+			continue
+		}
+		var evidence struct {
+			ToolEvidence []toolEvidence `json:"tool_evidence"`
+		}
+		_ = json.Unmarshal(turn.Evidence, &evidence)
+		if len(evidence.ToolEvidence) > 6 {
+			evidence.ToolEvidence = append(
+				append([]toolEvidence(nil), evidence.ToolEvidence[:3]...),
+				evidence.ToolEvidence[len(evidence.ToolEvidence)-3:]...,
+			)
+		}
+		facts = append(facts, executionFact{
+			UserText: textfmt.TruncateRunes(turn.UserTextExcerpt, 300),
+			Reply:    textfmt.TruncateRunes(turn.ReplyExcerpt, 300),
+			Outcome:  turn.Outcome, ToolCount: turn.ToolCount,
+			ToolEvidence: evidence.ToolEvidence, OccurredAt: turn.CreatedAt,
+		})
+		if len(facts) == 3 {
+			break
+		}
+	}
+	if len(facts) == 0 {
+		return ""
+	}
+	raw, err := json.Marshal(facts)
+	if err != nil {
+		return ""
+	}
+	return "\n\n[近期已提交的执行事实]\n" + string(raw) +
+		"\n这些记录只用于理解连续对话；可变业务状态仍应按需调用读取工具核实。"
 }
 
 func actionTurnOutcome(audit *actionAudit, res *ai.TurnResult) string {

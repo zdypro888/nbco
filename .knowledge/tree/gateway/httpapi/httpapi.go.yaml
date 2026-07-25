@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.handleChat
-        hash: sha256:3ccf0f2f4d36176148edeb37cf063ca21b2cd6d0c351dbeb2b0b2f325aed08f5
-        struct_hash: sha256:617bd1eabef6716fb99ddfb653ed5ccabd0561a1e4f3f127cbcfb92ef4307f0f
-        doc_struct_hash: sha256:617bd1eabef6716fb99ddfb653ed5ccabd0561a1e4f3f127cbcfb92ef4307f0f
-        lines: [302, 322]
+        hash: sha256:bcce7140a4306f1665188aa6b72dd8bb5592d4820e4fb48a8d3942243a3413df
+        struct_hash: sha256:346c04c1ad4bc31cf00eda70c05921b94b31bdb738fcb5aeb82eda19d3a36746
+        doc_struct_hash: sha256:346c04c1ad4bc31cf00eda70c05921b94b31bdb738fcb5aeb82eda19d3a36746
+        lines: [302, 334]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#Server.handleMe

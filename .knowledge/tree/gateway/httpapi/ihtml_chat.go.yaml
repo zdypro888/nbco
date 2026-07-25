@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_chat.go
         symbol: ihtmlSharedSession.runTurn
-        hash: sha256:d5a77ac815760e72536cb404d5cf9f6c8aa38cd4a61e3cff983c74ab72ab7eb1
-        struct_hash: sha256:5b8ca37524c2c2906e4c831ae4ae866ad3896824898e5313ad05a2093357d4d3
-        doc_struct_hash: sha256:5b8ca37524c2c2906e4c831ae4ae866ad3896824898e5313ad05a2093357d4d3
-        lines: [178, 260]
+        hash: sha256:9fff3135b43dace7bb0e2d6e5a11d22ca1081bbd0a2532fc661b866d669e6f73
+        struct_hash: sha256:7706190dfb595beeb8063714e2b6c50c6534e99af3395dd65d6991e376253b1c
+        doc_struct_hash: sha256:7706190dfb595beeb8063714e2b6c50c6534e99af3395dd65d6991e376253b1c
+        lines: [178, 268]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/ihtml_chat.go#lastIHTMLUserMessage

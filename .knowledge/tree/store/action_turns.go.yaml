@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: Store.RecordActionTurn
-        hash: sha256:4a15a5f7ca732114d591c6c680e34843305b3b721eea2edf27c73a28d3438c0b
-        struct_hash: sha256:404e178b21ebd2529eda303490c94476db98d9b347f6cc6c1f74079c857addf6
-        doc_struct_hash: sha256:404e178b21ebd2529eda303490c94476db98d9b347f6cc6c1f74079c857addf6
-        lines: [46, 69]
+        hash: sha256:a7a76a2a1597baac667e2ba97a38c9b84a1f847d9e5e17447fca7b77cd9bcca2
+        struct_hash: sha256:a0167dc83aff40c5ca466e5b6b603c412429ad8cf37be379bfe604bb86c88a2e
+        doc_struct_hash: sha256:a0167dc83aff40c5ca466e5b6b603c412429ad8cf37be379bfe604bb86c88a2e
+        lines: [48, 72]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#Store.ListActionTurns

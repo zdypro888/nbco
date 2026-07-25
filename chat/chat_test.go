@@ -611,17 +611,29 @@ func (f *fakeEngine) requests() []*ai.TurnRequest {
 	return append([]*ai.TurnRequest(nil), f.reqs...)
 }
 
-type deadlineRepairEngine struct{}
+type deadlineRepairEngine struct {
+	mu          sync.Mutex
+	normalCalls int
+	normalReqs  []*ai.TurnRequest
+}
 
 func (*deadlineRepairEngine) Name() string { return "eino" }
 
-func (*deadlineRepairEngine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+func (e *deadlineRepairEngine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
 	switch req.SessionID {
 	case "memory-miner":
 		return &ai.TurnResult{Text: `{"rules":[],"skills":[],"knowledge":[]}`}, nil
 	case "repair-visible-reply":
 		return &ai.TurnResult{Text: "恢复后的完整答复已经生成并保存。"}, nil
 	default:
+		e.mu.Lock()
+		e.normalCalls++
+		call := e.normalCalls
+		e.normalReqs = append(e.normalReqs, req)
+		e.mu.Unlock()
+		if call > 1 {
+			return &ai.TurnResult{Text: "我看到了上一轮恢复后的完整答复。"}, nil
+		}
 		<-ctx.Done()
 		return &ai.TurnResult{
 			Text:                  "of",
@@ -630,6 +642,12 @@ func (*deadlineRepairEngine) RunTurn(ctx context.Context, req *ai.TurnRequest) (
 			Usage:                 ai.Usage{OutputTokens: 4096},
 		}, nil
 	}
+}
+
+func (e *deadlineRepairEngine) productRequests() []*ai.TurnRequest {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]*ai.TurnRequest(nil), e.normalReqs...)
 }
 
 func TestConversationCanonicalStoragePreservesAuthorizedSecrets(t *testing.T) {
@@ -745,8 +763,77 @@ func TestTurnFinalizationPersistsAfterDeadlineRepair(t *testing.T) {
 	}
 }
 
-// TestCompactionCycle 验证群聊旁听兼容路径：群消息可在 agent loop 外进入，
-// 因此继续使用产品层滚动摘要；私聊改由 Eino managed session 负责压缩。
+func TestRepairedTurnBecomesCanonicalHistoryForFreshAgentTurn(t *testing.T) {
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	lockConn, err := s.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_lock($1)`, 7767002); err != nil {
+		lockConn.Release()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = lockConn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, 7767002)
+		lockConn.Release()
+	})
+
+	u, err := s.CreateUser(ctx, "跨轮事实源测试员", false, store.Identity{
+		Provider: "test", ExternalID: fmt.Sprintf("turn-source-%d", time.Now().UnixNano()),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = s.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
+
+	engine := &deadlineRepairEngine{}
+	o := New(s, engine, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, 200*time.Millisecond)
+	channel := fmt.Sprintf("api:turn-source:%d", time.Now().UnixNano())
+	first, err := o.HandleMessage(ctx, u, channel, "先执行第一步")
+	if err != nil || first != "恢复后的完整答复已经生成并保存。" {
+		t.Fatalf("first reply = %q err=%v", first, err)
+	}
+	second, err := o.HandleMessage(ctx, u, channel, "继续处理")
+	if err != nil || second != "我看到了上一轮恢复后的完整答复。" {
+		t.Fatalf("second reply = %q err=%v", second, err)
+	}
+	requests := engine.productRequests()
+	if len(requests) != 2 {
+		t.Fatalf("product requests = %d", len(requests))
+	}
+	if requests[0].SessionID == requests[1].SessionID ||
+		!strings.HasPrefix(requests[0].SessionID, "turn:") ||
+		!strings.HasPrefix(requests[1].SessionID, "turn:") {
+		t.Fatalf("each business turn must own an independent Eino session: %q %q",
+			requests[0].SessionID, requests[1].SessionID)
+	}
+	if requests[0].EngineSession != "" || requests[1].EngineSession != "" ||
+		requests[0].DisableSession || requests[1].DisableSession {
+		t.Fatalf("turn session contract is wrong: first=%+v second=%+v", requests[0], requests[1])
+	}
+	if len(requests[1].History) != 2 ||
+		requests[1].History[0].Role != ai.RoleUser ||
+		requests[1].History[1].Role != ai.RoleAssistant ||
+		!strings.Contains(requests[1].History[1].Content, first) {
+		t.Fatalf("repaired canonical turn was not replayed: %+v", requests[1].History)
+	}
+	sess, err := s.ActiveSession(ctx, u.ID, channel)
+	if err != nil || sess.EngineRef != "" {
+		t.Fatalf("chat session must not retain a cross-turn Eino ref: %+v err=%v", sess, err)
+	}
+}
+
+// TestCompactionCycle verifies the canonical product transcript compaction
+// shared by all interactive channels, including out-of-band group listening.
 func TestCompactionCycle(t *testing.T) {
 	dsn := os.Getenv("NBCO_TEST_PG_DSN")
 	if dsn == "" {

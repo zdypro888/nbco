@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: gateway/telegram/stream.go
         symbol: streamEditor.finish
-        hash: sha256:779916827bf6f17d870067353129b607a5e2dfc4be3a05ca9348a369710394be
-        struct_hash: sha256:b6a9846a1eedbcac21b2bd71952b948300019dd58100fe652e122168442f687f
-        doc_struct_hash: sha256:91e97f1eda7e987b2fbfe0ad7ec606b3f8ad775a1fd6015d9e21c4cbb971f43e
-        lines: [152, 178]
+        hash: sha256:366724298446a9ca34d92b82a2356795dbd25fb1d9f69ea3e6a9736cc34f7880
+        struct_hash: sha256:4135e298bc7c4daa2241cc6af4be1a92d4d21ef8323f14cd0bb8a141e2974861
+        doc_struct_hash: sha256:5cd62e70692c342465be1e521490550e1c0f12939044cacf2792e08700ed610d
+        lines: [153, 178]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/stream.go#streamEditor.fail

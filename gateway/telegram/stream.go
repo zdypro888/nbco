@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -152,28 +153,42 @@ func (ed *streamEditor) stopLoop() {
 // finish 收尾：停协程，用最终答复 + HTML 排版覆盖占位消息；过长（多片）则占位改
 // 成首片、其余追加发送。占位消息不可编辑（被用户删/限流）时【发新消息兜底】——
 // 绝不因编辑失败把答复静默丢掉。
-func (ed *streamEditor) finish(ctx context.Context, answer string) {
+func (ed *streamEditor) finish(ctx context.Context, answer string) error {
 	ed.stopLoop()
 	answer = strings.TrimSpace(answer)
 	if answer == "" {
 		answer = "（空回复）"
 	}
 	if !ed.ok {
-		ed.g.reply(ctx, ed.chatID, answer)
-		return
+		return ed.g.sendChunks(ctx, ed.chatID, answer)
 	}
 	chunks := splitChunks(toTelegramHTML(answer), chunkLimit)
 	// 首片覆盖占位消息；编辑不成（HTML 非法先降级纯文本，仍不成=占位不可编辑）则
 	// 整条答复作为新消息发（sendChunks 内部分片 + HTML 兜底），不丢内容。
 	if !ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0])) {
-		ed.g.reply(ctx, ed.chatID, answer)
-		return
+		return ed.g.sendChunks(ctx, ed.chatID, answer)
 	}
 	// 其余片作为新消息追加。
 	for _, chunk := range chunks[1:] {
 		if err := ed.g.sendOne(ctx, ed.chatID, chunk); err != nil {
-			ed.g.reply(ctx, ed.chatID, chunk)
+			return err
 		}
+	}
+	return nil
+}
+
+// discard removes the transient placeholder when an already-delivered inbound
+// update is replayed. Failure is harmless: the original final reply remains the
+// authoritative delivered result.
+func (ed *streamEditor) discard(ctx context.Context) {
+	ed.stopLoop()
+	if !ed.ok {
+		return
+	}
+	if _, err := ed.g.bot.DeleteMessage(ctx, &bot.DeleteMessageParams{
+		ChatID: ed.chatID, MessageID: ed.msgID,
+	}); err != nil && !errors.Is(err, bot.ErrorBadRequest) {
+		slog.Debug("删除重复轮次占位失败", "chat", ed.chatID, "message", ed.msgID, "err", err)
 	}
 }
 

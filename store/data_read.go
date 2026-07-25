@@ -42,7 +42,7 @@ var dataSourceOrder = []string{
 	"users", "identities", "profiles", "permissions", "workers", "worker_sessions", "worker_capabilities",
 	"roles", "org_groups", "projects", "tasks", "task_updates",
 	"files", "file_intakes", "file_chunks", "schedules", "deliveries", "knowledge", "learning_candidates",
-	"goals", "milestones", "campaigns", "decisions", "events", "action_turns", "chat_messages",
+	"goals", "milestones", "campaigns", "decisions", "events", "conversation_turns", "action_turns", "chat_messages",
 	"telegram_groups", "material_entities", "script_tools", "eval_cases", "audit_activity",
 }
 
@@ -496,13 +496,31 @@ var dataSourceDefs = map[string]dataSourceDef{
 		FROM events e WHERE $2 OR e.decider_id = $1`,
 		semanticID: "event_id", semanticFields: []string{"kind", "detail", "status", "outcome", "reply", "delivery_mode", "last_error"},
 	},
+	"conversation_turns": {
+		DataSource: DataSource{
+			Name: "conversation_turns", Description: "交互 Agent 轮次的执行与渠道交付生命周期；普通用户只看自己的轮次，超管可看全部。",
+			Fields: []string{"conversation_turn_id", "user_id", "session_id", "channel", "user_message_id", "assistant_message_id", "status", "delivery_status", "result", "attempts", "delivery_attempts", "last_error", "started_at", "completed_at", "delivered_at", "updated_at"},
+		},
+		query: `SELECT jsonb_build_object(
+			'conversation_turn_id', t.id, 'user_id', t.user_id, 'session_id', t.session_id,
+			'channel', t.channel, 'user_message_id', t.user_message_id,
+			'assistant_message_id', t.assistant_message_id, 'status', t.status,
+			'delivery_status', t.delivery_status, 'result', t.result_text,
+			'attempts', t.attempts, 'delivery_attempts', t.delivery_attempts,
+			'last_error', t.last_error, 'started_at', t.started_at,
+			'completed_at', t.completed_at, 'delivered_at', t.delivered_at,
+			'updated_at', t.updated_at
+		) AS item, t.updated_at AS sort_at, t.id AS sort_id
+		FROM conversation_turns t WHERE $2 OR t.user_id = $1`,
+	},
 	"action_turns": {
 		DataSource: DataSource{
 			Name: "action_turns", Description: "AI动作轮次与工具证据；普通用户只看自己的轮次，超管可看全部。",
-			Fields: []string{"turn_id", "user_id", "session_id", "channel", "user_text", "reply", "requires_action", "intent", "expected_tools", "evidence", "outcome", "tool_count", "success_tool_count", "created_at"},
+			Fields: []string{"turn_id", "conversation_turn_id", "user_id", "session_id", "channel", "user_text", "reply", "requires_action", "intent", "expected_tools", "evidence", "outcome", "tool_count", "success_tool_count", "created_at"},
 		},
 		query: `SELECT jsonb_build_object(
-			'turn_id', a.id, 'user_id', a.user_id, 'session_id', a.session_id,
+			'turn_id', a.id, 'conversation_turn_id', a.conversation_turn_id,
+			'user_id', a.user_id, 'session_id', a.session_id,
 			'channel', a.channel, 'user_text', a.user_text_excerpt, 'reply', a.reply_excerpt,
 			'requires_action', a.requires_action, 'intent', a.intent,
 			'expected_tools', a.expected_tools, 'evidence', a.evidence,

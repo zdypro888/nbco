@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: store/conversation_turns.go
+      level: file
+      anchor:
+        file: store/conversation_turns.go
+        hash: sha256:e5bcbac2d08a3d74cf6742e91a9d8fc842f8de727d5244667d45e923274430eb
+        lines: [0, 0]
+      status: undigested
+      since: 2026-07-25T10:14:40.5053Z
+    - id: store/conversation_turns.go#Store.BeginConversationTurn
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.BeginConversationTurn
+        hash: sha256:d4116607fafc1e5fafe61efa83e619f85188ef689a44a3e99892640acd73692e
+        struct_hash: sha256:e4b9cef48613ebed328fba3a5d4843dc3c73dac31f6069a5df16f9488a9783f2
+        doc_struct_hash: sha256:2b36aa03ac02d5ad96b5fcdf4d0b6f093563f534b49c572e4dcc1cda5d88fd18
+        lines: [80, 157]
+      status: fresh
+      since: 2026-07-25T10:14:40.505234Z
+    - id: store/conversation_turns.go#Store.CompleteConversationTurn
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.CompleteConversationTurn
+        hash: sha256:b3428d8e7d7ebd15c78fc3b025ac259178c1d940438585402f2edbaccae381fb
+        struct_hash: sha256:029546e711a9b6b1ef5182570f6ebdb73bbbf4b681f22421008a7b967462c510
+        doc_struct_hash: sha256:5ce73bf31ac7645ce91f160ad11cb9086e47d8ed526e0bbe6b718e82c33614d7
+        lines: [159, 245]
+      status: fresh
+      since: 2026-07-25T10:14:40.50635Z
+    - id: store/conversation_turns.go#Store.FailStaleConversationTurns
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.FailStaleConversationTurns
+        hash: sha256:47f848e261fdc09190816aa029336248e2b4b9d0e6565b0ef5abdfc102df9c5f
+        struct_hash: sha256:8c2f8c573f1d9313f6f3158c363a89a6b7804b1a799f1a523c97c0eeb7b5d395
+        doc_struct_hash: sha256:9c43f5691c7e46acc09cca01d77859a88bfe3f0e79457304a57418ea8b7a75a5
+        lines: [285, 303]
+      status: fresh
+      since: 2026-07-25T10:14:40.507408Z
+    - id: store/conversation_turns.go#Store.MarkConversationTurnDelivered
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.MarkConversationTurnDelivered
+        hash: sha256:f85c31235ad42b51335fa6a6a52272fa3c18b8126fd18621888c29b9c8fb25a8
+        struct_hash: sha256:145eb5c419b191ab3b96ace1f0b07a2ebf919c4200924ec06fef0352b19db131
+        doc_struct_hash: sha256:145eb5c419b191ab3b96ace1f0b07a2ebf919c4200924ec06fef0352b19db131
+        lines: [305, 311]
+      status: fresh
+      since: 2026-07-25T10:14:40.508351Z

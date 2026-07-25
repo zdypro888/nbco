@@ -909,6 +909,127 @@ func TestRecordActionTurn(t *testing.T) {
 	}
 }
 
+func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "turn-owner", true)
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	turn, created, err := s.BeginConversationTurn(
+		ctx, "telegram:message:7:11", u.ID, sess.ID, "telegram", "执行并记录")
+	if err != nil || !created || turn.UserMessageID == nil {
+		t.Fatalf("BeginConversationTurn = %+v created=%t err=%v", turn, created, err)
+	}
+	replayed, created, err := s.BeginConversationTurn(
+		ctx, "telegram:message:7:11", u.ID, sess.ID, "telegram", "执行并记录")
+	if err != nil || created || replayed.ID != turn.ID || replayed.UserMessageID == nil ||
+		*replayed.UserMessageID != *turn.UserMessageID {
+		t.Fatalf("idempotent begin = %+v created=%t err=%v", replayed, created, err)
+	}
+	if _, _, err := s.BeginConversationTurn(
+		ctx, "telegram:message:7:11", u.ID, sess.ID, "telegram", "相同键却是不同输入"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("mismatched idempotency payload should conflict: %v", err)
+	}
+	var userMessages int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM chat_messages WHERE session_id = $1 AND role = 'user'`, sess.ID).
+		Scan(&userMessages); err != nil || userMessages != 1 {
+		t.Fatalf("user messages = %d err=%v", userMessages, err)
+	}
+
+	sid := sess.ID
+	badAction := &ActionTurnInput{
+		UserID: u.ID, SessionID: &sid, Channel: "telegram",
+		UserTextHash: "bad", Outcome: "should_rollback",
+		Evidence: map[string]any{"not_json": func() {}},
+	}
+	if _, err := s.CompleteConversationTurn(ctx, ConversationTurnCompletion{
+		TurnID: turn.ID, AssistantText: "不能部分发布", ResultText: "不能部分发布",
+		Action: badAction,
+	}); err == nil {
+		t.Fatal("invalid audit row should roll back the entire completion")
+	}
+	fresh, err := s.ConversationTurnByID(ctx, turn.ID)
+	if err != nil || fresh.Status != "running" || fresh.AssistantMessageID != nil {
+		t.Fatalf("rolled-back turn = %+v err=%v", fresh, err)
+	}
+	var assistantMessages int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM chat_messages WHERE session_id = $1 AND role = 'assistant'`, sess.ID).
+		Scan(&assistantMessages); err != nil || assistantMessages != 0 {
+		t.Fatalf("assistant messages after rollback = %d err=%v", assistantMessages, err)
+	}
+
+	action := &ActionTurnInput{
+		UserID: u.ID, SessionID: &sid, Channel: "telegram", UserTextHash: "ok",
+		UserTextExcerpt: "执行并记录", ReplyExcerpt: "已完成", RequiresAction: true,
+		ExpectedTools: []string{"test_tool"}, Outcome: "action_completed",
+	}
+	usage := &AIUsage{
+		UserID: u.ID, SessionID: &sid, Kind: "telegram", Model: "test-model",
+		InputTokens: 12, OutputTokens: 4,
+	}
+	assistantID, err := s.CompleteConversationTurn(ctx, ConversationTurnCompletion{
+		TurnID: turn.ID, AssistantText: "已完成", ResultText: "已完成",
+		EngineSession: "eino:turn", Action: action, Usage: usage,
+		EnqueueMemory: true, MemoryEvidence: "[test_tool] ok",
+	})
+	if err != nil || assistantID == 0 {
+		t.Fatalf("CompleteConversationTurn = %d, %v", assistantID, err)
+	}
+	secondID, err := s.CompleteConversationTurn(ctx, ConversationTurnCompletion{
+		TurnID: turn.ID, AssistantText: "不应重复", ResultText: "不应重复",
+	})
+	if err != nil || secondID != assistantID {
+		t.Fatalf("idempotent completion = %d, %v", secondID, err)
+	}
+	for table, want := range map[string]int{"action_turns": 1, "ai_usage": 1} {
+		var count int
+		if err := s.pool.QueryRow(ctx,
+			`SELECT count(*) FROM `+table+` WHERE conversation_turn_id = $1`, turn.ID).
+			Scan(&count); err != nil || count != want {
+			t.Fatalf("%s count = %d err=%v", table, count, err)
+		}
+	}
+	var memoryJobs int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM memory_mining_jobs WHERE user_message_id = $1`, *turn.UserMessageID).
+		Scan(&memoryJobs); err != nil || memoryJobs != 1 {
+		t.Fatalf("memory jobs = %d err=%v", memoryJobs, err)
+	}
+	if err := s.MarkConversationTurnDeliveryFailed(ctx, turn.ID, "network"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkConversationTurnDelivered(ctx, turn.ID); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err = s.ConversationTurnByID(ctx, turn.ID)
+	if err != nil || fresh.Status != "completed" || fresh.DeliveryStatus != "delivered" ||
+		fresh.DeliveryAttempts != 2 || fresh.ResultText != "已完成" {
+		t.Fatalf("delivered turn = %+v err=%v", fresh, err)
+	}
+
+	stale, created, err := s.BeginConversationTurn(
+		ctx, "telegram:message:7:12", u.ID, sess.ID, "telegram", "执行到一半进程退出")
+	if err != nil || !created {
+		t.Fatalf("stale begin = %+v created=%t err=%v", stale, created, err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE conversation_turns SET started_at = now() - interval '1 hour' WHERE id = $1`, stale.ID); err != nil {
+		t.Fatal(err)
+	}
+	if count, err := s.FailStaleConversationTurns(ctx, 30*time.Minute); err != nil || count != 1 {
+		t.Fatalf("FailStaleConversationTurns = %d, %v", count, err)
+	}
+	stale, err = s.ConversationTurnByID(ctx, stale.ID)
+	if err != nil || stale.Status != "failed" {
+		t.Fatalf("stale turn = %+v err=%v", stale, err)
+	}
+}
+
 func TestListAuditActivity(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

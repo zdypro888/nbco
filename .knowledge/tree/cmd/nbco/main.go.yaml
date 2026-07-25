@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: cmd/nbco/main.go
         symbol: run
-        hash: sha256:31c62cab157793588f824de26117198b8056b04da41cf2f9bd1bbffc74355871
-        struct_hash: sha256:25b4f1efa21d4be6866d18b4d62562412f677a1272ca41c2e6350c2d4eb99853
-        doc_struct_hash: sha256:25b4f1efa21d4be6866d18b4d62562412f677a1272ca41c2e6350c2d4eb99853
-        lines: [87, 300]
+        hash: sha256:b229ebea9a19e5acfe5bae857aa1e4545e1c0eea4b311b8eb903c9cee11a9683
+        struct_hash: sha256:0b0db934883874fc679b982701fe45f581498830129cd36114d8e439080c4170
+        doc_struct_hash: sha256:0b0db934883874fc679b982701fe45f581498830129cd36114d8e439080c4170
+        lines: [87, 306]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco/main.go#buildEngine

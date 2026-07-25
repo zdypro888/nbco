@@ -305,9 +305,9 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 
 ## 会话与上下文压缩
 
-私聊使用 Eino managed session：完整模型消息、工具调用与结果写入 append-only `eino_session_events`，Eino summarization 达到配置阈值后生成 `messages_replaced` 事件。`chat_messages` 仍保存面向产品的可读历史与检索数据，两者职责分离；进程重启不需要手工拼接 agent 轨迹。
+`chat_messages` 是唯一的跨轮对话事实源；`action_turns` 是与回复同事务提交的执行证据。每个交互轮次先在 `conversation_turns` 原子登记用户输入，再创建独立的 Eino managed session：Eino 原生 DeepAgent 在该轮内部持久记录模型消息、工具调用、结果和 checkpoint，完成后一次性提交助手消息、动作证据、用量和 Memory Miner 队列。下一轮从滚动摘要、近期聊天和限量执行事实重新建立 Eino session，不依赖上一轮可能回滚或缺失的引擎事件。
 
-Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 AI 时写入共享会话，Eino 无法凭空感知这种外部写入，因此群聊不启用 managed session，继续使用 nbco 的滚动摘要（`summary` / `summary_upto`）和近期消息重放。这是数据入口差异，不是两套 agent loop。
+`conversation_turns` 同时记录 Agent 执行状态与渠道交付状态。Telegram 消息 ID 和 HTTP `Idempotency-Key` 只保存哈希，用于抑制重放；结果提交与外部发送分开确认，因此“Agent 已完成但 Telegram 发送失败”可被准确审计。进程启动会关闭超过轮次截止时间的失联 claim，但不会自动重放可能已经产生外部副作用的操作。私聊、群聊和 ihtml 共用这套生命周期；群 `/listen` 的旁听消息仍直接进入共享聊天事实，随后由同一产品层摘要和历史重放处理。
 
 ## 主动运营（AI 主动，人被动）
 
@@ -341,7 +341,7 @@ Telegram 群聊有一条特殊路径：`/listen` 的旁听消息会在不运行 
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 提出持久要求时，Memory Miner 先抽取、再由独立治理子调用判断发布/待审/拒绝；冲突候选不会并排自动生效。少数 `pinned` 底线规则每轮常驻，其余规则按当前输入语义召回并校验作用域。知识、规则和 Skill 都支持 `set_knowledge_active` 可逆归档；归档后立即退出提示注入、搜索和 Qdrant 对账，原文、版本与审计仍保留。
-- **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 作为常驻只读能力交给 DeepAgent，是否检索、检索什么由 Agent 根据当前目标决定。授权私聊原文、Eino managed session 和 Worker 主题会话在 PostgreSQL 中保持原值，保证后续 Agent/PTY 恢复时不丢参数和凭据；embedding、Memory Miner、学习候选和审计摘要使用独立的脱敏投影。旧 AI 答复不会被自动当成当前事实回灌；短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
+- **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 作为常驻只读能力交给 DeepAgent，是否检索、检索什么由 Agent 根据当前目标决定。授权聊天原文、单轮 Eino 执行日志和 Worker 主题会话在 PostgreSQL 中保持原值，保证 Agent/PTY 恢复时不丢参数和凭据；embedding、Memory Miner、学习候选和审计摘要使用独立的脱敏投影。旧 AI 答复不会被自动当成当前事实回灌；短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
 - **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，生效知识/规则/Skill、会话中可用于上下文的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除或归档实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量

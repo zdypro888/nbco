@@ -4,6 +4,7 @@ package chat
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -28,12 +29,12 @@ import (
 	"github.com/zdypro888/nbco/tools"
 )
 
-// historyLimit 是新建 Eino managed session 的种子历史上限，也是群聊无 managed
-// session 时的逐轮重放上限。
+// historyLimit is the bounded canonical transcript replayed into each
+// business turn's independent Eino managed session.
 const historyLimit = 40
 
-// 群聊滚动摘要：旁听消息会在 agent loop 外写入，不能由 Eino managed session
-// 捕获。私聊改用 Eino summarization；这里仅服务群聊共享上下文。
+// Product-level rolling summaries bound the canonical cross-turn transcript.
+// Eino owns native event history and summarization only inside one Agent turn.
 const (
 	compactAfter    = 30    // 未折叠消息达到这么多条触发压缩
 	compactMaxChars = 16000 // 或未折叠内容达到这么多字节触发
@@ -96,6 +97,39 @@ type TurnExtensionProvider func(context.Context, *store.User, string) (*TurnExte
 type readOnlyTurnKey struct{}
 type internalTurnKey struct{}
 type automationTurnOptionsKey struct{}
+type turnSourceKey struct{}
+
+// TurnReply carries the canonical result and its durable lifecycle identity.
+// Gateways use TurnID to acknowledge external delivery after the Agent result
+// has already been committed.
+type TurnReply struct {
+	Text             string
+	TurnID           int64
+	AlreadyDelivered bool
+	Replayed         bool
+	DeliveryStatus   string
+}
+
+// WithTurnSourceKey gives an inbound transport a stable idempotency identity.
+// The raw key is hashed by the store and is never persisted verbatim.
+func WithTurnSourceKey(ctx context.Context, key string) context.Context {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, turnSourceKey{}, key)
+}
+
+func sourceKeyForTurn(ctx context.Context) string {
+	if key, _ := ctx.Value(turnSourceKey{}).(string); strings.TrimSpace(key) != "" {
+		return strings.TrimSpace(key)
+	}
+	var nonce [24]byte
+	if _, err := rand.Read(nonce[:]); err == nil {
+		return "generated:" + hex.EncodeToString(nonce[:])
+	}
+	return fmt.Sprintf("generated:%d", time.Now().UnixNano())
+}
 
 // AutomationTurnOptions defines the capability boundary for a scheduler-owned
 // turn. The Eino Agent remains the single planner and response author.
@@ -141,17 +175,22 @@ func isGroupChannel(channel string) bool { return store.IsGroupChannel(channel) 
 // HandleMessage 处理用户在某渠道的一轮输入，返回给用户的答复。
 // 系统触发的轮次（催办/周报）同样走这里：调度器把系统指令作为输入传入。
 func (o *Orchestrator) HandleMessage(ctx context.Context, u *store.User, channel, text string) (string, error) {
+	reply, err := o.HandleMessageResult(ctx, u, channel, text)
+	return reply.Text, err
+}
+
+func (o *Orchestrator) HandleMessageResult(ctx context.Context, u *store.User, channel, text string) (TurnReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	release, err := o.locks.AcquireContext(ctx, u.ID)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	defer release()
 
 	sess, err := o.ensureSession(ctx, u, channel)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	return o.runTurn(ctx, u, sess, channel, text, nil, nil)
 }
@@ -193,23 +232,29 @@ func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.Use
 	}
 	ctx = context.WithValue(ctx, automationTurnOptionsKey{}, options)
 	slog.Debug("自动化轮次", "user", u.ID, "execution", strings.TrimSpace(executionKey), "session", sess.ID)
-	return o.runTurn(ctx, u, sess, channel, text, nil, nil)
+	reply, err := o.runTurn(ctx, u, sess, channel, text, nil, nil)
+	return reply.Text, err
 }
 
 // HandleMessageStream 同 HandleMessage，但把最终答复的文本增量实时喂给 onDelta
 // （eino 流式）——网关据此渐进显示，长轮次不让用户干等。返回仍是完整答复。
 func (o *Orchestrator) HandleMessageStream(ctx context.Context, u *store.User, channel, text string, onDelta func(string)) (string, error) {
+	reply, err := o.HandleMessageStreamResult(ctx, u, channel, text, onDelta)
+	return reply.Text, err
+}
+
+func (o *Orchestrator) HandleMessageStreamResult(ctx context.Context, u *store.User, channel, text string, onDelta func(string)) (TurnReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	release, err := o.locks.AcquireContext(ctx, u.ID)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	defer release()
 
 	sess, err := o.ensureSession(ctx, u, channel)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	return o.runTurn(ctx, u, sess, channel, text, onDelta, nil)
 }
@@ -225,17 +270,28 @@ func (o *Orchestrator) HandleMessageStreamWithExtension(
 	onDelta func(string),
 	extension TurnExtension,
 ) (string, error) {
+	reply, err := o.HandleMessageStreamWithExtensionResult(ctx, u, channel, text, onDelta, extension)
+	return reply.Text, err
+}
+
+func (o *Orchestrator) HandleMessageStreamWithExtensionResult(
+	ctx context.Context,
+	u *store.User,
+	channel, text string,
+	onDelta func(string),
+	extension TurnExtension,
+) (TurnReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	release, err := o.locks.AcquireContext(ctx, u.ID)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	defer release()
 
 	sess, err := o.ensureSession(ctx, u, channel)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	return o.runTurn(ctx, u, sess, channel, text, onDelta, &extension)
 }
@@ -243,19 +299,42 @@ func (o *Orchestrator) HandleMessageStreamWithExtension(
 // HandleGroupMessage 群共享会话的一轮：会话按渠道共享，工具集按发言人权限
 // 裁剪（并剔除群内高危工具），输入带【发言人】署名让 AI 分得清谁在说话。
 func (o *Orchestrator) HandleGroupMessage(ctx context.Context, u *store.User, channel, speaker, text string) (string, error) {
+	reply, err := o.HandleGroupMessageResult(ctx, u, channel, speaker, text)
+	return reply.Text, err
+}
+
+func (o *Orchestrator) HandleGroupMessageResult(ctx context.Context, u *store.User, channel, speaker, text string) (TurnReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	release, err := o.groupLocks.AcquireContext(ctx, channel)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	defer release()
 
 	sess, err := o.ensureGroupSession(ctx, u, channel)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	return o.runTurn(ctx, u, sess, channel, speakerLine(speaker, text), nil, nil)
+}
+
+func (o *Orchestrator) MarkTurnDelivered(ctx context.Context, turnID int64) error {
+	if turnID <= 0 {
+		return nil
+	}
+	return o.store.MarkConversationTurnDelivered(ctx, turnID)
+}
+
+func (o *Orchestrator) MarkTurnDeliveryFailed(ctx context.Context, turnID int64, cause error) error {
+	if turnID <= 0 {
+		return nil
+	}
+	message := ""
+	if cause != nil {
+		message = cause.Error()
+	}
+	return o.store.MarkConversationTurnDeliveryFailed(ctx, turnID, message)
 }
 
 // speakerLine 组装群消息的署名行。剥掉正文里的【】，防止有人在正文里嵌
@@ -300,11 +379,67 @@ func (o *Orchestrator) maybeCompactByCount(ctx context.Context, sess *store.Chat
 	o.maybeCompact(sess.ID, n, 0)
 }
 
-// runTurn 一轮引擎调用的公共路径：上下文与权限裁剪 → Eino DeepAgent → 落库。
+// runTurn 一轮引擎调用的公共路径：持久轮次登记 → 上下文与权限裁剪 →
+// Eino DeepAgent → 原子发布结果。
 // onDelta 非 nil 时把最终答复的文本增量实时推给调用方（流式，网关渐进显示）。
-func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.ChatSession, channel, text string, onDelta func(string), extension *TurnExtension) (string, error) {
+func (o *Orchestrator) runTurn(
+	ctx context.Context,
+	u *store.User,
+	sess *store.ChatSession,
+	channel, text string,
+	onDelta func(string),
+	extension *TurnExtension,
+) (reply TurnReply, err error) {
 	start := time.Now()
 	internal, _ := ctx.Value(internalTurnKey{}).(bool)
+	var durableTurn *store.ConversationTurn
+	turnCommitted := internal
+	storedUserText := text
+
+	if !internal {
+		var created bool
+		durableTurn, created, err = o.store.BeginConversationTurn(
+			ctx, sourceKeyForTurn(ctx), u.ID, sess.ID, channel, storedUserText)
+		if err != nil {
+			return TurnReply{}, err
+		}
+		if !created {
+			switch durableTurn.Status {
+			case "completed":
+				return TurnReply{
+					Text:             durableTurn.ResultText,
+					TurnID:           durableTurn.ID,
+					AlreadyDelivered: durableTurn.DeliveryStatus == "delivered",
+					Replayed:         true,
+					DeliveryStatus:   durableTurn.DeliveryStatus,
+				}, nil
+			case "running":
+				return TurnReply{TurnID: durableTurn.ID}, store.ErrTurnInProgress
+			default:
+				return TurnReply{TurnID: durableTurn.ID}, store.ErrTurnFailed
+			}
+		}
+		defer func() {
+			if turnCommitted || durableTurn == nil {
+				return
+			}
+			failCtx, cancel := turnFinalizationContext(ctx)
+			defer cancel()
+			cause := "轮次未完成"
+			if err != nil {
+				cause = sanitizeEngineError(err)
+			}
+			if failErr := o.store.FailConversationTurn(failCtx, durableTurn.ID, cause); failErr != nil {
+				slog.Warn("轮次失败状态落库失败", "turn", durableTurn.ID, "err", failErr)
+			}
+		}()
+		if durableTurn.UserMessageID == nil {
+			return TurnReply{TurnID: durableTurn.ID}, errors.New("轮次缺少用户消息")
+		}
+		o.embedMessage(*durableTurn.UserMessageID, storedUserText)
+		ctx = tools.WithApprovalTurn(ctx, sess.ID, *durableTurn.UserMessageID)
+	}
+
 	automationOptions, _ := ctx.Value(automationTurnOptionsKey{}).(AutomationTurnOptions)
 	turnMode := automationOptions.Mode
 	if turnMode == "" {
@@ -313,14 +448,15 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	if !internal && !isGroupChannel(channel) {
 		extension = o.withProvidedExtension(ctx, u, channel, extension)
 	}
-	// Recent history is only used to seed a new Eino managed session or replay a
-	// group turn. Once a private managed session exists, Eino owns its context.
+	// chat_messages is the only cross-turn source of truth. Every business turn
+	// receives a fresh Eino managed session seeded from this bounded canonical
+	// history; Eino remains responsible for the full tool loop inside that turn.
 	var msgs []store.ChatMessage
 	if !internal {
-		var err error
-		msgs, err = o.store.MessagesAfter(ctx, sess.ID, sess.SummaryUpto, historyLimit)
+		msgs, err = o.store.MessagesBefore(
+			ctx, sess.ID, sess.SummaryUpto, *durableTurn.UserMessageID, historyLimit)
 		if err != nil {
-			return "", err
+			return TurnReply{TurnID: durableTurn.ID}, err
 		}
 	}
 	var hostTools []ai.Tool
@@ -332,16 +468,14 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		fullToolset = tools.StripGroupSensitive(fullToolset) // 群里剔除机密/高危工具
 	}
 	sessionCapability := ""
-	if !isGroupChannel(channel) {
-		if u.IsSuperadmin {
-			sessionCapability = capabilityScopeForGrants(u, nil)
-		} else {
-			grants, err := o.store.PermsOf(ctx, u.ID)
-			if err != nil {
-				return "", fmt.Errorf("读取 Eino 会话权限边界: %w", err)
-			}
-			sessionCapability = capabilityScopeForGrants(u, grants)
+	if u.IsSuperadmin {
+		sessionCapability = capabilityScopeForGrants(u, nil)
+	} else {
+		grants, grantErr := o.store.PermsOf(ctx, u.ID)
+		if grantErr != nil {
+			return TurnReply{TurnID: turnIDOf(durableTurn)}, fmt.Errorf("读取 Eino 会话权限边界: %w", grantErr)
 		}
+		sessionCapability = capabilityScopeForGrants(u, grants)
 	}
 	if readOnly, _ := ctx.Value(readOnlyTurnKey{}).(bool); readOnly {
 		fullToolset = tools.ReadOnlyTools(fullToolset)
@@ -352,7 +486,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	availableTools := toolNames(fullToolset)
 	system, err := o.systemPrompt(ctx, u, channel, availableTools)
 	if err != nil {
-		return "", err
+		return TurnReply{TurnID: turnIDOf(durableTurn)}, err
 	}
 	if extension != nil && strings.TrimSpace(extension.System) != "" {
 		system += "\n\n[当前宿主界面能力]\n" + strings.TrimSpace(extension.System)
@@ -380,16 +514,25 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		system += "\n\n[早前对话摘要（更早内容已压缩，以下为历史要点）]\n" +
 			"摘要中的相对日期词只代表摘要生成当时，不得按当前日期重新解释；涉及时间结论时以带绝对时间的历史消息或工具记录为准。\n" + textfmt.StripHistoryMetadata(sess.Summary)
 	}
+	if !internal {
+		system += o.executionContinuityContext(ctx, u, sess)
+	}
 
 	slog.Info("轮次开始", "user", u.ID, "channel", channel, "session", sess.ID, "text_len", len(text))
 	slog.Debug("轮次输入", "session", sess.ID, "text_len", len(text), "text_sha", contentHash(text))
 
 	modelText := modelUserContent(extendedUserText(text, extension), start, o.tz)
+	engineSessionID := fmt.Sprintf("internal:%d", sess.ID)
+	disableEngineSession := true
+	if durableTurn != nil {
+		engineSessionID = fmt.Sprintf("turn:%d", durableTurn.ID)
+		disableEngineSession = false
+	}
 	req := &ai.TurnRequest{
 		Mode:              turnMode,
-		SessionID:         fmt.Sprintf("%d", sess.ID),
-		EngineSession:     sess.EngineRef,
-		DisableSession:    isGroupChannel(channel) || internal,
+		SessionID:         engineSessionID,
+		EngineSession:     "",
+		DisableSession:    disableEngineSession,
 		SessionCapability: sessionCapability,
 		System:            system,
 		UserText:          modelText,
@@ -452,32 +595,11 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 		"catalog_schema_chars", diag.ToolSchemaChars, "system_chars", diag.SystemChars,
 		"history_chars", diag.HistoryChars)
 
-	// 用户消息先落库：引擎失败时输入也不丢（历史已取出，本轮不会重复重放）。
-	// 若失败轮次留下孤立 user 消息，下一轮会把它移入「仅供理解、禁止执行」
-	// 的系统块，不再作为可执行 user 历史重放。
-	var userMsgID int64
-	// The authorized conversation transcript is the canonical source for
-	// follow-up turns. Redacting it here destroys credentials and identifiers
-	// the user may legitimately ask the Agent to use later; derived indexes and
-	// learning pipelines apply their own projection at their trust boundary.
-	storedUserText := text
-	if internal {
-		// Automation runs have their own durable run/delivery ledger. Writing
-		// scheduler directives into chat history makes retries look like user
-		// requests and poisons semantic recall, so keep this execution transient.
-	} else if id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), storedUserText); err != nil {
-		slog.Warn("用户消息落库失败", "err", err)
-	} else {
-		userMsgID = id
-		o.embedMessage(id, storedUserText) // 情景记忆：异步嵌入，供跨会话检索
-		ctx = tools.WithApprovalTurn(ctx, sess.ID, id)
-	}
-
 	res, err := o.engine.RunTurn(ctx, req)
 	if err != nil {
 		slog.Warn("轮次失败", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond), "err", err)
 		o.noteEngineResult(false, err)
-		return "", fmt.Errorf("AI 引擎失败: %w", err)
+		return TurnReply{TurnID: turnIDOf(durableTurn)}, fmt.Errorf("AI 引擎失败: %w", err)
 	}
 	res.Text = textfmt.StripReasoning(res.Text)
 	diag.AgentIterations = res.ToolExposure.AgentIterations
@@ -500,7 +622,7 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 			o.noteEngineResult(false, rerr)
 			engineOK = false
 			if internal {
-				return "", fmt.Errorf("自动化最终说明无法恢复: %w", rerr)
+				return TurnReply{}, fmt.Errorf("自动化最终说明无法恢复: %w", rerr)
 			}
 			res.Text = visibleReplyFallback(res)
 		} else {
@@ -521,38 +643,48 @@ func (o *Orchestrator) runTurn(ctx context.Context, u *store.User, sess *store.C
 	finalizeCtx, finalizeCancel := turnFinalizationContext(ctx)
 	defer finalizeCancel()
 
-	// Agent may consume the entire turn deadline before terminal repair succeeds.
-	// Once a final result exists, commit the canonical transcript first under an
-	// independent bounded budget so delivery and durable history cannot diverge.
-	var assistantMsgID int64
 	if internal {
-		// The scheduler stores and retries the generated result independently.
-	} else if id, err := o.store.AppendMessage(finalizeCtx, sess.ID, string(ai.RoleAssistant), storedReply); err != nil {
-		slog.Warn("助手消息落库失败", "err", err)
-	} else {
-		assistantMsgID = id
-		o.embedMessage(id, storedReply)
+		// Scheduler/event ledgers own idempotency and delivery for internal turns.
+		o.recordActionTurn(finalizeCtx, u, sess, channel, text, actionAudit, res, diag)
+		o.recordUsage(finalizeCtx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
+		return TurnReply{Text: res.Text}, nil
 	}
-	if res.EngineSession != "" && res.EngineSession != sess.EngineRef {
-		if err := o.store.SetSessionEngineRef(finalizeCtx, sess.ID, res.EngineSession); err != nil {
-			slog.Warn("引擎会话标识落库失败", "err", err)
-		}
-	}
-	o.recordActionTurn(finalizeCtx, u, sess, channel, text, actionAudit, res, diag)
-	// 成本计量：每轮 token 用量落库（尽力而为）。
-	o.recordUsage(finalizeCtx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
 
-	// 长期记忆提炼是异步、受治理的业务过程。每个有实际内容的轮次都交给
-	// miner 判断是否值得学习，不再依赖另一轮规划模型给出的 learn 布尔值。
-	if !internal {
-		o.maybeMineMemory(u, channel, storedUserText, storedReply, res.Steps, sess.ID, userMsgID, assistantMsgID)
+	action := buildActionTurnInput(u, sess, channel, text, actionAudit, res, diag)
+	usage := &store.AIUsage{
+		UserID: u.ID, SessionID: &sess.ID, Kind: channelKind(channel), Model: req.Model,
+		InputTokens: res.Usage.InputTokens, OutputTokens: res.Usage.OutputTokens,
 	}
-	// 群会话会被旁听消息从 agent loop 之外写入，不能使用 Eino managed
-	// session；继续保留产品层滚动摘要，确保两次 @ 之间的群聊上下文不丢。
-	if isGroupChannel(channel) {
-		o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
+	assistantMsgID, err := o.store.CompleteConversationTurn(finalizeCtx, store.ConversationTurnCompletion{
+		TurnID:         durableTurn.ID,
+		AssistantText:  storedReply,
+		ResultText:     res.Text,
+		EngineSession:  res.EngineSession,
+		Action:         action,
+		Usage:          usage,
+		EnqueueMemory:  !strings.HasPrefix(storedUserText, "[系统"),
+		MemoryEvidence: verifiedMemoryToolEvidence(res.Steps),
+	})
+	if err != nil {
+		return TurnReply{TurnID: durableTurn.ID}, fmt.Errorf("提交对话轮次: %w", err)
 	}
-	return res.Text, nil
+	turnCommitted = true
+	o.embedMessage(assistantMsgID, storedReply)
+	if !strings.HasPrefix(storedUserText, "[系统") {
+		o.wakeMemoryMiner()
+	}
+
+	// Every interactive channel now uses the canonical product transcript across
+	// turns, so every channel shares the same bounded compaction lifecycle.
+	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
+	return TurnReply{Text: res.Text, TurnID: durableTurn.ID}, nil
+}
+
+func turnIDOf(turn *store.ConversationTurn) int64 {
+	if turn == nil {
+		return 0
+	}
+	return turn.ID
 }
 
 func (o *Orchestrator) withProvidedExtension(ctx context.Context, u *store.User, channel string, explicit *TurnExtension) *TurnExtension {

@@ -125,3 +125,42 @@ func TestStreamEditorSlowTypingDoesNotStallFlush(t *testing.T) {
 		t.Fatalf("typing 请求拖慢了流式编辑，最大编辑间隔 %v（≥ 慢 typing 时长 %v）", h.maxEditGap, typingWait)
 	}
 }
+
+type streamDeliveryFailureHTTP struct {
+	mu        sync.Mutex
+	sendCalls int
+}
+
+func (h *streamDeliveryFailureHTTP) Do(req *http.Request) (*http.Response, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	switch {
+	case strings.HasSuffix(req.URL.Path, "/sendMessage"):
+		h.sendCalls++
+		if h.sendCalls == 1 {
+			return streamLoopResp(`{"message_id":42,"date":0,"chat":{"id":1,"type":"private"}}`), nil
+		}
+	case strings.HasSuffix(req.URL.Path, "/deleteMessage"):
+		return streamLoopResp("true"), nil
+	}
+	return &http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Body:       io.NopCloser(strings.NewReader(`{"ok":false,"error_code":500,"description":"delivery failed"}`)),
+		Header:     http.Header{},
+	}, nil
+}
+
+func TestStreamEditorFinishReportsTotalDeliveryFailure(t *testing.T) {
+	h := &streamDeliveryFailureHTTP{}
+	b, err := bot.New("TESTTOKEN", bot.WithHTTPClient(time.Second, h), bot.WithSkipGetMe())
+	if err != nil {
+		t.Fatalf("bot.New: %v", err)
+	}
+	ed := (&Gateway{bot: b}).newStreamEditorEvery(context.Background(), 1, time.Hour, time.Hour)
+	if !ed.ok {
+		t.Fatal("placeholder was not created")
+	}
+	if err := ed.finish(context.Background(), "最终答复"); err == nil {
+		t.Fatal("finish must report failure when edit and fallback sends all fail")
+	}
+}

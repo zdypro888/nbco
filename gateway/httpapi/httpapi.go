@@ -311,14 +311,26 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "message 必填"})
 		return
 	}
-	// 对话可能耗时数分钟，脱离请求超时限制交给引擎自身控制。
-	answer, err := s.orch.HandleMessage(r.Context(), u, Channel, req.Message)
+	turnCtx := r.Context()
+	if key := strings.TrimSpace(r.Header.Get("Idempotency-Key")); key != "" {
+		turnCtx = chat.WithTurnSourceKey(turnCtx, "http:"+key)
+	}
+	reply, err := s.orch.HandleMessageResult(turnCtx, u, Channel, req.Message)
 	if err != nil {
+		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrConflict) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "幂等键正在处理或已用于其他输入"})
+			return
+		}
 		slog.Error("API 对话失败", "user", u.ID, "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "对话处理失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"reply": answer})
+	writeJSON(w, http.StatusOK, map[string]string{"reply": reply.Text})
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Second)
+	defer cancel()
+	if err := s.orch.MarkTurnDelivered(ackCtx, reply.TurnID); err != nil {
+		slog.Warn("API 对话交付状态落库失败", "turn", reply.TurnID, "err", err)
+	}
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {

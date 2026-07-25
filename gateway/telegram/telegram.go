@@ -879,16 +879,33 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	g.sendTyping(ctx, chatID)
-	answer, err := g.orch.HandleGroupMessage(ctx, u, channel, u.Name, ask)
+	turnCtx := chat.WithTurnSourceKey(ctx, telegramTurnSourceKey(msg))
+	reply, err := g.orch.HandleGroupMessageResult(turnCtx, u, channel, u.Name, ask)
 	if err != nil {
+		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrTurnFailed) ||
+			errors.Is(err, store.ErrConflict) {
+			slog.Info("忽略已领取的 Telegram 群消息重放", "chat", chatID, "message", msg.ID, "err", err)
+			return
+		}
 		slog.Error("群对话轮次失败", "chat", chatID, "user", u.ID, "err", err)
 		g.reply(ctx, chatID, "这轮对话出错了，请重试。")
+		return
+	}
+	if reply.AlreadyDelivered || (reply.Replayed && reply.DeliveryStatus == "failed") {
+		if reply.DeliveryStatus == "failed" {
+			slog.Warn("Telegram 群消息曾部分或完整投递失败，禁止盲目自动重发", "chat", chatID, "turn", reply.TurnID)
+		}
 		return
 	}
 	if monitorOn {
 		g.observeGroupMonitor(ctx, msg.Chat, ask)
 	}
-	g.reply(ctx, chatID, answer)
+	if err := g.sendChunks(ctx, chatID, reply.Text); err != nil {
+		slog.Error("群对话答复投递失败", "chat", chatID, "turn", reply.TurnID, "err", err)
+		g.recordTurnDelivery(ctx, reply.TurnID, err)
+		return
+	}
+	g.recordTurnDelivery(ctx, reply.TurnID, nil)
 }
 
 func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User) bool {
@@ -1777,13 +1794,56 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	// 流式：发占位消息，把最终答复的增量渐进编辑上去（本地模型慢，不让用户干等）。
 	g.sendTyping(ctx, chatID)
 	ed := g.newStreamEditor(ctx, chatID)
-	answer, err := g.orch.HandleMessageStream(ctx, u, Provider, text, ed.onDelta)
+	turnCtx := chat.WithTurnSourceKey(ctx, telegramTurnSourceKey(msg))
+	reply, err := g.orch.HandleMessageStreamResult(turnCtx, u, Provider, text, ed.onDelta)
 	if err != nil {
+		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrTurnFailed) ||
+			errors.Is(err, store.ErrConflict) {
+			slog.Info("忽略已领取的 Telegram 私聊消息重放", "chat", chatID, "message", msg.ID, "err", err)
+			ed.discard(ctx)
+			return
+		}
 		slog.Error("对话轮次失败", "user", u.ID, "err", err)
 		ed.fail(ctx, "这轮对话出错了，请重试；连续失败请联系管理员。")
 		return
 	}
-	ed.finish(ctx, answer)
+	if reply.AlreadyDelivered || (reply.Replayed && reply.DeliveryStatus == "failed") {
+		if reply.DeliveryStatus == "failed" {
+			slog.Warn("Telegram 私聊消息曾部分或完整投递失败，禁止盲目自动重发", "chat", chatID, "turn", reply.TurnID)
+		}
+		ed.discard(ctx)
+		return
+	}
+	if err := ed.finish(ctx, reply.Text); err != nil {
+		slog.Error("对话答复投递失败", "user", u.ID, "turn", reply.TurnID, "err", err)
+		g.recordTurnDelivery(ctx, reply.TurnID, err)
+		return
+	}
+	g.recordTurnDelivery(ctx, reply.TurnID, nil)
+}
+
+func telegramTurnSourceKey(msg *models.Message) string {
+	if msg == nil {
+		return ""
+	}
+	return fmt.Sprintf("telegram:message:%d:%d", msg.Chat.ID, msg.ID)
+}
+
+func (g *Gateway) recordTurnDelivery(ctx context.Context, turnID int64, cause error) {
+	if turnID <= 0 {
+		return
+	}
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	var err error
+	if cause == nil {
+		err = g.orch.MarkTurnDelivered(ackCtx, turnID)
+	} else {
+		err = g.orch.MarkTurnDeliveryFailed(ackCtx, turnID, cause)
+	}
+	if err != nil {
+		slog.Warn("对话投递状态落库失败", "turn", turnID, "delivery_error", cause, "err", err)
+	}
 }
 
 func (g *Gateway) handleModelCommand(ctx context.Context, chatID int64, u *store.User, args string) {

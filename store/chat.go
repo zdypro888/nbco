@@ -11,11 +11,13 @@ import (
 // ChatSession AI 会话。每个 (user, channel) 至多一个活跃会话；
 // 群共享会话（channel 形如 telegram:group:<chatID>）则每个 channel 至多一个活跃。
 type ChatSession struct {
-	ID        int64
-	UserID    int64
-	Channel   string
-	Engine    string
-	EngineRef string // Eino managed session 标识；能力权限变化时由引擎轮换
+	ID      int64
+	UserID  int64
+	Channel string
+	Engine  string
+	// EngineRef is retained for legacy rows and non-chat callers. Interactive
+	// chat now scopes Eino sessions to conversation_turns and ignores this field.
+	EngineRef string
 	Active    bool
 	CreatedAt time.Time
 	// 滚动摘要压缩：Summary 是较早对话的压缩摘要，SummaryUpto 是已折叠的
@@ -665,6 +667,39 @@ func (s *Store) MessagesAfter(ctx context.Context, sessionID, afterID int64, lim
 		args = append(args, limit)
 	}
 	rows, err := s.pool.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var msgs []ChatMessage
+	for rows.Next() {
+		var m ChatMessage
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, m)
+	}
+	return msgs, rows.Err()
+}
+
+// MessagesBefore returns the most recent context-eligible messages after the
+// summary boundary and strictly before one message. Interactive turns use it
+// after atomically appending the current user message, so that message cannot
+// be replayed both as History and UserText.
+func (s *Store) MessagesBefore(ctx context.Context, sessionID, afterID, beforeID int64, limit int) ([]ChatMessage, error) {
+	query := `SELECT id, session_id, role, content, created_at FROM chat_messages
+	          WHERE session_id = $1 AND id > $2 AND id < $3 AND context_eligible
+	          ORDER BY id`
+	args := []any{sessionID, afterID, beforeID}
+	if limit > 0 {
+		query = `SELECT id, session_id, role, content, created_at FROM (
+		           SELECT id, session_id, role, content, created_at FROM chat_messages
+		           WHERE session_id = $1 AND id > $2 AND id < $3 AND context_eligible
+		           ORDER BY id DESC LIMIT $4
+		         ) sub ORDER BY id`
+		args = append(args, limit)
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

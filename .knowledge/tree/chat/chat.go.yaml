@@ -343,10 +343,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:9f53811f034dc25e4632b34abd789bbcae82419bab09ab0aa1a4519e84bddee1
-        struct_hash: sha256:e69863e920f0d4671ad11b326184d8d3206392c4ddbcad2b87e813849c6928ed
-        doc_struct_hash: sha256:0fd519f27e7ce8918d1e2f92357e463de07a7ea57ab7f0c855a3846c003ebbc7
-        lines: [303, 556]
+        hash: sha256:9149bd7a1ba3de1ece649e53dda55fb69c4a8c80ef68dedf53cb5c237a99c890
+        struct_hash: sha256:ee577efce59ae2913a213d60230231d644d12e986f6448a201cbd4f0c6ecb7f6
+        doc_struct_hash: sha256:e61a5fb0cc17dcc7da2a5d4372b473b4bff3f0d2e3d8afb2fb40b48d6be0270d
+        lines: [382, 681]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -372,11 +372,27 @@ nodes:
           at: 2026-07-21T10:55:42.540554Z
           confirmed_at: 2026-07-21T10:55:49.698102Z
           author: codex-mcp-client
+        - id: e_5268c796
+          kind: contract
+          text: 交互对话的跨轮事实只来自 chat_messages 滚动摘要/近期原文与同事务 action_turns 执行投影；每个 conversation_turn 使用独立 Eino managed session，Eino 事件只负责该轮 DeepAgent 工具循环、checkpoint 和恢复，绝不能再次把 chat_sessions.engine_ref 当私聊跨轮上下文。
+          confidence: inferred
+          at: 2026-07-25T10:14:56.538902Z
+          author: codex-mcp-client
+        - id: e_e0e435f3
+          kind: pitfall
+          text: terminal repair 是无工具、无会话的结果整理；若让下一轮恢复上一轮 Eino session，agent_error 回滚会漏掉用户已看到的 repaired reply。必须先原子完成 conversation_turn，再由下一轮重放规范业务事实。
+          confidence: inferred
+          at: 2026-07-25T10:14:56.539913Z
+          author: codex-mcp-client
       keywords:
         - eino 单循环
         - 正常答复不改写
         - 截断恢复
         - 自动化只读
+        - 单一跨轮事实源
+        - conversation_turn
+        - per-turn eino session
+        - terminal repair 跨轮
       lineage:
         - chat/turn_context.go#Orchestrator.planTurnContext
         - chat/reply_grounding.go#Orchestrator.groundVisibleReply

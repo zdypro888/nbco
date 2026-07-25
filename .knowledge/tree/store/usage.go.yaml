@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/usage.go
         symbol: Store.RecordAIUsage
-        hash: sha256:aa5fd56002bba0135b1ddaaf0a8bcfbae122006e37c4ff00ab5f2e5dcd8470a9
-        struct_hash: sha256:73bc48c3d3e8111794222506e520f9c6effbdffbf65f3aaab69adb26bcd5f6c4
-        doc_struct_hash: sha256:25f954d3fdf8015a0c847ed5024cc30d038cb0482ef97e571a05aa9aa5837c14
-        lines: [19, 26]
+        hash: sha256:8f6c7cf5b5aac3fe1261cdba040027fbc02f1ca1cf5f596601f44ff8ae788b9a
+        struct_hash: sha256:4be1a530b92bf180fe2495ef6f66454768dc9d5d84111127027724d213b589a5
+        doc_struct_hash: sha256:c1d620890b4b321c7439fc31e9afda7a9f5652707db0f96d2fff5e350cebd23f
+        lines: [20, 29]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/usage.go#AIUsageTotal

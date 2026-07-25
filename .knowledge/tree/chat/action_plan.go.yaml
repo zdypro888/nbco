@@ -138,7 +138,7 @@ nodes:
         struct_hash: sha256:f22f11d0d6cbef681a1eebbf68c1603a793276e346b612a87e06975125819359
         doc_struct_hash: sha256:f22f11d0d6cbef681a1eebbf68c1603a793276e346b612a87e06975125819359
         lines: [20, 54]
-      status: fresh
+      status: suspect
       since: 2026-07-21T10:54:43.989798Z
       entries:
         - id: e_e43b8a2c
@@ -191,3 +191,14 @@ nodes:
       since: 2026-07-21T10:55:06.370963Z
       lineage:
         - chat/action_plan.go#actionPlan
+    - id: chat/action_plan.go#Orchestrator.executionContinuityContext
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: Orchestrator.executionContinuityContext
+        hash: sha256:4f67fa3a3e3c48bfd8e382094a1ae15c5b1e0845e36d1c832d79c7ea9776eafe
+        struct_hash: sha256:ad78910490175e7abc6d8c858222128296311572e91d89f11f32d58c8d20508f
+        doc_struct_hash: sha256:37f885990b8281ec822ad301e7f9249a8b52bf2cb0afac393bcce634833c53a2
+        lines: [207, 261]
+      status: fresh
+      since: 2026-07-25T10:14:40.509302Z

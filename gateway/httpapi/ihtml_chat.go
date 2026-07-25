@@ -193,6 +193,7 @@ func (s *ihtmlSharedSession) runTurn(event *ihtml.ChatClientEvent) {
 	}()
 
 	runID := fmt.Sprintf("nbco_ui_%d", time.Now().UnixNano())
+	turnCtx = chat.WithTurnSourceKey(turnCtx, "ihtml:"+runID)
 	emit := newIHTMLEmitter(runID, s.emitRaw)
 	if err := emit(ihtml.ChatStreamEvent{Type: ihtml.ChatStreamTurnStart, ModelReady: true,
 		Agent: &ihtml.ChatAgentStage{Mode: "deep", Agent: "root", TaskID: "root", Phase: "turn", Status: "running"}}); err != nil {
@@ -240,7 +241,7 @@ func (s *ihtmlSharedSession) runTurn(event *ihtml.ChatClientEvent) {
 				ToolTitle: step.ToolName, ToolStatus: status, ToolSummary: summary, ModelReady: true})
 		},
 	}
-	answer, err := s.backend.orch.HandleMessageStreamWithExtension(
+	reply, err := s.backend.orch.HandleMessageStreamWithExtensionResult(
 		turnCtx, s.user, ihtmlChatChannel, text, onDelta, extension)
 	if err != nil {
 		if turnCtx.Err() != nil {
@@ -255,8 +256,15 @@ func (s *ihtmlSharedSession) runTurn(event *ihtml.ChatClientEvent) {
 	_ = emit(ihtml.ChatStreamEvent{Type: ihtml.ChatStreamAssistantAgent,
 		Agent:      &ihtml.ChatAgentStage{Mode: "deep", Agent: "root", TaskID: "root", Phase: "turn", Status: "completed"},
 		ModelReady: true})
-	_ = emit(ihtml.ChatStreamEvent{Type: ihtml.ChatStreamAssistantDone, Message: answer,
+	deliveryErr := emit(ihtml.ChatStreamEvent{Type: ihtml.ChatStreamAssistantDone, Message: reply.Text,
 		ContentFormat: ihtml.ChatContentFormatMarkdown, ModelReady: true})
+	ackCtx, ackCancel := context.WithTimeout(context.WithoutCancel(turnCtx), 10*time.Second)
+	defer ackCancel()
+	if deliveryErr != nil {
+		_ = s.backend.orch.MarkTurnDeliveryFailed(ackCtx, reply.TurnID, deliveryErr)
+		return
+	}
+	_ = s.backend.orch.MarkTurnDelivered(ackCtx, reply.TurnID)
 }
 
 func lastIHTMLUserMessage(messages []ihtml.ChatMessage) (string, error) {

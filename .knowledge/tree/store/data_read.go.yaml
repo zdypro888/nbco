@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: dataSourceDefs
-        hash: sha256:b5c72183da0fcdd7d1486cf648ccc7174427ea77d8a91ad3a68a486e6011cf50
-        struct_hash: sha256:ea04fedcdc3354ae00e75358db25d139f3534371880713ca6a854fa607a2f1ff
-        doc_struct_hash: sha256:ea04fedcdc3354ae00e75358db25d139f3534371880713ca6a854fa607a2f1ff
-        lines: [49, 614]
+        hash: sha256:b26bbd45e2b6af9238bd27db3a569e6d6ca6cb6e723cd60da5d1a39a7218bfec
+        struct_hash: sha256:05159cbdab4590339438d245da4e608c580ea6ff2a8065627e742962ac9667b7
+        doc_struct_hash: sha256:05159cbdab4590339438d245da4e608c580ea6ff2a8065627e742962ac9667b7
+        lines: [49, 632]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/data_read.go#DataSources

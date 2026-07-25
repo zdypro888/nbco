@@ -104,6 +104,12 @@ func run(configPath string) error {
 		return err
 	}
 	defer st.Close()
+	staleTurnAge := time.Duration(cfg.AI.TurnTimeoutMS)*time.Millisecond + 2*time.Minute
+	if count, err := st.FailStaleConversationTurns(ctx, staleTurnAge); err != nil {
+		return fmt.Errorf("清理失联对话轮次: %w", err)
+	} else if count > 0 {
+		slog.Warn("已关闭失联对话轮次，禁止自动重放未知副作用", "count", count)
+	}
 
 	hub := &notify.Hub{}
 	tgGroups := &tools.TelegramGroupHub{}

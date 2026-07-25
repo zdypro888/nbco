@@ -613,3 +613,14 @@ nodes:
         lines: [714, 720]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.MessagesBefore
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.MessagesBefore
+        hash: sha256:16c8c611f0e616b4ca9741ccbe51996c9e96a2133b47ba00e4c80672b055a9ca
+        struct_hash: sha256:2527b3604ac2b5749d9db077b0b08747e6a8233f93b8172a0755202df9f55760
+        doc_struct_hash: sha256:86a62ec90570ee693bd74f354c00ec9bc8134fba212eaf43846191fc52c0889c
+        lines: [685, 716]
+      status: fresh
+      since: 2026-07-25T10:14:40.542716Z
