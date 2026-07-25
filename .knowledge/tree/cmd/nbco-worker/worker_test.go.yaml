@@ -288,10 +288,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker_test.go
         symbol: TestCliInvocationResumesKnownEngines
-        hash: sha256:bb4d3b450b2ee2931a1742c9b6d4e1e7fdf1ad7deda0c988692f65bf70aaada3
-        struct_hash: sha256:e46558593132c337e327cceeee6fb650512d525f0fab830c5dae9940e8db4846
-        doc_struct_hash: sha256:e46558593132c337e327cceeee6fb650512d525f0fab830c5dae9940e8db4846
-        lines: [441, 482]
+        hash: sha256:80ce29e62adb83c541a1069313d63bf30d987ec5c1d7ef8828623e44394772ab
+        struct_hash: sha256:7979a7aa082a89fb01b6a6561b3ecd38954d9048bcbe00c4f5e5b052ac3fa02f
+        doc_struct_hash: sha256:7979a7aa082a89fb01b6a6561b3ecd38954d9048bcbe00c4f5e5b052ac3fa02f
+        lines: [600, 645]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker_test.go#TestCliInvocationRotatesWhenRuntimeConfigurationChanges

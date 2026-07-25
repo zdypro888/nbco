@@ -599,7 +599,11 @@ func TestCliArgs(t *testing.T) {
 
 func TestCliInvocationResumesKnownEngines(t *testing.T) {
 	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
-	codexWorker := &Worker{cfg: Config{Engine: "codex"}}
+	// Resume argument construction must not depend on an installed CLI. Some
+	// real CLIs mutate their home config even for --version, which changes the
+	// runtime fingerprint between the two calls this test intentionally makes.
+	testBin := filepath.Join(t.TempDir(), "missing-agent-cli")
+	codexWorker := &Worker{cfg: Config{Engine: "codex", Bin: testBin}}
 	codexFingerprint := codexWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo").RuntimeFingerprint
 	codex := codexWorker.cliInvocationFor(SessionInfo{
 		EngineSessionRef: ref, EngineRuntimeFingerprint: codexFingerprint, Workdir: "/tmp/repo",
@@ -611,7 +615,7 @@ func TestCliInvocationResumesKnownEngines(t *testing.T) {
 		t.Fatalf("codex resume 仍必须是交互模式，不得用 exec: %v", codex.Args)
 	}
 
-	claudeWorker := &Worker{cfg: Config{Engine: "claude"}}
+	claudeWorker := &Worker{cfg: Config{Engine: "claude", Bin: testBin}}
 	claudeFingerprint := claudeWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo").RuntimeFingerprint
 	claude := claudeWorker.cliInvocationFor(SessionInfo{
 		EngineSessionRef: ref, EngineRuntimeFingerprint: claudeFingerprint, Workdir: "/tmp/repo",
