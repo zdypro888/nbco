@@ -547,3 +547,14 @@ nodes:
         lines: [411, 423]
       status: fresh
       since: 2026-07-25T04:57:17.553838Z
+    - id: chat/chat_test.go#TestRecordGroupMessageRepairsMissingActiveSession
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestRecordGroupMessageRepairsMissingActiveSession
+        hash: sha256:a53693b569cda635e54fc29132762c7c1b384d1f184ddbe3af38cb13c37d581f
+        struct_hash: sha256:6863b9188f5ca26788062923fb64cd95973cd1c321700eb842b219c7fa825546
+        doc_struct_hash: sha256:6863b9188f5ca26788062923fb64cd95973cd1c321700eb842b219c7fa825546
+        lines: [935, 1004]
+      status: fresh
+      since: 2026-07-25T13:46:39.229898Z

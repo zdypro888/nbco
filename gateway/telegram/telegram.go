@@ -835,7 +835,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 			if bound {
 				speaker = u.Name
 			}
-			g.orch.RecordGroupMessage(ctx, channel, speaker, text)
+			if err := g.orch.RecordGroupMessage(ctx, g.groupTranscriptOwner(ctx, u), channel, speaker, text); err != nil {
+				slog.Error("Telegram 群消息持久化失败", "chat", chatID, "message", msg.ID, "err", err)
+			}
 			if monitorOn {
 				g.observeGroupMonitor(ctx, msg.Chat, text)
 			}
@@ -864,7 +866,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 				if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
 					slog.Warn("建立群文件上下文失败", "chat", chatID, "user", u.ID, "err", err)
 				} else {
-					g.orch.RecordGroupMessage(ctx, channel, u.Name, savedFilesPrompt(saved))
+					if err := g.orch.RecordGroupMessage(ctx, u, channel, u.Name, savedFilesPrompt(saved)); err != nil {
+						slog.Error("群文件上下文持久化失败", "chat", chatID, "user", u.ID, "err", err)
+					}
 				}
 			}
 			g.replyFileIntakeResults(ctx, chatID, saved, failed, false)
@@ -906,6 +910,35 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		return
 	}
 	g.recordTurnDelivery(ctx, reply.TurnID, nil)
+}
+
+// groupTranscriptOwner chooses a stable company identity for the shared
+// transcript row. The actual speaker remains separately signed in message
+// content; ownership only satisfies the chat_sessions foreign key.
+func (g *Gateway) groupTranscriptOwner(ctx context.Context, bound *store.User) *store.User {
+	if bound != nil && bound.ID > 0 && bound.Status == store.UserActive && bound.IsSuperadmin {
+		return bound
+	}
+	var selectedTelegramID int64
+	for telegramID := range g.superadmins {
+		if selectedTelegramID == 0 || telegramID < selectedTelegramID {
+			selectedTelegramID = telegramID
+		}
+	}
+	if selectedTelegramID == 0 {
+		if bound != nil && bound.ID > 0 && bound.Status == store.UserActive {
+			return bound
+		}
+		return nil
+	}
+	u, err := g.store.UserByIdentity(ctx, Provider, strconv.FormatInt(selectedTelegramID, 10))
+	if err == nil && u.Status == store.UserActive {
+		return u
+	}
+	if bound != nil && bound.ID > 0 && bound.Status == store.UserActive {
+		return bound
+	}
+	return nil
 }
 
 func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User) bool {

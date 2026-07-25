@@ -344,29 +344,30 @@ func speakerLine(speaker, text string) string {
 	return "【" + clean.Replace(speaker) + "】" + clean.Replace(text)
 }
 
-// RecordGroupMessage 群监听：把旁听到的消息记入群会话上下文（不跑引擎、不回复）。
-// 群会话尚未建立（未开过监听/未被 @ 过）时静默跳过。
-func (o *Orchestrator) RecordGroupMessage(ctx context.Context, channel, speaker, text string) {
+// RecordGroupMessage persists a passively observed group message without
+// running the Agent. Recording is a gateway invariant: an inactive session is
+// restored instead of silently dropping an update that Telegram already sent.
+func (o *Orchestrator) RecordGroupMessage(ctx context.Context, owner *store.User, channel, speaker, text string) error {
 	release, err := o.groupLocks.AcquireContext(ctx, channel)
 	if err != nil {
-		return
+		return err
 	}
 	defer release()
 
-	sess, err := o.store.ActiveSessionByChannel(ctx, channel)
+	sess, err := o.ensureGroupRecordingSession(ctx, owner, channel)
 	if err != nil {
-		return
+		return err
 	}
 	line := speakerLine(speaker, text)
 	id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), line)
 	if err != nil {
-		slog.Warn("群旁听消息落库失败", "channel", channel, "err", err)
-		return
+		return err
 	}
 	o.embedMessage(id, line)
 	// 旁听积压也要触发压缩：否则两次 @ 之间攒够 40 条时，被 @ 的那轮只重放
 	// 最新 40 条，更早的旁听内容既不在摘要也不在窗口，AI 接不住前文。
 	o.maybeCompactByCount(ctx, sess)
+	return nil
 }
 
 // maybeCompactByCount 按会话未折叠消息条数判断是否需要压缩（旁听路径用，
@@ -1820,23 +1821,65 @@ func (o *Orchestrator) TouchGroupSession(ctx context.Context, u *store.User, cha
 
 // ensureGroupSession 取群共享活跃会话；不存在或引擎不匹配时新开。
 func (o *Orchestrator) ensureGroupSession(ctx context.Context, u *store.User, channel string) (*store.ChatSession, error) {
+	if u == nil || u.ID <= 0 {
+		return nil, store.ErrNotFound
+	}
+	return o.ensureGroupSessionForOwner(ctx, u.ID, channel)
+}
+
+// ensureGroupRecordingSession recovers the transcript owner from the newest
+// retired session when the current sender is not bound. This keeps group
+// capture independent from an interactive /new session's active flag.
+func (o *Orchestrator) ensureGroupRecordingSession(
+	ctx context.Context,
+	owner *store.User,
+	channel string,
+) (*store.ChatSession, error) {
+	ownerID := int64(0)
+	latest, err := o.store.LatestSessionByChannel(ctx, channel)
+	switch {
+	case err == nil:
+		// Session ownership is a stable storage concern, not the identity of
+		// whichever employee happened to send the recovery-triggering message.
+		ownerID = latest.UserID
+	case !errors.Is(err, store.ErrNotFound):
+		return nil, err
+	case owner != nil && owner.ID > 0:
+		ownerID = owner.ID
+	default:
+		return nil, store.ErrNotFound
+	}
+	if ownerID <= 0 {
+		return nil, store.ErrNotFound
+	}
+	return o.ensureGroupSessionForOwner(ctx, ownerID, channel)
+}
+
+func (o *Orchestrator) ensureGroupSessionForOwner(
+	ctx context.Context,
+	ownerID int64,
+	channel string,
+) (*store.ChatSession, error) {
 	sess, err := o.store.ActiveSessionByChannel(ctx, channel)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return o.startGroupSessionOrReuse(ctx, u, channel)
+		return o.startGroupSessionOrReuse(ctx, ownerID, channel)
 	case err != nil:
 		return nil, err
 	}
 	if sess.Engine != o.engine.Name() {
-		return o.startGroupSessionOrReuse(ctx, u, channel)
+		return o.startGroupSessionOrReuse(ctx, ownerID, channel)
 	}
 	return sess, nil
 }
 
 // startGroupSessionOrReuse 开群会话；撞上并发创建（群渠道 active 唯一索引）
 // 就复用对方刚建好的——两名成员同时首次 @bot 时共享同一个上下文而非分裂两个。
-func (o *Orchestrator) startGroupSessionOrReuse(ctx context.Context, u *store.User, channel string) (*store.ChatSession, error) {
-	sess, err := o.store.StartGroupSession(ctx, u.ID, channel, o.engine.Name())
+func (o *Orchestrator) startGroupSessionOrReuse(ctx context.Context, ownerID int64, channel string) (*store.ChatSession, error) {
+	if ownerID <= 0 {
+		return nil, store.ErrNotFound
+	}
+	sess, err := o.store.StartGroupSession(ctx, ownerID, channel, o.engine.Name())
 	if errors.Is(err, store.ErrConflict) {
 		return o.store.ActiveSessionByChannel(ctx, channel)
 	}

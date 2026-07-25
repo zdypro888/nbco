@@ -123,6 +123,14 @@ func (s *Store) ActiveSessionByChannel(ctx context.Context, channel string) (*Ch
 		`SELECT `+sessionCols+` FROM chat_sessions WHERE channel = $1 AND active ORDER BY id DESC LIMIT 1`, channel))
 }
 
+// LatestSessionByChannel returns the newest session regardless of active state.
+// Gateways use it to restore a durable group transcript after administrative
+// cleanup or a failed reset left the channel without an active session.
+func (s *Store) LatestSessionByChannel(ctx context.Context, channel string) (*ChatSession, error) {
+	return scanSession(s.pool.QueryRow(ctx,
+		`SELECT `+sessionCols+` FROM chat_sessions WHERE channel = $1 ORDER BY id DESC LIMIT 1`, channel))
+}
+
 // StartGroupSession 开群共享会话：按 channel（而非 user）关闭旧活跃会话。
 // userID 只做创建者记录。
 func (s *Store) StartGroupSession(ctx context.Context, userID int64, channel, engine string) (*ChatSession, error) {

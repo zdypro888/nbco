@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: tools/telegram_groups_test.go
         symbol: TestTelegramGroupMessageRangeAndRender
-        hash: sha256:0fb65c2b8c95ae46b7980b878b994b1ce25b35d273f257f8c1bef4c76b308dc3
-        struct_hash: sha256:176d61a71cb43da66c45ea3d048b86e53b9c1c57e527adb60b29cc0829214c28
-        doc_struct_hash: sha256:176d61a71cb43da66c45ea3d048b86e53b9c1c57e527adb60b29cc0829214c28
-        lines: [45, 76]
+        hash: sha256:335cf2d2c407edcfc962a6ca81445894711c5dc34471dbb6b2b1db71648413fe
+        struct_hash: sha256:648b53c9a1be383066e655b241010adc357d218add7f8a357dbfd918a89a827f
+        doc_struct_hash: sha256:648b53c9a1be383066e655b241010adc357d218add7f8a357dbfd918a89a827f
+        lines: [45, 125]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/telegram_groups_test.go#TestTelegramGroupDigestDirectiveUsesMessageFactTool

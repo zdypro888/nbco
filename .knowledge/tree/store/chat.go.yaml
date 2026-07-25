@@ -624,3 +624,14 @@ nodes:
         lines: [685, 716]
       status: fresh
       since: 2026-07-25T10:14:40.542716Z
+    - id: store/chat.go#Store.LatestSessionByChannel
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.LatestSessionByChannel
+        hash: sha256:3902c3f090df16cc4339689d8237c525f9209725f0e8572813c1ace87869066b
+        struct_hash: sha256:a540a92b34a6e13c930adefb919dfea1ec2ff56b6251a4c170f3a7d1c235928d
+        doc_struct_hash: sha256:aa384b7cee078839b145355d1afcc08743c0a52fe1aa945059edc713bdcfa53e
+        lines: [126, 132]
+      status: fresh
+      since: 2026-07-25T13:46:39.191281Z

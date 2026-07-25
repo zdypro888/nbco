@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.RecordGroupMessage
-        hash: sha256:c5d21110a2f905f0e63cf8624dd0b1b7fe8fbf7f6868d632e2ad518ea75d299a
-        struct_hash: sha256:2688523553e25ad5548fcd6003be1d2fdd26fca912b40502ebd6716477a552cd
-        doc_struct_hash: sha256:826fa6ddfa16bb83e0ff7fd64611234fa58bcf4b0a2cdc3e33aa8106c1d15b32
-        lines: [272, 295]
+        hash: sha256:6efbfeb9de5f29d105030d8d5d9b15d68097a1aaa155b6d37a478a4a485c527d
+        struct_hash: sha256:e84e6f074b01906d4dcbf92d71b59a8f1356621cd0f83d01dbf8e2e272f14f54
+        doc_struct_hash: sha256:3d75348793160d9c3dcdaa78431762295321fc1f94beb433bb7e4d5d9a6b6a63
+        lines: [347, 371]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.maybeCompactByCount
@@ -1414,3 +1414,25 @@ nodes:
         lines: [690, 692]
       status: fresh
       since: 2026-07-25T04:57:17.547813Z
+    - id: chat/chat.go#Orchestrator.ensureGroupRecordingSession
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: Orchestrator.ensureGroupRecordingSession
+        hash: sha256:dc87b4525c3c9569fc1b6b1b25cc0bb8f80208af58312ff3edbfa2273f74c614
+        struct_hash: sha256:8bc360c96952f468ae6d2a959432300097526d53c6d5a9ff13425bf77f665cdd
+        doc_struct_hash: sha256:cb7431ac37fd22276dc8abccd4021949265d49cb2ecb5ea44b9fd8a33148ee84
+        lines: [1830, 1856]
+      status: fresh
+      since: 2026-07-25T13:46:39.181907Z
+    - id: chat/chat.go#Orchestrator.ensureGroupSessionForOwner
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: Orchestrator.ensureGroupSessionForOwner
+        hash: sha256:a5c7c3d2e52601ba5090aacfb1459a79f2eacb1c29e9cfa2f4d06040d72dc826
+        struct_hash: sha256:2f05d13120ac60742ff24a9119b4e6a807c09e34125052de47ce14c713c06d12
+        doc_struct_hash: sha256:2f05d13120ac60742ff24a9119b4e6a807c09e34125052de47ce14c713c06d12
+        lines: [1858, 1874]
+      status: fresh
+      since: 2026-07-25T13:46:39.188926Z

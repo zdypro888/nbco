@@ -67,6 +67,12 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				out += "\n- 自动邀请：" + telegramGroupAutoInviteText(ctx, d, *g)
 				out += "\n- 智能监控：" + telegramGroupMonitorText(ctx, d, *g)
 				out += "\n- 每日摘要：" + telegramGroupDigestText(ctx, d, u, *g)
+				if c, err := telegramController(d); err == nil {
+					if botMember, err := c.GetTelegramGroupBotMember(ctx, g.ChatID); err == nil && botMember != nil {
+						out += fmt.Sprintf("\n- Bot 实时身份：%s（Telegram API 当前查询成功）",
+							telegramMemberStatusText(botMember.Status))
+					}
+				}
 				out += "\n- 群消息内容：本工具未查询；需要内容、日报或摘要时调用 list_telegram_group_messages"
 				return out, nil
 			}),
@@ -109,7 +115,12 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				return renderTelegramGroupMessages(*g, page, from, to, d.TZ), nil
+				observation := telegramGroupCaptureObservation{}
+				observation.Continuation = args.Cursor > 0
+				if page.Total == 0 && !observation.Continuation {
+					observation = observeTelegramGroupCapture(ctx, d, *g, from, to)
+				}
+				return renderTelegramGroupMessages(*g, page, observation, from, to, d.TZ), nil
 			}),
 
 		tool("list_telegram_group_members", "查看 Telegram 群成员可见信息。注意：Bot API 不能枚举所有普通成员；本工具返回成员总数、管理员列表、以及系统已见过的发言人/加入者。",
@@ -803,7 +814,54 @@ func telegramGroupMessageRange(date string, sinceHours int, tz *time.Location) (
 	return from, to, ""
 }
 
-func renderTelegramGroupMessages(g store.TelegramGroupState, page store.ChannelMessagePage, from, to time.Time, tz *time.Location) string {
+type telegramGroupCaptureObservation struct {
+	IngressMemberEvidence int
+	LatestIngress         time.Time
+	LiveBotStatus         string
+	LiveBotCheck          bool
+	GatewayReady          bool
+	GatewayReadyKnown     bool
+	Continuation          bool
+}
+
+func observeTelegramGroupCapture(
+	ctx context.Context,
+	d Deps,
+	g store.TelegramGroupState,
+	from, to time.Time,
+) telegramGroupCaptureObservation {
+	observation := telegramGroupCaptureObservation{}
+	if seen, err := d.Store.ListTelegramGroupSeenMembers(ctx, g.ChatID, 1000); err == nil {
+		for _, member := range seen {
+			if member.LastSeen.Before(from) || !member.LastSeen.Before(to) || strings.TrimSpace(member.LastText) == "" {
+				continue
+			}
+			observation.IngressMemberEvidence++
+			if member.LastSeen.After(observation.LatestIngress) {
+				observation.LatestIngress = member.LastSeen
+			}
+		}
+	}
+	if c, err := telegramController(d); err == nil {
+		if ready, ok := c.(interface{ Ready() bool }); ok {
+			observation.GatewayReadyKnown = true
+			observation.GatewayReady = ready.Ready()
+		}
+		if member, err := c.GetTelegramGroupBotMember(ctx, g.ChatID); err == nil && member != nil {
+			observation.LiveBotCheck = true
+			observation.LiveBotStatus = telegramMemberStatusText(member.Status)
+		}
+	}
+	return observation
+}
+
+func renderTelegramGroupMessages(
+	g store.TelegramGroupState,
+	page store.ChannelMessagePage,
+	observation telegramGroupCaptureObservation,
+	from, to time.Time,
+	tz *time.Location,
+) string {
 	if tz == nil {
 		tz = time.Local
 	}
@@ -812,9 +870,26 @@ func renderTelegramGroupMessages(g store.TelegramGroupState, page store.ChannelM
 	fmt.Fprintf(&b, "时间范围：%s 至 %s（%s，左闭右开）\n",
 		from.In(tz).Format("2006-01-02 15:04"), to.In(tz).Format("2006-01-02 15:04"), tz.String())
 	if page.Total == 0 {
-		b.WriteString("观察结果：recorded_messages=0。\n")
-		b.WriteString("唯一可支持的结论：该范围没有系统已记录的群消息。\n")
-		b.WriteString("禁止据此推断：Telegram 群内绝对无人发言、成员休假、节假日安排、群外活动或任何因果解释。")
+		if observation.Continuation {
+			b.WriteString("分页结果：当前 cursor 之后没有更早的已记录正文。")
+			return b.String()
+		}
+		fmt.Fprintf(&b, "采集事实：persisted_messages=0，ingress_member_evidence_at_least=%d。\n",
+			observation.IngressMemberEvidence)
+		if !observation.LatestIngress.IsZero() {
+			fmt.Fprintf(&b, "最近入口观测：%s。\n", observation.LatestIngress.In(tz).Format("2006-01-02 15:04:05"))
+		}
+		if observation.LiveBotCheck {
+			fmt.Fprintf(&b, "实时 Telegram API：查询成功，Bot 当前身份=%s。\n", observation.LiveBotStatus)
+		}
+		if observation.GatewayReadyKnown {
+			fmt.Fprintf(&b, "Telegram Gateway 当前就绪：%t。\n", observation.GatewayReady)
+		}
+		if observation.IngressMemberEvidence > 0 {
+			b.WriteString("一致性结论：Telegram 入口已观察到群消息，但正文记录缺失；这是系统内部持久化不一致，不能解释成群内无人发言。")
+			return b.String()
+		}
+		b.WriteString("诊断结论：该时间范围没有可读取的正文，也没有入口成员消息证据；现有事实不足以判断历史消息是否发生或缺失原因。")
 		return b.String()
 	}
 	fmt.Fprintf(&b, "共 %d 条，返回 %d 条", page.Total, len(page.Messages))
