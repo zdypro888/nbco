@@ -360,3 +360,14 @@ nodes:
         lines: [544, 579]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram_test.go#TestLoadedModelsFallsBackToOpenAICatalog
+      level: function
+      anchor:
+        file: gateway/telegram/telegram_test.go
+        symbol: TestLoadedModelsFallsBackToOpenAICatalog
+        hash: sha256:77b5d3ef5379f1830f222d9add77d8097c7f7093aea46b29ea016659e19cf798
+        struct_hash: sha256:b4926672ba6ee3f72839073e8d2d87acf937d12cbc076b58d432ecf43a731a15
+        doc_struct_hash: sha256:b4926672ba6ee3f72839073e8d2d87acf937d12cbc076b58d432ecf43a731a15
+        lines: [420, 450]
+      status: fresh
+      since: 2026-08-05T09:56:14.427793Z

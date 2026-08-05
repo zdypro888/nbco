@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: config/config_test.go
         symbol: TestLoadReasoningConfig
-        hash: sha256:ed59002835efdde93a05e6c77b696fdf50298b4b896fe49c8070c2486201ac54
-        struct_hash: sha256:4edb4edc0c9824989c9e578888bf7f7cb26dcb5efa4b656f3467a90d47981cfc
-        doc_struct_hash: sha256:4edb4edc0c9824989c9e578888bf7f7cb26dcb5efa4b656f3467a90d47981cfc
-        lines: [101, 114]
+        hash: sha256:37f1f82693218cb972b7ecc587ab056e7070e04898ad4985207aae8e2c94e853
+        struct_hash: sha256:e63531a2bfa13e410e1bf814511110387d8d7103a72e3d3ca5123edceba4fdf7
+        doc_struct_hash: sha256:e63531a2bfa13e410e1bf814511110387d8d7103a72e3d3ca5123edceba4fdf7
+        lines: [101, 116]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: config/config_test.go#TestLoadValidation

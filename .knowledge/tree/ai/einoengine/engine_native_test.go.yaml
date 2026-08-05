@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine_native_test.go
         symbol: TestOneShotAppliesPerCallReasoningAndOutputOptions
-        hash: sha256:2cb32d60513ff173356bb83b1a95370752c3c7837a1ac0120927ff531f419f45
-        struct_hash: sha256:3062404b05916d60901898b03a249b4058253d9b4a1c7868fcec8f9310b8ce9d
-        doc_struct_hash: sha256:3062404b05916d60901898b03a249b4058253d9b4a1c7868fcec8f9310b8ce9d
-        lines: [198, 233]
+        hash: sha256:8bcde629be88312d2e54fd9dbfcff8f9e82285f7e7c983dda5982f1dae67146c
+        struct_hash: sha256:48d9692494a7752b745c2a25a85a4f807e8790c02fd1d2cd29daf1e651e70580
+        doc_struct_hash: sha256:48d9692494a7752b745c2a25a85a4f807e8790c02fd1d2cd29daf1e651e70580
+        lines: [205, 246]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: ai/einoengine/engine_native_test.go#TestDeepAgentBlocksUnloadedDeferredToolExecution

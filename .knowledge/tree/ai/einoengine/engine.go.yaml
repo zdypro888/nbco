@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: turnRunOptions
-        hash: sha256:dbab1ef95766e9767d29a68482b518083d92d3edaedd865ced2ca7cb904086db
-        struct_hash: sha256:e1bf09760bf0fa726f1a5d8297436c1d5d1e56b1ea11d65b312f4f930640ab49
-        doc_struct_hash: sha256:e1bf09760bf0fa726f1a5d8297436c1d5d1e56b1ea11d65b312f4f930640ab49
-        lines: [267, 291]
+        hash: sha256:b90891f3f0324f89731ece8a108b081ddf9a45c7b6fbcb0d770a48501e10ea35
+        struct_hash: sha256:41c4f70cad1e62c6eac887670326680741424c5f5f32c6793055c2c3075d2b30
+        doc_struct_hash: sha256:41c4f70cad1e62c6eac887670326680741424c5f5f32c6793055c2c3075d2b30
+        lines: [268, 296]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: ai/einoengine/engine.go#toolCompletions

@@ -79,9 +79,9 @@ nodes:
       anchor:
         file: config/config.go
         symbol: AIConfig
-        hash: sha256:8ac09f5f5568450d5ada6fa78be5ef367cd42c35953b9100223d44bb0c81597c
-        struct_hash: sha256:4d814526c525222a6010022dcbf9d45ed2cc4f9965ffb1350eb5dde77f9f2714
-        doc_struct_hash: sha256:f48f3850eb45c4169e624c1fc4126efffd003ce1f8c35272af0a5f796cd0944f
+        hash: sha256:692327e8a16ed7eb722b326269bf09e2092662e048ab385ecee4f3e96a91e811
+        struct_hash: sha256:13bb49d7283f4b3564cdfe82c3222e211bdc28574f6292caeddb3c9a4c09c693
+        doc_struct_hash: sha256:c53eaecb1287267dbede0a9001febc448615e1e90d8ffb1936f6b19b0d53a402
         lines: [34, 77]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -167,9 +167,9 @@ nodes:
       anchor:
         file: config/config.go
         symbol: Config.validate
-        hash: sha256:ec8cff73507929a20cc09ac2d0e497f56bf160a23e284fe672cb5b67904f7e2d
-        struct_hash: sha256:66adc81ba6d7a988118ee8834dc049d6496b3865252e4c6387f21e2ae0016047
-        doc_struct_hash: sha256:66adc81ba6d7a988118ee8834dc049d6496b3865252e4c6387f21e2ae0016047
+        hash: sha256:33b6c6f16e721dc4a2504382066ccc8be55417f9bb3cb61d13b3f375d8329310
+        struct_hash: sha256:a8d03cb8cd9c4a1dca4ee495144df95e55d1de2b7e13c00983633610a4191676
+        doc_struct_hash: sha256:a8d03cb8cd9c4a1dca4ee495144df95e55d1de2b7e13c00983633610a4191676
         lines: [238, 350]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
