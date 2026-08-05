@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/store"
 )
@@ -175,6 +176,15 @@ func TestAutomationExecutionKeySeparatesOccurrences(t *testing.T) {
 	second := automationExecutionKey(&store.AutomationRun{AutomationKey: "knowledge", OccurrenceKey: "batch-b", SubjectID: 1})
 	if first == second || !strings.Contains(first, "batch-a") || !strings.Contains(second, "batch-b") {
 		t.Fatalf("execution keys first=%q second=%q", first, second)
+	}
+}
+
+func TestAutomationRecoveryOptionsAreBoundedReadOnly(t *testing.T) {
+	options := automationRecoveryOptions()
+	if !options.ReadOnly || !options.ClosedContext || len(options.AllowedTools) != 0 ||
+		options.MaxIterations != automationMaxIterations || options.MaxOutputTokens <= 0 ||
+		options.Reasoning != ai.ReasoningDisabled {
+		t.Fatalf("recovery options=%+v", options)
 	}
 }
 

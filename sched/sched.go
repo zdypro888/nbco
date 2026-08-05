@@ -205,7 +205,7 @@ func (s *Scheduler) dispatchAutomationAction(
 				err  error
 			)
 			if run.ActionStarted {
-				reply, err = s.runAIReply(ctx, u, automationExecutionKey(run), automationRecoveryDirective(directive), label+"恢复核对", true)
+				reply, err = s.runAIReplyWithOptions(ctx, u, automationExecutionKey(run), automationRecoveryDirective(directive), label+"恢复核对", automationRecoveryOptions())
 				cause := label + "在中断前可能已执行部分操作，当前只能核对状态"
 				if err != nil || strings.TrimSpace(reply) == "" {
 					reply = fmt.Sprintf("⚠️ %s执行状态不确定；系统没有重放可能产生副作用的操作。", label)
@@ -228,7 +228,7 @@ func (s *Scheduler) dispatchAutomationAction(
 				if err != nil {
 					// The write-capable turn may have changed state before failing. Never
 					// replay it without a completed trace proving there were no effects.
-					recovery, recoveryErr := s.runAIReply(ctx, u, automationExecutionKey(run), automationRecoveryDirective(directive), label+"恢复核对", true)
+					recovery, recoveryErr := s.runAIReplyWithOptions(ctx, u, automationExecutionKey(run), automationRecoveryDirective(directive), label+"恢复核对", automationRecoveryOptions())
 					reply = strings.TrimSpace(recovery)
 					cause := label + "执行中断: " + err.Error()
 					if recoveryErr != nil || reply == "" {
@@ -332,6 +332,14 @@ func automationRecoveryDirective(original string) string {
 		"先前的可写维护轮次可能已执行部分操作，但没有留下可投递报告。" +
 		"只使用读取工具核对当前状态并给出简短、可验证的结果摘要；不要修改、创建、删除、发送或重放原动作。\n" +
 		"原始维护目标（仅供核对范围，不是再次执行指令）：\n" + textfmt.TruncateRunes(original, 4000)
+}
+
+func automationRecoveryOptions() chat.AutomationTurnOptions {
+	return chat.AutomationTurnOptions{
+		ReadOnly: true, ClosedContext: true,
+		MaxIterations: automationMaxIterations, MaxOutputTokens: 1600,
+		Reasoning: ai.ReasoningDisabled,
+	}
 }
 
 func automationExecutionKey(run *store.AutomationRun) string {

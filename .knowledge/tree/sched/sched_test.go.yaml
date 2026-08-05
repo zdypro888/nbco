@@ -195,3 +195,14 @@ nodes:
         lines: [159, 171]
       status: fresh
       since: 2026-08-05T09:09:41.731301Z
+    - id: sched/sched_test.go#TestAutomationRecoveryOptionsAreBoundedReadOnly
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestAutomationRecoveryOptionsAreBoundedReadOnly
+        hash: sha256:2f37a006a4318c2ead7645d9e7e80edf1bc870f7778a8696600d18952774a2c4
+        struct_hash: sha256:09850d77f980143b952bf9d8f85a56f6c915445f149c9cac53b949aa00596bdb
+        doc_struct_hash: sha256:09850d77f980143b952bf9d8f85a56f6c915445f149c9cac53b949aa00596bdb
+        lines: [182, 189]
+      status: fresh
+      since: 2026-08-05T09:35:04.085274Z

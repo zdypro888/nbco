@@ -244,9 +244,9 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.dispatchAutomationAction
-        hash: sha256:d9b27e94929350ea44c5e9d7ae97a817bfa95a09267f310f930140960e49bd5b
-        struct_hash: sha256:745fa38d0975f99f9b1006ad4bb74829df6fcb8b46c48a0a6ce33e388def55eb
-        doc_struct_hash: sha256:8cd884fcddbf2fe7e24eb1a3a12fbd61b9d2b75245778bc27b638899d6f5c074
+        hash: sha256:bbbd6d8c13eb0798e5637cb1327ef6601b61e4f7bff619bb36e561beec5bdcbd
+        struct_hash: sha256:2dc59a0b24d3f896ec8406a0d1280c3b8adbd589b609aa631c636d7edf9d488e
+        doc_struct_hash: sha256:d4c61d445a093d8a8c16095b3c62ec17997d7f958791fcde1b0657767baeb342
         lines: [186, 261]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
@@ -261,8 +261,9 @@ nodes:
         - id: e_97ad2fed
           kind: contract
           text: 可写定时维护以 automation_runs 的 action_started 作为不可重放边界；完整 Eino 轮次的真实工具轨迹经 tool-free 评估并受确定性副作用守卫约束后，才把业务 outcome 记为 succeeded/no_change。无成功副作用且轮次完整时可清边界重试；已有写入或中断只做只读核对并记 uncertain/failed。结果先持久化再投递，通知失败只重发同一报告且不得覆盖业务 outcome。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-05T08:30:54.672359Z
+          confirmed_at: 2026-08-05T09:35:14.515273Z
           author: codex-mcp-client
       keywords:
         - automation business outcome
@@ -817,3 +818,14 @@ nodes:
         lines: [781, 790]
       status: fresh
       since: 2026-08-05T08:52:45.115541Z
+    - id: sched/sched.go#automationRecoveryOptions
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: automationRecoveryOptions
+        hash: sha256:258c12fcf44293e34199a09d76d6c5f59d30ce08b22c0c20e13b3818de8aeee4
+        struct_hash: sha256:bceb0f620e4edccab5534eadf6487c8a363b489c2a7f10eda79371592d58b645
+        doc_struct_hash: sha256:bceb0f620e4edccab5534eadf6487c8a363b489c2a7f10eda79371592d58b645
+        lines: [337, 343]
+      status: fresh
+      since: 2026-08-05T09:35:04.083874Z
