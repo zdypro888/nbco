@@ -549,10 +549,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.maybeWeeklyReport
-        hash: sha256:2526bc6382429a2ede1822d8fe6e07cb0cde38716ac0e5346d363c4db082e8e8
-        struct_hash: sha256:212ebc108e7d104129f9b8b76e9c763838e851c90711b51fb3f1e9e7761cd2e0
-        doc_struct_hash: sha256:c5ebea573bd469a2acd2536c4622bde4c305bb67007a2a3606a7369464927364
-        lines: [1161, 1213]
+        hash: sha256:ffd404e64f3de25ea5dc6373ea68af955ba2746055356333ce82c50fcde7b56f
+        struct_hash: sha256:c1ac539a58d1a31dd7e53b1a4798b01f89626f840e6b555501ae32ff1dcf843d
+        doc_struct_hash: sha256:abaa8e609fc81f23dffaeb758957e550736180a2f03c1b12572b69fde90e75c5
+        lines: [1161, 1216]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.nudgeDirective

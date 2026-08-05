@@ -420,10 +420,10 @@ nodes:
       anchor:
         file: chat/chat_test.go
         symbol: TestDegenerateReplyRepairUsesOneShotWithoutCapabilities
-        hash: sha256:da5348ce062a7e24081d1779cea04e2fe9a75076cb8aa823ab79712e151bafb2
-        struct_hash: sha256:3ec93a963a4972d4d6ea0a6419f565bd30ac3a89c4110e3fe42f906f038f7456
-        doc_struct_hash: sha256:3ec93a963a4972d4d6ea0a6419f565bd30ac3a89c4110e3fe42f906f038f7456
-        lines: [689, 723]
+        hash: sha256:c1dbf2d7a82ccd30d8cbea8349fcab079a9feaeafe09ddf35b9e33c636a577dc
+        struct_hash: sha256:5eb02cd216ac87bb297c4c96c5a81762b6e62eb10e894539f79cfb52c5a1de57
+        doc_struct_hash: sha256:5eb02cd216ac87bb297c4c96c5a81762b6e62eb10e894539f79cfb52c5a1de57
+        lines: [575, 612]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#containsString

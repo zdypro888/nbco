@@ -606,6 +606,9 @@ func TestDegenerateReplyRepairUsesOneShotWithoutCapabilities(t *testing.T) {
 	if retry.SessionID != "repair-visible-reply" || !strings.Contains(retry.UserText, "write") {
 		t.Fatalf("repair did not carry bounded evidence: %+v", retry)
 	}
+	if retry.Reasoning != ai.ReasoningDisabled || retry.MaxOutputTokens != 1200 {
+		t.Fatalf("repair generation was not bounded: %+v", retry)
+	}
 }
 
 func containsString(list []string, target string) bool {

@@ -1208,7 +1208,10 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 	for _, target := range targets {
 		directive := s.weeklyReportDirective(local, key, target.user, overview)
 		s.dispatchAutomationAI(ctx, target.run, target.user, directive, "📈 每周汇总\n", "周报",
-			chat.AutomationTurnOptions{Mode: ai.TurnModeOneShot, TrustedInputEvidence: true})
+			chat.AutomationTurnOptions{
+				Mode: ai.TurnModeOneShot, TrustedInputEvidence: true,
+				Reasoning: ai.ReasoningDisabled, MaxOutputTokens: 1800,
+			})
 	}
 }
 

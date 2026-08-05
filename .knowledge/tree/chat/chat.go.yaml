@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: AutomationTurnOptions
-        hash: sha256:11003e46e35ee718cd525be1880a388f524f9245197ac15fb73ca42c25af9006
-        struct_hash: sha256:114b6422fb1f1e2b6059247ff7e6670748a7fb29afca76a6fba93e9ee394362c
-        doc_struct_hash: sha256:446345c87dbbac4d72cc98d0b4a88d9d6104e698a6bf70b4f6e8282452b4b184
-        lines: [135, 142]
+        hash: sha256:ef373db7be8a8a9b3bb33ae80a1d97e77c239b8cb797d93075dc13679d0a2992
+        struct_hash: sha256:76c886e055e859dd86ca2f7f03d7ad2132d50c93550cf304cdfbf38abecceb10
+        doc_struct_hash: sha256:e3172ee001f7331aec6b9bad12975a18441ea67ae65ba541aca9e44850fb7beb
+        lines: [135, 144]
       status: undigested
       since: 2026-07-20T14:59:43.143721Z
     - id: chat/chat.go#engineAlertThreshold
@@ -343,10 +343,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:eb819b626dca663b08ed3c0d3c77a70e36fb40cdba956bce2cbf05c272aa548f
-        struct_hash: sha256:43ee066913099db322f4ab6694abe1287299bf63efb7bc099efb8e0edf7a1d88
-        doc_struct_hash: sha256:70f6a096eaa6e1602c07bfd79b11c7455bfc90fc6d3c3f0a0d338b16fb7c83e4
-        lines: [392, 692]
+        hash: sha256:e157f8b8dbf19b1932eee628d4e127960ffe831666954b0e97eb1349ba371346
+        struct_hash: sha256:2effc2555761cbf9bbf15728d57349fe51d8b186c752f390b56059faa88d7073
+        doc_struct_hash: sha256:7105dd41c777c48d17ab5bb2610028eea15ac45d2756d97232026447f3144509
+        lines: [394, 696]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -445,10 +445,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.repairDegenerateTurn
-        hash: sha256:aa04eb3a7fddb15a5f426078808ee586819f7d94828862b99509ed3507c7cba0
-        struct_hash: sha256:334647c1c82cb52bbaa6b13989c824d09a44385598780243b1e0e9e805c24555
-        doc_struct_hash: sha256:334647c1c82cb52bbaa6b13989c824d09a44385598780243b1e0e9e805c24555
-        lines: [637, 678]
+        hash: sha256:4573d2e1d9e227a491113424da345ee894253d59a1e74d1a6831e6f6ceff9340
+        struct_hash: sha256:2fe61b32f0af2c129c9ecfcc19d1bbb86189579427f7e59013cb85f9b191987f
+        doc_struct_hash: sha256:2fe61b32f0af2c129c9ecfcc19d1bbb86189579427f7e59013cb85f9b191987f
+        lines: [789, 832]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
       lineage:

@@ -138,7 +138,9 @@ type AutomationTurnOptions struct {
 	ReadOnly             bool
 	TrustedInputEvidence bool
 	Mode                 ai.TurnMode
+	Reasoning            ai.ReasoningMode
 	MaxIterations        int
+	MaxOutputTokens      int
 }
 
 const (
@@ -548,6 +550,8 @@ func (o *Orchestrator) runTurn(
 		Model:             o.runtimeModel(ctx),
 		Tools:             toolset,
 		Skills:            turnSkills,
+		Reasoning:         automationOptions.Reasoning,
+		MaxOutputTokens:   automationOptions.MaxOutputTokens,
 		// 实时轨迹：工具调用与产出上报到日志（审计层另行落库）。
 		OnEvent: func(s ai.Step) {
 			switch {
@@ -591,7 +595,7 @@ func (o *Orchestrator) runTurn(
 		histChars += len(content)
 	}
 	diag := turnDiagnostics{
-		Route:           "eino:deep/native",
+		Route:           fmt.Sprintf("eino:%s/native", turnMode),
 		SystemChars:     len(system),
 		HistoryChars:    histChars,
 		ToolCount:       len(toolset),
@@ -798,6 +802,8 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 	retry.Skills = nil
 	retry.OnDelta = onDelta
 	retry.StreamReasoning = false
+	retry.Reasoning = ai.ReasoningDisabled
+	retry.MaxOutputTokens = 1200
 	payload, _ := json.Marshal(map[string]any{
 		"user_request":  textfmt.TruncateRunes(strings.TrimSpace(req.UserText), 2400),
 		"tool_evidence": summarizeToolEvidence(first.Steps),
