@@ -145,10 +145,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: newOneShotAgent
-        hash: sha256:f7e42da4898dc664be4e1e5fc0955bcc016b7609fe5ec75593cb0a62ffb5ee20
-        struct_hash: sha256:e7d6a96a135b1c8c20c14ed340c9394c6aca70bf2d82922f8e9562e75aebf5a7
-        doc_struct_hash: sha256:e7d6a96a135b1c8c20c14ed340c9394c6aca70bf2d82922f8e9562e75aebf5a7
-        lines: [327, 341]
+        hash: sha256:c8890bd1b3e46b07a518b894157a6f0ac782036652ae8c882ea2362f5d60c8b5
+        struct_hash: sha256:39e9e417a7e13f7cc423ecd92dffacfcfdb254e9b06a3b446660edaed198f29a
+        doc_struct_hash: sha256:39e9e417a7e13f7cc423ecd92dffacfcfdb254e9b06a3b446660edaed198f29a
+        lines: [329, 348]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#einoToolSearchReminderKey
@@ -586,3 +586,14 @@ nodes:
         lines: [937, 950]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/engine.go#oneShotMiddleware.WrapModel
+      level: function
+      anchor:
+        file: ai/einoengine/engine.go
+        symbol: oneShotMiddleware.WrapModel
+        hash: sha256:778ab28666605603c5b9dc7f6aecf2ae8bea703fd358499a0ec5f741b803eab1
+        struct_hash: sha256:dc0d655d490788435257e3757ebd249c7cfb0b7d59945f4b4062085d86ba0fdc
+        doc_struct_hash: sha256:dc0d655d490788435257e3757ebd249c7cfb0b7d59945f4b4062085d86ba0fdc
+        lines: [386, 392]
+      status: fresh
+      since: 2026-08-05T08:02:50.731741Z

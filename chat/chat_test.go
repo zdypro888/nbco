@@ -441,6 +441,53 @@ func TestBuildActionAuditUsesActualTraceOnly(t *testing.T) {
 	}
 }
 
+func TestAutomationExecutionUsesToolMetadataAndHandlerEvidence(t *testing.T) {
+	execution := buildAutomationExecution([]ai.Tool{
+		{Name: "read", Effect: ai.ToolEffectRead},
+		{Name: "write", Effect: ai.ToolEffectWrite},
+	}, &ai.TurnResult{Steps: []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "read", Result: "current state"},
+		{Kind: ai.StepToolCall, ToolName: "write", Result: `{"ok":true}`},
+		{Kind: ai.StepToolCall, ToolName: "write", Result: `{"status":"rejected"}`},
+		{Kind: ai.StepToolCall, ToolName: "write", Result: `{"ok":true}`, Replayed: true},
+	}})
+	if execution.ToolCalls != 4 || execution.SuccessfulToolCalls != 2 ||
+		execution.ActionCalls != 3 || execution.SuccessfulActionCalls != 1 ||
+		execution.SuccessfulReadCalls != 1 {
+		t.Fatalf("execution=%+v", execution)
+	}
+}
+
+func TestAutomationAssessmentCannotInventActionSuccess(t *testing.T) {
+	engine := &fakeEngine{reply: `{"outcome":"succeeded","summary":"全部完成","reason":"模型认为完成"}`}
+	orchestrator := &Orchestrator{engine: engine}
+	assessment, err := orchestrator.AssessAutomationExecution(context.Background(), &store.User{ID: 1},
+		"更新资料", "已完成", AutomationExecution{SuccessfulReadCalls: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assessment.Outcome != "incomplete" {
+		t.Fatalf("assessment=%+v", assessment)
+	}
+	req := engine.lastReq()
+	if req == nil || req.Mode != ai.TurnModeOneShot || !req.JSONOutput || req.MaxOutputTokens <= 0 || len(req.Tools) != 0 {
+		t.Fatalf("assessment request=%+v", req)
+	}
+}
+
+func TestAutomationAssessmentAcceptsNoChangeFromTrustedSchedulerFacts(t *testing.T) {
+	engine := &fakeEngine{reply: `{"outcome":"no_change","summary":"候选证据不足，保持待审","reason":"现有事实不足以批准或拒绝"}`}
+	orchestrator := &Orchestrator{engine: engine}
+	assessment, err := orchestrator.AssessAutomationExecution(context.Background(), &store.User{ID: 1},
+		"审核候选", "保持待审", AutomationExecution{TrustedInputEvidence: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assessment.Outcome != store.AutomationOutcomeNoChange {
+		t.Fatalf("assessment=%+v", assessment)
+	}
+}
+
 func TestActionAuditPlanRecordsReadOnlyWithoutCallingItAction(t *testing.T) {
 	readOnly := &ai.TurnResult{
 		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_data_collection_campaigns", Result: "（没有资料收集活动）"}},

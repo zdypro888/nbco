@@ -521,6 +521,10 @@ func TestOneShotUsesOneToolFreeGeneration(t *testing.T) {
 	if result.EngineSession != "" {
 		t.Fatalf("one-shot created a durable session: %q", result.EngineSession)
 	}
+	if result.ToolExposure.ModelCalls != 1 || result.ToolExposure.AgentIterations != 1 ||
+		result.ToolExposure.PeakToolCount != 0 {
+		t.Fatalf("one-shot exposure=%+v", result.ToolExposure)
+	}
 }
 
 func TestOneShotRejectsAgentCapabilitiesAndUnknownMode(t *testing.T) {

@@ -140,3 +140,25 @@ nodes:
         lines: [138, 159]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: sched/sched_test.go#TestAutomationWindowsRemainOpenForRetries
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestAutomationWindowsRemainOpenForRetries
+        hash: sha256:46e548758633e5454be1d95b4feab6d53b5bb3cbffd322e19cdc07d543afc76a
+        struct_hash: sha256:f3c69484af144716c1afc7c3d7cc9f6fe13d62d596e19514f52c1c369e86ed32
+        doc_struct_hash: sha256:f3c69484af144716c1afc7c3d7cc9f6fe13d62d596e19514f52c1c369e86ed32
+        lines: [123, 144]
+      status: fresh
+      since: 2026-08-05T08:18:56.753335Z
+    - id: sched/sched_test.go#TestKnowledgeBatchOccurrenceTracksExactCandidateSet
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestKnowledgeBatchOccurrenceTracksExactCandidateSet
+        hash: sha256:9677371b25ea822f43a8825b0935b3f09bcdb90072a486e6cde68512ce7a85df
+        struct_hash: sha256:fcdee6af84b7b08f996eef6e1729307893d26ed2c027bb0fc3e760ec16d858b9
+        doc_struct_hash: sha256:fcdee6af84b7b08f996eef6e1729307893d26ed2c027bb0fc3e760ec16d858b9
+        lines: [146, 153]
+      status: fresh
+      since: 2026-08-05T08:30:45.982315Z

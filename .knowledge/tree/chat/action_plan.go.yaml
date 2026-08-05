@@ -134,11 +134,11 @@ nodes:
       anchor:
         file: chat/action_plan.go
         symbol: buildActionAudit
-        hash: sha256:c403a2f22726fdd28250c53f995fee372c424cb23a67e237e0b7f54b7a187e9a
-        struct_hash: sha256:f22f11d0d6cbef681a1eebbf68c1603a793276e346b612a87e06975125819359
-        doc_struct_hash: sha256:f22f11d0d6cbef681a1eebbf68c1603a793276e346b612a87e06975125819359
-        lines: [20, 54]
-      status: suspect
+        hash: sha256:8d6d5e86bae116b32cf7c29908584c9f33a5388ace47199247886d15a9f7956b
+        struct_hash: sha256:7e34f6ef41135d673abf3fcefef96dadcd689ff9ccf99f8a56b3113f2c35d94a
+        doc_struct_hash: sha256:7e34f6ef41135d673abf3fcefef96dadcd689ff9ccf99f8a56b3113f2c35d94a
+        lines: [22, 56]
+      status: fresh
       since: 2026-07-21T10:54:43.989798Z
       entries:
         - id: e_e43b8a2c
@@ -171,11 +171,17 @@ nodes:
           at: 2026-07-21T10:55:42.680941Z
           confirmed_at: 2026-07-21T10:55:49.942536Z
           author: codex-mcp-client
+        - id: e_559b69cf
+          kind: pitfall
+          text: buildActionAudit 的 requires_action 仅由实际发生的 tool call 推导，因此无法观测“用户意图需要写操作但 Agent 未调用工具”的漏执行。线上曾出现员工提交日报后 tool_count=0，却回复“已记录”；这种漏执行不会被现有 action audit 标记。
+          confidence: inferred
+          at: 2026-08-05T07:51:21.64681Z
+          author: codex-mcp-client
       keywords:
-        - 事后审计
-        - actiontools
-        - 实际工具轨迹
-        - 非执行控制
+        - intent tool mismatch
+        - 只说不做
+        - requires_action
+        - 漏执行审计
       lineage:
         - chat/action_plan.go#buildActionAuditPlan
     - id: chat/action_plan.go#actionAudit
@@ -202,3 +208,25 @@ nodes:
         lines: [207, 261]
       status: fresh
       since: 2026-07-25T10:14:40.509302Z
+    - id: chat/action_plan.go#buildAutomationExecution
+      level: function
+      anchor:
+        file: chat/action_plan.go
+        symbol: buildAutomationExecution
+        hash: sha256:a5d063c54578b1881a447ca5b1be0b19ad1cdd1f29d05eb43696ba88c5e7dfac
+        struct_hash: sha256:3c9544ad812aabbe498027ddc2c9f2795f2d92557c030606a4cb2a21028b203a
+        doc_struct_hash: sha256:3c9544ad812aabbe498027ddc2c9f2795f2d92557c030606a4cb2a21028b203a
+        lines: [43, 86]
+      status: fresh
+      since: 2026-08-05T08:18:56.734772Z
+    - id: chat/action_plan.go#AutomationExecution
+      level: decl
+      anchor:
+        file: chat/action_plan.go
+        symbol: AutomationExecution
+        hash: sha256:fa14cde8b00ec4ec3ca779b6750a186ac2f802adf96577bb338c1443b30c68e5
+        struct_hash: sha256:7a7126ec35b7f4ae65ee95affca945f42d6d8ebbc4ba7286936da2a94367c627
+        doc_struct_hash: sha256:e55b92ce716b24b14136de25964a3698ea4dda46cba10fc7f8b45ea9dd3fdd0a
+        lines: [31, 42]
+      status: fresh
+      since: 2026-08-05T08:30:45.974006Z

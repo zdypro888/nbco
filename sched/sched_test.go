@@ -120,6 +120,38 @@ func TestDailyDeliveryAllowedUsesActualDeliveryDay(t *testing.T) {
 	}
 }
 
+func TestAutomationWindowsRemainOpenForRetries(t *testing.T) {
+	mondayMorning := time.Date(2026, 8, 3, 8, 30, 0, 0, tz)
+	if due, _ := weeklyAutomationWindow(mondayMorning, 9); due {
+		t.Fatal("weekly run must not start before its configured hour")
+	}
+	wednesday := time.Date(2026, 8, 5, 12, 0, 0, 0, tz)
+	if due, expires := weeklyAutomationWindow(wednesday, 9); !due || !expires.Equal(time.Date(2026, 8, 10, 0, 0, 0, 0, tz).UTC()) {
+		t.Fatalf("weekly retry window due=%v expires=%s", due, expires)
+	}
+	lateDaily := time.Date(2026, 8, 5, 23, 30, 0, 0, tz)
+	if due, expires := dailyAutomationWindow(lateDaily, 9); !due || !expires.Equal(time.Date(2026, 8, 6, 0, 0, 0, 0, tz).UTC()) {
+		t.Fatalf("daily retry window due=%v expires=%s", due, expires)
+	}
+	thirdDay := time.Date(2026, 8, 3, 18, 0, 0, 0, tz)
+	if due, expires := monthlyAutomationWindow(thirdDay, 9, 1, 3); !due || !expires.Equal(time.Date(2026, 8, 4, 0, 0, 0, 0, tz).UTC()) {
+		t.Fatalf("monthly retry window due=%v expires=%s", due, expires)
+	}
+	fourthDay := time.Date(2026, 8, 4, 0, 0, 0, 0, tz)
+	if due, _ := monthlyAutomationWindow(fourthDay, 9, 1, 3); due {
+		t.Fatal("monthly run must stop after its explicit occurrence window")
+	}
+}
+
+func TestKnowledgeBatchOccurrenceTracksExactCandidateSet(t *testing.T) {
+	first := knowledgeBatchOccurrence("2026-08", []*store.LearningCandidate{{ID: 9}, {ID: 8}, {ID: 7}})
+	same := knowledgeBatchOccurrence("2026-08", []*store.LearningCandidate{{ID: 9}, {ID: 8}, {ID: 7}})
+	changed := knowledgeBatchOccurrence("2026-08", []*store.LearningCandidate{{ID: 9}, {ID: 7}})
+	if first != same || first == changed {
+		t.Fatalf("occurrence keys first=%q same=%q changed=%q", first, same, changed)
+	}
+}
+
 func TestHumanRecipientSkipsWorkers(t *testing.T) {
 	if !humanRecipient(&store.User{Status: store.UserActive}) {
 		t.Fatal("active human should be a schedule recipient")

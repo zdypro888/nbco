@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine_native_test.go
         symbol: TestOneShotUsesOneToolFreeGeneration
-        hash: sha256:f353082f7d7a8f25e66ae02ebf548f06d89e9f814ad9e44c910367ff27278a27
-        struct_hash: sha256:fa7940d6323bd8943c21150a5a10a775a88550de2aecf8e0e858d79017794ba9
-        doc_struct_hash: sha256:fa7940d6323bd8943c21150a5a10a775a88550de2aecf8e0e858d79017794ba9
-        lines: [481, 517]
+        hash: sha256:d343efae6185a62ebbba9e651f1c270463324605c9897e1c12c767071dba5914
+        struct_hash: sha256:9f92a9addd4cc9d58e8abb2f3d19b5202c12162cbcdc8ca8ac1678e357848058
+        doc_struct_hash: sha256:9f92a9addd4cc9d58e8abb2f3d19b5202c12162cbcdc8ca8ac1678e357848058
+        lines: [488, 528]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine_native_test.go#TestOneShotRejectsAgentCapabilitiesAndUnknownMode

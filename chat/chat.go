@@ -108,6 +108,7 @@ type TurnReply struct {
 	AlreadyDelivered bool
 	Replayed         bool
 	DeliveryStatus   string
+	Execution        *AutomationExecution
 }
 
 // WithTurnSourceKey gives an inbound transport a stable idempotency identity.
@@ -134,9 +135,10 @@ func sourceKeyForTurn(ctx context.Context) string {
 // AutomationTurnOptions defines the capability boundary for a scheduler-owned
 // turn. The Eino Agent remains the single planner and response author.
 type AutomationTurnOptions struct {
-	ReadOnly      bool
-	Mode          ai.TurnMode
-	MaxIterations int
+	ReadOnly             bool
+	TrustedInputEvidence bool
+	Mode                 ai.TurnMode
+	MaxIterations        int
 }
 
 const (
@@ -208,13 +210,21 @@ func (o *Orchestrator) HandleReadOnlyMessage(ctx context.Context, u *store.User,
 // durable Eino trace. Each occurrence must derive conclusions from its current
 // structured input and tools rather than inheriting stale automation output.
 func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.User, channel, executionKey, text string, options AutomationTurnOptions) (string, error) {
+	reply, err := o.HandleAutomationMessageResult(ctx, u, channel, executionKey, text, options)
+	return reply.Text, err
+}
+
+// HandleAutomationMessageResult is the rich scheduler entry point. Execution
+// evidence is returned only to the owning automation ledger and is never used
+// to rewrite ordinary user conversations.
+func (o *Orchestrator) HandleAutomationMessageResult(ctx context.Context, u *store.User, channel, executionKey, text string, options AutomationTurnOptions) (TurnReply, error) {
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	channel = strings.TrimSpace(channel)
 	key := fmt.Sprintf("%d:%s", u.ID, channel)
 	release, err := o.autoLocks.AcquireContext(ctx, key)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	defer release()
 
@@ -224,7 +234,7 @@ func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.Use
 	internalChannel := "internal:automation:" + contentHash(channel)
 	sess, err := o.ensureSession(ctx, u, internalChannel)
 	if err != nil {
-		return "", err
+		return TurnReply{}, err
 	}
 	ctx = context.WithValue(ctx, internalTurnKey{}, true)
 	if options.ReadOnly {
@@ -232,8 +242,7 @@ func (o *Orchestrator) HandleAutomationMessage(ctx context.Context, u *store.Use
 	}
 	ctx = context.WithValue(ctx, automationTurnOptionsKey{}, options)
 	slog.Debug("自动化轮次", "user", u.ID, "execution", strings.TrimSpace(executionKey), "session", sess.ID)
-	reply, err := o.runTurn(ctx, u, sess, channel, text, nil, nil)
-	return reply.Text, err
+	return o.runTurn(ctx, u, sess, channel, text, nil, nil)
 }
 
 // HandleMessageStream 同 HandleMessage，但把最终答复的文本增量实时喂给 onDelta
@@ -492,17 +501,16 @@ func (o *Orchestrator) runTurn(
 	if extension != nil && strings.TrimSpace(extension.System) != "" {
 		system += "\n\n[当前宿主界面能力]\n" + strings.TrimSpace(extension.System)
 	}
-	// 规则注入（Policy Memory）：常驻规则全量 + 与本轮输入语义相关的规则。
-	system += o.ruleContext(ctx, u, channel, text)
+	// Rules and skill candidates share one bounded retrieval window. Running the
+	// two independent reads concurrently also lets the semantic layer coalesce
+	// their identical query embedding instead of stacking cold-start latency.
+	ruleBlock, turnSkills := o.turnRetrievalContext(ctx, u, channel, text, turnMode != ai.TurnModeOneShot)
+	system += ruleBlock
 	// 当前用户身份与画像是稳定的会话输入；其他人物、历史和业务状态由
 	// Agent 在需要时通过权限感知工具查询，避免在 Agent 之前另做意图判断。
 	system += o.peopleContext(ctx, u, channel)
-	// 只召回有权限且语义相关的 skill 元数据；完整步骤由 Eino 原生 skill
-	// 中间件在模型明确选择后加载，不进入常驻系统提示。
-	turnSkills := o.skillsForTurn(ctx, u, channel, text)
-	if turnMode == ai.TurnModeOneShot {
-		turnSkills = nil
-	}
+	// Only relevant, authorized skill metadata is returned above. Eino's native
+	// skill middleware loads full procedures after the Agent selects one.
 	// Private uploads are user-scoped, not group-scoped. Group file references
 	// enter the shared conversation when the gateway receives them; injecting a
 	// user's private recent-file list here would disclose filenames to the group.
@@ -641,6 +649,8 @@ func (o *Orchestrator) runTurn(
 	storedReply := normalizeAssistantReply(channel, res.Text)
 
 	actionAudit := buildActionAudit(text, toolset, res)
+	execution := buildAutomationExecution(toolset, res)
+	execution.TrustedInputEvidence = automationOptions.TrustedInputEvidence
 	finalizeCtx, finalizeCancel := turnFinalizationContext(ctx)
 	defer finalizeCancel()
 
@@ -648,7 +658,7 @@ func (o *Orchestrator) runTurn(
 		// Scheduler/event ledgers own idempotency and delivery for internal turns.
 		o.recordActionTurn(finalizeCtx, u, sess, channel, text, actionAudit, res, diag)
 		o.recordUsage(finalizeCtx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
-		return TurnReply{Text: res.Text}, nil
+		return TurnReply{Text: res.Text, Execution: &execution}, nil
 	}
 
 	action := buildActionTurnInput(u, sess, channel, text, actionAudit, res, diag)
@@ -1911,9 +1921,9 @@ func (o *Orchestrator) ensureSession(ctx context.Context, u *store.User, channel
 // 预算要小于 knowledge 层的 embedTimeout——embed 服务卡住时这里先到期、
 // 检索退回词法（纯 DB 查询），增强绝不拖垮对话延迟。
 const (
-	ruleSearchLimit     = 5
-	ruleFetchTimeout    = 5 * time.Second
-	skillCandidateLimit = 8
+	ruleSearchLimit       = 5
+	retrievalFetchTimeout = 8 * time.Second
+	skillCandidateLimit   = 8
 
 	retrievalMinTextRunes = 2 // 单字符通常依赖当前会话，skill 召回只会增加噪声
 )
@@ -1922,17 +1932,15 @@ const (
 // 输入做语义检索取 top N，都再按作用域（scope: 标签 vs 渠道/用户）过滤。
 // 任何失败只降级不报错——规则是增强，不该让对话轮次失败。
 func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, text string) string {
-	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
-	defer cancel()
-	pinned, err := o.store.PinnedRules(rctx)
+	pinned, err := o.store.PinnedRules(ctx)
 	if err != nil {
 		slog.Warn("常驻规则加载失败，本轮跳过", "err", err)
 	}
 	var dyn []*store.Knowledge
 	if o.deps.Knowledge != nil {
-		dyn, err = o.deps.Knowledge.SearchRules(rctx, text, ruleSearchLimit)
+		dyn, err = o.deps.Knowledge.SearchRules(ctx, text, ruleSearchLimit)
 	} else {
-		dyn, err = o.store.SearchRules(rctx, text, ruleSearchLimit)
+		dyn, err = o.store.SearchRules(ctx, text, ruleSearchLimit)
 	}
 	if err != nil {
 		slog.Warn("动态规则检索失败，本轮跳过", "err", err)
@@ -1962,14 +1970,12 @@ func (o *Orchestrator) skillsForTurn(ctx context.Context, u *store.User, channel
 	if utf8.RuneCountInString(strings.TrimSpace(text)) < retrievalMinTextRunes {
 		return nil
 	}
-	rctx, cancel := context.WithTimeout(ctx, ruleFetchTimeout)
-	defer cancel()
 	var skills []*store.Knowledge
 	var err error
 	if o.deps.Knowledge != nil {
-		skills, err = o.deps.Knowledge.SearchSkills(rctx, text, skillCandidateLimit)
+		skills, err = o.deps.Knowledge.SearchSkills(ctx, text, skillCandidateLimit)
 	} else {
-		skills, err = o.store.SearchSkills(rctx, text, skillCandidateLimit)
+		skills, err = o.store.SearchSkills(ctx, text, skillCandidateLimit)
 	}
 	if err != nil {
 		slog.Warn("skill 检索失败，本轮跳过", "err", err)
@@ -1996,6 +2002,36 @@ func (o *Orchestrator) skillsForTurn(ctx context.Context, u *store.User, channel
 		})
 	}
 	return out
+}
+
+func (o *Orchestrator) turnRetrievalContext(
+	ctx context.Context,
+	u *store.User,
+	channel, text string,
+	includeSkills bool,
+) (string, []ai.Skill) {
+	rctx, cancel := context.WithTimeout(ctx, retrievalFetchTimeout)
+	defer cancel()
+
+	var (
+		rules  string
+		skills []ai.Skill
+		wg     sync.WaitGroup
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		rules = o.ruleContext(rctx, u, channel, text)
+	}()
+	if includeSkills {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			skills = o.skillsForTurn(rctx, u, channel, text)
+		}()
+	}
+	wg.Wait()
+	return rules, skills
 }
 
 func filterApplicableSkills(skills []*store.Knowledge, channel string, userID int64) []*store.Knowledge {

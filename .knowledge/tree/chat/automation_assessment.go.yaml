@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: chat/automation_assessment.go
+      level: file
+      anchor:
+        file: chat/automation_assessment.go
+        hash: sha256:6ab5f517234d57073d595fbc6df0979c710b77807056ae20fab9a830ce2c58c6
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-05T08:18:56.735391Z
+    - id: chat/automation_assessment.go#Orchestrator.AssessAutomationExecution
+      level: function
+      anchor:
+        file: chat/automation_assessment.go
+        symbol: Orchestrator.AssessAutomationExecution
+        hash: sha256:b0fa93b218f1bc9ede6c37767e37c9bf1fa926bc41847f44519d41025684bae2
+        struct_hash: sha256:d398ae9e1db89bcdf87a94c55d7636288082ec24ad1e0f189c81a616d1e9f98d
+        doc_struct_hash: sha256:2beccda9d290f2ea0854c1fcd91f435ff62c8ca0df791b7e2b40d64690c12909
+        lines: [21, 89]
+      status: fresh
+      since: 2026-08-05T08:18:56.735369Z

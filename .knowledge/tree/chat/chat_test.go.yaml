@@ -558,3 +558,14 @@ nodes:
         lines: [935, 1004]
       status: fresh
       since: 2026-07-25T13:46:39.229898Z
+    - id: chat/chat_test.go#TestAutomationAssessmentAcceptsNoChangeFromTrustedSchedulerFacts
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestAutomationAssessmentAcceptsNoChangeFromTrustedSchedulerFacts
+        hash: sha256:1c13f23eba734eef2322d56e779462ad976a79a8c02034a5313d7a5c6d37f833
+        struct_hash: sha256:6905d01c88c0e64b51592e3c1a702ddc2dd4de5efab0349959e8e1213bce994a
+        doc_struct_hash: sha256:6905d01c88c0e64b51592e3c1a702ddc2dd4de5efab0349959e8e1213bce994a
+        lines: [478, 489]
+      status: fresh
+      since: 2026-08-05T08:30:45.981349Z

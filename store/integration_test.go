@@ -3386,7 +3386,7 @@ func TestDurableEventAndAutomationRunClaims(t *testing.T) {
 	if err := s.BeginAutomationAction(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.PrepareAutomationResult(ctx, run, "durable report"); err != nil {
+	if err := s.PrepareAutomationResult(ctx, run, "durable report", AutomationOutcomeSucceeded, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RetryAutomationRun(ctx, run, "temporary"); err != nil {
@@ -3400,7 +3400,7 @@ func TestDurableEventAndAutomationRunClaims(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !run.ActionStarted || run.ResultText != "durable report" {
+	if !run.ActionStarted || run.ResultText != "durable report" || run.Outcome != AutomationOutcomeSucceeded {
 		t.Fatalf("automation retry lost no-replay boundary or report: %+v", run)
 	}
 	if err := s.CompleteAutomationRun(ctx, run); err != nil {
@@ -3482,6 +3482,99 @@ func TestExhaustedInterruptedClaimsReachTerminalState(t *testing.T) {
 		`SELECT status FROM automation_runs WHERE automation_key='exhausted' AND occurrence_key='once' AND subject_id=$1`, u.ID).
 		Scan(&automationStatus); err != nil || automationStatus != "failed" {
 		t.Fatalf("automation status=%q err=%v", automationStatus, err)
+	}
+}
+
+func TestAutomationOutcomeExpiryAndReplaySafety(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "automation-owner", true)
+	now := time.Now().UTC()
+
+	uncertain, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "uncertain", u.ID, now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareAutomationResult(ctx, uncertain, "需要人工核对", AutomationOutcomeUncertain, "partial write"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CompleteAutomationRun(ctx, uncertain); err != nil {
+		t.Fatal(err)
+	}
+	var status, outcome string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT status, outcome FROM automation_runs WHERE automation_key='maintenance' AND occurrence_key='uncertain' AND subject_id=$1`, u.ID).
+		Scan(&status, &outcome); err != nil || status != "failed" || outcome != AutomationOutcomeUncertain {
+		t.Fatalf("uncertain automation status=%q outcome=%q err=%v", status, outcome, err)
+	}
+	if _, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "uncertain", u.ID, now, now.Add(time.Hour)); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("terminal uncertain run was reclaimed: %v", err)
+	}
+
+	replaySafe, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "safe-retry", u.ID, now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BeginAutomationAction(ctx, replaySafe); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryAutomationRunReplaySafe(ctx, replaySafe, "completed without effects"); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE automation_runs SET available_at=now() WHERE automation_key='maintenance' AND occurrence_key='safe-retry' AND subject_id=$1`, u.ID)
+	replaySafe, err = s.ClaimAutomationRunUntil(ctx, "maintenance", "safe-retry", u.ID, time.Now().UTC(), now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaySafe.ActionStarted || replaySafe.ResultText != "" || replaySafe.Outcome != "" {
+		t.Fatalf("safe retry retained action boundary: %+v", replaySafe)
+	}
+
+	delivered, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "delivery-failed", u.ID, now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareAutomationResult(ctx, delivered, "业务已完成", AutomationOutcomeSucceeded, ""); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, s, `UPDATE automation_runs SET attempts=$4 WHERE automation_key=$1 AND occurrence_key=$2 AND subject_id=$3`,
+		"maintenance", "delivery-failed", u.ID, automationRunMaxAttempts)
+	delivered.Attempts = automationRunMaxAttempts
+	if err := s.RetryAutomationRun(ctx, delivered, "notification unavailable"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pool.QueryRow(ctx,
+		`SELECT status, outcome FROM automation_runs WHERE automation_key='maintenance' AND occurrence_key='delivery-failed' AND subject_id=$1`, u.ID).
+		Scan(&status, &outcome); err != nil || status != "failed" || outcome != AutomationOutcomeSucceeded {
+		t.Fatalf("delivery failure overwrote business outcome: status=%q outcome=%q err=%v", status, outcome, err)
+	}
+
+	expiringDelivery, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "delivery-expired", u.ID, now, now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareAutomationResult(ctx, expiringDelivery, "没有需要修改的对象", AutomationOutcomeNoChange, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RetryAutomationRun(ctx, expiringDelivery, "notification unavailable"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ExpireAutomationRuns(ctx, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pool.QueryRow(ctx,
+		`SELECT status, outcome FROM automation_runs WHERE automation_key='maintenance' AND occurrence_key='delivery-expired' AND subject_id=$1`, u.ID).
+		Scan(&status, &outcome); err != nil || status != "failed" || outcome != AutomationOutcomeNoChange {
+		t.Fatalf("expiry overwrote business outcome: status=%q outcome=%q err=%v", status, outcome, err)
+	}
+
+	if _, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "expired", u.ID, now, now.Add(-time.Second)); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expired occurrence was claimed: %v", err)
+	}
+	if err := s.pool.QueryRow(ctx,
+		`SELECT status, outcome FROM automation_runs WHERE automation_key='maintenance' AND occurrence_key='expired' AND subject_id=$1`, u.ID).
+		Scan(&status, &outcome); err != nil || status != "failed" || outcome != AutomationOutcomeFailed {
+		t.Fatalf("expired automation status=%q outcome=%q err=%v", status, outcome, err)
 	}
 }
 

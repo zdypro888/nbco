@@ -19,6 +19,73 @@ type actionAudit struct {
 	ActionTools    []string
 }
 
+type AutomationToolEvidence struct {
+	Tool       string            `json:"tool"`
+	Effect     string            `json:"effect"`
+	Completion ai.ToolCompletion `json:"completion,omitempty"`
+	Result     string            `json:"result,omitempty"`
+	Error      string            `json:"error,omitempty"`
+	Replayed   bool              `json:"replayed,omitempty"`
+}
+
+// AutomationExecution is a redacted projection of one completed Agent turn.
+// Scheduled write jobs use it to decide lifecycle state from actual handler
+// boundaries instead of trusting the prose in the final assistant message.
+type AutomationExecution struct {
+	ToolCalls             int                      `json:"tool_calls"`
+	SuccessfulToolCalls   int                      `json:"successful_tool_calls"`
+	ActionCalls           int                      `json:"action_calls"`
+	SuccessfulActionCalls int                      `json:"successful_action_calls"`
+	SuccessfulReadCalls   int                      `json:"successful_read_calls"`
+	TrustedInputEvidence  bool                     `json:"trusted_input_evidence,omitempty"`
+	Evidence              []AutomationToolEvidence `json:"evidence"`
+}
+
+func buildAutomationExecution(toolset []ai.Tool, res *ai.TurnResult) AutomationExecution {
+	byName := toolDefinitionsByName(toolset)
+	execution := AutomationExecution{Evidence: []AutomationToolEvidence{}}
+	if res == nil {
+		return execution
+	}
+	for _, step := range res.Steps {
+		if step.Kind != ai.StepToolCall {
+			continue
+		}
+		execution.ToolCalls++
+		definition := byName[step.ToolName]
+		effect := definition.Effect
+		if effect == "" {
+			effect = ai.ToolEffectUnknown
+		}
+		action := effect == ai.ToolEffectWrite || effect == ai.ToolEffectExecute
+		if action {
+			execution.ActionCalls++
+		}
+		successful := step.Err == "" && !step.Replayed && !nbtools.ToolResultRejected(step.Result) &&
+			!toolResultLooksPendingApproval(step.Result)
+		if successful {
+			execution.SuccessfulToolCalls++
+			if action {
+				execution.SuccessfulActionCalls++
+			} else if effect == ai.ToolEffectRead {
+				execution.SuccessfulReadCalls++
+			}
+		}
+		if len(execution.Evidence) >= 40 {
+			continue
+		}
+		execution.Evidence = append(execution.Evidence, AutomationToolEvidence{
+			Tool:       step.ToolName,
+			Effect:     effect,
+			Completion: step.Completion,
+			Result:     textfmt.RedactSecrets(textfmt.TruncateRunes(strings.TrimSpace(step.Result), 500)),
+			Error:      textfmt.RedactSecrets(textfmt.TruncateRunes(strings.TrimSpace(step.Err), 240)),
+			Replayed:   step.Replayed,
+		})
+	}
+	return execution
+}
+
 func buildActionAudit(text string, toolset []ai.Tool, res *ai.TurnResult) *actionAudit {
 	if strings.TrimSpace(text) == "" {
 		return nil

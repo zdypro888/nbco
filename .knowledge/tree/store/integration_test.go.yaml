@@ -1075,3 +1075,14 @@ nodes:
         lines: [2943, 2988]
       status: fresh
       since: 2026-07-25T04:57:24.806436Z
+    - id: store/integration_test.go#TestAutomationOutcomeExpiryAndReplaySafety
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestAutomationOutcomeExpiryAndReplaySafety
+        hash: sha256:6e3f022fd975e9fdd829bf4a99a77acd03088cf5391f6910d4c186df13d1eb2f
+        struct_hash: sha256:db425c54c9eee90acf0565af3d2450af69f665ad54d159687bdc5a02dd85af1b
+        doc_struct_hash: sha256:db425c54c9eee90acf0565af3d2450af69f665ad54d159687bdc5a02dd85af1b
+        lines: [3488, 3579]
+      status: fresh
+      since: 2026-08-05T08:18:56.752291Z

@@ -171,7 +171,7 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 	case ai.TurnModeDeep:
 		agent, toolScope, err = e.newDeepAgent(ctx, model, req, &summaryUsage, &toolExposure)
 	case ai.TurnModeOneShot:
-		agent, err = newOneShotAgent(ctx, model, req)
+		agent, err = newOneShotAgent(ctx, model, req, &toolExposure)
 	}
 	if err != nil {
 		return nil, err
@@ -325,14 +325,19 @@ func validateOneShotRequest(req *ai.TurnRequest) error {
 	return nil
 }
 
-func newOneShotAgent(ctx context.Context, model einomodel.ToolCallingChatModel, req *ai.TurnRequest) (adk.Agent, error) {
+func newOneShotAgent(
+	ctx context.Context,
+	model einomodel.ToolCallingChatModel,
+	req *ai.TurnRequest,
+	exposure *ai.ToolExposure,
+) (adk.Agent, error) {
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:             "nbco",
 		Description:      "nbco 受控单次模型任务",
 		Instruction:      req.System,
 		Model:            model,
 		MaxIterations:    1,
-		Handlers:         []adk.TypedChatModelAgentMiddleware[*schema.Message]{&oneShotMiddleware{}},
+		Handlers:         []adk.TypedChatModelAgentMiddleware[*schema.Message]{&oneShotMiddleware{exposure: exposure}},
 		ModelRetryConfig: modelRetryConfig(),
 	})
 	if err != nil {
@@ -349,6 +354,9 @@ const einoToolSearchReminderKey = "__toolsearch_reminder__"
 // requirement without tool_search would give the model contradictory input.
 type oneShotMiddleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.Message]
+
+	mu       sync.Mutex
+	exposure *ai.ToolExposure
 }
 
 func (*oneShotMiddleware) BeforeModelRewriteState(
@@ -372,6 +380,24 @@ func (*oneShotMiddleware) BeforeModelRewriteState(
 	}
 	state.Messages = messages
 	return ctx, state, nil
+}
+
+func (m *oneShotMiddleware) WrapModel(
+	_ context.Context,
+	inner einomodel.BaseModel[*schema.Message],
+	_ *adk.TypedModelContext[*schema.Message],
+) (einomodel.BaseModel[*schema.Message], error) {
+	return &observedModel{inner: inner, onCall: m.recordModelCall}, nil
+}
+
+func (m *oneShotMiddleware) recordModelCall() {
+	if m == nil || m.exposure == nil {
+		return
+	}
+	m.mu.Lock()
+	m.exposure.AgentIterations++
+	m.exposure.ModelCalls++
+	m.mu.Unlock()
 }
 
 func (e *Engine) newDeepAgent(

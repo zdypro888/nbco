@@ -4,3 +4,4 @@
 - `backup/`：PostgreSQL 定时备份脚本与 launchd 模板。全部公司业务事实只在这个库里，务必启用。
 - `qdrant/`：Qdrant 本机回环部署与 systemd 模板。它只保存可重建语义索引，丢失不会丢业务事实。
 - `telegram-bot-api/`：Telegram 官方本地 Bot API 的 systemd 模板；用于突破云端 `getFile` 20 MB 限制，凭据只放服务器环境文件。
+- `logging/`：生产 journald 持久化与容量/保留期限制，确保重启后仍可追溯模型和 Worker 故障。
