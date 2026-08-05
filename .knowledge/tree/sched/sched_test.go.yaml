@@ -145,10 +145,10 @@ nodes:
       anchor:
         file: sched/sched_test.go
         symbol: TestAutomationWindowsRemainOpenForRetries
-        hash: sha256:46e548758633e5454be1d95b4feab6d53b5bb3cbffd322e19cdc07d543afc76a
-        struct_hash: sha256:f3c69484af144716c1afc7c3d7cc9f6fe13d62d596e19514f52c1c369e86ed32
-        doc_struct_hash: sha256:f3c69484af144716c1afc7c3d7cc9f6fe13d62d596e19514f52c1c369e86ed32
-        lines: [123, 144]
+        hash: sha256:9dbf665c4a2863a043b3086de5d793e9004074efb7c246b62ac6b25c5ee8945b
+        struct_hash: sha256:364e56566ad28be32d939686b725ad4b3cb3642d65e6a5a0d4db3c003752112d
+        doc_struct_hash: sha256:364e56566ad28be32d939686b725ad4b3cb3642d65e6a5a0d4db3c003752112d
+        lines: [123, 148]
       status: fresh
       since: 2026-08-05T08:18:56.753335Z
     - id: sched/sched_test.go#TestKnowledgeBatchOccurrenceTracksExactCandidateSet

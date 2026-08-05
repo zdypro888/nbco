@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler
-        hash: sha256:4b607fd31c277166d2d8912476ceaa085a3101e5e5b809097668fa7523d67239
-        struct_hash: sha256:fd56ffecf029952043dbd5b5105a424c781ef3325f1e4491b46bfac080eca307
-        doc_struct_hash: sha256:77422eaafe804ce691a52ccc21946f35c3004bd6ec77fddb9cc3125a2dfb4440
-        lines: [49, 62]
+        hash: sha256:98054d63d2de60b6f76f701a6e90e3a8d079974d6a460d707c4516e9930b1774
+        struct_hash: sha256:feda8fc1654350bcd99b28f6504bd6b8eba0da4779827baff6ea1358a650c2cd
+        doc_struct_hash: sha256:b714918501252472a5567524061431ad731e30eb7eb9ab85fe491a44cc6010f0
+        lines: [61, 76]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#New
@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.dispatchAutomationAction
-        hash: sha256:d889453b534ff823a86545760050f4b323e40390c6a63a823e37c7ad8c915361
-        struct_hash: sha256:372918a8d7d8cf1110651f6f314305189ec6bcf83b472746b609c68353f3e79e
-        doc_struct_hash: sha256:9ef497f218addbea98b9f1756c64ed17463c7eb9b7a1ced53caad472d06eb722
-        lines: [175, 247]
+        hash: sha256:d9b27e94929350ea44c5e9d7ae97a817bfa95a09267f310f930140960e49bd5b
+        struct_hash: sha256:745fa38d0975f99f9b1006ad4bb74829df6fcb8b46c48a0a6ce33e388def55eb
+        doc_struct_hash: sha256:8cd884fcddbf2fe7e24eb1a3a12fbd61b9d2b75245778bc27b638899d6f5c074
+        lines: [186, 261]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -527,10 +527,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.maybeProfileRefresh
-        hash: sha256:6c7c3f8aba4f0c94a43da79de987a493efd7df2a7182180f06390436e10731b0
-        struct_hash: sha256:d9a967e95767c3fd440f1a67ab6acc3a571fe7600ae39653114132596f1bce9d
-        doc_struct_hash: sha256:7e0e2d06a3792a20f92c97ccdb4bad7ddc449d16b8622455d3934ab18c1a52d9
-        lines: [916, 969]
+        hash: sha256:cc92ed2333303e16ecc5eb5d660a8a069387ea6243f6e6fc7db073f3d89e456a
+        struct_hash: sha256:7776e8084b9d48bbf2f7946f288f2c4960a77ab2dd300a7e8645dda6048d129d
+        doc_struct_hash: sha256:6e547c99b332f083a1431d7dde497b03d2ab2e7bd3d50811415e6b777775762a
+        lines: [931, 985]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.maybeKnowledgeRefresh
@@ -538,10 +538,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.maybeKnowledgeRefresh
-        hash: sha256:be82cf0329bcc31afd1a48000cb39775261e9ac019067863b995b7d2b26b7fe2
-        struct_hash: sha256:93332b30072db3d9f1c7e4624e022675130cd4cf0b1c23e2fd27bc5925f54fe1
-        doc_struct_hash: sha256:39f6da2513f96fe5204a54890327d9b6ac3907e9db4736aa2c6fa49194e1a82b
-        lines: [1026, 1113]
+        hash: sha256:b5f4ff343e019ef07baaab435a08a75e63664104acdbd609260033fc835a914c
+        struct_hash: sha256:41ae4b3f8dc6c7f81edb9946f216d78647e04805e6febad231519f294b57fbb1
+        doc_struct_hash: sha256:0031f41e62a3b51b6aee07ed832264c35a0a20920674a226280bd3ccc02dbc09
+        lines: [1040, 1132]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.maybeWeeklyReport
@@ -806,3 +806,14 @@ nodes:
         lines: [1115, 1121]
       status: fresh
       since: 2026-08-05T08:30:45.952083Z
+    - id: sched/sched.go#monthlyAutomationWindow
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: monthlyAutomationWindow
+        hash: sha256:cebf02cc0b1b1ae039ff1781afacd2182b6bd88ce91c35571f22c321adbc017c
+        struct_hash: sha256:e5a30afdcaffdb359957e9e6a49a02e339acbffb123a0aa635e1983bf562e28e
+        doc_struct_hash: sha256:e5a30afdcaffdb359957e9e6a49a02e339acbffb123a0aa635e1983bf562e28e
+        lines: [781, 790]
+      status: fresh
+      since: 2026-08-05T08:52:45.115541Z

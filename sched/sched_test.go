@@ -134,12 +134,16 @@ func TestAutomationWindowsRemainOpenForRetries(t *testing.T) {
 		t.Fatalf("daily retry window due=%v expires=%s", due, expires)
 	}
 	thirdDay := time.Date(2026, 8, 3, 18, 0, 0, 0, tz)
-	if due, expires := monthlyAutomationWindow(thirdDay, 9, 1, 3); !due || !expires.Equal(time.Date(2026, 8, 4, 0, 0, 0, 0, tz).UTC()) {
+	if due, expires := monthlyAutomationWindow(thirdDay, 9, 1); !due || !expires.Equal(time.Date(2026, 9, 1, 0, 0, 0, 0, tz).UTC()) {
 		t.Fatalf("monthly retry window due=%v expires=%s", due, expires)
 	}
 	fourthDay := time.Date(2026, 8, 4, 0, 0, 0, 0, tz)
-	if due, _ := monthlyAutomationWindow(fourthDay, 9, 1, 3); due {
-		t.Fatal("monthly run must stop after its explicit occurrence window")
+	if due, _ := monthlyAutomationWindow(fourthDay, 9, 1); !due {
+		t.Fatal("monthly run must remain retryable through the occurrence month")
+	}
+	beforeStart := time.Date(2026, 8, 2, 8, 59, 0, 0, tz)
+	if due, _ := monthlyAutomationWindow(beforeStart, 9, 2); due {
+		t.Fatal("monthly run must not start before its configured day and hour")
 	}
 }
 

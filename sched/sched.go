@@ -55,6 +55,7 @@ const (
 	profileRefreshBatchSize    = 6
 	knowledgeRefreshBatchSize  = 8
 	knowledgeRefreshMaxBatches = 4
+	knowledgeScoreInterval     = 6 * time.Hour
 )
 
 // Scheduler 调度器。
@@ -70,6 +71,8 @@ type Scheduler struct {
 
 	aiPool   *pool // AI 轮次限并发（护后端网关）：催办/周报/画像/定时 AI 推送
 	sendPool *pool // 模板推送/逐人查询限并发（廉价）：每日汇总扇出
+
+	nextKnowledgeScore time.Time
 }
 
 // New 创建调度器。aiConcurrency 是同时进行的 AI 轮次上限（<=0 取默认 4）。
@@ -191,6 +194,9 @@ func (s *Scheduler) dispatchAutomationAction(
 	directive, prefix, label string,
 	options chat.AutomationTurnOptions,
 ) {
+	if options.MaxIterations <= 0 || options.MaxIterations > automationMaxIterations {
+		options.MaxIterations = automationMaxIterations
+	}
 	if !s.aiPool.trySubmit(ctx, func() {
 		reply := strings.TrimSpace(run.ResultText)
 		if reply == "" {
@@ -778,14 +784,14 @@ func weeklyAutomationWindow(local time.Time, hour int) (bool, time.Time) {
 	return !local.Before(scheduled), weekStart.AddDate(0, 0, 7).UTC()
 }
 
-func monthlyAutomationWindow(local time.Time, hour, firstDay, lastDay int) (bool, time.Time) {
-	if hour < 0 || hour > 23 || firstDay < 1 || lastDay < firstDay || lastDay > 28 {
+func monthlyAutomationWindow(local time.Time, hour, firstDay int) (bool, time.Time) {
+	if hour < 0 || hour > 23 || firstDay < 1 || firstDay > 28 {
 		return false, time.Time{}
 	}
 	monthStart := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, local.Location())
 	first := monthStart.AddDate(0, 0, firstDay-1)
 	scheduled := time.Date(first.Year(), first.Month(), first.Day(), hour, 0, 0, 0, first.Location())
-	expires := monthStart.AddDate(0, 0, lastDay)
+	expires := monthStart.AddDate(0, 1, 0)
 	return !local.Before(scheduled) && local.Before(expires), expires.UTC()
 }
 
@@ -936,7 +942,7 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		return
 	}
 	local := time.Now().In(s.tz)
-	due, expires := monthlyAutomationWindow(local, s.dailyHour, 1, 3)
+	due, expires := monthlyAutomationWindow(local, s.dailyHour, 1)
 	if !due {
 		return
 	}
@@ -1039,7 +1045,7 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		return
 	}
 	local := time.Now().In(s.tz)
-	due, expires := monthlyAutomationWindow(local, s.dailyHour, 2, 4)
+	due, expires := monthlyAutomationWindow(local, s.dailyHour, 2)
 	if !due {
 		return
 	}
@@ -1059,11 +1065,16 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 	if admin == nil {
 		return
 	}
-	if n, err := s.store.ScoreLearningCandidates(ctx, 200); err != nil {
-		slog.Warn("学习候选治理评分失败", "err", err)
-		return
-	} else if n > 0 {
-		slog.Info("学习候选治理评分完成", "count", n)
+	if !local.Before(s.nextKnowledgeScore) {
+		if n, err := s.store.ScoreLearningCandidates(ctx, 200); err != nil {
+			slog.Warn("学习候选治理评分失败", "err", err)
+			return
+		} else {
+			s.nextKnowledgeScore = local.Add(knowledgeScoreInterval)
+			if n > 0 {
+				slog.Info("学习候选治理评分完成", "count", n)
+			}
+		}
 	}
 	items, err := s.store.ListLearningCandidates(ctx, store.LearningStatusPending, "", 100)
 	if err != nil {
