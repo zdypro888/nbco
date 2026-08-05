@@ -184,3 +184,14 @@ nodes:
         lines: [159, 165]
       status: fresh
       since: 2026-08-05T09:00:26.887047Z
+    - id: sched/sched_test.go#TestKnowledgeRefreshDirectiveBoundsCandidatePayload
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestKnowledgeRefreshDirectiveBoundsCandidatePayload
+        hash: sha256:e49bb7211ad36bd21fa1c7ccf1e1d65c18c308fbbebb669043660fca5a488108
+        struct_hash: sha256:ed85d4315cd5d001aeacb7dea428ae27ace0a35b5deccfd6d9b48f6baad64b38
+        doc_struct_hash: sha256:ed85d4315cd5d001aeacb7dea428ae27ace0a35b5deccfd6d9b48f6baad64b38
+        lines: [159, 171]
+      status: fresh
+      since: 2026-08-05T09:09:41.731301Z

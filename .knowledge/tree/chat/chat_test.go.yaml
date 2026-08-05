@@ -574,9 +574,20 @@ nodes:
       anchor:
         file: chat/chat_test.go
         symbol: TestRetainNamedToolsScopesAndReportsMissingCapabilities
-        hash: sha256:a2fae7c692491bd37be0b715895ecd3e115865996e684d4e989f460ac7acc610
-        struct_hash: sha256:f99259e81743c1b0b106a803603cbdb04fce157aca2c9e37b0f2984862586d7a
-        doc_struct_hash: sha256:f99259e81743c1b0b106a803603cbdb04fce157aca2c9e37b0f2984862586d7a
-        lines: [461, 470]
+        hash: sha256:9e8699fa74ca8e9e709a9e611f0a5044a712dd474b08e551ab3203cdc46ab0f1
+        struct_hash: sha256:1ed2e7ef2b3383fb3412bd9cdcced4a415587e3f83c736b88135580a6356ccf7
+        doc_struct_hash: sha256:1ed2e7ef2b3383fb3412bd9cdcced4a415587e3f83c736b88135580a6356ccf7
+        lines: [461, 471]
       status: fresh
       since: 2026-08-05T08:57:49.079659Z
+    - id: chat/chat_test.go#TestRenderApplicableRulesKeepsOnlyMatchingScopes
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestRenderApplicableRulesKeepsOnlyMatchingScopes
+        hash: sha256:3ca6355e00e4384009323eee9114d1caf8654b373498f4a2e77b59765dedd34e
+        struct_hash: sha256:9d6357290fdbb19e92f0a2a894cbc3c1fc4cea7bebbb65cec4e062dcda1f1425
+        doc_struct_hash: sha256:9d6357290fdbb19e92f0a2a894cbc3c1fc4cea7bebbb65cec4e062dcda1f1425
+        lines: [473, 482]
+      status: fresh
+      since: 2026-08-05T09:09:41.718377Z

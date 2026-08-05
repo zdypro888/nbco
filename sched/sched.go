@@ -986,8 +986,8 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 			}
 			s.dispatchAutomationAction(ctx, run, admin, directive, "🧭 月度人员盘点\n", label,
 				chat.AutomationTurnOptions{
-					TrustedInputEvidence: true,
-					AllowedTools:         []string{"save_infos_on_user"},
+					TrustedInputEvidence: true, ClosedContext: true,
+					AllowedTools: []string{"save_infos_on_user"},
 				})
 		}
 	}
@@ -1021,7 +1021,10 @@ func (s *Scheduler) profileRefreshDirective(ctx context.Context, admin *store.Us
 		}
 		existing := make([]string, 0, len(profiles))
 		for _, profile := range profiles {
-			existing = append(existing, profile.Content)
+			if len(existing) >= 8 {
+				break
+			}
+			existing = append(existing, textfmt.TruncateRunes(strings.TrimSpace(profile.Content), 500))
 		}
 		facts = append(facts, subjectFacts{
 			UserID: subject.ID, Name: subject.Name, Stats: stats,
@@ -1109,7 +1112,7 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 			return
 		}
 		s.dispatchAutomationAction(ctx, run, admin, "", "📚 月度知识盘点\n", "知识盘点",
-			chat.AutomationTurnOptions{TrustedInputEvidence: true})
+			chat.AutomationTurnOptions{TrustedInputEvidence: true, ClosedContext: true})
 		return
 	}
 	for batch := range batchCount {
@@ -1131,8 +1134,8 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 		}
 		s.dispatchAutomationAction(ctx, run, admin, directive, "📚 月度知识盘点\n", fmt.Sprintf("知识盘点批次 %d", batch+1),
 			chat.AutomationTurnOptions{
-				TrustedInputEvidence: true,
-				AllowedTools:         []string{"approve_learning_candidate", "reject_learning_candidate"},
+				TrustedInputEvidence: true, ClosedContext: true,
+				AllowedTools: []string{"approve_learning_candidate", "reject_learning_candidate"},
 			})
 	}
 }
@@ -1147,21 +1150,27 @@ func knowledgeBatchOccurrence(month string, items []*store.LearningCandidate) st
 
 func knowledgeRefreshDirective(items []*store.LearningCandidate, remaining int) (string, error) {
 	type candidateFacts struct {
-		ID         int64           `json:"id"`
-		Kind       string          `json:"kind"`
-		Scope      string          `json:"scope"`
-		Title      string          `json:"title"`
-		Content    string          `json:"content"`
-		Evidence   json.RawMessage `json:"evidence"`
-		ValueScore float32         `json:"value_score"`
-		ReviewNote string          `json:"review_note,omitempty"`
+		ID                int64   `json:"id"`
+		Kind              string  `json:"kind"`
+		Scope             string  `json:"scope"`
+		Title             string  `json:"title"`
+		Content           string  `json:"content"`
+		Evidence          string  `json:"evidence"`
+		EvidenceTruncated bool    `json:"evidence_truncated,omitempty"`
+		ValueScore        float32 `json:"value_score"`
+		ReviewNote        string  `json:"review_note,omitempty"`
 	}
 	facts := make([]candidateFacts, 0, len(items))
 	for _, item := range items {
+		evidence := strings.TrimSpace(string(item.Evidence))
+		trimmedEvidence := textfmt.TruncateRunes(evidence, 1200)
 		facts = append(facts, candidateFacts{
-			ID: item.ID, Kind: item.Kind, Scope: item.Scope,
-			Title: item.Title, Content: item.Content, Evidence: item.Evidence,
-			ValueScore: item.ValueScore, ReviewNote: item.ReviewNote,
+			ID: item.ID, Kind: item.Kind, Scope: textfmt.TruncateRunes(item.Scope, 120),
+			Title:    textfmt.TruncateRunes(strings.TrimSpace(item.Title), 240),
+			Content:  textfmt.TruncateRunes(strings.TrimSpace(item.Content), 1600),
+			Evidence: trimmedEvidence, EvidenceTruncated: trimmedEvidence != evidence,
+			ValueScore: item.ValueScore,
+			ReviewNote: textfmt.TruncateRunes(strings.TrimSpace(item.ReviewNote), 400),
 		})
 	}
 	raw, err := json.Marshal(facts)
@@ -1226,7 +1235,7 @@ func (s *Scheduler) maybeWeeklyReport(ctx context.Context) {
 		directive := s.weeklyReportDirective(local, key, target.user, overview)
 		s.dispatchAutomationAI(ctx, target.run, target.user, directive, "📈 每周汇总\n", "周报",
 			chat.AutomationTurnOptions{
-				Mode: ai.TurnModeOneShot, TrustedInputEvidence: true,
+				Mode: ai.TurnModeOneShot, TrustedInputEvidence: true, ClosedContext: true,
 				Reasoning: ai.ReasoningDisabled, MaxOutputTokens: 1800,
 			})
 	}

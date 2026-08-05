@@ -156,6 +156,20 @@ func TestKnowledgeBatchOccurrenceTracksExactCandidateSet(t *testing.T) {
 	}
 }
 
+func TestKnowledgeRefreshDirectiveBoundsCandidatePayload(t *testing.T) {
+	long := strings.Repeat("证据", 3000)
+	directive, err := knowledgeRefreshDirective([]*store.LearningCandidate{{
+		ID: 7, Kind: store.LearningKindKnowledge, Scope: "global",
+		Title: long, Content: long, Evidence: []byte(`{"source":"` + long + `"}`), ReviewNote: long,
+	}}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len([]rune(directive)) > 5000 || !strings.Contains(directive, `"evidence_truncated":true`) {
+		t.Fatalf("candidate payload was not bounded: runes=%d", len([]rune(directive)))
+	}
+}
+
 func TestAutomationExecutionKeySeparatesOccurrences(t *testing.T) {
 	first := automationExecutionKey(&store.AutomationRun{AutomationKey: "knowledge", OccurrenceKey: "batch-a", SubjectID: 1})
 	second := automationExecutionKey(&store.AutomationRun{AutomationKey: "knowledge", OccurrenceKey: "batch-b", SubjectID: 1})

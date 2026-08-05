@@ -137,6 +137,7 @@ func sourceKeyForTurn(ctx context.Context) string {
 type AutomationTurnOptions struct {
 	ReadOnly             bool
 	TrustedInputEvidence bool
+	ClosedContext        bool
 	AllowedTools         []string
 	Mode                 ai.TurnMode
 	Reasoning            ai.ReasoningMode
@@ -516,10 +517,19 @@ func (o *Orchestrator) runTurn(
 	if extension != nil && strings.TrimSpace(extension.System) != "" {
 		system += "\n\n[当前宿主界面能力]\n" + strings.TrimSpace(extension.System)
 	}
-	// Rules and skill candidates share one bounded retrieval window. Running the
-	// two independent reads concurrently also lets the semantic layer coalesce
-	// their identical query embedding instead of stacking cold-start latency.
-	ruleBlock, turnSkills := o.turnRetrievalContext(ctx, u, channel, text, turnMode != ai.TurnModeOneShot)
+	// Closed scheduler inputs already contain the complete business dataset.
+	// They still honor pinned company policy, but skip semantic rules and skills
+	// that can only add latency or unrelated instructions to the bounded job.
+	var ruleBlock string
+	var turnSkills []ai.Skill
+	if automationOptions.ClosedContext {
+		ruleBlock = o.pinnedRuleContext(ctx, u, channel)
+	} else {
+		// Rules and skill candidates share one bounded retrieval window. Running
+		// the independent reads concurrently lets the semantic layer coalesce
+		// identical query embeddings instead of stacking cold-start latency.
+		ruleBlock, turnSkills = o.turnRetrievalContext(ctx, u, channel, text, turnMode != ai.TurnModeOneShot)
+	}
 	system += ruleBlock
 	// 当前用户身份与画像是稳定的会话输入；其他人物、历史和业务状态由
 	// Agent 在需要时通过权限感知工具查询，避免在 Agent 之前另做意图判断。
@@ -718,6 +728,10 @@ func retainNamedTools(toolset []ai.Tool, names []string) ([]ai.Tool, []string) {
 	out := make([]ai.Tool, 0, len(wanted))
 	for _, tool := range toolset {
 		if wanted[tool.Name] {
+			// An explicit scheduler capability scope is already the selection step;
+			// expose its small set immediately instead of forcing another tool_search
+			// round trip before the Agent can invoke it.
+			tool.LoadMode = ai.ToolLoadImmediate
 			out = append(out, tool)
 			delete(wanted, tool.Name)
 		}
@@ -1986,22 +2000,30 @@ func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, 
 	if err != nil {
 		slog.Warn("动态规则检索失败，本轮跳过", "err", err)
 	}
-	var b strings.Builder
-	write := func(header string, ks []*store.Knowledge) {
-		wrote := false
-		for _, k := range ks {
-			if !knowledge.RuleApplies(k.Tags, channel, u.ID) {
-				continue
-			}
-			if !wrote {
-				b.WriteString("\n" + header + "\n")
-				wrote = true
-			}
-			b.WriteString("- " + k.Title + "：" + k.Content + "\n")
-		}
+	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel) +
+		renderApplicableRules("[本轮相关规则·同样必须遵守]", dyn, u, channel)
+}
+
+func (o *Orchestrator) pinnedRuleContext(ctx context.Context, u *store.User, channel string) string {
+	pinned, err := o.store.PinnedRules(ctx)
+	if err != nil {
+		slog.Warn("常驻规则加载失败，本轮跳过", "err", err)
+		return ""
 	}
-	write("[公司规则·必须遵守]", pinned)
-	write("[本轮相关规则·同样必须遵守]", dyn)
+	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel)
+}
+
+func renderApplicableRules(header string, rules []*store.Knowledge, u *store.User, channel string) string {
+	var b strings.Builder
+	for _, rule := range rules {
+		if !knowledge.RuleApplies(rule.Tags, channel, u.ID) {
+			continue
+		}
+		if b.Len() == 0 {
+			b.WriteString("\n" + header + "\n")
+		}
+		b.WriteString("- " + rule.Title + "：" + rule.Content + "\n")
+	}
 	return b.String()
 }
 

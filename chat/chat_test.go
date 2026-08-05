@@ -461,11 +461,23 @@ func TestAutomationExecutionUsesToolMetadataAndHandlerEvidence(t *testing.T) {
 func TestRetainNamedToolsScopesAndReportsMissingCapabilities(t *testing.T) {
 	toolset := []ai.Tool{{Name: "read"}, {Name: "write"}, {Name: "execute"}}
 	got, missing := retainNamedTools(toolset, []string{"execute", "missing", "read"})
-	if len(got) != 2 || got[0].Name != "read" || got[1].Name != "execute" {
+	if len(got) != 2 || got[0].Name != "read" || got[1].Name != "execute" ||
+		got[0].LoadMode != ai.ToolLoadImmediate || got[1].LoadMode != ai.ToolLoadImmediate {
 		t.Fatalf("scoped tools=%v", catalogToolNames(got))
 	}
 	if len(missing) != 1 || missing[0] != "missing" {
 		t.Fatalf("missing=%v", missing)
+	}
+}
+
+func TestRenderApplicableRulesKeepsOnlyMatchingScopes(t *testing.T) {
+	u := &store.User{ID: 7}
+	got := renderApplicableRules("[rules]", []*store.Knowledge{
+		{Title: "global", Content: "always", Tags: []string{"scope:global"}},
+		{Title: "other", Content: "hidden", Tags: []string{"scope:user:8"}},
+	}, u, "telegram")
+	if !strings.Contains(got, "global：always") || strings.Contains(got, "hidden") {
+		t.Fatalf("rendered rules=%q", got)
 	}
 }
 
