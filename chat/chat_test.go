@@ -458,6 +458,17 @@ func TestAutomationExecutionUsesToolMetadataAndHandlerEvidence(t *testing.T) {
 	}
 }
 
+func TestRetainNamedToolsScopesAndReportsMissingCapabilities(t *testing.T) {
+	toolset := []ai.Tool{{Name: "read"}, {Name: "write"}, {Name: "execute"}}
+	got, missing := retainNamedTools(toolset, []string{"execute", "missing", "read"})
+	if len(got) != 2 || got[0].Name != "read" || got[1].Name != "execute" {
+		t.Fatalf("scoped tools=%v", catalogToolNames(got))
+	}
+	if len(missing) != 1 || missing[0] != "missing" {
+		t.Fatalf("missing=%v", missing)
+	}
+}
+
 func TestAutomationAssessmentCannotInventActionSuccess(t *testing.T) {
 	engine := &fakeEngine{reply: `{"outcome":"succeeded","summary":"全部完成","reason":"模型认为完成"}`}
 	orchestrator := &Orchestrator{engine: engine}

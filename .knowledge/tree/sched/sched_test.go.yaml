@@ -173,3 +173,14 @@ nodes:
         lines: [155, 171]
       status: fresh
       since: 2026-08-05T08:43:28.625122Z
+    - id: sched/sched_test.go#TestAutomationExecutionKeySeparatesOccurrences
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestAutomationExecutionKeySeparatesOccurrences
+        hash: sha256:a0afe514faa26d5c3f2374289de51d7963e5f4488ec7bf3b241dfc8b76c9af7c
+        struct_hash: sha256:eda1879055c0b9e2ff634ea32aa9dc8a0b617398f23f76714488d2ad9fe10f38
+        doc_struct_hash: sha256:eda1879055c0b9e2ff634ea32aa9dc8a0b617398f23f76714488d2ad9fe10f38
+        lines: [159, 165]
+      status: fresh
+      since: 2026-08-05T09:00:26.887047Z

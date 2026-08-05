@@ -338,7 +338,7 @@ func automationExecutionKey(run *store.AutomationRun) string {
 	if run == nil {
 		return "automation:unknown"
 	}
-	return fmt.Sprintf("automation:%s:%d", run.AutomationKey, run.SubjectID)
+	return fmt.Sprintf("automation:%s:%s:%d", run.AutomationKey, run.OccurrenceKey, run.SubjectID)
 }
 
 func (s *Scheduler) completeAutomation(ctx context.Context, run *store.AutomationRun) {
@@ -985,7 +985,10 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 				}
 			}
 			s.dispatchAutomationAction(ctx, run, admin, directive, "🧭 月度人员盘点\n", label,
-				chat.AutomationTurnOptions{TrustedInputEvidence: true})
+				chat.AutomationTurnOptions{
+					TrustedInputEvidence: true,
+					AllowedTools:         []string{"save_infos_on_user"},
+				})
 		}
 	}
 }
@@ -1127,7 +1130,10 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 			continue
 		}
 		s.dispatchAutomationAction(ctx, run, admin, directive, "📚 月度知识盘点\n", fmt.Sprintf("知识盘点批次 %d", batch+1),
-			chat.AutomationTurnOptions{TrustedInputEvidence: true})
+			chat.AutomationTurnOptions{
+				TrustedInputEvidence: true,
+				AllowedTools:         []string{"approve_learning_candidate", "reject_learning_candidate"},
+			})
 	}
 }
 

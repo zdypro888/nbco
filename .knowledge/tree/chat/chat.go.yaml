@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: AutomationTurnOptions
-        hash: sha256:ef373db7be8a8a9b3bb33ae80a1d97e77c239b8cb797d93075dc13679d0a2992
-        struct_hash: sha256:76c886e055e859dd86ca2f7f03d7ad2132d50c93550cf304cdfbf38abecceb10
-        doc_struct_hash: sha256:e3172ee001f7331aec6b9bad12975a18441ea67ae65ba541aca9e44850fb7beb
-        lines: [135, 144]
+        hash: sha256:9805ef7420c4fc2c9ae0c2f7e7710d1db5c2c914c496a8b3edc492ea8e25322a
+        struct_hash: sha256:2b1bbb4069ec998cea18e3f576e03cc5122938644ab9e78af916be59a8d3004e
+        doc_struct_hash: sha256:93c8e38d83650729b27d79e052dc8042333069521a18a6d8b29dcb14faedab3b
+        lines: [135, 145]
       status: undigested
       since: 2026-07-20T14:59:43.143721Z
     - id: chat/chat.go#engineAlertThreshold
@@ -343,10 +343,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:e157f8b8dbf19b1932eee628d4e127960ffe831666954b0e97eb1349ba371346
-        struct_hash: sha256:2effc2555761cbf9bbf15728d57349fe51d8b186c752f390b56059faa88d7073
-        doc_struct_hash: sha256:7105dd41c777c48d17ab5bb2610028eea15ac45d2756d97232026447f3144509
-        lines: [394, 696]
+        hash: sha256:6bcaa0913dfbae18779c4304c88e4d5955d6b6ad6f76be43d5087b60af39d5bb
+        struct_hash: sha256:5bba5f965ab4b939945cc81a68e8e3f2bd2114e461896b5b4ba748afc04c020f
+        doc_struct_hash: sha256:e210cb68b38a7ab5711f965ae6284698b6ec516656e6620bfa296b2518760d40
+        lines: [395, 705]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -1452,9 +1452,20 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.HandleAutomationMessageResult
-        hash: sha256:7dd030b45000902ba227183b7ed295bd742a1ed3343a880ba548ba77de938639
-        struct_hash: sha256:48234547949a7a7f4435969ed5bc8e9136ebd29b07ded4a1c78188a276b7df51
-        doc_struct_hash: sha256:2a6d362e64457d5a266a44c76fb70f5b3eb035f4250d1048f01e5a389b01daaa
-        lines: [216, 245]
+        hash: sha256:e4aff88943c421b77b24c8878d795d034ea4bfe7f1b9b40df177ccace5d880c0
+        struct_hash: sha256:8bdcf9c4a8908d563fc1b940d9b92a3f330c5e4ae157725e0e8ae418c855fdfb
+        doc_struct_hash: sha256:9cacfea9036144518688c0aa5b7f4f8289683fd2997de9d9c79d29f21b80bf59
+        lines: [220, 253]
       status: fresh
       since: 2026-08-05T08:18:56.733425Z
+    - id: chat/chat.go#retainNamedTools
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: retainNamedTools
+        hash: sha256:744bcbb5fe284d8ffd5d8039e7cc4b64c8f9807f2186e96621c81b47853b3e3f
+        struct_hash: sha256:14fd8797fded65502c26249724b41e2a78522eeb5014433847eea9daf58b71da
+        doc_struct_hash: sha256:14fd8797fded65502c26249724b41e2a78522eeb5014433847eea9daf58b71da
+        lines: [707, 727]
+      status: fresh
+      since: 2026-08-05T08:57:49.075929Z

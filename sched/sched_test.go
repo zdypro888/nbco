@@ -156,6 +156,14 @@ func TestKnowledgeBatchOccurrenceTracksExactCandidateSet(t *testing.T) {
 	}
 }
 
+func TestAutomationExecutionKeySeparatesOccurrences(t *testing.T) {
+	first := automationExecutionKey(&store.AutomationRun{AutomationKey: "knowledge", OccurrenceKey: "batch-a", SubjectID: 1})
+	second := automationExecutionKey(&store.AutomationRun{AutomationKey: "knowledge", OccurrenceKey: "batch-b", SubjectID: 1})
+	if first == second || !strings.Contains(first, "batch-a") || !strings.Contains(second, "batch-b") {
+		t.Fatalf("execution keys first=%q second=%q", first, second)
+	}
+}
+
 func TestWeeklyReportDirectiveUsesExplicitPeriodAndPreloadedFacts(t *testing.T) {
 	s := &Scheduler{}
 	directive := s.weeklyReportDirective(

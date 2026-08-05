@@ -137,6 +137,7 @@ func sourceKeyForTurn(ctx context.Context) string {
 type AutomationTurnOptions struct {
 	ReadOnly             bool
 	TrustedInputEvidence bool
+	AllowedTools         []string
 	Mode                 ai.TurnMode
 	Reasoning            ai.ReasoningMode
 	MaxIterations        int
@@ -223,7 +224,11 @@ func (o *Orchestrator) HandleAutomationMessageResult(ctx context.Context, u *sto
 	ctx, cancel := context.WithTimeout(ctx, o.turnTimeout)
 	defer cancel()
 	channel = strings.TrimSpace(channel)
-	key := fmt.Sprintf("%d:%s", u.ID, channel)
+	executionKey = strings.TrimSpace(executionKey)
+	if executionKey == "" {
+		executionKey = "unspecified"
+	}
+	key := fmt.Sprintf("%d:%s:%s", u.ID, channel, executionKey)
 	release, err := o.autoLocks.AcquireContext(ctx, key)
 	if err != nil {
 		return TurnReply{}, err
@@ -243,7 +248,7 @@ func (o *Orchestrator) HandleAutomationMessageResult(ctx context.Context, u *sto
 		ctx = context.WithValue(ctx, readOnlyTurnKey{}, true)
 	}
 	ctx = context.WithValue(ctx, automationTurnOptionsKey{}, options)
-	slog.Debug("自动化轮次", "user", u.ID, "execution", strings.TrimSpace(executionKey), "session", sess.ID)
+	slog.Debug("自动化轮次", "user", u.ID, "execution", executionKey, "session", sess.ID)
 	return o.runTurn(ctx, u, sess, channel, text, nil, nil)
 }
 
@@ -492,6 +497,14 @@ func (o *Orchestrator) runTurn(
 	if readOnly, _ := ctx.Value(readOnlyTurnKey{}).(bool); readOnly {
 		fullToolset = tools.ReadOnlyTools(fullToolset)
 	}
+	if len(automationOptions.AllowedTools) > 0 {
+		var missing []string
+		fullToolset, missing = retainNamedTools(fullToolset, automationOptions.AllowedTools)
+		if len(missing) > 0 {
+			return TurnReply{TurnID: turnIDOf(durableTurn)}, fmt.Errorf(
+				"自动化工具边界不可用: %s", strings.Join(missing, ", "))
+		}
+	}
 	if turnMode == ai.TurnModeOneShot {
 		fullToolset = nil
 	}
@@ -693,6 +706,28 @@ func (o *Orchestrator) runTurn(
 	// turns, so every channel shares the same bounded compaction lifecycle.
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
 	return TurnReply{Text: res.Text, TurnID: durableTurn.ID}, nil
+}
+
+func retainNamedTools(toolset []ai.Tool, names []string) ([]ai.Tool, []string) {
+	wanted := make(map[string]bool, len(names))
+	for _, name := range names {
+		if name = strings.TrimSpace(name); name != "" {
+			wanted[name] = true
+		}
+	}
+	out := make([]ai.Tool, 0, len(wanted))
+	for _, tool := range toolset {
+		if wanted[tool.Name] {
+			out = append(out, tool)
+			delete(wanted, tool.Name)
+		}
+	}
+	missing := make([]string, 0, len(wanted))
+	for name := range wanted {
+		missing = append(missing, name)
+	}
+	sort.Strings(missing)
+	return out, missing
 }
 
 func turnIDOf(turn *store.ConversationTurn) int64 {

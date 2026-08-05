@@ -569,3 +569,14 @@ nodes:
         lines: [478, 489]
       status: fresh
       since: 2026-08-05T08:30:45.981349Z
+    - id: chat/chat_test.go#TestRetainNamedToolsScopesAndReportsMissingCapabilities
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestRetainNamedToolsScopesAndReportsMissingCapabilities
+        hash: sha256:a2fae7c692491bd37be0b715895ecd3e115865996e684d4e989f460ac7acc610
+        struct_hash: sha256:f99259e81743c1b0b106a803603cbdb04fce157aca2c9e37b0f2984862586d7a
+        doc_struct_hash: sha256:f99259e81743c1b0b106a803603cbdb04fce157aca2c9e37b0f2984862586d7a
+        lines: [461, 470]
+      status: fresh
+      since: 2026-08-05T08:57:49.079659Z
