@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/admin.go
         symbol: adminTools
-        hash: sha256:11813de1a2e709cf6c009da4a81ac11927598c34786ea39177c4f9fc075cd00f
-        struct_hash: sha256:582c78c910c3d437182f565297c688acdbe299c7b936a40688b2c395387a49de
-        doc_struct_hash: sha256:854eb1c5bd32a702018a791529616dc1732916f74515cdf055e09d7467e0b9ce
-        lines: [18, 738]
+        hash: sha256:409130b1a1a18948bb6147b713fd8c21f4f7558ca28c9e7fd1ef25a1a40d301a
+        struct_hash: sha256:d4d79c3382f765366a4fb8a3074bf51b4ebd159d1b3b0da0768c2dca3965bf19
+        doc_struct_hash: sha256:a771031b9a3bd1033c14743c384bbe5944dfa1652bc22d0799228886d49ba3b0
+        lines: [90, 746]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/admin.go#userDirectoryStats
@@ -118,3 +118,14 @@ nodes:
         lines: [891, 904]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/admin.go#CompanyOverview
+      level: function
+      anchor:
+        file: tools/admin.go
+        symbol: CompanyOverview
+        hash: sha256:43477667b5b97473d9c2fcf9a24c9f493a3b0cc8e8307e28ae93bd3b052306ce
+        struct_hash: sha256:df368d0ff66fb0def32ee8a2ef79e26651bd926bbbdd1148e9255a5eeea17d42
+        doc_struct_hash: sha256:4d1442a1a88726c40d3ca86015f4626d0c2e8c8f5efce987ae57bbe1b8616bd0
+        lines: [18, 88]
+      status: fresh
+      since: 2026-08-05T08:43:28.601134Z

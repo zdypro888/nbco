@@ -152,6 +152,24 @@ func TestKnowledgeBatchOccurrenceTracksExactCandidateSet(t *testing.T) {
 	}
 }
 
+func TestWeeklyReportDirectiveUsesExplicitPeriodAndPreloadedFacts(t *testing.T) {
+	s := &Scheduler{}
+	directive := s.weeklyReportDirective(
+		time.Date(2026, 8, 5, 12, 0, 0, 0, tz),
+		"2026-W32",
+		&store.User{Name: "PRO"},
+		"全局：进行中 2",
+	)
+	for _, want := range []string{"2026-W32", "2026-08-05", "<company_facts>全局：进行中 2</company_facts>"} {
+		if !strings.Contains(directive, want) {
+			t.Fatalf("weekly directive missing %q: %s", want, directive)
+		}
+	}
+	if strings.Contains(directive, "今天是") || strings.Contains(directive, "company_overview") {
+		t.Fatalf("weekly directive retained relative time or tool rediscovery: %s", directive)
+	}
+}
+
 func TestHumanRecipientSkipsWorkers(t *testing.T) {
 	if !humanRecipient(&store.User{Status: store.UserActive}) {
 		t.Fatal("active human should be a schedule recipient")

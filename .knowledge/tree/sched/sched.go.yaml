@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.dispatchAutomationAI
-        hash: sha256:66b197ce98fa2ca901348d375c5ea3dac60090e8c0dcde8728ca8673f9fec1ca
-        struct_hash: sha256:fb722cc91bee4e8703d3b4e312d6f2256c1822d3273b2994e9417da3ca17b849
-        doc_struct_hash: sha256:fb722cc91bee4e8703d3b4e312d6f2256c1822d3273b2994e9417da3ca17b849
-        lines: [123, 151]
+        hash: sha256:a789f1b82f3e911dab122d85a6f1ac2f8f6ecbaf461d6f37658c7556a18d64bc
+        struct_hash: sha256:6a3f22d1e8514a9513c17001e11e6909c1b330caa12030c3ceb2e33c14d6fe5a
+        doc_struct_hash: sha256:6a3f22d1e8514a9513c17001e11e6909c1b330caa12030c3ceb2e33c14d6fe5a
+        lines: [146, 181]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.dispatchAutomationAction
@@ -549,10 +549,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.maybeWeeklyReport
-        hash: sha256:cd3fe0c27bcd72eac6851d3cf93d4fd35b1984992be5ce9b6a80333adf963969
-        struct_hash: sha256:f097907efc7789e6d55817fa1b635d6df3e87340de9dfee7d02b08abe61c2ea7
-        doc_struct_hash: sha256:d3b11fd65d79b73392c0b59ef2a7d57085fef396103a4b1e5cd330d7192ce858
-        lines: [1134, 1165]
+        hash: sha256:2526bc6382429a2ede1822d8fe6e07cb0cde38716ac0e5346d363c4db082e8e8
+        struct_hash: sha256:212ebc108e7d104129f9b8b76e9c763838e851c90711b51fb3f1e9e7761cd2e0
+        doc_struct_hash: sha256:c5ebea573bd469a2acd2536c4622bde4c305bb67007a2a3606a7369464927364
+        lines: [1161, 1213]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.nudgeDirective
@@ -571,10 +571,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.weeklyReportDirective
-        hash: sha256:0a851253a320869fe9910dcc14933abf3b1ced243ba05a8f4992fa294fa3bff1
-        struct_hash: sha256:154c8a290b39d7d36f18813ea8792193974f3db4b6a635edaa421f2388d34356
-        doc_struct_hash: sha256:154c8a290b39d7d36f18813ea8792193974f3db4b6a635edaa421f2388d34356
-        lines: [780, 787]
+        hash: sha256:1f506acdc8f33b1894431cd12f3af6002bb334fe1756ec104f0c63cfd788cdf0
+        struct_hash: sha256:b994879f8a00149624c1a2c2275427f8f599a46473b91f57c9d8ccfa307f43e8
+        doc_struct_hash: sha256:b994879f8a00149624c1a2c2275427f8f599a46473b91f57c9d8ccfa307f43e8
+        lines: [1252, 1259]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.deadlinePass

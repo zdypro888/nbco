@@ -162,3 +162,14 @@ nodes:
         lines: [146, 153]
       status: fresh
       since: 2026-08-05T08:30:45.982315Z
+    - id: sched/sched_test.go#TestWeeklyReportDirectiveUsesExplicitPeriodAndPreloadedFacts
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestWeeklyReportDirectiveUsesExplicitPeriodAndPreloadedFacts
+        hash: sha256:ad8d71af7880018d7525d33f1180ecab7747912f23df806de054da71ed079bdc
+        struct_hash: sha256:14caee6bceeaead9326ff9ce61da3bc436ed97ba8ef0dbdf3585d35620249290
+        doc_struct_hash: sha256:14caee6bceeaead9326ff9ce61da3bc436ed97ba8ef0dbdf3585d35620249290
+        lines: [155, 171]
+      status: fresh
+      since: 2026-08-05T08:43:28.625122Z

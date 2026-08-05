@@ -15,6 +15,78 @@ import (
 
 const bindKeyTTL = 24 * time.Hour
 
+// CompanyOverview renders the same bounded, database-backed company snapshot
+// used by the Agent tool. Scheduler-owned reports can preload it and use a
+// tool-free Eino turn instead of making the model rediscover a closed dataset.
+func CompanyOverview(ctx context.Context, s *store.Store, tz *time.Location) (string, error) {
+	stats, err := s.GlobalTaskStats(ctx, time.Now().Add(-7*24*time.Hour))
+	if err != nil {
+		return "", err
+	}
+	projects, err := s.ListProjects(ctx)
+	if err != nil {
+		return "", err
+	}
+	counts, err := s.ProjectTaskCounts(ctx)
+	if err != nil {
+		return "", err
+	}
+	overdue, err := s.OverdueTasks(ctx, 20)
+	if err != nil {
+		return "", err
+	}
+	users, err := s.ListUsers(ctx)
+	if err != nil {
+		return "", err
+	}
+	names := make(map[int64]string, len(users))
+	for _, other := range users {
+		names[other.ID] = other.Name
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "全局：进行中 %d（其中已过期 %d）· 待验收 %d · 近7天验收通过 %d\n",
+		stats.Open, stats.Overdue, stats.Awaiting, stats.DoneSince)
+	if len(projects) > 0 {
+		b.WriteString("项目：\n")
+		for _, pj := range projects {
+			c := counts[pj.ID]
+			fmt.Fprintf(&b, "- %s：%s（%s）：进行中 %d · 待验收 %d · 已完成 %d\n",
+				internalRef("项目", pj.ID), pj.Name, pj.Status, c.Open, c.Awaiting, c.Accepted)
+		}
+	}
+	goals, err := s.ListGoals(ctx, true)
+	if err != nil {
+		return "", err
+	}
+	if len(goals) > 0 {
+		gIDs := make([]int64, len(goals))
+		for i, g := range goals {
+			gIDs[i] = g.ID
+		}
+		gmc, err := s.GoalMilestoneCounts(ctx, gIDs)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("战略目标：\n")
+		for _, g := range goals {
+			fmt.Fprintf(&b, "- %s：%s（%s）：里程碑 %d/%d 达成\n",
+				internalRef("目标", g.ID), g.Title, g.Status, gmc[g.ID].Achieved, gmc[g.ID].Total)
+		}
+	}
+	if len(overdue) > 0 {
+		b.WriteString("过期任务：\n")
+		for _, task := range overdue {
+			name := names[task.AssigneeID]
+			if name == "" {
+				name = "未知成员"
+			}
+			fmt.Fprintf(&b, "- %s：%s（执行人 %s，截止 %s）\n",
+				internalRef("任务", task.ID), task.Title, name, fmtTime(*task.Deadline, tz))
+		}
+	}
+	return b.String(), nil
+}
+
 // adminTools 用户管理与系统管理。超管专属工具只组装给超管，减小提示体积；
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
@@ -479,71 +551,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 		tool("company_overview", "读取公司级全局任务统计、各项目进度和过期任务；个人任务工具不能代表这些全局数据。超管专用。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
-				stats, err := d.Store.GlobalTaskStats(ctx, time.Now().Add(-7*24*time.Hour))
-				if err != nil {
-					return "", err
-				}
-				projects, err := d.Store.ListProjects(ctx)
-				if err != nil {
-					return "", err
-				}
-				counts, err := d.Store.ProjectTaskCounts(ctx)
-				if err != nil {
-					return "", err
-				}
-				overdue, err := d.Store.OverdueTasks(ctx, 20)
-				if err != nil {
-					return "", err
-				}
-				users, err := d.Store.ListUsers(ctx)
-				if err != nil {
-					return "", err
-				}
-				names := make(map[int64]string, len(users))
-				for _, other := range users {
-					names[other.ID] = other.Name
-				}
-				var b strings.Builder
-				fmt.Fprintf(&b, "全局：进行中 %d（其中已过期 %d）· 待验收 %d · 近7天验收通过 %d\n",
-					stats.Open, stats.Overdue, stats.Awaiting, stats.DoneSince)
-				if len(projects) > 0 {
-					b.WriteString("项目：\n")
-					for _, pj := range projects {
-						c := counts[pj.ID]
-						fmt.Fprintf(&b, "- %s：%s（%s）：进行中 %d · 待验收 %d · 已完成 %d\n",
-							internalRef("项目", pj.ID), pj.Name, pj.Status, c.Open, c.Awaiting, c.Accepted)
-					}
-				}
-				goals, err := d.Store.ListGoals(ctx, true)
-				if err != nil {
-					return "", err
-				}
-				if len(goals) > 0 {
-					gIDs := make([]int64, len(goals))
-					for i, g := range goals {
-						gIDs[i] = g.ID
-					}
-					gmc, err := d.Store.GoalMilestoneCounts(ctx, gIDs)
-					if err != nil {
-						return "", err
-					}
-					b.WriteString("战略目标：\n")
-					for _, g := range goals {
-						fmt.Fprintf(&b, "- %s：%s（%s）：里程碑 %d/%d 达成\n",
-							internalRef("目标", g.ID), g.Title, g.Status, gmc[g.ID].Achieved, gmc[g.ID].Total)
-					}
-				}
-				if len(overdue) > 0 {
-					b.WriteString("过期任务：\n")
-					for _, t := range overdue {
-						name := names[t.AssigneeID]
-						if name == "" {
-							name = "未知成员"
-						}
-						fmt.Fprintf(&b, "- %s：%s（执行人 %s，截止 %s）\n", internalRef("任务", t.ID), t.Title, name, fmtTime(*t.Deadline, d.TZ))
-					}
-				}
-				return b.String(), nil
+				return CompanyOverview(ctx, d.Store, d.TZ)
 			}),
 
 		tool("get_ai_settings", "查看 AI 运行设置。超管专用。",
