@@ -954,6 +954,12 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 	if !due {
 		return
 	}
+	if active, err := s.store.HasActiveAutomationRun(ctx, kvProfileRefresh, time.Now().UTC()); err != nil {
+		slog.Warn("读取画像盘点运行租约失败", "err", err)
+		return
+	} else if active {
+		return
+	}
 	month := local.Format("2006-01")
 	users, err := s.store.ListUsers(ctx)
 	if err != nil {
@@ -997,6 +1003,7 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 					TrustedInputEvidence: true, ClosedContext: true,
 					AllowedTools: []string{"save_infos_on_user"},
 				})
+			return
 		}
 	}
 }
@@ -1061,6 +1068,12 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 	local := time.Now().In(s.tz)
 	due, expires := monthlyAutomationWindow(local, s.dailyHour, 2)
 	if !due {
+		return
+	}
+	if active, err := s.store.HasActiveAutomationRun(ctx, kvKnowledgeRefresh, time.Now().UTC()); err != nil {
+		slog.Warn("读取知识盘点运行租约失败", "err", err)
+		return
+	} else if active {
 		return
 	}
 	month := local.Format("2006-01")
@@ -1145,6 +1158,7 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 				TrustedInputEvidence: true, ClosedContext: true,
 				AllowedTools: []string{"approve_learning_candidate", "reject_learning_candidate"},
 			})
+		return
 	}
 }
 

@@ -85,6 +85,19 @@ func (s *Store) ClaimAutomationRun(ctx context.Context, key, occurrence string, 
 	return s.ClaimAutomationRunUntil(ctx, key, occurrence, subjectID, now, time.Time{})
 }
 
+// HasActiveAutomationRun reports whether a key currently owns a live lease.
+// Stale processing rows are deliberately ignored so ClaimAutomationRunUntil
+// can recover them after a crashed process.
+func (s *Store) HasActiveAutomationRun(ctx context.Context, key string, now time.Time) (bool, error) {
+	var active bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM automation_runs
+			 WHERE automation_key=$1 AND status='processing' AND claimed_at > $2
+		)`, key, now.Add(-automationRunLease)).Scan(&active)
+	return active, wrapErr(err)
+}
+
 // ClaimAutomationRunUntil also records the end of the occurrence's useful
 // execution window. Expired rows become terminal instead of remaining visible
 // as pending work forever.

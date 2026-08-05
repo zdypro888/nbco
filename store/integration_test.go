@@ -3578,6 +3578,27 @@ func TestAutomationOutcomeExpiryAndReplaySafety(t *testing.T) {
 	}
 }
 
+func TestHasActiveAutomationRunIgnoresExpiredLease(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "automation-active", true)
+	now := time.Now().UTC()
+	run, err := s.ClaimAutomationRun(ctx, "serialized-maintenance", "first", u.ID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active, err := s.HasActiveAutomationRun(ctx, run.AutomationKey, now)
+	if err != nil || !active {
+		t.Fatalf("fresh lease active=%v err=%v", active, err)
+	}
+	mustExec(t, s, `UPDATE automation_runs SET claimed_at=$4 WHERE automation_key=$1 AND occurrence_key=$2 AND subject_id=$3`,
+		run.AutomationKey, run.OccurrenceKey, run.SubjectID, now.Add(-automationRunLease-time.Second))
+	active, err = s.HasActiveAutomationRun(ctx, run.AutomationKey, now)
+	if err != nil || active {
+		t.Fatalf("expired lease active=%v err=%v", active, err)
+	}
+}
+
 // 群共享会话 + 滚动摘要：按渠道取会话、按渠道重置、摘要位点只前进、
 // MessagesAfter 只取位点之后。
 func TestGroupSessionAndSummary(t *testing.T) {

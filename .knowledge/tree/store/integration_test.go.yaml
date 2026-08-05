@@ -1086,3 +1086,14 @@ nodes:
         lines: [3488, 3579]
       status: fresh
       since: 2026-08-05T08:18:56.752291Z
+    - id: store/integration_test.go#TestHasActiveAutomationRunIgnoresExpiredLease
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestHasActiveAutomationRunIgnoresExpiredLease
+        hash: sha256:89c527001817e90769f566065d548359ab8fbff42bf6cfac839fff979d754c08
+        struct_hash: sha256:69801fae336a3a1d64ce79c8e47b56b35cd8a74329adda45da354cba7ec1a7eb
+        doc_struct_hash: sha256:69801fae336a3a1d64ce79c8e47b56b35cd8a74329adda45da354cba7ec1a7eb
+        lines: [3581, 3600]
+      status: fresh
+      since: 2026-08-05T09:39:47.277588Z
