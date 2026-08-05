@@ -1101,11 +1101,14 @@ func (o *Orchestrator) mineMemory(ctx context.Context, u *store.User, src memory
 		u.Name, src.Channel, messageTime(src.OccurredAt, o.tz), src.UserText, toolEvidence, src.AssistantText)
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
-		Mode:      ai.TurnModeOneShot,
-		SessionID: "memory-miner",
-		System:    memoryMinerSystem,
-		UserText:  input,
-		Model:     model,
+		Mode:            ai.TurnModeOneShot,
+		SessionID:       "memory-miner",
+		System:          memoryMinerSystem,
+		UserText:        input,
+		Model:           model,
+		Reasoning:       ai.ReasoningDisabled,
+		JSONOutput:      true,
+		MaxOutputTokens: 4000,
 	})
 	if err != nil {
 		return fmt.Errorf("memory miner model: %w", err)

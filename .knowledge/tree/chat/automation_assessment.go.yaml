@@ -13,9 +13,20 @@ nodes:
       anchor:
         file: chat/automation_assessment.go
         symbol: Orchestrator.AssessAutomationExecution
-        hash: sha256:b0fa93b218f1bc9ede6c37767e37c9bf1fa926bc41847f44519d41025684bae2
-        struct_hash: sha256:d398ae9e1db89bcdf87a94c55d7636288082ec24ad1e0f189c81a616d1e9f98d
-        doc_struct_hash: sha256:2beccda9d290f2ea0854c1fcd91f435ff62c8ca0df791b7e2b40d64690c12909
-        lines: [21, 89]
+        hash: sha256:1e5a0893b91d8f3ac3adb4ffc6cfd4ac379e1b40a77ed5d2b93d4f9fa65b9c73
+        struct_hash: sha256:776ee7b32b9d78f31934b483e25ffddebd920d2e1afa243571a7629ea4ad5d11
+        doc_struct_hash: sha256:d10ed5383933ca22792dfecafacc3019baf06b9e40eb48135db099981a33dac0
+        lines: [22, 77]
       status: fresh
       since: 2026-08-05T08:18:56.735369Z
+    - id: chat/automation_assessment.go#decodeAutomationAssessment
+      level: function
+      anchor:
+        file: chat/automation_assessment.go
+        symbol: decodeAutomationAssessment
+        hash: sha256:561a08aa8a4023446eae95e64dad231318a2ee0bc9c765a03090c5499b6e1a47
+        struct_hash: sha256:02c12ad3586cbf7bd4013f395a94e67ea36aae558f546ca41ba1f7ff0f1b8cee
+        doc_struct_hash: sha256:02c12ad3586cbf7bd4013f395a94e67ea36aae558f546ca41ba1f7ff0f1b8cee
+        lines: [79, 108]
+      status: fresh
+      since: 2026-08-05T09:22:13.024927Z

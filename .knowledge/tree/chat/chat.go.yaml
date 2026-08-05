@@ -601,10 +601,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.mineMemory
-        hash: sha256:cb317035a14e187f4eeb5e30431c0c3de6c948c12ac705db673b96a1442c4ec3
-        struct_hash: sha256:c46d1d4702a267a672b929bc550316d32f3e03d98c25f82dd9fc71196430b3bb
-        doc_struct_hash: sha256:c46d1d4702a267a672b929bc550316d32f3e03d98c25f82dd9fc71196430b3bb
-        lines: [887, 912]
+        hash: sha256:2bc11a6b39e581c5be1b26601a3c10a3cc5858ae44ca7a764bb54a654bb528dd
+        struct_hash: sha256:a033af1489b41599bbe6e2ab3cf84c571b01e43fdfd47a494cf0991da01cd54f
+        doc_struct_hash: sha256:a033af1489b41599bbe6e2ab3cf84c571b01e43fdfd47a494cf0991da01cd54f
+        lines: [1095, 1123]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.reviewMinedMemory

@@ -591,3 +591,25 @@ nodes:
         lines: [473, 482]
       status: fresh
       since: 2026-08-05T09:09:41.718377Z
+    - id: chat/chat_test.go#TestAutomationAssessmentRetriesMalformedStructuredOutput
+      level: function
+      anchor:
+        file: chat/chat_test.go
+        symbol: TestAutomationAssessmentRetriesMalformedStructuredOutput
+        hash: sha256:6b3fc7522f07d20d4fb012df4a494ba9dc7652fadae39ad7cb8b87bcdf1c1a5e
+        struct_hash: sha256:cccf8e75bbf999af32a5c126926c0bf62248e23b61847df4fe30e174d5fd3225
+        doc_struct_hash: sha256:cccf8e75bbf999af32a5c126926c0bf62248e23b61847df4fe30e174d5fd3225
+        lines: [514, 533]
+      status: fresh
+      since: 2026-08-05T09:22:13.037295Z
+    - id: chat/chat_test.go#sequencedAssessmentEngine
+      level: decl
+      anchor:
+        file: chat/chat_test.go
+        symbol: sequencedAssessmentEngine
+        hash: sha256:368b640086bb942b50229cc44494fb2fa5efda81273994a8ae0791f728921192
+        struct_hash: sha256:1d784d5f66d5864c5aa859fd0e0f7e162f1ca8d305d1519f9dec943a1d011c4c
+        doc_struct_hash: sha256:1d784d5f66d5864c5aa859fd0e0f7e162f1ca8d305d1519f9dec943a1d011c4c
+        lines: [675, 678]
+      status: fresh
+      since: 2026-08-05T09:22:13.041021Z

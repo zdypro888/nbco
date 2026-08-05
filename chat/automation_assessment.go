@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/zdypro888/nbco/ai"
@@ -43,23 +44,41 @@ func (o *Orchestrator) AssessAutomationExecution(
 	if o.store != nil {
 		model = o.runtimeModel(ctx)
 	}
-	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
-		Mode:            ai.TurnModeOneShot,
-		SessionID:       "automation-assessment",
-		DisableSession:  true,
-		System:          automationAssessmentSystem,
-		UserText:        string(payload),
-		Model:           model,
-		Reasoning:       ai.ReasoningDisabled,
-		JSONOutput:      true,
-		MaxOutputTokens: 1400,
-	})
-	if err != nil {
-		return AutomationAssessment{}, err
+	var lastErr error
+	for attempt := range 2 {
+		res, runErr := o.engine.RunTurn(ctx, &ai.TurnRequest{
+			Mode:            ai.TurnModeOneShot,
+			SessionID:       "automation-assessment",
+			DisableSession:  true,
+			System:          automationAssessmentSystem,
+			UserText:        string(payload),
+			Model:           model,
+			Reasoning:       ai.ReasoningDisabled,
+			JSONOutput:      true,
+			MaxOutputTokens: 1400,
+		})
+		if runErr != nil {
+			lastErr = runErr
+		} else {
+			o.recordUsage(ctx, u.ID, nil, "automation_assessment", model, res.Usage)
+			assessment, decodeErr := decodeAutomationAssessment(res.Text, execution)
+			if decodeErr == nil {
+				return assessment, nil
+			}
+			lastErr = decodeErr
+		}
+		if attempt == 0 && ctx.Err() == nil {
+			slog.Warn("自动化结构化评估失败，执行一次无状态重试", "err", lastErr)
+			continue
+		}
+		break
 	}
-	o.recordUsage(ctx, u.ID, nil, "automation_assessment", model, res.Usage)
+	return AutomationAssessment{}, fmt.Errorf("automation assessment failed after bounded retry: %w", lastErr)
+}
+
+func decodeAutomationAssessment(raw string, execution AutomationExecution) (AutomationAssessment, error) {
 	var assessment AutomationAssessment
-	if err := json.Unmarshal([]byte(extractJSONObject(res.Text)), &assessment); err != nil {
+	if err := json.Unmarshal([]byte(extractJSONObject(raw)), &assessment); err != nil {
 		return AutomationAssessment{}, fmt.Errorf("automation assessment JSON: %w", err)
 	}
 	assessment.Outcome = strings.TrimSpace(assessment.Outcome)

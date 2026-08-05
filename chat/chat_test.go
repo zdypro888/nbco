@@ -511,6 +511,27 @@ func TestAutomationAssessmentAcceptsNoChangeFromTrustedSchedulerFacts(t *testing
 	}
 }
 
+func TestAutomationAssessmentRetriesMalformedStructuredOutput(t *testing.T) {
+	engine := &sequencedAssessmentEngine{replies: []string{
+		`{"outcome":"succeeded" "summary":"broken"}`,
+		`{"outcome":"succeeded","summary":"已处理一项","reason":"写入成功"}`,
+	}}
+	orchestrator := &Orchestrator{engine: engine}
+	assessment, err := orchestrator.AssessAutomationExecution(context.Background(), &store.User{ID: 1},
+		"处理候选", "已完成", AutomationExecution{SuccessfulActionCalls: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assessment.Outcome != store.AutomationOutcomeSucceeded || len(engine.reqs) != 2 {
+		t.Fatalf("assessment=%+v requests=%d", assessment, len(engine.reqs))
+	}
+	for _, req := range engine.reqs {
+		if !req.DisableSession || !req.JSONOutput || req.Reasoning != ai.ReasoningDisabled {
+			t.Fatalf("assessment retry request=%+v", req)
+		}
+	}
+}
+
 func TestActionAuditPlanRecordsReadOnlyWithoutCallingItAction(t *testing.T) {
 	readOnly := &ai.TurnResult{
 		Steps: []ai.Step{{Kind: ai.StepToolCall, ToolName: "list_data_collection_campaigns", Result: "（没有资料收集活动）"}},
@@ -649,6 +670,23 @@ type fakeEngine struct {
 	mu    sync.Mutex
 	reqs  []*ai.TurnRequest
 	reply string
+}
+
+type sequencedAssessmentEngine struct {
+	reqs    []*ai.TurnRequest
+	replies []string
+}
+
+func (*sequencedAssessmentEngine) Name() string { return "eino" }
+
+func (e *sequencedAssessmentEngine) RunTurn(_ context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
+	e.reqs = append(e.reqs, req)
+	if len(e.replies) == 0 {
+		return nil, errors.New("no more replies")
+	}
+	reply := e.replies[0]
+	e.replies = e.replies[1:]
+	return &ai.TurnResult{Text: reply}, nil
 }
 
 func (f *fakeEngine) Name() string { return "eino" }
