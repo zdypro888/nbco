@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1899,17 +1900,17 @@ func (g *Gateway) handleModelCommand(ctx context.Context, chatID int64, u *store
 		return
 	}
 	if !validModelName(args) {
-		g.reply(ctx, chatID, "模型名不合法。先用 <code>/model</code> 查看当前已加载模型；恢复默认：<code>/model reset</code>。")
+		g.reply(ctx, chatID, "模型名不合法。先用 <code>/model</code> 查看当前可选模型；恢复默认：<code>/model reset</code>。")
 		return
 	}
 	loaded, err := g.loadedModels(ctx)
 	if err != nil {
-		slog.Warn("查询已加载模型失败，拒绝切换", "err", err)
-		g.reply(ctx, chatID, "暂时无法读取已加载模型列表，未切换。请稍后再试。")
+		slog.Warn("查询可选模型失败，拒绝切换", "err", err)
+		g.reply(ctx, chatID, "暂时无法读取可选模型列表，未切换。请稍后再试。")
 		return
 	}
 	if !modelInList(args, loaded) {
-		g.reply(ctx, chatID, "这个模型当前没有加载，未切换。\n\n"+loadedModelsHelp(loaded))
+		g.reply(ctx, chatID, "这个模型当前不可用，未切换。\n\n"+loadedModelsHelp(loaded))
 		return
 	}
 	if err := g.store.SetKV(ctx, store.KVAIModel, args); err != nil {
@@ -2024,7 +2025,7 @@ func (g *Gateway) modelStatus(ctx context.Context) string {
 	loaded, lerr := g.loadedModels(ctx)
 	loadedText := ""
 	if lerr != nil {
-		loadedText = "\n\n已加载模型：查询失败，稍后再试。"
+		loadedText = "\n\n可选模型：查询失败，稍后再试。"
 	} else {
 		loadedText = "\n\n" + loadedModelsHelp(loaded)
 	}
@@ -2037,43 +2038,59 @@ func (g *Gateway) modelStatus(ctx context.Context) string {
 }
 
 func (g *Gateway) loadedModels(ctx context.Context) ([]string, error) {
-	base := strings.TrimRight(strings.TrimSpace(g.modelBaseURL), "/")
-	if base == "" {
+	apiBase := strings.TrimRight(strings.TrimSpace(g.modelBaseURL), "/")
+	if apiBase == "" {
 		return nil, errors.New("ai base_url 未配置")
 	}
-	base = strings.TrimSuffix(base, "/v1")
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 8*time.Second)
 		defer cancel()
 	}
-	// /v1/models 是“可用模型目录”，不是当前已 launch/loaded 的模型。
-	// ai.im.app（exo）暴露 Ollama-compatible /ollama/api/ps 作为运行态模型列表：
-	// 这是兼容 API 面，用来稳定读取 loaded models；不表示后端实现是 Ollama。
-	// 不走 /state：那是 ai.im.app/exo 私有状态接口，结构更容易随内部实现变化。
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/ollama/api/ps", nil)
-	if err != nil {
-		return nil, err
+	key := strings.TrimSpace(g.modelAPIKey)
+	// Prefer a gateway's runtime list when it exposes the Ollama-compatible
+	// endpoint. Official OpenAI and generic compatible providers fall back to
+	// the standard model catalog.
+	runtimeBase := strings.TrimSuffix(apiBase, "/v1")
+	models, runtimeErr := fetchOllamaRuntimeModels(ctx, runtimeBase+"/ollama/api/ps", key)
+	if runtimeErr == nil {
+		return models, nil
 	}
-	if key := strings.TrimSpace(g.modelAPIKey); key != "" {
+	models, catalogErr := fetchOpenAIModels(ctx, apiBase+"/models", key)
+	if catalogErr != nil {
+		return nil, errors.Join(runtimeErr, catalogErr)
+	}
+	return models, nil
+}
+
+func fetchModelJSON(ctx context.Context, endpoint, key string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("loaded models status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return fmt.Errorf("%s status %d: %s", endpoint, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
+	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+func fetchOllamaRuntimeModels(ctx context.Context, endpoint, key string) ([]string, error) {
 	var body struct {
 		Models []struct {
 			Name  string `json:"name"`
 			Model string `json:"model"`
 		} `json:"models"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err := fetchModelJSON(ctx, endpoint, key, &body); err != nil {
 		return nil, err
 	}
 	seen := map[string]bool{}
@@ -2092,12 +2109,35 @@ func (g *Gateway) loadedModels(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
+func fetchOpenAIModels(ctx context.Context, endpoint, key string) ([]string, error) {
+	var body struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := fetchModelJSON(ctx, endpoint, key, &body); err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(body.Data))
+	for _, item := range body.Data {
+		name := strings.TrimSpace(item.ID)
+		if name == "" || seen[name] || !validModelName(name) {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
 func loadedModelsHelp(models []string) string {
 	if len(models) == 0 {
-		return "已加载模型：暂无。"
+		return "可选模型：暂无。"
 	}
 	var b strings.Builder
-	b.WriteString("已加载模型（只能从这里选择）：\n")
+	b.WriteString("可选模型（只能从这里选择）：\n")
 	for _, m := range models {
 		fmt.Fprintf(&b, "- <code>%s</code>\n", html.EscapeString(m))
 	}

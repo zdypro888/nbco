@@ -271,12 +271,16 @@ func turnRunOptions(provider string, req *ai.TurnRequest) []adk.AgentRunOption {
 	}
 	var options []einomodel.Option
 	if req.MaxOutputTokens > 0 {
-		options = append(options, einomodel.WithMaxTokens(req.MaxOutputTokens))
+		if provider == config.ProviderOpenAI {
+			options = append(options, openai.WithMaxCompletionTokens(req.MaxOutputTokens))
+		} else {
+			options = append(options, einomodel.WithMaxTokens(req.MaxOutputTokens))
+		}
 	}
 	if provider == config.ProviderOpenAI {
 		extra := map[string]any{}
 		if req.Reasoning == ai.ReasoningDisabled {
-			extra["enable_thinking"] = false
+			options = append(options, openai.WithReasoningEffort(openai.ReasoningEffortLevel("none")))
 		}
 		if req.JSONOutput {
 			extra["response_format"] = map[string]any{"type": "json_object"}

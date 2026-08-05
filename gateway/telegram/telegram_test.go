@@ -417,6 +417,38 @@ func TestLoadedModelsUsesOllamaCompatiblePS(t *testing.T) {
 	}
 }
 
+func TestLoadedModelsFallsBackToOpenAICatalog(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
+			t.Errorf("Authorization = %q", got)
+		}
+		switch r.URL.Path {
+		case "/ollama/api/ps":
+			http.NotFound(w, r)
+		case "/v1/models":
+			fmt.Fprint(w, `{"data":[{"id":"gpt-5.6-terra"},{"id":"gpt-5.6-luna"},{"id":"gpt-5.6-luna"},{"id":"bad model"}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	g := &Gateway{modelBaseURL: srv.URL + "/v1", modelAPIKey: "secret"}
+	got, err := g.loadedModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(paths, ",") != "/ollama/api/ps,/v1/models" {
+		t.Fatalf("paths = %#v", paths)
+	}
+	want := []string{"gpt-5.6-luna", "gpt-5.6-terra"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("available models = %#v, want %#v", got, want)
+	}
+}
+
 func TestLoadedModelsHelpAndMembership(t *testing.T) {
 	models := []string{"mlx-community/Qwen3.6-35B-A3B-8bit", "mlx-community/DeepSeek-V4-Flash"}
 	if !modelInList("mlx-community/DeepSeek-V4-Flash", models) {
@@ -426,7 +458,7 @@ func TestLoadedModelsHelpAndMembership(t *testing.T) {
 		t.Fatal("model match should be exact")
 	}
 	help := loadedModelsHelp(models)
-	for _, want := range []string{"已加载模型", "<code>mlx-community/Qwen3.6-35B-A3B-8bit</code>", "/model"} {
+	for _, want := range []string{"可选模型", "<code>mlx-community/Qwen3.6-35B-A3B-8bit</code>", "/model"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("help missing %q: %s", want, help)
 		}

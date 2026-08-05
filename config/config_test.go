@@ -99,17 +99,19 @@ func TestLoadDailySummaryOff(t *testing.T) {
 }
 
 func TestLoadReasoningConfig(t *testing.T) {
-	cfg, err := Load(writeConfig(t, `{
-		"telegram_token": "tok",
-		"superadmins": [1],
-		"postgres_dsn": "postgres://x",
-		"ai": {"provider":"openai","api_key": "k", "model": "m", "max_completion_tokens": 8192, "reasoning_effort": "LOW"}
-	}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.AI.MaxCompletionTokens != 8192 || cfg.AI.ReasoningEffort != "low" {
-		t.Fatalf("reasoning config = max_completion_tokens:%d reasoning_effort:%q", cfg.AI.MaxCompletionTokens, cfg.AI.ReasoningEffort)
+	for _, effort := range []string{"none", "LOW", "medium", "high", "xhigh", "max"} {
+		cfg, err := Load(writeConfig(t, `{
+			"telegram_token": "tok",
+			"superadmins": [1],
+			"postgres_dsn": "postgres://x",
+			"ai": {"provider":"openai","api_key": "k", "model": "m", "max_completion_tokens": 8192, "reasoning_effort": "`+effort+`"}
+		}`))
+		if err != nil {
+			t.Fatalf("reasoning_effort=%q: %v", effort, err)
+		}
+		if cfg.AI.MaxCompletionTokens != 8192 || cfg.AI.ReasoningEffort != strings.ToLower(effort) {
+			t.Fatalf("reasoning config = max_completion_tokens:%d reasoning_effort:%q", cfg.AI.MaxCompletionTokens, cfg.AI.ReasoningEffort)
+		}
 	}
 }
 
@@ -139,7 +141,7 @@ func TestLoadValidation(t *testing.T) {
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"gemini","api_key":"k","model":"m"}}`,
 			"ai.provider 不支持"},
 		{"未知 reasoning_effort",
-			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","model":"m","reasoning_effort":"max"}}`,
+			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","model":"m","reasoning_effort":"extreme"}}`,
 			"ai.reasoning_effort"},
 		{"mcp server 缺 url",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","mcp_servers":[{"name":"x"}],"ai":{"api_key":"k","model":"m"}}`,

@@ -42,7 +42,7 @@ type AIConfig struct {
 	// MaxCompletionTokens 是 OpenAI 兼容 reasoning 模型的原生输出预算，包含可见正文
 	// 与推理 token。为空时保留 max_tokens 行为，避免破坏只兼容 max_tokens 的网关。
 	MaxCompletionTokens int     `json:"max_completion_tokens"`
-	ReasoningEffort     string  `json:"reasoning_effort"` // openai reasoning_effort: low | medium | high
+	ReasoningEffort     string  `json:"reasoning_effort"` // OpenAI reasoning_effort: none | low | medium | high | xhigh | max
 	Temperature         float32 `json:"temperature"`
 	TimeoutMS           int     `json:"timeout_ms"` // 单次模型 API 请求超时，默认 300000ms
 	// TurnTimeoutMS caps one complete user turn, including routing, tool loops,
@@ -299,7 +299,7 @@ func (c *Config) validate() error {
 			errs = append(errs, fmt.Errorf("ai.provider 不支持: %q", c.AI.Provider))
 		}
 		switch strings.ToLower(strings.TrimSpace(c.AI.ReasoningEffort)) {
-		case "", "low", "medium", "high":
+		case "", "none", "low", "medium", "high", "xhigh", "max":
 			c.AI.ReasoningEffort = strings.ToLower(strings.TrimSpace(c.AI.ReasoningEffort))
 		default:
 			errs = append(errs, fmt.Errorf("ai.reasoning_effort 不支持: %q", c.AI.ReasoningEffort))

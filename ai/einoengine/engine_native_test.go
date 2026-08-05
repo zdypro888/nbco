@@ -215,7 +215,7 @@ func TestOneShotAppliesPerCallReasoningAndOutputOptions(t *testing.T) {
 	defer server.Close()
 
 	engine, err := New(context.Background(), config.AIConfig{
-		Provider: config.ProviderOpenAI, BaseURL: server.URL, APIKey: "test", Model: "test", MaxTokens: 4096,
+		Provider: config.ProviderOpenAI, BaseURL: server.URL, APIKey: "test", Model: "test", MaxCompletionTokens: 4096,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -230,8 +230,14 @@ func TestOneShotAppliesPerCallReasoningAndOutputOptions(t *testing.T) {
 	if result.Text != `{"ok":true}` {
 		t.Fatalf("result = %q", result.Text)
 	}
-	if request["enable_thinking"] != false || request["max_tokens"] != float64(321) {
+	if request["reasoning_effort"] != "none" || request["max_completion_tokens"] != float64(321) {
 		t.Fatalf("per-call options missing: %#v", request)
+	}
+	if _, exists := request["enable_thinking"]; exists {
+		t.Fatalf("standard OpenAI request contains private enable_thinking field: %#v", request)
+	}
+	if _, exists := request["max_tokens"]; exists {
+		t.Fatalf("OpenAI reasoning request contains deprecated max_tokens field: %#v", request)
 	}
 	format, _ := request["response_format"].(map[string]any)
 	if format["type"] != "json_object" {
