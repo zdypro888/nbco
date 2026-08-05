@@ -508,10 +508,10 @@ nodes:
       anchor:
         file: chat/chat_test.go
         symbol: TestCompactionCycle
-        hash: sha256:f9a7868f8fce81456a182f6588e29c48a6fad18edf137f69e4b0a634e166f4a9
-        struct_hash: sha256:e7fa76b91649aa4f2b9a463123770cd69044429d2ba9bde9cd1f15b027a21c91
-        doc_struct_hash: sha256:6fa8750f5f10535ba620e2e82e6f9a44253a09e49148a147b71a50683269665c
-        lines: [827, 925]
+        hash: sha256:b180e25b451658038c9bfdeb3ba0062c5380eae251a4d39c63df6726ab72d115
+        struct_hash: sha256:4ae9e77a0f56779e0da25debc3435e54effaf1ac71a4d7194f30ed52c34eb742
+        doc_struct_hash: sha256:250eb1f01537d85e8da0237e25e94318a5891c8da66cab7d13f1eed3bd2cd850
+        lines: [946, 1044]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat_test.go#TestSpeakerLineSanitizesForgery

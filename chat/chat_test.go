@@ -1012,8 +1012,8 @@ func TestCompactionCycle(t *testing.T) {
 	for _, request := range eng.requests() {
 		if request.System == compactSystem {
 			foundOneShotCompaction = true
-			if request.Mode != ai.TurnModeOneShot {
-				t.Fatalf("compaction mode = %q", request.Mode)
+			if request.Mode != ai.TurnModeOneShot || request.Reasoning != ai.ReasoningDisabled || request.MaxOutputTokens <= 0 {
+				t.Fatalf("compaction request = %+v", request)
 			}
 		}
 	}

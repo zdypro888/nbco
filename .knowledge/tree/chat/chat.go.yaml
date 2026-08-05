@@ -913,10 +913,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.compactSession
-        hash: sha256:2a8cf1f652bb6a0a74fdb96a377a3961b1b2bab9f04bb8ae0450e4eace09dff4
-        struct_hash: sha256:04fd3ec5ef415c7daf444928bbb24769976fc5d8e6b43b8aa1b3fdaf7c8cfbe4
-        doc_struct_hash: sha256:882bc672b461ed7e989241da34fe00bec2a36cdf0300fe063a6a1b8fc859d1f6
-        lines: [1489, 1547]
+        hash: sha256:09ada599a7c22d26ad30cd6f152d0c4c90f7f1aa3930f9c428c43f82def9154b
+        struct_hash: sha256:f46ddd1ed726d0d09a89a77d7b107c53f0d2095c8460c246928fd9f59d1759d6
+        doc_struct_hash: sha256:1ff58d6d52a8331e7cd65b0d678c1c04b8fd482f2c22cc0395898a0914c7516e
+        lines: [1700, 1765]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#buildCompactInput

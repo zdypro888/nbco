@@ -1737,14 +1737,21 @@ func (o *Orchestrator) compactSession(ctx context.Context, sessionID int64) {
 	cut := msgs[:foldCount]
 	model := o.runtimeModel(ctx)
 	res, err := o.engine.RunTurn(ctx, &ai.TurnRequest{
-		Mode:      ai.TurnModeOneShot,
-		SessionID: fmt.Sprintf("compact-%d", sessionID),
-		System:    compactSystem,
-		UserText:  buildCompactInput(sess.Summary, cut, o.tz),
-		Model:     model,
+		Mode:            ai.TurnModeOneShot,
+		SessionID:       fmt.Sprintf("compact-%d", sessionID),
+		System:          compactSystem,
+		UserText:        buildCompactInput(sess.Summary, cut, o.tz),
+		Model:           model,
+		Reasoning:       ai.ReasoningDisabled,
+		MaxOutputTokens: 4000,
 	})
-	if err != nil || strings.TrimSpace(res.Text) == "" {
+	if err != nil {
 		slog.Warn("会话压缩轮次失败", "session", sessionID, "err", err)
+		return
+	}
+	if strings.TrimSpace(res.Text) == "" {
+		slog.Warn("会话压缩轮次返回空正文", "session", sessionID,
+			"finish_reason", res.FinishReason, "out_tokens", res.Usage.OutputTokens)
 		return
 	}
 	o.recordUsage(ctx, sess.UserID, &sess.ID, "compact", model, res.Usage)
