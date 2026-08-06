@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: AutomationTurnOptions
-        hash: sha256:ccb2af8542469c055d363afd95d13aedbe835553ddd98e7791ae91044274af79
-        struct_hash: sha256:866bc9626a1148425dc407e4ca6700ef5b50a53082a839bf359bb31c2c232987
-        doc_struct_hash: sha256:7bb61cac7c13d7d677643b08686d93ee7f86aea11799513f28cdb5f2be3acd1e
-        lines: [135, 146]
+        hash: sha256:f6458e5a87419ec391773e873adaf85c3f57d314b98a522b595a14dfcddab660
+        struct_hash: sha256:84ca586ff123e9cfd2e4b2acd309ea79795f667ec555a9a7267468bede8453dc
+        doc_struct_hash: sha256:c6614f47ce780bbc380c5aa427d53abfe8da6bc277bb84798838a18b9af4cc82
+        lines: [144, 156]
       status: undigested
       since: 2026-07-20T14:59:43.143721Z
     - id: chat/chat.go#engineAlertThreshold

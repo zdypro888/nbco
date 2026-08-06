@@ -1248,7 +1248,11 @@ func (s *Scheduler) deliverKnowledgeRefreshSummary(
 		return
 	}
 	s.dispatchAutomationAction(ctx, run, admin, "", "📚 学习治理（"+month+"）\n", "学习治理汇总",
-		chat.AutomationTurnOptions{TrustedInputEvidence: true, ClosedContext: true})
+		chat.AutomationTurnOptions{
+			TrustedInputEvidence: true,
+			ClosedContext:        true,
+			SuppressNotification: len(items) == 0,
+		})
 }
 
 func knowledgeBatchOccurrence(month string, items []*store.LearningCandidate) string {

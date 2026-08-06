@@ -247,7 +247,7 @@ nodes:
         hash: sha256:b1384e1e832fb4bc35eac65432d28b0d04830ab49855b0fcc31834362cbd2027
         struct_hash: sha256:349dd29cee8f6083bfadd9d28ed1eb53225be9ed1a7b5842f5dd818803820c06
         doc_struct_hash: sha256:1dd8dbbb16b660b470cb37192194122e8350cf601d3399f888a993b39fc7d33a
-        lines: [186, 263]
+        lines: [184, 261]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -829,3 +829,14 @@ nodes:
         lines: [337, 343]
       status: fresh
       since: 2026-08-05T09:35:04.083874Z
+    - id: sched/sched.go#Scheduler.deliverKnowledgeRefreshSummary
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: Scheduler.deliverKnowledgeRefreshSummary
+        hash: sha256:fa570270e04ad7aef9c04a835277757ad9bc2a2c7a3b777606b8b0967c090d79
+        struct_hash: sha256:5c7f222d2ddcacfa9b39a77b7385bdf46967d792d0d0a3c2d8ab2b7c99a88a8e
+        doc_struct_hash: sha256:5c7f222d2ddcacfa9b39a77b7385bdf46967d792d0d0a3c2d8ab2b7c99a88a8e
+        lines: [1212, 1256]
+      status: fresh
+      since: 2026-08-06T07:51:55.300708Z
