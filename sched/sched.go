@@ -50,12 +50,10 @@ const (
 	messageTimeout  = 30 * time.Second
 	// Background reports have a bounded objective and must not spend the
 	// interactive DeepAgent budget wandering through unrelated tools.
-	automationMaxIterations    = 12
-	groupDigestMessageLimit    = 240
-	profileRefreshBatchSize    = 6
-	knowledgeRefreshBatchSize  = 8
-	knowledgeRefreshMaxBatches = 4
-	knowledgeScoreInterval     = 6 * time.Hour
+	automationMaxIterations   = 12
+	groupDigestMessageLimit   = 240
+	profileRefreshBatchSize   = 6
+	knowledgeRefreshBatchSize = 8
 )
 
 // Scheduler 调度器。
@@ -72,7 +70,7 @@ type Scheduler struct {
 	aiPool   *pool // AI 轮次限并发（护后端网关）：催办/周报/画像/定时 AI 推送
 	sendPool *pool // 模板推送/逐人查询限并发（廉价）：每日汇总扇出
 
-	nextKnowledgeScore time.Time
+	nextSnapshotCleanup time.Time
 }
 
 // New 创建调度器。aiConcurrency 是同时进行的 AI 轮次上限（<=0 取默认 4）。
@@ -250,7 +248,9 @@ func (s *Scheduler) dispatchAutomationAction(
 				}
 			}
 		}
-		if s.send(ctx, u.ID, prefix+reply) {
+		if options.SuppressNotification {
+			s.completeAutomation(ctx, run)
+		} else if s.send(ctx, u.ID, prefix+reply) {
 			s.completeAutomation(ctx, run)
 		} else {
 			s.retryAutomation(ctx, run, label+"投递失败")
@@ -411,6 +411,14 @@ func (s *Scheduler) tick(ctx context.Context) {
 		slog.Warn("清理过期自动化运行失败", "err", err)
 	} else if expired > 0 {
 		slog.Info("已结束过期自动化运行", "count", expired)
+	}
+	if !now.Before(s.nextSnapshotCleanup) {
+		if deleted, err := s.store.DeleteExpiredAutomationSnapshots(ctx, now.AddDate(-1, 0, 0)); err != nil {
+			slog.Warn("清理过期自动化快照失败", "err", err)
+		} else if deleted > 0 {
+			slog.Info("已清理过期自动化快照", "count", deleted)
+		}
+		s.nextSnapshotCleanup = now.Add(24 * time.Hour)
 	}
 	s.deadlinePass(ctx, now)
 	s.goalDeadlinePass(ctx, now)
@@ -966,18 +974,32 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 		slog.Error("画像盘点取用户失败", "err", err)
 		return
 	}
-	var subjects []*store.User
+	byID := make(map[int64]*store.User, len(users))
+	var subjectIDs []int64
 	for _, candidate := range users {
+		byID[candidate.ID] = candidate
 		if candidate.Status == store.UserActive {
-			subjects = append(subjects, candidate)
+			subjectIDs = append(subjectIDs, candidate.ID)
 		}
 	}
 	for _, admin := range users {
 		if !admin.IsSuperadmin || !humanRecipient(admin) {
 			continue
 		}
-		for start, batch := 0, 0; start < len(subjects); start, batch = start+profileRefreshBatchSize, batch+1 {
-			end := min(start+profileRefreshBatchSize, len(subjects))
+		snapshot, err := s.store.GetOrCreateAutomationSnapshot(
+			ctx, kvProfileRefresh, month, admin.ID, "user", subjectIDs, expires)
+		if err != nil {
+			slog.Warn("建立画像盘点快照失败", "user", admin.ID, "err", err)
+			continue
+		}
+		for start, batch := 0, 0; start < len(snapshot.ItemIDs); start, batch = start+profileRefreshBatchSize, batch+1 {
+			end := min(start+profileRefreshBatchSize, len(snapshot.ItemIDs))
+			batchSubjects := make([]*store.User, 0, end-start)
+			for _, id := range snapshot.ItemIDs[start:end] {
+				if subject := byID[id]; subject != nil && subject.Status == store.UserActive {
+					batchSubjects = append(batchSubjects, subject)
+				}
+			}
 			occurrence := fmt.Sprintf("%s:b%02d", month, batch+1)
 			run, err := s.store.ClaimAutomationRunUntil(ctx, kvProfileRefresh, occurrence, admin.ID, time.Now().UTC(), expires)
 			if err != nil {
@@ -986,7 +1008,7 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 				}
 				continue
 			}
-			directive, relevant, err := s.profileRefreshDirective(ctx, admin, subjects[start:end])
+			directive, relevant, err := s.profileRefreshDirective(ctx, admin, batchSubjects)
 			if err != nil {
 				s.retryAutomationReplaySafe(ctx, run, "构建画像盘点事实失败: "+err.Error())
 				continue
@@ -1058,9 +1080,9 @@ func (s *Scheduler) profileRefreshDirective(ctx context.Context, admin *store.Us
 	return directive, len(facts), nil
 }
 
-// maybeKnowledgeRefresh scores the full queue deterministically, then lets a
-// bounded number of independent Agent runs decide evidence-backed candidates.
-// Conflicts stay pending for a human instead of being auto-resolved.
+// maybeKnowledgeRefresh opens one immutable candidate snapshot per month, then
+// lets bounded Agent runs govern that fixed set. The calendar remains open for
+// retries; candidates created after the snapshot wait for the next cycle.
 func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 	if s.dailyHour < 0 || s.orch == nil {
 		return
@@ -1092,74 +1114,141 @@ func (s *Scheduler) maybeKnowledgeRefresh(ctx context.Context) {
 	if admin == nil {
 		return
 	}
-	if !local.Before(s.nextKnowledgeScore) {
-		if n, err := s.store.ScoreLearningCandidates(ctx, 200); err != nil {
-			slog.Warn("学习候选治理评分失败", "err", err)
-			return
-		} else {
-			s.nextKnowledgeScore = local.Add(knowledgeScoreInterval)
-			if n > 0 {
-				slog.Info("学习候选治理评分完成", "count", n)
-			}
-		}
-	}
-	items, err := s.store.ListLearningCandidates(ctx, store.LearningStatusPending, "", 100)
+	actionableIDs, err := s.store.LearningCandidateIDsForGovernance(ctx)
 	if err != nil {
-		slog.Warn("读取待审学习候选失败", "err", err)
+		slog.Warn("读取知识治理候选边界失败", "err", err)
 		return
 	}
-	actionable := make([]*store.LearningCandidate, 0, len(items))
-	for _, item := range items {
-		if item.ConflictWith != nil {
+	snapshot, err := s.store.GetOrCreateAutomationSnapshot(
+		ctx, kvKnowledgeRefresh, month, 0, "learning_candidate", actionableIDs, expires)
+	if err != nil {
+		slog.Warn("建立知识治理快照失败", "err", err)
+		return
+	}
+	snapshotItems, err := s.store.LearningCandidatesByIDs(ctx, snapshot.ItemIDs)
+	if err != nil {
+		slog.Warn("读取知识治理快照失败", "err", err)
+		return
+	}
+	unsettled := false
+	for start, batch := 0, 0; start < len(snapshotItems); start, batch = start+knowledgeRefreshBatchSize, batch+1 {
+		end := min(start+knowledgeRefreshBatchSize, len(snapshotItems))
+		fixedBatch := snapshotItems[start:end]
+		batchItems := actionableLearningCandidates(fixedBatch)
+		if len(batchItems) == 0 {
 			continue
 		}
-		switch item.Kind {
-		case store.LearningKindKnowledge, store.LearningKindRule, store.LearningKindSkill:
-			actionable = append(actionable, item)
-		}
-	}
-	batchCount := min((len(actionable)+knowledgeRefreshBatchSize-1)/knowledgeRefreshBatchSize, knowledgeRefreshMaxBatches)
-	if batchCount == 0 {
-		occurrence := month + ":b00"
-		run, err := s.store.ClaimAutomationRunUntil(ctx, kvKnowledgeRefresh, occurrence, 0, time.Now().UTC(), expires)
-		if err != nil {
-			if !errors.Is(err, store.ErrNotFound) {
-				slog.Warn("认领知识盘点失败", "err", err)
+		batchIDs := make([]int64, 0, len(fixedBatch))
+		for _, item := range fixedBatch {
+			if item != nil {
+				batchIDs = append(batchIDs, item.ID)
 			}
+		}
+		if _, err := s.store.ScoreLearningCandidatesByIDs(ctx, batchIDs); err != nil {
+			slog.Warn("学习候选批次治理评分失败", "batch", batch+1, "err", err)
 			return
 		}
-		if err := s.prepareAutomationResult(ctx, run, "学习候选已完成治理评分；当前没有可自动审核的无冲突知识、规则或 Skill 候选。", store.AutomationOutcomeNoChange, ""); err != nil {
-			s.retryAutomation(ctx, run, err.Error())
+		fixedBatch, err = s.store.LearningCandidatesByIDs(ctx, batchIDs)
+		if err != nil {
+			slog.Warn("重新读取知识治理批次失败", "batch", batch+1, "err", err)
 			return
 		}
-		s.dispatchAutomationAction(ctx, run, admin, "", "📚 月度知识盘点\n", "知识盘点",
-			chat.AutomationTurnOptions{TrustedInputEvidence: true, ClosedContext: true})
-		return
-	}
-	for batch := range batchCount {
-		start := batch * knowledgeRefreshBatchSize
-		end := min(start+knowledgeRefreshBatchSize, len(actionable))
-		batchItems := actionable[start:end]
-		occurrence := knowledgeBatchOccurrence(month, batchItems)
+		batchItems = actionableLearningCandidates(fixedBatch)
+		if len(batchItems) == 0 {
+			continue
+		}
+		occurrence := knowledgeBatchOccurrence(month, fixedBatch)
 		run, err := s.store.ClaimAutomationRunUntil(ctx, kvKnowledgeRefresh, occurrence, 0, time.Now().UTC(), expires)
 		if err != nil {
 			if !errors.Is(err, store.ErrNotFound) {
 				slog.Warn("认领知识盘点失败", "batch", batch+1, "err", err)
+				unsettled = true
+			} else if existing, lookupErr := s.store.AutomationRunByKey(ctx, kvKnowledgeRefresh, occurrence, 0); lookupErr == nil {
+				unsettled = existing.Status == "pending" || existing.Status == "processing" ||
+					(existing.Status == "failed" && existing.Outcome == "") || unsettled
+			} else if !errors.Is(lookupErr, store.ErrNotFound) {
+				slog.Warn("读取知识盘点批次状态失败", "batch", batch+1, "err", lookupErr)
+				unsettled = true
 			}
 			continue
 		}
-		directive, err := knowledgeRefreshDirective(batchItems, len(actionable)-end)
+		directive, err := knowledgeRefreshDirective(batchItems, countActionableLearningCandidates(snapshotItems[end:]))
 		if err != nil {
 			s.retryAutomationReplaySafe(ctx, run, "构建知识盘点批次失败: "+err.Error())
 			continue
 		}
-		s.dispatchAutomationAction(ctx, run, admin, directive, "📚 月度知识盘点\n", fmt.Sprintf("知识盘点批次 %d", batch+1),
+		s.dispatchAutomationAction(ctx, run, admin, directive, "", fmt.Sprintf("知识治理批次 %d", batch+1),
 			chat.AutomationTurnOptions{
-				TrustedInputEvidence: true, ClosedContext: true,
+				TrustedInputEvidence: true, ClosedContext: true, SuppressNotification: true,
 				AllowedTools: []string{"approve_learning_candidate", "reject_learning_candidate"},
 			})
 		return
 	}
+	if unsettled {
+		return
+	}
+	s.deliverKnowledgeRefreshSummary(ctx, admin, month, expires, snapshotItems)
+}
+
+func actionableLearningCandidates(items []*store.LearningCandidate) []*store.LearningCandidate {
+	out := make([]*store.LearningCandidate, 0, len(items))
+	for _, item := range items {
+		if item == nil || item.Status != store.LearningStatusPending || item.ConflictWith != nil ||
+			item.MemoryClass != store.LearningMemoryDurable {
+			continue
+		}
+		switch item.Kind {
+		case store.LearningKindKnowledge, store.LearningKindRule, store.LearningKindSkill:
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func countActionableLearningCandidates(items []*store.LearningCandidate) int {
+	return len(actionableLearningCandidates(items))
+}
+
+func (s *Scheduler) deliverKnowledgeRefreshSummary(
+	ctx context.Context,
+	admin *store.User,
+	month string,
+	expires time.Time,
+	items []*store.LearningCandidate,
+) {
+	var published, rejected, pending int
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		switch item.Status {
+		case store.LearningStatusPublished:
+			published++
+		case store.LearningStatusRejected:
+			rejected++
+		default:
+			pending++
+		}
+	}
+	result := fmt.Sprintf("本期固定审核 %d 条长期记忆候选：发布 %d 条，归档 %d 条，保留人工判断 %d 条。月中新候选将在下期处理。",
+		len(items), published, rejected, pending)
+	outcome := store.AutomationOutcomeSucceeded
+	if len(items) == 0 || published+rejected == 0 {
+		outcome = store.AutomationOutcomeNoChange
+	}
+	run, err := s.store.ClaimAutomationRunUntil(ctx, kvKnowledgeRefresh, month+":summary", admin.ID, time.Now().UTC(), expires)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			slog.Warn("认领知识治理汇总失败", "err", err)
+		}
+		return
+	}
+	if err := s.prepareAutomationResult(ctx, run, result, outcome, ""); err != nil {
+		s.retryAutomation(ctx, run, err.Error())
+		return
+	}
+	s.dispatchAutomationAction(ctx, run, admin, "", "📚 学习治理（"+month+"）\n", "学习治理汇总",
+		chat.AutomationTurnOptions{TrustedInputEvidence: true, ClosedContext: true})
 }
 
 func knowledgeBatchOccurrence(month string, items []*store.LearningCandidate) string {
@@ -1174,6 +1263,7 @@ func knowledgeRefreshDirective(items []*store.LearningCandidate, remaining int) 
 	type candidateFacts struct {
 		ID                int64   `json:"id"`
 		Kind              string  `json:"kind"`
+		MemoryClass       string  `json:"memory_class"`
 		Scope             string  `json:"scope"`
 		Title             string  `json:"title"`
 		Content           string  `json:"content"`
@@ -1187,7 +1277,7 @@ func knowledgeRefreshDirective(items []*store.LearningCandidate, remaining int) 
 		evidence := strings.TrimSpace(string(item.Evidence))
 		trimmedEvidence := textfmt.TruncateRunes(evidence, 1200)
 		facts = append(facts, candidateFacts{
-			ID: item.ID, Kind: item.Kind, Scope: textfmt.TruncateRunes(item.Scope, 120),
+			ID: item.ID, Kind: item.Kind, MemoryClass: item.MemoryClass, Scope: textfmt.TruncateRunes(item.Scope, 120),
 			Title:    textfmt.TruncateRunes(strings.TrimSpace(item.Title), 240),
 			Content:  textfmt.TruncateRunes(strings.TrimSpace(item.Content), 1600),
 			Evidence: trimmedEvidence, EvidenceTruncated: trimmedEvidence != evidence,

@@ -2517,7 +2517,7 @@ func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.Us
 		}
 		save(store.LearningCandidateInput{
 			Kind: store.LearningKindKnowledge, Scope: "global", Title: k.Title, Content: k.Content,
-			Tags: k.Tags, Evidence: k.Evidence, Confidence: k.Confidence,
+			Tags: k.Tags, Evidence: k.Evidence, Confidence: k.Confidence, MemoryClass: store.LearningMemoryDurable,
 		})
 	}
 	for _, e := range payload.Entities {
@@ -2549,7 +2549,7 @@ func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.Us
 		}
 		save(store.LearningCandidateInput{
 			Kind: store.LearningKindRule, Scope: scope, Title: r.Title, Content: r.Content,
-			Tags: r.Tags, Evidence: r.Evidence, Confidence: r.Confidence,
+			Tags: r.Tags, Evidence: r.Evidence, Confidence: r.Confidence, MemoryClass: store.LearningMemoryDurable,
 		})
 	}
 	for _, sk := range payload.Skills {
@@ -2564,7 +2564,7 @@ func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.Us
 		save(store.LearningCandidateInput{
 			Kind: store.LearningKindSkill, Scope: scope, Title: sk.Title,
 			Content: buildWorkerSkillContent(sk.Trigger, sk.Summary, sk.Procedure, sk.Constraints),
-			Tags:    sk.Tags, Evidence: sk.Evidence, Confidence: sk.Confidence,
+			Tags:    sk.Tags, Evidence: sk.Evidence, Confidence: sk.Confidence, MemoryClass: store.LearningMemoryDurable,
 		})
 	}
 	for _, q := range payload.Questions {
@@ -2573,7 +2573,7 @@ func (s *Server) ingestWorkerLearningCandidates(ctx context.Context, u *store.Us
 		}
 		save(store.LearningCandidateInput{
 			Kind: store.LearningKindSummary, Scope: "global", Title: "待裁决：" + q.Title, Content: q.Content,
-			Tags: []string{"待裁决"}, Evidence: q.Evidence,
+			Tags: []string{"待裁决"}, Evidence: q.Evidence, MemoryClass: store.LearningMemoryTransient,
 		})
 	}
 	if count > 0 {

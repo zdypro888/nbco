@@ -20,6 +20,7 @@ type MemoryMiningJob struct {
 	UserMessageID      int64
 	AssistantMessageID int64
 	ToolEvidence       string
+	UserEvidenceText   *string
 	ExplicitCommit     bool
 	Status             string
 	Attempts           int
@@ -30,28 +31,28 @@ type MemoryMiningJob struct {
 	CompletedAt        *time.Time
 }
 
-const memoryMiningJobCols = `id, user_id, channel, session_id, user_message_id, assistant_message_id, tool_evidence, explicit_commit, status, attempts, available_at, claimed_at, last_error, created_at, completed_at`
+const memoryMiningJobCols = `id, user_id, channel, session_id, user_message_id, assistant_message_id, tool_evidence, user_evidence_text, explicit_commit, status, attempts, available_at, claimed_at, last_error, created_at, completed_at`
 
 func scanMemoryMiningJob(row interface{ Scan(...any) error }) (*MemoryMiningJob, error) {
 	var j MemoryMiningJob
 	if err := row.Scan(&j.ID, &j.UserID, &j.Channel, &j.SessionID, &j.UserMessageID,
-		&j.AssistantMessageID, &j.ToolEvidence, &j.ExplicitCommit, &j.Status, &j.Attempts, &j.AvailableAt,
+		&j.AssistantMessageID, &j.ToolEvidence, &j.UserEvidenceText, &j.ExplicitCommit, &j.Status, &j.Attempts, &j.AvailableAt,
 		&j.ClaimedAt, &j.LastError, &j.CreatedAt, &j.CompletedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &j, nil
 }
 
-func (s *Store) EnqueueMemoryMiningJob(ctx context.Context, userID int64, channel string, sessionID, userMessageID, assistantMessageID int64, toolEvidence string, explicitCommit bool) error {
+func (s *Store) EnqueueMemoryMiningJob(ctx context.Context, userID int64, channel string, sessionID, userMessageID, assistantMessageID int64, toolEvidence string, userEvidenceText *string, explicitCommit bool) error {
 	if userID <= 0 || sessionID <= 0 || userMessageID <= 0 || assistantMessageID <= 0 {
 		return ErrNotFound
 	}
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO memory_mining_jobs
-		   (user_id, channel, session_id, user_message_id, assistant_message_id, tool_evidence, explicit_commit)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		   (user_id, channel, session_id, user_message_id, assistant_message_id, tool_evidence, user_evidence_text, explicit_commit)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 ON CONFLICT (session_id, user_message_id) DO NOTHING`,
-		userID, strings.TrimSpace(channel), sessionID, userMessageID, assistantMessageID, toolEvidence, explicitCommit)
+		userID, strings.TrimSpace(channel), sessionID, userMessageID, assistantMessageID, toolEvidence, userEvidenceText, explicitCommit)
 	return wrapErr(err)
 }
 

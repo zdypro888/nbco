@@ -192,3 +192,14 @@ nodes:
         lines: [88, 99]
       status: fresh
       since: 2026-08-05T09:39:47.247815Z
+    - id: store/automation_runs.go#Store.AutomationRunByKey
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.AutomationRunByKey
+        hash: sha256:f26578ec4b7f46d39078f55334889b943070d4f3a6d2238be691869b8b18ffd8
+        struct_hash: sha256:bffec2a4b48db0411b8d5dfe4efa8fb533f77f3669422649e349830ed92545a7
+        doc_struct_hash: sha256:bffec2a4b48db0411b8d5dfe4efa8fb533f77f3669422649e349830ed92545a7
+        lines: [101, 106]
+      status: fresh
+      since: 2026-08-06T07:19:18.395292Z

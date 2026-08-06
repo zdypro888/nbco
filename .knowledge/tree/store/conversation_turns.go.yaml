@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/conversation_turns.go
         symbol: Store.CompleteConversationTurn
-        hash: sha256:b3428d8e7d7ebd15c78fc3b025ac259178c1d940438585402f2edbaccae381fb
-        struct_hash: sha256:029546e711a9b6b1ef5182570f6ebdb73bbbf4b681f22421008a7b967462c510
-        doc_struct_hash: sha256:5ce73bf31ac7645ce91f160ad11cb9086e47d8ed526e0bbe6b718e82c33614d7
-        lines: [159, 245]
+        hash: sha256:f0101f191e8f9b710469000126f35e81d0c17f76d2b7a0ecbed212dee4342494
+        struct_hash: sha256:fc19aaa9e6d7cd6fe8e46b7418c497c2e42501a276e3544a25762ced5d75d2ee
+        doc_struct_hash: sha256:5edec7c0b716489b2f3f90f2c7c8f7007cda789f01903e017ae7a20314f230a5
+        lines: [160, 246]
       status: fresh
       since: 2026-07-25T10:14:40.50635Z
     - id: store/conversation_turns.go#Store.FailStaleConversationTurns

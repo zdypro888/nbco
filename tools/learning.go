@@ -16,7 +16,9 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
 		tool("propose_learning_candidate", "提交一条待审核的学习候选。适用于普通员工/AI worker/脚本发现可长期复用的信息、规则或流程，但不应直接写成正式规则或 skill 的场景。",
 			obj(map[string]any{
-				"kind":       p("string", "knowledge/rule/skill/script/profile/summary"),
+				"kind": p("string", "knowledge/rule/skill/script/profile/summary"),
+				"memory_class": enumP("信息权威归属：durable 可进入语义记忆；canonical 由业务主数据维护；transient 不长期保存；不确定用 unclassified",
+					store.LearningMemoryDurable, store.LearningMemoryCanonical, store.LearningMemoryTransient, store.LearningMemoryUnclassified),
 				"title":      p("string", "候选标题，一句话说清要学习什么"),
 				"content":    p("string", "候选正文，必须自包含"),
 				"scope":      p("string", "作用域：global（默认）| telegram | api | worker | user:<用户ID>"),
@@ -26,13 +28,14 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 			}, "kind", "title", "content"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
-					Kind       string   `json:"kind"`
-					Title      string   `json:"title"`
-					Content    string   `json:"content"`
-					Scope      string   `json:"scope"`
-					Tags       []string `json:"tags"`
-					Confidence float32  `json:"confidence"`
-					Evidence   string   `json:"evidence"`
+					Kind        string   `json:"kind"`
+					Title       string   `json:"title"`
+					Content     string   `json:"content"`
+					Scope       string   `json:"scope"`
+					Tags        []string `json:"tags"`
+					Confidence  float32  `json:"confidence"`
+					Evidence    string   `json:"evidence"`
+					MemoryClass string   `json:"memory_class"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
@@ -64,6 +67,10 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 				if confidence > 1 {
 					confidence = 1
 				}
+				memoryClass := store.NormalizeLearningMemoryClass(kind, args.MemoryClass)
+				if memoryClass == store.LearningMemoryCanonical || memoryClass == store.LearningMemoryTransient {
+					return "该信息由结构化业务数据维护或仅具临时价值，不进入学习候选；请使用对应领域工具更新主数据。", nil
+				}
 				ev, _ := json.Marshal(map[string]any{
 					"source":   "tool",
 					"evidence": strings.TrimSpace(args.Evidence),
@@ -73,7 +80,7 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 					Kind: kind, Scope: scope, Title: title, Content: content,
 					Tags: normalizeLearningTags(args.Tags, scope), Evidence: ev,
 					Confidence: confidence, Status: store.LearningStatusPending,
-					SourceType: "tool", CreatedBy: &createdBy,
+					SourceType: "tool", CreatedBy: &createdBy, MemoryClass: memoryClass,
 				})
 				if err != nil {
 					return "", err
@@ -107,7 +114,7 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 				return renderLearningCandidates(items), nil
 			}),
 
-		tool("approve_learning_candidate", "批准一条学习候选并发布到正式记忆。knowledge 会入知识库；rule 会入行为规则；skill 会入 Skill Memory。脚本/画像/总结候选暂只标记为已发布，后续用对应工具细化。",
+		tool("approve_learning_candidate", "批准一条 durable 学习候选并发布到正式记忆。knowledge 会入知识库；rule 会入行为规则；skill 会入 Skill Memory。其他类型必须使用对应专用工具落地。",
 			obj(map[string]any{
 				"id": p("integer", "learning candidate ID"),
 			}, "id"),
@@ -125,8 +132,14 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				if c.Status == store.LearningStatusPublished {
-					return "这条候选已经发布过。", nil
+				if c.Status != store.LearningStatusPending {
+					return "这条候选已经结束审核，不能重复发布。", nil
+				}
+				if c.MemoryClass != store.LearningMemoryDurable {
+					return "该候选尚未被分类为 durable，不能发布到语义记忆。先核实权威来源并调用 classify_learning_candidate。", nil
+				}
+				if !publishableLearningKind(c.Kind) {
+					return "该候选类型不能发布到语义记忆，请使用对应专用工具落地。", nil
 				}
 				kid, msg, err := publishLearningCandidate(ctx, d, u, c)
 				if err != nil {
@@ -136,6 +149,31 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return msg, nil
+			}),
+
+		tool("classify_learning_candidate", "设置学习候选的信息权威归属。durable 可进入语义记忆；canonical 由业务表和专用工具维护；transient 不长期保存。canonical/transient 会退出待审队列；已误发布的正式知识会保留版本后停用。",
+			obj(map[string]any{
+				"id":           p("integer", "learning candidate ID"),
+				"memory_class": enumP("权威归属", store.LearningMemoryDurable, store.LearningMemoryCanonical, store.LearningMemoryTransient),
+			}, "id", "memory_class"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					ID          int64  `json:"id"`
+					MemoryClass string `json:"memory_class"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if err := d.Store.SetLearningCandidateMemoryClass(ctx, args.ID, u.ID, args.MemoryClass); err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "学习候选不存在或已结束审核。", nil
+					}
+					return "", err
+				}
+				if args.MemoryClass == store.LearningMemoryDurable {
+					return "已分类为 durable，可继续审核发布。", nil
+				}
+				return "已确认不属于语义记忆，候选已退出待审队列。", nil
 			}),
 
 		tool("reject_learning_candidate", "拒绝一条学习候选。用于清理误归纳、过时或重复的学习结果。",
@@ -181,6 +219,9 @@ func normalizeLearningTags(tags []string, scope string) []string {
 }
 
 func publishLearningCandidate(ctx context.Context, d Deps, u *store.User, c *store.LearningCandidate) (*int64, string, error) {
+	if c.MemoryClass != store.LearningMemoryDurable {
+		return nil, "该候选不属于 durable 语义记忆，不能发布。", nil
+	}
 	title := strings.TrimSpace(c.Title)
 	content := strings.TrimSpace(c.Content)
 	if title == "" || content == "" {
@@ -215,7 +256,16 @@ func publishLearningCandidate(ctx context.Context, d Deps, u *store.User, c *sto
 		}
 		return &k.ID, fmt.Sprintf("已发布为 skill（%s）。", internalRef("skill", k.ID)), nil
 	default:
-		return nil, "已标记为已发布；该类型需要通过对应专用工具继续落地。", nil
+		return nil, "该候选类型不能发布到语义记忆，请使用对应专用工具落地。", nil
+	}
+}
+
+func publishableLearningKind(kind string) bool {
+	switch kind {
+	case store.LearningKindKnowledge, store.LearningKindRule, store.LearningKindSkill:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -234,7 +284,7 @@ func renderLearningCandidates(items []*store.LearningCandidate) string {
 	}
 	var b strings.Builder
 	for _, c := range items {
-		fmt.Fprintf(&b, "%s [%s/%s] %s\n", internalRef("候选", c.ID), c.Kind, c.Status, c.Title)
+		fmt.Fprintf(&b, "%s [%s/%s/%s] %s\n", internalRef("候选", c.ID), c.Kind, c.MemoryClass, c.Status, c.Title)
 		if c.Scope != "" {
 			fmt.Fprintf(&b, "  scope: %s\n", c.Scope)
 		}

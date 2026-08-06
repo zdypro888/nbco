@@ -102,6 +102,18 @@ func TestMessageText(t *testing.T) {
 	}
 }
 
+func TestTelegramMemorySourceExcludesSyntheticFileContext(t *testing.T) {
+	msg := &models.Message{
+		Document: &models.Document{FileID: "private", FileName: "report.pdf"},
+		Caption:  "分析这份报告",
+	}
+	augmented := telegramFileContext([]store.File{{ID: 7, OriginalName: "report.pdf"}}, nil, msg.Caption)
+	got := telegramMemorySourceText(msg, augmented)
+	if got != msg.Caption || strings.Contains(got, "file_id") || strings.Contains(got, "analyze_company_materials") {
+		t.Fatalf("memory source = %q", got)
+	}
+}
+
 func TestDisplayNameFromMessageWithoutFrom(t *testing.T) {
 	got := displayNameFromMessage(&models.Message{
 		Chat:       models.Chat{ID: -1, Type: models.ChatTypeSupergroup, Title: "群"},

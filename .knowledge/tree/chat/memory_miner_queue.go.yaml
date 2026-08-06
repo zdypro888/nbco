@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: chat/memory_miner_queue.go
         symbol: Orchestrator.processMemoryMiningJob
-        hash: sha256:a49ad6b3d747fa54a0c4be794f04f3c51cf4d497f701d7a60693522d5c7926cc
-        struct_hash: sha256:d20f3e81dd571af75650088fb00d6925060bed51d307fe3504eb40dc98c8226e
-        doc_struct_hash: sha256:d20f3e81dd571af75650088fb00d6925060bed51d307fe3504eb40dc98c8226e
-        lines: [82, 138]
+        hash: sha256:3f93d2ba208a241d931db895d5fb3c0b5cd0b8e6c0360af76a7dccfe0a0fca2c
+        struct_hash: sha256:b94e7f5282a959a93acee5c93fa5573f37263b005385fad0daa5ed41859d267d
+        doc_struct_hash: sha256:b94e7f5282a959a93acee5c93fa5573f37263b005385fad0daa5ed41859d267d
+        lines: [64, 124]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/memory_miner_queue.go#memoryMiningProjection

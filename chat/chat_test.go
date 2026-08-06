@@ -259,13 +259,16 @@ func TestKnowledgeMemoryRequiresUserOrToolProvenance(t *testing.T) {
 }
 
 func TestVerifiedMemoryToolEvidence(t *testing.T) {
-	got := verifiedMemoryToolEvidence([]ai.Step{
+	got := verifiedMemoryToolEvidence([]ai.Tool{
+		{Name: "list_recent_files", Domain: "comms", Effect: ai.ToolEffectRead},
+		{Name: "secret", Domain: "ops", Effect: ai.ToolEffectRead},
+	}, []ai.Step{
 		{Kind: ai.StepToolCall, ToolName: "list_recent_files", Result: "文件已保存"},
 		{Kind: ai.StepToolCall, ToolName: "broken", Result: "不能采用", Err: "failed"},
 		{Kind: ai.StepText, Result: "assistant-only"},
 		{Kind: ai.StepToolCall, ToolName: "secret", Result: "token=0123456789abcdef0123456789abcdef"},
 	})
-	for _, want := range []string{"[list_recent_files]", "文件已保存", "[secret]"} {
+	for _, want := range []string{`"tool":"list_recent_files"`, `"domain":"comms"`, "文件已保存", `"tool":"secret"`} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("verified tool evidence missing %q: %s", want, got)
 		}
@@ -294,7 +297,7 @@ func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"rules":[{"title":"rule","content":"content","evidence":"evidence"}],
 		"skills":[],
-		"knowledge":[{"title":"fact","content":"content","evidence":"evidence"}]
+		"knowledge":[{"title":"fact","content":"content","memory_class":"durable","evidence":"evidence"}]
 	}`), &mined); err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +305,7 @@ func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 		if req.Purpose != "memory_governance" {
 			t.Fatalf("purpose = %q", req.Purpose)
 		}
-		return `{"rules":["review"],"skills":[],"knowledge":["publish"]}`, nil
+		return `{"rules":[{"decision":"review","memory_class":"durable"}],"skills":[],"knowledge":[{"decision":"publish","memory_class":"durable"}]}`, nil
 	}}}
 	review := o.reviewMinedMemory(context.Background(), &store.User{ID: 1}, mined, memorySource{UserText: "evidence"})
 	if got := review.decision(store.KnowledgeKindPolicy, 0); got != "review" {
@@ -310,6 +313,21 @@ func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 	}
 	if got := review.decision(store.KnowledgeKindFact, 0); got != "publish" {
 		t.Fatalf("knowledge decision = %q", got)
+	}
+	if got := review.memoryClass(0, mined.Knowledge[0].MemoryClass); got != store.LearningMemoryDurable {
+		t.Fatalf("knowledge memory class = %q", got)
+	}
+}
+
+func TestMemoryClassRequiresDurableConsensus(t *testing.T) {
+	if got := resolveLearningMemoryClass(store.LearningMemoryDurable, store.LearningMemoryUnclassified); got != store.LearningMemoryUnclassified {
+		t.Fatalf("one-sided durable classification = %q", got)
+	}
+	if got := resolveLearningMemoryClass(store.LearningMemoryDurable, store.LearningMemoryCanonical); got != store.LearningMemoryCanonical {
+		t.Fatalf("canonical ownership must win = %q", got)
+	}
+	if got := resolveLearningMemoryClass(store.LearningMemoryDurable, store.LearningMemoryDurable); got != store.LearningMemoryDurable {
+		t.Fatalf("durable consensus = %q", got)
 	}
 }
 

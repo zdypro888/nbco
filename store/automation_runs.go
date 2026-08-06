@@ -98,6 +98,13 @@ func (s *Store) HasActiveAutomationRun(ctx context.Context, key string, now time
 	return active, wrapErr(err)
 }
 
+func (s *Store) AutomationRunByKey(ctx context.Context, key, occurrence string, subjectID int64) (*AutomationRun, error) {
+	return scanAutomationRun(s.pool.QueryRow(ctx,
+		`SELECT `+automationRunCols+` FROM automation_runs
+		  WHERE automation_key=$1 AND occurrence_key=$2 AND subject_id=$3`,
+		key, occurrence, subjectID))
+}
+
 // ClaimAutomationRunUntil also records the end of the occurrence's useful
 // execution window. Expired rows become terminal instead of remaining visible
 // as pending work forever.

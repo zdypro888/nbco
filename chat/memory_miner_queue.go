@@ -93,12 +93,16 @@ func (o *Orchestrator) processMemoryMiningJob(parent context.Context, job *store
 			userMessage.Role != string(ai.RoleUser) || assistantMessage.Role != string(ai.RoleAssistant) {
 			return fmt.Errorf("queued message identity mismatch")
 		}
+		userText := userMessage.Content
+		if job.UserEvidenceText != nil {
+			userText = *job.UserEvidenceText
+		}
 		return o.mineMemory(ctx, u, memorySource{
 			Channel: job.Channel, SessionID: job.SessionID,
 			UserMessageID: job.UserMessageID, AssistantMessageID: job.AssistantMessageID,
 			// Canonical chat remains lossless; durable learning is a wider, derived
 			// surface and receives a credential-safe projection instead.
-			UserText:      memoryMiningProjection(userMessage.Content),
+			UserText:      memoryMiningProjection(userText),
 			AssistantText: memoryMiningProjection(assistantMessage.Content),
 			ToolEvidence:  job.ToolEvidence, OccurredAt: userMessage.CreatedAt.In(orTimeZone(o.tz)),
 			ExplicitCommit: job.ExplicitCommit,

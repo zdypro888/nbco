@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: store/memory_mining.go
         symbol: Store.EnqueueMemoryMiningJob
-        hash: sha256:b9d507791c3ca798c48a42c4a33db2c54019b92a36e85a8dba209c75c3cc8bef
-        struct_hash: sha256:40ff1befdc0f524986268ed5f4ad9138e87f563278acad3b65b7e50cad349ec7
-        doc_struct_hash: sha256:40ff1befdc0f524986268ed5f4ad9138e87f563278acad3b65b7e50cad349ec7
-        lines: [45, 56]
+        hash: sha256:04e21f3dbe695c359706a70ad32c8ed17da5abfe475c8522349d09773be73275
+        struct_hash: sha256:1322415d845a59d73817ecb1906f06e099ba28df71a5e2dd7a5db0a5b56d64e4
+        doc_struct_hash: sha256:1322415d845a59d73817ecb1906f06e099ba28df71a5e2dd7a5db0a5b56d64e4
+        lines: [46, 57]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#Store.DueMemoryMiningJobs

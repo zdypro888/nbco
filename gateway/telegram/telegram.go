@@ -736,6 +736,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
 	text := g.messageText(ctx, msg)
+	memorySourceText := telegramMemorySourceText(msg, text)
 	tgID := userID(msg.From)
 	var u *store.User
 	bound := false
@@ -885,6 +886,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	}
 	g.sendTyping(ctx, chatID)
 	turnCtx := chat.WithTurnSourceKey(ctx, telegramTurnSourceKey(msg))
+	turnCtx = chat.WithMemorySourceText(turnCtx, strings.TrimSpace(stripMention(memorySourceText, g.botUsername())))
 	reply, err := g.orch.HandleGroupMessageResult(turnCtx, u, channel, u.Name, ask)
 	if err != nil {
 		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrTurnFailed) ||
@@ -1755,6 +1757,7 @@ func (g *Gateway) groupReadyMessage() string {
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	chatID := msg.Chat.ID
 	text := g.messageText(ctx, msg)
+	memorySourceText := telegramMemorySourceText(msg, text)
 	externalID := strconv.FormatInt(msg.From.ID, 10)
 
 	slog.Debug("TG 消息", "tg_user", msg.From.ID, "chat", chatID, "text_len", len(text))
@@ -1829,6 +1832,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	g.sendTyping(ctx, chatID)
 	ed := g.newStreamEditor(ctx, chatID)
 	turnCtx := chat.WithTurnSourceKey(ctx, telegramTurnSourceKey(msg))
+	turnCtx = chat.WithMemorySourceText(turnCtx, memorySourceText)
 	reply, err := g.orch.HandleMessageStreamResult(turnCtx, u, Provider, text, ed.onDelta)
 	if err != nil {
 		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrTurnFailed) ||
@@ -1861,6 +1865,13 @@ func telegramTurnSourceKey(msg *models.Message) string {
 		return ""
 	}
 	return fmt.Sprintf("telegram:message:%d:%d", msg.Chat.ID, msg.ID)
+}
+
+func telegramMemorySourceText(msg *models.Message, fallback string) string {
+	if raw := strings.TrimSpace(nonMediaText(msg)); raw != "" {
+		return raw
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func (g *Gateway) recordTurnDelivery(ctx context.Context, turnID int64, cause error) {

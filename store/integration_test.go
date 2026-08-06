@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -972,10 +973,11 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 		UserID: u.ID, SessionID: &sid, Kind: "telegram", Model: "test-model",
 		InputTokens: 12, OutputTokens: 4,
 	}
+	memorySource := "执行并记录"
 	assistantID, err := s.CompleteConversationTurn(ctx, ConversationTurnCompletion{
 		TurnID: turn.ID, AssistantText: "已完成", ResultText: "已完成",
 		EngineSession: "eino:turn", Action: action, Usage: usage,
-		EnqueueMemory: true, MemoryEvidence: "[test_tool] ok",
+		EnqueueMemory: true, MemoryEvidence: "[test_tool] ok", MemorySourceText: &memorySource,
 	})
 	if err != nil || assistantID == 0 {
 		t.Fatalf("CompleteConversationTurn = %d, %v", assistantID, err)
@@ -999,6 +1001,12 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 		`SELECT count(*) FROM memory_mining_jobs WHERE user_message_id = $1`, *turn.UserMessageID).
 		Scan(&memoryJobs); err != nil || memoryJobs != 1 {
 		t.Fatalf("memory jobs = %d err=%v", memoryJobs, err)
+	}
+	var storedMemorySource *string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT user_evidence_text FROM memory_mining_jobs WHERE user_message_id = $1`, *turn.UserMessageID).
+		Scan(&storedMemorySource); err != nil || storedMemorySource == nil || *storedMemorySource != memorySource {
+		t.Fatalf("memory source = %v err=%v", storedMemorySource, err)
 	}
 	if err := s.MarkConversationTurnDeliveryFailed(ctx, turn.ID, "network"); err != nil {
 		t.Fatal(err)
@@ -3457,7 +3465,7 @@ func TestExhaustedInterruptedClaimsReachTerminalState(t *testing.T) {
 	}
 	userMessageID, _ := s.AppendMessage(ctx, sess.ID, "user", "stable fact")
 	assistantMessageID, _ := s.AppendMessage(ctx, sess.ID, "assistant", "ok")
-	if err := s.EnqueueMemoryMiningJob(ctx, u.ID, "telegram", sess.ID, userMessageID, assistantMessageID, "", false); err != nil {
+	if err := s.EnqueueMemoryMiningJob(ctx, u.ID, "telegram", sess.ID, userMessageID, assistantMessageID, "", nil, false); err != nil {
 		t.Fatal(err)
 	}
 	mustExec(t, s, `UPDATE memory_mining_jobs SET status='processing', attempts=$2, claimed_at=now()-interval '1 hour' WHERE session_id=$1`, sess.ID, memoryMiningMaxAttempts)
@@ -4367,6 +4375,124 @@ func TestLearningCandidateExists(t *testing.T) {
 	}
 }
 
+func TestAutomationSnapshotIsImmutable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	expires := time.Now().UTC().Add(24 * time.Hour)
+	first, err := s.GetOrCreateAutomationSnapshot(ctx, "monthly-test", "2026-08", 7, "candidate", []int64{3, 2, 2, -1}, expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.GetOrCreateAutomationSnapshot(ctx, "monthly-test", "2026-08", 7, "candidate", []int64{99}, expires.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(first.ItemIDs, []int64{2, 3}) || !slices.Equal(second.ItemIDs, first.ItemIDs) {
+		t.Fatalf("snapshot changed first=%v second=%v", first.ItemIDs, second.ItemIDs)
+	}
+	if second.ItemKind != "candidate" || second.ExpiresAt == nil || !second.ExpiresAt.Equal(expires) {
+		t.Fatalf("snapshot metadata changed: %+v", second)
+	}
+}
+
+func TestLearningCandidateMemoryAuthority(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "memory-authority-boss", true)
+	knowledge, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindKnowledge, Title: "待分类事实", Content: "可能属于主数据", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if knowledge.MemoryClass != LearningMemoryUnclassified {
+		t.Fatalf("knowledge class=%q", knowledge.MemoryClass)
+	}
+	if err := s.SetLearningCandidateMemoryClass(ctx, knowledge.ID, boss.ID, LearningMemoryCanonical); err != nil {
+		t.Fatal(err)
+	}
+	classified, err := s.LearningCandidateByID(ctx, knowledge.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if classified.MemoryClass != LearningMemoryCanonical || classified.Status != LearningStatusRejected {
+		t.Fatalf("classified candidate=%+v", classified)
+	}
+	rule, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Title: "长期规则", Content: "持续生效", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rule.MemoryClass != LearningMemoryDurable {
+		t.Fatalf("rule class=%q", rule.MemoryClass)
+	}
+	publishedKnowledge, err := s.CreateKnowledge(ctx, "误入知识库的主数据", "员工当前手机号", nil, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publishedCandidate, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindKnowledge, Title: publishedKnowledge.Title, Content: publishedKnowledge.Content,
+		MemoryClass: LearningMemoryDurable, CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkLearningCandidatePublished(ctx, publishedCandidate.ID, boss.ID, &publishedKnowledge.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetLearningCandidateMemoryClass(ctx, publishedCandidate.ID, boss.ID, LearningMemoryCanonical); err != nil {
+		t.Fatal(err)
+	}
+	archivedCandidate, err := s.LearningCandidateByID(ctx, publishedCandidate.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivedKnowledge, err := s.KnowledgeByID(ctx, publishedKnowledge.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	versions, err := s.KnowledgeVersions(ctx, publishedKnowledge.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archivedCandidate.Status != LearningStatusRejected || archivedCandidate.MemoryClass != LearningMemoryCanonical ||
+		archivedKnowledge.Active || len(versions) != 1 || !versions[0].Active {
+		t.Fatalf("published reclassification candidate=%+v knowledge=%+v versions=%+v", archivedCandidate, archivedKnowledge, versions)
+	}
+}
+
+func TestLearningGovernanceBoundaryIsCompleteAndOldestFirst(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "governance-boundary-boss", true)
+
+	want := make([]int64, 0, 105)
+	for i := range 105 {
+		candidate, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+			Kind: LearningKindSkill, Title: fmt.Sprintf("治理候选 %03d", i),
+			Content: fmt.Sprintf("可复用流程 %03d", i), CreatedBy: &boss.ID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want = append(want, candidate.ID)
+	}
+	if _, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindProfile, Title: "权威主数据", Content: "不进入治理快照", CreatedBy: &boss.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.LearningCandidateIDsForGovernance(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("governance IDs were truncated or reordered: got=%v want=%v", got, want)
+	}
+}
+
 func TestTelegramGroupState(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -4628,8 +4754,9 @@ func TestMemoryMiningQueueIsDurableAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	source := "以后默认不展示推理过程"
 	for range 2 {
-		if err := s.EnqueueMemoryMiningJob(ctx, u.ID, "telegram", sess.ID, userMessageID, assistantMessageID, "[tool] ok", true); err != nil {
+		if err := s.EnqueueMemoryMiningJob(ctx, u.ID, "telegram", sess.ID, userMessageID, assistantMessageID, "[tool] ok", &source, true); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -4638,7 +4765,8 @@ func TestMemoryMiningQueueIsDurableAndIdempotent(t *testing.T) {
 		t.Fatalf("DueMemoryMiningJobs = %+v, %v", jobs, err)
 	}
 	job := jobs[0]
-	if job.ClaimedAt == nil || !job.ExplicitCommit || job.ToolEvidence != "[tool] ok" || job.Attempts != 1 {
+	if job.ClaimedAt == nil || !job.ExplicitCommit || job.ToolEvidence != "[tool] ok" || job.Attempts != 1 ||
+		job.UserEvidenceText == nil || *job.UserEvidenceText != source {
 		t.Fatalf("claimed job = %+v", job)
 	}
 	if err := s.CompleteMemoryMiningJob(ctx, job.ID, *job.ClaimedAt); err != nil {

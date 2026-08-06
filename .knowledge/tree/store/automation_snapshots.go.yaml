@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/automation_snapshots.go
+      level: file
+      anchor:
+        file: store/automation_snapshots.go
+        hash: sha256:3842e8eb722063b533d9a390a29b76af21a05765e9b888ae8f0d98c4a41cbb7f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-06T07:19:18.394475Z
+    - id: store/automation_snapshots.go#Store.GetOrCreateAutomationSnapshot
+      level: function
+      anchor:
+        file: store/automation_snapshots.go
+        symbol: Store.GetOrCreateAutomationSnapshot
+        hash: sha256:fc6180f5485bd0e6e45b573e1025cab9c6d56d51a8087058c02ff748b5240241
+        struct_hash: sha256:46e33d4a702786e5fcc73f638709b4b030e93cc03ffd47d317506c0dfa8b3304
+        doc_struct_hash: sha256:9acaaf75ecb8d2df7e4cc9c26f04695ccfdca676e62b4e59977d27966833975c
+        lines: [35, 87]
+      status: fresh
+      since: 2026-08-06T07:19:18.394429Z

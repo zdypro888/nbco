@@ -44,15 +44,16 @@ type ConversationTurn struct {
 }
 
 type ConversationTurnCompletion struct {
-	TurnID         int64
-	AssistantText  string
-	ResultText     string
-	EngineSession  string
-	Action         *ActionTurnInput
-	Usage          *AIUsage
-	EnqueueMemory  bool
-	MemoryEvidence string
-	ExplicitMemory bool
+	TurnID           int64
+	AssistantText    string
+	ResultText       string
+	EngineSession    string
+	Action           *ActionTurnInput
+	Usage            *AIUsage
+	EnqueueMemory    bool
+	MemoryEvidence   string
+	MemorySourceText *string
+	ExplicitMemory   bool
 }
 
 func scanConversationTurn(row interface{ Scan(...any) error }) (*ConversationTurn, error) {
@@ -230,11 +231,11 @@ func (s *Store) CompleteConversationTurn(ctx context.Context, in ConversationTur
 	if in.EnqueueMemory {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO memory_mining_jobs
-			   (user_id, channel, session_id, user_message_id, assistant_message_id, tool_evidence, explicit_commit)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7)
+			   (user_id, channel, session_id, user_message_id, assistant_message_id, tool_evidence, user_evidence_text, explicit_commit)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 			 ON CONFLICT (session_id, user_message_id) DO NOTHING`,
 			turn.UserID, turn.Channel, turn.SessionID, *turn.UserMessageID, assistantMessageID,
-			in.MemoryEvidence, in.ExplicitMemory); err != nil {
+			in.MemoryEvidence, in.MemorySourceText, in.ExplicitMemory); err != nil {
 			return 0, wrapErr(err)
 		}
 	}

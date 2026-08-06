@@ -552,10 +552,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.processGroup
-        hash: sha256:a37730eb2a7fc917232ea52320c81e75667d148d51a5cee18eb38d5772bc1faf
-        struct_hash: sha256:35ca91ef01d58a9d5c75be96a7723a44888561a31b600b326256755b2670968b
-        doc_struct_hash: sha256:f2816aba6d0e8ad4752a41b8e5992c613a3cf5c35fa5f9ffa7c99ffd613ee397
-        lines: [731, 913]
+        hash: sha256:c9dfeca4a3e55f169b4d1273acba84b30c1812b1dc57b4ca532e8e0fd89cd160
+        struct_hash: sha256:618db321c24d01f1ce335a4d683e173b171fd67c86f568934cd8ed8233072742
+        doc_struct_hash: sha256:e625a58f0b8e91d73f797a2daa23521194d56f94d9bcece75d21fa9b2cc75d9c
+        lines: [732, 916]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.canManageTelegramGroup
@@ -959,10 +959,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.process
-        hash: sha256:86fd32936ba17e8df91d563be970e5b7ffd86ed148b569f019312f09335eea29
-        struct_hash: sha256:ce86cfcd6ab5f4aff1792d018578413b6e85c354d8c7a3fdd1008f7eb96fc149
-        doc_struct_hash: sha256:ce86cfcd6ab5f4aff1792d018578413b6e85c354d8c7a3fdd1008f7eb96fc149
-        lines: [1721, 1823]
+        hash: sha256:a73339db0b0554535df6bc0e6a03b9ed7e3088cfccc498d3535c198849c9d798
+        struct_hash: sha256:2c0aa18f6762d220e3879376e738dd0f5e0732c122b16bee0fa9e669e9c1562d
+        doc_struct_hash: sha256:2c0aa18f6762d220e3879376e738dd0f5e0732c122b16bee0fa9e669e9c1562d
+        lines: [1757, 1861]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleModelCommand
@@ -1845,3 +1845,14 @@ nodes:
         lines: [2112, 2133]
       status: fresh
       since: 2026-08-05T09:56:14.416194Z
+    - id: gateway/telegram/telegram.go#telegramMemorySourceText
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramMemorySourceText
+        hash: sha256:e6cf1be50d62f357055d19f77d3002fe3577d0b6026298a3b6ea3ba16b3c742d
+        struct_hash: sha256:ce8753355be1ecc4fdd328212dff48326135f5d8399bde45b82b00c42fbf2cf5
+        doc_struct_hash: sha256:ce8753355be1ecc4fdd328212dff48326135f5d8399bde45b82b00c42fbf2cf5
+        lines: [1870, 1875]
+      status: fresh
+      since: 2026-08-06T07:27:19.412716Z

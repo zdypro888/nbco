@@ -157,6 +157,19 @@ func TestKnowledgeBatchOccurrenceTracksExactCandidateSet(t *testing.T) {
 	}
 }
 
+func TestActionableLearningCandidatesRequireDurableAuthority(t *testing.T) {
+	items := []*store.LearningCandidate{
+		{ID: 1, Kind: store.LearningKindKnowledge, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryDurable},
+		{ID: 2, Kind: store.LearningKindKnowledge, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryUnclassified},
+		{ID: 3, Kind: store.LearningKindProfile, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryCanonical},
+		{ID: 4, Kind: store.LearningKindRule, Status: store.LearningStatusPublished, MemoryClass: store.LearningMemoryDurable},
+	}
+	got := actionableLearningCandidates(items)
+	if len(got) != 1 || got[0].ID != 1 {
+		t.Fatalf("actionable candidates = %+v", got)
+	}
+}
+
 func TestKnowledgeRefreshDirectiveBoundsCandidatePayload(t *testing.T) {
 	long := strings.Repeat("证据", 3000)
 	directive, err := knowledgeRefreshDirective([]*store.LearningCandidate{{

@@ -1097,3 +1097,14 @@ nodes:
         lines: [3581, 3600]
       status: fresh
       since: 2026-08-05T09:39:47.277588Z
+    - id: store/integration_test.go#TestLearningGovernanceBoundaryIsCompleteAndOldestFirst
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestLearningGovernanceBoundaryIsCompleteAndOldestFirst
+        hash: sha256:c40e4b7223a0083850b2c85dbe73c9a0c6368ee0ed7f10e177d41cfd7b0081a5
+        struct_hash: sha256:7176af1c716d022b3feed894cf35122e0b149c006bdbbfef150fa7be9fd9c3d0
+        doc_struct_hash: sha256:7176af1c716d022b3feed894cf35122e0b149c006bdbbfef150fa7be9fd9c3d0
+        lines: [4465, 4494]
+      status: fresh
+      since: 2026-08-06T07:38:52.589127Z

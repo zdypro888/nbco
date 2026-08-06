@@ -1190,10 +1190,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.ingestWorkerLearningCandidates
-        hash: sha256:591c67bec0325b5edb652a4e86b51b36027cc491ab1f7539438f7591457a317a
-        struct_hash: sha256:2c6f8d20d04af3538c8f800fd3ee121a671ac69e6ef55c97141f1386d6c9ca31
-        doc_struct_hash: sha256:2c6f8d20d04af3538c8f800fd3ee121a671ac69e6ef55c97141f1386d6c9ca31
-        lines: [2472, 2571]
+        hash: sha256:121cb1b9dcc8a67aa8b2732a064e34006b169cd353dc6e3d744eda6d0c2cdd3e
+        struct_hash: sha256:c37906ee66139c034e11098505c0e77844d185970537a9c412c5cf0d61bd432b
+        doc_struct_hash: sha256:c37906ee66139c034e11098505c0e77844d185970537a9c412c5cf0d61bd432b
+        lines: [2484, 2583]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#afterLast

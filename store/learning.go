@@ -21,6 +21,13 @@ const (
 	LearningStatusPublished = "published"
 	LearningStatusRejected  = "rejected"
 
+	// MemoryClass is orthogonal to Kind: it records which subsystem owns the
+	// truth. Only durable candidates may enter semantic memory automatically.
+	LearningMemoryUnclassified = "unclassified"
+	LearningMemoryDurable      = "durable"
+	LearningMemoryCanonical    = "canonical"
+	LearningMemoryTransient    = "transient"
+
 	// LearningDuplicateThreshold is intentionally below exact-text territory:
 	// the miner commonly paraphrases the same durable rule across conversations.
 	LearningDuplicateThreshold = 0.60
@@ -49,32 +56,34 @@ type LearningCandidate struct {
 	ConflictWith         *int64
 	ValueScore           float32
 	ReviewNote           string
+	MemoryClass          string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
 
 type LearningCandidateInput struct {
-	Kind       string
-	Scope      string
-	Title      string
-	Content    string
-	Tags       []string
-	Evidence   json.RawMessage
-	Confidence float32
-	Status     string
-	SourceType string
-	SourceRef  string
-	CreatedBy  *int64
+	Kind        string
+	Scope       string
+	Title       string
+	Content     string
+	Tags        []string
+	Evidence    json.RawMessage
+	Confidence  float32
+	Status      string
+	SourceType  string
+	SourceRef   string
+	CreatedBy   *int64
+	MemoryClass string
 }
 
-const learningCandidateCols = `id, kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by, reviewed_by, reviewed_at, published_knowledge_id, duplicate_of, conflict_with, value_score, review_note, created_at, updated_at`
+const learningCandidateCols = `id, kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by, reviewed_by, reviewed_at, published_knowledge_id, duplicate_of, conflict_with, value_score, review_note, memory_class, created_at, updated_at`
 
 func scanLearningCandidate(row interface{ Scan(...any) error }) (*LearningCandidate, error) {
 	var c LearningCandidate
 	if err := row.Scan(&c.ID, &c.Kind, &c.Scope, &c.Title, &c.Content, &c.Tags, &c.Evidence,
 		&c.Confidence, &c.Status, &c.SourceType, &c.SourceRef, &c.CreatedBy, &c.ReviewedBy,
 		&c.ReviewedAt, &c.PublishedKnowledgeID, &c.DuplicateOf, &c.ConflictWith,
-		&c.ValueScore, &c.ReviewNote, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		&c.ValueScore, &c.ReviewNote, &c.MemoryClass, &c.CreatedAt, &c.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &c, nil
@@ -93,18 +102,131 @@ func (s *Store) CreateLearningCandidate(ctx context.Context, in LearningCandidat
 	if in.Status == "" {
 		in.Status = LearningStatusPending
 	}
+	in.MemoryClass = NormalizeLearningMemoryClass(in.Kind, in.MemoryClass)
 	return scanLearningCandidate(s.pool.QueryRow(ctx,
 		`INSERT INTO learning_candidates
-		   (kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		   (kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by, memory_class)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		 RETURNING `+learningCandidateCols,
 		in.Kind, in.Scope, in.Title, in.Content, in.Tags, in.Evidence, in.Confidence,
-		in.Status, in.SourceType, in.SourceRef, in.CreatedBy))
+		in.Status, in.SourceType, in.SourceRef, in.CreatedBy, in.MemoryClass))
+}
+
+func NormalizeLearningMemoryClass(kind, memoryClass string) string {
+	switch strings.TrimSpace(memoryClass) {
+	case LearningMemoryDurable, LearningMemoryCanonical, LearningMemoryTransient, LearningMemoryUnclassified:
+		return strings.TrimSpace(memoryClass)
+	}
+	switch strings.TrimSpace(kind) {
+	case LearningKindRule, LearningKindSkill, LearningKindScript:
+		return LearningMemoryDurable
+	case LearningKindProfile:
+		return LearningMemoryCanonical
+	case LearningKindSummary:
+		return LearningMemoryTransient
+	default:
+		return LearningMemoryUnclassified
+	}
 }
 
 func (s *Store) LearningCandidateByID(ctx context.Context, id int64) (*LearningCandidate, error) {
 	return scanLearningCandidate(s.pool.QueryRow(ctx,
 		`SELECT `+learningCandidateCols+` FROM learning_candidates WHERE id = $1`, id))
+}
+
+func (s *Store) LearningCandidatesByIDs(ctx context.Context, ids []int64) ([]*LearningCandidate, error) {
+	ids = normalizeSnapshotIDs(ids)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+learningCandidateCols+` FROM learning_candidates
+		  WHERE id = ANY($1) ORDER BY array_position($1::bigint[], id)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]*LearningCandidate, 0, len(ids))
+	for rows.Next() {
+		c, err := scanLearningCandidate(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// LearningCandidateIDsForGovernance returns the complete oldest-first input
+// boundary for one governance cycle. The scheduler persists this list before
+// scoring or reviewing it, so later candidates cannot enter an open cycle and
+// an old backlog cannot be starved by newer rows.
+func (s *Store) LearningCandidateIDsForGovernance(ctx context.Context) ([]int64, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id FROM learning_candidates
+		  WHERE status=$1 AND memory_class=$2 AND kind=ANY($3)
+		  ORDER BY id`,
+		LearningStatusPending, LearningMemoryDurable,
+		[]string{LearningKindKnowledge, LearningKindRule, LearningKindSkill})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, wrapErr(err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Store) SetLearningCandidateMemoryClass(ctx context.Context, id, reviewerID int64, memoryClass string) error {
+	memoryClass = NormalizeLearningMemoryClass("", memoryClass)
+	if memoryClass == LearningMemoryUnclassified {
+		return fmt.Errorf("memory class must be durable, canonical, or transient")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	candidate, err := scanLearningCandidate(tx.QueryRow(ctx,
+		`SELECT `+learningCandidateCols+` FROM learning_candidates WHERE id=$1 FOR UPDATE`, id))
+	if err != nil {
+		return err
+	}
+	if candidate.Status == LearningStatusRejected ||
+		(candidate.Status == LearningStatusPublished && memoryClass == LearningMemoryDurable) {
+		return ErrNotFound
+	}
+	if candidate.Status == LearningStatusPublished && candidate.PublishedKnowledgeID != nil {
+		note := "reclassified as " + memoryClass + "; removed from semantic memory"
+		if err := snapshotKnowledgeRow(ctx, tx, *candidate.PublishedKnowledgeID, &reviewerID, note); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE knowledge SET active=false, embed_model='', embedding=NULL, updated_at=now()
+			  WHERE id=$1`, *candidate.PublishedKnowledgeID); err != nil {
+			return err
+		}
+	}
+	status := candidate.Status
+	note := candidate.ReviewNote
+	if memoryClass != LearningMemoryDurable {
+		status = LearningStatusRejected
+		note = "归档：信息权威归属为 " + memoryClass + "，不进入语义记忆。"
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE learning_candidates
+		    SET memory_class=$2, status=$3, reviewed_by=$4, reviewed_at=now(),
+		        review_note=$5, updated_at=now()
+		  WHERE id=$1`, id, memoryClass, status, reviewerID, note); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) ListLearningCandidates(ctx context.Context, status, kind string, limit int) ([]*LearningCandidate, error) {
@@ -161,16 +283,16 @@ func (s *Store) MarkLearningCandidatePublished(ctx context.Context, id, reviewer
 	return s.execOne(ctx,
 		`UPDATE learning_candidates
 		    SET status = $2, reviewed_by = $3, reviewed_at = now(), published_knowledge_id = $4, updated_at = now()
-		  WHERE id = $1`,
-		id, LearningStatusPublished, reviewerID, knowledgeID)
+		  WHERE id = $1 AND status = $5`,
+		id, LearningStatusPublished, reviewerID, knowledgeID, LearningStatusPending)
 }
 
 func (s *Store) RejectLearningCandidate(ctx context.Context, id, reviewerID int64) error {
 	return s.execOne(ctx,
 		`UPDATE learning_candidates
 		    SET status = $2, reviewed_by = $3, reviewed_at = now(), updated_at = now()
-		  WHERE id = $1`,
-		id, LearningStatusRejected, reviewerID)
+		  WHERE id = $1 AND status = $4`,
+		id, LearningStatusRejected, reviewerID, LearningStatusPending)
 }
 
 // ScoreLearningCandidates gives pending candidates a deterministic governance
@@ -202,8 +324,25 @@ func (s *Store) ScoreLearningCandidates(ctx context.Context, limit int) (int, er
 	if err := rows.Err(); err != nil {
 		return 0, err
 	}
+	return s.scoreLearningCandidates(ctx, items)
+}
+
+// ScoreLearningCandidatesByIDs scores one immutable scheduler batch. It does
+// not discover rows itself, which preserves the cycle snapshot boundary.
+func (s *Store) ScoreLearningCandidatesByIDs(ctx context.Context, ids []int64) (int, error) {
+	items, err := s.LearningCandidatesByIDs(ctx, ids)
+	if err != nil {
+		return 0, err
+	}
+	return s.scoreLearningCandidates(ctx, items)
+}
+
+func (s *Store) scoreLearningCandidates(ctx context.Context, items []*LearningCandidate) (int, error) {
 	updated := 0
 	for _, c := range items {
+		if c == nil || c.Status != LearningStatusPending {
+			continue
+		}
 		score := learningValueScore(c)
 		dupe, similarity, err := s.learningDuplicateID(ctx, c)
 		if err != nil {
@@ -254,9 +393,9 @@ func (s *Store) learningDuplicateID(ctx context.Context, c *LearningCandidate) (
 	}
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, title, content FROM learning_candidates
-		  WHERE id <> $1 AND kind = $2 AND status = ANY($3)
+		  WHERE id <> $1 AND kind = $2 AND status = ANY($3) AND memory_class = $4
 		  ORDER BY CASE WHEN id < $1 THEN 0 ELSE 1 END, id DESC
-		  LIMIT 200`, c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished})
+		  LIMIT 200`, c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished}, c.MemoryClass)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -287,15 +426,28 @@ func (s *Store) learningDuplicateID(ctx context.Context, c *LearningCandidate) (
 // bounded recent set. It catches paraphrased candidates without another model
 // call and is deterministic enough for retries.
 func (s *Store) SimilarLearningCandidateExists(ctx context.Context, kind, title, content string, threshold float64, statuses ...string) (bool, error) {
+	return s.similarLearningCandidateExists(ctx, kind, "", title, content, threshold, statuses...)
+}
+
+func (s *Store) SimilarLearningCandidateExistsInClass(ctx context.Context, kind, memoryClass, title, content string, threshold float64, statuses ...string) (bool, error) {
+	return s.similarLearningCandidateExists(ctx, kind, NormalizeLearningMemoryClass(kind, memoryClass), title, content, threshold, statuses...)
+}
+
+func (s *Store) similarLearningCandidateExists(ctx context.Context, kind, memoryClass, title, content string, threshold float64, statuses ...string) (bool, error) {
 	if threshold <= 0 {
 		threshold = LearningDuplicateThreshold
 	}
 	if len(statuses) == 0 {
 		statuses = []string{LearningStatusPending, LearningStatusPublished}
 	}
-	rows, err := s.pool.Query(ctx,
-		`SELECT title, content FROM learning_candidates
-		  WHERE kind = $1 AND status = ANY($2) ORDER BY id DESC LIMIT 200`, kind, statuses)
+	query := `SELECT title, content FROM learning_candidates WHERE kind = $1 AND status = ANY($2)`
+	args := []any{kind, statuses}
+	if memoryClass != "" {
+		query += ` AND memory_class = $3`
+		args = append(args, memoryClass)
+	}
+	query += ` ORDER BY id DESC LIMIT 200`
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -379,9 +531,9 @@ func (s *Store) learningConflictID(ctx context.Context, c *LearningCandidate) (*
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+learningCandidateCols+`
 		   FROM learning_candidates
-		  WHERE id <> $1 AND kind = $2 AND status = ANY($3)
+		  WHERE id <> $1 AND kind = $2 AND status = ANY($3) AND memory_class = $4
 		  ORDER BY id DESC LIMIT 200`,
-		c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished})
+		c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished}, c.MemoryClass)
 	if err != nil {
 		return nil, err
 	}

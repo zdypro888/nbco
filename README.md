@@ -325,7 +325,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 - **老板日报**：同一时刻给超管推全局概览（进行中/过期/待验收/近24小时验收 + 过期任务点名）
 - **AI 周报**：每周一同一时刻，AI 调 `company_overview` 等工具核实数据后，给每位超管写叙事周报
 - **权限感知通用读取**：`query_data` 让 AI 自行发现并查询成员、身份、画像、权限、项目、任务、文件、日程、知识、目标、活动与审计等数据；数据库在检索前按调用者做行级/字段级裁剪，超管另有只读 SQL 兜底
-- **月度人员盘点**：每月 1 号，AI 以超管身份基于任务履历更新成员画像草稿，并推送盘点摘要
+- **月度人员盘点**：每月 1 号，AI 以超管身份基于任务履历更新成员画像草稿，并推送盘点摘要。所有周期批处理在首次运行时冻结当期成员快照；后续 tick 只重试该快照中的失败项，当期新增成员进入下个周期，避免开放重试窗口变成持续吸收新数据的常驻任务
 
 ### 系统事件总线（事件 → AI 决策）
 
@@ -342,7 +342,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
 - **行为规则（Policy Memory）**：超管对 AI 提出持久要求时，Memory Miner 先抽取、再由独立治理子调用判断发布/待审/拒绝；冲突候选不会并排自动生效。少数 `pinned` 底线规则每轮常驻，其余规则按当前输入语义召回并校验作用域。知识、规则和 Skill 都支持 `set_knowledge_active` 可逆归档；归档后立即退出提示注入、搜索和 Qdrant 对账，原文、版本与审计仍保留。
 - **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 作为常驻只读能力交给 DeepAgent，是否检索、检索什么由 Agent 根据当前目标决定。授权聊天原文、单轮 Eino 执行日志和 Worker 主题会话在 PostgreSQL 中保持原值，保证 Agent/PTY 恢复时不丢参数和凭据；embedding、Memory Miner、学习候选和审计摘要使用独立的脱敏投影。旧 AI 答复不会被自动当成当前事实回灌；短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
-- **知识代谢**：每月 2 号 AI 自动盘点知识库——合并重复、删过期、点名冲突条目待裁决（冲突不擅自定夺）
+- **知识代谢**：每月 2 号 AI 对当期冻结的学习候选快照做一次治理——合并重复、归档过期、点名冲突条目待裁决（冲突不擅自定夺）。批次可跨 tick 重试，但快照成员和最终汇报在本期保持稳定；月中新候选进入下期
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，生效知识/规则/Skill、会话中可用于上下文的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除或归档实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
 - **文件正文索引**：上传请求只负责可靠落盘，后台持久队列再提取文本并按重叠窗口分块；PostgreSQL 正文提取与 Qdrant 向量写入分别记录状态和重试。TXT/CSV/JSON/源码和 DOCX/XLSX/PPTX/ODF 使用确定性提取；PDF 优先读取文本层，无文本层时受控 OCR，图片使用 `tesseract`（命令不可用时文件名和元数据仍可搜索，安装新提取器后会自动重试）。该流程限制 Office 解压规模与 OCR 页数，只建立搜索索引，不执行文件内容，也不会自动发布成知识、规则或 Skill
@@ -358,11 +358,11 @@ Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；�
 
 nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把可长期复用的结论沉淀成可治理资产：
 
-- **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态与审核人
-- **对话学习**：Memory Miner 从对话里抽取规则、skill、知识；每个条目必须引用用户原话或受控工具证据，再经过独立治理子调用复核是否过度泛化。发布、待审、拒绝和冲突分流都留下 learning candidate 记录，助手承诺、一次性催促和当前运行状态不能直接变成长期规则
+- **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态、审核人和权威类别。`memory_class` 将资产分为可长期复用的 `durable`、应回写业务表的 `canonical`、仅供历史检索的 `transient` 与待人工判断的 `unclassified`
+- **对话学习**：Memory Miner 只消费用户真实输入和已验证工具结果，不消费 Gateway 为执行而补充的文件路径、控制指令或模型答复。它从证据中抽取规则、skill、知识，再由独立治理子调用复核权威类别和是否过度泛化；只有双方一致判定为 `durable` 的候选才可自动进入长期资产。员工档案、任务、项目、日程等 `canonical` 主数据必须由对应领域工具维护，短期事件留在聊天与活动索引中
 - **worker 学习**：worker 完成资料分析任务时，可在汇报末尾输出 `NBCO_LEARNING_CANDIDATES_JSON:`，nbco 会解析为学习候选
-- **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，标记明显重复/冲突；调度器月度知识盘点和 Web 学习页会自动触发一次轻量评分
-- **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布到正式知识库/规则/Skill，用 `reject_learning_candidate` 清理噪音
+- **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，并只在同一 `memory_class` 内判断重复/冲突；调度器月度治理和 Web 学习页会自动触发一次轻量评分
+- **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布 `durable` 知识/规则/Skill，用 `classify_learning_candidate` 把误入长期资产的主数据或短期事件可逆归档。状态机禁止已拒绝候选被重新发布，也禁止未分类候选绕过权威判断
 - **版本回滚**：知识/规则/Skill 更新前会写入 `knowledge_versions`；误改后用 `list_knowledge_versions` / `rollback_knowledge` 恢复
 - **资料实体库**：worker 资料分析可同时输出客户、项目、合同、制度、联系人等结构化实体，入 `material_entities`，再由 `list_material_entities` 检索
 - **对话回归用例**：`create_eval_case` / `list_eval_cases` 保存格式、隐私、工具纪律等红线用例，作为后续自动评测入口
