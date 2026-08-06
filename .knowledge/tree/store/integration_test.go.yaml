@@ -1108,3 +1108,14 @@ nodes:
         lines: [4465, 4494]
       status: fresh
       since: 2026-08-06T07:38:52.589127Z
+    - id: store/integration_test.go#TestAutomationSnapshotIsImmutable
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestAutomationSnapshotIsImmutable
+        hash: sha256:5b77c9917a8179a44712c44259ee5b8732ce04f725c691abc4046fd3af97e262
+        struct_hash: sha256:ad1edd2a25dc9b511ec43b764b2e6179614aeb3018bb16992bd9053822b347b8
+        doc_struct_hash: sha256:ad1edd2a25dc9b511ec43b764b2e6179614aeb3018bb16992bd9053822b347b8
+        lines: [4378, 4403]
+      status: fresh
+      since: 2026-08-06T07:42:42.315031Z

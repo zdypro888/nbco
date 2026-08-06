@@ -90,7 +90,11 @@ func normalizeSnapshotIDs(ids []int64) []int64 {
 	ids = append([]int64(nil), ids...)
 	slices.Sort(ids)
 	ids = slices.Compact(ids)
-	return slices.DeleteFunc(ids, func(id int64) bool { return id <= 0 })
+	ids = slices.DeleteFunc(ids, func(id int64) bool { return id <= 0 })
+	if len(ids) == 0 {
+		return []int64{}
+	}
+	return ids
 }
 
 // DeleteExpiredAutomationSnapshots bounds the retained snapshot ledger. Runs

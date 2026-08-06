@@ -19,3 +19,14 @@ nodes:
         lines: [35, 87]
       status: fresh
       since: 2026-08-06T07:19:18.394429Z
+    - id: store/automation_snapshots.go#normalizeSnapshotIDs
+      level: function
+      anchor:
+        file: store/automation_snapshots.go
+        symbol: normalizeSnapshotIDs
+        hash: sha256:60afc670abe0ae1a547f3b0411672c387a8fbbaefc410dfc7da489c050d38775
+        struct_hash: sha256:2273a734651c1df8cd84effba05322395523743940a38d9c196597075869ccfa
+        doc_struct_hash: sha256:2273a734651c1df8cd84effba05322395523743940a38d9c196597075869ccfa
+        lines: [89, 98]
+      status: fresh
+      since: 2026-08-06T07:42:42.297672Z

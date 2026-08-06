@@ -4393,6 +4393,13 @@ func TestAutomationSnapshotIsImmutable(t *testing.T) {
 	if second.ItemKind != "candidate" || second.ExpiresAt == nil || !second.ExpiresAt.Equal(expires) {
 		t.Fatalf("snapshot metadata changed: %+v", second)
 	}
+	empty, err := s.GetOrCreateAutomationSnapshot(ctx, "monthly-test", "2026-08", 8, "candidate", nil, expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if empty.ItemIDs == nil || len(empty.ItemIDs) != 0 {
+		t.Fatalf("empty snapshot must persist an empty PostgreSQL array: %+v", empty.ItemIDs)
+	}
 }
 
 func TestLearningCandidateMemoryAuthority(t *testing.T) {
