@@ -515,6 +515,15 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 	if d == nil || d.ClaimedAt == nil {
 		return
 	}
+	allowed, err := s.store.ScheduleDeliveryAllowed(ctx, d.UserID, d.ScheduleID)
+	if err != nil {
+		s.retryScheduleRecipient(ctx, d, "读取接收人定时通知偏好失败: "+err.Error())
+		return
+	}
+	if !allowed {
+		s.suppressScheduleRecipient(ctx, d, "接收人已关闭此类定时通知。")
+		return
+	}
 	u, err := s.store.UserByID(ctx, d.UserID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -535,6 +544,10 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 			prepared, prepareErr := s.prepareScheduleAI(ctx, d, time.Now())
 			if prepareErr != nil {
 				s.retryScheduleRecipient(ctx, d, "准备定时推送失败: "+prepareErr.Error())
+				return
+			}
+			if prepared.SuppressDelivery {
+				s.suppressScheduleRecipient(ctx, d, prepared.DirectResult)
 				return
 			}
 			message = prepared.DirectResult
@@ -561,6 +574,15 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 	} else {
 		message = "⏰ 提醒：" + message
 	}
+	allowed, err = s.store.ScheduleDeliveryAllowed(ctx, d.UserID, d.ScheduleID)
+	if err != nil {
+		s.retryScheduleRecipient(ctx, d, "发送前复核定时通知偏好失败: "+err.Error())
+		return
+	}
+	if !allowed {
+		s.suppressScheduleRecipient(ctx, d, "接收人在投递前关闭了此类定时通知。")
+		return
+	}
 	if !s.send(ctx, u.ID, message) {
 		s.retryScheduleRecipient(ctx, d, "通知投递失败")
 		return
@@ -571,9 +593,10 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 }
 
 type preparedScheduleAI struct {
-	Directive    string
-	DirectResult string
-	Options      chat.AutomationTurnOptions
+	Directive        string
+	DirectResult     string
+	SuppressDelivery bool
+	Options          chat.AutomationTurnOptions
 }
 
 func (s *Scheduler) prepareScheduleAI(ctx context.Context, d *store.ScheduleDelivery, generatedAt time.Time) (preparedScheduleAI, error) {
@@ -666,15 +689,20 @@ func (s *Scheduler) prepareTelegramGroupDigest(
 		title = "未命名群"
 	}
 	if page.Total == 0 {
-		return preparedScheduleAI{
-			DirectResult: renderEmptyTelegramGroupDigest(title, from, to, tz),
-			Options:      chat.AutomationTurnOptions{ReadOnly: true, Mode: ai.TurnModeOneShot},
-		}, nil
+		return emptyTelegramGroupDigestResult(title, from, to, tz), nil
 	}
 	return preparedScheduleAI{
 		Directive: renderTelegramGroupDigestDirective(title, sc.Message, page, from, to, tz),
 		Options:   chat.AutomationTurnOptions{ReadOnly: true, Mode: ai.TurnModeOneShot},
 	}, nil
+}
+
+func emptyTelegramGroupDigestResult(title string, from, to time.Time, tz *time.Location) preparedScheduleAI {
+	return preparedScheduleAI{
+		DirectResult:     renderEmptyTelegramGroupDigest(title, from, to, tz),
+		SuppressDelivery: true,
+		Options:          chat.AutomationTurnOptions{ReadOnly: true, Mode: ai.TurnModeOneShot},
+	}
 }
 
 func renderEmptyTelegramGroupDigest(title string, from, to time.Time, tz *time.Location) string {
@@ -713,7 +741,7 @@ func renderTelegramGroupDigestDirective(
 	}
 	data, _ := json.Marshal(payload)
 	return "[系统定时触发·Telegram 群摘要]（此输入来自系统调度器，不是用户本人）\n" +
-		"只根据 <group_digest_context> 内系统实际保存的消息生成简洁摘要，覆盖事实、进展、问题/风险、决策和待跟进事项。不得补充模型常识、节假日、群外状态或未被消息证明的因果关系；不得把消息数说成人数。观察窗口未覆盖全天或消息被截断时必须明确说明。直接输出给摘要订阅者看的内容，不展示内部上下文。\n" +
+		"只根据 <group_digest_context> 内系统实际保存的消息生成简洁摘要，覆盖事实、进展、问题/风险、决策和待跟进事项。每条消息的 at 是系统收到消息的时间，不一定是正文所述事件或日报的业务日期；正文明确给出其他日期时必须保留两种时间的区别，无法确定事件日期时不要把接收日当作事件日。不得补充模型常识、节假日、群外状态或未被消息证明的因果关系；不得把消息数说成人数。观察窗口未覆盖全天或消息被截断时必须明确说明。直接输出给摘要订阅者看的内容，不展示内部上下文。\n" +
 		"<group_digest_context>" + string(data) + "</group_digest_context>"
 }
 
@@ -763,6 +791,12 @@ func (s *Scheduler) retryScheduleRecipient(ctx context.Context, d *store.Schedul
 func (s *Scheduler) failScheduleRecipient(ctx context.Context, d *store.ScheduleDelivery, cause string) {
 	if err := s.store.MarkScheduleDeliveryFailed(ctx, d.ID, *d.ClaimedAt, cause); err != nil {
 		slog.Warn("接收人永久失败状态保存失败", "delivery", d.ID, "err", err)
+	}
+}
+
+func (s *Scheduler) suppressScheduleRecipient(ctx context.Context, d *store.ScheduleDelivery, reason string) {
+	if err := s.store.MarkScheduleDeliverySuppressed(ctx, d.ID, *d.ClaimedAt, reason); err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Warn("接收人定时投递静默状态保存失败", "delivery", d.ID, "err", err)
 	}
 }
 

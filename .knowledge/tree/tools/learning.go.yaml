@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/learning.go
-        hash: sha256:83672a81b27402b73f8acdf6235793ad19f63fdcfc2cef935ae192a850ce5a8f
+        hash: sha256:9cea99c36f6437cb7aaa0681c1f72e8cbb16ae356e82860d0d5bd542f9151bea
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/learning.go
         symbol: learningTools
-        hash: sha256:8950ed82bc8f4d75f78ce719eca2a7225c2b41953cab458fc5fbb2954b203ff2
-        struct_hash: sha256:3b41bb739e5008db2546f659f6284950d6f1bfab365a51eb75b0b88f694aec0a
-        doc_struct_hash: sha256:3b41bb739e5008db2546f659f6284950d6f1bfab365a51eb75b0b88f694aec0a
-        lines: [15, 197]
+        hash: sha256:24cb661033a40b99c7057df94e9dfe90d6b8ff40dde1c230639d3f13d4fd94be
+        struct_hash: sha256:6ba8f0104f822191c28d93ea0b67b0ad19a730d855a9e02cd137db35fef7ba04
+        doc_struct_hash: sha256:6ba8f0104f822191c28d93ea0b67b0ad19a730d855a9e02cd137db35fef7ba04
+        lines: [15, 200]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/learning.go#validLearningKind
@@ -27,7 +27,7 @@ nodes:
         hash: sha256:cef2a533d2b62fd82dbcb1fb8126fc2d2fd176495baba2f0433adf4972a1cb50
         struct_hash: sha256:8850ffb35bcd6e7dc20fd55d852d14cf7e4b64519695937be9f740808d32f081
         doc_struct_hash: sha256:8850ffb35bcd6e7dc20fd55d852d14cf7e4b64519695937be9f740808d32f081
-        lines: [161, 169]
+        lines: [202, 210]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/learning.go#normalizeLearningScope
@@ -38,7 +38,7 @@ nodes:
         hash: sha256:0942ddedab422ba4b4e06294e55a691903402d32a269f36746aa799fa0bc27a6
         struct_hash: sha256:0448b678ac035d62ab284451d9959ec7e38f143523c3e1788e02d7dc09f8654f
         doc_struct_hash: sha256:0448b678ac035d62ab284451d9959ec7e38f143523c3e1788e02d7dc09f8654f
-        lines: [171, 177]
+        lines: [212, 218]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/learning.go#normalizeLearningTags
@@ -49,7 +49,7 @@ nodes:
         hash: sha256:23d1576e19389f846dadcad3a829bcbcafc95b30b8dc6b40427f077f7b0e1645
         struct_hash: sha256:ff474583fc607f594d16382c8996a5264347783f683a380c35b5b9f91c0e2862
         doc_struct_hash: sha256:ff474583fc607f594d16382c8996a5264347783f683a380c35b5b9f91c0e2862
-        lines: [179, 181]
+        lines: [220, 222]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/learning.go#publishLearningCandidate
@@ -60,9 +60,20 @@ nodes:
         hash: sha256:668b8b1ed1984d421ef6d2bc20907d0a6d0eab506506efc617c6841dd4c05af4
         struct_hash: sha256:45116f2447f524c909a7b36f19c97fdf150ee2a192f0e0a96bcd0c0432b4a159
         doc_struct_hash: sha256:45116f2447f524c909a7b36f19c97fdf150ee2a192f0e0a96bcd0c0432b4a159
-        lines: [221, 261]
+        lines: [224, 264]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/learning.go#publishableLearningKind
+      level: function
+      anchor:
+        file: tools/learning.go
+        symbol: publishableLearningKind
+        hash: sha256:e6d08d197bf36544512831125199fcdf7d6ccb323dfbd7e33d82b24d3792e085
+        struct_hash: sha256:5cb5af1e87c60c689ef66bc4b24f0a1478e7239e793cd98daddace77058404c2
+        doc_struct_hash: sha256:5cb5af1e87c60c689ef66bc4b24f0a1478e7239e793cd98daddace77058404c2
+        lines: [266, 273]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: tools/learning.go#ensureTag
       level: function
       anchor:
@@ -71,7 +82,7 @@ nodes:
         hash: sha256:101f37103139fb86b4f362037c7ba1e888e2b070666dfab55024298cb1ea5f3c
         struct_hash: sha256:16327275a85651e3de1ddf26b8cadbe31e9d341596419728d5ff4f1071621d26
         doc_struct_hash: sha256:16327275a85651e3de1ddf26b8cadbe31e9d341596419728d5ff4f1071621d26
-        lines: [222, 229]
+        lines: [275, 282]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/learning.go#renderLearningCandidates
@@ -79,10 +90,10 @@ nodes:
       anchor:
         file: tools/learning.go
         symbol: renderLearningCandidates
-        hash: sha256:bfc7b54a41be369d7a34b16275aa041b2bf4b6528de46b1e6fc29908222595cb
-        struct_hash: sha256:a6be677d0119959d953b8da4c5100647597ee5b4485260443c468f6f634b95e5
-        doc_struct_hash: sha256:a6be677d0119959d953b8da4c5100647597ee5b4485260443c468f6f634b95e5
-        lines: [231, 268]
+        hash: sha256:3a3a85c1cef153912f154e325cafb3e01a5c53ffef2ecec42bebb8e52dabaf85
+        struct_hash: sha256:8d8ecf8a93242511aa72e78b09abbc9fa8b16cce49c4e1d66d466833b8e13475
+        doc_struct_hash: sha256:8d8ecf8a93242511aa72e78b09abbc9fa8b16cce49c4e1d66d466833b8e13475
+        lines: [284, 321]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/learning.go#renderLearningEvidence
@@ -93,6 +104,6 @@ nodes:
         hash: sha256:683da89bf81f3bf62e79d1f334ba268c0dc3dfd6080e8525a1122bffae38b698
         struct_hash: sha256:b38daafc256bd11a5a00f069f08f4da1f72a768bbd62c64e0352170bd77db7d4
         doc_struct_hash: sha256:b38daafc256bd11a5a00f069f08f4da1f72a768bbd62c64e0352170bd77db7d4
-        lines: [270, 284]
+        lines: [323, 337]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -331,6 +331,13 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					if sc.Mode == store.ScheduleModeAI {
 						b.WriteString(" [AI生成]")
 					}
+					if sc.TargetsViewer {
+						if sc.DeliveryEnabled {
+							b.WriteString(" [接收开启]")
+						} else {
+							b.WriteString(" [接收关闭]")
+						}
+					}
 					if sc.LastFired != nil {
 						fmt.Fprintf(&b, " 最近触发 %s", fmtTime(*sc.LastFired, d.TZ))
 					}
@@ -338,6 +345,93 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				}
 				return b.String(), nil
 			}),
+
+		tool("set_schedule_subscription", "设置当前用户自己是否接收定时通知，不修改共享日程本身。scope=schedule 用于关闭或恢复一条发给自己的日程；scope=all 用于关闭或恢复所有当前及未来日程通知。查询收到哪些日程先用 list_schedules。别人创建的全员推送不能用 cancel_schedule 全局取消，应使用本工具管理自己的接收状态。",
+			obj(map[string]any{
+				"scope":       enumP("作用范围", "schedule", "all"),
+				"schedule_id": p("integer", "scope=schedule 时的稳定日程ID；不知道时可改传 query"),
+				"query":       p("string", "scope=schedule 且不知道 ID 时，按标题或内容查找唯一日程"),
+				"enabled":     p("boolean", "true=恢复接收，false=停止接收"),
+			}, "scope", "enabled"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Scope      string `json:"scope"`
+					ScheduleID int64  `json:"schedule_id"`
+					Query      string `json:"query"`
+					Enabled    bool   `json:"enabled"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				scheduleID := store.SchedulePreferenceAll
+				switch args.Scope {
+				case "all":
+				case "schedule":
+					var message string
+					var err error
+					scheduleID, message, err = resolveIncomingSchedule(ctx, d, u, args.ScheduleID, args.Query)
+					if err != nil || message != "" {
+						return message, err
+					}
+				default:
+					return "scope 必须是 schedule 或 all。", nil
+				}
+				if err := d.Store.SetScheduleDeliveryPreference(ctx, u.ID, scheduleID, args.Enabled); err != nil {
+					if errors.Is(err, store.ErrNotFound) {
+						return "日程不存在、已结束或并不发送给当前用户。", nil
+					}
+					return "", err
+				}
+				state := "已停止接收"
+				if args.Enabled {
+					state = "已恢复接收"
+				}
+				if scheduleID == store.SchedulePreferenceAll {
+					return state + "所有定时通知；这不会修改创建者的共享日程。", nil
+				}
+				return fmt.Sprintf("%s%s；这不会修改创建者的共享日程。", state, internalRef("日程", scheduleID)), nil
+			}),
+	}
+}
+
+func resolveIncomingSchedule(ctx context.Context, d Deps, u *store.User, scheduleID int64, query string) (int64, string, error) {
+	items, err := d.Store.SchedulesVisible(ctx, u.ID, u.IsSuperadmin, store.ScheduleActive, 500)
+	if err != nil {
+		return 0, "", err
+	}
+	query = strings.ToLower(strings.TrimSpace(query))
+	matches := make([]store.ScheduleView, 0, len(items))
+	for _, item := range items {
+		if !item.TargetsViewer {
+			continue
+		}
+		if scheduleID > 0 {
+			if item.ID == scheduleID {
+				return item.ID, "", nil
+			}
+			continue
+		}
+		if query == "" {
+			continue
+		}
+		haystack := strings.ToLower(strings.Join([]string{item.Title, item.Message, item.SourceKind, item.CreatorName}, "\n"))
+		if strings.Contains(haystack, query) {
+			matches = append(matches, item)
+		}
+	}
+	if scheduleID > 0 {
+		return 0, "日程不存在、已结束或并不发送给当前用户。", nil
+	}
+	if query == "" {
+		return 0, "scope=schedule 时请提供 schedule_id；不知道编号时提供 query。", nil
+	}
+	switch len(matches) {
+	case 0:
+		return 0, "没有找到匹配且会发送给当前用户的活跃日程。", nil
+	case 1:
+		return matches[0].ID, "", nil
+	default:
+		return 0, "匹配到多条会发送给当前用户的活跃日程，请根据稳定 ID 指定一条：\n" + renderScheduleCandidates(matches, d.TZ), nil
 	}
 }
 

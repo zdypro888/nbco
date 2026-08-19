@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: tools/learning_test.go
+      level: file
+      anchor:
+        file: tools/learning_test.go
+        hash: sha256:bb40661d5d0ca2c3e5691eecb8c6edc40233c7368590e0eeb105515215507677
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: tools/learning_test.go#TestEmployeeLearningRuleCannotEscalateScope
+      level: function
+      anchor:
+        file: tools/learning_test.go
+        symbol: TestEmployeeLearningRuleCannotEscalateScope
+        hash: sha256:cb7911120eb5b6a92ba18ce87491bea14bc432e08db91165b5e47412341f1671
+        struct_hash: sha256:5083d1615dcf20573bc5a268217c051c63e5b73ae606b7f62549c472b3a5154c
+        doc_struct_hash: sha256:5083d1615dcf20573bc5a268217c051c63e5b73ae606b7f62549c472b3a5154c
+        lines: [12, 35]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z

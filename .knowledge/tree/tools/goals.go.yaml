@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/goals.go
-        hash: sha256:e42800cf3fe2f22680a9617ede65cf94f273e41db54331919579ac0460934bf4
+        hash: sha256:097f09b8bbd707a7a669fae13278e0057e16675ed071a35863b3970ec2d8d0ff
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -354,17 +354,30 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"schedules": {
 		DataSource: DataSource{
 			Name: "schedules", Description: "定时任务和自动化；普通用户只看发给自己或自己创建的条目。",
-			Fields: []string{"schedule_id", "title", "kind", "message", "fire_at", "interval_s", "status", "last_fired", "target", "mode", "daily_at", "weekdays", "created_by", "source_kind", "source_key", "created_at", "updated_at"},
+			Fields: []string{"schedule_id", "title", "kind", "message", "fire_at", "interval_s", "status", "last_fired", "target", "targets_viewer", "delivery_enabled", "mode", "daily_at", "weekdays", "created_by", "source_kind", "source_key", "created_at", "updated_at"},
 		},
 		query: `SELECT jsonb_build_object(
-			'schedule_id', s.id, 'title', s.title, 'kind', s.kind, 'message', s.message,
-			'fire_at', s.fire_at, 'interval_s', s.interval_s, 'status', s.status,
-			'last_fired', s.last_fired, 'target', s.target, 'mode', s.mode,
-			'daily_at', s.daily_at, 'weekdays', s.weekdays, 'created_by', s.created_by,
-			'source_kind', s.source_kind, 'source_key', s.source_key,
-			'created_at', s.created_at, 'updated_at', s.updated_at
-		) AS item, s.updated_at AS sort_at, s.id AS sort_id
-		FROM schedules s WHERE $2 OR s.user_id = $1 OR s.created_by = $1`,
+				'schedule_id', s.id, 'title', s.title, 'kind', s.kind, 'message', s.message,
+				'fire_at', s.fire_at, 'interval_s', s.interval_s, 'status', s.status,
+				'last_fired', s.last_fired, 'target', s.target,
+				'targets_viewer', (s.user_id = $1 OR s.target = $1::text OR
+				  (s.target = '_all' AND (s.status = 'active' OR EXISTS (
+				    SELECT 1 FROM schedule_deliveries td WHERE td.schedule_id = s.id AND td.user_id = $1
+				  )))),
+				'delivery_enabled', coalesce(
+				  (SELECT p.enabled FROM schedule_delivery_preferences p WHERE p.user_id = $1 AND p.schedule_id = s.id),
+				  (SELECT p.enabled FROM schedule_delivery_preferences p WHERE p.user_id = $1 AND p.schedule_id = 0),
+				  true),
+				'mode', s.mode,
+				'daily_at', s.daily_at, 'weekdays', s.weekdays, 'created_by', s.created_by,
+				'source_kind', s.source_kind, 'source_key', s.source_key,
+				'created_at', s.created_at, 'updated_at', s.updated_at
+			) AS item, s.updated_at AS sort_at, s.id AS sort_id
+			FROM schedules s
+			WHERE $2 OR s.user_id = $1 OR s.created_by = $1 OR s.target = $1::text OR
+			  (s.target = '_all' AND (s.status = 'active' OR EXISTS (
+			    SELECT 1 FROM schedule_deliveries vd WHERE vd.schedule_id = s.id AND vd.user_id = $1
+			  )))`,
 		order: "ASC", semanticID: "schedule_id",
 		semanticFields: []string{"title", "kind", "message", "status", "target", "mode", "source_kind"},
 	},

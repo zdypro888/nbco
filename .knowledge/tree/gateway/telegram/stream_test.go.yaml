@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/telegram/stream_test.go
-        hash: sha256:62ce8e1e437361ea3271c7648aaee2ba7dfb6d3756db7d5c91261715f3ca55ab
+        hash: sha256:59209a68f65a96bba7e78f42532099356274da37b4e10755f206a2031a348aa2
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -63,3 +63,36 @@ nodes:
         lines: [89, 127]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/stream_test.go#streamDeliveryFailureHTTP
+      level: decl
+      anchor:
+        file: gateway/telegram/stream_test.go
+        symbol: streamDeliveryFailureHTTP
+        hash: sha256:d5486fbd94dc3899d8e28029ec6c699845805595eaf8ce36a74baace01487156
+        struct_hash: sha256:0b4bc14d0b5f1e00ee74fdae2c31b56f82ed9f2a6c88f0e4b523abb71deea9da
+        doc_struct_hash: sha256:0b4bc14d0b5f1e00ee74fdae2c31b56f82ed9f2a6c88f0e4b523abb71deea9da
+        lines: [129, 132]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: gateway/telegram/stream_test.go#streamDeliveryFailureHTTP.Do
+      level: function
+      anchor:
+        file: gateway/telegram/stream_test.go
+        symbol: streamDeliveryFailureHTTP.Do
+        hash: sha256:33470703611bd198fa22771331a13ad431d494e8e35ab4e45051af1d3b925831
+        struct_hash: sha256:45aca8ebca6cb63aedcf50443d0617bd1609fac2aaff093119ada877cadaafba
+        doc_struct_hash: sha256:45aca8ebca6cb63aedcf50443d0617bd1609fac2aaff093119ada877cadaafba
+        lines: [134, 151]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: gateway/telegram/stream_test.go#TestStreamEditorFinishReportsTotalDeliveryFailure
+      level: function
+      anchor:
+        file: gateway/telegram/stream_test.go
+        symbol: TestStreamEditorFinishReportsTotalDeliveryFailure
+        hash: sha256:ff393022fc2c4f35b6f07935ef1f822270094f25edbace133379507754fc59fe
+        struct_hash: sha256:a870dee7ac69c5c09a829c1e25a01b7f8d1b92d4cd02dc1c863e8ef49e674171
+        doc_struct_hash: sha256:a870dee7ac69c5c09a829c1e25a01b7f8d1b92d4cd02dc1c863e8ef49e674171
+        lines: [153, 166]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z

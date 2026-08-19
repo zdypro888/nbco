@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/telegram/telegram.go
-        hash: sha256:b59af48e477b1b43426f211b0f78c8fb3d93dda22dd33dac0359df9a24592d68
+        hash: sha256:f089aeaeae5f2b1a6d2f16b675d2394e416cc019ab4351ec12ae46387546fa4f
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Provider
-        hash: sha256:a74db726b27bf3d175e8e14915099f8e926dc5bb52aabe1ede4ecd68274e3bce
-        struct_hash: sha256:c5cd5000bbdf051219082da2f8b7db024f51a03b1ca5c0312ac4fef8f2abbba9
-        doc_struct_hash: sha256:712d2de672da48f7fac2d5037b381ba60ad6b287978cf5af24f0fe4876c1a666
-        lines: [43, 44]
+        hash: sha256:e5811be5d335dce140236a20c6779bc3f42c7795b4debf4fec161983f98856ea
+        struct_hash: sha256:7c60385685053f462898d2d593b83aa4fdcb478a7ea13e2c4fe3a33f6d30917c
+        doc_struct_hash: sha256:2a313558a0f200c86016f1163705cb19079768b5530e287417d4fb02c146c36b
+        lines: [44, 45]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#chunkLimit
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: chunkLimit
-        hash: sha256:d9c4a54150a70b67b4125f08821bbdcaaabedc00eb8b84800fd71c11f23ea897
-        struct_hash: sha256:3f148d45e51006af34f662a894fc271e64ce033902fef17345a710c72e10a813
-        doc_struct_hash: sha256:cdc9074346f4f94c292d717bbd325dc7b6dbb93b0cb69110debe33c812c41da9
-        lines: [46, 48]
+        hash: sha256:3912603c7a0c42b6fad3c1405682a55510e8a5e49ccd05835a85847b204b6c7d
+        struct_hash: sha256:2fab6936527bb9de076741c197602cf83859879fcf2bfd5f425f6dd8086da56d
+        doc_struct_hash: sha256:70545f13cb2ff9207a92020feaf10becdfee7f83fdfade9390bbb16442ab33a6
+        lines: [47, 49]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#textDebounceWindow
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: textDebounceWindow
-        hash: sha256:d68b4b171b08ce260e63dfbb15bc8e5008223986780a12fcec1ee130670b48ca
-        struct_hash: sha256:12bc3ec982386221540fb4f34fc0aa7f45f854028d1ff8585d9a03b13cbbb5e3
-        doc_struct_hash: sha256:12bc3ec982386221540fb4f34fc0aa7f45f854028d1ff8585d9a03b13cbbb5e3
-        lines: [49, 49]
+        hash: sha256:271b8ef91350add8ba78403ce5a490d61cf45f7bb07f297937d041a27f79f2e4
+        struct_hash: sha256:825d4ac2bd674fa226ea9f7b2ffd6479edfdd0c993d289037e931c7935dc369c
+        doc_struct_hash: sha256:825d4ac2bd674fa226ea9f7b2ffd6479edfdd0c993d289037e931c7935dc369c
+        lines: [50, 50]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#telegramMessageTimeout
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: telegramMessageTimeout
-        hash: sha256:e9833c78a7ae65817bf2d1a884b0f59c476e2b655a948a739a23660b55952a2e
-        struct_hash: sha256:c2c8204b3d34fa3c8a9727b762161612031d558276a0867744d88d89c612cd35
-        doc_struct_hash: sha256:c2c8204b3d34fa3c8a9727b762161612031d558276a0867744d88d89c612cd35
-        lines: [50, 50]
+        hash: sha256:1e72bbe55be4b5c9cd8d0ce49357e93e7147d5536f2f8c481a113c8453a98aa7
+        struct_hash: sha256:8dccf70d19c993bd402f21fc1c9fd076f63bd802f591ff0ba694343433df83c9
+        doc_struct_hash: sha256:8dccf70d19c993bd402f21fc1c9fd076f63bd802f591ff0ba694343433df83c9
+        lines: [51, 51]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorDebounce
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorDebounce
-        hash: sha256:8c49960a71504d19169ac2161e45909aa0d9d375fcf7f9fa164d43518c79ea0f
-        struct_hash: sha256:3da202935780721072f1041c51b31746bd374ee098cf809c56458c56f3d043c7
-        doc_struct_hash: sha256:3da202935780721072f1041c51b31746bd374ee098cf809c56458c56f3d043c7
-        lines: [51, 51]
+        hash: sha256:5abdd3f787aed50e488abae7c13352bc68ad32175872541dc749725ec0bf6b56
+        struct_hash: sha256:7b207acba1a3e8ce620d4a0f26b2673fdb640b5a8dec2f4c902ead6946334de6
+        doc_struct_hash: sha256:7b207acba1a3e8ce620d4a0f26b2673fdb640b5a8dec2f4c902ead6946334de6
+        lines: [52, 52]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorMaxWait
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorMaxWait
-        hash: sha256:9d2c3128743c7164af377b8ad15e445b932e2f92c3f1cfb2cb9360b0d138f3c7
-        struct_hash: sha256:25b1e3960f74f0fd4b33cb91031b01b4e6ea92b4e1aaec0f867d5688d895cae2
-        doc_struct_hash: sha256:25b1e3960f74f0fd4b33cb91031b01b4e6ea92b4e1aaec0f867d5688d895cae2
-        lines: [52, 52]
+        hash: sha256:7701acb8f88d851115e0fabd19f030e6f918863f0ca6c9844c8239abf5e6476c
+        struct_hash: sha256:794f88933a89aff0a3808cf66d057110323e02cbf1deef267c2f10c4be8e8618
+        doc_struct_hash: sha256:794f88933a89aff0a3808cf66d057110323e02cbf1deef267c2f10c4be8e8618
+        lines: [53, 53]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorAnalysisLease
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorAnalysisLease
-        hash: sha256:f05aeabb9bcbd7f9360c94484078fd739d31ac0bfcb49dc890a6014ef0a4d02c
-        struct_hash: sha256:be53ecddd513f09bf39445507f579f9454a109abbc7ab6fe5c296849380282aa
-        doc_struct_hash: sha256:be53ecddd513f09bf39445507f579f9454a109abbc7ab6fe5c296849380282aa
-        lines: [53, 53]
+        hash: sha256:25b9d3212703a011d0719255da092de92f8c1715882c0f40df18a277fabb7d54
+        struct_hash: sha256:4b1a0ad665be65681d0b52de40fc36539589527d5acf0dbb4d90639b7a6860b0
+        doc_struct_hash: sha256:4b1a0ad665be65681d0b52de40fc36539589527d5acf0dbb4d90639b7a6860b0
+        lines: [54, 54]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorSystem
@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorSystem
-        hash: sha256:22e65226372b9ae024b9e0a24b48857fee5b7aa82e60f27ffc226202ec71fd0d
-        struct_hash: sha256:e44a4238f054c2242b41d381bee9577af666f8201cf298b0453c9687ed29a671
-        doc_struct_hash: sha256:e44a4238f054c2242b41d381bee9577af666f8201cf298b0453c9687ed29a671
-        lines: [55, 62]
+        hash: sha256:c3e8271a742ba98757ffefc446d3e5c3b51a857b7ed5afe466a0809df972882b
+        struct_hash: sha256:6dc5a7639c81f7af48df19f545456e9be5235c609709d8850aaf186d8fb88c55
+        doc_struct_hash: sha256:6dc5a7639c81f7af48df19f545456e9be5235c609709d8850aaf186d8fb88c55
+        lines: [56, 63]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorIntentSystem
@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorIntentSystem
-        hash: sha256:4660838af7cb5ad9d462e11f9c3f3f6be3cbcfaae8d9c4774c48ca5b80b2a3f3
-        struct_hash: sha256:3756145ab0019e7ba8ce8b6be306a4171e49de3060290dc101636085a3a4ae4c
-        doc_struct_hash: sha256:3756145ab0019e7ba8ce8b6be306a4171e49de3060290dc101636085a3a4ae4c
-        lines: [64, 73]
+        hash: sha256:972871f9a94ba4d099947fdbc0352bce3440f257930712b776a6ce3f402bb44c
+        struct_hash: sha256:2fc0efba1fb1e9f7f434cac490702ba6f1fc478bb86fd52f0e07e6bfbb9ad7bb
+        doc_struct_hash: sha256:2fc0efba1fb1e9f7f434cac490702ba6f1fc478bb86fd52f0e07e6bfbb9ad7bb
+        lines: [65, 74]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#bindKeyRe
@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: bindKeyRe
-        hash: sha256:79a0004b81e1cf1af974aa934f0ed8119cbd24ba06a7c17fabdec7f03c66f652
-        struct_hash: sha256:03d1a0391cfe76c709890f807bceee16570ac423eb5a3f6279db8446ca6ec0eb
-        doc_struct_hash: sha256:03d1a0391cfe76c709890f807bceee16570ac423eb5a3f6279db8446ca6ec0eb
-        lines: [75, 75]
+        hash: sha256:f6b0244bf264b636897f27b08ab9d602239c10d4e13149bfc0db25b26de6c94c
+        struct_hash: sha256:efdc61e4a5457f0f4239cf27a0a19eaaf1176e4953cdac1ab4c356cafe07e7c3
+        doc_struct_hash: sha256:efdc61e4a5457f0f4239cf27a0a19eaaf1176e4953cdac1ab4c356cafe07e7c3
+        lines: [76, 76]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#htmlTagTokenRe
@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: htmlTagTokenRe
-        hash: sha256:c1ee688f82d9d6a42300aa36a0215d1ccdfe4a89240868707e17f92a98c5de5a
-        struct_hash: sha256:9d8171b283f4856a1593a08e12d61e02830ee1a5aacf15028b3d4f2be375e48d
-        doc_struct_hash: sha256:9d8171b283f4856a1593a08e12d61e02830ee1a5aacf15028b3d4f2be375e48d
-        lines: [76, 76]
+        hash: sha256:1662ff017f9fb1655cc9a40e41ffac699fa31c81fafdcfa1e4be13a854bd4a6c
+        struct_hash: sha256:56fa4758f546edf3d722fc288b7524faf16b0f1d9686f233ae3ec84af3aa080f
+        doc_struct_hash: sha256:56fa4758f546edf3d722fc288b7524faf16b0f1d9686f233ae3ec84af3aa080f
+        lines: [77, 77]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#htmlLooseTagRe
@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: htmlLooseTagRe
-        hash: sha256:6a8c996fc867ece0edd28f78da33daea2b3f49e1109ae28af91b4c4a60de1f42
-        struct_hash: sha256:0943b38326c9f59410f6eccf1fb207cb27fc1b569afd44a261bf9a371637e0c4
-        doc_struct_hash: sha256:0943b38326c9f59410f6eccf1fb207cb27fc1b569afd44a261bf9a371637e0c4
-        lines: [77, 77]
+        hash: sha256:1ab5bcf435f726c8c2d8e76dffa5e18384c9830441a203d7d89047c9e7fe93d9
+        struct_hash: sha256:31a900dd6149f7b6a2e9aac2f312c975cf4586984bec9548bf36e367189ea141
+        doc_struct_hash: sha256:31a900dd6149f7b6a2e9aac2f312c975cf4586984bec9548bf36e367189ea141
+        lines: [78, 78]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#htmlMalformedKnownTagRe
@@ -145,10 +145,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: htmlMalformedKnownTagRe
-        hash: sha256:b36a2f47de4a40125bde610339605ae366ce37ca6c05eb4459e895c7aad7e0c8
-        struct_hash: sha256:72be8bca3baea9d88141cafcc0f8d77e9d44f93ddd6696a4133c4ee84549da87
-        doc_struct_hash: sha256:72be8bca3baea9d88141cafcc0f8d77e9d44f93ddd6696a4133c4ee84549da87
-        lines: [78, 78]
+        hash: sha256:5eddeac205852a7b9eaba2d39e88332b6d579f40eaae65f1ba6128a595fe4a3a
+        struct_hash: sha256:f821b524065444cff03895959f107d0b735b6cae80b9fb533a358778f2562d5a
+        doc_struct_hash: sha256:f821b524065444cff03895959f107d0b735b6cae80b9fb533a358778f2562d5a
+        lines: [79, 79]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#pendingTextMessage
@@ -156,10 +156,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: pendingTextMessage
-        hash: sha256:066869d440c537816547bdc926e4d5c6c1bef3ed4ed78daae64ae2c913dee56f
-        struct_hash: sha256:45825ac89e845faaec21724046ffbaa814205b55f5c16f54d73127b3cf3f4eb0
-        doc_struct_hash: sha256:45825ac89e845faaec21724046ffbaa814205b55f5c16f54d73127b3cf3f4eb0
-        lines: [80, 89]
+        hash: sha256:f46b9007c16e266c4128e4d359f1071a24cfab760af46ae661c06e15c570efe0
+        struct_hash: sha256:9be76b49bbaaf12c4aa439b02d3e55b4f6ff953eab90dd47f8d1cb36f4a05ef1
+        doc_struct_hash: sha256:9be76b49bbaaf12c4aa439b02d3e55b4f6ff953eab90dd47f8d1cb36f4a05ef1
+        lines: [81, 90]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#queuedTelegramMessage
@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: queuedTelegramMessage
-        hash: sha256:7349f2db545edac8d8bcf6391f8877cba8eab47a7be6aafc506faa31ea946361
-        struct_hash: sha256:22500046c430facc4a13f5ae7c0e3a50a698a1203c77b10dbdb0a62330caddb9
-        doc_struct_hash: sha256:22500046c430facc4a13f5ae7c0e3a50a698a1203c77b10dbdb0a62330caddb9
-        lines: [91, 98]
+        hash: sha256:bc634c2bc33b0b27b13e02a0ca4f7954c6f1a80016ef900222d6347d8a862ec1
+        struct_hash: sha256:a697b59cbcc9ba88d547fb141714ec7f189fe64657623651060941b33ea0f030
+        doc_struct_hash: sha256:a697b59cbcc9ba88d547fb141714ec7f189fe64657623651060941b33ea0f030
+        lines: [92, 99]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway
@@ -178,10 +178,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway
-        hash: sha256:7abde878a531e5699161435a25ab733f73ee9b94b5f74615aa25dbecfa62a748
-        struct_hash: sha256:ddf12136ff0c7150e218ca18fe26b5ba7e034c72eef95b2c6055ef29a95a7f05
-        doc_struct_hash: sha256:c47c448417761b1f96cb58e154637bed4ef22ccb7c82f4e6c6c1317c0a52e764
-        lines: [100, 128]
+        hash: sha256:00d1312faaf9425876ebaf9ea4a48d65bdbda6a2f49a7360735acabbde3347aa
+        struct_hash: sha256:bbb25ac443072e65a1a290189ff8cc0d7c7d4424c2c5910f0d3e5af94a0d35f1
+        doc_struct_hash: sha256:a8613681b773132981240dac62627eb42eaf1e29822621e11abd9cbbc302630a
+        lines: [101, 129]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#New
@@ -189,10 +189,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: New
-        hash: sha256:059c04d3ffb3e5d77dfff09180678192a2b2bc79b039a93da4f78d6882a4af48
-        struct_hash: sha256:d06b761c230942c7cc0400a79bd19f098e54fde786ff0f08d115a22cc512bcc5
-        doc_struct_hash: sha256:c57025b91bed078c50846e4d077660df5e6c2855cb829d480272f84940b468e9
-        lines: [130, 177]
+        hash: sha256:a30812edfc5452acee419a958cef5ea5d3bcf376c1ce555cc627ac43df3b7bea
+        struct_hash: sha256:3a3bfe123b4a63fe955bf32564d406327cf192444d903b7e114764e15aacb3d8
+        doc_struct_hash: sha256:d8a7569c80783e8443d3deb4c48e2fdee4cbf17ce2d8bf3e8c9a87cc5a11c7f9
+        lines: [131, 178]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#newGroupMonitorInstanceID
@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: newGroupMonitorInstanceID
-        hash: sha256:44b86eb1d2e6f950c3a9567ab821fe30a08c22a6d6bb1ff9a0b9150daaf91b75
-        struct_hash: sha256:efb658bd3fdbdefd46b8579e8acd2f74cdc512c108c43c4f81f6c5e45865a5b3
-        doc_struct_hash: sha256:efb658bd3fdbdefd46b8579e8acd2f74cdc512c108c43c4f81f6c5e45865a5b3
-        lines: [179, 186]
+        hash: sha256:6d6a4e068ce4fcd476f3200a9291226480d62a1561e13aed276499ef3fbe22d7
+        struct_hash: sha256:1ec4869a78392e81606c58e011208952eb1e1e8f878742d436af8f2dd48b7044
+        doc_struct_hash: sha256:1ec4869a78392e81606c58e011208952eb1e1e8f878742d436af8f2dd48b7044
+        lines: [180, 187]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.Ready
@@ -211,10 +211,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.Ready
-        hash: sha256:7c37f4c95ae355ea2be71e48fbe9493b5a3fda6de4579818e60f7d3574c03738
-        struct_hash: sha256:4ca2b0b4f5a8e7e211c7d8605b5c29f279c8f6b7b448397a13623b0ff6718624
-        doc_struct_hash: sha256:93c2efd5172cfb6052f458a5a263d2db570d55f6419ffd39e27a8a3eb3827f88
-        lines: [188, 189]
+        hash: sha256:a11c1e206e3592b2b089a224b4dd87fd75037c1aa9a95532f1bc9f6f93af0913
+        struct_hash: sha256:720bd72362bb673c3f72351b2818d2908f60106598d9d8ec01942d9962230c3a
+        doc_struct_hash: sha256:ccefee073b7e49c9f7283c58fa2f71ddf801414e4ef0838a61991ab5dd1a1123
+        lines: [189, 190]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.Run
@@ -222,10 +222,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.Run
-        hash: sha256:e7e7c55aa50fda02e8b9ae1c9b81b861e5c94bf722524618e0db36b34d6b8153
-        struct_hash: sha256:d9f6215ea77b3137b6240c92c7f05eea39131f65a75478df119020c3ebe17b81
-        doc_struct_hash: sha256:30b3ebfb8f78b2f9b4d5175e0384a8e4ca61a266e6199a570ed65b5d79a812fd
-        lines: [191, 211]
+        hash: sha256:8c3df2b2ef90993f4c83a06c46247b17e4fa9b4fd2b605fd5a4d2a0905e725bf
+        struct_hash: sha256:b9658125bba980a7e974b59aefa9adcd27c9bfacbba79092a66520ad75899bd1
+        doc_struct_hash: sha256:8c499a6e5d018e9a654cf983940bcf292afba2b2682c0ad90f1861b854fde526
+        lines: [192, 212]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.waitUntilReady
@@ -233,10 +233,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.waitUntilReady
-        hash: sha256:6420f18c2cc1681f12a8bbef86642e07d2a89a68153930ae2ef4961a9594b1b0
-        struct_hash: sha256:57369365737ab11c7e906f6e2bab46f4a8e8bd77c32b9b7df539a82a5c939ae6
-        doc_struct_hash: sha256:57369365737ab11c7e906f6e2bab46f4a8e8bd77c32b9b7df539a82a5c939ae6
-        lines: [213, 236]
+        hash: sha256:6b69761e7b83c757364f1f11c02b64d9fc4b17f7db9f0c9724d35f10bcf95a80
+        struct_hash: sha256:84f1805162f29c2c9c4c2e8b425c12e167d1bb05196baa52dd6adea266bf407f
+        doc_struct_hash: sha256:84f1805162f29c2c9c4c2e8b425c12e167d1bb05196baa52dd6adea266bf407f
+        lines: [214, 237]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.setBotIdentity
@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.setBotIdentity
-        hash: sha256:207cf71169b03e0b9583a8f77855daf3edebc4ca72a0660bb28d3da2453b348c
-        struct_hash: sha256:e31ab894a447c687bfcffa7b8fe1f61c9828d6d1af05605aacc9e9d30de79962
-        doc_struct_hash: sha256:e31ab894a447c687bfcffa7b8fe1f61c9828d6d1af05605aacc9e9d30de79962
-        lines: [238, 254]
+        hash: sha256:c7fb734e06e3fa11479637386033a7a346c5792cfa23030df82215c8deda867e
+        struct_hash: sha256:bb7f811a97645e937f2a68c6773532bb10bedfff3776a0d97239450cb35cf4ce
+        doc_struct_hash: sha256:bb7f811a97645e937f2a68c6773532bb10bedfff3776a0d97239450cb35cf4ce
+        lines: [239, 255]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.monitorReadiness
@@ -255,10 +255,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.monitorReadiness
-        hash: sha256:71206bf6ecd6275ee4942938db89a60ad8a188fbd38c9668baf74ea0b61a1223
-        struct_hash: sha256:cac73206bc3cef07a05100d830d8c29bfc4da0590780511c1eda4b418878c086
-        doc_struct_hash: sha256:cac73206bc3cef07a05100d830d8c29bfc4da0590780511c1eda4b418878c086
-        lines: [256, 276]
+        hash: sha256:f177b758bf13f9d96d6bf919ebb386abef2924f1002d0afad2ebaf842b0e3896
+        struct_hash: sha256:b00aba6458f0a8b6f0525d5ac335ac1df412a620aa31585503755464ff861fbe
+        doc_struct_hash: sha256:b00aba6458f0a8b6f0525d5ac335ac1df412a620aa31585503755464ff861fbe
+        lines: [257, 277]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.setupCommands
@@ -266,10 +266,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.setupCommands
-        hash: sha256:412feda4058bf59ac9fa8d5d9222a72e92fe25b10cdfefa5a44fb7378f88ea27
-        struct_hash: sha256:8bc0c7cf74cf89ab60f184054736efc525b1c9a63a08a288a2474ed04bcc7268
-        doc_struct_hash: sha256:6b21bb7576f30a852b9f3432c3799a9af326021a7c9b7cbc404b48372f2b5122
-        lines: [278, 301]
+        hash: sha256:379fc80653584b0b21f5150fb61a9388db0315d02d8f546bd9859638fb9fc9d2
+        struct_hash: sha256:03582da769e17904697162dc83baaa5aac4930124c70dc9479ef77eb4a374397
+        doc_struct_hash: sha256:98ea9ef5c342aa13d4df9f9c3ca5e87768b9f0d3420e5ba2e178ded5e67dee93
+        lines: [279, 302]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.botUsername
@@ -277,10 +277,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.botUsername
-        hash: sha256:fd1f3ab5bddbd1ce9c05d5666676907bb909c2b4a6915bde5ec1ca44c146b904
-        struct_hash: sha256:41ceaaf4f36916ecd1ef0d70f576983f27a572cc6dc1fd156c8803b10791b013
-        doc_struct_hash: sha256:b93f0a920b12919c4f97e076c506c211c3266f086e32afc1cc1915b3b5956aa4
-        lines: [303, 311]
+        hash: sha256:88efe39a7f07f6f2413ae70d59cfa69ace915a19006eea9fbdc7618e9788b74b
+        struct_hash: sha256:2f2fbf5994de17499657feb4d920722a46a1efff9faef2def74117b0d6e9b257
+        doc_struct_hash: sha256:8ad16d70d7b63acd39b1f85a4070e933ec4e16d5b4c6bd7cda871706b7cf0bdd
+        lines: [304, 312]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.botID
@@ -288,10 +288,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.botID
-        hash: sha256:b6eb67d78789a2a642abc77cd2deca1b9e2c60e39a5f2130a6ebde2fce48c9e4
-        struct_hash: sha256:8776795fc13a5d8d4400659c41729df85e0355920163afede87d82e4fe4c4e82
-        doc_struct_hash: sha256:58ab376b49dcac40eeafeae4baaa4d53c82e217e7aa9e4f7d797210ee992d88c
-        lines: [313, 321]
+        hash: sha256:fb2908b7374710abfb6c1cd26f5135e44075e629bd7624662559611f6407e988
+        struct_hash: sha256:3d19eb1107da4ed9aef5e75b834b4565b5daabecd7144bc2e409a65e3bbf59ea
+        doc_struct_hash: sha256:ca5cc4c484876245484599c2c09d1b9a3bd9dd5d2ffc54127a30a250a579c64b
+        lines: [314, 322]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.Send
@@ -299,10 +299,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.Send
-        hash: sha256:98305717bf7edf841861139b022fe36209355961a8cbb466838fe6b02d7fc037
-        struct_hash: sha256:d01199ddeea147fa22e084d5124b012ae615e2cd15356d028247df74bd9d3856
-        doc_struct_hash: sha256:e414eab01d8cf238da04ded29f74de2973e4e72d3ba95d69f11f296f658bf5a2
-        lines: [323, 334]
+        hash: sha256:fa652edabe4c7fc448fb5d6e5dc4740b1515cfc68ac71a69a784585a9e71b1cb
+        struct_hash: sha256:569b58b60cbe8d9553cd4a771d5530c143275fb00f899e21a567c27df69a6fd1
+        doc_struct_hash: sha256:5d413204824a28d1814717cac1dc5eb9201b726e1bd43c1e89b47d36130554cc
+        lines: [324, 335]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.SendFile
@@ -310,10 +310,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.SendFile
-        hash: sha256:a8bad6c57ab0585929e6f048ea9fc86fb861a7aa0ace8d8fc2a3a67b2b8389ad
-        struct_hash: sha256:e48b97eff513a843721007040455dbdac0de15d05f0c9d1a9ce6c65056d3d219
-        doc_struct_hash: sha256:e48b97eff513a843721007040455dbdac0de15d05f0c9d1a9ce6c65056d3d219
-        lines: [336, 382]
+        hash: sha256:cc592b91abd874cc722e873ffdbb704e93b8c028d166623838a4e63e5f0081f8
+        struct_hash: sha256:3c78456834b403554ed512fbffec6d496c389ce7e2ac980025b597046a5eb992
+        doc_struct_hash: sha256:3c78456834b403554ed512fbffec6d496c389ce7e2ac980025b597046a5eb992
+        lines: [337, 383]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handle
@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handle
-        hash: sha256:bedc30f03d5637ee9608b33c2c2a2091bb067d7b62633fbdd76789a702c8ab41
-        struct_hash: sha256:06081f5d07f77d2e56444e22e4b8cf03f6af1e2f7f7646589b5fc25033411cb8
-        doc_struct_hash: sha256:06081f5d07f77d2e56444e22e4b8cf03f6af1e2f7f7646589b5fc25033411cb8
-        lines: [384, 421]
+        hash: sha256:033ca99b440975df78bb725aabfa93fb226a4c78a4547218ac7b410aabe2b6e9
+        struct_hash: sha256:29ceb34a6f99b8dac38124ea1d315304ce6d8ae15308ec3b17ee83ee71fecabc
+        doc_struct_hash: sha256:29ceb34a6f99b8dac38124ea1d315304ce6d8ae15308ec3b17ee83ee71fecabc
+        lines: [385, 422]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.shouldDebounce
@@ -332,10 +332,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.shouldDebounce
-        hash: sha256:885b904fbcb876e70ab7998991c87b06cadc67aa311fd8b2b766d91dc6ecda78
-        struct_hash: sha256:539070fb099e3d9ff95ceca0bd326b3781ce6c05cfc33732a7c205fbce461f4f
-        doc_struct_hash: sha256:539070fb099e3d9ff95ceca0bd326b3781ce6c05cfc33732a7c205fbce461f4f
-        lines: [423, 432]
+        hash: sha256:692a48dda4028e82820bd98dc14665976527c3dc16c43be8dbf5ba2adc225749
+        struct_hash: sha256:f3d8ecdbcfa4c21aaa0bcc6d12df3a5e38b0946d01f1c57b444b0264c224145e
+        doc_struct_hash: sha256:f3d8ecdbcfa4c21aaa0bcc6d12df3a5e38b0946d01f1c57b444b0264c224145e
+        lines: [424, 433]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.enqueueTextMessage
@@ -343,10 +343,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.enqueueTextMessage
-        hash: sha256:13c3d6fbfd4cca133a447272838df41ab61412cdf862aca44128d98deeef5ccb
-        struct_hash: sha256:e1c2d9ac06b6b37f39df07b22faa7a4dbe94b0fdabc123df66bafe413fb1d4bf
-        doc_struct_hash: sha256:e1c2d9ac06b6b37f39df07b22faa7a4dbe94b0fdabc123df66bafe413fb1d4bf
-        lines: [434, 463]
+        hash: sha256:51b04354bee0291a84a2046a29670bd46d00a9f830009c0c98d970cc9a5f52c9
+        struct_hash: sha256:fe571134adf6cd56a56a821547a7c1b96f02ac4c776ae3172a3afe6acdf3757c
+        doc_struct_hash: sha256:fe571134adf6cd56a56a821547a7c1b96f02ac4c776ae3172a3afe6acdf3757c
+        lines: [435, 464]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.flushPendingText
@@ -354,10 +354,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.flushPendingText
-        hash: sha256:b3a0a30702bd4ff29d1315c70a2ac16cd2622387c92bc71a406d7786c1c81db8
-        struct_hash: sha256:d8e86b1b408b0dd89bf31f3b001724d212b16874e1c817a41044672da914823e
-        doc_struct_hash: sha256:d8e86b1b408b0dd89bf31f3b001724d212b16874e1c817a41044672da914823e
-        lines: [465, 476]
+        hash: sha256:45ba1dae7e09365ff1c36f2fe40de33dc2de06625c8aa76f887e49edd12e8947
+        struct_hash: sha256:5f70a9d635b25da583776092825510a5715bebb89f903ac1961cc4243beb3fb9
+        doc_struct_hash: sha256:5f70a9d635b25da583776092825510a5715bebb89f903ac1961cc4243beb3fb9
+        lines: [466, 477]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.queuePendingTextLocked
@@ -365,10 +365,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.queuePendingTextLocked
-        hash: sha256:ed3f22d15e6c87f69c83e3f5d22734eb399de6cb2bb8ef09715c541086bb8e21
-        struct_hash: sha256:a5db66f268d44a03b72e5e0209ff87b846177c3255a89d2ab1e54c9aa559d4a4
-        doc_struct_hash: sha256:a5db66f268d44a03b72e5e0209ff87b846177c3255a89d2ab1e54c9aa559d4a4
-        lines: [478, 485]
+        hash: sha256:09da915c141c92f913047b5429a988cfd07267ede6e5015b260c7dd951564dc4
+        struct_hash: sha256:8db114b830f3ec312edc9eb7ea15ddd953b34b1a180fed8a99c8f391a06d8d16
+        doc_struct_hash: sha256:8db114b830f3ec312edc9eb7ea15ddd953b34b1a180fed8a99c8f391a06d8d16
+        lines: [479, 486]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.dispatchMessageAfterPending
@@ -376,10 +376,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.dispatchMessageAfterPending
-        hash: sha256:42f8abdd70fbb86e3182755bf519f82b4ab383cd417fb7334b9bc6a6555858f2
-        struct_hash: sha256:27ef677940bc36fabbfc0ab77109c19302f7e67f81a7fc31748ba177a233a1d1
-        doc_struct_hash: sha256:27ef677940bc36fabbfc0ab77109c19302f7e67f81a7fc31748ba177a233a1d1
-        lines: [487, 492]
+        hash: sha256:b10361f1b3385ea65dc1f214d53883dc68288feb33ce3ff672668c58a5df4dc2
+        struct_hash: sha256:9cbe8496f4ff942ebca36c3d691cff4e8f497935db925c51fbc261c99125afb7
+        doc_struct_hash: sha256:9cbe8496f4ff942ebca36c3d691cff4e8f497935db925c51fbc261c99125afb7
+        lines: [488, 493]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.queueMessageAfterPendingLocked
@@ -387,10 +387,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.queueMessageAfterPendingLocked
-        hash: sha256:63456b7283cb058ea68c0c5bf2fa4fcfed9ce66211b77a043fb082a9ef2c16e8
-        struct_hash: sha256:5f040d46c5216e48b51bb7eb79f49a38f0fdd70b73cbcbd54f1f50662e04c864
-        doc_struct_hash: sha256:5f040d46c5216e48b51bb7eb79f49a38f0fdd70b73cbcbd54f1f50662e04c864
-        lines: [494, 503]
+        hash: sha256:d90278d912c7231abc81c91643044b2484ac04fa40283cdc8d122c33050f3daa
+        struct_hash: sha256:b208276feaa77d41b1f57f6cf8a0b1f982f5175da2f30b1bddb3f72a63a82818
+        doc_struct_hash: sha256:b208276feaa77d41b1f57f6cf8a0b1f982f5175da2f30b1bddb3f72a63a82818
+        lines: [495, 504]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.queueMessageLocked
@@ -398,10 +398,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.queueMessageLocked
-        hash: sha256:c004a7610a6ab907db55363b617532f2cf466c2f2165acadd1c4f20b088e2a37
-        struct_hash: sha256:4d63feee24b8d51f85ff895a74f2bd668857f49790b6ba69184c34d2be9b99b5
-        doc_struct_hash: sha256:4d63feee24b8d51f85ff895a74f2bd668857f49790b6ba69184c34d2be9b99b5
-        lines: [505, 519]
+        hash: sha256:532cff503953847679b683be798fcae57038f15e9824975fa38021f919893b72
+        struct_hash: sha256:1b2c95f65fe09bd4c88abf109adf9071d77aa9ee7583d2758593eb8f6487c8d0
+        doc_struct_hash: sha256:1b2c95f65fe09bd4c88abf109adf9071d77aa9ee7583d2758593eb8f6487c8d0
+        lines: [506, 520]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.startQueuedMessages
@@ -409,10 +409,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.startQueuedMessages
-        hash: sha256:18c53b030bdb929b9673da3a16bdd91e23055b9c5241d01b8c72ae2a0f0a0415
-        struct_hash: sha256:ad51f64051179b82dc6d33030c146d75da1c3488db89e8a6f9fed3cad498f3af
-        doc_struct_hash: sha256:ad51f64051179b82dc6d33030c146d75da1c3488db89e8a6f9fed3cad498f3af
-        lines: [521, 525]
+        hash: sha256:d5add6e50d7abf68787aa3127e02d957bdc2e70d3863d44d4473eb81dbb2c80a
+        struct_hash: sha256:ebe0fec476e6099c0e46b5d357d24124952ab74550a26a13e415d927e20af1ed
+        doc_struct_hash: sha256:ebe0fec476e6099c0e46b5d357d24124952ab74550a26a13e415d927e20af1ed
+        lines: [522, 526]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.startQueuedMessage
@@ -420,10 +420,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.startQueuedMessage
-        hash: sha256:e7f16b8d426d2f9ee51f6dc7a5b3312447a4aeb30cd9f6c0e2ba3cffbdcee826
-        struct_hash: sha256:232030f7e2bfad6e64e54d668ef081987c97c4b85f15c731cc778a4ae08e76c3
-        doc_struct_hash: sha256:232030f7e2bfad6e64e54d668ef081987c97c4b85f15c731cc778a4ae08e76c3
-        lines: [527, 562]
+        hash: sha256:b9b2be1e913d1b79766eef68ed41585e9e26d4020abbfbaa9684b9cdf6eb9343
+        struct_hash: sha256:33feb3503c9186633de1ae4c99043c0828559021783292b63c36a218d611e39b
+        doc_struct_hash: sha256:33feb3503c9186633de1ae4c99043c0828559021783292b63c36a218d611e39b
+        lines: [528, 563]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.finishQueuedMessage
@@ -431,10 +431,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.finishQueuedMessage
-        hash: sha256:f19ae91cc02908fb481b2f2bcf55de97092e84fee9de9d67b54c548eadca665c
-        struct_hash: sha256:fac19bdfa127b62c38ce8927c24f639971fd209f8b2b5c88f9a2dc4969e5a67d
-        doc_struct_hash: sha256:fac19bdfa127b62c38ce8927c24f639971fd209f8b2b5c88f9a2dc4969e5a67d
-        lines: [564, 571]
+        hash: sha256:cee65ba9ec1b98fb7ab056af7a9929194ff566261f8bd1efab478952274fc087
+        struct_hash: sha256:8151048eb45a21a4734707f21eb29724632b5f22d95161b6938fa3d8899621c9
+        doc_struct_hash: sha256:8151048eb45a21a4734707f21eb29724632b5f22d95161b6938fa3d8899621c9
+        lines: [565, 572]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleChatMember
@@ -442,10 +442,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleChatMember
-        hash: sha256:38deec6a733bf0164b19f29d4e95424c1f33706cf8a9e3e2556520758751cd78
-        struct_hash: sha256:eb40467701ae148492995edc0d9e432aad83b6f37904aac7d8fe8692dc5c6321
-        doc_struct_hash: sha256:eb40467701ae148492995edc0d9e432aad83b6f37904aac7d8fe8692dc5c6321
-        lines: [573, 584]
+        hash: sha256:0dd49b360262eb695cfb69c2c529ea1221d217d1f888e2373b04d8aa6ad9ec7b
+        struct_hash: sha256:9dd9d0f797efe1ea338045a3fae0f95d083b31620835f8500feb4af3a3d6e699
+        doc_struct_hash: sha256:9dd9d0f797efe1ea338045a3fae0f95d083b31620835f8500feb4af3a3d6e699
+        lines: [574, 585]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleMyChatMember
@@ -453,10 +453,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleMyChatMember
-        hash: sha256:24f7ff7aa7336564053473f69c6a4594cb8235a477521ab5fafcb50c973b2207
-        struct_hash: sha256:6e4634366fea9c70fb49300189e1f42ac8378debc80962691e0329a2d7d1ab90
-        doc_struct_hash: sha256:6e4634366fea9c70fb49300189e1f42ac8378debc80962691e0329a2d7d1ab90
-        lines: [586, 609]
+        hash: sha256:aaa998c92d99171bf75997d0a6e5620bac5e1a52f91a08aff90a7584b5642795
+        struct_hash: sha256:07dd381a5523c4e95785c0dc782c031e8d94f78e19fc78c43811978ebd8d6c31
+        doc_struct_hash: sha256:07dd381a5523c4e95785c0dc782c031e8d94f78e19fc78c43811978ebd8d6c31
+        lines: [587, 610]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleGroupServiceMessage
@@ -464,10 +464,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleGroupServiceMessage
-        hash: sha256:f3708ab4ebf7197e12a097c67c1366dcf51cd98c33cfbd4f0b2a038f93c8a00d
-        struct_hash: sha256:5dac8ca2fe9aef6b8b92bcb6b246a8456ec4d77ee245382fbc3d7573daf76bb0
-        doc_struct_hash: sha256:5dac8ca2fe9aef6b8b92bcb6b246a8456ec4d77ee245382fbc3d7573daf76bb0
-        lines: [611, 637]
+        hash: sha256:6ae7ada15da22cfac19f668077534d81e6be88348e1b5be65ac12b028122c729
+        struct_hash: sha256:022a3e076cd5e5319bd2c2f12423be3de578788e17fa0541167977de98aa50de
+        doc_struct_hash: sha256:022a3e076cd5e5319bd2c2f12423be3de578788e17fa0541167977de98aa50de
+        lines: [612, 638]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.saveGroupState
@@ -475,10 +475,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.saveGroupState
-        hash: sha256:178eea7733100f943931cbc609f542a69d00a7824aa2e4c39e470df8c66b2ae3
-        struct_hash: sha256:df2bfc75f9f868c0a9fa73ef6f399e93ca2d14a990ab2690501f4f189e2e2003
-        doc_struct_hash: sha256:df2bfc75f9f868c0a9fa73ef6f399e93ca2d14a990ab2690501f4f189e2e2003
-        lines: [639, 649]
+        hash: sha256:d2495fabc10b292e214d0a450fa8266261c33720623e9da275e6071bbbd67c1a
+        struct_hash: sha256:ced6a3b1ce6f3f589f67a9153b9e014aa537576c94ad23063f8f8926e73605f2
+        doc_struct_hash: sha256:ced6a3b1ce6f3f589f67a9153b9e014aa537576c94ad23063f8f8926e73605f2
+        lines: [640, 650]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.saveSeenMember
@@ -486,10 +486,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.saveSeenMember
-        hash: sha256:17905a01f1db6bf11f1266b065b7f396eea1dd67e40ea2f4eff0a42b767e0f1f
-        struct_hash: sha256:45cc13757abcfade3a7617fe035a9d867fb68bb37c2e71eb4d586e3aed496fa8
-        doc_struct_hash: sha256:45cc13757abcfade3a7617fe035a9d867fb68bb37c2e71eb4d586e3aed496fa8
-        lines: [651, 667]
+        hash: sha256:1d87f9b7f1800bcd80df655674bd59cc5b0360544d933b0a88fa1e34c3a2c7fe
+        struct_hash: sha256:358164ad2c5843c7493cc52c3f08164c235d153aad5dca0621aec21136532a69
+        doc_struct_hash: sha256:358164ad2c5843c7493cc52c3f08164c235d153aad5dca0621aec21136532a69
+        lines: [652, 668]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#memberUser
@@ -497,10 +497,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: memberUser
-        hash: sha256:07505aaabb2c2107cfd1b593fd1ed2194216b3b4c8a28a864ebb33ad051b0af5
-        struct_hash: sha256:143a7c3322583fdd525ed8a0e6871c81a438c72ccb76c4eb5067e2260962cf51
-        doc_struct_hash: sha256:143a7c3322583fdd525ed8a0e6871c81a438c72ccb76c4eb5067e2260962cf51
-        lines: [669, 707]
+        hash: sha256:4de5ad630713a24d506321625ff378e12d31b04b79728b7d5b492b9584812c2b
+        struct_hash: sha256:629bbcceea93ebf8ce79e2ace86bf25051dcc83ca2d0414367a35b465b388073
+        doc_struct_hash: sha256:629bbcceea93ebf8ce79e2ace86bf25051dcc83ca2d0414367a35b465b388073
+        lines: [670, 708]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#isActiveChatMember
@@ -508,10 +508,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: isActiveChatMember
-        hash: sha256:347fd9c493b12df29e55d109ff7852e4d795121c4a1206a3c5ab3049c5c17003
-        struct_hash: sha256:8f9eb3242076235b2e5b11e4b1b4732ff9d74ee7d560aa9bf5751091fbd902a5
-        doc_struct_hash: sha256:8f9eb3242076235b2e5b11e4b1b4732ff9d74ee7d560aa9bf5751091fbd902a5
-        lines: [709, 714]
+        hash: sha256:2a794672588b96b17a6f47a4da47d725a9be48e1185bcf9dc253ddcf8b45b84e
+        struct_hash: sha256:66d43bd565f7875b8e46b90123bcc707fbce0222347151b700c534b51ef329d0
+        doc_struct_hash: sha256:66d43bd565f7875b8e46b90123bcc707fbce0222347151b700c534b51ef329d0
+        lines: [710, 715]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#userID
@@ -519,10 +519,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: userID
-        hash: sha256:d752af9424b79995da29c923bd0422b94a900db3f2da5792c0d12eb001de1a2a
-        struct_hash: sha256:d1ce9db657ac1c46bd85cd561ac652e1f8414cc19d4b16fc55730080c0387c42
-        doc_struct_hash: sha256:d1ce9db657ac1c46bd85cd561ac652e1f8414cc19d4b16fc55730080c0387c42
-        lines: [716, 721]
+        hash: sha256:0d6f8642f38722d4a417fa306a0de0756bf17838a1a1525153d048accd1465b8
+        struct_hash: sha256:1e7e15cd76fb3eb7608414d501b648b2e8433ca674634ae4e151a7bb5226a1e7
+        doc_struct_hash: sha256:1e7e15cd76fb3eb7608414d501b648b2e8433ca674634ae4e151a7bb5226a1e7
+        lines: [717, 722]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupChannel
@@ -530,10 +530,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupChannel
-        hash: sha256:7a872e3bafc18927854e10fa7f7a33534da1d1311424bf458c29764c1609c2aa
-        struct_hash: sha256:6d62839e079622ec54cc36cf3295a7a988346c5141b9f566c1666e3eb9df101e
-        doc_struct_hash: sha256:f9bce3936067eba05d3c79f6e0fb8434e8c7da9f39ba064894561a795aa29c82
-        lines: [725, 726]
+        hash: sha256:eb8b6317bfe07201628212400455735c6a283e11befe620074194a22ad8d7aff
+        struct_hash: sha256:fb8338e592c13d4efc4942ac793c8e562c347b51cb7b5761600e512e8bc9551b
+        doc_struct_hash: sha256:fb030ffafd216e84fded6f88e0359f1a507c412afdea952d21f93eca12e4afea
+        lines: [726, 727]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#listenKey
@@ -541,10 +541,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: listenKey
-        hash: sha256:541d7889836e78d7fd6c9e2549133560b9a0375224e486e0ced956ad2560aaf5
-        struct_hash: sha256:0b52b9f7a100bc4618faf101ea4559b78db4e1895b71543aa53e07a9d80ea516
-        doc_struct_hash: sha256:788cb112cc76c363c27296ed0b7fdbdaa18713c428b2caa0e7f44de563858b04
-        lines: [728, 729]
+        hash: sha256:5d34192278cc09b59b9985ac04254c0ead178f3732ac63408340a8513daeac14
+        struct_hash: sha256:dac61fdc643bd810a59b8bb018ab1634b9e621705a27af4e590cbfd87566768a
+        doc_struct_hash: sha256:f5267e067f291b430ed034c7ed43a20eb6063ae1084299e4ae246154b9e14f9d
+        lines: [729, 730]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.processGroup
@@ -558,15 +558,26 @@ nodes:
         lines: [732, 916]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.groupTranscriptOwner
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.groupTranscriptOwner
+        hash: sha256:a490d82703a0e6d711bcff9201fd73918d431d52c0e862fb3852fa38b5ba80a5
+        struct_hash: sha256:d16ac43271f864349a0c3e774c13202053ca751ccca0dd7bbd040596c8c0ee75
+        doc_struct_hash: sha256:6e90720d65566459e2f4f821a489ae33347ea4b5e410c87f3fd9d81ae2964e37
+        lines: [918, 945]
+      status: suspect
+      since: 2026-07-25T13:46:39.213163Z
     - id: gateway/telegram/telegram.go#Gateway.canManageTelegramGroup
       level: function
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.canManageTelegramGroup
-        hash: sha256:efd2f37442290729cdd31474563b01f79fcf61d46a709619b82f30964257b109
-        struct_hash: sha256:22ce0f049984d9833012705636769f398abb1ff1f3e76980b10fb4d33293841c
-        doc_struct_hash: sha256:22ce0f049984d9833012705636769f398abb1ff1f3e76980b10fb4d33293841c
-        lines: [894, 912]
+        hash: sha256:b97522dd2f9c6acf3c6fa45df4d381447eb3fdc30bc6902990ffb278c875b5e8
+        struct_hash: sha256:79ff32f902e3bc2fe385a1ea4f82c92c26fde3663deba95522060ef1fd16e347
+        doc_struct_hash: sha256:79ff32f902e3bc2fe385a1ea4f82c92c26fde3663deba95522060ef1fd16e347
+        lines: [947, 965]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleGroupMonitorMention
@@ -574,10 +585,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleGroupMonitorMention
-        hash: sha256:e285357b5827b65856b467486af45e6e851788183ad167c7f12c32a6e0d181f6
-        struct_hash: sha256:39cac064fee1637b06a188f30155b0ba6fa0039435e0cdbc0176bcdeaf94a1eb
-        doc_struct_hash: sha256:39cac064fee1637b06a188f30155b0ba6fa0039435e0cdbc0176bcdeaf94a1eb
-        lines: [914, 980]
+        hash: sha256:e6da6a98009797905e9f6a1b566537d17dca59b825d9f8bcbfc809d838c1072f
+        struct_hash: sha256:404a60496c7b85d4fd893ab4557473a7f10d962839c546cb5191b28942dee6b5
+        doc_struct_hash: sha256:404a60496c7b85d4fd893ab4557473a7f10d962839c546cb5191b28942dee6b5
+        lines: [967, 1033]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.classifyGroupMonitorIntent
@@ -585,10 +596,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.classifyGroupMonitorIntent
-        hash: sha256:ad78527ba47b48b6d9a4178a27e1004e0ac1c6148b16a202f3fe422105ff7250
-        struct_hash: sha256:a01d23d27cb7d218ed00c7e613bc1165801e68a7ff8cd7a9e859cce23f17e33b
-        doc_struct_hash: sha256:a01d23d27cb7d218ed00c7e613bc1165801e68a7ff8cd7a9e859cce23f17e33b
-        lines: [982, 1013]
+        hash: sha256:0bef88d78e02e3268233121fb224ba3315858a371584c35e65fde189eccdd8e2
+        struct_hash: sha256:1b669cd5f78f81b5f95d27dd53c5e168c93076e47befd732bc0ef672b41fdc9f
+        doc_struct_hash: sha256:1b669cd5f78f81b5f95d27dd53c5e168c93076e47befd732bc0ef672b41fdc9f
+        lines: [1035, 1066]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#extractTelegramJSONObject
@@ -596,10 +607,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: extractTelegramJSONObject
-        hash: sha256:a1818b4900c8a4c90b80838e65e44a25b764285f370664bd0981cde4ea8f09ff
-        struct_hash: sha256:bab169ae3b33954d4b7662680a14fa3f8102f1f08869d0546252115d40fc7c7b
-        doc_struct_hash: sha256:bab169ae3b33954d4b7662680a14fa3f8102f1f08869d0546252115d40fc7c7b
-        lines: [1015, 1026]
+        hash: sha256:6606501f313b03b97b08c8fd051a13b4037d783c8a757fa16e9e3d6e65121d82
+        struct_hash: sha256:7bc1f85d6e62716ce326554eb67a3ff5c6ee8265edf15102eda2c3e1aa3a5e8b
+        doc_struct_hash: sha256:7bc1f85d6e62716ce326554eb67a3ff5c6ee8265edf15102eda2c3e1aa3a5e8b
+        lines: [1068, 1079]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#telegramTextHash
@@ -607,10 +618,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: telegramTextHash
-        hash: sha256:7238d30a682e2fee19026b871b9bbb8536a13195168c063863c233654d93e0f9
-        struct_hash: sha256:eaba843178a1f0b24d67312077fb578fd8f97b6d2a4d33cfe020e50f7ae7ee70
-        doc_struct_hash: sha256:eaba843178a1f0b24d67312077fb578fd8f97b6d2a4d33cfe020e50f7ae7ee70
-        lines: [1028, 1031]
+        hash: sha256:5aa708421a6c2e81b679d7f36419ae8d0e7ee393370332ea9adf9d0e60161cba
+        struct_hash: sha256:82cd0265df145bab1fe6507e05a3fffbf254de4cbd14e7f52b529510389a87e2
+        doc_struct_hash: sha256:82cd0265df145bab1fe6507e05a3fffbf254de4cbd14e7f52b529510389a87e2
+        lines: [1081, 1084]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.observeGroupMonitor
@@ -618,10 +629,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.observeGroupMonitor
-        hash: sha256:7384383182197076b44b4f63b136d4ac9bec32599849a7947d78e0432960750d
-        struct_hash: sha256:b2dcaa60f0ef403025b21090e918df1beae32d3339bd044f2a28d617940ed01d
-        doc_struct_hash: sha256:b2dcaa60f0ef403025b21090e918df1beae32d3339bd044f2a28d617940ed01d
-        lines: [1033, 1058]
+        hash: sha256:7284420e4490003abdac59d251b6a8253006a5beccae69c9375b9f660aa007e5
+        struct_hash: sha256:f071d38afca54161eaca649314f7e5821639c377adc35dc2e457925a1cef405e
+        doc_struct_hash: sha256:f071d38afca54161eaca649314f7e5821639c377adc35dc2e457925a1cef405e
+        lines: [1086, 1111]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorEvaluationDelay
@@ -629,10 +640,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorEvaluationDelay
-        hash: sha256:d82f9e04872e286f035dede43636b545c4c1a297cd4e9c469efb60f06f9c35d2
-        struct_hash: sha256:2b5863df3e234259b31f9414f3a00ced3d870589e5524632d4994970836670d9
-        doc_struct_hash: sha256:2b5863df3e234259b31f9414f3a00ced3d870589e5524632d4994970836670d9
-        lines: [1060, 1072]
+        hash: sha256:006e1c3126cd711b97e8398056f43841296373048223d0a1a5cf2df02aa7ed63
+        struct_hash: sha256:3f5061d2d7fc960602202eb54f99fdc2d3bbccb4a0f3fb3b730653b6d9050c45
+        doc_struct_hash: sha256:3f5061d2d7fc960602202eb54f99fdc2d3bbccb4a0f3fb3b730653b6d9050c45
+        lines: [1113, 1125]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.scheduleGroupMonitor
@@ -640,10 +651,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.scheduleGroupMonitor
-        hash: sha256:71e9c49f092caea1cfb9b4ee42ef42cc2c287b3500f8ea3dcda989bd134f2c37
-        struct_hash: sha256:d1f453029c75284f1482d3d6a7a2b83275a424147442e175217621eb4d72d015
-        doc_struct_hash: sha256:d1f453029c75284f1482d3d6a7a2b83275a424147442e175217621eb4d72d015
-        lines: [1074, 1076]
+        hash: sha256:109e81fce0e145ce19d2dc90438a3807965468d9335d3fc42d44bca55539ab97
+        struct_hash: sha256:09f0418dd78c542b3824cc66908f67c5f5f4446169a2531d04f471515190f0df
+        doc_struct_hash: sha256:09f0418dd78c542b3824cc66908f67c5f5f4446169a2531d04f471515190f0df
+        lines: [1127, 1129]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.scheduleGroupMonitorRetry
@@ -651,10 +662,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.scheduleGroupMonitorRetry
-        hash: sha256:9ab24cbfd53524908ceaccf50d652ea3c140dd30f232657f81f300dcd8a404ac
-        struct_hash: sha256:fa361262b6f96a0958606cb9ea2b991d1db4f0c5516201700e33d48152860148
-        doc_struct_hash: sha256:fa361262b6f96a0958606cb9ea2b991d1db4f0c5516201700e33d48152860148
-        lines: [1078, 1080]
+        hash: sha256:3045aa4592f31583315faf3ef7822bedd1255954499920d0b4eb48914fb226a4
+        struct_hash: sha256:2f9378fb9817965af75903917cb64a025fa9910f78dc84cbc4c9bdb4f35f862b
+        doc_struct_hash: sha256:2f9378fb9817965af75903917cb64a025fa9910f78dc84cbc4c9bdb4f35f862b
+        lines: [1131, 1133]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorRetryDelay
@@ -662,10 +673,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorRetryDelay
-        hash: sha256:7484b1f28d83ef2f0a67f39e8e64c4657dddb34b0b75e680a736e077ed804293
-        struct_hash: sha256:06e8cb0013a71b69eff4fe261fe65ca3b5abd74224263354976085a5522d8897
-        doc_struct_hash: sha256:06e8cb0013a71b69eff4fe261fe65ca3b5abd74224263354976085a5522d8897
-        lines: [1082, 1094]
+        hash: sha256:489834f1f8ba54cca7738d3eaf6bf0c160d252d62af5588885888b62c47bc3e8
+        struct_hash: sha256:36ac99fb2729ee4b988855a574f9f7c80abf9f55cffd9493e6361b01afacae74
+        doc_struct_hash: sha256:36ac99fb2729ee4b988855a574f9f7c80abf9f55cffd9493e6361b01afacae74
+        lines: [1135, 1147]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.scheduleGroupMonitorAfter
@@ -673,10 +684,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.scheduleGroupMonitorAfter
-        hash: sha256:f56ed49f1b05cce1e0728a2f2fd51f72bf4972a08a440b7e9a0379a23537d2d2
-        struct_hash: sha256:3c5bd37222259abfa0109c55777df3807b33d5ac1a730d8b13c73d7b1a2cb9ac
-        doc_struct_hash: sha256:3c5bd37222259abfa0109c55777df3807b33d5ac1a730d8b13c73d7b1a2cb9ac
-        lines: [1096, 1112]
+        hash: sha256:a9c31d2a39f150f1e58281694cd6b5327a63a046e465c93d0c0323f716992c78
+        struct_hash: sha256:94a21b7cca1993e96cf06f04bec77450410d39057749c2159451093e80aabc90
+        doc_struct_hash: sha256:94a21b7cca1993e96cf06f04bec77450410d39057749c2159451093e80aabc90
+        lines: [1149, 1165]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.flushGroupMonitor
@@ -684,10 +695,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.flushGroupMonitor
-        hash: sha256:0880cdc78ead48613f2be87ea80d4480faf13c36b3b1041ba957de6f5dc09a24
-        struct_hash: sha256:2f1fe179777d4f3a53220f3e15750a3181f6d5711778e7220128c741553e9820
-        doc_struct_hash: sha256:2f1fe179777d4f3a53220f3e15750a3181f6d5711778e7220128c741553e9820
-        lines: [1114, 1246]
+        hash: sha256:898b439f6c2272f5443f81960f8c1970263eb478122a89030dad85452aeba2f7
+        struct_hash: sha256:3da64cf30eb3313805d29c8031d3bc94363827ad96f230ea21dc1b31efd11957
+        doc_struct_hash: sha256:3da64cf30eb3313805d29c8031d3bc94363827ad96f230ea21dc1b31efd11957
+        lines: [1167, 1299]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.monitorContext
@@ -695,10 +706,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.monitorContext
-        hash: sha256:6625c707418d21d0b8c52e04d54f10e7443ca78976dba4b43d478dedc9b5d4c9
-        struct_hash: sha256:acf6fa4abc4a655b2240d1c56c7ec577851d52adf051a38704d02b6f8983ac80
-        doc_struct_hash: sha256:acf6fa4abc4a655b2240d1c56c7ec577851d52adf051a38704d02b6f8983ac80
-        lines: [1248, 1255]
+        hash: sha256:daf491b73db10741d7ec1214b713411cc163023f531412760b3cf07cd58dd624
+        struct_hash: sha256:60ead62a92faf77632c5b08246b53b2efdf3d4edbc52aaebc312b8a1fe5f0c23
+        doc_struct_hash: sha256:60ead62a92faf77632c5b08246b53b2efdf3d4edbc52aaebc312b8a1fe5f0c23
+        lines: [1301, 1308]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorLeaseAlive
@@ -706,10 +717,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorLeaseAlive
-        hash: sha256:b1c75615929c684d1ac18288f634ee16ad3828c0bfd5d7eb5eb66170d93df5aa
-        struct_hash: sha256:0972bd72ab60cbbb88db98f4449c2a1d46938117d15a6481486486bbe42960fa
-        doc_struct_hash: sha256:0972bd72ab60cbbb88db98f4449c2a1d46938117d15a6481486486bbe42960fa
-        lines: [1257, 1264]
+        hash: sha256:1693435f032aed0a42688b7c11fb3d19c89b5e4dc1b84f029bb39c00b277bda1
+        struct_hash: sha256:820e1e64df96cb39cc4f7cc67932aa91bd3eb57a70ca18c1e634d71b0265227e
+        doc_struct_hash: sha256:820e1e64df96cb39cc4f7cc67932aa91bd3eb57a70ca18c1e634d71b0265227e
+        lines: [1310, 1317]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.resumeGroupMonitors
@@ -717,10 +728,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.resumeGroupMonitors
-        hash: sha256:086722a07455b8e4bd23b0f77c6a34626df50e81cfad838ee7e7438fe5c33f3c
-        struct_hash: sha256:575993d9ff9281c95f1bb4760f9dd344dcaacae20ce20772d346bb44f73cfb71
-        doc_struct_hash: sha256:575993d9ff9281c95f1bb4760f9dd344dcaacae20ce20772d346bb44f73cfb71
-        lines: [1266, 1285]
+        hash: sha256:b34a84a07e987827acc09350624b5c015fa12b6922050cf30826a31225bf3ab2
+        struct_hash: sha256:fb586121dadcb8c36ff5cb4157cc0c459b2ac11263a5af679655373d29f3db07
+        doc_struct_hash: sha256:fb586121dadcb8c36ff5cb4157cc0c459b2ac11263a5af679655373d29f3db07
+        lines: [1319, 1338]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.stopGroupMonitorTimers
@@ -728,10 +739,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.stopGroupMonitorTimers
-        hash: sha256:9ae7163dcd43724438b52519ab90ce7289d411e8937542d30c178312ab332923
-        struct_hash: sha256:93a6b657886d0eedc076308485cf3f117e2856f1b66836645d8b91669b211890
-        doc_struct_hash: sha256:93a6b657886d0eedc076308485cf3f117e2856f1b66836645d8b91669b211890
-        lines: [1287, 1295]
+        hash: sha256:44ba0fabe72b905e31a400bb82e14ebaa68f74b51f3306f251d3df1299fc3012
+        struct_hash: sha256:65774d47c74e0f60ef12c5e3a57f4e0d674f3c6600201ff53b522b9955f08a2d
+        doc_struct_hash: sha256:65774d47c74e0f60ef12c5e3a57f4e0d674f3c6600201ff53b522b9955f08a2d
+        lines: [1340, 1348]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.evaluateGroupMonitor
@@ -739,10 +750,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.evaluateGroupMonitor
-        hash: sha256:0af2ad3586286c027782385c85b02f67d28fc382d928d44a27dc797f2008e13e
-        struct_hash: sha256:198ee422da318c2c4d1b482ce75413106507aa6771b2eaa791c9727283e1528e
-        doc_struct_hash: sha256:198ee422da318c2c4d1b482ce75413106507aa6771b2eaa791c9727283e1528e
-        lines: [1297, 1370]
+        hash: sha256:0bd1595e8b137966b94403b0ba20d8ab1939c57ef2adf0e32b201078d4ca8974
+        struct_hash: sha256:ee34c1bd1297a01fad940706df153402e0e1d5b33be78d7e355067837c190f25
+        doc_struct_hash: sha256:ee34c1bd1297a01fad940706df153402e0e1d5b33be78d7e355067837c190f25
+        lines: [1350, 1423]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.finishGroupMonitorAnalysis
@@ -750,10 +761,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.finishGroupMonitorAnalysis
-        hash: sha256:a30b47beab09c2f5f8b042cd26c827818d90a79b1ccf860d4de66aa41bc18801
-        struct_hash: sha256:ab3ba97d3d5d2a6b06987aad128c87067462f70dfc02538173d3baaefa066ad5
-        doc_struct_hash: sha256:ab3ba97d3d5d2a6b06987aad128c87067462f70dfc02538173d3baaefa066ad5
-        lines: [1372, 1425]
+        hash: sha256:1cf68f770813787625878bf69813929b4fd56b253e97854bf106c9b50adcd1f8
+        struct_hash: sha256:7e26160a10a0cdd329d438852a211dadff5aca97a03eaf8fb63ae27ec2e58ee2
+        doc_struct_hash: sha256:7e26160a10a0cdd329d438852a211dadff5aca97a03eaf8fb63ae27ec2e58ee2
+        lines: [1425, 1478]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#groupMonitorNoNotify
@@ -761,10 +772,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: groupMonitorNoNotify
-        hash: sha256:0f68757a7641c1807a39c26d1b5f84fe8afca5d4eba2e570864c3c034bd17851
-        struct_hash: sha256:2b6ddfadd2a6754f127adfc07794da2b8ba4f5d766cc177d1e71525dd0c4c796
-        doc_struct_hash: sha256:2b6ddfadd2a6754f127adfc07794da2b8ba4f5d766cc177d1e71525dd0c4c796
-        lines: [1427, 1431]
+        hash: sha256:3c6291cbbe8f7647d120b6b84105060c496c879a26f01417067c11549c218c4c
+        struct_hash: sha256:cb59223a91c07e63915c66c87a9546340959041e65c07888c83614fbc179afee
+        doc_struct_hash: sha256:cb59223a91c07e63915c66c87a9546340959041e65c07888c83614fbc179afee
+        lines: [1480, 1484]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.privateTelegramChatID
@@ -772,10 +783,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.privateTelegramChatID
-        hash: sha256:ab7359db567b9d44f5275931bc97355de14190593e41142ca9a4a400fa3db7a0
-        struct_hash: sha256:89526db0a0d72cd79b0e97b064346fe42a2393a7a42224e7efb354114a446362
-        doc_struct_hash: sha256:89526db0a0d72cd79b0e97b064346fe42a2393a7a42224e7efb354114a446362
-        lines: [1433, 1447]
+        hash: sha256:3aabd1b25694016ffa0e3619f2a8197a55eecd27cf4364539ce20da0cf6e6fa2
+        struct_hash: sha256:271f001bf5994e408fe6c7636eab66295376a711210dd3c0f5a866e644e721b4
+        doc_struct_hash: sha256:271f001bf5994e408fe6c7636eab66295376a711210dd3c0f5a866e644e721b4
+        lines: [1486, 1500]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleGroupAutoInvite
@@ -783,10 +794,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleGroupAutoInvite
-        hash: sha256:c832c4879973991f4f710b2147f6324d93e44e2247010c7e70511d36555250f7
-        struct_hash: sha256:00fc9140f6bd8a1af77215f24cee85e864e5b738a6348a4ad0338dbcf6029856
-        doc_struct_hash: sha256:00fc9140f6bd8a1af77215f24cee85e864e5b738a6348a4ad0338dbcf6029856
-        lines: [1449, 1507]
+        hash: sha256:e1dffa45b56cfcb09e0a51b17903de208a56b443a2005a9697e185e0c1ae2f1e
+        struct_hash: sha256:1dce170cdfbb343b9b4c1eeadbfae1583074a50d0b6fcffccc7096f80c2649b5
+        doc_struct_hash: sha256:1dce170cdfbb343b9b4c1eeadbfae1583074a50d0b6fcffccc7096f80c2649b5
+        lines: [1502, 1560]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.employeeInviteLink
@@ -794,10 +805,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.employeeInviteLink
-        hash: sha256:25af8c93107f6cb0adc000f4f273cf8bc75c77b216deb57b8ea279937a756033
-        struct_hash: sha256:240697ebcd868e089f7e30f784179417fc5e941697918a9c93e2109b91b98d5f
-        doc_struct_hash: sha256:240697ebcd868e089f7e30f784179417fc5e941697918a9c93e2109b91b98d5f
-        lines: [1509, 1515]
+        hash: sha256:87c9b180a70a6335462b38a1a3f7b2af058dba958706cea5405f4fa3ad0d9743
+        struct_hash: sha256:372158fbd69eee64cdf197744a7e3ccdc5be1050bc1eeab4c690084a94b76031
+        doc_struct_hash: sha256:372158fbd69eee64cdf197744a7e3ccdc5be1050bc1eeab4c690084a94b76031
+        lines: [1562, 1568]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.mentioned
@@ -805,10 +816,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.mentioned
-        hash: sha256:90adff3289c07d39e4fe50bd161038aca1dd0e3c6df1e1306d0067636f0c5552
-        struct_hash: sha256:d9880d2449c795cab21b26d50496ac40484f5d633ad0e19919e4f2059fc407f3
-        doc_struct_hash: sha256:fc34b26560a1032adf68a5743c8f129756c44ef35ac8ca378dc088a90585a418
-        lines: [1517, 1531]
+        hash: sha256:1dd30c232e65cd4bc3f61c28264830d60e3e38b6d6b814789bc39934a13a7834
+        struct_hash: sha256:8c6476b665821b81323294f36d7327363d9253d093e067b2dbf90ba242c11f9f
+        doc_struct_hash: sha256:f7a7a58d2dbda1a5b614bae14957c97a9245a09408d48175ce135884e50d7f5e
+        lines: [1570, 1584]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#hasTextMention
@@ -816,10 +827,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: hasTextMention
-        hash: sha256:89fb9441c3e702048e548490c83b260f77ce7b053d4bf2e67dd5b3fa6c25e9bd
-        struct_hash: sha256:ab935a3144e6ddc2af157b7579466a323be1d7e10dc738e81b173918f44eec0c
-        doc_struct_hash: sha256:ab935a3144e6ddc2af157b7579466a323be1d7e10dc738e81b173918f44eec0c
-        lines: [1533, 1540]
+        hash: sha256:f1482037067033c2dd7423bab7323a92692f81eb5a6101ae240ac3babf6cbb9a
+        struct_hash: sha256:2e3af4b21bdbba66b0add5eb0d96c211a4e12a44b1b170a0819a80cdfbaaca6c
+        doc_struct_hash: sha256:2e3af4b21bdbba66b0add5eb0d96c211a4e12a44b1b170a0819a80cdfbaaca6c
+        lines: [1586, 1593]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#isUsernameByte
@@ -827,10 +838,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: isUsernameByte
-        hash: sha256:8f3118d0935ee32cd2ae901d54232644217f56d8a323faea891c7771ff703844
-        struct_hash: sha256:818a8703957250e681e6d470df0c85b0dd160557489a16f689031cf50fe5cda2
-        doc_struct_hash: sha256:0567aa5634a025bdb9085fad3c2ec0d323c821e6fdb6bd5a788846d2bef20ca6
-        lines: [1542, 1545]
+        hash: sha256:01fd438115dcca4216442ad6920265e645b43ac8125b861ec50ed56d5d3aad3e
+        struct_hash: sha256:e462ad48ac2c57df714ec63ca012094a2588f477f8702c4524e9bcee362e33f7
+        doc_struct_hash: sha256:509255dd60fc5da6aab90ca2ba52bec33c53773f3fba8c1ffca4373391082bcc
+        lines: [1595, 1598]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#hasMention
@@ -838,10 +849,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: hasMention
-        hash: sha256:8779fcec24146a1cf255190cdbd74d83edc08ec4646d1f8f6a377ba05c67e335
-        struct_hash: sha256:c1354cbc6b6a518a6c5ee00250c3cdaf7a1262fba52f49781afb027bc270bb13
-        doc_struct_hash: sha256:1b5d2010e9da227b37d5de6b9a5c5039802b838636ebe07e9ca35f8fc0d3173b
-        lines: [1547, 1563]
+        hash: sha256:2912b329c7443158937da9cd00dd7aa15d036297e291da84d50ae2d5558e99c1
+        struct_hash: sha256:ae26a4c7d0f27f410976422f7606a5fd32b9897b5ca4cd59a227b0e2afcf2ce0
+        doc_struct_hash: sha256:64817f38601368a65aeeb3ac568474334368b60ec56c5bb05096968afec9e724
+        lines: [1600, 1616]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#stripMention
@@ -849,10 +860,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: stripMention
-        hash: sha256:60449958e5451569472414630ef0efe4fe85a6e9a98c9097ba534d4513034081
-        struct_hash: sha256:37489687b25169903ecd2bea7575c1069ceedc434f7cb0f773b3ce62fcb76f79
-        doc_struct_hash: sha256:5bb9f39462df3fb6f6f08ccbf50c1ddbc27f359223e09ba4c0d4914d590d70a3
-        lines: [1565, 1586]
+        hash: sha256:a5acad70f419e2e1050c1aa9489ef6c3ecf0a8e6c5c3e9557daf741cde6c344f
+        struct_hash: sha256:5f9d3d2dbc2e2a9ed773dc5ec0609732c2a7318fd4d0727098372d4e637fba42
+        doc_struct_hash: sha256:623221936f10eaa11f73680260faddc75eee922f833468911e8e9116961c8a27
+        lines: [1618, 1639]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#commandOf
@@ -860,10 +871,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: commandOf
-        hash: sha256:9245ee4215b88016ce306fcc342da518e4c25ef36ef22162a59fc19108dc474a
-        struct_hash: sha256:3350f795c87da6901abae1010c4a255b80b0d0e1ad66174e581f388db705e36a
-        doc_struct_hash: sha256:3064b25eccb24a4ffc6fd70721132e2e518c2b1776ab0804a3373b43afd6eabb
-        lines: [1588, 1601]
+        hash: sha256:8ca30363c53342616c3455a9967667087018b2010917391d72dfea4ad0c01bdc
+        struct_hash: sha256:1b312aaa6ef8d3a8fee8dfd0b3f44c48969912369dcea9d05cb10d51700f18a6
+        doc_struct_hash: sha256:f48b5f90d9ecf4806864efa7d045a5c0532c4bbb3dacd03eb63d1f7ae9d4d7a6
+        lines: [1641, 1654]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#commandArgs
@@ -871,10 +882,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: commandArgs
-        hash: sha256:c05131408ccd1522337e8e9781a529e572a81d58fdc2c961e724ef6d10c921b1
-        struct_hash: sha256:ff729e8669ca2fb76e724d8cb55c9a6868e86d2cb2a55924db95067bc9daa95a
-        doc_struct_hash: sha256:ff729e8669ca2fb76e724d8cb55c9a6868e86d2cb2a55924db95067bc9daa95a
-        lines: [1603, 1614]
+        hash: sha256:039e6b69c5cdcd3030444c6e8f9356ec5be73eeba9a744f76aa420e463700e59
+        struct_hash: sha256:4d87156a0dca38dddd40cca835ae580943c02fb550a05b23119b9d3e7fe93e93
+        doc_struct_hash: sha256:4d87156a0dca38dddd40cca835ae580943c02fb550a05b23119b9d3e7fe93e93
+        lines: [1656, 1667]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#displayName
@@ -882,10 +893,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: displayName
-        hash: sha256:81b436269f3d610d9e9be3d66d88471d82ef59c40e1bda53a645174c1d0f1e50
-        struct_hash: sha256:74f77e47332b2d175701a6238c5bafa469f0976bb5f809b1c596b932087cae2a
-        doc_struct_hash: sha256:cda0c602ce5e7000cfcf75613fc07bb1906fc84b39b77feb8d1e0879d321f029
-        lines: [1616, 1629]
+        hash: sha256:7a18c5a86962b9d70bae298edf98f8e86c6db578acd631f43c7b0dab1bc9d26a
+        struct_hash: sha256:14006c79635b758700214bb89bf1142e899c95482e5aa1939e07ba6f8709c74c
+        doc_struct_hash: sha256:4f07093355adc1e559935c377411cbccd06c019a3250d941b24f2035db387c42
+        lines: [1669, 1682]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#displayNameFromMessage
@@ -893,10 +904,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: displayNameFromMessage
-        hash: sha256:d4faa9c34581bee996ae694bf2e4c5408dc30b70d4e85be89b702c987ed19a83
-        struct_hash: sha256:c2162fce65a7b019562dd1da696e7e6fbbc144eaf68f81e74d6df6753709bfd5
-        doc_struct_hash: sha256:c2162fce65a7b019562dd1da696e7e6fbbc144eaf68f81e74d6df6753709bfd5
-        lines: [1631, 1648]
+        hash: sha256:f59da7397ad9f37bd9071b4adc1c2f16934c326f447d02f5bde4ac32809642c1
+        struct_hash: sha256:4130952007fc2ebee0ba63106586d03e1ce1e1abd4bd5f19bf531c37df8130aa
+        doc_struct_hash: sha256:4130952007fc2ebee0ba63106586d03e1ce1e1abd4bd5f19bf531c37df8130aa
+        lines: [1684, 1701]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#senderChatTitle
@@ -904,10 +915,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: senderChatTitle
-        hash: sha256:aa3d31d83fce1d0b5cd2ec81dc818f7dbf3e6f940147befa264cc4de693ec187
-        struct_hash: sha256:d85a308127e78970232503609800b54c50ebf5ca0e90c68aec73c027bf0ba3b1
-        doc_struct_hash: sha256:d85a308127e78970232503609800b54c50ebf5ca0e90c68aec73c027bf0ba3b1
-        lines: [1650, 1661]
+        hash: sha256:ec4eb3dc87a74cca121a75b235c4cc88a17ed40194c51fc62bfc01f914db68be
+        struct_hash: sha256:968b2353b9c29bdeb1655ca9ee4698f6120d9b94a6032af09723bf488fb06233
+        doc_struct_hash: sha256:968b2353b9c29bdeb1655ca9ee4698f6120d9b94a6032af09723bf488fb06233
+        lines: [1703, 1714]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#boundStartMessage
@@ -915,10 +926,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: boundStartMessage
-        hash: sha256:98eb812e5a143ffff8cf3a0df179aade9ca4848a3201086010d0a3b945445b04
-        struct_hash: sha256:b482c64dcee7931a7ef55ffb02e930666d05e845e95cd62b45b95ac358a3bc8c
-        doc_struct_hash: sha256:b482c64dcee7931a7ef55ffb02e930666d05e845e95cd62b45b95ac358a3bc8c
-        lines: [1663, 1667]
+        hash: sha256:524df7784676093c084dab8a2d113610e4a164bc51e5f77a8cbd0862246cabcc
+        struct_hash: sha256:0252667220208ee51fed9a48daadb38659e383b88b7387a01b1673b33d36aa0d
+        doc_struct_hash: sha256:0252667220208ee51fed9a48daadb38659e383b88b7387a01b1673b33d36aa0d
+        lines: [1716, 1720]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#unboundHelpMessage
@@ -926,10 +937,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: unboundHelpMessage
-        hash: sha256:0a02f2a3fbadf67315da07eb22f72a6d612e849b0ef77af796ed5a7809bd0167
-        struct_hash: sha256:8d0f092fe6c902d1e68ea40b51cc1aa938dab350fa04adf8f9db1eddb4318837
-        doc_struct_hash: sha256:8d0f092fe6c902d1e68ea40b51cc1aa938dab350fa04adf8f9db1eddb4318837
-        lines: [1669, 1681]
+        hash: sha256:91925021ef3dda87bace28ccef2dd0ad24aa85f7757b9bbc07e615bc3ed7655c
+        struct_hash: sha256:c35690787dca9077a867de80e07acbee86e104ba3f772c7f82c37dfcf5d3febf
+        doc_struct_hash: sha256:c35690787dca9077a867de80e07acbee86e104ba3f772c7f82c37dfcf5d3febf
+        lines: [1722, 1734]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#bindSuccessMessage
@@ -937,10 +948,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: bindSuccessMessage
-        hash: sha256:d1e4a3b572bfdfa4b0dd3f57b27f2389e8c29890f62d44367e307afdd8eecdeb
-        struct_hash: sha256:2921a53d2d89bdb047ee238a7a1b786b9fd0b58959779efa24c5670ee20de2d4
-        doc_struct_hash: sha256:2921a53d2d89bdb047ee238a7a1b786b9fd0b58959779efa24c5670ee20de2d4
-        lines: [1683, 1691]
+        hash: sha256:6067f546600176d5a06e8f9a7bd8d24a815a664d13d64a4f625f3be3b2d61990
+        struct_hash: sha256:fac4ac2528883e4bf46246fab410303c962806b8414bacef9286714674acac3a
+        doc_struct_hash: sha256:fac4ac2528883e4bf46246fab410303c962806b8414bacef9286714674acac3a
+        lines: [1736, 1744]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.groupReadyMessage
@@ -948,10 +959,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.groupReadyMessage
-        hash: sha256:78f72295480fb526836071902b71848517cb3ae2dba158fceafee0e4527bc5c0
-        struct_hash: sha256:0d794337354c97454b5a4c75e92e915dcff1ad5a68a1bc792ca988bcbcb410b9
-        doc_struct_hash: sha256:0d794337354c97454b5a4c75e92e915dcff1ad5a68a1bc792ca988bcbcb410b9
-        lines: [1693, 1702]
+        hash: sha256:70d14af6d4be4ab90da36a5653e167362f48e547cef12e366fcebdd27d95f187
+        struct_hash: sha256:1ddb02ef45c8cec25c345f061c2c3e2c168c573fb0549a2dc22c421d29f6fe14
+        doc_struct_hash: sha256:1ddb02ef45c8cec25c345f061c2c3e2c168c573fb0549a2dc22c421d29f6fe14
+        lines: [1746, 1755]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.process
@@ -965,886 +976,17 @@ nodes:
         lines: [1757, 1861]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.handleModelCommand
+    - id: gateway/telegram/telegram.go#telegramTurnSourceKey
       level: function
       anchor:
         file: gateway/telegram/telegram.go
-        symbol: Gateway.handleModelCommand
-        hash: sha256:9d69e1f7d3077d11be96cf0196d5111338bad0534975a6262caf8d555ac383d1
-        struct_hash: sha256:f64235b2c24ba0f425760905966ae4b8b485d9bf167a350b7b6c59aba9dfb549
-        doc_struct_hash: sha256:f64235b2c24ba0f425760905966ae4b8b485d9bf167a350b7b6c59aba9dfb549
-        lines: [1789, 1829]
+        symbol: telegramTurnSourceKey
+        hash: sha256:8eca917c927b5abb36220f94ef7dbce3cb177d1bd0272a27b5e3a32a8136ed66
+        struct_hash: sha256:6790d51d2d0963ecc6852a9d417ee9ce41fc06ced7a31808657a12a283f64f8f
+        doc_struct_hash: sha256:6790d51d2d0963ecc6852a9d417ee9ce41fc06ced7a31808657a12a283f64f8f
+        lines: [1863, 1868]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#apiTokenConfirmTTL
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: apiTokenConfirmTTL
-        hash: sha256:d414e30cb7f3a03f88e4568c4a5e8cd2dfe84b4f250a6cb83073a9f132931a9b
-        struct_hash: sha256:261802bd1f2e571c330d9a4c7f852480ceab89754d42765cf5d4cd6c6c69af58
-        doc_struct_hash: sha256:261802bd1f2e571c330d9a4c7f852480ceab89754d42765cf5d4cd6c6c69af58
-        lines: [1831, 1831]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#apiTokenConfirmKey
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: apiTokenConfirmKey
-        hash: sha256:149075ed5f9189ff7cd18d10ee3f0a5e2fd1e513382720b36ddd3fc25759639a
-        struct_hash: sha256:f6bed50fd12a977a6bd18b32aba030183c9e035c3bcf20f7f4177b73b97c350a
-        doc_struct_hash: sha256:f6bed50fd12a977a6bd18b32aba030183c9e035c3bcf20f7f4177b73b97c350a
-        lines: [1833, 1835]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.handleTokenCommand
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.handleTokenCommand
-        hash: sha256:e7604c5fed9269fcdc3bf2fdb5246b806a090ac621ebb3ae8c90cf35581d3fe1
-        struct_hash: sha256:11314981e1eb5a3c475c717464b55c80f59e2812410606f5060b5e5912fc5f04
-        doc_struct_hash: sha256:11314981e1eb5a3c475c717464b55c80f59e2812410606f5060b5e5912fc5f04
-        lines: [1837, 1890]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.apiTokenStatusMessage
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.apiTokenStatusMessage
-        hash: sha256:ca6b512833a6d71fbbc708691ec897c87cfc44dc3c876524a97a85b8fe62b864
-        struct_hash: sha256:b5feafae02d6b2e042a664a1f74b3abd64f150403df959b2b8d37beac66c6ad4
-        doc_struct_hash: sha256:b5feafae02d6b2e042a664a1f74b3abd64f150403df959b2b8d37beac66c6ad4
-        lines: [1892, 1903]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.formatTime
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.formatTime
-        hash: sha256:8ff77cd5421cff2a62adb57d255081f88eddbade31f0c92d924cc1d979757abf
-        struct_hash: sha256:d23d215a577b209fb0023295fc4f7e9620f008c899afa24d950231c49f0016e6
-        doc_struct_hash: sha256:d23d215a577b209fb0023295fc4f7e9620f008c899afa24d950231c49f0016e6
-        lines: [1905, 1911]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.timeZone
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.timeZone
-        hash: sha256:8b3c56ae849d1f6558e196496049b82eff6703960921c0680eaebbe18ad6a237
-        struct_hash: sha256:e45f7c937210fcf6a7197c0370380aebeab66cc1fd47138c26f866475b7120f6
-        doc_struct_hash: sha256:e45f7c937210fcf6a7197c0370380aebeab66cc1fd47138c26f866475b7120f6
-        lines: [1913, 1915]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#orLocalTimeZone
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: orLocalTimeZone
-        hash: sha256:9f46006e5a863e43c86f276514c65b49607fc066dd164c1f02cec5b9938ce358
-        struct_hash: sha256:4b738ad06381dc5c6808e5add352775bfb436b40ddc40e041bb1063faedfaf68
-        doc_struct_hash: sha256:4b738ad06381dc5c6808e5add352775bfb436b40ddc40e041bb1063faedfaf68
-        lines: [1917, 1922]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.modelStatus
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.modelStatus
-        hash: sha256:4ff98f89d8621780ab3838767c2e8670563731ffa036bbe15ec6f81182c959a7
-        struct_hash: sha256:a7a4f0cb98cd55393bfcc45b9b3baee16213805eea59b224677b301024676685
-        doc_struct_hash: sha256:a7a4f0cb98cd55393bfcc45b9b3baee16213805eea59b224677b301024676685
-        lines: [1924, 1944]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.loadedModels
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.loadedModels
-        hash: sha256:6a4b11bcc425726c67fe553bb5613714858a4b7073de1f2bfdb9355ee386c9e9
-        struct_hash: sha256:e38bf9558ae1bc2d2f51bcce183cd76612b45e102eaddd55a59c17d0449ef71f
-        doc_struct_hash: sha256:e38bf9558ae1bc2d2f51bcce183cd76612b45e102eaddd55a59c17d0449ef71f
-        lines: [2040, 2064]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#loadedModelsHelp
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: loadedModelsHelp
-        hash: sha256:4d560b4b044314f962776604d0fc5d62a4f537a541e7d7c89511e6ee02be39d5
-        struct_hash: sha256:3eaef753166e4b908a39e980d2b3288985f934e84b3f7f582eaf5ba1606be1f5
-        doc_struct_hash: sha256:3eaef753166e4b908a39e980d2b3288985f934e84b3f7f582eaf5ba1606be1f5
-        lines: [2135, 2148]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#modelInList
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: modelInList
-        hash: sha256:d0bcc016a95f9a180f011e352aa149b9dfa6ac3a1fe9f06605d64378ca0d77ae
-        struct_hash: sha256:15fe156c426b91ffff277758e4abb5c5a267c09eb8ffcd79e27ad954e04d5347
-        doc_struct_hash: sha256:15fe156c426b91ffff277758e4abb5c5a267c09eb8ffcd79e27ad954e04d5347
-        lines: [2017, 2024]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#validModelName
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: validModelName
-        hash: sha256:49793344c22870a6b962b877d33bccb98335ebf9f97b5befbc442523f5e8d289
-        struct_hash: sha256:accbda943afcdbcb3167550e162f34434988fc3e79d9a61a7b04e38fba83f562
-        doc_struct_hash: sha256:accbda943afcdbcb3167550e162f34434988fc3e79d9a61a7b04e38fba83f562
-        lines: [2026, 2037]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.onboard
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.onboard
-        hash: sha256:b9e3b9a84c5e577c8d0c4626731f99203bff016c6f2f80af4a17c7069e443cee
-        struct_hash: sha256:e9b1375f7efd0f8dc67f75d525a87a5c5e84f556fa69828f5b142b67cb5bb8b9
-        doc_struct_hash: sha256:ce3e042ffd657da6fe1ec544e154e4b835e0454329c0f819654e1c17b1689563
-        lines: [2039, 2103]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.consumePendingEmployeeInvite
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.consumePendingEmployeeInvite
-        hash: sha256:7a70945ed3f7484a3cfc6b0b47eb478d9df9dd26dff4c6629748df743dbb33db
-        struct_hash: sha256:1876fb4c484a24d0fb10092aa8cf989d37e4df36f8927febc47793de9fd6b8d9
-        doc_struct_hash: sha256:1876fb4c484a24d0fb10092aa8cf989d37e4df36f8927febc47793de9fd6b8d9
-        lines: [2105, 2136]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#inviteTokenFromText
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: inviteTokenFromText
-        hash: sha256:c9a9223543de0820f1b6a5188390128123c603878817c113bedf20232695e9aa
-        struct_hash: sha256:b1e8893f2d8f082caac31ad29ba43f54d23da4121c777ba5ec340912526f0bef
-        doc_struct_hash: sha256:b1e8893f2d8f082caac31ad29ba43f54d23da4121c777ba5ec340912526f0bef
-        lines: [2138, 2156]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.reply
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.reply
-        hash: sha256:9eeb3d2709d574618317dd5a8990115db8777ce6804512b6e9964c0fd99ead46
-        struct_hash: sha256:c4d42efab6d356810aed89d50aaa09f76f1343142106b98d41c490e678896430
-        doc_struct_hash: sha256:c4d42efab6d356810aed89d50aaa09f76f1343142106b98d41c490e678896430
-        lines: [2158, 2162]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.sendChunks
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.sendChunks
-        hash: sha256:e6e6dee6676aaecb9d2c75c125d10233bf0905569a6484947e157f2c5991d6ea
-        struct_hash: sha256:4a9a462ee24fdd00a1966d61728d9b9bf217a8aa6bb8f66f0620b827171e1681
-        doc_struct_hash: sha256:20b150c88add4d8bc60c5ae9976730b204769dd37ddcec65e3930e93c0f343a4
-        lines: [2164, 2179]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.sendOne
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.sendOne
-        hash: sha256:11b50ad0ebdb8a35b197cde035ecd12976bb41f994a76134580940cbb9806609
-        struct_hash: sha256:0344c2a64ab18ec59d684ee13de112a2d8a14469e9bc5192a8f88238afac3794
-        doc_struct_hash: sha256:82d2c235bbd0fae0ac7e1abd807818efb5083ab873a07ef2fe0921c994324259
-        lines: [2181, 2193]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.sendTyping
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.sendTyping
-        hash: sha256:972d0e6fe24905083b07ee1ef932573ee9198cd87b7bf5b50ece0fd76d33c8b0
-        struct_hash: sha256:35e8a17115ec5da1cd5d2596e54e2f37b2290b9982b3b6f80c869456f40a49e1
-        doc_struct_hash: sha256:35e8a17115ec5da1cd5d2596e54e2f37b2290b9982b3b6f80c869456f40a49e1
-        lines: [2195, 2197]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.EnsureTelegramGroupSession
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.EnsureTelegramGroupSession
-        hash: sha256:91b56f53afed2d2b9152dfd33c8defcafa5ca567ec315e396ae0417757d47c17
-        struct_hash: sha256:d8472a80eb4c6656612f0cf531361562a132bb24744a1a483e62f6272b45675f
-        doc_struct_hash: sha256:63ab70130d0d4036314a1c960a15945a738ede62e0d98c6bfb935d2488e4baa6
-        lines: [2199, 2212]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.SendTelegramGroupMessage
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.SendTelegramGroupMessage
-        hash: sha256:c70675e0efa14b22db2828d66ed53298c6ea289c4298427b1ebca68685532912
-        struct_hash: sha256:cde3176184334e8b112f513cf57d242ce71a016d802606666370fc448012c7a4
-        doc_struct_hash: sha256:cde3176184334e8b112f513cf57d242ce71a016d802606666370fc448012c7a4
-        lines: [2214, 2236]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupMemberCount
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.GetTelegramGroupMemberCount
-        hash: sha256:767353faba67d6e80e63f61d386298add115669c3ae28d5e48614a35432d67ab
-        struct_hash: sha256:384f59e1acd8e931e929dc75680be239c1bbd9589338459e2b2af9bd4392cceb
-        doc_struct_hash: sha256:384f59e1acd8e931e929dc75680be239c1bbd9589338459e2b2af9bd4392cceb
-        lines: [2238, 2240]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupAdministrators
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.GetTelegramGroupAdministrators
-        hash: sha256:32d51fe66e389757ca27b9dc6af58767553bd7c9b3638df8e5ee33b8fcf611b0
-        struct_hash: sha256:1e4a2449139fdd8744151ed037460cdb37c0c385ea27697d001f048ba6dc680c
-        doc_struct_hash: sha256:1e4a2449139fdd8744151ed037460cdb37c0c385ea27697d001f048ba6dc680c
-        lines: [2242, 2254]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupMember
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.GetTelegramGroupMember
-        hash: sha256:a951f3c41ac9270e4fbbedf66d2af80b81e0b8f0e7bf908354e12bb44817b9b2
-        struct_hash: sha256:4611383f63468479b78ff6f644b8e144e3442bae80572a4d2a4bbf65825ece9a
-        doc_struct_hash: sha256:4611383f63468479b78ff6f644b8e144e3442bae80572a4d2a4bbf65825ece9a
-        lines: [2256, 2265]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupBotMember
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.GetTelegramGroupBotMember
-        hash: sha256:d214473f0f131f315f7845aebbfb1a2cc151ca707c87033c966538cc1752e21e
-        struct_hash: sha256:6326e0ec61899d75f8beb1b88d6265b1bf2c4aedd65e12945386ae678e1e1732
-        doc_struct_hash: sha256:6326e0ec61899d75f8beb1b88d6265b1bf2c4aedd65e12945386ae678e1e1732
-        lines: [2267, 2280]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramGroupMemberFromUser
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramGroupMemberFromUser
-        hash: sha256:bfd8b3910cd78f7e434ae5d3a430089c79c406524ce63a6b0ff0997111d259ba
-        struct_hash: sha256:e49cc7e58050a7053ea3db6e935475d8a55bc361f888f876f696d9a2c1cf24ab
-        doc_struct_hash: sha256:e49cc7e58050a7053ea3db6e935475d8a55bc361f888f876f696d9a2c1cf24ab
-        lines: [2282, 2290]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramGroupMemberFromChatMember
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramGroupMemberFromChatMember
-        hash: sha256:7e3d88801babb518bddb1a1548b0bd9ac395344c6db7bf4ece6d3b47ad726611
-        struct_hash: sha256:58e4f3c9ffb19bc416cae0e57d06722817a39fb64c50576722b4328f3b51752c
-        doc_struct_hash: sha256:58e4f3c9ffb19bc416cae0e57d06722817a39fb64c50576722b4328f3b51752c
-        lines: [2292, 2308]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramAdminRights
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramAdminRights
-        hash: sha256:1b178badf9f56ba9eae1d6367bbb52f96659108d7886a647a50ba4f84be89ba2
-        struct_hash: sha256:400e4c5978c719c349be1fbdb3f86443f1ce8e5ad6537f3ea863154cb08b8844
-        doc_struct_hash: sha256:400e4c5978c719c349be1fbdb3f86443f1ce8e5ad6537f3ea863154cb08b8844
-        lines: [2310, 2332]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.EditTelegramGroupMessage
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.EditTelegramGroupMessage
-        hash: sha256:f0b3a48d66390b8a27132e56e2b1f16569328c76673b7c90513dcad551f0c573
-        struct_hash: sha256:42f6d462c9246021f5d413189d6b66b4788582f16e20f3ce705b12e63ae3222a
-        doc_struct_hash: sha256:42f6d462c9246021f5d413189d6b66b4788582f16e20f3ce705b12e63ae3222a
-        lines: [2334, 2350]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.DeleteTelegramGroupMessage
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.DeleteTelegramGroupMessage
-        hash: sha256:7b5dd482d079792c81e3e4532bb1f04c1f1f9e327530d66c6f6174bef12b0127
-        struct_hash: sha256:519f14abcd4b604b6167466bcbea17c6a1eb9a773454af4ed9de559db46578b6
-        doc_struct_hash: sha256:519f14abcd4b604b6167466bcbea17c6a1eb9a773454af4ed9de559db46578b6
-        lines: [2352, 2355]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.PinTelegramGroupMessage
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.PinTelegramGroupMessage
-        hash: sha256:7344bbf43ab70de803aa6886c514806375a64262a1dfbd642f2a39c95ae1ecbd
-        struct_hash: sha256:6313b9a974e812a54df412b0ba1238e4f7138feaa8174515487fd86d913843c7
-        doc_struct_hash: sha256:6313b9a974e812a54df412b0ba1238e4f7138feaa8174515487fd86d913843c7
-        lines: [2357, 2362]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.UnpinTelegramGroupMessage
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.UnpinTelegramGroupMessage
-        hash: sha256:846a9c3d82a75675a52763a81b644db4a911033b92798b9d2a01ee03ce8550dd
-        struct_hash: sha256:a9c68ef8e1ea36c64a8d927e412db381a1b14a78089583206f18ce1812004b36
-        doc_struct_hash: sha256:a9c68ef8e1ea36c64a8d927e412db381a1b14a78089583206f18ce1812004b36
-        lines: [2364, 2367]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.SetTelegramGroupTitle
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.SetTelegramGroupTitle
-        hash: sha256:7f562ffbec9777499c77d8edd181615d39e3cd359363a32871581e69942dd8bc
-        struct_hash: sha256:6df08271bfac44d89fe7ea64adf5889af289d55b85fd153f68a1cab7a20c7a60
-        doc_struct_hash: sha256:6df08271bfac44d89fe7ea64adf5889af289d55b85fd153f68a1cab7a20c7a60
-        lines: [2369, 2380]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.SetTelegramGroupDescription
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.SetTelegramGroupDescription
-        hash: sha256:37dc800e90a2158b4200c3c46aeb5d8f6e870bc28748b2ae7ab2ab402d5a8bc4
-        struct_hash: sha256:8a921c13cdd4b9737fec2a0d5d12ea09e561c76c7cee2111289656667003a5a6
-        doc_struct_hash: sha256:8a921c13cdd4b9737fec2a0d5d12ea09e561c76c7cee2111289656667003a5a6
-        lines: [2382, 2385]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.messageText
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.messageText
-        hash: sha256:755e5239d8b3d77bf2197681a9e1182e30823d767951f46afe6ad22b804951a3
-        struct_hash: sha256:669b98b31fbdd75cdb8160206d7f51ae825058d53a7c3cbb794f7a01434b9705
-        doc_struct_hash: sha256:1cdf13e8a3dcabe4ce35ce54242d28041c3463a20319ed433fdf0af52eba4ba8
-        lines: [2387, 2430]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#splitChunks
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: splitChunks
-        hash: sha256:24b43d52af799a5d6a5ce28925d40bf93436c293c9be7656421e503a3ac3d68d
-        struct_hash: sha256:bebecd001a7f8d1b23b4c0bbeca8e57db83344667bce81df3e8fd3abfa17f47e
-        doc_struct_hash: sha256:59f9c735536196ccf7b57e65b0f7bf26a581587d1782978f4434a4996a078d3b
-        lines: [2432, 2466]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#htmlSafeCut
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: htmlSafeCut
-        hash: sha256:d44a8acba56386e00b37de102d58d94eda43d243a7371b5371be765ef6cf1122
-        struct_hash: sha256:43dd8e0d5445c220eb6b16cd7759c6ebfdc04613cc5b91981678f3eb6e270577
-        doc_struct_hash: sha256:43dd8e0d5445c220eb6b16cd7759c6ebfdc04613cc5b91981678f3eb6e270577
-        lines: [2468, 2509]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#htmlOpenTag
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: htmlOpenTag
-        hash: sha256:6ba5db026367e05db147e0865433734816f8429364cfb1d19b1e296480f86c95
-        struct_hash: sha256:d95b47f4b974b726e18e7d1a41be3d409a1aafc46fc33203d88686eee154325e
-        doc_struct_hash: sha256:d95b47f4b974b726e18e7d1a41be3d409a1aafc46fc33203d88686eee154325e
-        lines: [2511, 2514]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#balanceHTMLChunks
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: balanceHTMLChunks
-        hash: sha256:0374201f1271e13c41b49d2bd088542b993af38489634a4045fc3b8333a201c9
-        struct_hash: sha256:d921980bac7a0f611fbfb0103be32d8b7b86db85f51721fbc875823880749941
-        doc_struct_hash: sha256:d921980bac7a0f611fbfb0103be32d8b7b86db85f51721fbc875823880749941
-        lines: [2516, 2531]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#scanHTMLTags
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: scanHTMLTags
-        hash: sha256:8d11704f5a382b565218cbed0e47b30a3a22c42c1e78b8538d4dc3b59a128545
-        struct_hash: sha256:bbcabd4dec9330fc4e3200b037d8ea9734b8370a89701ebb30c313f0e12748c8
-        doc_struct_hash: sha256:bbcabd4dec9330fc4e3200b037d8ea9734b8370a89701ebb30c313f0e12748c8
-        lines: [2533, 2546]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#htmlTagName
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: htmlTagName
-        hash: sha256:f6a8c785935464daa5de8574eb848a4114d3f49051d239da47b16bb1373bebf4
-        struct_hash: sha256:6eaf1b8cf8bbc3f272d5c2b134f93fb6ce490e959d2c23a766e645bc6394bad8
-        doc_struct_hash: sha256:6eaf1b8cf8bbc3f272d5c2b134f93fb6ce490e959d2c23a766e645bc6394bad8
-        lines: [2548, 2558]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#popHTMLTag
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: popHTMLTag
-        hash: sha256:59fd18b431d33d1322f554ca52b17476acb686c719e01fd06bd9e5d3fa262957
-        struct_hash: sha256:e6bf5af5ca26946c550ebacaf23f2a3951afc512c8d01ee487bfd7315a53f880
-        doc_struct_hash: sha256:e6bf5af5ca26946c550ebacaf23f2a3951afc512c8d01ee487bfd7315a53f880
-        lines: [2560, 2567]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#reopenHTMLTags
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: reopenHTMLTags
-        hash: sha256:e276c34016e360a0d818bd42ba0114774bcc439202597dbfc4e234a623fd4d0e
-        struct_hash: sha256:6045d346668f81c6c2ce25c3e62255ff4688732c5171512db467cc0baa9e1923
-        doc_struct_hash: sha256:6045d346668f81c6c2ce25c3e62255ff4688732c5171512db467cc0baa9e1923
-        lines: [2569, 2575]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#closeHTMLTags
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: closeHTMLTags
-        hash: sha256:6896808a12c41f781e4dcbd20cdb09edf5e5c82c93f0c3613a77b0ed23322c19
-        struct_hash: sha256:6907a3c7e61c8b0e8e62914cfbe95323906eebe587cbf2e18fac0cd4cccdd099
-        doc_struct_hash: sha256:6907a3c7e61c8b0e8e62914cfbe95323906eebe587cbf2e18fac0cd4cccdd099
-        lines: [2577, 2585]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramPlainText
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramPlainText
-        hash: sha256:924ecf9eb433c1db5f076c8709b74d8f4646a71344b74a3b417be43ed18cbf3d
-        struct_hash: sha256:e3d23f630d6893f417fd550fc4b997db7ded45638b19e8593208e1ae5650e81e
-        doc_struct_hash: sha256:e3d23f630d6893f417fd550fc4b997db7ded45638b19e8593208e1ae5650e81e
-        lines: [2587, 2595]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#voiceDownloadLimit
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: voiceDownloadLimit
-        hash: sha256:98f634b41f697de90dba9d036209affa62e64fef1a891e0cbdd4001582a5d14a
-        struct_hash: sha256:2fbc994bf549c20d9e51129e87694466e6c4bd9680096e789e29fe2d2934f7a5
-        doc_struct_hash: sha256:6b96adb479268c77d788440542cd9f4a8bcc9793dbc759c601bc10e078e5c6e4
-        lines: [2597, 2598]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramCloudFileDownloadLimit
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramCloudFileDownloadLimit
-        hash: sha256:f8eead9c7fa9785e58eaaebf8ad8735c671d3a64c95f4cd01826e5a8e35c7928
-        struct_hash: sha256:2fbc994bf549c20d9e51129e87694466e6c4bd9680096e789e29fe2d2934f7a5
-        doc_struct_hash: sha256:2fbc994bf549c20d9e51129e87694466e6c4bd9680096e789e29fe2d2934f7a5
-        lines: [2599, 2599]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileDownloadLimit
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileDownloadLimit
-        hash: sha256:ab7ca57b73869cf6ae75fd9e04e7041427a4b82bac2b6b4a87196ac3b9571907
-        struct_hash: sha256:9b88aced47a1b5742bdd800e33f06381e5039c1adf08a96cfa025c9cba58cec6
-        doc_struct_hash: sha256:9b88aced47a1b5742bdd800e33f06381e5039c1adf08a96cfa025c9cba58cec6
-        lines: [2600, 2600]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#incomingTelegramFile
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: incomingTelegramFile
-        hash: sha256:d508232b11086fc17f0677302a87c735619f12da64c5cc5a9cc2a51e410447c2
-        struct_hash: sha256:dc08e6c254162f91b080c17f0aa84776a7fbac2ea6d63ebce1e366b3953e6bc6
-        doc_struct_hash: sha256:dc08e6c254162f91b080c17f0aa84776a7fbac2ea6d63ebce1e366b3953e6bc6
-        lines: [2602, 2609]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#incomingTelegramFileResult
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: incomingTelegramFileResult
-        hash: sha256:b4406f87b5460911cdffd3ea5f42c8b2895051d1f981cd7aa10eedb1987ec6d3
-        struct_hash: sha256:9d2ba7c08500e3d10a5c79eb67d75b7694c8419a60ff03fb65c58f4bc2f056ef
-        doc_struct_hash: sha256:9d2ba7c08500e3d10a5c79eb67d75b7694c8419a60ff03fb65c58f4bc2f056ef
-        lines: [2611, 2618]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileIntakeError
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileIntakeError
-        hash: sha256:84c2e5f5102b26f8ff7bbd3ac5aec916beef34045988d02c6c25cba9dcceb442
-        struct_hash: sha256:7bcf8593ba2b5b00cfe46267aeda073cf23966b583b1abf50159a9525eae43d2
-        doc_struct_hash: sha256:7bcf8593ba2b5b00cfe46267aeda073cf23966b583b1abf50159a9525eae43d2
-        lines: [2620, 2624]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileIntakeError.Error
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileIntakeError.Error
-        hash: sha256:236120a01b541d594f29a24e0fa8f885fbe667adf2620e9b5ecd0d4e734c56bd
-        struct_hash: sha256:5e290c1503c6be43665aeefbd036cf1426e97418bc45586ffe3bedcbe86ef6ef
-        doc_struct_hash: sha256:5e290c1503c6be43665aeefbd036cf1426e97418bc45586ffe3bedcbe86ef6ef
-        lines: [2626, 2631]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileIntakeError.Unwrap
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileIntakeError.Unwrap
-        hash: sha256:96fab58cd860ea05140666dcee66d99aa09fd7abc6d31816469fb9e7b6faded2
-        struct_hash: sha256:f15cbbd5ab6f5906ec53398f28d33a797ef778090f57e2f3a80839b1a764d044
-        doc_struct_hash: sha256:f15cbbd5ab6f5906ec53398f28d33a797ef778090f57e2f3a80839b1a764d044
-        lines: [2633, 2633]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#newTelegramFileIntakeError
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: newTelegramFileIntakeError
-        hash: sha256:24b0343132595cbf71d97c2cbe45f0466a78d194ba76cb5cd07c72f9adf038c2
-        struct_hash: sha256:642d90f3c47c6a4fe704c45f788e15fbf0887feb447fb60bc2dda41a6328ed46
-        doc_struct_hash: sha256:642d90f3c47c6a4fe704c45f788e15fbf0887feb447fb60bc2dda41a6328ed46
-        lines: [2635, 2637]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileIntakeFailure
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileIntakeFailure
-        hash: sha256:6eb2913dc9b40a4f5bc8f042dfcfa74b6c697456cce49a563f539480f297358d
-        struct_hash: sha256:5a0a1a1a235f58c1790b0ebefa07805b512dd4a586bedca18f4c9f0cac422bb4
-        doc_struct_hash: sha256:5a0a1a1a235f58c1790b0ebefa07805b512dd4a586bedca18f4c9f0cac422bb4
-        lines: [2639, 2645]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.saveIncomingTelegramFiles
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.saveIncomingTelegramFiles
-        hash: sha256:4148f8a19ea1c56090c313b6f394b8bb2cf2b588b71e8f16b4de208699f85f24
-        struct_hash: sha256:aa9b494f2026facc9a58d4686c6effe2829daefb8a6b64ea6f942552da06eb2f
-        doc_struct_hash: sha256:aa9b494f2026facc9a58d4686c6effe2829daefb8a6b64ea6f942552da06eb2f
-        lines: [2647, 2745]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.saveTelegramFile
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.saveTelegramFile
-        hash: sha256:fc3dacd03cf5e3730d1c98276c88ff947f160f551290c29b2686d90127ccf398
-        struct_hash: sha256:7237b508b2a3e58eb3bf40af5c04b6215350a410d91e10c216755d0cea0cd974
-        doc_struct_hash: sha256:7237b508b2a3e58eb3bf40af5c04b6215350a410d91e10c216755d0cea0cd974
-        lines: [2747, 2788]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.openTelegramFile
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.openTelegramFile
-        hash: sha256:884d10e58d7c89cbf06f2af2f6b04966a0fa2e2c8c63358548c07db41afdf42b
-        struct_hash: sha256:aec9c5090786de2249cbc5d2fdd7c7ad2b5c6a3f42d7494d8e7b3a8f8980ac7b
-        doc_struct_hash: sha256:aec9c5090786de2249cbc5d2fdd7c7ad2b5c6a3f42d7494d8e7b3a8f8980ac7b
-        lines: [2790, 2814]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.usesTelegramCloudAPI
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.usesTelegramCloudAPI
-        hash: sha256:156c0f3c147b7572664a88d1ead149d38547e62e7246b9526e0ae3661029ab10
-        struct_hash: sha256:778a986885c6a3b6e2183b4dfcc4b162ff517838289c6e62ab5cea97ffd13cda
-        doc_struct_hash: sha256:778a986885c6a3b6e2183b4dfcc4b162ff517838289c6e62ab5cea97ffd13cda
-        lines: [2816, 2818]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#wrapTelegramFileStorageError
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: wrapTelegramFileStorageError
-        hash: sha256:3b31a9cf9f368947978bca3b474400a96a41530f0c10d755f64cf44e69aeb4c7
-        struct_hash: sha256:ac12af5d68d7f9a298e5a205d2ff0004a0a8db9c3efd5e8fa6750c47e94a9d61
-        doc_struct_hash: sha256:ac12af5d68d7f9a298e5a205d2ff0004a0a8db9c3efd5e8fa6750c47e94a9d61
-        lines: [2820, 2826]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.persistTelegramFile
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.persistTelegramFile
-        hash: sha256:233267987caf3514b21678d1548713edc40a261270c8b0b67b9933b7a4d47ef7
-        struct_hash: sha256:eae4fae5b3b539af53812551e61772e5d1a70d4e11a0ec2b7cf6712bd885f414
-        doc_struct_hash: sha256:eae4fae5b3b539af53812551e61772e5d1a70d4e11a0ec2b7cf6712bd885f414
-        lines: [2828, 2881]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileExternalRef
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileExternalRef
-        hash: sha256:36b1f57df980e3c67d6f301a1765662e7c9ab679d7333a68e8e773ff60dfbf16
-        struct_hash: sha256:21a56a2b0625a15edd0403e47928b5d51e5105df7a86e4cdd2240db2e5419a41
-        doc_struct_hash: sha256:21a56a2b0625a15edd0403e47928b5d51e5105df7a86e4cdd2240db2e5419a41
-        lines: [2883, 2890]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#splitTelegramFileIntakes
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: splitTelegramFileIntakes
-        hash: sha256:5a5842b465d93d132512ec30b3b71524fd37ec64ee10a7648d2be4fe114dba81
-        struct_hash: sha256:6f938b52b40829404a1fcdd72cfb8e26140fd19b41880b301555ea762adaf926
-        doc_struct_hash: sha256:6f938b52b40829404a1fcdd72cfb8e26140fd19b41880b301555ea762adaf926
-        lines: [2892, 2903]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#failedFilesPrompt
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: failedFilesPrompt
-        hash: sha256:d1ccd9eb2b75e2f7abd9c7994bd4534a8425f37920020533105f0d5d50dfdbec
-        struct_hash: sha256:d91ecb4908f4eedba752603a23d0b062c229a9e2bd18a4c38c9243395bfef55e
-        doc_struct_hash: sha256:d91ecb4908f4eedba752603a23d0b062c229a9e2bd18a4c38c9243395bfef55e
-        lines: [2905, 2914]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileContext
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileContext
-        hash: sha256:1bc2782fb4c45b4708ef3f644286b466e72eea1fb3b4a6a25ae219d5e1e5e0c4
-        struct_hash: sha256:2255680e6e2857586cdde40d1d2596b97e493a72bc1d6b588b493ca526ab4177
-        doc_struct_hash: sha256:2255680e6e2857586cdde40d1d2596b97e493a72bc1d6b588b493ca526ab4177
-        lines: [2916, 2928]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.replyFileIntakeResults
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.replyFileIntakeResults
-        hash: sha256:4d65ed9ef49dd0e24281192d6dd3c5fafc8c6fee3732ae0a16fc002579284e2c
-        struct_hash: sha256:bc5170fc1415273ccb44886d2e5443097e49938c0501209c44c2048074c2551e
-        doc_struct_hash: sha256:bc5170fc1415273ccb44886d2e5443097e49938c0501209c44c2048074c2551e
-        lines: [2930, 2974]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.fileCenterURL
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.fileCenterURL
-        hash: sha256:1232cf6d4a85ad438150f8e1280fa7687e1ce3b0faca350c306446d5cc209401
-        struct_hash: sha256:9a93dec0f092053eb6857c9567e9214c277c011672215ddc44c0fc3748cf585c
-        doc_struct_hash: sha256:9a93dec0f092053eb6857c9567e9214c277c011672215ddc44c0fc3748cf585c
-        lines: [2976, 2985]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#safeTelegramFilename
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: safeTelegramFilename
-        hash: sha256:c00632049f3ae55676b50264e785004928934e1ee8e298961e5162c09a1341cc
-        struct_hash: sha256:a36bda28032185501a63a1308f02896fb7af06b817b09c53fdcffe381de129fc
-        doc_struct_hash: sha256:a36bda28032185501a63a1308f02896fb7af06b817b09c53fdcffe381de129fc
-        lines: [2987, 2993]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#savedFilesPrompt
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: savedFilesPrompt
-        hash: sha256:e282d3ab0ba5ac91f57943b81d7533d768a5275d1bd218c46f604a76ed3881b0
-        struct_hash: sha256:9ae115c78beecf4411078772308f6902421c89b5f919b22d4f7516bf471120b5
-        doc_struct_hash: sha256:9ae115c78beecf4411078772308f6902421c89b5f919b22d4f7516bf471120b5
-        lines: [2995, 3003]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#nonMediaText
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: nonMediaText
-        hash: sha256:81ccb456913a7ac1fcc8836b1cd12044e13678a6a366c12ac1cbc3b21de9326a
-        struct_hash: sha256:ac5c490bde57fbb4d920826fafb3ef57bdaee9a88c29999a05f325478e7728ce
-        doc_struct_hash: sha256:ac5c490bde57fbb4d920826fafb3ef57bdaee9a88c29999a05f325478e7728ce
-        lines: [3005, 3014]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#formatTelegramBytes
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: formatTelegramBytes
-        hash: sha256:4a0d9c7dbf1b95aef8f39013ae2c0d3f7aec3aa668febcd54aee23aa450db823
-        struct_hash: sha256:460a20286d95e457c9514bcb90c40f1473eb0c6e1174682de08800538a61d651
-        doc_struct_hash: sha256:d0e944c6463546f10defbf6db75d45f15db4ab2b12494e6007755acfeb5e8682
-        lines: [3016, 3017]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#telegramFileHTTP
-      level: decl
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: telegramFileHTTP
-        hash: sha256:254694ea54e7e8b9ac80bcddd3203c3a78dda08d3eff1d89c23253e64fc68442
-        struct_hash: sha256:02ae1f8e966012a22a55d6e94766a3d4f059dfc5090c150fe6a09637239265f0
-        doc_struct_hash: sha256:ef7afa1d0ae07a52a29e16ac5a1c609e3aa771d8aaee7c407dd0610219f716b3
-        lines: [3019, 3024]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.transcribeVoice
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.transcribeVoice
-        hash: sha256:6f059c35a9991f5b5385d48a30ef6673e5dc125e8e2b06542453747850b347a3
-        struct_hash: sha256:30f67855062a6d04c6c562cc03a31f606c211d6a7984a3ac58afc0e5a0949aa4
-        doc_struct_hash: sha256:30f67855062a6d04c6c562cc03a31f606c211d6a7984a3ac58afc0e5a0949aa4
-        lines: [3026, 3051]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#hasMessagePayload
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: hasMessagePayload
-        hash: sha256:516c177fcc68386bd500bd37faf26558db48b8364fe2e33fb039719ce7b8186e
-        struct_hash: sha256:32df8cde53a2cdbf4a7da925329c71499a80d7153faa18ec3efeadec26927381
-        doc_struct_hash: sha256:ea786446884e9a0d2f0211aa5bf46ec8f001acc65243c5ee5251244ece230b8e
-        lines: [3053, 3058]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#hasIncomingTelegramFiles
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: hasIncomingTelegramFiles
-        hash: sha256:9581d64a58a0ccde21efc873a82e1ae3fc5c1c3033b5b8229826b1827121f9c9
-        struct_hash: sha256:cf21429c55bb97227ffe407e1337f8058d09b330397d12eb261e2f836135839c
-        doc_struct_hash: sha256:cf21429c55bb97227ffe407e1337f8058d09b330397d12eb261e2f836135839c
-        lines: [3060, 3063]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.groupTranscriptOwner
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.groupTranscriptOwner
-        hash: sha256:a490d82703a0e6d711bcff9201fd73918d431d52c0e862fb3852fa38b5ba80a5
-        struct_hash: sha256:d16ac43271f864349a0c3e774c13202053ca751ccca0dd7bbd040596c8c0ee75
-        doc_struct_hash: sha256:6e90720d65566459e2f4f821a489ae33347ea4b5e410c87f3fd9d81ae2964e37
-        lines: [915, 942]
-      status: fresh
-      since: 2026-07-25T13:46:39.213163Z
-    - id: gateway/telegram/telegram.go#fetchModelJSON
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: fetchModelJSON
-        hash: sha256:f15f5859fc43ec5d0b9494e91cc8ce57f3178e326c80f3818293332baad57fb3
-        struct_hash: sha256:8fb4e8850af18a778f4adf63858fcbc8afccce6355f43ad79708b4e04052fb72
-        doc_struct_hash: sha256:8fb4e8850af18a778f4adf63858fcbc8afccce6355f43ad79708b4e04052fb72
-        lines: [2066, 2084]
-      status: fresh
-      since: 2026-08-05T09:56:14.395205Z
-    - id: gateway/telegram/telegram.go#fetchOllamaRuntimeModels
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: fetchOllamaRuntimeModels
-        hash: sha256:e428ca22225a61c2d2b70afa736267a342307eb33b62bb45c28870cc74105325
-        struct_hash: sha256:abf9179623197945ccdaec6e83de995f5a3097ac30fd267055725352052fd395
-        doc_struct_hash: sha256:abf9179623197945ccdaec6e83de995f5a3097ac30fd267055725352052fd395
-        lines: [2086, 2110]
-      status: fresh
-      since: 2026-08-05T09:56:14.405415Z
-    - id: gateway/telegram/telegram.go#fetchOpenAIModels
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: fetchOpenAIModels
-        hash: sha256:83c32282a94c502a589b63d4ba8bb910a655de6d2b4cd1710b965ca928193e02
-        struct_hash: sha256:0e24e8fafa506306c3f4254683b728a6eb30ad4c02f9757c029d3955add3af78
-        doc_struct_hash: sha256:0e24e8fafa506306c3f4254683b728a6eb30ad4c02f9757c029d3955add3af78
-        lines: [2112, 2133]
-      status: fresh
-      since: 2026-08-05T09:56:14.416194Z
+      since: 2026-08-19T15:38:18.043251Z
     - id: gateway/telegram/telegram.go#telegramMemorySourceText
       level: function
       anchor:
@@ -1856,3 +998,883 @@ nodes:
         lines: [1870, 1875]
       status: fresh
       since: 2026-08-06T07:27:19.412716Z
+    - id: gateway/telegram/telegram.go#Gateway.recordTurnDelivery
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.recordTurnDelivery
+        hash: sha256:164b65236dae2099c1490ba11813b7408853aad4312994d9c9f60db2dda36ef7
+        struct_hash: sha256:ba7507a29c813773d46160fe8ace4d91467156102d69285ab826b39df6eeca6b
+        doc_struct_hash: sha256:ba7507a29c813773d46160fe8ace4d91467156102d69285ab826b39df6eeca6b
+        lines: [1877, 1892]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: gateway/telegram/telegram.go#Gateway.handleModelCommand
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.handleModelCommand
+        hash: sha256:080c1a04ea489e1fab09a5ec9a1f0cf31a84099ac91259739d4fd0d80bbd26c4
+        struct_hash: sha256:89d65a2246d2f11067623b2408db83a5c7917313f146bf75e41cd4c78ee2e391
+        doc_struct_hash: sha256:89d65a2246d2f11067623b2408db83a5c7917313f146bf75e41cd4c78ee2e391
+        lines: [1894, 1934]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#apiTokenConfirmTTL
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: apiTokenConfirmTTL
+        hash: sha256:bb10475f6034702c82f581d13c24df81d76364693f3272adc0c751373789af3e
+        struct_hash: sha256:8881003a8a81951c5a4b5ecbb12d89dbe6895d675f98eb992d287b277e5975ea
+        doc_struct_hash: sha256:8881003a8a81951c5a4b5ecbb12d89dbe6895d675f98eb992d287b277e5975ea
+        lines: [1936, 1936]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#apiTokenConfirmKey
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: apiTokenConfirmKey
+        hash: sha256:0c21538ec0fc1c7f0b63844b1d70fdb104d0900127311693b7089fe5e13bfd18
+        struct_hash: sha256:5aeb6fac1786efd858cc5688a4d20674d922284e3f92b7acaa5379f81acfba8b
+        doc_struct_hash: sha256:5aeb6fac1786efd858cc5688a4d20674d922284e3f92b7acaa5379f81acfba8b
+        lines: [1938, 1940]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.handleTokenCommand
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.handleTokenCommand
+        hash: sha256:60696dfb5c207661e538c119d2740f7edcdd545b731abc3a736d83f6df203816
+        struct_hash: sha256:923b7efc6aea6a40e936d2a3db923a991defecaafd0f29780dc587606671ac45
+        doc_struct_hash: sha256:923b7efc6aea6a40e936d2a3db923a991defecaafd0f29780dc587606671ac45
+        lines: [1942, 1995]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.apiTokenStatusMessage
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.apiTokenStatusMessage
+        hash: sha256:1d94e3eb1fea5d2bc8f0af593cc02a6634f20417736ccd0d5d01d2a52929a66c
+        struct_hash: sha256:46de7d0fa50cd7e774bbabc7101c6fb020f80fe0cba8fed1dc51040c03e1365c
+        doc_struct_hash: sha256:46de7d0fa50cd7e774bbabc7101c6fb020f80fe0cba8fed1dc51040c03e1365c
+        lines: [1997, 2008]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.formatTime
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.formatTime
+        hash: sha256:0624bb63c304a98b9a5ab1b356f00da6faa34c048e603e0fe1773acdd683639c
+        struct_hash: sha256:0066ddb587279d7772a09289f6be95b28e7bcb84336476c3ffe1a73e0dd7763e
+        doc_struct_hash: sha256:0066ddb587279d7772a09289f6be95b28e7bcb84336476c3ffe1a73e0dd7763e
+        lines: [2010, 2016]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.timeZone
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.timeZone
+        hash: sha256:1eb031f884084a40eab2ead4560f6e08b00bab93fd1c4df57b5496606dc9d26d
+        struct_hash: sha256:3c86d68d475a135cc94ca6a855b554ced0da0c4b768687984212b8613cf95f84
+        doc_struct_hash: sha256:3c86d68d475a135cc94ca6a855b554ced0da0c4b768687984212b8613cf95f84
+        lines: [2018, 2020]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#orLocalTimeZone
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: orLocalTimeZone
+        hash: sha256:34cc37319532a2e70a69c0e3c69289ba9e4dfb81bb4e67c7d12678d639426d9b
+        struct_hash: sha256:8e99d8d49d129ad7acbe6dfc615e05466e206c626b5fa4136bcc160b5793dcd4
+        doc_struct_hash: sha256:8e99d8d49d129ad7acbe6dfc615e05466e206c626b5fa4136bcc160b5793dcd4
+        lines: [2022, 2027]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.modelStatus
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.modelStatus
+        hash: sha256:15c5689bf4d3712a674f750099912ce9413052f8f022110a1bcee0876f82cb1e
+        struct_hash: sha256:ae255fd50617074b449d13919762d0574c4035e71f167c598821aae7be7399ce
+        doc_struct_hash: sha256:ae255fd50617074b449d13919762d0574c4035e71f167c598821aae7be7399ce
+        lines: [2029, 2049]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.loadedModels
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.loadedModels
+        hash: sha256:6a4b11bcc425726c67fe553bb5613714858a4b7073de1f2bfdb9355ee386c9e9
+        struct_hash: sha256:e38bf9558ae1bc2d2f51bcce183cd76612b45e102eaddd55a59c17d0449ef71f
+        doc_struct_hash: sha256:e38bf9558ae1bc2d2f51bcce183cd76612b45e102eaddd55a59c17d0449ef71f
+        lines: [2051, 2075]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#fetchModelJSON
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: fetchModelJSON
+        hash: sha256:f15f5859fc43ec5d0b9494e91cc8ce57f3178e326c80f3818293332baad57fb3
+        struct_hash: sha256:8fb4e8850af18a778f4adf63858fcbc8afccce6355f43ad79708b4e04052fb72
+        doc_struct_hash: sha256:8fb4e8850af18a778f4adf63858fcbc8afccce6355f43ad79708b4e04052fb72
+        lines: [2077, 2095]
+      status: fresh
+      since: 2026-08-05T09:56:14.395205Z
+    - id: gateway/telegram/telegram.go#fetchOllamaRuntimeModels
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: fetchOllamaRuntimeModels
+        hash: sha256:e428ca22225a61c2d2b70afa736267a342307eb33b62bb45c28870cc74105325
+        struct_hash: sha256:abf9179623197945ccdaec6e83de995f5a3097ac30fd267055725352052fd395
+        doc_struct_hash: sha256:abf9179623197945ccdaec6e83de995f5a3097ac30fd267055725352052fd395
+        lines: [2097, 2121]
+      status: fresh
+      since: 2026-08-05T09:56:14.405415Z
+    - id: gateway/telegram/telegram.go#fetchOpenAIModels
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: fetchOpenAIModels
+        hash: sha256:83c32282a94c502a589b63d4ba8bb910a655de6d2b4cd1710b965ca928193e02
+        struct_hash: sha256:0e24e8fafa506306c3f4254683b728a6eb30ad4c02f9757c029d3955add3af78
+        doc_struct_hash: sha256:0e24e8fafa506306c3f4254683b728a6eb30ad4c02f9757c029d3955add3af78
+        lines: [2123, 2144]
+      status: fresh
+      since: 2026-08-05T09:56:14.416194Z
+    - id: gateway/telegram/telegram.go#loadedModelsHelp
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: loadedModelsHelp
+        hash: sha256:4d560b4b044314f962776604d0fc5d62a4f537a541e7d7c89511e6ee02be39d5
+        struct_hash: sha256:3eaef753166e4b908a39e980d2b3288985f934e84b3f7f582eaf5ba1606be1f5
+        doc_struct_hash: sha256:3eaef753166e4b908a39e980d2b3288985f934e84b3f7f582eaf5ba1606be1f5
+        lines: [2146, 2159]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#modelInList
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: modelInList
+        hash: sha256:ff6abb7479c0b4a38eebd125409435340696919f5e4edf3a64b9eb1f66b5a8f3
+        struct_hash: sha256:4ef4521df2f4299c5acdeafa14b2c68b3d13b12d5811983ca65f3b8b642f6a4a
+        doc_struct_hash: sha256:4ef4521df2f4299c5acdeafa14b2c68b3d13b12d5811983ca65f3b8b642f6a4a
+        lines: [2161, 2168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#validModelName
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: validModelName
+        hash: sha256:2457f2f8109168f2fd6917efcace6cc0b2cb393040ca9827fed2c57cfafd190b
+        struct_hash: sha256:d74e70659d0e6149a0e5e8a7847acc0fb84f7e904ccf396a9e1711b895010824
+        doc_struct_hash: sha256:d74e70659d0e6149a0e5e8a7847acc0fb84f7e904ccf396a9e1711b895010824
+        lines: [2170, 2181]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.onboard
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.onboard
+        hash: sha256:ec33169a5de35e3a653451a9293a365628389875469bef369273895255da6416
+        struct_hash: sha256:4edaafcc2be856794faf26917bdb918c4a4eb40d6618f75c4e6d6a21729907ac
+        doc_struct_hash: sha256:4d20ad6d50c31729cc383e4513ecc0f7541629b510a3ea445d07f8d1ea9abaa9
+        lines: [2183, 2247]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.consumePendingEmployeeInvite
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.consumePendingEmployeeInvite
+        hash: sha256:2c03d1de52dfd4422088d9c02fc524132691c6d3b163f8f87836a3be3ac4c95a
+        struct_hash: sha256:335cd83375829c4e0e1d7ee80895283f6e32227d81aa2b96144da9b76797d4b7
+        doc_struct_hash: sha256:335cd83375829c4e0e1d7ee80895283f6e32227d81aa2b96144da9b76797d4b7
+        lines: [2249, 2280]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#inviteTokenFromText
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: inviteTokenFromText
+        hash: sha256:75a045f00b4d70959935eae3c61ff1039d0edf0182a88e0733471a3009349eee
+        struct_hash: sha256:3d1bb882e214eb596b242ea82645cbc312fbcab66d32fa91fdc1388ceff27b7d
+        doc_struct_hash: sha256:3d1bb882e214eb596b242ea82645cbc312fbcab66d32fa91fdc1388ceff27b7d
+        lines: [2282, 2300]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.reply
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.reply
+        hash: sha256:84f72d447eff45cf537dbd299c8e7dcbf39366843605fb022eec201627652314
+        struct_hash: sha256:a8189328dda093cfa36394dd78dbe6dd500d3ac729a7faec24e17126732be0d8
+        doc_struct_hash: sha256:a8189328dda093cfa36394dd78dbe6dd500d3ac729a7faec24e17126732be0d8
+        lines: [2302, 2306]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.sendChunks
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.sendChunks
+        hash: sha256:11ce5ed4ad74fd06030a5148325322339e678d24e989aac357f910cb4c8d3be8
+        struct_hash: sha256:618098075574b30a9cbc691f90603cd40b6e4dab481ca0643fd0c3c958796f7d
+        doc_struct_hash: sha256:6fcdb67a5162d85c460b0a8fdf29403a930249db73d829340849689788718da7
+        lines: [2308, 2323]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.sendOne
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.sendOne
+        hash: sha256:aaf378d0c11274d7964d92d562d73760dd336752f161ac41546519f5aec51f2c
+        struct_hash: sha256:cf0a8409b5ed54f3dcf2c0de13a1f919de9cb6743ce422aea45137494fac2340
+        doc_struct_hash: sha256:bfea0bd24bbe6b13d45925d98ff9e2a43f20f3e2b2f2f1e200e54c67b256e5c9
+        lines: [2325, 2337]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.sendTyping
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.sendTyping
+        hash: sha256:30ca0a533d449163a14d5ae2ed1fbb1a9ea1fee23a286f56d0ddf3f913b9ed9b
+        struct_hash: sha256:0635167ce38978e0aa55e36e5740475cf300f4b8b40e8645c5223c06258c735e
+        doc_struct_hash: sha256:0635167ce38978e0aa55e36e5740475cf300f4b8b40e8645c5223c06258c735e
+        lines: [2339, 2341]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.EnsureTelegramGroupSession
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.EnsureTelegramGroupSession
+        hash: sha256:63be40aaf4e512fa809cdffd075cdc67f70d2b1156b34bec6a4ed49ead55e462
+        struct_hash: sha256:b7aaa011cbbf8f6e192bf060fcf5e8965e573da8222200f4a4e850bfc08d6ce0
+        doc_struct_hash: sha256:42a2cfa01a57ad55e5dba2312f1ccc368c377a5ad1f81c45006ea5a634e66c82
+        lines: [2343, 2356]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.SendTelegramGroupMessage
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.SendTelegramGroupMessage
+        hash: sha256:d1cdf39ea813f15b87e0f9ba6b88f72965a2d943c48ff53ced1de9fd62b5c524
+        struct_hash: sha256:abac34740af483aa3996f69808aabfd55f61e754b60c7920bdacd0b11c799aee
+        doc_struct_hash: sha256:abac34740af483aa3996f69808aabfd55f61e754b60c7920bdacd0b11c799aee
+        lines: [2358, 2380]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupMemberCount
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.GetTelegramGroupMemberCount
+        hash: sha256:1bce70339dc97001ed171288d7fb9fa513af05a4108fefdd249bd72e753c1d50
+        struct_hash: sha256:d13243e3813cad30d0a19a38839039edf4cd20dd3eaf5a43312b2840a195302c
+        doc_struct_hash: sha256:d13243e3813cad30d0a19a38839039edf4cd20dd3eaf5a43312b2840a195302c
+        lines: [2382, 2384]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupAdministrators
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.GetTelegramGroupAdministrators
+        hash: sha256:3ca99784d8fec77953b6476a769aea6d0b6ca78737a678fd032a582505f02e71
+        struct_hash: sha256:7d51798611692e845f8cc5b488c422d2d77271cbd1442b1f8255b42f0fd30b64
+        doc_struct_hash: sha256:7d51798611692e845f8cc5b488c422d2d77271cbd1442b1f8255b42f0fd30b64
+        lines: [2386, 2398]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupMember
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.GetTelegramGroupMember
+        hash: sha256:8abeccb872db76e574aef93960b1b70bc9b0d4a74a85ffe019fd8c1a4d07eba0
+        struct_hash: sha256:db4f959932f64cc764e3958f4e5a692858555c33477f97bada0cadf81d0e6022
+        doc_struct_hash: sha256:db4f959932f64cc764e3958f4e5a692858555c33477f97bada0cadf81d0e6022
+        lines: [2400, 2409]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.GetTelegramGroupBotMember
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.GetTelegramGroupBotMember
+        hash: sha256:d4233a37381f22bd2659b5a6176deea34c48e727e3a8437f4111e05ee2981bfd
+        struct_hash: sha256:b63b5aae08034f8b6346287de4679ad2ba5aee5d676ccc757480b6f45357327e
+        doc_struct_hash: sha256:b63b5aae08034f8b6346287de4679ad2ba5aee5d676ccc757480b6f45357327e
+        lines: [2411, 2424]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramGroupMemberFromUser
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramGroupMemberFromUser
+        hash: sha256:77ec3db97b86652f84e35228995c33f48600a9f12a9ea1d49b7ae786b0add110
+        struct_hash: sha256:199fb4cb40d5e5ee0bcc8a620b1e8643ca0b05e43e057bc8766521c634d50dd9
+        doc_struct_hash: sha256:199fb4cb40d5e5ee0bcc8a620b1e8643ca0b05e43e057bc8766521c634d50dd9
+        lines: [2426, 2434]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramGroupMemberFromChatMember
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramGroupMemberFromChatMember
+        hash: sha256:ca7a023418bb63e09b6609fb460a0f5c0d726097af3571180410a1727869607c
+        struct_hash: sha256:1f7d9ced6162becd6ebd0b0c373b623ebd6c6b6fc044a03b0cf0e2e82e01707e
+        doc_struct_hash: sha256:1f7d9ced6162becd6ebd0b0c373b623ebd6c6b6fc044a03b0cf0e2e82e01707e
+        lines: [2436, 2452]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramAdminRights
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramAdminRights
+        hash: sha256:a13cba2bd5d530ae775168fb2f8151b638fdff625d5ee31f52d4f5b02ab2ca3a
+        struct_hash: sha256:ab175777d59984abe2a9c0d83a44276caa54b41ef692f6b52107426a25c1c0d9
+        doc_struct_hash: sha256:ab175777d59984abe2a9c0d83a44276caa54b41ef692f6b52107426a25c1c0d9
+        lines: [2454, 2476]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.EditTelegramGroupMessage
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.EditTelegramGroupMessage
+        hash: sha256:a7eef757dc6fa5075d2695af8a95f0954c4e1d37a8e308d5542c800e808304a6
+        struct_hash: sha256:1a31a214bc3f90f1921af44d19c1022d4d791ba0323f65d0f9903785c697df08
+        doc_struct_hash: sha256:1a31a214bc3f90f1921af44d19c1022d4d791ba0323f65d0f9903785c697df08
+        lines: [2478, 2494]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.DeleteTelegramGroupMessage
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.DeleteTelegramGroupMessage
+        hash: sha256:9858c79604f6bd13c29b9e616d9486812214cbe73d53135e869fa271872e931e
+        struct_hash: sha256:77d8a0338d9dd2ad89840ee24d82d8af6a2f0d923971e67d2b05a431d29d5fbb
+        doc_struct_hash: sha256:77d8a0338d9dd2ad89840ee24d82d8af6a2f0d923971e67d2b05a431d29d5fbb
+        lines: [2496, 2499]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.PinTelegramGroupMessage
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.PinTelegramGroupMessage
+        hash: sha256:bcd0b85227f04895b546efda46600afbc2fde3b85e64347dc2acaf1afa911461
+        struct_hash: sha256:58db1b4249babfed1f68f9c50974ae6167894af45aeb38c9702f1f64211b44ad
+        doc_struct_hash: sha256:58db1b4249babfed1f68f9c50974ae6167894af45aeb38c9702f1f64211b44ad
+        lines: [2501, 2506]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.UnpinTelegramGroupMessage
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.UnpinTelegramGroupMessage
+        hash: sha256:15f8152fe614506b2e28810bc6678f1693ab557987c73aeeb7310f6f9db31e90
+        struct_hash: sha256:3e0a43b1a9fe7d17603392ae541fe69c41e6866cb0a2d18dd1733efdd268da20
+        doc_struct_hash: sha256:3e0a43b1a9fe7d17603392ae541fe69c41e6866cb0a2d18dd1733efdd268da20
+        lines: [2508, 2511]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.SetTelegramGroupTitle
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.SetTelegramGroupTitle
+        hash: sha256:5609515921d615c88f34eba644e6263030256471b9b9b6d259a2c2c1b2adf49f
+        struct_hash: sha256:a53652a8d5546dd0f47a4301c23535164bcacaa267ecbeb8fc438460e78f8a4d
+        doc_struct_hash: sha256:a53652a8d5546dd0f47a4301c23535164bcacaa267ecbeb8fc438460e78f8a4d
+        lines: [2513, 2524]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.SetTelegramGroupDescription
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.SetTelegramGroupDescription
+        hash: sha256:0a9497a87c0238a095f9e98287fdd039f47d369a75861a58584bed17a0cc5cbf
+        struct_hash: sha256:e697d2b594374f0ce270edc15b4a3943665c7891b5a81d20448463bdb176ffe5
+        doc_struct_hash: sha256:e697d2b594374f0ce270edc15b4a3943665c7891b5a81d20448463bdb176ffe5
+        lines: [2526, 2529]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.messageText
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.messageText
+        hash: sha256:9e15f8beac4933073e2c0de98db50b64722eed54de6612ef9d2ce4e31ea8d7c9
+        struct_hash: sha256:bbba771a01ab4a130b17630c45c00ba415883b38c9262023532f45c98c82b216
+        doc_struct_hash: sha256:0852e769ddc43c62c80f3dae017a000fd7469480fcc7810e6044fe7774d26b92
+        lines: [2531, 2574]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#splitChunks
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: splitChunks
+        hash: sha256:a119774d67428284fdd0143328424f32f0f12ded0e186fa617eeb2be03303388
+        struct_hash: sha256:4c76df99cf2fb1d3b7f0595eda537d02c26833f2752fdb73278d0afda353349c
+        doc_struct_hash: sha256:1cd8ef4355bf1b10dae2ef86c7a83928802664e1e7e2ef47083b22f70107be7f
+        lines: [2576, 2610]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#htmlSafeCut
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: htmlSafeCut
+        hash: sha256:caa29d8f8bd4cec1c49fc34eff2a38f0f777b86e5d44809151abe0d12ee4f845
+        struct_hash: sha256:135371f3ad1037d1ef0e47e317df13b705ac6f55e11040313733f37a0a6840a3
+        doc_struct_hash: sha256:135371f3ad1037d1ef0e47e317df13b705ac6f55e11040313733f37a0a6840a3
+        lines: [2612, 2653]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#htmlOpenTag
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: htmlOpenTag
+        hash: sha256:31155995078ae48b8a449a9e906642e8c2c546ddb0d4c7afde4484e5fdd59241
+        struct_hash: sha256:5167a661e6fa3c39fb0e01581e5ff6033448ece044c4a67f99a622eca7b37a16
+        doc_struct_hash: sha256:5167a661e6fa3c39fb0e01581e5ff6033448ece044c4a67f99a622eca7b37a16
+        lines: [2655, 2658]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#balanceHTMLChunks
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: balanceHTMLChunks
+        hash: sha256:430887643fd265d4dcb32e386a76b705f320ed320d911cc00efefda10148445b
+        struct_hash: sha256:648cdd583dce9c90b2b474e83b74d3539a574c765c8f2e9276bae1860fa88540
+        doc_struct_hash: sha256:648cdd583dce9c90b2b474e83b74d3539a574c765c8f2e9276bae1860fa88540
+        lines: [2660, 2675]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#scanHTMLTags
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: scanHTMLTags
+        hash: sha256:567b80f2787e1bd727550c853efe1413de396712a5984746509bb48e18bc28ed
+        struct_hash: sha256:015bbebc71587411fbbc93a889c4feb57acff8d6f083441e3a8832930758f364
+        doc_struct_hash: sha256:015bbebc71587411fbbc93a889c4feb57acff8d6f083441e3a8832930758f364
+        lines: [2677, 2690]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#htmlTagName
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: htmlTagName
+        hash: sha256:b89de8ec5885c187634d7b1345dbdef7f7a3d2bafaf6ee0a948f8f17dba9a98a
+        struct_hash: sha256:43a219d4dde3a03526bd101914c0bad53dc7a40188dfbd61d9b86926b3b98fa3
+        doc_struct_hash: sha256:43a219d4dde3a03526bd101914c0bad53dc7a40188dfbd61d9b86926b3b98fa3
+        lines: [2692, 2702]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#popHTMLTag
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: popHTMLTag
+        hash: sha256:d648a756527a6874abd4072ae1dd6004c3518aa95bba2329663d7ed47f1c5f5e
+        struct_hash: sha256:772a3784a158a444cbf7f4b5e38661b6ba5ac2de2642bb9910c3ee949ee97eb5
+        doc_struct_hash: sha256:772a3784a158a444cbf7f4b5e38661b6ba5ac2de2642bb9910c3ee949ee97eb5
+        lines: [2704, 2711]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#reopenHTMLTags
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: reopenHTMLTags
+        hash: sha256:b372ad875cd0f7837561a1e5a11113412d2165fc2640b7fd002e8d999e6a10d8
+        struct_hash: sha256:c82dc5dd1555d636932016428bed8fa41287c5f4ea7f2f0ad0814a9627757b10
+        doc_struct_hash: sha256:c82dc5dd1555d636932016428bed8fa41287c5f4ea7f2f0ad0814a9627757b10
+        lines: [2713, 2719]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#closeHTMLTags
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: closeHTMLTags
+        hash: sha256:feac63250eaab30a5446a0fe035470316faebd6e3ba42052c7e69b869bc8affb
+        struct_hash: sha256:98ce7743a2f5efc2a0194f553409568a059fc329094dfa126b57d8247cef975c
+        doc_struct_hash: sha256:98ce7743a2f5efc2a0194f553409568a059fc329094dfa126b57d8247cef975c
+        lines: [2721, 2729]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramPlainText
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramPlainText
+        hash: sha256:fdab0e720475d70516552a2ae8b4c647c9076ed86476dbd335c4c42ed6c5e03e
+        struct_hash: sha256:59681d52cb55adb4933a76a5a7f3d22ad6830483ff893d0f8ad387bcc380b973
+        doc_struct_hash: sha256:59681d52cb55adb4933a76a5a7f3d22ad6830483ff893d0f8ad387bcc380b973
+        lines: [2731, 2739]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#voiceDownloadLimit
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: voiceDownloadLimit
+        hash: sha256:c3084f531a6b2004f95e40b280d87478e718c8c3e1a0ec1fa3e4881b4e55fddd
+        struct_hash: sha256:432b9d819873a4397f476d6bc86c60233dba9a10d43ab47b2ac2602129f9c4a5
+        doc_struct_hash: sha256:786888c845278d3b320e64cb064ae424d0cce36a48dff0ee0e46527bcac10831
+        lines: [2741, 2742]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramCloudFileDownloadLimit
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramCloudFileDownloadLimit
+        hash: sha256:b199cb153e91cc8171cd442c9cf5513c1b95b31b8d66bdf3d60883cf4a47adaa
+        struct_hash: sha256:432b9d819873a4397f476d6bc86c60233dba9a10d43ab47b2ac2602129f9c4a5
+        doc_struct_hash: sha256:432b9d819873a4397f476d6bc86c60233dba9a10d43ab47b2ac2602129f9c4a5
+        lines: [2743, 2743]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileDownloadLimit
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileDownloadLimit
+        hash: sha256:5f8b690056771be0affb8c8375439e86e73f0ad37d004b54d20b5ab45a16b042
+        struct_hash: sha256:63daad1c1bcf5d1b5b4dcab5c43f3d6d9e3a8916f98db4d5e9194395e1ee58d5
+        doc_struct_hash: sha256:63daad1c1bcf5d1b5b4dcab5c43f3d6d9e3a8916f98db4d5e9194395e1ee58d5
+        lines: [2744, 2744]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#incomingTelegramFile
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: incomingTelegramFile
+        hash: sha256:2c8ad616061a6aa48ee6e12c3c3de941be1ba55d513c4bd32d6d97f9bcfa027c
+        struct_hash: sha256:bb97172db495ccc3e38c572ee69b35689a4b6d7ef0696118604c4859f20cbfe8
+        doc_struct_hash: sha256:bb97172db495ccc3e38c572ee69b35689a4b6d7ef0696118604c4859f20cbfe8
+        lines: [2746, 2753]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#incomingTelegramFileResult
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: incomingTelegramFileResult
+        hash: sha256:80d470bb95e4b21f2975214186b9c1f578b60f6e5c29f2a542bf38deed497f5a
+        struct_hash: sha256:6b9cd790aec79a8dc88894989233a1625bac95064a42232003f72d824c7ade28
+        doc_struct_hash: sha256:6b9cd790aec79a8dc88894989233a1625bac95064a42232003f72d824c7ade28
+        lines: [2755, 2762]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileIntakeError
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileIntakeError
+        hash: sha256:765094d03dde56964aa9030a35c5ca7c7ba4531ada0309e96bd14d5f6053edef
+        struct_hash: sha256:c1399a332f553a1c6b582ee87af99ab36e8e62aadf14708af81a9e2978a85322
+        doc_struct_hash: sha256:c1399a332f553a1c6b582ee87af99ab36e8e62aadf14708af81a9e2978a85322
+        lines: [2764, 2768]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileIntakeError.Error
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileIntakeError.Error
+        hash: sha256:c3f61b09ae5191cdccb3951a2ed2a94cbc8983da3009530ae89c9b1797ce67df
+        struct_hash: sha256:73845bf96bdd93df8b2fc6cb0abd6fcf9f1a172d2657ea93a6b3ec90892efca8
+        doc_struct_hash: sha256:73845bf96bdd93df8b2fc6cb0abd6fcf9f1a172d2657ea93a6b3ec90892efca8
+        lines: [2770, 2775]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileIntakeError.Unwrap
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileIntakeError.Unwrap
+        hash: sha256:a2544efcaa8333d0b0e0c90d6d3ef975ee04587e10f1b2e571897e33e2fd4133
+        struct_hash: sha256:c3157109ede0b418e42ba4bf735cca94ac0551340f1572a5525fe4776ce42203
+        doc_struct_hash: sha256:c3157109ede0b418e42ba4bf735cca94ac0551340f1572a5525fe4776ce42203
+        lines: [2777, 2777]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#newTelegramFileIntakeError
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: newTelegramFileIntakeError
+        hash: sha256:fa26a5a45abffcdc66edf3cd55034038e4b52284953410c281e020a4bd77b008
+        struct_hash: sha256:b9d04fce475a8f742c34189c8e2c32d9faee9ff6aaaf1f70e1c52798c43ede11
+        doc_struct_hash: sha256:b9d04fce475a8f742c34189c8e2c32d9faee9ff6aaaf1f70e1c52798c43ede11
+        lines: [2779, 2781]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileIntakeFailure
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileIntakeFailure
+        hash: sha256:b4d060392967b7bc6d819a84342e32c12e28aee18f2d617219d4d39dd086d8ec
+        struct_hash: sha256:c1c29e99381789bbeffcf33e1eedfe256a6cf713761ad590d0475b5d0dc2adb3
+        doc_struct_hash: sha256:c1c29e99381789bbeffcf33e1eedfe256a6cf713761ad590d0475b5d0dc2adb3
+        lines: [2783, 2789]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.saveIncomingTelegramFiles
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.saveIncomingTelegramFiles
+        hash: sha256:32fdc453b3fd510d092341c38aaa1f71c5cbd697109686055dae03ec4543eb6a
+        struct_hash: sha256:80d716d307fbe0e74d5621cd30f3c3d84bbb4d304b7e1bdab0781829b8a610bc
+        doc_struct_hash: sha256:80d716d307fbe0e74d5621cd30f3c3d84bbb4d304b7e1bdab0781829b8a610bc
+        lines: [2791, 2889]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.saveTelegramFile
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.saveTelegramFile
+        hash: sha256:c9b9d805d541152ac3d950dae372c8b9174770e8dd6cd747264984c3da397c94
+        struct_hash: sha256:c9be0e73db17ead82d36121fb6170bac85c471982afba1df9be6a9406643d895
+        doc_struct_hash: sha256:c9be0e73db17ead82d36121fb6170bac85c471982afba1df9be6a9406643d895
+        lines: [2891, 2932]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.openTelegramFile
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.openTelegramFile
+        hash: sha256:e8dbef490fb845b0b658ebc5467593c578d88f1e637c7ae07243884461a9610c
+        struct_hash: sha256:f2deab4520eaff1b18eb427caf0003684ac472a37a14dccfa4f35809b40c065f
+        doc_struct_hash: sha256:f2deab4520eaff1b18eb427caf0003684ac472a37a14dccfa4f35809b40c065f
+        lines: [2934, 2958]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.usesTelegramCloudAPI
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.usesTelegramCloudAPI
+        hash: sha256:899842852175a488e1df449adfef4c3be8771b71672c89106ab8ccb764340e05
+        struct_hash: sha256:166aa1323fb268ab2381b4179e25cc2815259abdb54d507ccbfc66439c3f28cf
+        doc_struct_hash: sha256:166aa1323fb268ab2381b4179e25cc2815259abdb54d507ccbfc66439c3f28cf
+        lines: [2960, 2962]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#wrapTelegramFileStorageError
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: wrapTelegramFileStorageError
+        hash: sha256:3eedf8577fe1d775b7642cd836696af802192fed984a9ec451e7b75615e687ab
+        struct_hash: sha256:f4518d50f01d00e4824149a8894ef7a7319f91662d186e662b45747e0aa47f62
+        doc_struct_hash: sha256:f4518d50f01d00e4824149a8894ef7a7319f91662d186e662b45747e0aa47f62
+        lines: [2964, 2970]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.persistTelegramFile
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.persistTelegramFile
+        hash: sha256:2899c2aa397ed5d807022ee2ff2ff1d7057edc6ea54472eb76cfa1cd00544184
+        struct_hash: sha256:83c56a09229713bbb87219cefc285fb54e171af7f29e2099b92bbc55ba9ae998
+        doc_struct_hash: sha256:83c56a09229713bbb87219cefc285fb54e171af7f29e2099b92bbc55ba9ae998
+        lines: [2972, 3025]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileExternalRef
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileExternalRef
+        hash: sha256:347fdc38ebc0f2ad26c2936564587fd2a9a126f12cf08aae23aa7c2c3a97f94c
+        struct_hash: sha256:9c3d9c47b6791f8ee0355798f7dc5d965a552d8748fdb3d1d9bb3ecb9eb5bb77
+        doc_struct_hash: sha256:9c3d9c47b6791f8ee0355798f7dc5d965a552d8748fdb3d1d9bb3ecb9eb5bb77
+        lines: [3027, 3034]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#splitTelegramFileIntakes
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: splitTelegramFileIntakes
+        hash: sha256:3df614bd4e346d8affcee7928ba5929f6747755909fb0068baa35bf6c17dc906
+        struct_hash: sha256:10a69837e3199296eb89157bf363fdc1ca54767ec6f977d96211e9344015fea1
+        doc_struct_hash: sha256:10a69837e3199296eb89157bf363fdc1ca54767ec6f977d96211e9344015fea1
+        lines: [3036, 3047]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#failedFilesPrompt
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: failedFilesPrompt
+        hash: sha256:774a847bf2bc68364cddd5cb82aa1c765e90b47af651c0fb25440fa2d659400c
+        struct_hash: sha256:826cbab3d595557defd3ffbf0f2def9eb5776c28f20d52204aab60f32cc29719
+        doc_struct_hash: sha256:826cbab3d595557defd3ffbf0f2def9eb5776c28f20d52204aab60f32cc29719
+        lines: [3049, 3058]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileContext
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileContext
+        hash: sha256:cf77bf331b409f2cb6f254d5b004173db226f595c631da512b549ee16cd8d40e
+        struct_hash: sha256:d4f601ffa1b88088ca52f906a77472223160f3a4fd5ad9b4b0324c079b34f995
+        doc_struct_hash: sha256:d4f601ffa1b88088ca52f906a77472223160f3a4fd5ad9b4b0324c079b34f995
+        lines: [3060, 3072]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.replyFileIntakeResults
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.replyFileIntakeResults
+        hash: sha256:392d6808401461ec2c34df86b52758c68ddb948a5fa4a2fa21a8980c8b4b3a6a
+        struct_hash: sha256:5c9b14a996757aa5e0ed612b25a87437a32278ce69ce2b522879b2bb05a4acb9
+        doc_struct_hash: sha256:5c9b14a996757aa5e0ed612b25a87437a32278ce69ce2b522879b2bb05a4acb9
+        lines: [3074, 3118]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.fileCenterURL
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.fileCenterURL
+        hash: sha256:51497c5cc1500ecbd6dcd24d1cfc97fd966f7ddf52ecf459a540219012c48d93
+        struct_hash: sha256:23c1ae92435625c07f5735745c41e3b22339d110cfc5ba9d4a742c08c3ea822b
+        doc_struct_hash: sha256:23c1ae92435625c07f5735745c41e3b22339d110cfc5ba9d4a742c08c3ea822b
+        lines: [3120, 3129]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#safeTelegramFilename
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: safeTelegramFilename
+        hash: sha256:038b189712d81ab75d8795302f7a90fd4ece72219e432f2fcf61ffb63ef95d63
+        struct_hash: sha256:bbef1d96c9756bc05aaf19c8725a01ec6c7bf9ebd404f9364b98ba351ee26d5a
+        doc_struct_hash: sha256:bbef1d96c9756bc05aaf19c8725a01ec6c7bf9ebd404f9364b98ba351ee26d5a
+        lines: [3131, 3137]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#savedFilesPrompt
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: savedFilesPrompt
+        hash: sha256:e4dd694f925ca67c2c74df1f2dd3265615eb19bc2fd16161e2d5cb3a1e0634f3
+        struct_hash: sha256:05e05fa9929705dd92dd3b0f850e7c922e44dd3c37a84ffc4eaf5221c14b2b3b
+        doc_struct_hash: sha256:05e05fa9929705dd92dd3b0f850e7c922e44dd3c37a84ffc4eaf5221c14b2b3b
+        lines: [3139, 3147]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#nonMediaText
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: nonMediaText
+        hash: sha256:3a4cdabc37ddab67afc0ab3b363004d79c82592ed0c09a78dac3f097f50639a1
+        struct_hash: sha256:5373537326ea9bca589cafafff520ba0ec83277b1b54a8f6f63141248b233237
+        doc_struct_hash: sha256:5373537326ea9bca589cafafff520ba0ec83277b1b54a8f6f63141248b233237
+        lines: [3149, 3158]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#formatTelegramBytes
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: formatTelegramBytes
+        hash: sha256:65bf89c83075008e57a1ea0b3fa425ab1ddb29a2ef91335bfb189346273acd23
+        struct_hash: sha256:71e7bf910824801f226078ec55cbaa6af1e38ae5ba9e33e7adb7f5b38170688b
+        doc_struct_hash: sha256:12b15929b8cdf31f536c5c88fb4e077b4e13b6eef0155796c2d7476e349f357c
+        lines: [3160, 3161]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#telegramFileHTTP
+      level: decl
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramFileHTTP
+        hash: sha256:2e2e0d156cbccde2aa166fa5f72317d414af953585357ec2a2668e2ef33975da
+        struct_hash: sha256:417c7a22d6e4b00991925ad6dbd76e5dd181368e55578f0aa634f88037e44e7b
+        doc_struct_hash: sha256:0ea990d1649a27635a944b786420c516931909f4b392070a0c619c26c7b8752a
+        lines: [3163, 3168]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#Gateway.transcribeVoice
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.transcribeVoice
+        hash: sha256:cf6e5c3452e871c93e93e2426bad203bb58797fff586508a3c3e087217e14a02
+        struct_hash: sha256:8b48d6e4d67938d90e3edb7735f6002fec497fc597acfe1b92acc089eb557832
+        doc_struct_hash: sha256:8b48d6e4d67938d90e3edb7735f6002fec497fc597acfe1b92acc089eb557832
+        lines: [3170, 3195]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#hasMessagePayload
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: hasMessagePayload
+        hash: sha256:3f5111d303226c651a6844f7180096203c80bc427050deca312a223ab91a2728
+        struct_hash: sha256:a750d79c97e6acfa6189df091b04ec6e2857e4e3921c0c3cdf05f76248a4e776
+        doc_struct_hash: sha256:fcd4dfa9571a115ebc97a9b08c44ee8ec5d79ce41e67d5255787a58001e2b65f
+        lines: [3197, 3202]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram.go#hasIncomingTelegramFiles
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: hasIncomingTelegramFiles
+        hash: sha256:9f7ed3515f2dfe4d9bd178572526f3856ee607a2e5533d065fc9b60f075bee89
+        struct_hash: sha256:ce47c758b1a61ba74ad2e50dc9177a8a41f8c4bdedccfb21dd91f14fb4a1fd37
+        doc_struct_hash: sha256:ce47c758b1a61ba74ad2e50dc9177a8a41f8c4bdedccfb21dd91f14fb4a1fd37
+        lines: [3204, 3207]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

@@ -4,30 +4,8 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/ihtml_tools_test.go
-        hash: sha256:d7187ef1cc875e56cdd9b1bde0a97d5d09aff743671d8cb52fa6fd7f5153a381
+        hash: sha256:7ea717858ec0f5cfd9ce7c5704bc47f4a1a56120dc44fdef2dcfbb210a73f8cf
         lines: [0, 0]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/httpapi/ihtml_tools_test.go#TestIHTMLAgentToolsUseScopedService
-      level: function
-      anchor:
-        file: gateway/httpapi/ihtml_tools_test.go
-        symbol: TestIHTMLAgentToolsUseScopedService
-        hash: sha256:0518c06375cdb9d16fc20626f01f1ee6c05add81e4097b8e9020efe517b78fdf
-        struct_hash: sha256:3bb4caae38de52b156c80336e29d7d5935bb10fa8ff34ec06a267268b03287fd
-        doc_struct_hash: sha256:3bb4caae38de52b156c80336e29d7d5935bb10fa8ff34ec06a267268b03287fd
-        lines: [14, 71]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/httpapi/ihtml_tools_test.go#TestIHTMLAgentToolMutationsCreateRevisions
-      level: function
-      anchor:
-        file: gateway/httpapi/ihtml_tools_test.go
-        symbol: TestIHTMLAgentToolMutationsCreateRevisions
-        hash: sha256:0f93d392348264aca01c0a3c4ed81ffa2ff55e0e4b5671666332d75d4b28a68b
-        struct_hash: sha256:9b48ab11320e39b6b67e8f6adf9db16a57d466041c1977e7a59de785ef7ad082
-        doc_struct_hash: sha256:9b48ab11320e39b6b67e8f6adf9db16a57d466041c1977e7a59de785ef7ad082
-        lines: [73, 95]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/ihtml_tools_test.go#TestPinnedIHTMLRuntimeExposesCallableHTTPClient
@@ -41,3 +19,25 @@ nodes:
         lines: [16, 33]
       status: fresh
       since: 2026-07-21T17:27:25.30713Z
+    - id: gateway/httpapi/ihtml_tools_test.go#TestIHTMLAgentToolsUseScopedService
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools_test.go
+        symbol: TestIHTMLAgentToolsUseScopedService
+        hash: sha256:d9b0a3e6e8cb4deb41646d591a756a4eb90fe9b4016f13960bb8a7adb2502a00
+        struct_hash: sha256:2606fa77e12b7abc38eb6ccece6db62c8e106ee9b104ba4f5d77292aa015c25f
+        doc_struct_hash: sha256:2606fa77e12b7abc38eb6ccece6db62c8e106ee9b104ba4f5d77292aa015c25f
+        lines: [35, 92]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools_test.go#TestIHTMLAgentToolMutationsCreateRevisions
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools_test.go
+        symbol: TestIHTMLAgentToolMutationsCreateRevisions
+        hash: sha256:1e3446dba99da0682399d7abc1e477b5416e431c45416f00598c2a1f877d4798
+        struct_hash: sha256:0f6f3bd11e0d8adce3dd9b7f965a91ba85f5a871e007a2cdb2d6ed4af61551d5
+        doc_struct_hash: sha256:0f6f3bd11e0d8adce3dd9b7f965a91ba85f5a871e007a2cdb2d6ed4af61551d5
+        lines: [94, 116]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z

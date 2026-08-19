@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/ihtml_integration.go
-        hash: sha256:cec4a2273a1399f92db91b6872e635002d531eb3f4d7d7597d93cc571c96bed5
+        hash: sha256:0f0a6c899f3dab4f2a59527c84e114e64000696aaca36ff6551fe44a42d24cfa
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

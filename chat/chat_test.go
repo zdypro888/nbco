@@ -292,6 +292,31 @@ func TestMemoryEvidenceCoverage(t *testing.T) {
 	}
 }
 
+func TestMemoryReviewRuleScopeKeepsEmployeeRulesPersonal(t *testing.T) {
+	employee := &store.User{ID: 32}
+	review := memoryReview{Rules: []memoryReviewDecision{{Scope: "global"}}}
+	for _, requested := range []string{"", "global", "telegram", "worker", "user:99"} {
+		if got := review.ruleScope(0, requested, employee); got != "user:32" {
+			t.Fatalf("employee scope %q normalized to %q", requested, got)
+		}
+	}
+}
+
+func TestMemoryReviewRuleScopeRequiresIndependentAgreement(t *testing.T) {
+	admin := &store.User{ID: 1, IsSuperadmin: true}
+	global := memoryReview{Rules: []memoryReviewDecision{{Scope: "global"}}}
+	if got := global.ruleScope(0, "global", admin); got != "global" {
+		t.Fatalf("agreed admin scope = %q", got)
+	}
+	if got := global.ruleScope(0, "user:1", admin); got != "user:1" {
+		t.Fatalf("scope disagreement must narrow to current user, got %q", got)
+	}
+	missing := memoryReview{Rules: []memoryReviewDecision{{}}}
+	if got := missing.ruleScope(0, "global", admin); got != "user:1" {
+		t.Fatalf("missing independent scope must narrow to current user, got %q", got)
+	}
+}
+
 func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 	var mined minedMemory
 	if err := json.Unmarshal([]byte(`{

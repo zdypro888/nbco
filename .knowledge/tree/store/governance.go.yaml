@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/governance.go
-        hash: sha256:8b2643893ca99724957559de1ea11f96bd4298cd5b460afc141204286d6b919a
+        hash: sha256:e46eadefd29af8d85f4411b92e885606a72326cc8b80c34f21c01be840bf2c3e
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -261,6 +261,17 @@ nodes:
         lines: [312, 338]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/governance.go#Store.closeDanglingTaskDecisionItems
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: Store.closeDanglingTaskDecisionItems
+        hash: sha256:299f599d2458eda9e10732e1f99e8916d967eea9429b29bb25bbe431ea2fccf5
+        struct_hash: sha256:8bf80bc90c6998da097751c48f6a288b5b6df96d797e4f15570b111a3150ed91
+        doc_struct_hash: sha256:d1ec8b6b506175198a41c054fe4ac0d76fe0ef2ca39639d4fc28af347f692801
+        lines: [340, 353]
+      status: fresh
+      since: 2026-07-21T20:53:24.239374Z
     - id: store/governance.go#Store.BuildDecisionQueue
       level: function
       anchor:
@@ -280,7 +291,7 @@ nodes:
         hash: sha256:0278d43fb0f3968064168c0ccf8af0f46febb8cca36a44d9734ad25e09b2c99b
         struct_hash: sha256:c780c08fbeb1f78831b78918ea3cd4132bf12338383c2211f21e1954fd7ea516
         doc_struct_hash: sha256:42d8f84e2d556e1590ac4848a5c382a92fffa1effa6630daa604962712634063
-        lines: [393, 401]
+        lines: [413, 421]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.CloseDecisionItem
@@ -291,7 +302,7 @@ nodes:
         hash: sha256:f2051a26bdd0c277ad8c5d8a88ee7fdfc9a8d35e964b9930b413c5b8fd81808f
         struct_hash: sha256:253c81ced930fb054e285b9cc5c9aceb628962728fa75870a5f20d8c0b47db7b
         doc_struct_hash: sha256:fb4655db0a09d99be50e5ad9f4f92f7436e93c01fdf65963d73774fa0c34853c
-        lines: [403, 408]
+        lines: [423, 428]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.CloseDecisionsByRef
@@ -302,7 +313,7 @@ nodes:
         hash: sha256:d6466f739eccafaf64bc41aae7117a472a89a4594e615b0405510cf601e42a00
         struct_hash: sha256:556883513f15377805c47bcce545ea61d2474490dc2d92aff8d418fd2b65131e
         doc_struct_hash: sha256:1a11479dc7154556be80fd64eed72765c3b527792032131622eff3b67b4c43f5
-        lines: [410, 422]
+        lines: [430, 442]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.CloseDecisionsByKindRef
@@ -313,7 +324,7 @@ nodes:
         hash: sha256:a33d090573dcdd72f1a37f1311ce7ad498e5a4be4f40b43e55c5a6d0e620bf96
         struct_hash: sha256:c196090daead3ae623472e7a46d9285363f8e9328aff677d3404dadc2addf250
         doc_struct_hash: sha256:3626ce5b09bb0436917379ed8fdfb18bcfc0138088118c04a3329d798adc2556
-        lines: [424, 434]
+        lines: [444, 454]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#OrgGroup
@@ -324,7 +335,7 @@ nodes:
         hash: sha256:9d4a01ee7690fdc3adef6307dea677661a36afe122dcddca4fa7723b2527e8ce
         struct_hash: sha256:c45bb7c5cceb79245da6e8f9dd2e50af117482f70c3d17d21b5290e30548fa7a
         doc_struct_hash: sha256:c45bb7c5cceb79245da6e8f9dd2e50af117482f70c3d17d21b5290e30548fa7a
-        lines: [436, 444]
+        lines: [456, 464]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#orgGroupCols
@@ -335,7 +346,7 @@ nodes:
         hash: sha256:7abb4bf78ed9ff98a0bb14acc0825da4295c0115015b502ea082775d14373263
         struct_hash: sha256:c1cfd877f43157b93670626db60012d62cf2e617f27bf92346e76ca98eba0bfc
         doc_struct_hash: sha256:c1cfd877f43157b93670626db60012d62cf2e617f27bf92346e76ca98eba0bfc
-        lines: [446, 446]
+        lines: [466, 466]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#scanOrgGroup
@@ -346,7 +357,7 @@ nodes:
         hash: sha256:277d94a646f14cf76d55c86a869c3f8ac36eebdf90329ba8c16c9c15dd0a8197
         struct_hash: sha256:afccf9de5ccac1bede9f170f5cbaf451c7d711b6f74aac4427e132cfe387af5b
         doc_struct_hash: sha256:afccf9de5ccac1bede9f170f5cbaf451c7d711b6f74aac4427e132cfe387af5b
-        lines: [448, 454]
+        lines: [468, 474]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.CreateOrgGroup
@@ -357,7 +368,7 @@ nodes:
         hash: sha256:788ff7ab47ac4416ddffa592a0f52979f9dad3060cd1dd39d4766a4ef146fd2b
         struct_hash: sha256:b7cc5bb09f7506b51cd2dd9b2a4e003a9aa579dd85ad62f8f689f30bd6e1a147
         doc_struct_hash: sha256:b7cc5bb09f7506b51cd2dd9b2a4e003a9aa579dd85ad62f8f689f30bd6e1a147
-        lines: [456, 460]
+        lines: [476, 480]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.ListOrgGroups
@@ -368,7 +379,7 @@ nodes:
         hash: sha256:e5ecc83adab2959ace954e66cbbe726dd7f9cbe64a346c451cc8eabdcf8dee95
         struct_hash: sha256:785a317b1fbda701542bcc7f6a274d3d4fd5eab868ab9356986f68cd06e74899
         doc_struct_hash: sha256:785a317b1fbda701542bcc7f6a274d3d4fd5eab868ab9356986f68cd06e74899
-        lines: [462, 480]
+        lines: [482, 500]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.AddOrgGroupMember
@@ -379,7 +390,7 @@ nodes:
         hash: sha256:50904b997b784b7f0eff1d2f21ac2f7bc8dd7f9328b2ccd277c578952f70612b
         struct_hash: sha256:98ce1ff0f2c0237a399f7b1dc119d8cadd6a4812f875bfae5898738f31285829
         doc_struct_hash: sha256:98ce1ff0f2c0237a399f7b1dc119d8cadd6a4812f875bfae5898738f31285829
-        lines: [482, 501]
+        lines: [502, 521]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.BindTelegramGroupProject
@@ -390,7 +401,7 @@ nodes:
         hash: sha256:7463028c0365269b047c0539fb7972453c7eef7ce1a101dbb4bc1eb989159611
         struct_hash: sha256:1d0e83ff8364858a9140c636ad820e1d78ca453bdc40ed704ff4b56851a8ae65
         doc_struct_hash: sha256:1d0e83ff8364858a9140c636ad820e1d78ca453bdc40ed704ff4b56851a8ae65
-        lines: [503, 510]
+        lines: [523, 530]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.TelegramGroupProject
@@ -401,7 +412,7 @@ nodes:
         hash: sha256:8fbfb1ada1f4177e9cfcde0a7fc45c94062fcc1216b788333fd10e7d7810d4f2
         struct_hash: sha256:53e1d2951013cb278bd2d7188db86300b2567c7c5aa9919fad480813accd2220
         doc_struct_hash: sha256:53e1d2951013cb278bd2d7188db86300b2567c7c5aa9919fad480813accd2220
-        lines: [512, 518]
+        lines: [532, 538]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#ConversationEvalCase
@@ -412,7 +423,7 @@ nodes:
         hash: sha256:a58d70da6f3805e92424996fed60419d90b830689eefe970ffaf12e893a7ff41
         struct_hash: sha256:e01c9413018b57bf8258c497addb92acbc67e29c19a9e8bdb8e4b2610cb254e4
         doc_struct_hash: sha256:e01c9413018b57bf8258c497addb92acbc67e29c19a9e8bdb8e4b2610cb254e4
-        lines: [520, 530]
+        lines: [540, 550]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#conversationEvalCaseCols
@@ -423,7 +434,7 @@ nodes:
         hash: sha256:e7035f180b813f0f1b377589444ad12cdd72ae15c41e9c187474a2d68347c140
         struct_hash: sha256:e566c3223c51b01b9a75cd4cf5b69f4fe23f0ce729cb0fa77f8b14660352c8e0
         doc_struct_hash: sha256:e566c3223c51b01b9a75cd4cf5b69f4fe23f0ce729cb0fa77f8b14660352c8e0
-        lines: [532, 532]
+        lines: [552, 552]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#scanConversationEvalCase
@@ -434,7 +445,7 @@ nodes:
         hash: sha256:ac2c1a21871026eea63955703200487decda4e5591a1091991ee9894d8d9a36d
         struct_hash: sha256:afb0910fa09abeb25a0a287736b6c9d067840fb5529acf1ebcaada0d4f467135
         doc_struct_hash: sha256:afb0910fa09abeb25a0a287736b6c9d067840fb5529acf1ebcaada0d4f467135
-        lines: [534, 540]
+        lines: [554, 560]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.CreateConversationEvalCase
@@ -445,7 +456,7 @@ nodes:
         hash: sha256:b2ce81b4b91c9dece8a8df3fd70deb9da2a7186637b6899af6f0d0343510375f
         struct_hash: sha256:56e04e1a7ec58f2bf84078de8c9ae5b830a2b81a6706bcf6c11fd3451da482e9
         doc_struct_hash: sha256:56e04e1a7ec58f2bf84078de8c9ae5b830a2b81a6706bcf6c11fd3451da482e9
-        lines: [542, 554]
+        lines: [562, 574]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#Store.ListConversationEvalCases
@@ -456,7 +467,7 @@ nodes:
         hash: sha256:3bb85bfd6d828559b4638412fe792c26cb91720db8497692102cbe75cbb1dfe1
         struct_hash: sha256:c59b3cb53aa92b2d381757e614a087915332455780c7b16254efbf950ba0ec30
         doc_struct_hash: sha256:c59b3cb53aa92b2d381757e614a087915332455780c7b16254efbf950ba0ec30
-        lines: [556, 581]
+        lines: [576, 601]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/governance.go#normalizeStringList
@@ -467,17 +478,6 @@ nodes:
         hash: sha256:3fa1f4846ac09d7e26013940b1f4c6a3a8b47329d046c1c655fc76f0fc48818d
         struct_hash: sha256:2eddb53b5746b84c7cefebd49d63c0fef8e1cb5876103deb8eac9ad7197645da
         doc_struct_hash: sha256:2eddb53b5746b84c7cefebd49d63c0fef8e1cb5876103deb8eac9ad7197645da
-        lines: [583, 595]
+        lines: [603, 615]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: store/governance.go#Store.closeDanglingTaskDecisionItems
-      level: function
-      anchor:
-        file: store/governance.go
-        symbol: Store.closeDanglingTaskDecisionItems
-        hash: sha256:299f599d2458eda9e10732e1f99e8916d967eea9429b29bb25bbe431ea2fccf5
-        struct_hash: sha256:8bf80bc90c6998da097751c48f6a288b5b6df96d797e4f15570b111a3150ed91
-        doc_struct_hash: sha256:d1ec8b6b506175198a41c054fe4ac0d76fe0ef2ca39639d4fc28af347f692801
-        lines: [340, 353]
-      status: fresh
-      since: 2026-07-21T20:53:24.239374Z

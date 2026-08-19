@@ -1012,25 +1012,27 @@ func (s *Server) tasksJSON(ctx context.Context, ts []*store.Task, names map[int6
 }
 
 type scheduleJSON struct {
-	ID           int64      `json:"id"`
-	UserID       int64      `json:"user_id"`
-	ReceiverName string     `json:"receiver_name"`
-	CreatedBy    int64      `json:"created_by"`
-	CreatorName  string     `json:"creator_name"`
-	Target       string     `json:"target"`
-	Mode         string     `json:"mode"`
-	Kind         string     `json:"kind"`
-	Message      string     `json:"message"`
-	Title        string     `json:"title,omitempty"`
-	SourceKind   string     `json:"source_kind,omitempty"`
-	SourceKey    string     `json:"source_key,omitempty"`
-	FireAt       time.Time  `json:"fire_at"`
-	DailyAt      string     `json:"daily_at,omitempty"`
-	Weekdays     string     `json:"weekdays,omitempty"`
-	IntervalS    int64      `json:"interval_s,omitempty"`
-	Status       string     `json:"status"`
-	LastFired    *time.Time `json:"last_fired,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID              int64      `json:"id"`
+	UserID          int64      `json:"user_id"`
+	ReceiverName    string     `json:"receiver_name"`
+	CreatedBy       int64      `json:"created_by"`
+	CreatorName     string     `json:"creator_name"`
+	Target          string     `json:"target"`
+	TargetsViewer   bool       `json:"targets_viewer"`
+	DeliveryEnabled bool       `json:"delivery_enabled"`
+	Mode            string     `json:"mode"`
+	Kind            string     `json:"kind"`
+	Message         string     `json:"message"`
+	Title           string     `json:"title,omitempty"`
+	SourceKind      string     `json:"source_kind,omitempty"`
+	SourceKey       string     `json:"source_key,omitempty"`
+	FireAt          time.Time  `json:"fire_at"`
+	DailyAt         string     `json:"daily_at,omitempty"`
+	Weekdays        string     `json:"weekdays,omitempty"`
+	IntervalS       int64      `json:"interval_s,omitempty"`
+	Status          string     `json:"status"`
+	LastFired       *time.Time `json:"last_fired,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 func schedulesJSON(items []store.ScheduleView) []scheduleJSON {
@@ -1039,6 +1041,7 @@ func schedulesJSON(items []store.ScheduleView) []scheduleJSON {
 		out = append(out, scheduleJSON{
 			ID: sc.ID, UserID: sc.UserID, ReceiverName: sc.ReceiverName,
 			CreatedBy: sc.CreatedBy, CreatorName: sc.CreatorName, Target: sc.Target,
+			TargetsViewer: sc.TargetsViewer, DeliveryEnabled: sc.DeliveryEnabled,
 			Mode: sc.Mode, Kind: sc.Kind, Message: sc.Message, Title: sc.Title,
 			SourceKind: sc.SourceKind, SourceKey: sc.SourceKey, FireAt: sc.FireAt,
 			DailyAt: sc.DailyAt, Weekdays: sc.Weekdays, IntervalS: sc.IntervalS,

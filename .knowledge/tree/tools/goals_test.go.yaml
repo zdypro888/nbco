@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/goals_test.go
-        hash: sha256:b3b3390f71b63a0011659175d96afbd3a650e17958d948fec6b67a4ea257f469
+        hash: sha256:3895dc0f46d608160f05f0a609c2d9e1ac64b24fe38244ca61a9059de0809e0e
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -178,10 +178,10 @@ nodes:
       anchor:
         file: tools/goals_test.go
         symbol: TestCloseMilestoneEmitsEventOnAchievedByNonOwner
-        hash: sha256:11c4e39d2666755448413c375424f10d9dabae58b24c95098aa0b685d8107b78
-        struct_hash: sha256:cc2b50f84412795743c504c595bd9f950c6ed63c47d424cb6da8158af6a03e47
-        doc_struct_hash: sha256:cc2b50f84412795743c504c595bd9f950c6ed63c47d424cb6da8158af6a03e47
-        lines: [418, 456]
+        hash: sha256:2a483d71c92db46183040807e1a1ac36b3cdf30509fa74dcf884d2535f0ec3ed
+        struct_hash: sha256:da103efe071cbfdc93da4d5d60154ea53226672c978eef52ed9cb52ab79aa154
+        doc_struct_hash: sha256:da103efe071cbfdc93da4d5d60154ea53226672c978eef52ed9cb52ab79aa154
+        lines: [418, 461]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/goals_test.go#TestUnlinkTaskMilestoneRequiresGoalOwner
@@ -192,6 +192,6 @@ nodes:
         hash: sha256:f472b26ec669cc359341e939836dce0957d8913edcfbe26b9e23781782e9e11e
         struct_hash: sha256:743ad9cbbf25175bf6367358e60f9dd42ca83f757a06e647a344dd0fb1bcebb7
         doc_struct_hash: sha256:743ad9cbbf25175bf6367358e60f9dd42ca83f757a06e647a344dd0fb1bcebb7
-        lines: [458, 494]
+        lines: [463, 499]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

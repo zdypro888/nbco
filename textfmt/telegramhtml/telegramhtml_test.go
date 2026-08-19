@@ -23,3 +23,11 @@ func TestToHTMLDoesNotTreatComparisonsAsTags(t *testing.T) {
 		t.Fatalf("comparison text changed unexpectedly: %q", got)
 	}
 }
+
+func TestToHTMLPreservesValidEntitiesWithoutDoubleEscaping(t *testing.T) {
+	got := ToHTML(`oJo &amp; NB Group；2 &lt; 3；raw A&B`)
+	want := `oJo &amp; NB Group；2 &lt; 3；raw A&amp;B`
+	if got != want {
+		t.Fatalf("valid entities were double escaped: %q", got)
+	}
+}

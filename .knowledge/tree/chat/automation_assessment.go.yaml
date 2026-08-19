@@ -4,10 +4,21 @@ nodes:
       level: file
       anchor:
         file: chat/automation_assessment.go
-        hash: sha256:6ab5f517234d57073d595fbc6df0979c710b77807056ae20fab9a830ce2c58c6
+        hash: sha256:88af95a8f73dccddc874b0d01a310de0c9e35047765dc05809ad5649b9e121c3
         lines: [0, 0]
       status: undigested
       since: 2026-08-05T08:18:56.735391Z
+    - id: chat/automation_assessment.go#AutomationAssessment
+      level: decl
+      anchor:
+        file: chat/automation_assessment.go
+        symbol: AutomationAssessment
+        hash: sha256:25280521cfbbeb4d0ab5ada16a87605ea18aac705c9031eab463896e6b0192dc
+        struct_hash: sha256:e7cd4a694c56fe6a80c2f07f6019dd113fc5b2106772d4f0d800feb8c0c2cb82
+        doc_struct_hash: sha256:e7cd4a694c56fe6a80c2f07f6019dd113fc5b2106772d4f0d800feb8c0c2cb82
+        lines: [16, 20]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: chat/automation_assessment.go#Orchestrator.AssessAutomationExecution
       level: function
       anchor:
@@ -30,3 +41,14 @@ nodes:
         lines: [79, 108]
       status: fresh
       since: 2026-08-05T09:22:13.024927Z
+    - id: chat/automation_assessment.go#automationAssessmentSystem
+      level: decl
+      anchor:
+        file: chat/automation_assessment.go
+        symbol: automationAssessmentSystem
+        hash: sha256:09f66846483063e7d53def6519707105152fbb6782925929a50ae056820abe4b
+        struct_hash: sha256:8116dca79957a7897cf9cc9f2fe0589f67a798fcfa42b5a4871cf76aaf4a13bd
+        doc_struct_hash: sha256:8116dca79957a7897cf9cc9f2fe0589f67a798fcfa42b5a4871cf76aaf4a13bd
+        lines: [110, 121]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z

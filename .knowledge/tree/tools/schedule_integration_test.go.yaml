@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/schedule_integration_test.go
-        hash: sha256:a64803e90e32fc6ab45dfbf0a81f9ff06ec6b137e71a8b986cf023298240e609
+        hash: sha256:5608e7e8ff1b67f25bb49241790446791d933af0c1b1ab995bdf59cafd847d76
         lines: [0, 0]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/schedule_integration_test.go
         symbol: TestCancelScheduleReportsCompletedStateWithoutRewritingHistory
-        hash: sha256:4ac7ada488525864614890e98326aedb7f1371bf3ee06f6375336eb2a34c2106
-        struct_hash: sha256:27951637ee1b3acbd59103a9d20ca39ce36594f9f62236f9ffc33887e51474d2
-        doc_struct_hash: sha256:27951637ee1b3acbd59103a9d20ca39ce36594f9f62236f9ffc33887e51474d2
-        lines: [12, 54]
+        hash: sha256:1638cd69a3521696b30dc5424d36948d37cee90f2d1eec502227720cffb4c4f2
+        struct_hash: sha256:75a28dca9005d7e6c93a7370ac2963c5b3d4b47c391f68aae07c1be7257d228a
+        doc_struct_hash: sha256:75a28dca9005d7e6c93a7370ac2963c5b3d4b47c391f68aae07c1be7257d228a
+        lines: [13, 55]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: tools/schedule_integration_test.go#TestUpdateSchedulePreservesAudienceAndAutomationIdentity
@@ -30,3 +30,14 @@ nodes:
         lines: [57, 130]
       status: fresh
       since: 2026-07-25T04:57:24.807345Z
+    - id: tools/schedule_integration_test.go#TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt
+      level: function
+      anchor:
+        file: tools/schedule_integration_test.go
+        symbol: TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt
+        hash: sha256:b1155d140b0655e4d18a4657dd1a16b7bfe9f6a2813db93eceed80b5532ed4b8
+        struct_hash: sha256:5613ad7c7f402bd4c102c9fe01f380fe12d84b35e50c5334ff233a4b605d1347
+        doc_struct_hash: sha256:5613ad7c7f402bd4c102c9fe01f380fe12d84b35e50c5334ff233a4b605d1347
+        lines: [132, 164]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z

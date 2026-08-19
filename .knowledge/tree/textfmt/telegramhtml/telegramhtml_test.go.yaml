@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: textfmt/telegramhtml/telegramhtml_test.go
-        hash: sha256:76dafaaea43a9ec013c0b0dcd406a3861ef2dfb2e06dbed2f18d88fb418fe038
+        hash: sha256:6df43870e518b789620e1a7f4c0fac8468dd8691bf1ebb0df1313a4f418867e4
         lines: [0, 0]
       status: undigested
       since: 2026-07-20T14:59:43.143721Z
@@ -30,3 +30,14 @@ nodes:
         lines: [20, 25]
       status: undigested
       since: 2026-07-20T14:59:43.143721Z
+    - id: textfmt/telegramhtml/telegramhtml_test.go#TestToHTMLPreservesValidEntitiesWithoutDoubleEscaping
+      level: function
+      anchor:
+        file: textfmt/telegramhtml/telegramhtml_test.go
+        symbol: TestToHTMLPreservesValidEntitiesWithoutDoubleEscaping
+        hash: sha256:ba9471d490594817d979c3123a64e656821678e78ddcd2e445765f58169cdce9
+        struct_hash: sha256:668bbaafa4e376f45ee3d153cf424533bf6af50b6398959b2638fd6cb8db008b
+        doc_struct_hash: sha256:668bbaafa4e376f45ee3d153cf424533bf6af50b6398959b2638fd6cb8db008b
+        lines: [27, 33]
+      status: fresh
+      since: 2026-08-19T15:38:13.084956Z

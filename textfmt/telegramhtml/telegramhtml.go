@@ -14,6 +14,7 @@ import (
 
 var (
 	tgAllowedHTMLTagRe           = regexp.MustCompile(`(?i)(</?(b|strong|i|em|u|s|del|code|pre|blockquote)>|</a>|<a\s+href="https?://[^"<>\s]+">)`)
+	htmlEntityRe                 = regexp.MustCompile(`(?i)&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);`)
 	unsupportedPresentationTagRe = regexp.MustCompile(`(?is)</?(?:font|span|div|p|hr|br|h[1-6]|ul|ol|li|section|article|header|footer|main|details|summary)\b[^<>]*>`)
 	malformedCloseRe             = regexp.MustCompile(`(?i)</\s*(b|strong|i|em|u|s|del|code|pre|blockquote)\s*([:：，,。；;、])`)
 
@@ -60,6 +61,10 @@ func ToHTML(s string) string {
 	// supported subset has been stashed, remove unsupported tag syntax while
 	// keeping its visible body instead of escaping raw markup into the message.
 	s = unsupportedPresentationTagRe.ReplaceAllString(s, "")
+	// A model following the Telegram HTML contract may correctly emit &amp;
+	// for visible text. Preserve valid entities across the fallback escape pass;
+	// raw ampersands still get escaped below.
+	s = htmlEntityRe.ReplaceAllStringFunc(s, earlyPut)
 	esc := html.EscapeString(s)
 	for i, r := range earlyStash {
 		esc = strings.Replace(esc, fmt.Sprintf("\x01%d\x01", i), r, 1)

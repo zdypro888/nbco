@@ -29,6 +29,11 @@ const (
 	// 领域自动化来源。调度器仍保持通用，领域入口用稳定来源标识实现幂等配置。
 	ScheduleSourceTelegramGroupDigest = "telegram_group_digest"
 
+	// SchedulePreferenceAll is the per-user default. A concrete schedule ID
+	// overrides it, which lets a recipient mute one broadcast without losing
+	// every other scheduled notification.
+	SchedulePreferenceAll int64 = 0
+
 	scheduleDeliveryLease        = 10 * time.Minute
 	scheduleClaimBatch           = 128
 	scheduleRecipientLease       = 6 * time.Minute
@@ -70,8 +75,10 @@ type Schedule struct {
 
 type ScheduleView struct {
 	Schedule
-	ReceiverName string
-	CreatorName  string
+	ReceiverName    string
+	CreatorName     string
+	TargetsViewer   bool
+	DeliveryEnabled bool
 }
 
 // ScheduleDelivery 是一次日程触发对一个接收人的独立投递。日程本身只负责
@@ -213,7 +220,8 @@ func (s *Store) CancelAutomationSchedule(ctx context.Context, createdBy int64, s
 func (s *Store) SchedulesOf(ctx context.Context, userID int64) ([]*Schedule, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+scheduleCols+` FROM schedules
-		 WHERE (user_id = $1 OR created_by = $1) AND status = 'active' ORDER BY fire_at`, userID)
+		 WHERE (user_id = $1 OR created_by = $1 OR target = '_all' OR target = $1::text)
+		   AND status = 'active' ORDER BY fire_at`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -236,12 +244,11 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		limit = 200
 	}
 	status = strings.TrimSpace(status)
-	where := []string{"true"}
-	args := []any{limit}
-	if !superadmin {
-		args = append(args, userID)
-		where = append(where, fmt.Sprintf("(s.user_id = $%d OR s.created_by = $%d)", len(args), len(args)))
-	}
+	where := []string{`($3 OR s.user_id = $2 OR s.created_by = $2 OR s.target = $2::text OR
+		(s.target = '_all' AND (s.status = 'active' OR EXISTS (
+		  SELECT 1 FROM schedule_deliveries vd WHERE vd.schedule_id = s.id AND vd.user_id = $2
+		))))`}
+	args := []any{limit, userID, superadmin}
 	switch status {
 	case "", ScheduleActive:
 		args = append(args, ScheduleActive)
@@ -252,7 +259,17 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		where = append(where, fmt.Sprintf("s.status = $%d", len(args)))
 	}
 	rows, err := s.pool.Query(ctx,
-		`SELECT `+scheduleColsWithAlias("s")+`, coalesce(u.name, ''), coalesce(cu.name, '')
+		`SELECT `+scheduleColsWithAlias("s")+`, coalesce(u.name, ''), coalesce(cu.name, ''),
+		        (s.user_id = $2 OR s.target = $2::text OR
+		          (s.target = '_all' AND (s.status = 'active' OR EXISTS (
+		            SELECT 1 FROM schedule_deliveries td WHERE td.schedule_id = s.id AND td.user_id = $2
+		          )))),
+		        coalesce(
+		          (SELECT p.enabled FROM schedule_delivery_preferences p
+		            WHERE p.user_id = $2 AND p.schedule_id = s.id),
+		          (SELECT p.enabled FROM schedule_delivery_preferences p
+		            WHERE p.user_id = $2 AND p.schedule_id = 0),
+		          true)
 		   FROM schedules s
 		   LEFT JOIN users u ON u.id = s.user_id
 		   LEFT JOIN users cu ON cu.id = s.created_by
@@ -275,7 +292,7 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
 			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy, &v.DeliveryClaimedAt,
 			&v.SourceKind, &v.SourceKey, &v.Title, &sourceMessageID,
-			&v.ReceiverName, &v.CreatorName); err != nil {
+			&v.ReceiverName, &v.CreatorName, &v.TargetsViewer, &v.DeliveryEnabled); err != nil {
 			return nil, wrapErr(err)
 		}
 		if sourceMessageID.Valid {
@@ -285,6 +302,71 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+// SetScheduleDeliveryPreference changes only the caller's delivery policy. It
+// never mutates the shared schedule. Disabling also suppresses already queued
+// rows so an opt-out takes effect without waiting for the next occurrence.
+func (s *Store) SetScheduleDeliveryPreference(ctx context.Context, userID, scheduleID int64, enabled bool) error {
+	if userID <= 0 || scheduleID < SchedulePreferenceAll {
+		return fmt.Errorf("invalid schedule delivery preference")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if scheduleID > 0 {
+		var applies bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS (
+			   SELECT 1 FROM schedules
+			    WHERE id = $1 AND status = 'active'
+			      AND (target = '_all' OR user_id = $2 OR target = $2::text)
+			 )`, scheduleID, userID).Scan(&applies); err != nil {
+			return err
+		}
+		if !applies {
+			return ErrNotFound
+		}
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO schedule_delivery_preferences (user_id, schedule_id, enabled)
+		 VALUES ($1,$2,$3)
+		 ON CONFLICT (user_id, schedule_id)
+		 DO UPDATE SET enabled = EXCLUDED.enabled`, userID, scheduleID, enabled); err != nil {
+		return err
+	}
+	if !enabled {
+		where := `user_id = $1 AND status IN ('pending','processing')`
+		args := []any{userID}
+		if scheduleID > 0 {
+			where += ` AND schedule_id = $2`
+			args = append(args, scheduleID)
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE schedule_deliveries
+			    SET status='suppressed', claimed_at=NULL, last_error='',
+			        result_text=CASE WHEN result_text='' THEN '接收人已关闭此类定时通知。' ELSE result_text END
+			  WHERE `+where, args...); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// ScheduleDeliveryAllowed resolves a concrete override first, then the user's
+// all-schedules default. Missing preferences preserve the historical behavior.
+func (s *Store) ScheduleDeliveryAllowed(ctx context.Context, userID, scheduleID int64) (bool, error) {
+	var enabled bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT coalesce(
+		   (SELECT p.enabled FROM schedule_delivery_preferences p
+		     WHERE p.user_id = $1 AND p.schedule_id = $2),
+		   (SELECT p.enabled FROM schedule_delivery_preferences p
+		     WHERE p.user_id = $1 AND p.schedule_id = 0),
+		   true)`, userID, scheduleID).Scan(&enabled)
+	return enabled, err
 }
 
 func scheduleColsWithAlias(alias string) string {
@@ -494,6 +576,14 @@ func (s *Store) MarkScheduleDeliveryDelivered(ctx context.Context, id int64, cla
 	return s.execOne(ctx,
 		`UPDATE schedule_deliveries SET status='delivered', delivered_at=$3, claimed_at=NULL, last_error=''
 		 WHERE id=$1 AND status='processing' AND claimed_at=$2`, id, claimAt, deliveredAt)
+}
+
+func (s *Store) MarkScheduleDeliverySuppressed(ctx context.Context, id int64, claimAt time.Time, reason string) error {
+	return s.execOne(ctx,
+		`UPDATE schedule_deliveries
+		    SET status='suppressed', result_text=$3, claimed_at=NULL, last_error=''
+		  WHERE id=$1 AND status='processing' AND claimed_at=$2`,
+		id, claimAt, truncateRunes(strings.TrimSpace(reason), 12000))
 }
 
 // PrepareScheduleDeliveryResult stores the exact AI-generated message before

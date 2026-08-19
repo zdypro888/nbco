@@ -128,3 +128,37 @@ func TestUpdateSchedulePreservesAudienceAndAutomationIdentity(t *testing.T) {
 		t.Fatalf("next fire = %s; want 19:00 Asia/Tokyo", localFire)
 	}
 }
+
+func TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	boss := mkToolsUser(t, s, "broadcast-owner", true)
+	member := mkToolsUser(t, s, "broadcast-recipient", false)
+	sc, err := s.CreateSchedule(ctx, &store.Schedule{
+		UserID: boss.ID, CreatedBy: boss.ID, Kind: store.ScheduleDaily,
+		FireAt: time.Now().UTC().Add(time.Hour), DailyAt: "09:30",
+		Target: store.ScheduleTargetAll, Mode: store.ScheduleModeMessage,
+		Title: "全员早间通知", Message: "早上好",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toolset := scheduleTools(Deps{Store: s, TZ: time.UTC}, member)
+	listed := callToolByName(t, toolset, "list_schedules", map[string]any{})
+	if !strings.Contains(listed, "全员早间通知") || !strings.Contains(listed, "接收开启") {
+		t.Fatalf("incoming schedule list = %q", listed)
+	}
+	muted := callToolByName(t, toolset, "set_schedule_subscription", map[string]any{
+		"scope": "schedule", "schedule_id": sc.ID, "enabled": false,
+	})
+	if !strings.Contains(muted, "已停止接收") || !strings.Contains(muted, "不会修改创建者") {
+		t.Fatalf("mute result = %q", muted)
+	}
+	if allowed, err := s.ScheduleDeliveryAllowed(ctx, member.ID, sc.ID); err != nil || allowed {
+		t.Fatalf("muted delivery allowed=%t err=%v", allowed, err)
+	}
+	stored, err := s.ScheduleByID(ctx, sc.ID)
+	if err != nil || stored.Status != store.ScheduleActive {
+		t.Fatalf("recipient mute changed shared schedule: %+v err=%v", stored, err)
+	}
+}

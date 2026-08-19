@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: config/config.go
-        hash: sha256:c6239a87cf44c1907b5f621212884dc44c9394a4c66321ae92e1ed0a85e706a9
+        hash: sha256:2468b577ac2a89593809f687edef5f347479bad9247841441dd66a9e41e26229
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

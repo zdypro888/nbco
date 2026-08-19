@@ -50,6 +50,9 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 					return "标题和正文都不能为空。", nil
 				}
 				scope := normalizeLearningScope(args.Scope)
+				if kind == store.LearningKindRule && !u.IsSuperadmin {
+					scope = fmt.Sprintf("user:%d", u.ID)
+				}
 				if msg := validateSkillScope(scope); msg != "" {
 					return msg, nil
 				}

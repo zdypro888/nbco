@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/telegram/format_test.go
-        hash: sha256:4da496462c8c78d843885d03aab748b6606074324194b169f7be05096556d29e
+        hash: sha256:de156d3d81a805a771870272fd724d03e5fedc902a16304b0e0f0e32f5fcc7de
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -63,6 +63,17 @@ nodes:
         lines: [45, 56]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/format_test.go#TestToTelegramHTMLTableStripsInlinePresentationMarkup
+      level: function
+      anchor:
+        file: gateway/telegram/format_test.go
+        symbol: TestToTelegramHTMLTableStripsInlinePresentationMarkup
+        hash: sha256:afa35df66398569a1f257dab42ee0169b4a485e919ca01deadb5be4868352600
+        struct_hash: sha256:317afd9d6e4ac246374f8b22ac04b34f626846c923cd1263051fe5e2c3667dfe
+        doc_struct_hash: sha256:317afd9d6e4ac246374f8b22ac04b34f626846c923cd1263051fe5e2c3667dfe
+        lines: [58, 69]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: gateway/telegram/format_test.go#TestToTelegramHTMLRawHTMLTable
       level: function
       anchor:
@@ -71,7 +82,7 @@ nodes:
         hash: sha256:69833e64e4f1cb3155a9a5ba4962f7370fc98c692c074cfbab90655b13925925
         struct_hash: sha256:43cf5c534590415dac14ae53c8415d6ee8cf4979d65c9fdc2a41dd59b5477a5a
         doc_struct_hash: sha256:43cf5c534590415dac14ae53c8415d6ee8cf4979d65c9fdc2a41dd59b5477a5a
-        lines: [58, 70]
+        lines: [71, 83]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/format_test.go#TestToTelegramHTMLMixedHTMLAndMarkdown
@@ -82,7 +93,7 @@ nodes:
         hash: sha256:799cab66c5689cfdb0734865ddc1b75bca85cfee456f271bca95ecfa6aafa075
         struct_hash: sha256:98961187f576d4e95428f14e24f6e8d26cf49cd88b5f3822160b657311c58b45
         doc_struct_hash: sha256:98961187f576d4e95428f14e24f6e8d26cf49cd88b5f3822160b657311c58b45
-        lines: [72, 82]
+        lines: [85, 95]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/format_test.go#TestToTelegramHTMLRepairsMalformedClosingTags
@@ -93,7 +104,7 @@ nodes:
         hash: sha256:684b6bc66a8df7a541f73f5c9ca59fc00a475cf047ad69850d9e2c2197594e8b
         struct_hash: sha256:334ff1f4f3d03916aa15af3f95808a3fbae5d7d3960df070bd68da94499b112f
         doc_struct_hash: sha256:334ff1f4f3d03916aa15af3f95808a3fbae5d7d3960df070bd68da94499b112f
-        lines: [84, 96]
+        lines: [97, 109]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/format_test.go#TestToTelegramHTMLCodeBlockProtected
@@ -104,7 +115,7 @@ nodes:
         hash: sha256:7b01037489783f8cd5600a37a0189971643d1433c3a1f9d464a576cecacc0f66
         struct_hash: sha256:230a6a310795d7e65b41c1091a8598bf25c1e58b86a9cee1b09101aa62e3e4c9
         doc_struct_hash: sha256:230a6a310795d7e65b41c1091a8598bf25c1e58b86a9cee1b09101aa62e3e4c9
-        lines: [98, 103]
+        lines: [111, 116]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/format_test.go#TestToTelegramHTMLEscapes
@@ -115,6 +126,6 @@ nodes:
         hash: sha256:fa4f7ef4eaae0a1e0173a5cdcb539c0502cb6ddf8f14769d41ce66f8d2efae92
         struct_hash: sha256:80c65b0b9b757712e1e59d109d97c589b4eea62c3712dfbde2f6e7815c032097
         doc_struct_hash: sha256:80c65b0b9b757712e1e59d109d97c589b4eea62c3712dfbde2f6e7815c032097
-        lines: [105, 110]
+        lines: [118, 123]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

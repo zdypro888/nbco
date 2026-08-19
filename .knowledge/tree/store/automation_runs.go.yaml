@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/automation_runs.go
-        hash: sha256:4fbad1f1b0474f28114b381e423d2321058bc70c91f011791c5318e0b2a31530
+        hash: sha256:0fd0a6334f85d5805f1d92549ae1fb841f8903d07d11bcda278044f5d4f3b772
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -30,15 +30,59 @@ nodes:
         lines: [12, 12]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/automation_runs.go#AutomationOutcomeSucceeded
+      level: decl
+      anchor:
+        file: store/automation_runs.go
+        symbol: AutomationOutcomeSucceeded
+        hash: sha256:849f0d6ed04ceb183c062b56232aed017fe97b63f5f1da05b82423114978d2e0
+        struct_hash: sha256:a54ca71acc9a9fe5ac16f1310d32edbe3f1977ebd856c1a27fe5b15fe7783f3b
+        doc_struct_hash: sha256:a54ca71acc9a9fe5ac16f1310d32edbe3f1977ebd856c1a27fe5b15fe7783f3b
+        lines: [14, 14]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/automation_runs.go#AutomationOutcomeNoChange
+      level: decl
+      anchor:
+        file: store/automation_runs.go
+        symbol: AutomationOutcomeNoChange
+        hash: sha256:b8b5891f755f74a22bde9ec58319a157db8840b79f8ab8a621dcd40f24ccdb3a
+        struct_hash: sha256:68db229ec08d61a2ea56f5cd3d84f6287248481cd4bd5b782372540f64f6ed11
+        doc_struct_hash: sha256:68db229ec08d61a2ea56f5cd3d84f6287248481cd4bd5b782372540f64f6ed11
+        lines: [15, 15]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/automation_runs.go#AutomationOutcomeFailed
+      level: decl
+      anchor:
+        file: store/automation_runs.go
+        symbol: AutomationOutcomeFailed
+        hash: sha256:258cf8405f674d4530a0a4db60ca617c0cdd277a992308eced496981d8c5f544
+        struct_hash: sha256:ef083da3dc534496e692b77f8a9af5e884828d057608938bbd5617dc5bfce6ec
+        doc_struct_hash: sha256:ef083da3dc534496e692b77f8a9af5e884828d057608938bbd5617dc5bfce6ec
+        lines: [16, 16]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/automation_runs.go#AutomationOutcomeUncertain
+      level: decl
+      anchor:
+        file: store/automation_runs.go
+        symbol: AutomationOutcomeUncertain
+        hash: sha256:b5655d396ad8c4061f6a535d7183de93b7f3c8508618a97b6a0bf87f88bfaf88
+        struct_hash: sha256:06f22c441d9e8802dceb6f8b03eb657eb884d55efc1de92cc3094845de713794
+        doc_struct_hash: sha256:06f22c441d9e8802dceb6f8b03eb657eb884d55efc1de92cc3094845de713794
+        lines: [17, 17]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: store/automation_runs.go#AutomationRun
       level: decl
       anchor:
         file: store/automation_runs.go
         symbol: AutomationRun
-        hash: sha256:d9356bb3b22e2174860b4ac5935d060f3cbeddf2340196da3660c6ebc0aaadc1
-        struct_hash: sha256:427ec7c961b7d7836e00df08781a4c89274f9abcf2b1cd53e0d878d0ace98935
-        doc_struct_hash: sha256:427ec7c961b7d7836e00df08781a4c89274f9abcf2b1cd53e0d878d0ace98935
-        lines: [15, 28]
+        hash: sha256:1ed9e6eec1ed87b23a9a937b86d8e45be4845ae597488d4c20262be761a84425
+        struct_hash: sha256:6eaaa7b8d02d7c97dedff0f31ab3f5a30f788ef362e74f65adffa6856eee21f2
+        doc_struct_hash: sha256:6eaaa7b8d02d7c97dedff0f31ab3f5a30f788ef362e74f65adffa6856eee21f2
+        lines: [20, 35]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/automation_runs.go#automationRunCols
@@ -46,10 +90,10 @@ nodes:
       anchor:
         file: store/automation_runs.go
         symbol: automationRunCols
-        hash: sha256:7b282bea4fb0176faa953f5220ce523573600c60df59d8839003d32fb8da06c9
-        struct_hash: sha256:5a8277589e7b59e8c379383be469a9cb150b395ec98754836f75af1369113042
-        doc_struct_hash: sha256:5a8277589e7b59e8c379383be469a9cb150b395ec98754836f75af1369113042
-        lines: [30, 30]
+        hash: sha256:b326be42044b44b5de444bddcf723835a5fbe4731c3fb7d13d18eba618a0a189
+        struct_hash: sha256:eaa8177bb35deb6a519c891d987931dd2b0afd77b3778170e34c1d8f2a81ff9c
+        doc_struct_hash: sha256:eaa8177bb35deb6a519c891d987931dd2b0afd77b3778170e34c1d8f2a81ff9c
+        lines: [37, 37]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/automation_runs.go#scanAutomationRun
@@ -57,10 +101,10 @@ nodes:
       anchor:
         file: store/automation_runs.go
         symbol: scanAutomationRun
-        hash: sha256:f084a2e45f47f5823492bf4d9d42204c55dd6664fcc7e719c6699f10b38c4b1c
-        struct_hash: sha256:371609de4c795f83e450d8c0476abe6d95de92b40b6c0b643ac25e27f1f8ae06
-        doc_struct_hash: sha256:371609de4c795f83e450d8c0476abe6d95de92b40b6c0b643ac25e27f1f8ae06
-        lines: [32, 40]
+        hash: sha256:3e3e93b8fad7c2a4a37f23b5bec4d4e976e0fafd2cc566772110dc37afe7c22e
+        struct_hash: sha256:47bea6f26be8892d8ca6b0741b4997fcbdb9d867f159b9fee59ec290dd383776
+        doc_struct_hash: sha256:47bea6f26be8892d8ca6b0741b4997fcbdb9d867f159b9fee59ec290dd383776
+        lines: [39, 47]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/automation_runs.go#Store.BeginAutomationAction
@@ -71,7 +115,7 @@ nodes:
         hash: sha256:0315a53223af41143bf83df1ff9c26c659af9e7ecea5374069be3ad91732b9f4
         struct_hash: sha256:279f6500eb092f650413c7b4b0bf7ca41124df8fefadb7787174ea6bc57cf566
         doc_struct_hash: sha256:85ad587bd9b21e897d798e3ccdc9a0910658df4a94a76146d164fa7e9b31b3fb
-        lines: [42, 54]
+        lines: [49, 61]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/automation_runs.go#Store.PrepareAutomationResult
@@ -90,97 +134,12 @@ nodes:
       anchor:
         file: store/automation_runs.go
         symbol: Store.ClaimAutomationRun
-        hash: sha256:acc5da7828d548e643429a74d79c94be31beb82b92a3abd91b6a6bbc21ee25b0
-        struct_hash: sha256:cd435947560afe56f5aa90078dbfa9d400b8eeb04c602fd85b5f5094e010084c
-        doc_struct_hash: sha256:0f9e6e500e38edaba276b3658958dd871042717687b96b263525fa5d7e1965f0
-        lines: [69, 112]
+        hash: sha256:5c4402194ada67af839a2b142ef71aa9398bd9e69f914c0cbf9ceafe33664be2
+        struct_hash: sha256:b29783f5b357a90bd19da88dbfd850ae394541e09f7e659441414c34cddc902a
+        doc_struct_hash: sha256:85881fd7b360724b81c9741447d9d059b259f24ce3db9f9a9ba4a14ab0da2771
+        lines: [82, 86]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: store/automation_runs.go#Store.CompleteAutomationRun
-      level: function
-      anchor:
-        file: store/automation_runs.go
-        symbol: Store.CompleteAutomationRun
-        hash: sha256:18d2d60ca2a9147aea128f4e5a5d71fd2de3ffa9212f3abc34310cb4f972c7c4
-        struct_hash: sha256:65f255d44391be38096c10baa79036f2bf71439a89f7763ede5833435881f32a
-        doc_struct_hash: sha256:65f255d44391be38096c10baa79036f2bf71439a89f7763ede5833435881f32a
-        lines: [162, 174]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/automation_runs.go#Store.RetryAutomationRun
-      level: function
-      anchor:
-        file: store/automation_runs.go
-        symbol: Store.RetryAutomationRun
-        hash: sha256:e180f2df0e0f8636f0b28f126785313b275ec1b1477a82fa7e90d8f4c0a4bec7
-        struct_hash: sha256:d5a7ab705cc09332a6beda61d1e0320e20f33574ff3fb1ca002da23551659f14
-        doc_struct_hash: sha256:d5a7ab705cc09332a6beda61d1e0320e20f33574ff3fb1ca002da23551659f14
-        lines: [176, 178]
-      status: fresh
-      since: 2026-07-19T18:32:51.345695Z
-      entries:
-        - id: e_562f81e2
-          kind: pitfall
-          text: RetryAutomationRun 只推进 available_at，不会主动唤醒重试；若调用方只在狭窄日/小时窗口内执行 ClaimAutomationRun，指数退避跨出窗口后该 occurrence 会永久停在 pending。2026-08 线上周报 W29/W31/W32 均在第 5 次后 available_at 落到触发小时之外，未再被领取。
-          confidence: inferred
-          at: 2026-08-05T07:51:07.784181Z
-          author: codex-mcp-client
-          superseded_by: e_7eaa8328
-        - id: e_7eaa8328
-          kind: contract
-          text: 自动化重试由每个 occurrence 的 expires_at 界定，而非调用方狭窄小时窗口；日/周/月调度在完整有效期内持续认领，统一清理过期 pending 或失租 processing。普通重试保留 action_started、结果文本和已有业务 outcome，replay-safe 重试仅在完整轨迹证明零副作用后清空它们；耗尽预算或过期将运行状态置 failed，但不覆盖已证明的 succeeded/no_change outcome。
-          confidence: inferred
-          at: 2026-08-05T08:31:02.552322Z
-          author: codex-mcp-client
-      keywords:
-        - automation retry window
-        - pending stranded
-        - available_at
-        - 周报重试
-    - id: store/automation_runs.go#Store.ClaimAutomationRunUntil
-      level: function
-      anchor:
-        file: store/automation_runs.go
-        symbol: Store.ClaimAutomationRunUntil
-        hash: sha256:19870c50269d5f89b0cfc37eb6354bf3174509c8d0a1f4f4336e9365740307bf
-        struct_hash: sha256:d89456dfe53d0f7d4ec2c821917c7bbcfaf6f970b9b374898f312543fa81c6e2
-        doc_struct_hash: sha256:10ad085fee2ab0a2eff9f2c3f51ae3c7a851d3c8138d7f12cb83442550778aa1
-        lines: [88, 160]
-      status: fresh
-      since: 2026-08-05T08:18:56.677155Z
-    - id: store/automation_runs.go#Store.RetryAutomationRunReplaySafe
-      level: function
-      anchor:
-        file: store/automation_runs.go
-        symbol: Store.RetryAutomationRunReplaySafe
-        hash: sha256:05332ed472576aaf7a571c388c52adc3b75996ec6c6031caf9926965ef27988d
-        struct_hash: sha256:7e2b27421ae68e3d84b83c34e59a3a8528da344f2d45bbe5cea9b2a2ae0cc2c2
-        doc_struct_hash: sha256:33846aa8d0d1e593abbf3c1579b63c5302a2384036bc38c225dc8c0b8a660aca
-        lines: [180, 184]
-      status: fresh
-      since: 2026-08-05T08:18:56.67902Z
-    - id: store/automation_runs.go#Store.ExpireAutomationRuns
-      level: function
-      anchor:
-        file: store/automation_runs.go
-        symbol: Store.ExpireAutomationRuns
-        hash: sha256:568c482984f1aa51c4bf0632d7830e2f6c8c8b4dfcb4ebcdde591e9a39164d2a
-        struct_hash: sha256:0188746dcc9f285ef667139668d88370a47c4403d2afdc792c9ec5a8a3f3d4ff
-        doc_struct_hash: sha256:b8934474a3bc01a656c5d7dd5af4b065ca2a084de960c3926db0b5e8738aca30
-        lines: [217, 232]
-      status: fresh
-      since: 2026-08-05T08:18:56.679687Z
-    - id: store/automation_runs.go#Store.retryAutomationRun
-      level: function
-      anchor:
-        file: store/automation_runs.go
-        symbol: Store.retryAutomationRun
-        hash: sha256:b8ec1d29208552a2d7182d8b32af541a156a8c0f6ed051ef524a7091dbf04739
-        struct_hash: sha256:223356a778b0bc225979464361b7a29698ae10072f5eebb1fa3ee066205de5f5
-        doc_struct_hash: sha256:223356a778b0bc225979464361b7a29698ae10072f5eebb1fa3ee066205de5f5
-        lines: [186, 211]
-      status: fresh
-      since: 2026-08-05T08:30:45.975724Z
     - id: store/automation_runs.go#Store.HasActiveAutomationRun
       level: function
       anchor:
@@ -203,3 +162,99 @@ nodes:
         lines: [101, 106]
       status: fresh
       since: 2026-08-06T07:19:18.395292Z
+    - id: store/automation_runs.go#Store.ClaimAutomationRunUntil
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.ClaimAutomationRunUntil
+        hash: sha256:19870c50269d5f89b0cfc37eb6354bf3174509c8d0a1f4f4336e9365740307bf
+        struct_hash: sha256:d89456dfe53d0f7d4ec2c821917c7bbcfaf6f970b9b374898f312543fa81c6e2
+        doc_struct_hash: sha256:10ad085fee2ab0a2eff9f2c3f51ae3c7a851d3c8138d7f12cb83442550778aa1
+        lines: [108, 180]
+      status: fresh
+      since: 2026-08-05T08:18:56.677155Z
+    - id: store/automation_runs.go#Store.CompleteAutomationRun
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.CompleteAutomationRun
+        hash: sha256:18d2d60ca2a9147aea128f4e5a5d71fd2de3ffa9212f3abc34310cb4f972c7c4
+        struct_hash: sha256:65f255d44391be38096c10baa79036f2bf71439a89f7763ede5833435881f32a
+        doc_struct_hash: sha256:65f255d44391be38096c10baa79036f2bf71439a89f7763ede5833435881f32a
+        lines: [182, 194]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/automation_runs.go#Store.RetryAutomationRun
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.RetryAutomationRun
+        hash: sha256:e180f2df0e0f8636f0b28f126785313b275ec1b1477a82fa7e90d8f4c0a4bec7
+        struct_hash: sha256:d5a7ab705cc09332a6beda61d1e0320e20f33574ff3fb1ca002da23551659f14
+        doc_struct_hash: sha256:d5a7ab705cc09332a6beda61d1e0320e20f33574ff3fb1ca002da23551659f14
+        lines: [196, 198]
+      status: fresh
+      since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_562f81e2
+          kind: pitfall
+          text: RetryAutomationRun 只推进 available_at，不会主动唤醒重试；若调用方只在狭窄日/小时窗口内执行 ClaimAutomationRun，指数退避跨出窗口后该 occurrence 会永久停在 pending。2026-08 线上周报 W29/W31/W32 均在第 5 次后 available_at 落到触发小时之外，未再被领取。
+          confidence: inferred
+          at: 2026-08-05T07:51:07.784181Z
+          author: codex-mcp-client
+          superseded_by: e_7eaa8328
+        - id: e_7eaa8328
+          kind: contract
+          text: 自动化重试由每个 occurrence 的 expires_at 界定，而非调用方狭窄小时窗口；日/周/月调度在完整有效期内持续认领，统一清理过期 pending 或失租 processing。普通重试保留 action_started、结果文本和已有业务 outcome，replay-safe 重试仅在完整轨迹证明零副作用后清空它们；耗尽预算或过期将运行状态置 failed，但不覆盖已证明的 succeeded/no_change outcome。
+          confidence: inferred
+          at: 2026-08-05T08:31:02.552322Z
+          author: codex-mcp-client
+      keywords:
+        - automation retry window
+        - pending stranded
+        - available_at
+        - 周报重试
+    - id: store/automation_runs.go#Store.RetryAutomationRunReplaySafe
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.RetryAutomationRunReplaySafe
+        hash: sha256:05332ed472576aaf7a571c388c52adc3b75996ec6c6031caf9926965ef27988d
+        struct_hash: sha256:7e2b27421ae68e3d84b83c34e59a3a8528da344f2d45bbe5cea9b2a2ae0cc2c2
+        doc_struct_hash: sha256:33846aa8d0d1e593abbf3c1579b63c5302a2384036bc38c225dc8c0b8a660aca
+        lines: [200, 204]
+      status: fresh
+      since: 2026-08-05T08:18:56.67902Z
+    - id: store/automation_runs.go#Store.retryAutomationRun
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.retryAutomationRun
+        hash: sha256:b8ec1d29208552a2d7182d8b32af541a156a8c0f6ed051ef524a7091dbf04739
+        struct_hash: sha256:223356a778b0bc225979464361b7a29698ae10072f5eebb1fa3ee066205de5f5
+        doc_struct_hash: sha256:223356a778b0bc225979464361b7a29698ae10072f5eebb1fa3ee066205de5f5
+        lines: [206, 231]
+      status: fresh
+      since: 2026-08-05T08:30:45.975724Z
+    - id: store/automation_runs.go#AutomationRunCanRetry
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: AutomationRunCanRetry
+        hash: sha256:7b463ab7ca36567a40bf463220a8be563596c9e631e4aa728e505efc0602bba7
+        struct_hash: sha256:ae2f314ec97ad77b707f16c8513fbd721d5800ac3b560e56a0640eb19c7ed229
+        doc_struct_hash: sha256:ae2f314ec97ad77b707f16c8513fbd721d5800ac3b560e56a0640eb19c7ed229
+        lines: [233, 235]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/automation_runs.go#Store.ExpireAutomationRuns
+      level: function
+      anchor:
+        file: store/automation_runs.go
+        symbol: Store.ExpireAutomationRuns
+        hash: sha256:568c482984f1aa51c4bf0632d7830e2f6c8c8b4dfcb4ebcdde591e9a39164d2a
+        struct_hash: sha256:0188746dcc9f285ef667139668d88370a47c4403d2afdc792c9ec5a8a3f3d4ff
+        doc_struct_hash: sha256:b8934474a3bc01a656c5d7dd5af4b065ca2a084de960c3926db0b5e8738aca30
+        lines: [237, 252]
+      status: fresh
+      since: 2026-08-05T08:18:56.679687Z

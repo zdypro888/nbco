@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/memory_mining.go
-        hash: sha256:838b61ac18d4380f752e9fd0c1a265c1d09766def6c349513e1b194281c59451
+        hash: sha256:ad828a31b8d8ac6a29be0f6f54be712c36ebfa7b627aa18af0a09064524546d4
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -35,10 +35,10 @@ nodes:
       anchor:
         file: store/memory_mining.go
         symbol: MemoryMiningJob
-        hash: sha256:ba1efa238b8b1150468c5f577f84e86be323b1bfaddcecf88bfc9b96d429870c
-        struct_hash: sha256:fe47aabf389d7aa7e4f3a29fedb548e923a4e220862232ac1b4f45df002cae9e
-        doc_struct_hash: sha256:fe47aabf389d7aa7e4f3a29fedb548e923a4e220862232ac1b4f45df002cae9e
-        lines: [15, 31]
+        hash: sha256:6dab28d0ac583f2fab339488278bbc811f5ea6727d736ad7dc8682fc873ad9f1
+        struct_hash: sha256:4327f2aede244a51c17c82d000a0bb3a78c30d553d6b4fe6a7ca9f6ed4592794
+        doc_struct_hash: sha256:4327f2aede244a51c17c82d000a0bb3a78c30d553d6b4fe6a7ca9f6ed4592794
+        lines: [15, 32]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#memoryMiningJobCols
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: store/memory_mining.go
         symbol: memoryMiningJobCols
-        hash: sha256:289053f9c36c00fd1a549fa554462a740a9e8ffed9329daf44bdf9b4e2f1be09
-        struct_hash: sha256:5b1aae889c57c445a8cec557f724cc57685e9817163ae5c60b5690edfba9fcc2
-        doc_struct_hash: sha256:5b1aae889c57c445a8cec557f724cc57685e9817163ae5c60b5690edfba9fcc2
-        lines: [33, 33]
+        hash: sha256:d2d22b516d68680757f73818891905a89167b8846012fea0cab68ae6ca32cd97
+        struct_hash: sha256:d1ce9e69595650b0fb103e40df7269f26e8fa453b0a1539b1aeb4091836ca813
+        doc_struct_hash: sha256:d1ce9e69595650b0fb103e40df7269f26e8fa453b0a1539b1aeb4091836ca813
+        lines: [34, 34]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#scanMemoryMiningJob
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/memory_mining.go
         symbol: scanMemoryMiningJob
-        hash: sha256:157c728144f2b0466daaf21c35563e1c4151b6244c4e7f66f02a663d280241d9
-        struct_hash: sha256:2e20b294dcc1d88fa2b043ff0549e43b78ec04fb951cc646948edf9f15f2fd2e
-        doc_struct_hash: sha256:2e20b294dcc1d88fa2b043ff0549e43b78ec04fb951cc646948edf9f15f2fd2e
-        lines: [35, 43]
+        hash: sha256:51e4bd99d895424f853d501bffb2183546c3eee57e6463e15644364d4b94fcd9
+        struct_hash: sha256:1c7dfd4c98f9e65d1f9b160730793236bfe3276b8c494802c0c5bc72c2a77e51
+        doc_struct_hash: sha256:1c7dfd4c98f9e65d1f9b160730793236bfe3276b8c494802c0c5bc72c2a77e51
+        lines: [36, 44]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#Store.EnqueueMemoryMiningJob
@@ -82,7 +82,7 @@ nodes:
         hash: sha256:5403d82a3a5abad00036c388b58bd64fdee779f32e3d6f1c5012eceb2cf24f97
         struct_hash: sha256:d079a21833b06a717d107832d937906d79ee5fd1c4fee3ca3c88679081c334e5
         doc_struct_hash: sha256:d079a21833b06a717d107832d937906d79ee5fd1c4fee3ca3c88679081c334e5
-        lines: [58, 96]
+        lines: [59, 97]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#memoryMiningJobColsWithAlias
@@ -93,7 +93,7 @@ nodes:
         hash: sha256:37d95e8e2fb6e26cf455226e631aa43ec00a96e79133d1ab9b2549c65ae4137c
         struct_hash: sha256:18df0719760f08c2caf433495e56a3825b1502c78e881ba912ea275f8ce38755
         doc_struct_hash: sha256:18df0719760f08c2caf433495e56a3825b1502c78e881ba912ea275f8ce38755
-        lines: [98, 104]
+        lines: [99, 105]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#Store.CompleteMemoryMiningJob
@@ -104,7 +104,7 @@ nodes:
         hash: sha256:8c59524ef7c062f876f8a06e070eb964c2054fc77d76bb18831b0f8ea62cde90
         struct_hash: sha256:bdd0e1db341db5cb0d67de007a6cc925f27c312003704d14dcdcb0138530a0cc
         doc_struct_hash: sha256:bdd0e1db341db5cb0d67de007a6cc925f27c312003704d14dcdcb0138530a0cc
-        lines: [106, 111]
+        lines: [107, 112]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/memory_mining.go#Store.RetryMemoryMiningJob
@@ -115,6 +115,6 @@ nodes:
         hash: sha256:eee55a530b9cf06ea51e7974f89ca4e65e5c53c91721398f9cf49add28ae7aa4
         struct_hash: sha256:a9b95bfebf608fb9d144074e219c386bdfe10d9cc845256d96fa7b48182e907c
         doc_struct_hash: sha256:a9b95bfebf608fb9d144074e219c386bdfe10d9cc845256d96fa7b48182e907c
-        lines: [113, 128]
+        lines: [114, 129]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

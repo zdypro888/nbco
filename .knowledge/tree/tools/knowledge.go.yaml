@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/knowledge.go
-        hash: sha256:67c61ec04d5cbacf7c90fec94703c767ae6cd2b710a703f73d8ccbabd480596c
+        hash: sha256:0682bd30affe5cc4a5018d869b50965d0a63bea9a23829119bd33527bc0ea15f
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

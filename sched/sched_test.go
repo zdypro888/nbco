@@ -277,6 +277,7 @@ func TestRenderTelegramGroupDigestDirectiveCarriesClosedFacts(t *testing.T) {
 		"支付仍需复测",
 		"只看风险",
 		"不得补充模型常识",
+		"at 是系统收到消息的时间",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("group digest directive missing %q:\n%s", want, got)
@@ -289,7 +290,11 @@ func TestRenderTelegramGroupDigestDirectiveCarriesClosedFacts(t *testing.T) {
 
 func TestRenderEmptyTelegramGroupDigestDoesNotInferAbsence(t *testing.T) {
 	from := time.Date(2026, 7, 23, 0, 0, 0, 0, tz)
-	got := renderEmptyTelegramGroupDigest("日本公司成员", from, from.Add(19*time.Hour), tz)
+	prepared := emptyTelegramGroupDigestResult("日本公司成员", from, from.Add(19*time.Hour), tz)
+	if !prepared.SuppressDelivery || prepared.Options.Mode != ai.TurnModeOneShot || !prepared.Options.ReadOnly {
+		t.Fatalf("empty digest must be an audited no-notification outcome: %+v", prepared)
+	}
+	got := prepared.DirectResult
 	for _, want := range []string{"没有保存到群消息", "不能据此判断", "绝对无人发言", "成员是否休假"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("empty digest missing %q: %s", want, got)

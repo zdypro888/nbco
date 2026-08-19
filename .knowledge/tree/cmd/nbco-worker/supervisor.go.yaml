@@ -4,10 +4,164 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/supervisor.go
-        hash: sha256:4545a3ce2022345f4724a8019a5d63ddea49178b81fa2f727977c2c392e056fa
+        hash: sha256:980994402e403d4eef4c8b60dae54e743ddebe4f828d2fea28e1aac76c4cf8d7
         lines: [0, 0]
       status: undigested
       since: 2026-07-21T04:37:52.798024Z
+    - id: cmd/nbco-worker/supervisor.go#agentProgressAuditInterval
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentProgressAuditInterval
+        hash: sha256:09a4684493efd07673eb5055589ec8e8c7662eb4ef068e147536b24aefc92d9b
+        struct_hash: sha256:cbf51b60e08b217ff9ea6d0feaac5eaf88f2c0d0877c4a47ef330c1790517620
+        doc_struct_hash: sha256:cbf51b60e08b217ff9ea6d0feaac5eaf88f2c0d0877c4a47ef330c1790517620
+        lines: [21, 21]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorTimeout
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorTimeout
+        hash: sha256:6eb438d62967218a23cd7c629626c2a012975b718275e127e72b0ee3887c0566
+        struct_hash: sha256:04a1d7e16eb4dd5d0cf8cfa9556324d60766b0de5738c70dce0f438af32ebb41
+        doc_struct_hash: sha256:04a1d7e16eb4dd5d0cf8cfa9556324d60766b0de5738c70dce0f438af32ebb41
+        lines: [22, 22]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorRetries
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorRetries
+        hash: sha256:2c4981f7c0f1dbaf3fb0b3533932b21cbac3b0f296f32a760ba5cb947c3f226a
+        struct_hash: sha256:88b387b08b2cd653a284703531fb472c719d304815afd0141c656df11786df33
+        doc_struct_hash: sha256:88b387b08b2cd653a284703531fb472c719d304815afd0141c656df11786df33
+        lines: [23, 23]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorScreenLines
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorScreenLines
+        hash: sha256:bc1cd9e98d55b170856579fb255b147ad260951ad9764c6a3f4c5ec221c5333f
+        struct_hash: sha256:33e12678e546d0924c1c48c8755054baef6a26e00427cb9b6ac54cb546faff21
+        doc_struct_hash: sha256:33e12678e546d0924c1c48c8755054baef6a26e00427cb9b6ac54cb546faff21
+        lines: [24, 24]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorScreenLimit
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorScreenLimit
+        hash: sha256:3f769ea422db7e8510eec04502c390413c739f03cd58a21d7fb6145211a699f9
+        struct_hash: sha256:f33ecd4ab9b8ed1116cf5b1b56b05b887ffe099263a22b92de7cdfbdae56fbdb
+        doc_struct_hash: sha256:f33ecd4ab9b8ed1116cf5b1b56b05b887ffe099263a22b92de7cdfbdae56fbdb
+        lines: [25, 25]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorArtifactLimit
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorArtifactLimit
+        hash: sha256:e56a313239a499ff048ec2826bff24b6430840f9a19e99410e658959d66889fe
+        struct_hash: sha256:2cece2cbae39dd3c035503750553d9c440535dbb6f1a1d2904e4ee79499e5115
+        doc_struct_hash: sha256:2cece2cbae39dd3c035503750553d9c440535dbb6f1a1d2904e4ee79499e5115
+        lines: [26, 26]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorWorkspaceLimit
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorWorkspaceLimit
+        hash: sha256:208d7a6c5118a2bbb90234c3436ff40c5f61325a6a6650aaa23f6aaf53160638
+        struct_hash: sha256:4fc53debbac6e67dbf6edb1a00820aeb9d81e9924d6bce99621d85755e6d6b17
+        doc_struct_hash: sha256:4fc53debbac6e67dbf6edb1a00820aeb9d81e9924d6bce99621d85755e6d6b17
+        lines: [27, 27]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#maxRepeatedReviewFailures
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: maxRepeatedReviewFailures
+        hash: sha256:46e7862b907a1908a8d92ce21bda1483769cddbb08b38bb5c57dc923d3b1e4ed
+        struct_hash: sha256:cbf51b60e08b217ff9ea6d0feaac5eaf88f2c0d0877c4a47ef330c1790517620
+        doc_struct_hash: sha256:cbf51b60e08b217ff9ea6d0feaac5eaf88f2c0d0877c4a47ef330c1790517620
+        lines: [28, 28]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentTurnAssessment
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentTurnAssessment
+        hash: sha256:080d790357f52400620e32a520e576be73e8f56344685718cbed5b055358c3f2
+        struct_hash: sha256:e29ec107d1b4fc37511af221e0d98e7fb67918750120368589b1c5308ef1210a
+        doc_struct_hash: sha256:e29ec107d1b4fc37511af221e0d98e7fb67918750120368589b1c5308ef1210a
+        lines: [31, 37]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentTurnAssessment.progressing
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentTurnAssessment.progressing
+        hash: sha256:08c5c863d859a0a3e2c63853c1037ed22e98a9d1d02f68e8392e9cdf28ecd6f6
+        struct_hash: sha256:3173be0f86ed085bcb2693f50937e0f9f901bb056575556e5025e46106e90ce5
+        doc_struct_hash: sha256:3173be0f86ed085bcb2693f50937e0f9f901bb056575556e5025e46106e90ce5
+        lines: [39, 39]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentTurnAssessment.stalled
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentTurnAssessment.stalled
+        hash: sha256:47083136a0794491f55f5cef096754c44195b10b1396567a56369bc5fd7eaafc
+        struct_hash: sha256:50272568dbc5179d4dabb8294ba25e16e94df1bac76a54bc2db2e07f5b9fc5dd
+        doc_struct_hash: sha256:50272568dbc5179d4dabb8294ba25e16e94df1bac76a54bc2db2e07f5b9fc5dd
+        lines: [40, 40]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentTurnAssessment.passed
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentTurnAssessment.passed
+        hash: sha256:2747e351b7a2b7d9f381ead7e836e9494e6eaebd7bfbae5badd7d926d608a466
+        struct_hash: sha256:d9dafee46dd79076f532e60e2240bbbf5044c5a1617c005185302964574ad249
+        doc_struct_hash: sha256:d9dafee46dd79076f532e60e2240bbbf5044c5a1617c005185302964574ad249
+        lines: [41, 41]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentTurnAssessment.revise
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentTurnAssessment.revise
+        hash: sha256:0ff64ccac4e884c8078200cbcb76784a04aab64b99d5bb86aa7016b8052611c7
+        struct_hash: sha256:c93afec1865971cd5bb41163fd1be9104ccc2504becbbbaf287545e4f5142f29
+        doc_struct_hash: sha256:c93afec1865971cd5bb41163fd1be9104ccc2504becbbbaf287545e4f5142f29
+        lines: [42, 42]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#agentSupervisorTools
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: agentSupervisorTools
+        hash: sha256:88856c7a5b7a45bc9ef0cd9b8e1fdc3fa1198910ddfa998a9063ce90db08804e
+        struct_hash: sha256:d652a56896be6ce4a7bb20390a11df70444d98e6eea62471774ac91fc63a5eca
+        doc_struct_hash: sha256:d652a56896be6ce4a7bb20390a11df70444d98e6eea62471774ac91fc63a5eca
+        lines: [44, 68]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: cmd/nbco-worker/supervisor.go#agentSupervisor
       level: decl
       anchor:
@@ -16,9 +170,20 @@ nodes:
         hash: sha256:64c23b5fc3a08e6755a10b047bddae94264f1bae85e7b8384751dbbb5d3e2a71
         struct_hash: sha256:426fb36ae4414b0f88d81d28ca3bccce213c2da4fed41a5181f9b6d5a680092f
         doc_struct_hash: sha256:426fb36ae4414b0f88d81d28ca3bccce213c2da4fed41a5181f9b6d5a680092f
-        lines: [68, 78]
-      status: fresh
+        lines: [70, 82]
+      status: suspect
       since: 2026-07-21T04:37:52.797958Z
+    - id: cmd/nbco-worker/supervisor.go#newAgentSupervisor
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: newAgentSupervisor
+        hash: sha256:60fde4382a2e0e2ff6b5b8f52f8c6e820fbb60bbb626dab3227be5805788dd30
+        struct_hash: sha256:766d72a206dc86a7ed005a758f61571b66de233ee72b7f722b1faf089a381caf
+        doc_struct_hash: sha256:766d72a206dc86a7ed005a758f61571b66de233ee72b7f722b1faf089a381caf
+        lines: [84, 90]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: cmd/nbco-worker/supervisor.go#agentSupervisor.assessTurn
       level: function
       anchor:
@@ -27,8 +192,8 @@ nodes:
         hash: sha256:e137c6fa3093c0650944756516eebc0ac8e91bed4cd299f49b598dee559979a0
         struct_hash: sha256:72224f90a86845fc12f922582d94304c8ebe4945b76d4752452bec5ac922be59
         doc_struct_hash: sha256:2d39b97b1d158db1b975d6c4789ee8e6ddfc1e9e06b4e7172467b38de6919ca5
-        lines: [88, 123]
-      status: fresh
+        lines: [92, 128]
+      status: suspect
       since: 2026-07-21T04:37:52.799481Z
     - id: cmd/nbco-worker/supervisor.go#agentSupervisor.reviewCompletion
       level: function
@@ -38,7 +203,7 @@ nodes:
         hash: sha256:0dfafe18c410201a71d4cd2a8498c13969701fd5523dc5df254901b64848e2ca
         struct_hash: sha256:f6e17c1b29bdee5f47d6bcfb3f5429743211ca1d2d2cbe25ac7da96edc0c12f6
         doc_struct_hash: sha256:f6e17c1b29bdee5f47d6bcfb3f5429743211ca1d2d2cbe25ac7da96edc0c12f6
-        lines: [131, 152]
+        lines: [130, 151]
       status: fresh
       since: 2026-07-21T04:37:52.800797Z
     - id: cmd/nbco-worker/supervisor.go#agentSupervisor.assess
@@ -49,53 +214,31 @@ nodes:
         hash: sha256:06fbcbc7224e498ea9bfdeb7505fc45172e4e0e0a2d9046428ed86e81149ba66
         struct_hash: sha256:3565b7d3c33dd00537f42e1966efee75617221d0d4f9d9cb3e0e796d94fd0fda
         doc_struct_hash: sha256:3565b7d3c33dd00537f42e1966efee75617221d0d4f9d9cb3e0e796d94fd0fda
-        lines: [142, 185]
-      status: fresh
+        lines: [153, 196]
+      status: suspect
       since: 2026-07-21T04:37:52.802176Z
-    - id: cmd/nbco-worker/supervisor.go#workspaceFingerprint
+    - id: cmd/nbco-worker/supervisor.go#validateAgentAssessment
       level: function
       anchor:
         file: cmd/nbco-worker/supervisor.go
-        symbol: workspaceFingerprint
-        hash: sha256:30e95f27c42d44d6ffa318864bbdb3631104eea464202c47af699c4b119bf980
-        struct_hash: sha256:0b940a6f14929d29260bdc5069853b920e6a71cf8eecc94f7720e901a1f4837f
-        doc_struct_hash: sha256:0b940a6f14929d29260bdc5069853b920e6a71cf8eecc94f7720e901a1f4837f
-        lines: [239, 266]
-      status: fresh
-      since: 2026-07-21T04:37:52.803455Z
-    - id: cmd/nbco-worker/supervisor.go#artifactEvidence
+        symbol: validateAgentAssessment
+        hash: sha256:0344f6a05941c178dd02275f752e2413107193a974bbb1214939ddea4d4e9ce3
+        struct_hash: sha256:16540ca040455a0c4a6b93011427911caefa56d154045771438294c211132af1
+        doc_struct_hash: sha256:16540ca040455a0c4a6b93011427911caefa56d154045771438294c211132af1
+        lines: [198, 211]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#parseAgentAssessment
       level: function
       anchor:
         file: cmd/nbco-worker/supervisor.go
-        symbol: artifactEvidence
-        hash: sha256:edc58b157adb5cfdf342a3d2bcd1de4e6bdc826fc0ce6f670368a2594ccdfb56
-        struct_hash: sha256:6f4c3dc290234d6ae79077aecf8fa8dee4f6298fb36752ed53bde95a0c279302
-        doc_struct_hash: sha256:6f4c3dc290234d6ae79077aecf8fa8dee4f6298fb36752ed53bde95a0c279302
-        lines: [420, 474]
-      status: fresh
-      since: 2026-07-21T04:37:52.80465Z
-    - id: cmd/nbco-worker/supervisor.go#workspaceSnapshot
-      level: function
-      anchor:
-        file: cmd/nbco-worker/supervisor.go
-        symbol: workspaceSnapshot
-        hash: sha256:ba8ad07a7b663f990b19cf2888f6428dffb9de416b1af03f1ea80c6323e49b75
-        struct_hash: sha256:46ea3546aba827d9a38e4eea5caae73e70956e4b8f71c7645168fc2280642678
-        doc_struct_hash: sha256:46ea3546aba827d9a38e4eea5caae73e70956e4b8f71c7645168fc2280642678
-        lines: [290, 321]
-      status: fresh
-      since: 2026-07-21T04:51:44.257556Z
-    - id: cmd/nbco-worker/supervisor.go#workspaceChangeEvidence
-      level: function
-      anchor:
-        file: cmd/nbco-worker/supervisor.go
-        symbol: workspaceChangeEvidence
-        hash: sha256:0deed017f95e7a1ccc033fb1d836ddd5db1bde6745a4fc78184650abde90a30c
-        struct_hash: sha256:c7af6bac7e5f269732cc172a4364e5a213551ccc2cf93e1972959a3ff8fa0c4c
-        doc_struct_hash: sha256:c7af6bac7e5f269732cc172a4364e5a213551ccc2cf93e1972959a3ff8fa0c4c
-        lines: [334, 406]
-      status: fresh
-      since: 2026-07-21T04:51:44.258981Z
+        symbol: parseAgentAssessment
+        hash: sha256:bfa51703126501368c0711979a5c96321fc5ddd0e18c693638ff8e11d9cf831b
+        struct_hash: sha256:5d74d8cd9ae89b731b314d7b88497fdbe5bc26857e2553d8424ec29d66964d90
+        doc_struct_hash: sha256:5d74d8cd9ae89b731b314d7b88497fdbe5bc26857e2553d8424ec29d66964d90
+        lines: [213, 234]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: cmd/nbco-worker/supervisor.go#normalizeAssessmentSignature
       level: function
       anchor:
@@ -104,6 +247,116 @@ nodes:
         hash: sha256:eb9218e4e9ab308c9d8f1399261ec69d4f401e63fec2effc5d381baf104d3ac7
         struct_hash: sha256:66222720d613f098156efb28510be1ff0dd17a2c9f35bead1753a8778b97b4dc
         doc_struct_hash: sha256:66222720d613f098156efb28510be1ff0dd17a2c9f35bead1753a8778b97b4dc
-        lines: [237, 249]
+        lines: [236, 248]
       status: fresh
       since: 2026-07-21T04:51:44.261532Z
+    - id: cmd/nbco-worker/supervisor.go#canonicalAssessmentSignature
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: canonicalAssessmentSignature
+        hash: sha256:60d0e2a8b061b8729ca94604c8412120d168e13e0abbf471e937ebdd9cbe534b
+        struct_hash: sha256:c3e60963f780d64e9e2833db78f37e72f213eab193927c8f913a9b2bf5bfaf3d
+        doc_struct_hash: sha256:c3e60963f780d64e9e2833db78f37e72f213eab193927c8f913a9b2bf5bfaf3d
+        lines: [250, 265]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#previousAssessmentEvidence
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: previousAssessmentEvidence
+        hash: sha256:db0cc908febe64b7a110e1857f2bdc00e3ae640848c2711eca31cf23dda733b8
+        struct_hash: sha256:33968aee2a2024af00125c7fcf6c4cd1beb701f0daa6cfbae29f5dda49b8f6c2
+        doc_struct_hash: sha256:33968aee2a2024af00125c7fcf6c4cd1beb701f0daa6cfbae29f5dda49b8f6c2
+        lines: [267, 272]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#supervisorScreenEvidence
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: supervisorScreenEvidence
+        hash: sha256:9ff5f0b29f9ee2c616318a1df8b51a855c148ad99fd9dcd399167fba129ca0fd
+        struct_hash: sha256:85ae9e421917c9ad8db3e80391c196a727385276d3b59a87b20d13de0d6a8fbd
+        doc_struct_hash: sha256:85ae9e421917c9ad8db3e80391c196a727385276d3b59a87b20d13de0d6a8fbd
+        lines: [274, 276]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#workspaceFingerprint
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: workspaceFingerprint
+        hash: sha256:30e95f27c42d44d6ffa318864bbdb3631104eea464202c47af699c4b119bf980
+        struct_hash: sha256:0b940a6f14929d29260bdc5069853b920e6a71cf8eecc94f7720e901a1f4837f
+        doc_struct_hash: sha256:0b940a6f14929d29260bdc5069853b920e6a71cf8eecc94f7720e901a1f4837f
+        lines: [278, 281]
+      status: suspect
+      since: 2026-07-21T04:37:52.803455Z
+    - id: cmd/nbco-worker/supervisor.go#workspaceFileStamp
+      level: decl
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: workspaceFileStamp
+        hash: sha256:6c4da547e0477cd3f5a2c86095a27b621cfc5ab41d1aebb122f78977cbab1e26
+        struct_hash: sha256:a00717ed3519850f25c7f3bfefd0f086d141425fdce7922a0040bb4538de87b2
+        doc_struct_hash: sha256:a00717ed3519850f25c7f3bfefd0f086d141425fdce7922a0040bb4538de87b2
+        lines: [283, 287]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#workspaceSnapshot
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: workspaceSnapshot
+        hash: sha256:ba8ad07a7b663f990b19cf2888f6428dffb9de416b1af03f1ea80c6323e49b75
+        struct_hash: sha256:46ea3546aba827d9a38e4eea5caae73e70956e4b8f71c7645168fc2280642678
+        doc_struct_hash: sha256:46ea3546aba827d9a38e4eea5caae73e70956e4b8f71c7645168fc2280642678
+        lines: [289, 320]
+      status: fresh
+      since: 2026-07-21T04:51:44.257556Z
+    - id: cmd/nbco-worker/supervisor.go#ignoredSupervisorDir
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: ignoredSupervisorDir
+        hash: sha256:c046cc021bbb2779408af2530c1e7b9e5678647ab8dacb661c3098d7233e4ef7
+        struct_hash: sha256:62671d5e689185be2a86ae660cac5a64fe887669a4eeecf5f22752b19183fbd1
+        doc_struct_hash: sha256:62671d5e689185be2a86ae660cac5a64fe887669a4eeecf5f22752b19183fbd1
+        lines: [322, 331]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#workspaceChangeEvidence
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: workspaceChangeEvidence
+        hash: sha256:0deed017f95e7a1ccc033fb1d836ddd5db1bde6745a4fc78184650abde90a30c
+        struct_hash: sha256:c7af6bac7e5f269732cc172a4364e5a213551ccc2cf93e1972959a3ff8fa0c4c
+        doc_struct_hash: sha256:c7af6bac7e5f269732cc172a4364e5a213551ccc2cf93e1972959a3ff8fa0c4c
+        lines: [333, 405]
+      status: fresh
+      since: 2026-07-21T04:51:44.258981Z
+    - id: cmd/nbco-worker/supervisor.go#appendBoundedEvidence
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: appendBoundedEvidence
+        hash: sha256:0a2447b62d240e21fd851798286fa04f83950d7eddf0c77fba3555b820cfe2ff
+        struct_hash: sha256:db52d98c05118911859f1bdabfe804b5e10d21c04fa3fffbf5d2a9df7e0bbfaa
+        doc_struct_hash: sha256:db52d98c05118911859f1bdabfe804b5e10d21c04fa3fffbf5d2a9df7e0bbfaa
+        lines: [407, 417]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: cmd/nbco-worker/supervisor.go#artifactEvidence
+      level: function
+      anchor:
+        file: cmd/nbco-worker/supervisor.go
+        symbol: artifactEvidence
+        hash: sha256:edc58b157adb5cfdf342a3d2bcd1de4e6bdc826fc0ce6f670368a2594ccdfb56
+        struct_hash: sha256:6f4c3dc290234d6ae79077aecf8fa8dee4f6298fb36752ed53bde95a0c279302
+        doc_struct_hash: sha256:6f4c3dc290234d6ae79077aecf8fa8dee4f6298fb36752ed53bde95a0c279302
+        lines: [419, 473]
+      status: fresh
+      since: 2026-07-21T04:37:52.80465Z

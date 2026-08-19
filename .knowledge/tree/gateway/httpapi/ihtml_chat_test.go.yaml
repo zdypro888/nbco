@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/ihtml_chat_test.go
-        hash: sha256:7db0c496d69f46860c25bd104e27785153d7a63e1e4111d140712aa27112efc9
+        hash: sha256:d900318dcecc4e65426b2844879c5fb26ae7f9994e0593359258e81df1685fa3
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,9 +46,9 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_chat_test.go
         symbol: TestIHTMLTurnUsesLatestUserMessageAndBoundsBrowserContext
-        hash: sha256:0f5eb8ff65406abaa76b73e9a3532ede2cbd1f08efadc8e59e49af6782e616fc
-        struct_hash: sha256:82fa03d88a57e781085781ad4d7260b7a51afbea969460a66d25075a6ce31ee5
-        doc_struct_hash: sha256:82fa03d88a57e781085781ad4d7260b7a51afbea969460a66d25075a6ce31ee5
+        hash: sha256:c765c54317cb5763868027232921a7edb4280da9441af38870430682734adc8d
+        struct_hash: sha256:4bcc92576d0d21aff2c3e0a4ca2213b5e1adb1685d2cf4068d55a619b2929eff
+        doc_struct_hash: sha256:4bcc92576d0d21aff2c3e0a4ca2213b5e1adb1685d2cf4068d55a619b2929eff
         lines: [66, 82]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

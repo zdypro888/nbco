@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/web/app.js
-        hash: sha256:a0e3fa4f8957c52d0f94de96278a7ec1162fee3e1677660294a0055eab2bb72a
+        hash: sha256:a39c38f7bde98c265eeb495406915656aee6f82ebc6c6a9e98740f3ea93f8230
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -145,7 +145,7 @@ nodes:
         symbol: renderContent
         hash: sha256:e6b9fd361aaa02b97551fe6fcf50e2fc58a3404ff2dd6e8f0014858a7207a3d0
         struct_hash: sha256:51dd0373ffdbd6f2d19c8cbf8b29cc91a0e452c6bf178468819a09357f9b5bcb
-        lines: [249, 290]
+        lines: [253, 294]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderCommandRoute
@@ -155,7 +155,7 @@ nodes:
         symbol: renderCommandRoute
         hash: sha256:46c57db80ecab19bd21fc9ae5e1d13a687b044c1175848b3d737013de136101d
         struct_hash: sha256:8f10159f6b1505f0fce0af299fa411f31b3655e252250549b16823aed029745d
-        lines: [292, 336]
+        lines: [296, 340]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#metric
@@ -165,7 +165,7 @@ nodes:
         symbol: metric
         hash: sha256:657880251986984a0106cf8cf13463f5418863949a22fcc5e1fbf7d4a8361f22
         struct_hash: sha256:cbb0a69d6db3aa7963dbfbff7a1818ffbf51b08c0f0e05ab1f0543a228c904df
-        lines: [338, 345]
+        lines: [342, 349]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#queueSection
@@ -175,7 +175,7 @@ nodes:
         symbol: queueSection
         hash: sha256:1031c021c4230fcf9e1d5ee7ebed9b29fdac8d544a9e732d7fe75f2225f8a84b
         struct_hash: sha256:55ee2a735d3528e9dfab0ecb96c5125e432fe1f9bc9eb9719197d81da6cd5314
-        lines: [347, 358]
+        lines: [351, 362]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderMaterialRows
@@ -185,7 +185,7 @@ nodes:
         symbol: renderMaterialRows
         hash: sha256:406bba5798e565485bf95e95d47658bde90b7a0a3132429e008477bc85f8a47b
         struct_hash: sha256:e2f40f140b0b30dd0c98f38c8a59ef7381b836bd9f2aa60e31333fc9bab6e400
-        lines: [360, 381]
+        lines: [364, 385]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/web/app.js#renderTaskRows
@@ -195,6 +195,6 @@ nodes:
         symbol: renderTaskRows
         hash: sha256:98e6296bb04043f5205ed9483d5793c07bffb222891df4f1cf6993e478560310
         struct_hash: sha256:405d32e84fd5ffb7c43269a6b4d844df089a31b14c80c3591d37626587bfd1d2
-        lines: [383, 404]
+        lines: [387, 408]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/memory_miner_queue.go
-        hash: sha256:38465935cc3edb0baa93736359270b9b3877173acc0bc784c899c2f1b4a47fdc
+        hash: sha256:f9d1907f7da3d0309bd899e003ec8badd455c035c8b7c9a67d0779f39d423a98
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,21 +13,10 @@ nodes:
       anchor:
         file: chat/memory_miner_queue.go
         symbol: memoryMinerPollInterval
-        hash: sha256:0a98cd11eb64b3ac2393e2303589f613fe8c4efa34975203102123b6192c6e62
-        struct_hash: sha256:332c2c8156c901bd69ae90c926e2c5dfec1be0802ee89193b3cfcf0baa982670
-        doc_struct_hash: sha256:332c2c8156c901bd69ae90c926e2c5dfec1be0802ee89193b3cfcf0baa982670
-        lines: [15, 15]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: chat/memory_miner_queue.go#Orchestrator.maybeMineMemory
-      level: function
-      anchor:
-        file: chat/memory_miner_queue.go
-        symbol: Orchestrator.maybeMineMemory
-        hash: sha256:be6756610ca0e13d4eb5f71b6fed92fa02f122ee5cac2fa30505f2e313ce8450
-        struct_hash: sha256:7898db5718afc9efecadb2109201c27f5f39e7016796f3bb053108b33e226e1d
-        doc_struct_hash: sha256:a404c1fdbc5dec84b47b380af902332b48651809e661836b51470cd170d309b9
-        lines: [17, 32]
+        hash: sha256:ecc832f538bd06e50cced965855826513c49042d5b66774ee15bccb8931c1ba1
+        struct_hash: sha256:9f93df32e42f9d1305abaaf544564030f8993a150f09b20d2e3f3800aba56571
+        doc_struct_hash: sha256:9f93df32e42f9d1305abaaf544564030f8993a150f09b20d2e3f3800aba56571
+        lines: [14, 14]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/memory_miner_queue.go#Orchestrator.wakeMemoryMiner
@@ -35,10 +24,10 @@ nodes:
       anchor:
         file: chat/memory_miner_queue.go
         symbol: Orchestrator.wakeMemoryMiner
-        hash: sha256:b6702d16617e7993309fedc1f3e5e35f6e23b4fe733cda46cdfeeb2b3a986740
-        struct_hash: sha256:29f2a3e89c19076ffbb591aa70278e01fc9a4aab77549de92bbbbc264c3b4cb1
-        doc_struct_hash: sha256:29f2a3e89c19076ffbb591aa70278e01fc9a4aab77549de92bbbbc264c3b4cb1
-        lines: [34, 42]
+        hash: sha256:087c6fa051e98242265147b8395de55f98ebd3e4d55f1c2e6719b12a128273f6
+        struct_hash: sha256:75319e9902eb2bb8b98a7d239ab33f55a09cebacd09231b1bdf84944c6cb4b8c
+        doc_struct_hash: sha256:75319e9902eb2bb8b98a7d239ab33f55a09cebacd09231b1bdf84944c6cb4b8c
+        lines: [16, 24]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/memory_miner_queue.go#Orchestrator.RunMemoryMiner
@@ -46,10 +35,10 @@ nodes:
       anchor:
         file: chat/memory_miner_queue.go
         symbol: Orchestrator.RunMemoryMiner
-        hash: sha256:62dd0cbfd8cb13986af351784eac4c9cf4a7f5cef3dbf068e8565af9aec0c9b5
-        struct_hash: sha256:739f595de79d8c772c001fa94862ab96fc59dc2798002b3f1c56fc317f34f574
-        doc_struct_hash: sha256:c76693797db3471d7343827fbf4ecf3dbccaa46d751303065c7a9257839355b3
-        lines: [44, 60]
+        hash: sha256:b1db4f5b04eff6e7f07eb39c1873dd41ad0d61a6b21c8855ac78d3070ec53129
+        struct_hash: sha256:182f9f73df750dc605d2c63e5cb667ba207fb38b82ece075dea07191b5860544
+        doc_struct_hash: sha256:da1d477d7b97d33cb13c462b173ce8aed1dcd1224e3df4bf779097a3b553850b
+        lines: [26, 42]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/memory_miner_queue.go#Orchestrator.dispatchMemoryMiningJobs
@@ -57,10 +46,10 @@ nodes:
       anchor:
         file: chat/memory_miner_queue.go
         symbol: Orchestrator.dispatchMemoryMiningJobs
-        hash: sha256:e86ff5c450787e7005b04022c92bfa9584a3431627e704ffc41f1a6ceaa8f970
-        struct_hash: sha256:0f242a2101bb8671ab2c5b4bd0ee7ed2d9c7435ed4991de1bbf68ebf3420f013
-        doc_struct_hash: sha256:0f242a2101bb8671ab2c5b4bd0ee7ed2d9c7435ed4991de1bbf68ebf3420f013
-        lines: [62, 80]
+        hash: sha256:74c5bc1a66cb972de96dfcc71be34fb8d05deba7eb675062de6145601587a94d
+        struct_hash: sha256:19a4bbbfb87333ec61a479ea95fa2d1a8b56a9e780fde7fefd878d3cd5ceb096
+        doc_struct_hash: sha256:19a4bbbfb87333ec61a479ea95fa2d1a8b56a9e780fde7fefd878d3cd5ceb096
+        lines: [44, 62]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/memory_miner_queue.go#Orchestrator.processMemoryMiningJob
@@ -79,9 +68,9 @@ nodes:
       anchor:
         file: chat/memory_miner_queue.go
         symbol: memoryMiningProjection
-        hash: sha256:e62bfbfdb06fcb3b1fddded29b09c70234e2b29709d57208cdfe8d5ee409d858
-        struct_hash: sha256:18da49b4aed147fd88b0f035ac5b711fbcd0e88800bfeed3daf6a62fd827a134
-        doc_struct_hash: sha256:18da49b4aed147fd88b0f035ac5b711fbcd0e88800bfeed3daf6a62fd827a134
-        lines: [140, 142]
+        hash: sha256:a162c1c3a3c7776f969e7829b3e39c4a6c97824aed4b315a18e5c652b8112f9b
+        struct_hash: sha256:2acb3c1da674fd3eb958fada50daa57946b8e15ee9342bfafc8bd46030951c70
+        doc_struct_hash: sha256:2acb3c1da674fd3eb958fada50daa57946b8e15ee9342bfafc8bd46030951c70
+        lines: [126, 128]
       status: undigested
       since: 2026-07-20T15:27:37.34846Z

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: events/events.go
-        hash: sha256:d5322ab48cd33cd17014f3623f53b3a1d426d6b71a9e93fbbc5c61bb21622c09
+        hash: sha256:34df2ac16fc468db86e881262576ac16efa0f5244d39b77027b7c892fddf6cf1
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

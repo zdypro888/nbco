@@ -4,10 +4,43 @@ nodes:
       level: file
       anchor:
         file: store/automation_snapshots.go
-        hash: sha256:3842e8eb722063b533d9a390a29b76af21a05765e9b888ae8f0d98c4a41cbb7f
+        hash: sha256:7f4775382b540f0cba29181a29de5c59771fa1ea95284eea9d190f2000886c0f
         lines: [0, 0]
       status: undigested
       since: 2026-08-06T07:19:18.394475Z
+    - id: store/automation_snapshots.go#AutomationSnapshot
+      level: decl
+      anchor:
+        file: store/automation_snapshots.go
+        symbol: AutomationSnapshot
+        hash: sha256:fae5f770ed54b86a40fe4cc279f87a20004693c9f6f93cda5e47faa7f3c57d9c
+        struct_hash: sha256:501e852c7267f395bdb56a0290e8c0d31fc47003fecec440c565aa23b12fac72
+        doc_struct_hash: sha256:c44c97e9431d18ef63dcd823c21af90c94846757f757db061c1ef4d1fb84a29c
+        lines: [11, 22]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/automation_snapshots.go#automationSnapshotCols
+      level: decl
+      anchor:
+        file: store/automation_snapshots.go
+        symbol: automationSnapshotCols
+        hash: sha256:c0b21dc20ec15ff9a984788a4930397df62fd17d915f8e4b57129ed0f2ed511c
+        struct_hash: sha256:b155ca59060f5e09657a5ba1d69cfa52af86c685c3d5b605a7e5e8d9104bf5f5
+        doc_struct_hash: sha256:b155ca59060f5e09657a5ba1d69cfa52af86c685c3d5b605a7e5e8d9104bf5f5
+        lines: [24, 24]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/automation_snapshots.go#scanAutomationSnapshot
+      level: function
+      anchor:
+        file: store/automation_snapshots.go
+        symbol: scanAutomationSnapshot
+        hash: sha256:c0744594c68a8b26dc3f8d6947f8e0645b5e5df9a8805ae6e41d2b968b200a04
+        struct_hash: sha256:28d27f365d6786e637959eed26978f03f8782365e35b9546485ce3ea9ff4eee5
+        doc_struct_hash: sha256:28d27f365d6786e637959eed26978f03f8782365e35b9546485ce3ea9ff4eee5
+        lines: [26, 33]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: store/automation_snapshots.go#Store.GetOrCreateAutomationSnapshot
       level: function
       anchor:
@@ -30,3 +63,14 @@ nodes:
         lines: [89, 98]
       status: fresh
       since: 2026-08-06T07:42:42.297672Z
+    - id: store/automation_snapshots.go#Store.DeleteExpiredAutomationSnapshots
+      level: function
+      anchor:
+        file: store/automation_snapshots.go
+        symbol: Store.DeleteExpiredAutomationSnapshots
+        hash: sha256:d2d673ce3628a493939c6d10c8f55db7981324965cae04e1e652c347e12493fb
+        struct_hash: sha256:83faf542bacaf30fd966bc3dbb4284bfcdbd79ea8887f80238a0b8aa464ceec5
+        doc_struct_hash: sha256:807eea16ee4d49875e1facd86317913f59bf691faec29698b2c1e9f52467e7f7
+        lines: [100, 109]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z

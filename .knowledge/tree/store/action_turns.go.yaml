@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/action_turns.go
-        hash: sha256:adf48b5fc018a782687cc2f20961ebd002b4377a45fc1b73d3675f56d93da0cf
+        hash: sha256:544b3c6dec42b1298ee554127e6df0cfd7d1bb5767b295c719f72a4219c5b33b
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: ActionTurnInput
-        hash: sha256:cbb54dd8a4005689ed32970220535ba68e34b8d3b3b45a0bdd5da23e1e685a8f
-        struct_hash: sha256:ccca858a4b1a430516780dacdd4f2447f03e24ed3bf15b93af4c803566f53806
-        doc_struct_hash: sha256:ccca858a4b1a430516780dacdd4f2447f03e24ed3bf15b93af4c803566f53806
-        lines: [12, 26]
+        hash: sha256:28c9c51476c56d49e2c96ecbf4d5c46b8cda0fb3bfd91329dd7742390036a2ae
+        struct_hash: sha256:970399205f4f232f71db732681f610db43f773ca50d10b5c565c63198f33c1fa
+        doc_struct_hash: sha256:970399205f4f232f71db732681f610db43f773ca50d10b5c565c63198f33c1fa
+        lines: [12, 27]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#ActionTurn
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: ActionTurn
-        hash: sha256:a55ccb76c58bc2800d3bb95d01522c37c07c085c05037438c4756fefa57a6193
-        struct_hash: sha256:adbe22bf44e51c260115f54eebc89a390646cf3d7665395182f2e94a2aab02f0
-        doc_struct_hash: sha256:adbe22bf44e51c260115f54eebc89a390646cf3d7665395182f2e94a2aab02f0
-        lines: [28, 44]
+        hash: sha256:028ca95b95bd76e54a7456732e635c12a7f43d564f33298165efc57b6049a716
+        struct_hash: sha256:90426d3f65af98711ee087e5b7e8b5af8db6dc01ec8ff2a05485bc613c16ba7b
+        doc_struct_hash: sha256:90426d3f65af98711ee087e5b7e8b5af8db6dc01ec8ff2a05485bc613c16ba7b
+        lines: [29, 46]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#Store.RecordActionTurn
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: store/action_turns.go
         symbol: Store.ListActionTurns
-        hash: sha256:f3397d4241c23d957fbec994021f35d2cf94d672c0e1f70ca0d017fbc0a5f20b
-        struct_hash: sha256:3730bb71653a800104021a55444b7e7f4c0a41d9c98b22df01fcc1017e3905d5
-        doc_struct_hash: sha256:3730bb71653a800104021a55444b7e7f4c0a41d9c98b22df01fcc1017e3905d5
-        lines: [71, 86]
+        hash: sha256:059a293c9f08f559cb2c56ebf2a4a5bc6f2c98eb86e9155ceb7d41627bf17d27
+        struct_hash: sha256:6b13bd7af9f997f90c736799caf61f71d2eecc9cf15eac8cf07a7948f8e9a7b4
+        doc_struct_hash: sha256:6b13bd7af9f997f90c736799caf61f71d2eecc9cf15eac8cf07a7948f8e9a7b4
+        lines: [74, 89]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/action_turns.go#Store.ListActionTurnsBySession
@@ -60,17 +60,17 @@ nodes:
         hash: sha256:cc6177522450cd02c5b017a9de06c0ae4aafc6a61b845c41521bcfb8b45d21a3
         struct_hash: sha256:aa4e05c05b5c78eee3fe2d923b7cbf563b8d9b06b2c1fc336021fdafeb921d2a
         doc_struct_hash: sha256:292d190f2b3121bf2d160567ccfc0623f1d18dc1db08151f7abc6779e60dd756
-        lines: [88, 106]
-      status: fresh
+        lines: [91, 109]
+      status: suspect
       since: 2026-07-20T03:54:13.341525Z
     - id: store/action_turns.go#scanActionTurns
       level: function
       anchor:
         file: store/action_turns.go
         symbol: scanActionTurns
-        hash: sha256:cb4162654a5c0f3308ac12e2a69e34a5080636d77eecc5affa874ed18db41388
-        struct_hash: sha256:b21911b258bcd6a1963721211d9f45e5ff308a9ff10c63a7fb4c2f05f9803481
-        doc_struct_hash: sha256:b21911b258bcd6a1963721211d9f45e5ff308a9ff10c63a7fb4c2f05f9803481
-        lines: [108, 126]
+        hash: sha256:f32ca55fe4bfa44642b49f97f59c68b59efbd9e8e7ef37ac29f43d1e82c7d336
+        struct_hash: sha256:76259bb496e26808d26f255769e3ee24657a9bfc52e0d2cc83f2693b03118147
+        doc_struct_hash: sha256:76259bb496e26808d26f255769e3ee24657a9bfc52e0d2cc83f2693b03118147
+        lines: [111, 133]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z

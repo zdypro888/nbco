@@ -49,7 +49,7 @@ func openTestStore(t *testing.T) *Store {
 	})
 	if _, err := s.pool.Exec(ctx,
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields,
-		 ai_usage, pending_approvals, goals, automation_runs RESTART IDENTITY CASCADE`); err != nil {
+		 ai_usage, pending_approvals, goals, automation_runs, automation_snapshots RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
@@ -3274,6 +3274,99 @@ func TestScheduleOccurrenceFansOutPerRecipient(t *testing.T) {
 	}
 }
 
+func TestScheduleRecipientPreferencesControlIncomingBroadcasts(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "preference-boss", true)
+	member := mkUser(t, s, "preference-member", false)
+	other := mkUser(t, s, "preference-other", false)
+
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: boss.ID, CreatedBy: boss.ID, Kind: ScheduleDaily,
+		FireAt: time.Now().UTC().Add(-time.Minute), DailyAt: "09:30",
+		Target: ScheduleTargetAll, Mode: ScheduleModeMessage, Message: "company notice", Title: "morning notice",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	visible, err := s.SchedulesVisible(ctx, member.ID, false, ScheduleActive, 20)
+	if err != nil || len(visible) != 1 || !visible[0].TargetsViewer || !visible[0].DeliveryEnabled {
+		t.Fatalf("incoming broadcast visibility = %+v, %v", visible, err)
+	}
+	if err := s.SetScheduleDeliveryPreference(ctx, member.ID, SchedulePreferenceAll, false); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := s.ScheduleDeliveryAllowed(ctx, member.ID, sc.ID); err != nil || allowed {
+		t.Fatalf("global opt-out allowed=%t err=%v", allowed, err)
+	}
+	if err := s.SetScheduleDeliveryPreference(ctx, member.ID, sc.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := s.ScheduleDeliveryAllowed(ctx, member.ID, sc.ID); err != nil || !allowed {
+		t.Fatalf("specific override allowed=%t err=%v", allowed, err)
+	}
+
+	due, err := s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due) != 1 {
+		t.Fatalf("DueSchedules = %+v, %v", due, err)
+	}
+	next := time.Now().UTC().Add(24 * time.Hour)
+	if err := s.FanOutScheduleOccurrence(ctx, due[0], []int64{member.ID}, time.Now().UTC(), &next, false); err != nil {
+		t.Fatal(err)
+	}
+	deliveries, err := s.DueScheduleDeliveries(ctx, time.Now().UTC())
+	if err != nil || len(deliveries) != 1 || deliveries[0].ClaimedAt == nil {
+		t.Fatalf("claimed delivery = %+v, %v", deliveries, err)
+	}
+	if err := s.SetScheduleDeliveryPreference(ctx, member.ID, sc.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	if err := s.pool.QueryRow(ctx, `SELECT status FROM schedule_deliveries WHERE id=$1`, deliveries[0].ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "suppressed" {
+		t.Fatalf("queued delivery status = %q", status)
+	}
+
+	direct, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: other.ID, CreatedBy: boss.ID, Kind: ScheduleDaily,
+		FireAt: time.Now().UTC().Add(time.Hour), DailyAt: "10:00",
+		Target: strconv.FormatInt(other.ID, 10), Mode: ScheduleModeMessage, Message: "private",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetScheduleDeliveryPreference(ctx, member.ID, direct.ID, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unrelated schedule preference = %v", err)
+	}
+
+	historical, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: boss.ID, CreatedBy: boss.ID, Kind: ScheduleOnce,
+		FireAt: time.Now().UTC().Add(-time.Minute), Target: ScheduleTargetAll,
+		Mode: ScheduleModeMessage, Message: "old broadcast",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	due, err = s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due) != 1 || due[0].ID != historical.ID {
+		t.Fatalf("historical due schedule = %+v, %v", due, err)
+	}
+	if err := s.MarkScheduleDelivered(ctx, historical.ID, *due[0].DeliveryClaimedAt, time.Now().UTC(), nil, true); err != nil {
+		t.Fatal(err)
+	}
+	history, err := s.SchedulesVisible(ctx, member.ID, false, "all", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range history {
+		if item.ID == historical.ID {
+			t.Fatalf("recipient without a delivery inherited historical broadcast: %+v", item)
+		}
+	}
+}
+
 func TestDurableEventAndAutomationRunClaims(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -4378,7 +4471,9 @@ func TestLearningCandidateExists(t *testing.T) {
 func TestAutomationSnapshotIsImmutable(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
-	expires := time.Now().UTC().Add(24 * time.Hour)
+	// PostgreSQL timestamptz stores microseconds; align the expected value with
+	// the database precision so this immutability assertion is deterministic.
+	expires := time.Now().UTC().Truncate(time.Microsecond).Add(24 * time.Hour)
 	first, err := s.GetOrCreateAutomationSnapshot(ctx, "monthly-test", "2026-08", 7, "candidate", []int64{3, 2, 2, -1}, expires)
 	if err != nil {
 		t.Fatal(err)

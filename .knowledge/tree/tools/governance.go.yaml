@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/governance.go
-        hash: sha256:42adb2d44dacdf86d4318014bcfabcc784927c916e17b476c49f1f0ca4382d79
+        hash: sha256:2e7732a0b339226405ae30640694c8aef440ace0a4962da1a90e59fb06457c72
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/governance.go
         symbol: actionTurnDetails
-        hash: sha256:054e1d91ed1f01fa504f46c8a03b4debe313bcbd74980dddc1a53e4ebae2f953
-        struct_hash: sha256:0d3b4071d7bb9bf82b604bf84ac3eff9cb30e7462515dadad039bc0808315d16
-        doc_struct_hash: sha256:0d3b4071d7bb9bf82b604bf84ac3eff9cb30e7462515dadad039bc0808315d16
-        lines: [447, 470]
+        hash: sha256:49a5341cd4ebd9affdf676b759e849b4a49a500f73baf95007628d1078fb38d4
+        struct_hash: sha256:22910e76c95174688eae9a9bc52c1313d08a318c698c302a77b7b3d28ee84a79
+        doc_struct_hash: sha256:22910e76c95174688eae9a9bc52c1313d08a318c698c302a77b7b3d28ee84a79
+        lines: [447, 469]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/governance.go#renderActionTurns
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:729f06cdbbb5db5fbb4d4defa2cbacefe0eaae885c529e91c6dc1aa607f75bfa
         struct_hash: sha256:114a4c02da5c27e8d1bb7fa256d8cf79358bf9fd4955f4f3eb3cfb3abf378a17
         doc_struct_hash: sha256:114a4c02da5c27e8d1bb7fa256d8cf79358bf9fd4955f4f3eb3cfb3abf378a17
-        lines: [534, 564]
+        lines: [533, 563]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/governance.go#clipRunes
@@ -82,6 +82,6 @@ nodes:
         hash: sha256:b3ea83724a5d1f280c7e003c4c2336302fab914f30c67a14d93722a363ddd3c6
         struct_hash: sha256:b8b9030c26f7e7a7381d416ab7133286902a9f884f67d892d8d1a11e6e751926
         doc_struct_hash: sha256:b8b9030c26f7e7a7381d416ab7133286902a9f884f67d892d8d1a11e6e751926
-        lines: [566, 572]
+        lines: [565, 571]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

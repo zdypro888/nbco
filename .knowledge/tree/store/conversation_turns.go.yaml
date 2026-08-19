@@ -4,10 +4,87 @@ nodes:
       level: file
       anchor:
         file: store/conversation_turns.go
-        hash: sha256:e5bcbac2d08a3d74cf6742e91a9d8fc842f8de727d5244667d45e923274430eb
+        hash: sha256:60a9488d37fa7465e741c5f6d0e81a2d493a2d3cf726e83958dc17daec72cb61
         lines: [0, 0]
       status: undigested
       since: 2026-07-25T10:14:40.5053Z
+    - id: store/conversation_turns.go#conversationTurnCols
+      level: decl
+      anchor:
+        file: store/conversation_turns.go
+        symbol: conversationTurnCols
+        hash: sha256:f5d5485ebf0dea9477e40bf60cf2788d29b32e768c1d5d1a10189c1cedfed591
+        struct_hash: sha256:6322c7fdc806cda53d6f3eef0c7d8b9315338f67fd598ad3dd9a1675af974658
+        doc_struct_hash: sha256:6322c7fdc806cda53d6f3eef0c7d8b9315338f67fd598ad3dd9a1675af974658
+        lines: [15, 17]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#ErrTurnInProgress
+      level: decl
+      anchor:
+        file: store/conversation_turns.go
+        symbol: ErrTurnInProgress
+        hash: sha256:261799493044760e8a303bd9437aa0c44dcc34936f27a13cc30f762163eff1d0
+        struct_hash: sha256:ba737ce5f1fb5999e9f23579054c07876b174288d470a820e02ccbb18cd771c2
+        doc_struct_hash: sha256:ba737ce5f1fb5999e9f23579054c07876b174288d470a820e02ccbb18cd771c2
+        lines: [20, 20]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#ErrTurnFailed
+      level: decl
+      anchor:
+        file: store/conversation_turns.go
+        symbol: ErrTurnFailed
+        hash: sha256:6c623f096ea31f67d9f032929a6c5a63b6ff1d84c2a52d89fb8e4634a52bcdf1
+        struct_hash: sha256:16e61b2e5536bedebddf707848b67b8920743e0d88f2ed1889cf33f43df7d2a2
+        doc_struct_hash: sha256:16e61b2e5536bedebddf707848b67b8920743e0d88f2ed1889cf33f43df7d2a2
+        lines: [21, 21]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#ConversationTurn
+      level: decl
+      anchor:
+        file: store/conversation_turns.go
+        symbol: ConversationTurn
+        hash: sha256:13275f775d6188c4e92cfcafaa113528f6a21499280e9b485b636940eef6a68c
+        struct_hash: sha256:b16e842e53e64e8ed7edd3ae8ede7120246e1b8658814701112218a1c87703bf
+        doc_struct_hash: sha256:f01acac7ab7cda3a7f57716443fd1c2220fb1c469811310f83e9433f2987a8a5
+        lines: [24, 44]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#ConversationTurnCompletion
+      level: decl
+      anchor:
+        file: store/conversation_turns.go
+        symbol: ConversationTurnCompletion
+        hash: sha256:16c061cf8c322a5a02cf12c98df02879b4f08fbfca9f9c87be229061c8aa9117
+        struct_hash: sha256:900c3d196387e8c7e73a8872b8f10fc591a0f55a9de6eef9fffae2bed1234574
+        doc_struct_hash: sha256:900c3d196387e8c7e73a8872b8f10fc591a0f55a9de6eef9fffae2bed1234574
+        lines: [46, 57]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#scanConversationTurn
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: scanConversationTurn
+        hash: sha256:dca61f24eaea99e7fc5b5a8495c08e0fb76d705c952ef2dcaf70ba7bb8874195
+        struct_hash: sha256:796fd24a12398d23957e9464224e286deade68881c1c436cbffe69e7a3f2830c
+        doc_struct_hash: sha256:796fd24a12398d23957e9464224e286deade68881c1c436cbffe69e7a3f2830c
+        lines: [59, 70]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#conversationSourceHash
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: conversationSourceHash
+        hash: sha256:525b6c9e16881fb27dd9d4ab9dbc3e307767c43b1de8e35c5fafc5b318e1ff0f
+        struct_hash: sha256:891c66fce81a4d25d0541dbf656d7ede81db6ef5e83deebac829c069fd7fd180
+        doc_struct_hash: sha256:891c66fce81a4d25d0541dbf656d7ede81db6ef5e83deebac829c069fd7fd180
+        lines: [72, 79]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#Store.BeginConversationTurn
       level: function
       anchor:
@@ -16,7 +93,7 @@ nodes:
         hash: sha256:d4116607fafc1e5fafe61efa83e619f85188ef689a44a3e99892640acd73692e
         struct_hash: sha256:e4b9cef48613ebed328fba3a5d4843dc3c73dac31f6069a5df16f9488a9783f2
         doc_struct_hash: sha256:2b36aa03ac02d5ad96b5fcdf4d0b6f093563f534b49c572e4dcc1cda5d88fd18
-        lines: [80, 157]
+        lines: [81, 158]
       status: fresh
       since: 2026-07-25T10:14:40.505234Z
     - id: store/conversation_turns.go#Store.CompleteConversationTurn
@@ -30,6 +107,28 @@ nodes:
         lines: [160, 246]
       status: fresh
       since: 2026-07-25T10:14:40.50635Z
+    - id: store/conversation_turns.go#insertActionTurn
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: insertActionTurn
+        hash: sha256:cdeef7a75de429d43b5351aa9d5b38ff788c9d65a659035818ee419da03209b7
+        struct_hash: sha256:8df0012ae5866feb8147dc575f57cc4305f22b36ea3225c278793075e50305b4
+        doc_struct_hash: sha256:8df0012ae5866feb8147dc575f57cc4305f22b36ea3225c278793075e50305b4
+        lines: [248, 272]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#Store.FailConversationTurn
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.FailConversationTurn
+        hash: sha256:114921c18c011e42ea9f9153d912ae7486a1cbc2b47f6d9cc79f31178f332cff
+        struct_hash: sha256:f11c6f6c2836f8794aaf726db3019146c69b43d2c5c3b972a063bd029e913656
+        doc_struct_hash: sha256:f11c6f6c2836f8794aaf726db3019146c69b43d2c5c3b972a063bd029e913656
+        lines: [274, 284]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#Store.FailStaleConversationTurns
       level: function
       anchor:
@@ -38,7 +137,7 @@ nodes:
         hash: sha256:47f848e261fdc09190816aa029336248e2b4b9d0e6565b0ef5abdfc102df9c5f
         struct_hash: sha256:8c2f8c573f1d9313f6f3158c363a89a6b7804b1a799f1a523c97c0eeb7b5d395
         doc_struct_hash: sha256:9c43f5691c7e46acc09cca01d77859a88bfe3f0e79457304a57418ea8b7a75a5
-        lines: [285, 303]
+        lines: [286, 304]
       status: fresh
       since: 2026-07-25T10:14:40.507408Z
     - id: store/conversation_turns.go#Store.MarkConversationTurnDelivered
@@ -49,6 +148,28 @@ nodes:
         hash: sha256:f85c31235ad42b51335fa6a6a52272fa3c18b8126fd18621888c29b9c8fb25a8
         struct_hash: sha256:145eb5c419b191ab3b96ace1f0b07a2ebf919c4200924ec06fef0352b19db131
         doc_struct_hash: sha256:145eb5c419b191ab3b96ace1f0b07a2ebf919c4200924ec06fef0352b19db131
-        lines: [305, 311]
+        lines: [306, 312]
       status: fresh
       since: 2026-07-25T10:14:40.508351Z
+    - id: store/conversation_turns.go#Store.MarkConversationTurnDeliveryFailed
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.MarkConversationTurnDeliveryFailed
+        hash: sha256:53a348630122f9c5d29e8ea6388672a7ad6727b8ea87a2d9aef834f2511928a2
+        struct_hash: sha256:0b51439056a7e46ad970a967ced59652d99e2035333a6311c3df74b70dc9c169
+        doc_struct_hash: sha256:0b51439056a7e46ad970a967ced59652d99e2035333a6311c3df74b70dc9c169
+        lines: [314, 321]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
+    - id: store/conversation_turns.go#Store.ConversationTurnByID
+      level: function
+      anchor:
+        file: store/conversation_turns.go
+        symbol: Store.ConversationTurnByID
+        hash: sha256:2c8ae96a4248994e55b00356c629eb288a350f3abab16721fbf1968e7f3e9228
+        struct_hash: sha256:d4dfea5ee9289ec45a2a019759a7bec3506af63486f987ae6ba415675707e9bd
+        doc_struct_hash: sha256:d4dfea5ee9289ec45a2a019759a7bec3506af63486f987ae6ba415675707e9bd
+        lines: [323, 326]
+      status: undigested
+      since: 2026-08-19T15:38:18.043251Z
