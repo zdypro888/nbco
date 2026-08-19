@@ -26,12 +26,14 @@ const (
 	ScheduleTargetSelf = "self"
 	ScheduleTargetAll  = "_all"
 
+	ScheduleRecipientOptional  = "optional"
+	ScheduleRecipientMandatory = "mandatory"
+
 	// 领域自动化来源。调度器仍保持通用，领域入口用稳定来源标识实现幂等配置。
 	ScheduleSourceTelegramGroupDigest = "telegram_group_digest"
 
 	// SchedulePreferenceAll is the per-user default. A concrete schedule ID
-	// overrides it, which lets a recipient mute one broadcast without losing
-	// every other scheduled notification.
+	// overrides it for optional schedules. Mandatory schedules ignore both.
 	SchedulePreferenceAll int64 = 0
 
 	scheduleDeliveryLease        = 10 * time.Minute
@@ -69,6 +71,9 @@ type Schedule struct {
 	// this schedule. Scheduled AI can recover the original wording and timestamp
 	// instead of reinterpreting relative dates from the delivery day.
 	SourceMessageID *int64
+	// RecipientPolicy controls whether recipients may mute this schedule.
+	// Existing and unspecified schedules are optional.
+	RecipientPolicy string
 	// DeliveryClaimedAt 标识 DueSchedules 当前认领租约；ack 必须携带同一值。
 	DeliveryClaimedAt *time.Time
 }
@@ -113,7 +118,7 @@ func scanScheduleDelivery(row interface{ Scan(...any) error }) (*ScheduleDeliver
 	return &d, nil
 }
 
-const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title, source_message_id`
+const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title, source_message_id, recipient_policy`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	var sc Schedule
@@ -121,7 +126,7 @@ func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	if err := row.Scan(&sc.ID, &sc.UserID, &sc.Kind, &sc.Message, &sc.FireAt,
 		&sc.IntervalS, &sc.Status, &sc.LastFired, &sc.CreatedAt,
 		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy, &sc.DeliveryClaimedAt,
-		&sc.SourceKind, &sc.SourceKey, &sc.Title, &sourceMessageID); err != nil {
+		&sc.SourceKind, &sc.SourceKey, &sc.Title, &sourceMessageID, &sc.RecipientPolicy); err != nil {
 		return nil, wrapErr(err)
 	}
 	if sourceMessageID.Valid {
@@ -134,11 +139,12 @@ func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 // CreateSchedule 建定时任务（Target/Mode 空值归一为 self/message）。
 func (s *Store) CreateSchedule(ctx context.Context, sc *Schedule) (*Schedule, error) {
 	return scanSchedule(s.pool.QueryRow(ctx,
-		`INSERT INTO schedules (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title, source_message_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING `+scheduleCols,
+		`INSERT INTO schedules (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title, source_message_id, recipient_policy)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING `+scheduleCols,
 		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
 		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
-		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title), sc.SourceMessageID))
+		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title), sc.SourceMessageID,
+		nonEmpty(sc.RecipientPolicy, ScheduleRecipientOptional)))
 }
 
 // UpsertAutomationSchedule 幂等创建或更新一个领域自动化日程。唯一身份是
@@ -149,8 +155,8 @@ func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Sc
 	}
 	return scanSchedule(s.pool.QueryRow(ctx,
 		`INSERT INTO schedules
-		   (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title, source_message_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		   (user_id, kind, message, fire_at, interval_s, target, mode, daily_at, weekdays, created_by, source_kind, source_key, title, source_message_id, recipient_policy)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE(NULLIF($15, ''), 'optional'))
 		 ON CONFLICT (created_by, source_kind, source_key)
 		 WHERE status = 'active' AND source_kind <> '' AND source_key <> ''
 		 DO UPDATE SET
@@ -164,6 +170,7 @@ func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Sc
 		   daily_at = EXCLUDED.daily_at,
 		   weekdays = EXCLUDED.weekdays,
 		   title = EXCLUDED.title,
+		   recipient_policy = CASE WHEN $15 = '' THEN schedules.recipient_policy ELSE EXCLUDED.recipient_policy END,
 		   source_message_id = COALESCE(EXCLUDED.source_message_id, schedules.source_message_id),
 		   last_fired = NULL,
 		   delivery_claimed_at = NULL,
@@ -171,7 +178,8 @@ func (s *Store) UpsertAutomationSchedule(ctx context.Context, sc *Schedule) (*Sc
 		 RETURNING `+scheduleCols,
 		sc.UserID, sc.Kind, sc.Message, sc.FireAt, sc.IntervalS,
 		nonEmpty(sc.Target, ScheduleTargetSelf), nonEmpty(sc.Mode, ScheduleModeMessage),
-		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title), sc.SourceMessageID))
+		sc.DailyAt, sc.Weekdays, sc.CreatedBy, strings.TrimSpace(sc.SourceKind), strings.TrimSpace(sc.SourceKey), strings.TrimSpace(sc.Title), sc.SourceMessageID,
+		strings.TrimSpace(sc.RecipientPolicy)))
 }
 
 func (s *Store) ScheduleByID(ctx context.Context, id int64) (*Schedule, error) {
@@ -264,12 +272,12 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		          (s.target = '_all' AND (s.status = 'active' OR EXISTS (
 		            SELECT 1 FROM schedule_deliveries td WHERE td.schedule_id = s.id AND td.user_id = $2
 		          )))),
-		        coalesce(
+		        CASE WHEN s.recipient_policy = 'mandatory' THEN true ELSE coalesce(
 		          (SELECT p.enabled FROM schedule_delivery_preferences p
 		            WHERE p.user_id = $2 AND p.schedule_id = s.id),
 		          (SELECT p.enabled FROM schedule_delivery_preferences p
 		            WHERE p.user_id = $2 AND p.schedule_id = 0),
-		          true)
+		          true) END
 		   FROM schedules s
 		   LEFT JOIN users u ON u.id = s.user_id
 		   LEFT JOIN users cu ON cu.id = s.created_by
@@ -291,7 +299,7 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 		if err := rows.Scan(&v.ID, &v.UserID, &v.Kind, &v.Message, &v.FireAt,
 			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
 			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy, &v.DeliveryClaimedAt,
-			&v.SourceKind, &v.SourceKey, &v.Title, &sourceMessageID,
+			&v.SourceKind, &v.SourceKey, &v.Title, &sourceMessageID, &v.RecipientPolicy,
 			&v.ReceiverName, &v.CreatorName, &v.TargetsViewer, &v.DeliveryEnabled); err != nil {
 			return nil, wrapErr(err)
 		}
@@ -306,7 +314,9 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 
 // SetScheduleDeliveryPreference changes only the caller's delivery policy. It
 // never mutates the shared schedule. Disabling also suppresses already queued
-// rows so an opt-out takes effect without waiting for the next occurrence.
+// optional rows so an opt-out takes effect without waiting for the next
+// occurrence. Mandatory schedules reject a concrete opt-out and are excluded
+// from the all-schedules preference.
 func (s *Store) SetScheduleDeliveryPreference(ctx context.Context, userID, scheduleID int64, enabled bool) error {
 	if userID <= 0 || scheduleID < SchedulePreferenceAll {
 		return fmt.Errorf("invalid schedule delivery preference")
@@ -317,17 +327,15 @@ func (s *Store) SetScheduleDeliveryPreference(ctx context.Context, userID, sched
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if scheduleID > 0 {
-		var applies bool
+		var recipientPolicy string
 		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS (
-			   SELECT 1 FROM schedules
-			    WHERE id = $1 AND status = 'active'
-			      AND (target = '_all' OR user_id = $2 OR target = $2::text)
-			 )`, scheduleID, userID).Scan(&applies); err != nil {
-			return err
+			`SELECT recipient_policy FROM schedules
+			  WHERE id = $1 AND status = 'active'
+			    AND (target = '_all' OR user_id = $2 OR target = $2::text)`, scheduleID, userID).Scan(&recipientPolicy); err != nil {
+			return wrapErr(err)
 		}
-		if !applies {
-			return ErrNotFound
+		if !enabled && recipientPolicy == ScheduleRecipientMandatory {
+			return ErrConflict
 		}
 	}
 	if _, err := tx.Exec(ctx,
@@ -343,6 +351,12 @@ func (s *Store) SetScheduleDeliveryPreference(ctx context.Context, userID, sched
 		if scheduleID > 0 {
 			where += ` AND schedule_id = $2`
 			args = append(args, scheduleID)
+		} else {
+			where += ` AND EXISTS (
+			  SELECT 1 FROM schedules s
+			   WHERE s.id = schedule_deliveries.schedule_id
+			     AND s.recipient_policy = 'optional'
+			)`
 		}
 		if _, err := tx.Exec(ctx,
 			`UPDATE schedule_deliveries
@@ -355,18 +369,19 @@ func (s *Store) SetScheduleDeliveryPreference(ctx context.Context, userID, sched
 	return tx.Commit(ctx)
 }
 
-// ScheduleDeliveryAllowed resolves a concrete override first, then the user's
-// all-schedules default. Missing preferences preserve the historical behavior.
+// ScheduleDeliveryAllowed first enforces the schedule's mandatory policy, then
+// resolves a concrete override and the user's all-schedules default.
 func (s *Store) ScheduleDeliveryAllowed(ctx context.Context, userID, scheduleID int64) (bool, error) {
 	var enabled bool
 	err := s.pool.QueryRow(ctx,
-		`SELECT coalesce(
+		`SELECT CASE WHEN s.recipient_policy = 'mandatory' THEN true ELSE coalesce(
 		   (SELECT p.enabled FROM schedule_delivery_preferences p
-		     WHERE p.user_id = $1 AND p.schedule_id = $2),
+		     WHERE p.user_id = $1 AND p.schedule_id = s.id),
 		   (SELECT p.enabled FROM schedule_delivery_preferences p
 		     WHERE p.user_id = $1 AND p.schedule_id = 0),
-		   true)`, userID, scheduleID).Scan(&enabled)
-	return enabled, err
+		   true) END
+		 FROM schedules s WHERE s.id = $2`, userID, scheduleID).Scan(&enabled)
+	return enabled, wrapErr(err)
 }
 
 func scheduleColsWithAlias(alias string) string {
@@ -377,14 +392,15 @@ func scheduleColsWithAlias(alias string) string {
 	return strings.Join(cols, ", ")
 }
 
-// CancelSchedule 取消（接收者或创建者都可取消）。
+// CancelSchedule cancels a schedule owned by the caller.
 func (s *Store) CancelSchedule(ctx context.Context, id, userID int64) error {
 	return s.CancelScheduleVisible(ctx, id, userID, false)
 }
 
 // CancelScheduleVisible cancels an active schedule within the caller's
-// visibility boundary. Superadmins may operate the global schedule queue;
-// ordinary users remain limited to schedules they receive or created.
+// ownership boundary. Superadmins may operate the global schedule queue;
+// ordinary recipients change optional delivery through preferences instead of
+// mutating another creator's schedule.
 func (s *Store) CancelScheduleVisible(ctx context.Context, id, userID int64, superadmin bool) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -393,7 +409,7 @@ func (s *Store) CancelScheduleVisible(ctx context.Context, id, userID int64, sup
 	defer func() { _ = tx.Rollback(ctx) }()
 	tag, err := tx.Exec(ctx,
 		`UPDATE schedules SET status = 'cancelled', delivery_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND ($3 OR user_id = $2 OR created_by = $2) AND status = 'active'`, id, userID, superadmin)
+		 WHERE id = $1 AND ($3 OR created_by = $2) AND status = 'active'`, id, userID, superadmin)
 	if err != nil {
 		return wrapErr(err)
 	}
@@ -406,10 +422,7 @@ func (s *Store) CancelScheduleVisible(ctx context.Context, id, userID int64, sup
 	return tx.Commit(ctx)
 }
 
-// UpdateScheduleTimingVisible changes only the timing rule of an active
-// schedule. Audience, execution mode, source identity, content and history stay
-// attached to the same row, so rescheduling cannot silently widen its scope or
-// turn a domain automation into a generic push.
+// UpdateScheduleTimingVisible is the timing-only compatibility entry point.
 func (s *Store) UpdateScheduleTimingVisible(
 	ctx context.Context,
 	id, userID int64,
@@ -419,6 +432,25 @@ func (s *Store) UpdateScheduleTimingVisible(
 	dailyAt, weekdays string,
 	sourceMessageID *int64,
 ) (*Schedule, error) {
+	return s.UpdateScheduleVisible(ctx, id, userID, superadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID, nil)
+}
+
+// UpdateScheduleVisible changes timing and, when supplied, the recipient
+// policy of a schedule owned by the caller. Audience, execution mode, source
+// identity, content and history stay attached to the same row.
+func (s *Store) UpdateScheduleVisible(
+	ctx context.Context,
+	id, userID int64,
+	superadmin bool,
+	fireAt time.Time,
+	intervalS int64,
+	dailyAt, weekdays string,
+	sourceMessageID *int64,
+	recipientPolicy *string,
+) (*Schedule, error) {
+	if recipientPolicy != nil && *recipientPolicy != ScheduleRecipientOptional && *recipientPolicy != ScheduleRecipientMandatory {
+		return nil, fmt.Errorf("invalid schedule recipient policy")
+	}
 	return scanSchedule(s.pool.QueryRow(ctx,
 		`UPDATE schedules SET
 		   fire_at = $4,
@@ -426,11 +458,12 @@ func (s *Store) UpdateScheduleTimingVisible(
 		   daily_at = $6,
 		   weekdays = $7,
 		   source_message_id = COALESCE($8, source_message_id),
+		   recipient_policy = COALESCE($9, recipient_policy),
 		   delivery_claimed_at = NULL,
 		   updated_at = now()
-		 WHERE id = $1 AND ($3 OR user_id = $2 OR created_by = $2) AND status = 'active'
+		 WHERE id = $1 AND ($3 OR created_by = $2) AND status = 'active'
 		 RETURNING `+scheduleCols,
-		id, userID, superadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID))
+		id, userID, superadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID, recipientPolicy))
 }
 
 // DueSchedules 原子认领到期任务。这里只写短租约，不推进 fire_at/状态；

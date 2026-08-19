@@ -354,7 +354,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"schedules": {
 		DataSource: DataSource{
 			Name: "schedules", Description: "定时任务和自动化；普通用户只看发给自己或自己创建的条目。",
-			Fields: []string{"schedule_id", "title", "kind", "message", "fire_at", "interval_s", "status", "last_fired", "target", "targets_viewer", "delivery_enabled", "mode", "daily_at", "weekdays", "created_by", "source_kind", "source_key", "created_at", "updated_at"},
+			Fields: []string{"schedule_id", "title", "kind", "message", "fire_at", "interval_s", "status", "last_fired", "target", "targets_viewer", "delivery_enabled", "recipient_policy", "mode", "daily_at", "weekdays", "created_by", "source_kind", "source_key", "created_at", "updated_at"},
 		},
 		query: `SELECT jsonb_build_object(
 				'schedule_id', s.id, 'title', s.title, 'kind', s.kind, 'message', s.message,
@@ -364,10 +364,11 @@ var dataSourceDefs = map[string]dataSourceDef{
 				  (s.target = '_all' AND (s.status = 'active' OR EXISTS (
 				    SELECT 1 FROM schedule_deliveries td WHERE td.schedule_id = s.id AND td.user_id = $1
 				  )))),
-				'delivery_enabled', coalesce(
+				'delivery_enabled', CASE WHEN s.recipient_policy = 'mandatory' THEN true ELSE coalesce(
 				  (SELECT p.enabled FROM schedule_delivery_preferences p WHERE p.user_id = $1 AND p.schedule_id = s.id),
 				  (SELECT p.enabled FROM schedule_delivery_preferences p WHERE p.user_id = $1 AND p.schedule_id = 0),
-				  true),
+				  true) END,
+				'recipient_policy', s.recipient_policy,
 				'mode', s.mode,
 				'daily_at', s.daily_at, 'weekdays', s.weekdays, 'created_by', s.created_by,
 				'source_kind', s.source_kind, 'source_key', s.source_key,

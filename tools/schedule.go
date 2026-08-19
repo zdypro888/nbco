@@ -115,7 +115,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 		scheduleOncePushTool(d, u),
 		scheduleRecurringPushTool(d, u),
 
-		tool("update_schedule", "原子修改现有定时提醒、计划推送或持久自动化的时间规则。它保留原日程ID、接收范围、模式、内容、来源绑定和执行历史；修改时间、星期或间隔时必须使用本工具，不要先取消再重建。优先传 schedule_id；不知道编号时传 query，只有唯一活跃匹配才更新。不同种类支持的字段：once=at，repeat=first_at/interval_seconds，daily=daily_at/weekdays。",
+		tool("update_schedule", "原子修改自己创建的定时提醒、计划推送或持久自动化。它保留原日程ID、接收范围、模式、内容、来源绑定和执行历史；可修改时间规则或 recipient_policy。recipient_policy=mandatory 表示收件人不可退订，仅超管或拥有对应 manage_mandatory_schedule 权限者可设置；默认 optional。优先传 schedule_id；不知道编号时传 query，只有唯一活跃匹配才更新。不同种类支持的时间字段：once=at，repeat=first_at/interval_seconds，daily=daily_at/weekdays。",
 			obj(map[string]any{
 				"schedule_id":      p("integer", "日程ID（可选，优先）"),
 				"query":            p("string", "不知道 ID 时按标题、内容或来源检索（可选）"),
@@ -124,6 +124,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				"interval_seconds": p("integer", "repeat 的新间隔秒数（可选，≥60）"),
 				"daily_at":         p("string", "daily 的新触发时刻 HH:MM（可选）"),
 				"weekdays":         p("string", "daily 的星期过滤；空字符串表示每天（可选）"),
+				"recipient_policy": enumP("接收策略（可选）", store.ScheduleRecipientOptional, store.ScheduleRecipientMandatory),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -134,6 +135,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					IntervalSeconds *int64  `json:"interval_seconds"`
 					DailyAt         *string `json:"daily_at"`
 					Weekdays        *string `json:"weekdays"`
+					RecipientPolicy *string `json:"recipient_policy"`
 				}
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
@@ -142,26 +144,51 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil || message != "" {
 					return message, err
 				}
+				if !u.IsSuperadmin && sc.CreatedBy != u.ID {
+					return "只能修改自己创建的日程；收件人如需关闭可选日程，请修改自己的接收设置。", nil
+				}
+				var recipientPolicy *string
+				if args.RecipientPolicy != nil {
+					policy, err := normalizeScheduleRecipientPolicy(*args.RecipientPolicy)
+					if err != nil {
+						return err.Error(), nil
+					}
+					if policy == store.ScheduleRecipientMandatory {
+						if sc.Target == "" || sc.Target == store.ScheduleTargetSelf {
+							return "只发给自己的日程无需设置 mandatory；可直接取消或调整日程。", nil
+						}
+						allowed, err := canSetMandatorySchedule(ctx, d, u, sc.Target, sc.UserID)
+						if err != nil {
+							return "", err
+						}
+						if !allowed {
+							return "设置强制接收需要对全部目标拥有 manage_mandatory_schedule 权限。", nil
+						}
+					}
+					recipientPolicy = &policy
+				}
 				fireAt, intervalS := sc.FireAt, sc.IntervalS
 				dailyAt, weekdays := sc.DailyAt, sc.Weekdays
 				now := time.Now()
 				switch sc.Kind {
 				case store.ScheduleOnce:
-					if args.At == nil || args.FirstAt != nil || args.IntervalSeconds != nil || args.DailyAt != nil || args.Weekdays != nil {
-						return "once 日程只能提供 at，且必须提供新的未来触发时间。", nil
+					if args.FirstAt != nil || args.IntervalSeconds != nil || args.DailyAt != nil || args.Weekdays != nil || (args.At == nil && recipientPolicy == nil) {
+						return "once 日程只能修改 at 或 recipient_policy，且至少提供一项。", nil
 					}
-					next, err := parseDeadline(*args.At, d.TZ)
-					if err != nil {
-						return err.Error(), nil
+					if args.At != nil {
+						next, err := parseDeadline(*args.At, d.TZ)
+						if err != nil {
+							return err.Error(), nil
+						}
+						if next == nil || !next.After(now) {
+							return "at 必须是未来时间。", nil
+						}
+						fireAt = next.UTC()
 					}
-					if next == nil || !next.After(now) {
-						return "at 必须是未来时间。", nil
-					}
-					fireAt = next.UTC()
 				case store.ScheduleRepeat:
 					if args.At != nil || args.DailyAt != nil || args.Weekdays != nil ||
-						(args.FirstAt == nil && args.IntervalSeconds == nil) {
-						return "repeat 日程只能修改 first_at 或 interval_seconds，且至少提供一项。", nil
+						(args.FirstAt == nil && args.IntervalSeconds == nil && recipientPolicy == nil) {
+						return "repeat 日程只能修改 first_at、interval_seconds 或 recipient_policy，且至少提供一项。", nil
 					}
 					if args.FirstAt != nil {
 						next, err := parseDeadline(*args.FirstAt, d.TZ)
@@ -181,8 +208,8 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					}
 				case store.ScheduleDaily:
 					if args.At != nil || args.FirstAt != nil || args.IntervalSeconds != nil ||
-						(args.DailyAt == nil && args.Weekdays == nil) {
-						return "daily 日程只能修改 daily_at 或 weekdays，且至少提供一项。", nil
+						(args.DailyAt == nil && args.Weekdays == nil && recipientPolicy == nil) {
+						return "daily 日程只能修改 daily_at、weekdays 或 recipient_policy，且至少提供一项。", nil
 					}
 					if args.DailyAt != nil {
 						dailyAt, err = normalizeDailyAt(*args.DailyAt)
@@ -200,8 +227,8 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				default:
 					return "该日程种类暂不支持修改时间规则。", nil
 				}
-				updated, err := d.Store.UpdateScheduleTimingVisible(
-					ctx, sc.ID, u.ID, u.IsSuperadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID(ctx),
+				updated, err := d.Store.UpdateScheduleVisible(
+					ctx, sc.ID, u.ID, u.IsSuperadmin, fireAt, intervalS, dailyAt, weekdays, sourceMessageID(ctx), recipientPolicy,
 				)
 				if err != nil {
 					if errors.Is(err, store.ErrNotFound) {
@@ -209,8 +236,8 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				return fmt.Sprintf("已更新%s：%s；接收范围、内容、模式和来源绑定均保持不变。",
-					internalRef("日程", updated.ID), scheduleTimingDescription(updated, d.TZ)), nil
+				return fmt.Sprintf("已更新%s：%s；接收策略 %s；接收范围、内容、模式和来源绑定均保持不变。",
+					internalRef("日程", updated.ID), scheduleTimingDescription(updated, d.TZ), updated.RecipientPolicy), nil
 			}),
 
 		tool("cancel_schedule", "取消尚未执行的定时提醒、计划推送或持久自动化；它们属于日程，不是普通工作任务。只有用户明确要停止日程时才使用；修改时间、星期或间隔必须使用 update_schedule，不能取消后重建。优先传 schedule_id；不知道编号时传 query，工具会在当前可见的活跃日程中按标题、内容和来源查找，只有唯一匹配才取消。超级管理员可取消全局日程。",
@@ -261,6 +288,12 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				if err := d.Store.CancelScheduleVisible(ctx, args.ScheduleID, u.ID, u.IsSuperadmin); err != nil {
 					if errors.Is(err, store.ErrNotFound) {
 						sc, findErr := d.Store.ScheduleByID(ctx, args.ScheduleID)
+						if findErr == nil && sc.Status == store.ScheduleActive && sc.CreatedBy != u.ID && !u.IsSuperadmin && scheduleTargetsUser(sc, u.ID) {
+							if sc.RecipientPolicy == store.ScheduleRecipientMandatory {
+								return "这是由其他人创建的强制接收日程，收件人不能取消或退订。", nil
+							}
+							return "不能取消其他人创建的共享日程；请改用 set_schedule_subscription 调整自己的接收状态。", nil
+						}
 						if findErr == nil && scheduleVisibleTo(sc, u) && sc.Status != store.ScheduleActive {
 							return inactiveScheduleResult(*sc, d.TZ), nil
 						}
@@ -271,7 +304,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已取消%s。", internalRef("日程", args.ScheduleID)), nil
 			}),
 
-		tool("list_schedules", "查看可见的定时提醒、计划推送和持久自动化；这些属于日程，不是普通工作任务。超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all，避免执行后的单次日程从视图消失。返回稳定日程 ID、状态和触发时间；修改已有日程使用 update_schedule，停止才使用 cancel_schedule；逐次投递结果可用 query_data(source=deliveries) 深挖。",
+		tool("list_schedules", "查看可见的定时提醒、计划推送和持久自动化；这些属于日程，不是普通工作任务。超级管理员查看全局队列。status 默认 active，也可查 done、cancelled 或 all。结果同时标明 optional/mandatory 接收策略；强制接收日程不能由收件人退订。返回稳定日程 ID、状态和触发时间；修改已有日程使用 update_schedule，停止才使用 cancel_schedule；逐次投递结果可用 query_data(source=deliveries) 深挖。",
 			obj(map[string]any{
 				"status": enumP("状态筛选，可省略", store.ScheduleActive, store.ScheduleDone, store.ScheduleCancelled, "all"),
 				"limit":  p("integer", "最多返回条数，默认100，最大500"),
@@ -331,7 +364,9 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					if sc.Mode == store.ScheduleModeAI {
 						b.WriteString(" [AI生成]")
 					}
-					if sc.TargetsViewer {
+					if sc.RecipientPolicy == store.ScheduleRecipientMandatory {
+						b.WriteString(" [强制接收]")
+					} else if sc.TargetsViewer {
 						if sc.DeliveryEnabled {
 							b.WriteString(" [接收开启]")
 						} else {
@@ -346,7 +381,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("set_schedule_subscription", "设置当前用户自己是否接收定时通知，不修改共享日程本身。scope=schedule 用于关闭或恢复一条发给自己的日程；scope=all 用于关闭或恢复所有当前及未来日程通知。查询收到哪些日程先用 list_schedules。别人创建的全员推送不能用 cancel_schedule 全局取消，应使用本工具管理自己的接收状态。",
+		tool("set_schedule_subscription", "设置当前用户自己是否接收可选定时通知，不修改共享日程本身。scope=schedule 用于关闭或恢复一条 optional 日程；scope=all 用于关闭或恢复所有当前及未来的 optional 日程。mandatory 日程不受个人退订影响。查询收到哪些日程先用 list_schedules。别人创建的推送不能用 cancel_schedule 全局取消。",
 			obj(map[string]any{
 				"scope":       enumP("作用范围", "schedule", "all"),
 				"schedule_id": p("integer", "scope=schedule 时的稳定日程ID；不知道时可改传 query"),
@@ -380,6 +415,9 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					if errors.Is(err, store.ErrNotFound) {
 						return "日程不存在、已结束或并不发送给当前用户。", nil
 					}
+					if errors.Is(err, store.ErrConflict) {
+						return "该日程为强制接收，不能由收件人退订。", nil
+					}
 					return "", err
 				}
 				state := "已停止接收"
@@ -387,7 +425,7 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					state = "已恢复接收"
 				}
 				if scheduleID == store.SchedulePreferenceAll {
-					return state + "所有定时通知；这不会修改创建者的共享日程。", nil
+					return state + "所有可选定时通知；强制接收日程不受影响，且不会修改创建者的共享日程。", nil
 				}
 				return fmt.Sprintf("%s%s；这不会修改创建者的共享日程。", state, internalRef("日程", scheduleID)), nil
 			}),
@@ -436,35 +474,38 @@ func resolveIncomingSchedule(ctx context.Context, d Deps, u *store.User, schedul
 }
 
 type pushScheduleArgs struct {
-	Target  string
-	Mode    string
-	Content string
-	Title   string
+	Target          string
+	Mode            string
+	Content         string
+	Title           string
+	RecipientPolicy string
 }
 
 func scheduleOncePushTool(d Deps, u *store.User) ai.Tool {
 	return tool("schedule_once_push",
-		"设置只发生一次的定向推送；周期性推送使用 schedule_recurring_push。target 省略/self 只发给当前用户；_all 会向每名活跃真人分别投递，只有用户明确要求全体接收时才能使用。mode=ai 时到点结合原始消息、触发时间和实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。Telegram 群每日摘要必须使用 set_telegram_group_digest，不要用本工具模拟。",
+		"设置只发生一次的定向推送；周期性推送使用 schedule_recurring_push。target 省略/self 只发给当前用户；_all 会向每名活跃真人分别投递，只有用户明确要求全体接收时才能使用。recipient_policy 默认 optional；只有用户明确要求不可退订时才设 mandatory，且需要对应 manage_mandatory_schedule 权限。mode=ai 时到点结合原始消息、触发时间和实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。Telegram 群每日摘要必须使用 set_telegram_group_digest。",
 		obj(map[string]any{
-			"target":  p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
-			"mode":    enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),
-			"content": p("string", "ai 模式写目标与事实；message 模式写原文"),
-			"title":   p("string", "可选，便于日程管理的短标题"),
-			"at":      p("string", "唯一一次触发时间，ISO8601；不带时区按公司时区解析"),
+			"target":           p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
+			"mode":             enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),
+			"content":          p("string", "ai 模式写目标与事实；message 模式写原文"),
+			"title":            p("string", "可选，便于日程管理的短标题"),
+			"recipient_policy": enumP("接收策略，可省略", store.ScheduleRecipientOptional, store.ScheduleRecipientMandatory),
+			"at":               p("string", "唯一一次触发时间，ISO8601；不带时区按公司时区解析"),
 		}, "content", "at"),
 		func(ctx context.Context, raw json.RawMessage) (string, error) {
 			var args struct {
-				Target  string `json:"target"`
-				Mode    string `json:"mode"`
-				Content string `json:"content"`
-				Title   string `json:"title"`
-				At      string `json:"at"`
+				Target          string `json:"target"`
+				Mode            string `json:"mode"`
+				Content         string `json:"content"`
+				Title           string `json:"title"`
+				RecipientPolicy string `json:"recipient_policy"`
+				At              string `json:"at"`
 			}
 			if err := decode(raw, &args); err != nil {
 				return err.Error(), nil
 			}
 			sc, message, err := preparePushSchedule(ctx, d, u, pushScheduleArgs{
-				Target: args.Target, Mode: args.Mode, Content: args.Content, Title: args.Title,
+				Target: args.Target, Mode: args.Mode, Content: args.Content, Title: args.Title, RecipientPolicy: args.RecipientPolicy,
 			})
 			if err != nil || message != "" {
 				return message, err
@@ -489,29 +530,31 @@ func scheduleOncePushTool(d Deps, u *store.User) ai.Tool {
 
 func scheduleRecurringPushTool(d Deps, u *store.User) ai.Tool {
 	return tool("schedule_recurring_push",
-		"设置按日历规则重复发生的定向推送；只发生一次的推送使用 schedule_once_push。target 省略/self 只发给当前用户；_all 会向每名活跃真人分别投递，只有用户明确要求全体接收时才能使用。mode=ai 时每次结合实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。Telegram 群每日摘要必须使用 set_telegram_group_digest，不要用本工具模拟。",
+		"设置按日历规则重复发生的定向推送；只发生一次的推送使用 schedule_once_push。target 省略/self 只发给当前用户；_all 会向每名活跃真人分别投递，只有用户明确要求全体接收时才能使用。recipient_policy 默认 optional；只有用户明确要求不可退订时才设 mandatory，且需要对应 manage_mandatory_schedule 权限。mode=ai 时每次结合实时数据生成内容；mode=message 原样投递。给他人/全体设置需要对应 send_msg 权限（超管不限）。Telegram 群每日摘要必须使用 set_telegram_group_digest。",
 		obj(map[string]any{
-			"target":   p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
-			"mode":     enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),
-			"content":  p("string", "ai 模式写目标与事实；message 模式写原文"),
-			"title":    p("string", "可选，便于日程管理的短标题"),
-			"daily_at": p("string", "每天触发时刻 HH:MM（公司时区）"),
-			"weekdays": p("string", "星期过滤，如 1,2,3,4,5；1=周一，7=周日；空=每天"),
+			"target":           p("string", "self（默认）| _all（全体成员）| 稳定用户ID"),
+			"mode":             enumP("推送模式，可省略采用权限安全的默认值", store.ScheduleModeAI, store.ScheduleModeMessage),
+			"content":          p("string", "ai 模式写目标与事实；message 模式写原文"),
+			"title":            p("string", "可选，便于日程管理的短标题"),
+			"recipient_policy": enumP("接收策略，可省略", store.ScheduleRecipientOptional, store.ScheduleRecipientMandatory),
+			"daily_at":         p("string", "每天触发时刻 HH:MM（公司时区）"),
+			"weekdays":         p("string", "星期过滤，如 1,2,3,4,5；1=周一，7=周日；空=每天"),
 		}, "content", "daily_at"),
 		func(ctx context.Context, raw json.RawMessage) (string, error) {
 			var args struct {
-				Target   string `json:"target"`
-				Mode     string `json:"mode"`
-				Content  string `json:"content"`
-				Title    string `json:"title"`
-				DailyAt  string `json:"daily_at"`
-				Weekdays string `json:"weekdays"`
+				Target          string `json:"target"`
+				Mode            string `json:"mode"`
+				Content         string `json:"content"`
+				Title           string `json:"title"`
+				RecipientPolicy string `json:"recipient_policy"`
+				DailyAt         string `json:"daily_at"`
+				Weekdays        string `json:"weekdays"`
 			}
 			if err := decode(raw, &args); err != nil {
 				return err.Error(), nil
 			}
 			sc, message, err := preparePushSchedule(ctx, d, u, pushScheduleArgs{
-				Target: args.Target, Mode: args.Mode, Content: args.Content, Title: args.Title,
+				Target: args.Target, Mode: args.Mode, Content: args.Content, Title: args.Title, RecipientPolicy: args.RecipientPolicy,
 			})
 			if err != nil || message != "" {
 				return message, err
@@ -594,10 +637,59 @@ func preparePushSchedule(ctx context.Context, d Deps, u *store.User, args pushSc
 	if mode == store.ScheduleModeAI && !u.IsSuperadmin && target != store.ScheduleTargetSelf {
 		return nil, "非超管给他人或全体设置推送时只能使用 message 模式。", nil
 	}
+	policy, err := normalizeScheduleRecipientPolicy(args.RecipientPolicy)
+	if err != nil {
+		return nil, err.Error(), nil
+	}
+	if policy == store.ScheduleRecipientMandatory {
+		if target == store.ScheduleTargetSelf {
+			return nil, "只发给自己的日程无需设置 mandatory；可直接取消或调整日程。", nil
+		}
+		allowed, err := canSetMandatorySchedule(ctx, d, u, target, receiver)
+		if err != nil {
+			return nil, "", err
+		}
+		if !allowed {
+			return nil, "设置强制接收需要对全部目标拥有 manage_mandatory_schedule 权限。", nil
+		}
+	}
 	return &store.Schedule{
 		UserID: receiver, Target: target, Mode: mode, Message: content,
-		Title: strings.TrimSpace(args.Title), CreatedBy: u.ID, SourceMessageID: sourceMessageID(ctx),
+		Title: strings.TrimSpace(args.Title), CreatedBy: u.ID, SourceMessageID: sourceMessageID(ctx), RecipientPolicy: policy,
 	}, "", nil
+}
+
+func normalizeScheduleRecipientPolicy(raw string) (string, error) {
+	switch value := strings.ToLower(strings.TrimSpace(raw)); value {
+	case "", store.ScheduleRecipientOptional:
+		return store.ScheduleRecipientOptional, nil
+	case store.ScheduleRecipientMandatory:
+		return store.ScheduleRecipientMandatory, nil
+	default:
+		return "", fmt.Errorf("recipient_policy 必须是 optional 或 mandatory")
+	}
+}
+
+func canSetMandatorySchedule(ctx context.Context, d Deps, u *store.User, target string, receiverID int64) (bool, error) {
+	if u.IsSuperadmin {
+		return true, nil
+	}
+	if target == "" || target == store.ScheduleTargetSelf {
+		return false, nil
+	}
+	grants, err := d.Store.PermsOf(ctx, u.ID)
+	if err != nil {
+		return false, err
+	}
+	if target == store.ScheduleTargetAll {
+		for _, grant := range grants {
+			if grant.Kind == store.KindActive && grant.Action == perm.ActManageMandatorySchedule && grant.Target == store.TargetAll {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return perm.CheckActive(grants, perm.ActManageMandatorySchedule, receiverID), nil
 }
 
 func resolveActiveSchedule(ctx context.Context, d Deps, u *store.User, scheduleID int64, query string) (*store.Schedule, string, error) {
@@ -687,6 +779,13 @@ func renderScheduleCandidates(items []store.ScheduleView, tz *time.Location) str
 
 func scheduleVisibleTo(sc *store.Schedule, u *store.User) bool {
 	return sc != nil && u != nil && (u.IsSuperadmin || sc.UserID == u.ID || sc.CreatedBy == u.ID)
+}
+
+func scheduleTargetsUser(sc *store.Schedule, userID int64) bool {
+	if sc == nil || userID <= 0 {
+		return false
+	}
+	return sc.Target == store.ScheduleTargetAll || sc.UserID == userID || sc.Target == strconv.FormatInt(userID, 10)
 }
 
 func inactiveScheduleResult(sc store.Schedule, tz *time.Location) string {

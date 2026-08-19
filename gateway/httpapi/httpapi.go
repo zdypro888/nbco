@@ -1020,6 +1020,7 @@ type scheduleJSON struct {
 	Target          string     `json:"target"`
 	TargetsViewer   bool       `json:"targets_viewer"`
 	DeliveryEnabled bool       `json:"delivery_enabled"`
+	RecipientPolicy string     `json:"recipient_policy"`
 	Mode            string     `json:"mode"`
 	Kind            string     `json:"kind"`
 	Message         string     `json:"message"`
@@ -1041,7 +1042,7 @@ func schedulesJSON(items []store.ScheduleView) []scheduleJSON {
 		out = append(out, scheduleJSON{
 			ID: sc.ID, UserID: sc.UserID, ReceiverName: sc.ReceiverName,
 			CreatedBy: sc.CreatedBy, CreatorName: sc.CreatorName, Target: sc.Target,
-			TargetsViewer: sc.TargetsViewer, DeliveryEnabled: sc.DeliveryEnabled,
+			TargetsViewer: sc.TargetsViewer, DeliveryEnabled: sc.DeliveryEnabled, RecipientPolicy: sc.RecipientPolicy,
 			Mode: sc.Mode, Kind: sc.Kind, Message: sc.Message, Title: sc.Title,
 			SourceKind: sc.SourceKind, SourceKey: sc.SourceKey, FireAt: sc.FireAt,
 			DailyAt: sc.DailyAt, Weekdays: sc.Weekdays, IntervalS: sc.IntervalS,

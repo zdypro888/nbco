@@ -27,6 +27,9 @@ const (
 	ActCreateProject = "create_project"  // 创建项目/给他人派任务
 	ActEditInfo      = "edit_info"       // 改他人基本信息
 	ActManageTGGroup = "manage_telegram_group"
+	// ActManageMandatorySchedule permits making notifications non-optional for
+	// the covered recipients. Sending a message alone must not imply this power.
+	ActManageMandatorySchedule = "manage_mandatory_schedule"
 	// ActManageWorker 创建/管理 AI worker（绑定码、命令、停用）。管理对象是
 	// 自己名下的 worker 而非其他用户，授予时目标通常用 _all。
 	ActManageWorker = "manage_worker"
@@ -34,15 +37,16 @@ const (
 
 // ActiveActions 合法主动动作集合。
 var ActiveActions = map[string]bool{
-	ActWriteProfile:  true,
-	ActViewSelfIntro: true,
-	ActManagePerm:    true,
-	ActGenerateKey:   true,
-	ActSendMsg:       true,
-	ActCreateProject: true,
-	ActEditInfo:      true,
-	ActManageTGGroup: true,
-	ActManageWorker:  true,
+	ActWriteProfile:            true,
+	ActViewSelfIntro:           true,
+	ActManagePerm:              true,
+	ActGenerateKey:             true,
+	ActSendMsg:                 true,
+	ActCreateProject:           true,
+	ActEditInfo:                true,
+	ActManageTGGroup:           true,
+	ActManageMandatorySchedule: true,
+	ActManageWorker:            true,
 }
 
 const viewProfilePrefix = "view_profile:"

@@ -3,10 +3,12 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -160,5 +162,75 @@ func TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt(t *testing.T) {
 	stored, err := s.ScheduleByID(ctx, sc.ID)
 	if err != nil || stored.Status != store.ScheduleActive {
 		t.Fatalf("recipient mute changed shared schedule: %+v err=%v", stored, err)
+	}
+}
+
+func TestMandatoryScheduleRequiresDelegatedAuthorityAndCannotBeMuted(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	manager := mkToolsUser(t, s, "mandatory-manager", false)
+	recipient := mkToolsUser(t, s, "mandatory-target", false)
+	target := strconv.FormatInt(recipient.ID, 10)
+	if err := s.GrantPerm(ctx, store.Grant{
+		Kind: store.KindActive, UserID: manager.ID, Action: perm.ActSendMsg,
+		Target: target, GrantedBy: manager.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	createArgs := map[string]any{
+		"target": target, "mode": store.ScheduleModeMessage,
+		"content": "必须阅读的制度通知", "title": "制度通知",
+		"recipient_policy": store.ScheduleRecipientMandatory,
+		"at":               time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+	}
+	toolset := scheduleTools(Deps{Store: s, TZ: time.UTC}, manager)
+	denied := callToolByName(t, toolset, "schedule_once_push", createArgs)
+	if !strings.Contains(denied, perm.ActManageMandatorySchedule) {
+		t.Fatalf("mandatory schedule without authority = %q", denied)
+	}
+	if err := s.GrantPerm(ctx, store.Grant{
+		Kind: store.KindActive, UserID: manager.ID, Action: perm.ActManageMandatorySchedule,
+		Target: target, GrantedBy: manager.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	created := callToolByName(t, toolset, "schedule_once_push", createArgs)
+	if !strings.Contains(created, "已设置一次性推送") {
+		t.Fatalf("mandatory schedule creation = %q", created)
+	}
+
+	items, err := s.SchedulesVisible(ctx, recipient.ID, false, store.ScheduleActive, 20)
+	if err != nil || len(items) != 1 {
+		t.Fatalf("recipient schedules = %+v, %v", items, err)
+	}
+	if items[0].RecipientPolicy != store.ScheduleRecipientMandatory {
+		t.Fatalf("recipient policy = %q", items[0].RecipientPolicy)
+	}
+	recipientTools := scheduleTools(Deps{Store: s, TZ: time.UTC}, recipient)
+	listed := callToolByName(t, recipientTools, "list_schedules", map[string]any{})
+	if !strings.Contains(listed, "强制接收") {
+		t.Fatalf("mandatory schedule list = %q", listed)
+	}
+	muted := callToolByName(t, recipientTools, "set_schedule_subscription", map[string]any{
+		"scope": "schedule", "schedule_id": items[0].ID, "enabled": false,
+	})
+	if !strings.Contains(muted, "不能由收件人退订") {
+		t.Fatalf("mandatory schedule mute = %q", muted)
+	}
+	cancelled := callToolByName(t, recipientTools, "cancel_schedule", map[string]any{"schedule_id": items[0].ID})
+	if !strings.Contains(cancelled, "不能取消或退订") {
+		t.Fatalf("mandatory schedule cancel = %q", cancelled)
+	}
+	downgraded := callToolByName(t, toolset, "update_schedule", map[string]any{
+		"schedule_id": items[0].ID, "recipient_policy": store.ScheduleRecipientOptional,
+	})
+	if !strings.Contains(downgraded, "接收策略 optional") {
+		t.Fatalf("mandatory schedule downgrade = %q", downgraded)
+	}
+	muted = callToolByName(t, recipientTools, "set_schedule_subscription", map[string]any{
+		"scope": "schedule", "schedule_id": items[0].ID, "enabled": false,
+	})
+	if !strings.Contains(muted, "已停止接收") {
+		t.Fatalf("optional schedule mute after downgrade = %q", muted)
 	}
 }

@@ -429,12 +429,13 @@ function renderScheduleRows(items = state.schedules || []) {
   if (!items.length) return `<div class="empty">暂无定时自动化。</div>`;
   return `
     <table class="data-table">
-      <thead><tr><th>ID</th><th>规则</th><th>目标</th><th>创建人</th><th>模式</th><th>状态</th><th>下次触发</th><th>上次触发</th></tr></thead>
+      <thead><tr><th>ID</th><th>规则</th><th>目标</th><th>创建人</th><th>接收策略</th><th>模式</th><th>状态</th><th>下次触发</th><th>上次触发</th></tr></thead>
       <tbody>${items.map(s => `<tr class="selectable" data-select-kind="schedule" data-id="${s.id}">
         <td>SCH-${s.id}</td>
         <td class="td-title"><div class="title-strong">${esc(scheduleTitle(s))}</div><div class="subline">${esc(scheduleSubtitle(s))}</div></td>
         <td>${esc(scheduleTarget(s))}</td>
         <td>${esc(s.creator_name || "")}</td>
+        <td>${s.recipient_policy === "mandatory" ? '<span class="pill red">强制接收</span>' : '<span class="pill">可退订</span>'}</td>
         <td>${esc(s.mode || "message")}</td>
         <td>${statusPill(s.status)}</td>
         <td>${fmtTime(s.fire_at) || ""}</td>

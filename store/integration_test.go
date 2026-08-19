@@ -1197,6 +1197,10 @@ func TestAutomationScheduleUpsertIsIdempotent(t *testing.T) {
 	if err := s.pool.QueryRow(ctx, `SELECT updated_at FROM schedules WHERE id = $1`, first.ID).Scan(&staleUpdatedAt); err != nil {
 		t.Fatal(err)
 	}
+	mandatory := ScheduleRecipientMandatory
+	if _, err := s.UpdateScheduleVisible(ctx, first.ID, boss.ID, true, first.FireAt, first.IntervalS, first.DailyAt, first.Weekdays, nil, &mandatory); err != nil {
+		t.Fatal(err)
+	}
 	base.DailyAt = "19:00"
 	base.Title = "项目群 晚间摘要"
 	base.FireAt = time.Now().Add(2 * time.Hour)
@@ -1204,7 +1208,7 @@ func TestAutomationScheduleUpsertIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if second.ID != first.ID || second.DailyAt != "19:00" || second.Title != "项目群 晚间摘要" {
+	if second.ID != first.ID || second.DailyAt != "19:00" || second.Title != "项目群 晚间摘要" || second.RecipientPolicy != ScheduleRecipientMandatory {
 		t.Fatalf("automation upsert should update one row: first=%+v second=%+v", first, second)
 	}
 	var refreshedUpdatedAt time.Time
@@ -3364,6 +3368,61 @@ func TestScheduleRecipientPreferencesControlIncomingBroadcasts(t *testing.T) {
 		if item.ID == historical.ID {
 			t.Fatalf("recipient without a delivery inherited historical broadcast: %+v", item)
 		}
+	}
+}
+
+func TestMandatoryScheduleOverridesRecipientPreferences(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "mandatory-owner", true)
+	recipient := mkUser(t, s, "mandatory-recipient", false)
+
+	if err := s.SetScheduleDeliveryPreference(ctx, recipient.ID, SchedulePreferenceAll, false); err != nil {
+		t.Fatal(err)
+	}
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: recipient.ID, CreatedBy: owner.ID, Kind: ScheduleOnce,
+		FireAt: time.Now().UTC().Add(-time.Minute), Target: strconv.FormatInt(recipient.ID, 10),
+		Mode: ScheduleModeMessage, Message: "required notice", Title: "required notice",
+		RecipientPolicy: ScheduleRecipientMandatory,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := s.ScheduleDeliveryAllowed(ctx, recipient.ID, sc.ID); err != nil || !allowed {
+		t.Fatalf("mandatory delivery allowed=%t err=%v", allowed, err)
+	}
+	if err := s.SetScheduleDeliveryPreference(ctx, recipient.ID, sc.ID, false); !errors.Is(err, ErrConflict) {
+		t.Fatalf("mandatory schedule opt-out = %v, want ErrConflict", err)
+	}
+	visible, err := s.SchedulesVisible(ctx, recipient.ID, false, ScheduleActive, 20)
+	if err != nil || len(visible) != 1 || visible[0].RecipientPolicy != ScheduleRecipientMandatory || !visible[0].DeliveryEnabled {
+		t.Fatalf("mandatory schedule visibility = %+v, %v", visible, err)
+	}
+	if err := s.CancelScheduleVisible(ctx, sc.ID, recipient.ID, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("recipient cancelled mandatory schedule: %v", err)
+	}
+
+	due, err := s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due) != 1 || due[0].ID != sc.ID {
+		t.Fatalf("mandatory due schedule = %+v, %v", due, err)
+	}
+	if err := s.FanOutScheduleOccurrence(ctx, due[0], []int64{recipient.ID}, time.Now().UTC(), nil, true); err != nil {
+		t.Fatal(err)
+	}
+	deliveries, err := s.DueScheduleDeliveries(ctx, time.Now().UTC())
+	if err != nil || len(deliveries) != 1 || deliveries[0].ClaimedAt == nil {
+		t.Fatalf("mandatory delivery claim = %+v, %v", deliveries, err)
+	}
+	if err := s.SetScheduleDeliveryPreference(ctx, recipient.ID, SchedulePreferenceAll, false); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	if err := s.pool.QueryRow(ctx, `SELECT status FROM schedule_deliveries WHERE id=$1`, deliveries[0].ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "processing" {
+		t.Fatalf("global opt-out suppressed mandatory delivery: %q", status)
 	}
 }
 

@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: scheduleTools
-        hash: sha256:666d713db758d29b9fbb6e72768544212dcb9e8eb7bc9926ef8e2f96b9fb25ff
-        struct_hash: sha256:2567dfaedabb2b2a4b5d73447add42a298d071299a30edd10d5c8831bc27645a
-        doc_struct_hash: sha256:b321cb48a50b26fda2f42ead320caeffae7f79cab5769d86b5c7e149e72b36ec
-        lines: [43, 395]
+        hash: sha256:1233e8cae86aa7e2d9de48b1196e7649f2fdfa83cf436dc9ebc77ef57ed7f737
+        struct_hash: sha256:6e5c038aa55e4000b7ff5a22b095a72a02cfaeec3ad3b7fc2c5356ce0533ae28
+        doc_struct_hash: sha256:335928b60095b699ff59611558bf82c8f953b3ed80f6e2d8446e5cb47dd36711
+        lines: [43, 433]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#resolveIncomingSchedule
@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: preparePushSchedule
-        hash: sha256:4088e3db57cc7a21b50812ab9c1d5698abb509e03549d62b64fdc67c1a4d93d7
-        struct_hash: sha256:dee600b8633f1dfd630be9330b650dac82e14e28789ec66f97ebc2a9e4a69ac7
-        doc_struct_hash: sha256:dee600b8633f1dfd630be9330b650dac82e14e28789ec66f97ebc2a9e4a69ac7
-        lines: [544, 601]
+        hash: sha256:012f788115468e5f73ae17fffa0205939b67277bd3a72c1adcd6a8899e0703ff
+        struct_hash: sha256:37bb37fb3cf52a9909aed37016b741b4161ea14f53a2e743ac8516c5c0fa6da0
+        doc_struct_hash: sha256:37bb37fb3cf52a9909aed37016b741b4161ea14f53a2e743ac8516c5c0fa6da0
+        lines: [587, 660]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#resolveActiveSchedule
@@ -217,3 +217,14 @@ nodes:
         lines: [753, 772]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/schedule.go#canSetMandatorySchedule
+      level: function
+      anchor:
+        file: tools/schedule.go
+        symbol: canSetMandatorySchedule
+        hash: sha256:ed7cd4e10c9977928b32ac0dfa97644258ee9f205170582ecc525711cf9e2771
+        struct_hash: sha256:b638957bf7d7388216a6a3894472dc98d4ed4d25dde7bbd658d5bd40af8f4e57
+        doc_struct_hash: sha256:b638957bf7d7388216a6a3894472dc98d4ed4d25dde7bbd658d5bd40af8f4e57
+        lines: [673, 693]
+      status: fresh
+      since: 2026-08-19T16:26:50.73957Z

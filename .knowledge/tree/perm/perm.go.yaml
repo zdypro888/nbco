@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: perm/perm.go
         symbol: ActiveActions
-        hash: sha256:87d33efd5ab948bfc009a798342ea71c3c246ce9a6b894922022e82dbbff93d1
-        struct_hash: sha256:89bb8ab6545c153b2df57d6bfab1a9681e46155678298033cf773686f6eed85a
-        doc_struct_hash: sha256:d5f716a6fd419cf42089e3219c1e578fb4af35ed4da63e42d5cb1cc113490083
-        lines: [35, 46]
+        hash: sha256:d02237ad9f77cf8d7066fef437cc9caf1cf02248548623a28c4a57ca5346a3d1
+        struct_hash: sha256:338d268b5bb14bd6b5870a1803aaea2ed0e5fe9d1256d25aca4ff5250c2ab3e2
+        doc_struct_hash: sha256:664d20955dd6b022865e18430aa6fe1b7f4c70eb3a7fec86febc0e028386762c
+        lines: [38, 50]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: perm/perm.go#viewProfilePrefix

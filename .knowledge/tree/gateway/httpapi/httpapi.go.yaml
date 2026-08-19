@@ -574,10 +574,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: schedulesJSON
-        hash: sha256:60acf702c7e8ce16cfa0d22536af09201d61c0ab13753897f69a0b93c37ad1a5
-        struct_hash: sha256:603cf6a7687fe562d73814623afa1de24bff1c01e3b8813f3e735084e3253453
-        doc_struct_hash: sha256:603cf6a7687fe562d73814623afa1de24bff1c01e3b8813f3e735084e3253453
-        lines: [1038, 1052]
+        hash: sha256:5ee03ecc96c5e32738960413badd138ff2aeaf7c96b61c6610ec6be93f5df3f8
+        struct_hash: sha256:a1b6e62f92635d2229c86f6f02b340bcf40c4efcd46a81e723e39edddc408a6a
+        doc_struct_hash: sha256:a1b6e62f92635d2229c86f6f02b340bcf40c4efcd46a81e723e39edddc408a6a
+        lines: [1039, 1053]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#Server.userNames

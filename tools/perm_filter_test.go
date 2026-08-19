@@ -118,7 +118,7 @@ func TestInviteEmployeeAliasNormalizesToGenerateKey(t *testing.T) {
 		t.Fatalf("generate_key trim = %q", got)
 	}
 	list := activeActionList()
-	var found, foundGroup bool
+	var found, foundGroup, foundMandatorySchedule bool
 	for _, item := range list {
 		if item == perm.ActGenerateKey+"(invite_employee)" {
 			found = true
@@ -126,12 +126,18 @@ func TestInviteEmployeeAliasNormalizesToGenerateKey(t *testing.T) {
 		if item == perm.ActManageTGGroup {
 			foundGroup = true
 		}
+		if item == perm.ActManageMandatorySchedule {
+			foundMandatorySchedule = true
+		}
 	}
 	if !found {
 		t.Fatalf("activeActionList 应展示邀请员工别名: %+v", list)
 	}
 	if !foundGroup {
 		t.Fatalf("activeActionList 应展示 Telegram 群管理权限: %+v", list)
+	}
+	if !foundMandatorySchedule {
+		t.Fatalf("activeActionList 应展示强制日程管理权限: %+v", list)
 	}
 }
 

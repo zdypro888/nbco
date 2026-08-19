@@ -277,10 +277,10 @@ nodes:
       anchor:
         file: store/schedules.go
         symbol: Store.CreateSchedule
-        hash: sha256:1e1d1b2a0db78ff96d47c6ebaaa762d3cc04c9b1736533105ac514443c445f02
-        struct_hash: sha256:6d9ba3180e719970edb24d15f4cb5a0564e13abc527b7496d4980e0348711305
-        doc_struct_hash: sha256:7017ffbd14e94f99697f69d9b80e2168a316fae8e43ab136904f79004c495fd9
-        lines: [134, 142]
+        hash: sha256:f733d4921a5af82e13532df0c53f7a14aeda4ded1a06a1ade3645f527235a8b4
+        struct_hash: sha256:dea1199eb0315b40e2e43aca0763da2f39d219846b5fb638231e8981baa9f682
+        doc_struct_hash: sha256:c089ab9a5e8845c79cecabe7b5b48dc899a8b011e3bbff78c316fa8b16cfe468
+        lines: [139, 148]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/schedules.go#Store.UpsertAutomationSchedule
@@ -365,10 +365,10 @@ nodes:
       anchor:
         file: store/schedules.go
         symbol: Store.SetScheduleDeliveryPreference
-        hash: sha256:b4ec05335a5375d95f4cd6db1fcd2cb23673dd52b8aa03f8a1e49e748cd43bc2
-        struct_hash: sha256:3ad212159b9207a2f5fff29e054c1580ff8dcdd2fe54bb5d6a5f3097efb4f2f4
-        doc_struct_hash: sha256:15fae7acae13745f597361be33fd762aad0c761fdc79e6fb873c197736ab99e4
-        lines: [307, 356]
+        hash: sha256:f5ffaa3b0ef450a709824afed00a0d6645481d89188a1c4993382f95d800cb91
+        struct_hash: sha256:25bcaf715b717cabdf2aa2c4ccb7af4fcf67d16546c5df57eb8587c7714e2208
+        doc_struct_hash: sha256:9a16cab6b4fa99feff39afdf9860bfcdbba03077d54e4cbc8a2ed23ef76b7b20
+        lines: [315, 370]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/schedules.go#Store.ScheduleDeliveryAllowed
@@ -376,10 +376,10 @@ nodes:
       anchor:
         file: store/schedules.go
         symbol: Store.ScheduleDeliveryAllowed
-        hash: sha256:d7c3638330d6b6648b422a2a2e6ab0046b835febefbde73e71798cb4bea47e8c
-        struct_hash: sha256:571229aeade8bd4d5187a52af489a71d1995c26edaa30e12f48d0de778673356
-        doc_struct_hash: sha256:068539c36763b9b4bd7dd903a7d5909e231c1ff637f55159b545e476b52ff090
-        lines: [358, 370]
+        hash: sha256:968b687057737a9e7256ea30ced767c4a4a67a100c1cb18b876d9ca4aac624a4
+        struct_hash: sha256:e85049c23fd36ac17faacd12ed095befd32ced9922f3c1661af4397be9d99c8a
+        doc_struct_hash: sha256:37d1fd4ec1b419fc4a93f3ca02b9fda4f90e9251bb3373f970ea1ad190aa90ff
+        lines: [372, 385]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/schedules.go#scheduleColsWithAlias
@@ -409,10 +409,10 @@ nodes:
       anchor:
         file: store/schedules.go
         symbol: Store.CancelScheduleVisible
-        hash: sha256:27baf3de7efe61f56ccc02315f522dfee6cb92e88aa119da9072662be394053c
-        struct_hash: sha256:52444f770e30eb4233253c6a891a307763c50c01e913787938acc6c3bc8eb2ad
-        doc_struct_hash: sha256:cb373fd47e8e6c833fdb3bbc047e55bec2c6f7383cc0b6ec70ac44edae34dcd1
-        lines: [385, 407]
+        hash: sha256:486cabaa9d79e39dbe8710817f4c3c3771b0f5b502644190d7c88b5920318919
+        struct_hash: sha256:ff20922d31f50e89349a4be3035256f6b2b77c113cb81dcf87d0397419bd84ef
+        doc_struct_hash: sha256:2c65633d070d9f49c344964d65649e480314bad652b13196b3d98442d48ca693
+        lines: [400, 423]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/schedules.go#Store.UpdateScheduleTimingVisible
@@ -613,3 +613,14 @@ nodes:
         lines: [745, 751]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/schedules.go#Store.UpdateScheduleVisible
+      level: function
+      anchor:
+        file: store/schedules.go
+        symbol: Store.UpdateScheduleVisible
+        hash: sha256:5fbb83121a7b86629feb7631c08bcc24a7e6d2dfdcaeaf6e80199d2f5d785375
+        struct_hash: sha256:4058b31e0f960a36bf2755ba2166c98d0739de7458c3a4082d94a155c7b74fac
+        doc_struct_hash: sha256:2ff9d73e0f83eb567d6454141b38bc57aade72d26da4aa1f4fb0bcdcf7d5786d
+        lines: [438, 467]
+      status: fresh
+      since: 2026-08-19T16:26:50.718484Z

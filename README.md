@@ -401,7 +401,7 @@ Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两�
 
 ## 权限体系
 
-**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限，对应工具 `invite_employee`；授权时也接受 `invite_employee` 作为别名） / `send_msg` / `create_project` / `edit_info` / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。
+**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限，对应工具 `invite_employee`；授权时也接受 `invite_employee` 作为别名） / `send_msg` / `create_project` / `edit_info` / `manage_telegram_group` / `manage_mandatory_schedule`（把面向目标用户的日程设为不可退订） / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。
 
 **被动权限**（存在被操作者身上：谁能对我做什么）：`view_profile:<作者ID>` / `view_profile:_all`。
 
@@ -421,6 +421,7 @@ Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两�
 | `write_profile` | `save_infos_on_user` |
 | `manage_perm` | `grant_passive_perm` / `revoke_passive_perm` / `view_user_perms` |
 | `manage_worker` | `create_worker` / `issue_worker_bind_code` / `delegate_worker_agent` / `run_worker_command` / `revoke_worker`（非超管仅限自己名下的 worker，创建者即监护人） |
+| `manage_mandatory_schedule` | 允许在 `schedule_once_push` / `schedule_recurring_push` / `update_schedule` 中，对授权范围内的接收者设置 `recipient_policy=mandatory`；仍需相应 `send_msg` 权限 |
 | 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned`、成本统计 `ai_usage_stats`、底层兜底 `low_level_db_query` / `low_level_db_exec`、Telegram 群控制 |
 
 **worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
