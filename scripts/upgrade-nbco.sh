@@ -23,6 +23,8 @@ Environment overrides:
   NBCO_ALLOW_DIRTY=0
   NBCO_REQUIRE_HEALTH_BEFORE=1
   NBCO_SKIP_TESTS=0
+  NBCO_GO_JOBS=2                    # concurrent Go build/test package jobs
+  NBCO_GO_MAX_PROCS=2               # CPU threads available to each Go command
   NBCO_LOCK_FILE=/var/lock/nbco-upgrade.lock
   NBCO_UPGRADE_WORKER=auto             # auto|1|0; auto upgrades a detected local worker service
   NBCO_WORKER_SERVICE=nbco-worker
@@ -56,6 +58,8 @@ keep_backups="${NBCO_KEEP_BACKUPS:-10}"
 allow_dirty="${NBCO_ALLOW_DIRTY:-0}"
 require_health_before="${NBCO_REQUIRE_HEALTH_BEFORE:-1}"
 skip_tests="${NBCO_SKIP_TESTS:-0}"
+go_jobs="${NBCO_GO_JOBS:-2}"
+go_max_procs="${NBCO_GO_MAX_PROCS:-2}"
 upgrade_worker="${NBCO_UPGRADE_WORKER:-auto}"
 worker_service="${NBCO_WORKER_SERVICE:-nbco-worker}"
 worker_restart_marker="${NBCO_WORKER_RESTART_MARKER:-/run/nbco-worker-restart-required}"
@@ -80,6 +84,10 @@ backup_worker_bin=""
 build_worker=0
 
 need() { command -v "$1" >/dev/null 2>&1 || die "missing command: $1"; }
+
+positive_integer() {
+	[[ "$1" =~ ^[1-9][0-9]*$ ]]
+}
 
 detect_service_exec_bin() {
 	local svc="$1" line bin
@@ -275,6 +283,8 @@ main() {
 	need curl
 	need systemctl
 	need journalctl
+	positive_integer "${go_jobs}" || die "NBCO_GO_JOBS must be a positive integer"
+	positive_integer "${go_max_procs}" || die "NBCO_GO_MAX_PROCS must be a positive integer"
 
 	mkdir -p "$(dirname "${lock_file}")"
 	exec 9>"${lock_file}"
@@ -367,8 +377,8 @@ main() {
 	log "target revision: ${rev}"
 
 	if [[ "${skip_tests}" != "1" ]]; then
-		log "running tests"
-		go test ./... -count=1
+		log "running tests (jobs=${go_jobs}, max_procs=${go_max_procs})"
+		GOMAXPROCS="${go_max_procs}" go test -p "${go_jobs}" ./... -count=1
 	else
 		log "skipping tests because NBCO_SKIP_TESTS=1"
 	fi
@@ -376,11 +386,11 @@ main() {
 	log "building ${stage_bin}"
 	mkdir -p "${stage_dir}"
 	trap cleanup_stage EXIT
-	go build -trimpath -ldflags="-X main.version=${rev}" -o "${stage_bin}" ./cmd/nbco
+	GOMAXPROCS="${go_max_procs}" go build -p "${go_jobs}" -trimpath -ldflags="-X main.version=${rev}" -o "${stage_bin}" ./cmd/nbco
 	chmod 0755 "${stage_bin}"
 	if [[ "${build_worker}" == "1" ]]; then
 		log "building ${stage_worker_bin}"
-		go build -trimpath -ldflags="-s -w" -o "${stage_worker_bin}" ./cmd/nbco-worker
+		GOMAXPROCS="${go_max_procs}" go build -p "${go_jobs}" -trimpath -ldflags="-s -w" -o "${stage_worker_bin}" ./cmd/nbco-worker
 		chmod 0755 "${stage_worker_bin}"
 	fi
 
