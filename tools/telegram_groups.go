@@ -652,6 +652,25 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 	}
 }
 
+func telegramGroupPermissionTarget(d Deps) func(context.Context, json.RawMessage) (string, error) {
+	return func(ctx context.Context, raw json.RawMessage) (string, error) {
+		var args struct {
+			Group string `json:"group"`
+		}
+		if err := decode(raw, &args); err != nil {
+			return "", err
+		}
+		group, message, err := resolveTelegramGroup(ctx, d, args.Group)
+		if err != nil {
+			return "", err
+		}
+		if group == nil {
+			return "", errors.New(message)
+		}
+		return telegramGroupRef(group.ChatID), nil
+	}
+}
+
 func resolveTelegramGroup(ctx context.Context, d Deps, selector string) (*store.TelegramGroupState, string, error) {
 	selector = strings.TrimSpace(selector)
 	groups, err := d.Store.ListTelegramGroupStates(ctx, telegramGroupToolLimit)

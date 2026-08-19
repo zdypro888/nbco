@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/users.go
-        hash: sha256:dfed250ba8f3ffc92cbefe836054c44e81a7b333429c9df92c546ee2405203fd
+        hash: sha256:8ba27e953a2c75731f3753d188f228c747e3c8afdb6a70485d08a7db81b3b3a8
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -222,10 +222,10 @@ nodes:
       anchor:
         file: store/users.go
         symbol: Store.SetUserStatus
-        hash: sha256:7fe27d45fe2a22a306b6ef353dab6cd35ce884bec39a4c090cc979791c271fa5
-        struct_hash: sha256:2bc9953149cf8e6aab26338e61ce89e4fd412394745edbd1930f60fef68f4b13
-        doc_struct_hash: sha256:ff29d64f79726fd7a54295e4c2d570e8f14ef2bfc88fb1c048c97d0150ea2fbb
-        lines: [259, 262]
+        hash: sha256:e58bf77e5d6611a83c8a16e94812d4d4ab4d4db236b10dafb968a3bf54e74aaf
+        struct_hash: sha256:19c7d49df96f2c2f17eec534228eca549bac73980d698a4f8a619f2590fe0745
+        doc_struct_hash: sha256:9f36b0e1bf277f6c5f196f4f960085a2bc046e4e5d028335dffcee1b33101aa8
+        lines: [259, 279]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/users.go#Store.ChatRef
@@ -236,7 +236,7 @@ nodes:
         hash: sha256:6b18d912a3de98c7279545f4217198b8ebc956d768ab5f88540696d099013dfb
         struct_hash: sha256:866627e81aa55ac135a0fa71dfc7c50bf7dbc5f3a74dfdf52cf3fad3ba24a55f
         doc_struct_hash: sha256:da8bb4c76a07ce03941654106aafb021756a3fa3f6a5456bd7dba3d166068a47
-        lines: [264, 270]
+        lines: [281, 287]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/users.go#Store.AddInfoField
@@ -247,7 +247,7 @@ nodes:
         hash: sha256:b9b2991ca6b9e37dbb403dcf888b56067536a98d171fa18b090547550051a34e
         struct_hash: sha256:6294d7e272427b8db34171166e27ead6658c6a325942113a8e6a89611b3ae1f0
         doc_struct_hash: sha256:916f50d28faac8819703ab3667adbe43660caf005c8eb67129299c0925880c4b
-        lines: [274, 278]
+        lines: [291, 295]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/users.go#Store.EnsureInfoFields
@@ -258,7 +258,7 @@ nodes:
         hash: sha256:0baf07f025befe0cce27e33f5e853a8b4bf4144de501f9b106583f0233d58874
         struct_hash: sha256:6dd4add41ce3328a372b187f72887003cf63162dc2299ec3120b41bdc8417750
         doc_struct_hash: sha256:de38f54cb60228561110c888e27940397013ab7948ab610a11d14c107f59d982
-        lines: [280, 303]
+        lines: [297, 320]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/users.go#Store.RemoveInfoField
@@ -269,7 +269,7 @@ nodes:
         hash: sha256:6195c6d66b3b1aa90aae51be6941c56fa142a1106b9067cd4ebffaa99f3eed7e
         struct_hash: sha256:79f78a74012ddad2f3e268b59e4972862dbcf5745151292183f3d30e6d747ecf
         doc_struct_hash: sha256:3f79032051fe1c7666caa008c87a732e7271a01d8a84d629c0fb962eca4f24c5
-        lines: [305, 308]
+        lines: [322, 325]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/users.go#Store.ListInfoFields
@@ -280,7 +280,7 @@ nodes:
         hash: sha256:314fa3cbad7ac19fd2b85996ca4580226b03de724ad7c06f016c0a94d62f0666
         struct_hash: sha256:f9dc0a3ae294f565f9f57a168875dc15ca327114422bdeed4a69f85632c4de92
         doc_struct_hash: sha256:863b9f38473a708f039e50cc351fc81b003b230c9402a3a25bbe77c27477b4ad
-        lines: [310, 326]
+        lines: [327, 343]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/users.go#Store.execOne
@@ -291,6 +291,6 @@ nodes:
         hash: sha256:4d04ab8533059b4f2394dc5cb97d232ca714fd29dc1a21a308c9a77b5328b7a8
         struct_hash: sha256:fa7030dec60838034c956df01441754fcf8e55972141b6722e207068d3005073
         doc_struct_hash: sha256:ae8a005403ab7ee9e7699e0376646bb8e54f4e033ea5c18da2713dd0476e15e9
-        lines: [328, 338]
+        lines: [345, 355]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

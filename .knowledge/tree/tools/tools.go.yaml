@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/tools.go
-        hash: sha256:c903ec9b927910c7de7c468829a0cbedbf0428d69ecb184c9577a43020ed21ce
+        hash: sha256:8d4a38ec0a8e8fdf207f69f0afa4dd0a9e997c57721a128fe22bb785884883b1
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: ForUserContextWithTools
-        hash: sha256:4da1313b7eeb4395c9f6a262804238092fa868bce2defc207994d11371918148
-        struct_hash: sha256:bb1675e1054280ebf8b556e56ea810ef50fd997eec972bc1ab00bbd8242ccade
-        doc_struct_hash: sha256:8295b3b0769cd710e72e2dc54c1457198cbdf401635746fff1e2f1c1a34aaac0
-        lines: [191, 218]
+        hash: sha256:4ef57e198867c6e2dd98ef434a65284130cccbe7a96679aca65557714f4bb6ff
+        struct_hash: sha256:4034ecc56fd2596ed799fb841422d8ab60f0fdaad340c5aaa1b50641d1588562
+        doc_struct_hash: sha256:309fe2223131d412ca08b4cc8eeff59e03017f5a7a71dc84df114a1f755b72d8
+        lines: [191, 221]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#dedupeTools
@@ -214,7 +214,7 @@ nodes:
         hash: sha256:f3371efb0ee26fb59de96b9f850ddba5c05335bc964a9371cd5525581fa5d632
         struct_hash: sha256:3ab50d6052169552fee48ed1acc21a9e745163d99cb762f3ee5a3d17548738d9
         doc_struct_hash: sha256:0c96eea3bb7ac0d151384b26ce5a4870d2a95b2de529cecb18aadadae8f5fe91
-        lines: [220, 235]
+        lines: [223, 238]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#baseStaticTools
@@ -222,12 +222,23 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: baseStaticTools
-        hash: sha256:9c265632d440ea4b74595dc91c452fabac9545bba31a8bde274bc6293e704b47
-        struct_hash: sha256:eea0e27f65867a3d9241aac1a857ef453f2a538736c1b6b5e026baba193c723e
-        doc_struct_hash: sha256:2c1a9760a2ed8155de9c42817f3e9e7b134a2fe871b0adadc64142c26039414b
-        lines: [237, 268]
+        hash: sha256:6e994c05f6817d38770a2e5e7e90371b94b5f44ff2f74855fa82214793c3eb78
+        struct_hash: sha256:27bbaedd6b2d67ef315a24aa7b1bb3dbfd95096b545eb87a85bbc9d41c59db56
+        doc_struct_hash: sha256:2a38f59d9dda08b28f8e56033bf6e658f7a077dfd437fe9819c9c15ef2c9126d
+        lines: [240, 272]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools.go#withPermissionTargetResolvers
+      level: function
+      anchor:
+        file: tools/tools.go
+        symbol: withPermissionTargetResolvers
+        hash: sha256:447f83b98b1978c23f7ea2686698121eea31f07a93d5ab37d9e11ec32147e0e3
+        struct_hash: sha256:282ef14fb22760926dc806da775a305d76f1208d52f431a697f8739d80c1e199
+        doc_struct_hash: sha256:282ef14fb22760926dc806da775a305d76f1208d52f431a697f8739d80c1e199
+        lines: [274, 281]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
     - id: tools/tools.go#reqSuper
       level: decl
       anchor:
@@ -236,7 +247,7 @@ nodes:
         hash: sha256:ce554fff0850cfa1089ff5b987ded9cf1c5f55df92863d7131a12328caae515f
         struct_hash: sha256:4c6a74346e64794b62184d6edd9b219e7ae4bddedd50d6855cac7d4eafd2a0fa
         doc_struct_hash: sha256:1b181b3125f5591d8639c1b8b938c02931ca39034cd3793f6588e58a3d171c68
-        lines: [270, 271]
+        lines: [283, 284]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#toolPerm
@@ -247,7 +258,7 @@ nodes:
         hash: sha256:abeafa9ca183f97a900cbfcbec38d61967b1bc344a1462d7f824b9ff7cd31490
         struct_hash: sha256:f1a0131dc7606cc924bda60e97c34a35ed86a70c656d774c6fb099e7e957c421
         doc_struct_hash: sha256:f6c7778d682aea3097e693eee86b2f228a25b2684225a23f181ffd1ed61d69c6
-        lines: [273, 360]
+        lines: [286, 373]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#workerAllowed
@@ -258,7 +269,7 @@ nodes:
         hash: sha256:46f3409bddd62a32957e4ba06a7ffceeed3b6321ef0b3a71b19ac27f30637d30
         struct_hash: sha256:4a1382ed5ef57b9e54c11230e5a70359a23ba806bbf0b291167b1c64fc2d23fc
         doc_struct_hash: sha256:fdab2caa2696c09c91f816d228df5c97ef6b9547b96e903f9b609b708cc3fbad
-        lines: [362, 385]
+        lines: [375, 398]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#groupSensitive
@@ -269,7 +280,7 @@ nodes:
         hash: sha256:4ccff8e592436587981a4667b82c3ff033443be221aa03291f78697dd2128065
         struct_hash: sha256:bce802da4c7d19c384b53a4288fedae0968e0b0d84c12200075e24b684ef2e57
         doc_struct_hash: sha256:2b67d4b8169a69990565623a3bed3237907db2d2ce6c14ced526cf9701618b37
-        lines: [387, 473]
+        lines: [400, 486]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#StripGroupSensitive
@@ -280,7 +291,7 @@ nodes:
         hash: sha256:0a67d95e28c404e6ca901f4881d65fdf9ec8cb451e15052cd87fc5ce2090921c
         struct_hash: sha256:265619eecd24f86def063ab8436909102942aef444f233dc59a45b7686357875
         doc_struct_hash: sha256:2b936d1ee7e45f0dafdd86da512dff9e199f112a6ea91cbdb8f598bdc2a35cfc
-        lines: [475, 485]
+        lines: [488, 498]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#StripApprovalRequired
@@ -291,7 +302,7 @@ nodes:
         hash: sha256:19a0fbbee6164b69640488a13295612b8ab4c1ccb2dc5f389125d4c629e090aa
         struct_hash: sha256:0846b711159791a4e733d2fea0a0c04c808c56dd63dabff820e02811cb0c1431
         doc_struct_hash: sha256:630e2cce24f427740bb269a5d8873ac5829fc33de54667299ca8fbd08751aa6a
-        lines: [487, 499]
+        lines: [500, 512]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#filterByPerm
@@ -299,12 +310,34 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: filterByPerm
-        hash: sha256:a5d28b6d966ba70d77d55bfcda1019bb72c18c66657dd713aa08ece8e704642b
-        struct_hash: sha256:8d52e0c09d97c2e0f60162ee686d3ad049574a993491c0a6d97c3babdf38e9e8
-        doc_struct_hash: sha256:bd6fb8b321d7f6654c648b2cd2b695ad25034ca377e39e957c9302fb6ae0a200
-        lines: [501, 523]
+        hash: sha256:e1f8378e5d358ab58037ecda4d6a54dac6bc31b8ea45c193cc48d98377c75bcd
+        struct_hash: sha256:a881425addaed47009e5160e19f33654279cd5132ee9a827fcba9e3540bb8651
+        doc_struct_hash: sha256:204a48bf5d487aab8da412ef07007f95079fe35483932d5f2a8791776ed9a12b
+        lines: [514, 530]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools.go#requiredActionForTool
+      level: function
+      anchor:
+        file: tools/tools.go
+        symbol: requiredActionForTool
+        hash: sha256:008c02cbbec913e447d9eee5ea684d2b3d72f711d64362371966e25f5776464a
+        struct_hash: sha256:3f8d04e1b823f31dc1e9aab0aba255b522db2414223095e672a1b08df6e519f8
+        doc_struct_hash: sha256:3f8d04e1b823f31dc1e9aab0aba255b522db2414223095e672a1b08df6e519f8
+        lines: [532, 538]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/tools.go#withCurrentPermission
+      level: function
+      anchor:
+        file: tools/tools.go
+        symbol: withCurrentPermission
+        hash: sha256:06355ca2c51ccba0e3165be9c50e250fae53533d1b190d52df83646d0b836ba2
+        struct_hash: sha256:2ed598a0fe72fe6eb8672279339729dc6f0aa6f7543cb7c54629544ab8832c0c
+        doc_struct_hash: sha256:fb5814b6d7b426641f0ffaabf192be3c2c5ee0e84fe2e2dce98d653fc21e6868
+        lines: [540, 593]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
     - id: tools/tools.go#toolOutputLimit
       level: decl
       anchor:
@@ -313,7 +346,7 @@ nodes:
         hash: sha256:038444458a1a1e11ef9252a735046d3ecc8b90e4679b62b0b984e785b1bf1bfb
         struct_hash: sha256:807b3f06775859b2199c4d0973ae78c7292448083586977837671d0d360b3221
         doc_struct_hash: sha256:02fa9303d035f38287d6ef581e1d1016c3db3bfd68b1c294ff90148a5f0f79ae
-        lines: [525, 529]
+        lines: [595, 599]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#auditArgsLimit
@@ -324,7 +357,7 @@ nodes:
         hash: sha256:8c543e837af052e1aecd62947e8162c5de15cdeae10999dc93cdaf1f6f792210
         struct_hash: sha256:cecc6433a29f3067df6ae117a6377b8761a8794952a0ce24cd9a21adf568ec8a
         doc_struct_hash: sha256:cecc6433a29f3067df6ae117a6377b8761a8794952a0ce24cd9a21adf568ec8a
-        lines: [530, 530]
+        lines: [600, 600]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#withAudit
@@ -335,7 +368,7 @@ nodes:
         hash: sha256:5770bb660b50ee57a83cd6d05bd6271c22b5b1343d8e3a309ec63443ceddb356
         struct_hash: sha256:e33fedab73a070efc5ac5fe161238f8e5c813c2a8e319a410018a1d2ffc03e06
         doc_struct_hash: sha256:e33fedab73a070efc5ac5fe161238f8e5c813c2a8e319a410018a1d2ffc03e06
-        lines: [532, 555]
+        lines: [602, 625]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#boundedAuditArgs
@@ -346,7 +379,7 @@ nodes:
         hash: sha256:4d036c4b7f20c49d6bc14b112510da2fa3aefa6641f06fd2db362f0ef9862719
         struct_hash: sha256:0301725e8b170da7cea621559aa541b008aafa92b2a84015550704ff431dc7e6
         doc_struct_hash: sha256:0301725e8b170da7cea621559aa541b008aafa92b2a84015550704ff431dc7e6
-        lines: [557, 570]
+        lines: [627, 640]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#truncateToolOutput
@@ -357,7 +390,7 @@ nodes:
         hash: sha256:b0f328e9c1cab71df4e73947a0bc07f9bfda0802d9be7b3fc8c39f86c115ed0e
         struct_hash: sha256:d730b9f5cb7430fc61f6bdf38f62c6443e4d8bda4d52304c8436e8d91b2e032c
         doc_struct_hash: sha256:7e87c99b299a95d68d15ea740776a49c04825f60ba344b46036a832845ee2cf5
-        lines: [572, 584]
+        lines: [642, 654]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#obj
@@ -368,7 +401,7 @@ nodes:
         hash: sha256:7d17dd3f910904e41adec5459851782978f770529f87b69609ccfa6abf34c696
         struct_hash: sha256:295405c5ddb1d461bdb5bffd298e99eabb492f91bd4b57460be3e5c8c19fcad7
         doc_struct_hash: sha256:295405c5ddb1d461bdb5bffd298e99eabb492f91bd4b57460be3e5c8c19fcad7
-        lines: [588, 599]
+        lines: [658, 669]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#p
@@ -379,7 +412,7 @@ nodes:
         hash: sha256:cbb0d121e5f38771405273daacdd565475d12919f06730a74ea4f90d36d9d87c
         struct_hash: sha256:a530ba313e25fa02d398371708346c4df9e8c4ba4c7b2be29ec0537b9b472010
         doc_struct_hash: sha256:a530ba313e25fa02d398371708346c4df9e8c4ba4c7b2be29ec0537b9b472010
-        lines: [601, 603]
+        lines: [671, 673]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#enumP
@@ -390,7 +423,7 @@ nodes:
         hash: sha256:93621b207ef966c7727cd09cdd83b58077eb4ea01a52e73b73c15fa960bc9028
         struct_hash: sha256:df57568ca320d667ba646f952229ea275e8191d5a3c3844b509b25f4ba20181f
         doc_struct_hash: sha256:df57568ca320d667ba646f952229ea275e8191d5a3c3844b509b25f4ba20181f
-        lines: [605, 607]
+        lines: [675, 677]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#arr
@@ -401,7 +434,7 @@ nodes:
         hash: sha256:344f1a77a265145e34e8da66ec986dfa01dc0ea650dafa279eff96995c9399b3
         struct_hash: sha256:c94e03523df915ec5b634f78deeb8032cf4c41cacf60343c14a9610b91964052
         doc_struct_hash: sha256:c94e03523df915ec5b634f78deeb8032cf4c41cacf60343c14a9610b91964052
-        lines: [609, 611]
+        lines: [679, 681]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#decode
@@ -412,7 +445,7 @@ nodes:
         hash: sha256:a5c55489b10101d0e96d0ded9ae3e7cb2b231050748d222d49c70f1f01497015
         struct_hash: sha256:fd6cab8014497320f7c9293e8a2ed63841e9a6d8ee0455e03578eeac248e1d81
         doc_struct_hash: sha256:52392fc2061b00e36109b3ace763d7a16839fdcd3fee61e95a6ef32f8f28af6c
-        lines: [613, 623]
+        lines: [683, 693]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#tool
@@ -423,7 +456,7 @@ nodes:
         hash: sha256:9735393ecd55fedcf46a1883e4ce440e166f1f06ed3bea646603dacbd3594280
         struct_hash: sha256:5e974d89ac67399f3c6b7b8c42ea18a5b9390dd96a11644a41709793a3184349
         doc_struct_hash: sha256:edb85bb8712f044da283c72e5d1c1362660e3f7fbbda038721109223826be9fe
-        lines: [625, 628]
+        lines: [695, 698]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#immediateTool
@@ -434,7 +467,7 @@ nodes:
         hash: sha256:820b8b7c71fe452f4d6c5b0734ad7591f73911012c5094112460d470c42e5759
         struct_hash: sha256:cbb16d848c1d974a4b074304164698d77851dbc9cff89430b7921255dcd2e71e
         doc_struct_hash: sha256:cbb16d848c1d974a4b074304164698d77851dbc9cff89430b7921255dcd2e71e
-        lines: [630, 633]
+        lines: [700, 703]
       status: fresh
       since: 2026-07-20T03:54:29.351351Z
     - id: tools/tools.go#asynchronousTool
@@ -445,7 +478,7 @@ nodes:
         hash: sha256:89b1d2bc69684afd4ad0ac38da6111f864f38b1edfe35b5ae5ac9c8169c1b06c
         struct_hash: sha256:634df79654464de812415a50df932e20a3bab1fa1d143c815764255508dfcec7
         doc_struct_hash: sha256:634df79654464de812415a50df932e20a3bab1fa1d143c815764255508dfcec7
-        lines: [635, 676]
+        lines: [705, 746]
       status: fresh
       since: 2026-07-20T03:54:29.35373Z
     - id: tools/tools.go#parseTarget
@@ -456,7 +489,7 @@ nodes:
         hash: sha256:06fafc1e4f5a2f449c9e3abfc685433afe0a69d5cc4574653f813b70ed2675f5
         struct_hash: sha256:dd15b4a618b4b7c4e4a8eaffddb6af80ee7eae0440599204136fc01fd7cea23e
         doc_struct_hash: sha256:56d0c8d27f23ea3b465021e879e8045a05e78d4474ee97e086ec8543b21ec385
-        lines: [680, 691]
+        lines: [750, 761]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#mustUser
@@ -467,7 +500,7 @@ nodes:
         hash: sha256:62abd0a36c4a4b4ab26e4762c8bb74f522921f9c4a0c7e284b239a6b7cb55a2d
         struct_hash: sha256:0ee1c438114ca6bb2d31f62dd554c439b850932b484a0c498bd61332b559bc4f
         doc_struct_hash: sha256:c5a08ab319c1c0c7e6b55a6aefe4b835a6a46539f372c29ec5d4306bc3fca403
-        lines: [693, 703]
+        lines: [763, 773]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#resolveUserArg
@@ -478,7 +511,7 @@ nodes:
         hash: sha256:a044aeeb47fca42963101642515863a14d16dd6d6518d6d4f8daff6cd0584fc3
         struct_hash: sha256:ca92cbb46af4c1c18e063d844881a3d42b55ac03c189f56a836555f344bc461d
         doc_struct_hash: sha256:de3b7d031e2c9a2fd9f07840d4d21ab8d2c48cb0c659a31db5e1d687f994fe37
-        lines: [705, 764]
+        lines: [775, 834]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#parseTelegramUserSelector
@@ -489,7 +522,7 @@ nodes:
         hash: sha256:0e3a95cd6a3229c27bc275fb32305c29a8c5e85e858e096f0417ab9b1dda075f
         struct_hash: sha256:608dd62331b6ca6d5b5eef1369e48063984f55392e3928e0e34af7f3779184c5
         doc_struct_hash: sha256:608dd62331b6ca6d5b5eef1369e48063984f55392e3928e0e34af7f3779184c5
-        lines: [766, 776]
+        lines: [836, 846]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#userByTelegramID
@@ -500,7 +533,7 @@ nodes:
         hash: sha256:5bbbc021d40c7ac08ac60bf95bb6f115eb5c5c360931f93a5aca4fa7ac787976
         struct_hash: sha256:d9179a5695509db16c835a80b01e3f92c5aab6310399a6f5133fd13a492d4ec3
         doc_struct_hash: sha256:d9179a5695509db16c835a80b01e3f92c5aab6310399a6f5133fd13a492d4ec3
-        lines: [778, 797]
+        lines: [848, 867]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#telegramUserSelector
@@ -511,7 +544,7 @@ nodes:
         hash: sha256:694f4554d38bb1206c3ba554c23fac74a0c7d1f02a5150c5563ed7194a70bd14
         struct_hash: sha256:655224ae788f5e65ddf08744d33ec1dad64c55019dca979f417480f5cf06c7fe
         doc_struct_hash: sha256:655224ae788f5e65ddf08744d33ec1dad64c55019dca979f417480f5cf06c7fe
-        lines: [799, 804]
+        lines: [869, 874]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#userName
@@ -522,7 +555,7 @@ nodes:
         hash: sha256:8b4ada174d39e4dac352630e00347552b0ae09026ba8d887a9e1c3455765ac38
         struct_hash: sha256:8bc814de6b18edd65129c853be5cc61f3afb58b4c1dab75ace2cc380fdd020d4
         doc_struct_hash: sha256:8bc814de6b18edd65129c853be5cc61f3afb58b4c1dab75ace2cc380fdd020d4
-        lines: [806, 815]
+        lines: [876, 885]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#internalRef
@@ -533,7 +566,7 @@ nodes:
         hash: sha256:2b1754f2cf108cde96e674ce9e5803975dafd93d1b7e35b366e9098d9a74393e
         struct_hash: sha256:4c39cd56a4e39add904f7d028013ad421fddf258b7ffc0230de3b1aafde83369
         doc_struct_hash: sha256:4c39cd56a4e39add904f7d028013ad421fddf258b7ffc0230de3b1aafde83369
-        lines: [817, 819]
+        lines: [887, 889]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#truncate
@@ -544,7 +577,7 @@ nodes:
         hash: sha256:67b33aa113f1b65241d9b364b999ba577fbd9829d86c89e5b01a691e0405045d
         struct_hash: sha256:fd837018fc0a27b4baadb25cbc0c18f67899e7debbf6f2c0178c3fe97dad3efc
         doc_struct_hash: sha256:fd837018fc0a27b4baadb25cbc0c18f67899e7debbf6f2c0178c3fe97dad3efc
-        lines: [821, 832]
+        lines: [891, 902]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#fmtTime
@@ -555,6 +588,6 @@ nodes:
         hash: sha256:176853735307f66374e66451d58b5659826cdea92ad40b267f92342997715197
         struct_hash: sha256:6c4440abe9eb53f3c131c7b58f7a02bc637a2c7fdaf37aeca4036c482045198c
         doc_struct_hash: sha256:ef8e318821346c7a176092cd58c4b352c85435537240232237cc5b454cb5d8d1
-        lines: [834, 837]
+        lines: [904, 907]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

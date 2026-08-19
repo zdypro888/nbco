@@ -401,15 +401,17 @@ Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两�
 
 ## 权限体系
 
-**主动权限**（存在操作者身上：我能对谁做什么）：`write_profile` / `view_self_intro` / `manage_perm` / `generate_key`（员工邀请权限，对应工具 `invite_employee`；授权时也接受 `invite_employee` 作为别名） / `send_msg` / `create_project` / `edit_info` / `manage_telegram_group` / `manage_mandatory_schedule`（把面向目标用户的日程设为不可退订） / `manage_worker`（AI 员工管理，目标通常 `_all`），目标为用户 ID 或 `_all`。
+**主动权限**（存在操作者身上：我能做什么、作用于谁）：`write_profile` / `view_self_intro` / `manage_perm` / `send_msg` / `create_project` / `edit_info` / `manage_mandatory_schedule` 使用稳定用户 ID 或 `_all`；`manage_telegram_group` 使用稳定 `group_ref` 或 `_all`；`generate_key`（兼容别名 `invite_employee`）/ `manage_worker` 属于系统或自有资源能力，目标使用 `_all`，具体 Worker 归属在执行时重新校验。`list_permission_actions` 可读取当前完整能力词表和作用域，不需要从角色名称猜权限。
 
 **被动权限**（存在被操作者身上：谁能对我做什么）：`view_profile:<作者ID>` / `view_profile:_all`。
 
-规则：超管旁路；非超管管理权限时必须先拥有对“被管理人”的 `manage_perm`，且不能管理超级管理员；转授主动权限时还必须自己拥有该动作且范围不超过自己。例如：超管可授 CEO `manage_perm:_all` 与 `generate_key:_all`，CEO 就能再给下属授“邀请员工”权限；两个组长 A/B 如果没有彼此的 `manage_perm`，即使都能邀请员工，也不能互相改权限。派任务时执行人继承分配者的 `view_self_intro` 范围。判定逻辑在 `perm` 与工具层目标校验（有单测）。
+规则：角色/Skill 只决定 AI 的工作方式，不携带权限；权限是以 `granted_by → user_id + action + target` 表示的能力委托边。超管建立授权根；非超管必须同时拥有对“被管理人”的 `manage_perm` 和准备转授的能力，且目标范围不能放大、不能管理超级管理员。同一能力可以来自多个独立上级；读取和执行只认可从当前有效超管根可追溯的委托链。超管可撤全部来源，普通管理者只能撤自己或其管理链下级签发的来源，不能覆盖同级或更高层授权；撤销上游后会永久清理失去全部来源的下游授权，仍有另一条有效来源则保留。停用身份只暂停整条链，重新启用后恢复；明确撤权、Admin Worker 降级或吊销才永久清理失效链。授权、撤权和身份状态切换使用同一数据库图锁，工具层先验检查不能被并发变更绕过。
+
+例如：超管可授 CEO `manage_perm:_all` 与 `generate_key:_all`，CEO 再把邀请能力授给下属；两个组长 A/B 如果没有彼此的 `manage_perm`，即使都能邀请员工，也不能互相改权限。任务分配不会再隐式产生永久员工资料权限；任务、附件、参与者和 Worker claim 使用任务级访问关系，长期能力必须显式授权。已创建的业务对象保留审计身份，但每次后续变更仍按当前权限检查：例如失去 `manage_mandatory_schedule` 后不能继续修改仍为 mandatory 的日程，但可以把它降为 optional 或取消。
 
 ### 权限 → 工具矩阵（装配期裁剪）
 
-工具集在组装时就按权限裁剪（`tools.toolPerm` 注册表是单一事实来源）：没有对应权限的用户**看不到**该工具，而不是调用时才被拒；handler 内仍保留目标级校验（有能力 ≠ 对任意目标都行），双层防御。
+工具集在组装时就按权限裁剪（`tools.toolPerm` 是工具到能力的事实来源，`perm.ActiveActionDefinitions` 是能力词表的事实来源）：没有对应权限的用户**看不到**该工具，而不是调用时才被拒；handler 和存储层仍保留目标级、所有权和委托链校验（有能力 ≠ 对任意目标都行）。`list_capabilities` 还会返回当前能力的 `granted_targets`，供 Agent 规划时理解真实边界。
 
 | 所需权限 | 解锁的工具 |
 |----------|-----------|
@@ -424,7 +426,7 @@ Starlark 脚本工具默认仍是受限纯逻辑运行时，但可以通过两�
 | `manage_mandatory_schedule` | 允许在 `schedule_once_push` / `schedule_recurring_push` / `update_schedule` 中，对授权范围内的接收者设置 `recipient_policy=mandatory`；仍需相应 `send_msg` 权限 |
 | 超管 | `company_overview`、信息字段管理、用户启停、角色管理、行为规则 `save_rule` / `list_rules` / `set_rule_pinned`、成本统计 `ai_usage_stats`、底层兜底 `low_level_db_query` / `low_level_db_exec`、Telegram 群控制 |
 
-**worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。
+**普通 worker 机器账号**只拿白名单最小集（干活与沉淀知识：我的任务、进度、清单、知识库），即使其令牌访问 `/api/chat`、`/mcp` 也无法越权。显式设为 admin 的 Worker 是受审计的系统执行身份，仍只有其 owner 或超管能向它派发；每次执行保留 `requested_by`、任务/文件范围和 Worker 身份，不能靠改名或角色提示词获得权限。
 
 ## 测试
 

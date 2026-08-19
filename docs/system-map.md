@@ -16,7 +16,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 管理 Telegram 身份绑定、HTTP/MCP Access Token、真人一次性邀请、worker 绑定码。
 - 管理基本信息字段、自我介绍、他人评价、画像可见性。
 - 管理资料收集活动，分别跟踪字段齐全度、通知覆盖和完成进度。
-- 管理主动权限和被动权限，支持上级授权和转授权。
+- 管理主动权限和被动权限；主动权限是可追溯、可收窄、可多来源的能力委托图，支持用户 ID、Telegram `group_ref` 和 `_all` 作用域；上游撤权会使无其他来源的下游授权永久失效。
 - 管理组织组/项目组/部门成员关系。
 
 关键工具：
@@ -32,6 +32,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `invite_employee`
 - `grant_active_perm`
 - `revoke_active_perm`
+- `list_permission_actions`
 - `grant_passive_perm`
 - `revoke_passive_perm`
 - `view_user_perms`
@@ -270,6 +271,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 
 - `domain`：七个业务域之一。
 - `required_action`：需要的主动权限或 `superadmin`。
+- `granted_targets`：当前用户对该能力实际持有的稳定目标范围。
 - `risk`：`normal` / `sensitive` / `approval` / `admin`。
 - `available`：当前用户/入口是否可用。
 - `worker_allowed`：worker 机器账号是否可用。
@@ -307,5 +309,5 @@ AI 或管理员可用 `list_capabilities` 查询，而不是依赖手写 README 
 1. Web 管理台补齐文件上传/下载、worker 任务/日志、知识/规则/skill、群管理、eval run。
 2. 对话 eval runner 真正执行 `conversation_eval_cases`，覆盖 Telegram 格式、隐私、工具选择和群权限。
 3. Learning Controller：定期从聊天、worker lessons、资料分析中归纳候选，自动去重/冲突打分。
-4. 权限模板：CEO、项目负责人、人事、财务、AI worker 监护人等角色化授权包。
+4. 委托策略：在不把职位硬编码成权限的前提下，支持可审计、可预览、原子应用的动态能力授权方案。
 5. Ops 中心：worker 离线、队列堆积、Telegram 失败、AI 成本异常、模型健康集中展示。

@@ -256,9 +256,26 @@ func (s *Store) UpdateUserInfo(ctx context.Context, id int64, kv map[string]stri
 	return err
 }
 
-// SetUserStatus 停用/启用。
+// SetUserStatus suspends or resumes an identity. Serialize the state change
+// with permission graph mutations so a grant cannot pass its live-issuer check
+// concurrently with disable and later revive as an unexpected dormant edge.
 func (s *Store) SetUserStatus(ctx context.Context, id int64, status string) error {
-	return s.execOne(ctx, `UPDATE users SET status = $2, updated_at = now() WHERE id = $1`, id, status)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, permissionGraphLock); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `UPDATE users SET status = $2, updated_at = now() WHERE id = $1`, id, status)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 // ChatRef 取用户在某渠道的通知投递地址。

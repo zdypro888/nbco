@@ -5,12 +5,14 @@
 // 超管旁路由调用方在入口处理（IsSuperadmin 直接放行），本包只做规则判定。
 //
 // 数据形态沿用 store.Grant：
-//   - active:  UserID=操作者, Action=动作, Target=目标用户ID文本或 "_all"
+//   - active:  UserID=操作者, Action=动作；用户作用域的 Target 是目标用户ID
+//     文本或 "_all"，系统/自有资源作用域只能是 "_all"
 //   - passive: UserID=被操作者, Action="view_profile:<作者ID>" 或 "view_profile:_all",
 //     Target=查看者ID文本或 "_all"
 package perm
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -35,46 +37,156 @@ const (
 	ActManageWorker = "manage_worker"
 )
 
-// ActiveActions 合法主动动作集合。
-var ActiveActions = map[string]bool{
-	ActWriteProfile:            true,
-	ActViewSelfIntro:           true,
-	ActManagePerm:              true,
-	ActGenerateKey:             true,
-	ActSendMsg:                 true,
-	ActCreateProject:           true,
-	ActEditInfo:                true,
-	ActManageTGGroup:           true,
-	ActManageMandatorySchedule: true,
-	ActManageWorker:            true,
+type ActiveScope string
+
+const (
+	// ScopeUser means Target is a stable user ID or _all.
+	ScopeUser ActiveScope = "user"
+	// ScopeGlobal means the capability governs the actor's own/system resource
+	// domain and therefore only accepts _all. Resource ownership is checked by
+	// the target tool at execution time.
+	ScopeGlobal ActiveScope = "global"
+	// ScopeTelegramGroup accepts one stable telegram:group:<chat-id> reference
+	// or _all. Group names are display labels and never authorization keys.
+	ScopeTelegramGroup ActiveScope = "telegram_group"
+)
+
+// ActiveAction defines the stable vocabulary used by storage, tool assembly
+// and the AI-facing permission tools. Roles may bundle these capabilities but
+// never replace target-level authorization.
+type ActiveAction struct {
+	Name        string
+	Description string
+	Scope       ActiveScope
+	Aliases     []string
+}
+
+var activeActions = []ActiveAction{
+	{Name: ActWriteProfile, Description: "给目标成员写画像", Scope: ScopeUser},
+	{Name: ActViewSelfIntro, Description: "查看目标成员的自我介绍", Scope: ScopeUser},
+	{Name: ActManagePerm, Description: "管理目标成员的权限", Scope: ScopeUser},
+	{Name: ActGenerateKey, Description: "签发真人员工一次性邀请", Scope: ScopeGlobal, Aliases: []string{"invite_employee"}},
+	{Name: ActSendMsg, Description: "向目标成员发送消息", Scope: ScopeUser},
+	{Name: ActCreateProject, Description: "创建项目并给目标成员安排工作", Scope: ScopeUser},
+	{Name: ActEditInfo, Description: "修改目标成员的基本信息", Scope: ScopeUser},
+	{Name: ActManageTGGroup, Description: "管理指定或全部已接入的 Telegram 群", Scope: ScopeTelegramGroup},
+	{Name: ActManageMandatorySchedule, Description: "为目标成员设置不可退订日程", Scope: ScopeUser},
+	{Name: ActManageWorker, Description: "创建和调度自己名下的 AI Worker", Scope: ScopeGlobal},
+}
+
+// ActiveActionDefinitions returns a detached copy so callers cannot mutate
+// the process-wide authorization vocabulary.
+func ActiveActionDefinitions() []ActiveAction {
+	out := make([]ActiveAction, len(activeActions))
+	for i, action := range activeActions {
+		out[i] = action
+		out[i].Aliases = slices.Clone(action.Aliases)
+	}
+	return out
+}
+
+// NormalizeActiveAction maps accepted aliases to the stored canonical name.
+func NormalizeActiveAction(action string) string {
+	action = strings.TrimSpace(action)
+	for _, definition := range activeActions {
+		if action == definition.Name || slices.Contains(definition.Aliases, action) {
+			return definition.Name
+		}
+	}
+	return action
+}
+
+func activeActionDefinition(action string) (ActiveAction, bool) {
+	action = NormalizeActiveAction(action)
+	for _, definition := range activeActions {
+		if definition.Name == action {
+			return definition, true
+		}
+	}
+	return ActiveAction{}, false
+}
+
+// ActiveActionDefinition returns detached metadata for one canonical action.
+func ActiveActionDefinition(action string) (ActiveAction, bool) {
+	definition, ok := activeActionDefinition(action)
+	if !ok {
+		return ActiveAction{}, false
+	}
+	definition.Aliases = slices.Clone(definition.Aliases)
+	return definition, true
 }
 
 const viewProfilePrefix = "view_profile:"
 
-// ValidActiveAction 校验主动动作。
-func ValidActiveAction(action string) bool { return ActiveActions[action] }
+// ValidActiveAction checks the canonical active capability name.
+func ValidActiveAction(action string) bool {
+	definition, ok := activeActionDefinition(action)
+	return ok && definition.Name == strings.TrimSpace(action)
+}
 
-// ValidPassiveAction 校验被动动作格式：view_profile:_all 或 view_profile:<数字>。
-func ValidPassiveAction(action string) bool {
-	suffix, ok := strings.CutPrefix(action, viewProfilePrefix)
+// ValidActiveTarget checks that the target shape matches the capability's
+// declared scope. User-scoped actions accept a stable numeric ID or _all;
+// global/owned-resource capabilities accept only _all.
+func ValidActiveTarget(action, target string) bool {
+	definition, ok := activeActionDefinition(action)
 	if !ok {
 		return false
 	}
-	if suffix == store.TargetAll {
+	target = strings.TrimSpace(target)
+	switch definition.Scope {
+	case ScopeGlobal:
+		return target == store.TargetAll
+	case ScopeTelegramGroup:
+		if target == store.TargetAll {
+			return true
+		}
+		value, ok := strings.CutPrefix(target, "telegram:group:")
+		if !ok {
+			return false
+		}
+		id, err := strconv.ParseInt(value, 10, 64)
+		return err == nil && id != 0
+	}
+	if target == store.TargetAll {
 		return true
 	}
-	_, err := strconv.ParseInt(suffix, 10, 64)
-	return err == nil && suffix != ""
+	value, err := strconv.ParseInt(target, 10, 64)
+	return err == nil && value > 0
+}
+
+// ParsePassiveProfileAuthor parses view_profile:_all or a stable positive
+// author user ID. The caller may additionally verify that the user still
+// exists when creating a new disclosure grant.
+func ParsePassiveProfileAuthor(action string) (id int64, all, ok bool) {
+	suffix, ok := strings.CutPrefix(action, viewProfilePrefix)
+	if !ok {
+		return 0, false, false
+	}
+	if suffix == store.TargetAll {
+		return 0, true, true
+	}
+	id, err := strconv.ParseInt(suffix, 10, 64)
+	return id, false, err == nil && id > 0
+}
+
+// ValidPassiveAction validates the stored passive action shape.
+func ValidPassiveAction(action string) bool {
+	_, _, ok := ParsePassiveProfileAuthor(action)
+	return ok
 }
 
 // CheckActive 判定 grants（操作者的授权集合）是否允许对 targetID 执行 action。
 func CheckActive(grants []store.Grant, action string, targetID int64) bool {
-	key := strconv.FormatInt(targetID, 10)
+	return CheckActiveTarget(grants, action, strconv.FormatInt(targetID, 10))
+}
+
+// CheckActiveTarget checks an already canonicalized user/resource target.
+func CheckActiveTarget(grants []store.Grant, action, target string) bool {
 	for _, g := range grants {
 		if g.Kind != store.KindActive || g.Action != action {
 			continue
 		}
-		if g.Target == key || g.Target == store.TargetAll {
+		if g.Target == target || g.Target == store.TargetAll {
 			return true
 		}
 	}
@@ -124,7 +236,7 @@ func CanViewProfile(viewerID, subjectID, authorID int64, viewerIsSuper bool,
 //	granter 持有 action:_all → 可授任意目标；
 //	granter 仅持有 action:<t> → 只能授完全相同的目标 <t>（不能授 _all，也不能授别的目标）。
 func CanGrantActive(granterGrants []store.Grant, action, targetKey string) bool {
-	if !ValidActiveAction(action) {
+	if !ValidActiveAction(action) || !ValidActiveTarget(action, targetKey) {
 		return false
 	}
 	hasAll := false
@@ -146,21 +258,4 @@ func CanGrantActive(granterGrants []store.Grant, action, targetKey string) bool 
 		return false
 	}
 	return exact[targetKey]
-}
-
-// ViewIntroTargets 计算某人 view_self_intro 的可见范围，用于派任务时的权限继承：
-// 返回 ("_all", nil) 或 (非通配) 目标 ID 列表。
-func ViewIntroTargets(grants []store.Grant) (all bool, targets []int64) {
-	for _, g := range grants {
-		if g.Kind != store.KindActive || g.Action != ActViewSelfIntro {
-			continue
-		}
-		if g.Target == store.TargetAll {
-			return true, nil
-		}
-		if id, err := strconv.ParseInt(g.Target, 10, 64); err == nil {
-			targets = append(targets, id)
-		}
-	}
-	return false, targets
 }

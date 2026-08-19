@@ -1,7 +1,8 @@
 // Package store 是 PostgreSQL 存储层：连接池、内嵌迁移、各领域的数据访问。
 //
 // 约定：
-//   - 未找到返回 ErrNotFound；唯一冲突返回 ErrConflict；调用方据此翻译成用户提示。
+//   - 未找到返回 ErrNotFound；唯一冲突返回 ErrConflict；授权来源无效返回
+//     ErrForbidden；调用方据此翻译成用户提示。
 //   - 所有方法接收 ctx；不持有业务逻辑（权限判定在 perm 包，编排在 tools/chat）。
 package store
 
@@ -23,8 +24,9 @@ var migrationsFS embed.FS
 
 // 哨兵错误。
 var (
-	ErrNotFound = errors.New("记录不存在")
-	ErrConflict = errors.New("记录已存在")
+	ErrNotFound  = errors.New("记录不存在")
+	ErrConflict  = errors.New("记录已存在")
+	ErrForbidden = errors.New("权限不足")
 )
 
 // Store 持有连接池。

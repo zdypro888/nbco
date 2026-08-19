@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/engine.go
-        hash: sha256:5a4f3d4a60bdaa074d2eded747de266667a4ea7e911fdedfb0a6340e971d4efd
+        hash: sha256:cc144dd55c12a52031f53361dd91c08033cc6843193a564f0dd31bcafd3256eb
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -365,11 +365,11 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: capabilityFingerprint
-        hash: sha256:3b93bd84898f01b7a640e6277fc7190fc0a58ce76468c368b25747e18204580c
-        struct_hash: sha256:a5e9b120d54f82e49108abe412b166bd751fd5e7060186b7854d128d703ee21d
-        doc_struct_hash: sha256:a5e9b120d54f82e49108abe412b166bd751fd5e7060186b7854d128d703ee21d
-        lines: [599, 621]
-      status: suspect
+        hash: sha256:3361ac2969859126c238d76343088f79e0d4dff78980cce929d028a066b03535
+        struct_hash: sha256:965b47866f7333ac44857a317d5b0be4f747a38848a6f26126a6aedc43ac43a4
+        doc_struct_hash: sha256:965b47866f7333ac44857a317d5b0be4f747a38848a6f26126a6aedc43ac43a4
+        lines: [599, 622]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_9dc16a11
@@ -393,7 +393,7 @@ nodes:
         hash: sha256:313ddc75e99ced2f2ddd8d4eb8c159326064907ececd336ff0166b53efdd2c9c
         struct_hash: sha256:a45ff9807b459d3500e5b93db4fd8d5fce154c61c804fb860734dac9dd237a49
         doc_struct_hash: sha256:a45ff9807b459d3500e5b93db4fd8d5fce154c61c804fb860734dac9dd237a49
-        lines: [623, 626]
+        lines: [624, 627]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#Engine.outputTokenLimit
@@ -404,7 +404,7 @@ nodes:
         hash: sha256:51ff98b2af4865f7b7b43b5affdf92f190b06e06eeab77838f194c0cc9e495bb
         struct_hash: sha256:d93049dd0768bfca3960c04398ed818c0761b2a6ff26a5d0fa5f0685fedde1fc
         doc_struct_hash: sha256:d93049dd0768bfca3960c04398ed818c0761b2a6ff26a5d0fa5f0685fedde1fc
-        lines: [628, 633]
+        lines: [629, 634]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#Engine.modelFor
@@ -415,7 +415,7 @@ nodes:
         hash: sha256:996c92e6e8a5b96663cd33413e84f2404f350a6101049d0caa1d74be6872a3b7
         struct_hash: sha256:6711fa8230ef95b752c5f17ed38303ca1bd47128bf56d76892ab61dea1b5b44f
         doc_struct_hash: sha256:6711fa8230ef95b752c5f17ed38303ca1bd47128bf56d76892ab61dea1b5b44f
-        lines: [635, 661]
+        lines: [636, 662]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#modelRetryConfig
@@ -426,7 +426,7 @@ nodes:
         hash: sha256:6853423fda84e50893cccd4da8ca7bbdf3660a30879e3336152570f056f95550
         struct_hash: sha256:9c00a44ed92440f04d3f5bc0662a8be22b77d154bab5b63709667932413493b9
         doc_struct_hash: sha256:9c00a44ed92440f04d3f5bc0662a8be22b77d154bab5b63709667932413493b9
-        lines: [663, 678]
+        lines: [664, 679]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#modelRetryBackoff
@@ -437,7 +437,7 @@ nodes:
         hash: sha256:d5cb8b05332c9c7cb761e3f31d5ffa5dc6d76d52a3c58b075b39fa86af529871
         struct_hash: sha256:1ec8beec792fdbf7ffd9e6226012a22f32318a86c0af713da51c4d8473073517
         doc_struct_hash: sha256:1ec8beec792fdbf7ffd9e6226012a22f32318a86c0af713da51c4d8473073517
-        lines: [680, 689]
+        lines: [681, 690]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#isRetryableModelErr
@@ -448,7 +448,7 @@ nodes:
         hash: sha256:b2b268a8a41ff376257efe515b4976a99edef8b9f9b5579cdc4eefa283517711
         struct_hash: sha256:d9ac86750a1e5d3cc21a8aed2537db451f480f40b237854f538c7e59656a8f45
         doc_struct_hash: sha256:d9ac86750a1e5d3cc21a8aed2537db451f480f40b237854f538c7e59656a8f45
-        lines: [691, 728]
+        lines: [692, 729]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#dropLeadingNonUser
@@ -459,7 +459,7 @@ nodes:
         hash: sha256:19f0bb362cc7b43244f8dc0ecb4e8de94d13d42a7706f6518347f62c807151cb
         struct_hash: sha256:5f252bf2c3b971551d83b2c56b21ace72ac9776dd350d2087d5285a1a1c72a4e
         doc_struct_hash: sha256:5f252bf2c3b971551d83b2c56b21ace72ac9776dd350d2087d5285a1a1c72a4e
-        lines: [730, 735]
+        lines: [731, 736]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#readStream
@@ -470,7 +470,7 @@ nodes:
         hash: sha256:07bcb8bfc55e7428111d4fe5ca2968f12dd58272e07b0394420e1a92c9b25418
         struct_hash: sha256:d70999656de0a0af4a291885eb3bb45a360238672af2d317fcc4466a5d687895
         doc_struct_hash: sha256:7c9f77b3c101ee14530cc3ec3d898244eb93ed8218919a016259785f550a133f
-        lines: [737, 794]
+        lines: [738, 795]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#collect
@@ -481,7 +481,7 @@ nodes:
         hash: sha256:58f01a6b7b406a33db1a3d86000a41352535f45c556824522cc61ac7a250a717
         struct_hash: sha256:b74bae82d900cadb992586a0f49c49750735b35cc28e7d802caa4500722f54c2
         doc_struct_hash: sha256:3e2ca7557f25a76c7a289f86010fc6059c137313111f7e0b325bf0ed7c4898a0
-        lines: [796, 920]
+        lines: [797, 921]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -550,7 +550,7 @@ nodes:
         hash: sha256:82e2c73039257597637edec27f3a71ac6b0fb49f91973ff623d8a42073dc9c0e
         struct_hash: sha256:9ffb68650978d791421db41d036a6ea3ab05deb18325dfa501de995c04d36983
         doc_struct_hash: sha256:9ffb68650978d791421db41d036a6ea3ab05deb18325dfa501de995c04d36983
-        lines: [922, 927]
+        lines: [923, 928]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#preservePartialAgentError
@@ -561,7 +561,7 @@ nodes:
         hash: sha256:e99606df38949dbec70a1fc5271e7a2824cd60f6b6a1f0247ac803206d59b4d8
         struct_hash: sha256:06609cb3de18b751c7a6d9053934f17e83f2edba7c73c6979f67f7c1f34c29a6
         doc_struct_hash: sha256:8489d17f64dac29dff3fbef7f7d495be541db55c7c74cef05ded1babd1380edc
-        lines: [929, 945]
+        lines: [930, 946]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#outputLikelyTruncated
@@ -572,7 +572,7 @@ nodes:
         hash: sha256:2818779dbc6b89f32be804e3a68b0ffbcf796e71cdba0989838c63c874c97da0
         struct_hash: sha256:d423551a39ee7cd735d8dee3a01d7de749e8a2185c240b67e2419e5deb86486c
         doc_struct_hash: sha256:d423551a39ee7cd735d8dee3a01d7de749e8a2185c240b67e2419e5deb86486c
-        lines: [947, 959]
+        lines: [948, 960]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#einoTool
@@ -583,7 +583,7 @@ nodes:
         hash: sha256:9dac11f5cd819ea24a7aa167add2f0e8d9060dfa1237279ea5ec61d7a9677b85
         struct_hash: sha256:b9995ae92fbf409d2de0042c4a3f5143b9eaea39952be848c851f17e21e00ddc
         doc_struct_hash: sha256:9dd0db4c5bef2f2c49ab1709cdfc22a6ef968d73f17f46af6081dad159d9a79d
-        lines: [961, 964]
+        lines: [962, 965]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#einoTool.Info
@@ -594,7 +594,7 @@ nodes:
         hash: sha256:4c9a099819b41b3346e22407dc8f6c24affabc6848e8d96e61cfe066ea2a17d4
         struct_hash: sha256:a4949348e2f418516eaef8b639c21257ec30936426d84c9f64991748f21b9099
         doc_struct_hash: sha256:a4949348e2f418516eaef8b639c21257ec30936426d84c9f64991748f21b9099
-        lines: [966, 980]
+        lines: [967, 981]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#einoTool.InvokableRun
@@ -605,7 +605,7 @@ nodes:
         hash: sha256:bba1c8279ef215d12390a9f99149b435a186064e76b1b038be2eb96ea9b513d5
         struct_hash: sha256:aa54ecfc5685f101eb7e4a1c9462ecd49d9337f2e9783ea146dee812370f3c35
         doc_struct_hash: sha256:aa54ecfc5685f101eb7e4a1c9462ecd49d9337f2e9783ea146dee812370f3c35
-        lines: [982, 988]
+        lines: [983, 989]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#toJSONSchema
@@ -616,6 +616,6 @@ nodes:
         hash: sha256:8f1c38a952b882ffc1b50b01ca27477db5f0c828abc3ec54f79c665e51183f94
         struct_hash: sha256:7d811add61d287c46a4708d24743ee8fc6405106a2cc0487d4ecfe718e63bdd8
         doc_struct_hash: sha256:7d811add61d287c46a4708d24743ee8fc6405106a2cc0487d4ecfe718e63bdd8
-        lines: [990, 1003]
+        lines: [991, 1004]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

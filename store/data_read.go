@@ -52,14 +52,15 @@ var dataSourceDefs = map[string]dataSourceDef{
 			Name: "users", Description: "成员目录；所有人可见稳定用户ID和名称，动态 info 仅本人、超管或持有 view_self_intro 授权者可见。",
 			Fields: []string{"user_id", "name", "status", "is_superadmin", "is_worker", "owner_id", "worker_last_seen", "info", "created_at"},
 		},
-		query: `SELECT jsonb_build_object(
+		query: `WITH RECURSIVE ` + effectiveActiveGrantsCTE + `
+		SELECT jsonb_build_object(
 			'user_id', u.id, 'name', u.name, 'status', u.status,
 			'is_superadmin', u.is_superadmin, 'is_worker', u.is_worker,
 			'owner_id', CASE WHEN $2 OR u.id = $1 OR u.owner_id = $1 THEN u.owner_id END,
 			'worker_last_seen', CASE WHEN $2 OR u.id = $1 OR u.owner_id = $1 THEN u.worker_last_seen END,
 			'info', CASE WHEN $2 OR u.id = $1 OR EXISTS (
-				SELECT 1 FROM permissions p
-				 WHERE p.kind = 'active' AND p.user_id = $1 AND p.action = 'view_self_intro'
+				SELECT 1 FROM effective_active p
+				 WHERE p.user_id = $1 AND p.action = 'view_self_intro'
 				   AND p.target IN ('_all', u.id::text)
 			) THEN u.info ELSE '{}'::jsonb END,
 			'created_at', u.created_at
@@ -84,15 +85,16 @@ var dataSourceDefs = map[string]dataSourceDef{
 			Name: "profiles", Description: "成员画像条目；按双向画像权限逐行裁剪。",
 			Fields: []string{"profile_id", "subject_id", "author_id", "position", "content", "updated_at"},
 		},
-		query: `SELECT jsonb_build_object(
+		query: `WITH RECURSIVE ` + effectiveActiveGrantsCTE + `
+		SELECT jsonb_build_object(
 			'profile_id', p.id, 'subject_id', p.subject_id, 'author_id', p.author_id,
 			'position', p.position, 'content', p.content, 'updated_at', p.updated_at
 		) AS item, p.updated_at AS sort_at, p.id AS sort_id
 		FROM profiles p
 		WHERE $2 OR p.author_id = $1
 		   OR (p.author_id = p.subject_id AND EXISTS (
-			 SELECT 1 FROM permissions g
-			  WHERE g.kind = 'active' AND g.user_id = $1 AND g.action = 'view_self_intro'
+			 SELECT 1 FROM effective_active g
+			  WHERE g.user_id = $1 AND g.action = 'view_self_intro'
 			    AND g.target IN ('_all', p.subject_id::text)
 		   ))
 		   OR EXISTS (
@@ -105,15 +107,18 @@ var dataSourceDefs = map[string]dataSourceDef{
 	},
 	"permissions": {
 		DataSource: DataSource{
-			Name: "permissions", Description: "权限授权记录；普通用户只看自己的权限或自己授出的权限，超管可看全部。",
+			Name: "permissions", Description: "当前有效权限委托；普通用户只看自己的权限或自己授出的权限，超管可看全部。",
 			Fields: []string{"permission_id", "kind", "user_id", "action", "target", "granted_by", "created_at"},
 		},
-		query: `SELECT jsonb_build_object(
+		query: `WITH RECURSIVE ` + effectiveActiveGrantsCTE + `
+		SELECT jsonb_build_object(
 			'permission_id', p.id, 'kind', p.kind, 'user_id', p.user_id,
 			'action', p.action, 'target', p.target, 'granted_by', p.granted_by,
 			'created_at', p.created_at
 		) AS item, p.created_at AS sort_at, p.id AS sort_id
-		FROM permissions p WHERE $2 OR p.user_id = $1 OR p.granted_by = $1`,
+		FROM permissions p
+		WHERE (p.kind = 'passive' OR EXISTS (SELECT 1 FROM effective_active e WHERE e.id = p.id))
+		  AND ($2 OR p.user_id = $1 OR p.granted_by = $1)`,
 	},
 	"workers": {
 		DataSource: DataSource{

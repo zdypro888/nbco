@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/schedule_integration_test.go
-        hash: sha256:5608e7e8ff1b67f25bb49241790446791d933af0c1b1ab995bdf59cafd847d76
+        hash: sha256:f72b414926a1579f100ed77b1027659d9ce2c5cf3ba7e1210694bfe75f37cfc1
         lines: [0, 0]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/schedule_integration_test.go
         symbol: TestCancelScheduleReportsCompletedStateWithoutRewritingHistory
-        hash: sha256:1638cd69a3521696b30dc5424d36948d37cee90f2d1eec502227720cffb4c4f2
-        struct_hash: sha256:75a28dca9005d7e6c93a7370ac2963c5b3d4b47c391f68aae07c1be7257d228a
-        doc_struct_hash: sha256:75a28dca9005d7e6c93a7370ac2963c5b3d4b47c391f68aae07c1be7257d228a
-        lines: [13, 55]
+        hash: sha256:854166fc2e3adb27a8f268fcdc759ae8b2537771d7a1e241684b335ed8d5240d
+        struct_hash: sha256:907c6e86f30c5b1bd6720d2591f36402428917818cc356658e1e5bb632f60f81
+        doc_struct_hash: sha256:907c6e86f30c5b1bd6720d2591f36402428917818cc356658e1e5bb632f60f81
+        lines: [15, 57]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
     - id: tools/schedule_integration_test.go#TestUpdateSchedulePreservesAudienceAndAutomationIdentity
@@ -27,17 +27,28 @@ nodes:
         hash: sha256:20ac242d261796a9a5ac93d6856b1677c4de52967d2d2857d4eca0143899101f
         struct_hash: sha256:fcd42fbc0878d79df2d814bcd3319e5b6a9176872af86ff4ec940d408b010cfa
         doc_struct_hash: sha256:fcd42fbc0878d79df2d814bcd3319e5b6a9176872af86ff4ec940d408b010cfa
-        lines: [57, 130]
-      status: fresh
+        lines: [59, 132]
+      status: suspect
       since: 2026-07-25T04:57:24.807345Z
     - id: tools/schedule_integration_test.go#TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt
       level: function
       anchor:
         file: tools/schedule_integration_test.go
         symbol: TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt
-        hash: sha256:b1155d140b0655e4d18a4657dd1a16b7bfe9f6a2813db93eceed80b5532ed4b8
-        struct_hash: sha256:5613ad7c7f402bd4c102c9fe01f380fe12d84b35e50c5334ff233a4b605d1347
-        doc_struct_hash: sha256:5613ad7c7f402bd4c102c9fe01f380fe12d84b35e50c5334ff233a4b605d1347
-        lines: [132, 164]
+        hash: sha256:d8447a30f8c5a5c51900e6570d36408fa40a50f6858b974a1469b200cae6d647
+        struct_hash: sha256:2e17014eb43b8229d7118b7d77030ad773101faed48db8b9ed72db550c8d76cb
+        doc_struct_hash: sha256:2e17014eb43b8229d7118b7d77030ad773101faed48db8b9ed72db550c8d76cb
+        lines: [134, 166]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
+    - id: tools/schedule_integration_test.go#TestMandatoryScheduleRequiresDelegatedAuthorityAndCannotBeMuted
+      level: function
+      anchor:
+        file: tools/schedule_integration_test.go
+        symbol: TestMandatoryScheduleRequiresDelegatedAuthorityAndCannotBeMuted
+        hash: sha256:4e7e5a0884e529cd57d4e51bb4b37442d4fcfc9675a0caefa58b167081fd667d
+        struct_hash: sha256:e1ae0944e19a813a9a25ed2527930e89ad4e7ec3027a6b9e3fa4b215853349b2
+        doc_struct_hash: sha256:e1ae0944e19a813a9a25ed2527930e89ad4e7ec3027a6b9e3fa4b215853349b2
+        lines: [168, 247]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z

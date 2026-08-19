@@ -363,7 +363,8 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 					continue
 				}
 				if d.Store != nil {
-					t = withAudit(d.Store, u.ID, nil, withApproval(d.Store, u.ID, t))
+					t = withAudit(d.Store, u.ID, nil,
+						withCurrentPermission(d.Store, u, withApproval(d.Store, u.ID, t)))
 				}
 				t = withArgumentNormalization(t)
 				out, err := t.Handler(ctx, raw)
@@ -479,6 +480,7 @@ func staticToolsForScript(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, dataReadTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
+	ts = withPermissionTargetResolvers(ts, d)
 	ts = append(ts, d.Extra...)
 	return ts
 }

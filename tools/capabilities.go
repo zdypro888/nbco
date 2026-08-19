@@ -31,19 +31,20 @@ const (
 )
 
 type Capability struct {
-	Name             string `json:"name"`
-	Domain           string `json:"domain"`
-	Effect           string `json:"effect"`
-	LoadMode         string `json:"load_mode"`
-	Completion       string `json:"completion"`
-	Description      string `json:"description"`
-	RequiredAction   string `json:"required_action,omitempty"`
-	Risk             string `json:"risk"`
-	Available        bool   `json:"available"`
-	SuperadminOnly   bool   `json:"superadmin_only"`
-	WorkerAllowed    bool   `json:"worker_allowed"`
-	GroupAllowed     bool   `json:"group_allowed"`
-	ApprovalRequired bool   `json:"approval_required"`
+	Name             string   `json:"name"`
+	Domain           string   `json:"domain"`
+	Effect           string   `json:"effect"`
+	LoadMode         string   `json:"load_mode"`
+	Completion       string   `json:"completion"`
+	Description      string   `json:"description"`
+	RequiredAction   string   `json:"required_action,omitempty"`
+	GrantedTargets   []string `json:"granted_targets,omitempty"`
+	Risk             string   `json:"risk"`
+	Available        bool     `json:"available"`
+	SuperadminOnly   bool     `json:"superadmin_only"`
+	WorkerAllowed    bool     `json:"worker_allowed"`
+	GroupAllowed     bool     `json:"group_allowed"`
+	ApprovalRequired bool     `json:"approval_required"`
 }
 
 var domainLabels = map[string]string{
@@ -72,46 +73,47 @@ var domainOrder = []string{
 
 var toolDomain = map[string]string{
 	// people
-	"get_my_profile":         CapabilityPeople,
-	"update_my_profile":      CapabilityPeople,
-	"get_my_infos":           CapabilityPeople,
-	"save_my_infos":          CapabilityPeople,
-	"view_user_infos":        CapabilityPeople,
-	"get_my_infos_on_user":   CapabilityPeople,
-	"save_infos_on_user":     CapabilityPeople,
-	"list_my_active_perms":   CapabilityPeople,
-	"list_my_passive_perms":  CapabilityPeople,
-	"grant_my_passive_perm":  CapabilityPeople,
-	"revoke_my_passive_perm": CapabilityPeople,
-	"grant_active_perm":      CapabilityPeople,
-	"revoke_active_perm":     CapabilityPeople,
-	"grant_passive_perm":     CapabilityPeople,
-	"revoke_passive_perm":    CapabilityPeople,
-	"view_user_perms":        CapabilityPeople,
-	"list_users":             CapabilityPeople,
-	"get_user_info":          CapabilityPeople,
-	"get_users_info":         CapabilityPeople,
-	"update_user_info":       CapabilityPeople,
-	"bulk_update_user_info":  CapabilityPeople,
-	"invite_employee":        CapabilityPeople,
-	"cancel_invites":         CapabilityPeople,
-	"get_user_stats":         CapabilityPeople,
-	"list_info_fields":       CapabilityPeople,
-	"add_info_field":         CapabilityPeople,
-	"remove_info_field":      CapabilityPeople,
-	"disable_user":           CapabilityPeople,
-	"enable_user":            CapabilityPeople,
-	"list_roles":             CapabilityPeople,
-	"activate_role":          CapabilityPeople,
-	"create_role":            CapabilityPeople,
-	"update_role":            CapabilityPeople,
-	"delete_role":            CapabilityPeople,
-	"create_org_group":       CapabilityPeople,
-	"list_org_groups":        CapabilityPeople,
-	"add_org_group_member":   CapabilityPeople,
-	"get_api_token_status":   CapabilityPeople,
-	"generate_api_token":     CapabilityPeople,
-	"revoke_api_token":       CapabilityPeople,
+	"get_my_profile":          CapabilityPeople,
+	"update_my_profile":       CapabilityPeople,
+	"get_my_infos":            CapabilityPeople,
+	"save_my_infos":           CapabilityPeople,
+	"view_user_infos":         CapabilityPeople,
+	"get_my_infos_on_user":    CapabilityPeople,
+	"save_infos_on_user":      CapabilityPeople,
+	"list_permission_actions": CapabilityPeople,
+	"list_my_active_perms":    CapabilityPeople,
+	"list_my_passive_perms":   CapabilityPeople,
+	"grant_my_passive_perm":   CapabilityPeople,
+	"revoke_my_passive_perm":  CapabilityPeople,
+	"grant_active_perm":       CapabilityPeople,
+	"revoke_active_perm":      CapabilityPeople,
+	"grant_passive_perm":      CapabilityPeople,
+	"revoke_passive_perm":     CapabilityPeople,
+	"view_user_perms":         CapabilityPeople,
+	"list_users":              CapabilityPeople,
+	"get_user_info":           CapabilityPeople,
+	"get_users_info":          CapabilityPeople,
+	"update_user_info":        CapabilityPeople,
+	"bulk_update_user_info":   CapabilityPeople,
+	"invite_employee":         CapabilityPeople,
+	"cancel_invites":          CapabilityPeople,
+	"get_user_stats":          CapabilityPeople,
+	"list_info_fields":        CapabilityPeople,
+	"add_info_field":          CapabilityPeople,
+	"remove_info_field":       CapabilityPeople,
+	"disable_user":            CapabilityPeople,
+	"enable_user":             CapabilityPeople,
+	"list_roles":              CapabilityPeople,
+	"activate_role":           CapabilityPeople,
+	"create_role":             CapabilityPeople,
+	"update_role":             CapabilityPeople,
+	"delete_role":             CapabilityPeople,
+	"create_org_group":        CapabilityPeople,
+	"list_org_groups":         CapabilityPeople,
+	"add_org_group_member":    CapabilityPeople,
+	"get_api_token_status":    CapabilityPeople,
+	"generate_api_token":      CapabilityPeople,
+	"revoke_api_token":        CapabilityPeople,
 
 	// work
 	"get_my_projects":        CapabilityWork,
@@ -340,6 +342,7 @@ var toolEffect = map[string]string{
 	"list_knowledge_versions":         ToolEffectRead,
 	"list_learning_candidates":        ToolEffectRead,
 	"list_material_entities":          ToolEffectRead,
+	"list_permission_actions":         ToolEffectRead,
 	"list_my_active_perms":            ToolEffectRead,
 	"list_my_passive_perms":           ToolEffectRead,
 	"list_my_projects":                ToolEffectRead,
@@ -494,6 +497,13 @@ func CapabilityRegistry(ctx context.Context, d Deps, u *store.User, includeUnava
 		seen[t.Name] = true
 		c := capabilityForTool(t)
 		c.Available = available[t.Name]
+		if c.RequiredAction != "" && c.RequiredAction != reqSuper {
+			if u.IsSuperadmin {
+				c.GrantedTargets = []string{store.TargetAll}
+			} else {
+				c.GrantedTargets = grantedTargets(grants, c.RequiredAction)
+			}
+		}
 		if includeUnavailable || c.Available {
 			out = append(out, c)
 		}
@@ -508,13 +518,30 @@ func CapabilityRegistry(ctx context.Context, d Deps, u *store.User, includeUnava
 	return out, nil
 }
 
-func capabilityForTool(t ai.Tool) Capability {
-	required := strings.TrimSpace(t.RequiredAction)
-	if required == "" {
-		if req, ok := toolPerm[t.Name]; ok {
-			required = req
+func grantedTargets(grants []store.Grant, action string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, grant := range grants {
+		if grant.Kind != store.KindActive || grant.Action != action || seen[grant.Target] {
+			continue
 		}
+		seen[grant.Target] = true
+		out = append(out, grant.Target)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i] == store.TargetAll {
+			return true
+		}
+		if out[j] == store.TargetAll {
+			return false
+		}
+		return out[i] < out[j]
+	})
+	return out
+}
+
+func capabilityForTool(t ai.Tool) Capability {
+	required, _ := requiredActionForTool(t)
 	superOnly := required == reqSuper
 	risk := "normal"
 	switch {
@@ -645,6 +672,9 @@ func renderCapabilities(caps []Capability) string {
 		req := ""
 		if c.RequiredAction != "" {
 			req = "；权限=" + c.RequiredAction
+			if len(c.GrantedTargets) > 0 {
+				req += "；范围=" + strings.Join(c.GrantedTargets, ",")
+			}
 		}
 		flags := []string{status, "效果=" + c.Effect, "风险=" + c.Risk}
 		if c.Completion == string(ai.ToolCompletionAsynchronous) {

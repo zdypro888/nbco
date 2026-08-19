@@ -535,8 +535,6 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				// 权限继承：子任务执行人继承拆分者的 view_self_intro 范围（超管 → _all）。
-				inheritViewPerms(ctx, d, u, created)
 				// 通知各执行人；worker 执行人推实时唤醒。
 				for _, t := range created {
 					if t.AssigneeID != u.ID {
@@ -678,7 +676,6 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 				if err != nil {
 					return "", err
 				}
-				inheritViewPermsForTaskPeople(ctx, d, u, task, after)
 				beforeRole := map[int64]string{}
 				for _, participant := range before {
 					beforeRole[participant.UserID] = participant.Role
@@ -1044,7 +1041,6 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				t := created.Task
-				inheritViewPermsForTaskPeople(ctx, d, u, t, created.Participants)
 				if created.Created && t.AssigneeID != u.ID {
 					notifyQuiet(ctx, d, t.AssigneeID,
 						fmt.Sprintf("📌 %s 给你分配了任务「%s」（%s）\n%s", u.Name, t.Title, internalRef("任务", t.ID), t.Description))
@@ -1270,69 +1266,6 @@ func renderTaskParticipantSummary(participants []store.TaskParticipant) string {
 		}
 	}
 	return strings.Join(parts, "；") + "。"
-}
-
-// inheritViewPerms 派任务时的权限继承：执行人获得分配者 view_self_intro 的可见范围。
-// 失败只记日志，不阻断派发。
-func inheritViewPerms(ctx context.Context, d Deps, assigner *store.User, created []*store.Task) {
-	ids := make([]int64, 0, len(created))
-	for _, task := range created {
-		if task != nil {
-			ids = append(ids, task.AssigneeID)
-		}
-	}
-	inheritViewPermsToUsers(ctx, d, assigner, ids)
-}
-
-func inheritViewPermsForTaskPeople(ctx context.Context, d Deps, assigner *store.User, task *store.Task, participants []store.TaskParticipant) {
-	if task == nil {
-		return
-	}
-	ids := []int64{task.AssigneeID}
-	for _, participant := range participants {
-		if participant.Role != store.TaskParticipantWatcher {
-			ids = append(ids, participant.UserID)
-		}
-	}
-	inheritViewPermsToUsers(ctx, d, assigner, ids)
-}
-
-func inheritViewPermsToUsers(ctx context.Context, d Deps, assigner *store.User, userIDs []int64) {
-	grantTo := func(assigneeID int64, target string) {
-		err := d.Store.GrantPerm(ctx, store.Grant{
-			Kind: store.KindActive, UserID: assigneeID, Action: perm.ActViewSelfIntro,
-			Target: target, GrantedBy: assigner.ID,
-		})
-		if err != nil && !errors.Is(err, store.ErrConflict) {
-			slog.Warn("权限继承失败", "assignee", assigneeID, "err", err)
-		}
-	}
-	var all bool
-	var targets []int64
-	if assigner.IsSuperadmin {
-		all = true
-	} else {
-		grants, err := d.Store.PermsOf(ctx, assigner.ID)
-		if err != nil {
-			slog.Warn("权限继承读取失败", "err", err)
-			return
-		}
-		all, targets = perm.ViewIntroTargets(grants)
-	}
-	seen := map[int64]bool{}
-	for _, assigneeID := range userIDs {
-		if assigneeID <= 0 || assigneeID == assigner.ID || seen[assigneeID] {
-			continue
-		}
-		seen[assigneeID] = true
-		if all {
-			grantTo(assigneeID, store.TargetAll)
-			continue
-		}
-		for _, tg := range targets {
-			grantTo(assigneeID, fmt.Sprintf("%d", tg))
-		}
-	}
 }
 
 // notifyChain 验收级联改变了状态的祖先任务：

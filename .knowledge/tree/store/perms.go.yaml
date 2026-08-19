@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/perms.go
-        hash: sha256:e04f7747ce7ccfea64f212503cd1ede32e680c4ca941a261e3da7527325333f5
+        hash: sha256:d8295a3e632e3a06b49485fd2cbb8054c06f1f76bacdd9b0347bf670d1e439fe
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -52,15 +52,59 @@ nodes:
         lines: [29, 30]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/perms.go#permissionGraphLock
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: permissionGraphLock
+        hash: sha256:49dc4fbd06e721f0e4f7fe258b419e2779776d2907e788fe79f44d478cbd05cf
+        struct_hash: sha256:00db068a504d034a461adc2ee3d40c82471b129eb09398a51dc72dd4d4e976d9
+        doc_struct_hash: sha256:a70e0ab7886607b382d0d6aae2a464c967c16d6075a8d7570d64444e1ab445c1
+        lines: [32, 34]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: store/perms.go#grantCols
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: grantCols
+        hash: sha256:4da8d01b3063797ceca5129c68663ec436819241ba561200a327e37c15c11f64
+        struct_hash: sha256:1df2a3c3828b1b8c56a1b6969429678f227059b92500a124e9eec8fe34890086
+        doc_struct_hash: sha256:1df2a3c3828b1b8c56a1b6969429678f227059b92500a124e9eec8fe34890086
+        lines: [36, 36]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: store/perms.go#effectiveActiveGrantsCTE
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: effectiveActiveGrantsCTE
+        hash: sha256:e475c42f43455017e646cbd725d645324a91342cf573cf06f56d42f069daf3d3
+        struct_hash: sha256:77dfcd57f17d4855b0753f1497ddf9634b7c8e9219707e6818c5fc49c0b75b5a
+        doc_struct_hash: sha256:c3f3974e03f2b750472d1c6b8615b4e60b7bc220b58c5dac1bc2e556a2dad1c9
+        lines: [38, 60]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: store/perms.go#structuralActiveGrantsCTE
+      level: decl
+      anchor:
+        file: store/perms.go
+        symbol: structuralActiveGrantsCTE
+        hash: sha256:d2a178b27f2b74240203ae99e05a521eb560434aee29bd8f77223163b9d40333
+        struct_hash: sha256:7aee80e7e6075070226de13e36e2beab01f4e6d45bc76065f3e6edf2cb133fc0
+        doc_struct_hash: sha256:60f0e709591090edfd12973e1083f99d2468466760926ac6fbb118db413cefa0
+        lines: [62, 82]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
     - id: store/perms.go#Store.GrantPerm
       level: function
       anchor:
         file: store/perms.go
         symbol: Store.GrantPerm
-        hash: sha256:8e5191a104bf94da34473d8b56e31b24ab68cc9929c0d06f2dfba273edb90f86
-        struct_hash: sha256:08ec0edd6b4d22e437a218654dbe1a5f059967a4e2c73da6a3ea8fe69e0f6901
-        doc_struct_hash: sha256:c44743d276c076dcdef10df0c0bf5a047c733951d96eb77e084692e3a64bfcd2
-        lines: [32, 38]
+        hash: sha256:1031500f28c4a83c26b2568b6eb568df4ea8878bb941a98f9cd021d673fa4cad
+        struct_hash: sha256:188853171ae353025a9e43ed6e9ba5adad62d23ca252ffa172a1b9565df003e9
+        doc_struct_hash: sha256:16cd9fa4faafe20b242ffe94cd7eebca009470c0121008a54af1e12c3859ddd3
+        lines: [84, 145]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/perms.go#Store.RevokePerm
@@ -68,10 +112,10 @@ nodes:
       anchor:
         file: store/perms.go
         symbol: Store.RevokePerm
-        hash: sha256:c9655612c051756f7d01d9c9690a9fa4497e0f9c3d403858c1759e3840ddc1dd
-        struct_hash: sha256:3c68fa564a4da8ddbce8bddde0f260977828cc024063f00d55ae646376fc73bc
-        doc_struct_hash: sha256:f322ea9cd57ffcf6230307b2e6f8703f7448c52df089c3af2a37f36fbe33a019
-        lines: [40, 45]
+        hash: sha256:b02dabf0c2c988ff3d40ca2e6ef1b70544e6bc4df8c6d358c558350cb288ea86
+        struct_hash: sha256:dd5faacf8bc335c8b3d10ff5b1a164471f88b062c90b9e9328b759b2ab0de5f5
+        doc_struct_hash: sha256:ff8cfe473e1e27cbbb8bcf9baf5db7ae991853914ec027572a3f63bb8db916bc
+        lines: [147, 259]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/perms.go#Store.PermsOf
@@ -79,10 +123,10 @@ nodes:
       anchor:
         file: store/perms.go
         symbol: Store.PermsOf
-        hash: sha256:f40fdb61f2f68c971013c736988368e54771d3e9e01a3d6355b5a0a91b2117b3
-        struct_hash: sha256:b95306fde69ceddd1fb593a496c485f2fa8bfc1b07e30f089a4e64fe144ce2b0
-        doc_struct_hash: sha256:d3a3a1309bd1fc334a5a79b2c33a0c4264f81da9a980be4cf21ad03f5482a56d
-        lines: [47, 52]
+        hash: sha256:63f31516ddb63567366fb487b95b41e10f6888d1b0f947d9a917a7c566edc7fd
+        struct_hash: sha256:52adc7922222d11a4365a2c45b8b61c49a632c42b0d0b4d0b3f3c376295c924e
+        doc_struct_hash: sha256:7d408a03cd03c86131c50491980ce93119dbe105034062ae20d1b1ffe1765cf7
+        lines: [261, 271]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/perms.go#Store.PassivePermsToward
@@ -90,10 +134,10 @@ nodes:
       anchor:
         file: store/perms.go
         symbol: Store.PassivePermsToward
-        hash: sha256:36f0cf132460ac2cf095d6fd138cf111bf820dcf851ba46193c78997127c3a9f
-        struct_hash: sha256:cafaf10fd517fa3eb8c6408bf79d06ba552dfc9d9ec745a90d71721ca71ccd67
-        doc_struct_hash: sha256:034e9e4d6a20a38c3862c463791fc8031d9c3e333ecff47d27492d2e33ee2104
-        lines: [54, 60]
+        hash: sha256:897f3e4f459dfe8e98b49ba72cb84eabea6253de1f0888b97afbc73ee2d12804
+        struct_hash: sha256:99b8d8bc9e69e0268cc3104820c1230989631e487567582bb53cade2055a3a67
+        doc_struct_hash: sha256:eecd5311522503f274869f917a718393bb6c55f23ebe25de385b85c146b031e8
+        lines: [273, 279]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/perms.go#Store.queryGrants
@@ -104,6 +148,6 @@ nodes:
         hash: sha256:b04756f05790feb569b77f31e9d1b186ecf8610ad569097bdc4511865dd116bb
         struct_hash: sha256:1c83356d4d2621c63123cee6764f75b4262990e8e59bfd10b5637a854c8f8784
         doc_struct_hash: sha256:1c83356d4d2621c63123cee6764f75b4262990e8e59bfd10b5637a854c8f8784
-        lines: [62, 77]
+        lines: [281, 296]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

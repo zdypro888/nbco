@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -20,6 +22,44 @@ func TestParseTelegramGroupRef(t *testing.T) {
 	}
 	if _, ok := parseTelegramGroupRef("示例公司群"); ok {
 		t.Fatal("group title should not parse as group ref")
+	}
+}
+
+func TestTelegramGroupMutationEnforcesExactPermissionTarget(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	root := mkToolsUser(t, s, "telegram-scope-root", true)
+	actor := mkToolsUser(t, s, "telegram-scope-actor", false)
+	for _, group := range []store.TelegramGroupState{
+		{ChatID: -100101, Title: "授权群", Type: "supergroup", Status: "member", UpdatedAt: time.Now()},
+		{ChatID: -100202, Title: "未授权群", Type: "supergroup", Status: "member", UpdatedAt: time.Now()},
+	} {
+		if err := s.SaveTelegramGroupState(ctx, group); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.GrantPerm(ctx, store.Grant{
+		Kind: store.KindActive, UserID: actor.ID, Action: perm.ActManageTGGroup,
+		Target: "telegram:group:-100101", GrantedBy: root.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var mutate ai.Tool
+	for _, candidate := range ForUserContext(ctx, Deps{Store: s}, actor, nil) {
+		if candidate.Name == "set_telegram_group_listen" {
+			mutate = candidate
+			break
+		}
+	}
+	if mutate.Handler == nil || mutate.ResolvePermissionTarget == nil {
+		t.Fatal("Telegram mutation lacks common target authorization metadata")
+	}
+	if _, err := mutate.Handler(ctx, json.RawMessage(`{"group":"telegram:group:-100202","listen":false}`)); !errors.Is(err, store.ErrForbidden) {
+		t.Fatalf("ungranted group mutation = %v, want ErrForbidden", err)
+	}
+	out, err := mutate.Handler(ctx, json.RawMessage(`{"group":"telegram:group:-100101","listen":false}`))
+	if err != nil || !strings.Contains(out, "已更新") {
+		t.Fatalf("granted group mutation = %q, %v", out, err)
 	}
 }
 

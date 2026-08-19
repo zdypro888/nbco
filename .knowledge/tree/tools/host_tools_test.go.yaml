@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/host_tools_test.go
-        hash: sha256:d7cae160fc05cbc701b9c1dda9a24119389fc262f750a658ea9e2d81f5f5f9e8
+        hash: sha256:b4f5f0f87dab3eceebf41e3841f7266678da9266b524e4ac3da99f4e92d0c4a7
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,20 +13,53 @@ nodes:
       anchor:
         file: tools/host_tools_test.go
         symbol: TestHostToolsFlowThroughCoreGovernance
-        hash: sha256:3995bc01bb99691351acac572c134fb68ab49c36b3a10c721d36bc76ebaa2ba7
-        struct_hash: sha256:3af52d719a16c988a0e222e397d236e860956d429b9e13e2ed55a1e83cd41975
-        doc_struct_hash: sha256:3af52d719a16c988a0e222e397d236e860956d429b9e13e2ed55a1e83cd41975
-        lines: [13, 46]
+        hash: sha256:61471db682d61a482d571177ade65ecd9c0637eb76bba0a1c383557e7876aa5c
+        struct_hash: sha256:aeded926649850b7e3cc9b463ed645ab44459f422f358625567bf671b3c97520
+        doc_struct_hash: sha256:aeded926649850b7e3cc9b463ed645ab44459f422f358625567bf671b3c97520
+        lines: [16, 49]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/host_tools_test.go#TestAssembledHostToolRechecksPermissionAtExecution
+      level: function
+      anchor:
+        file: tools/host_tools_test.go
+        symbol: TestAssembledHostToolRechecksPermissionAtExecution
+        hash: sha256:f68f49282b88505dcf20aae25d760de7128908dff58df8f4e9702772c2a6c35f
+        struct_hash: sha256:deacc4895f66967f87216665bc037a537348cf61112d8e6c0bd9bf78000b31ec
+        doc_struct_hash: sha256:deacc4895f66967f87216665bc037a537348cf61112d8e6c0bd9bf78000b31ec
+        lines: [51, 90]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/host_tools_test.go#TestHostToolCanDeclareResourceTargetAuthorization
+      level: function
+      anchor:
+        file: tools/host_tools_test.go
+        symbol: TestHostToolCanDeclareResourceTargetAuthorization
+        hash: sha256:bad658010cdb1117f2556fdc6b76d002fb5bd39ef6f5e71bfac772d2a0fa0091
+        struct_hash: sha256:76901ed50e388b63a4739b51279374ba90dde2f84c83bf7ab5f88ec37fbfd0a8
+        doc_struct_hash: sha256:76901ed50e388b63a4739b51279374ba90dde2f84c83bf7ab5f88ec37fbfd0a8
+        lines: [92, 145]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/host_tools_test.go#TestAssembledToolRejectsStaleAdminWorkerIdentity
+      level: function
+      anchor:
+        file: tools/host_tools_test.go
+        symbol: TestAssembledToolRejectsStaleAdminWorkerIdentity
+        hash: sha256:e06c0997d614e71430dbeed69f49ad71bf79eb32091b20a1e0aaf77a8b7d231c
+        struct_hash: sha256:7dea33e5e48257c9a0f646a5538e397a83f0ca22958ba261158aae1c939f8846
+        doc_struct_hash: sha256:7dea33e5e48257c9a0f646a5538e397a83f0ca22958ba261158aae1c939f8846
+        lines: [147, 190]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
     - id: tools/host_tools_test.go#TestHostToolsCannotShadowCoreTools
       level: function
       anchor:
         file: tools/host_tools_test.go
         symbol: TestHostToolsCannotShadowCoreTools
-        hash: sha256:19ffb9b0c04f8401150933638e5ea4ca9f8ba47ca8a8804502bbb9da40a5a9d7
-        struct_hash: sha256:20ee0da3c208959ba4b071a547e5fb3d88aaa9d33a412a9e9cdab0d0474405c8
-        doc_struct_hash: sha256:20ee0da3c208959ba4b071a547e5fb3d88aaa9d33a412a9e9cdab0d0474405c8
-        lines: [48, 63]
+        hash: sha256:1d78e28f6517d1bd9b1d86bdf4ba5f35a58169a238f05d448053c5d4fb65abde
+        struct_hash: sha256:ab7540b754372a8ff0be5172ea23038106c988367b6f41b1b4741564f61c75e0
+        doc_struct_hash: sha256:ab7540b754372a8ff0be5172ea23038106c988367b6f41b1b4741564f61c75e0
+        lines: [192, 207]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

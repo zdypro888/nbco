@@ -22,13 +22,53 @@ func TestValidPassiveAction(t *testing.T) {
 		"view_profile:abc":   false,
 		"view_profile:_al":   false,
 		"write_profile":      false,
-		"view_profile:-1":    true, // 负数虽无意义但格式合法；授权时上层还会校验用户存在
+		"view_profile:-1":    false,
 		"xview_profile:_all": false,
 	}
 	for action, want := range cases {
 		if got := ValidPassiveAction(action); got != want {
 			t.Errorf("ValidPassiveAction(%q) = %v, want %v", action, got, want)
 		}
+	}
+	if id, all, ok := ParsePassiveProfileAuthor("view_profile:42"); !ok || all || id != 42 {
+		t.Fatalf("exact passive author parse = (%d,%t,%t)", id, all, ok)
+	}
+	if id, all, ok := ParsePassiveProfileAuthor("view_profile:_all"); !ok || !all || id != 0 {
+		t.Fatalf("all passive author parse = (%d,%t,%t)", id, all, ok)
+	}
+}
+
+func TestActiveActionDefinitionsAndTargets(t *testing.T) {
+	if got := NormalizeActiveAction(" invite_employee "); got != ActGenerateKey {
+		t.Fatalf("NormalizeActiveAction alias = %q", got)
+	}
+	if ValidActiveAction("invite_employee") || !ValidActiveAction(ActGenerateKey) {
+		t.Fatal("only canonical action names should pass storage validation")
+	}
+	if !ValidActiveTarget(ActSendMsg, "42") || !ValidActiveTarget(ActSendMsg, store.TargetAll) {
+		t.Fatal("user-scoped capability should accept an exact stable ID and _all")
+	}
+	if ValidActiveTarget(ActSendMsg, "name") || ValidActiveTarget(ActSendMsg, "-1") {
+		t.Fatal("user-scoped capability accepted a non-stable target")
+	}
+	if !ValidActiveTarget(ActManageWorker, store.TargetAll) || ValidActiveTarget(ActManageWorker, "42") {
+		t.Fatal("owned-resource capability must use _all")
+	}
+	if !ValidActiveTarget(ActManageTGGroup, "telegram:group:-100123") ||
+		!ValidActiveTarget(ActManageTGGroup, store.TargetAll) ||
+		ValidActiveTarget(ActManageTGGroup, "-100123") ||
+		ValidActiveTarget(ActManageTGGroup, "telegram:group:0") {
+		t.Fatal("Telegram group capability must use canonical group_ref or _all")
+	}
+	if !CheckActiveTarget([]store.Grant{active(ActManageTGGroup, "telegram:group:-100123")},
+		ActManageTGGroup, "telegram:group:-100123") {
+		t.Fatal("exact Telegram group grant should cover its resource")
+	}
+	definitions := ActiveActionDefinitions()
+	definitions[0].Name = "mutated"
+	definitions[3].Aliases[0] = "mutated"
+	if ActiveActionDefinitions()[0].Name == "mutated" || NormalizeActiveAction("invite_employee") != ActGenerateKey {
+		t.Fatal("callers must not be able to mutate the authorization vocabulary")
 	}
 }
 
@@ -162,22 +202,13 @@ func TestCanGrantActive(t *testing.T) {
 			t.Fail()
 		}
 	})
-}
-
-func TestViewIntroTargets(t *testing.T) {
-	all, _ := ViewIntroTargets([]store.Grant{active(ActViewSelfIntro, store.TargetAll)})
-	if !all {
-		t.Error("_all 应返回 all=true")
-	}
-	all, targets := ViewIntroTargets([]store.Grant{
-		active(ActViewSelfIntro, "3"),
-		active(ActViewSelfIntro, "5"),
-		active(ActWriteProfile, "9"), // 无关动作
+	t.Run("系统能力不能伪装成用户范围", func(t *testing.T) {
+		g := []store.Grant{active(ActManageWorker, store.TargetAll)}
+		if CanGrantActive(g, ActManageWorker, "7") {
+			t.Fatal("manage_worker exact user target should be invalid")
+		}
+		if !CanGrantActive(g, ActManageWorker, store.TargetAll) {
+			t.Fatal("manage_worker:_all should be delegatable")
+		}
 	})
-	if all {
-		t.Error("无通配不应返回 all")
-	}
-	if len(targets) != 2 || targets[0] != 3 || targets[1] != 5 {
-		t.Errorf("targets = %v, want [3 5]", targets)
-	}
 }

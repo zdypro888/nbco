@@ -178,12 +178,33 @@ func (s *Store) ListAdminWorkers(ctx context.Context, ownerID int64) ([]*User, e
 	return ws, rows.Err()
 }
 
-// SetWorkerAdmin promotes or demotes a worker's system-admin capability. It
-// reuses users.is_superadmin so all target-level checks keep one meaning.
-func (s *Store) SetWorkerAdmin(ctx context.Context, workerID int64, admin bool) error {
-	tag, err := s.pool.Exec(ctx,
+// SetWorkerAdmin promotes or demotes a worker's system-admin capability as a
+// currently active superadmin. Demotion shares the permission graph lock and
+// permanently prunes delegations that no longer have a legitimate root, so a
+// later promotion cannot revive stale authority.
+func (s *Store) SetWorkerAdmin(ctx context.Context, actorID, workerID int64, admin bool) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, permissionGraphLock); err != nil {
+		return err
+	}
+	var allowed bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM users
+			 WHERE id = $1 AND status = 'active' AND is_superadmin
+		)`, actorID).Scan(&allowed); err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+	tag, err := tx.Exec(ctx,
 		`UPDATE users SET is_superadmin = $2, updated_at = now()
-		 WHERE id = $1 AND is_worker`,
+		 WHERE id = $1 AND is_worker AND status = 'active'`,
 		workerID, admin)
 	if err != nil {
 		return err
@@ -191,7 +212,15 @@ func (s *Store) SetWorkerAdmin(ctx context.Context, workerID int64, admin bool) 
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	return nil
+	if !admin {
+		if _, err := tx.Exec(ctx, `WITH RECURSIVE `+structuralActiveGrantsCTE+`
+			DELETE FROM permissions p
+			 WHERE p.kind = 'active'
+			   AND NOT EXISTS (SELECT 1 FROM structural_active e WHERE e.id = p.id)`); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // WorkerHeartbeat 刷新 worker 上线时间（每次拉任务时调）。
@@ -220,6 +249,11 @@ func (s *Store) RevokeWorker(ctx context.Context, workerID int64) (int64, error)
 		return 0, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	// A revoked admin worker must stop being a permission root in the same
+	// transaction. Serialize that graph transition with grants and demotions.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, permissionGraphLock); err != nil {
+		return 0, err
+	}
 	// Follow the same task -> run -> attempt lock order as normal task edits.
 	// Business history remains pending for reassignment; direct runs are simply
 	// cancelled because they have no artificial task row.
@@ -245,12 +279,21 @@ func (s *Store) RevokeWorker(ctx context.Context, workerID int64) (int64, error)
 	// Worker validation during task creation takes a shared users-row lock while
 	// already holding the task. Disable only after the task locks above, keeping
 	// that order consistent and preventing revoke/create deadlocks.
-	tag, err := tx.Exec(ctx, `UPDATE users SET status = 'disabled', updated_at = now() WHERE id = $1 AND is_worker`, workerID)
+	tag, err := tx.Exec(ctx,
+		`UPDATE users
+		    SET status = 'disabled', is_superadmin = FALSE, updated_at = now()
+		  WHERE id = $1 AND is_worker`, workerID)
 	if err != nil {
 		return 0, wrapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
 		return 0, ErrNotFound
+	}
+	if _, err := tx.Exec(ctx, `WITH RECURSIVE `+structuralActiveGrantsCTE+`
+		DELETE FROM permissions p
+		 WHERE p.kind = 'active'
+		   AND NOT EXISTS (SELECT 1 FROM structural_active e WHERE e.id = p.id)`); err != nil {
+		return 0, err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM api_tokens WHERE user_id = $1`, workerID); err != nil {
 		return 0, err

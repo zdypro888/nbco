@@ -168,12 +168,13 @@ func TestRecipientCanMuteIncomingBroadcastWithoutCancellingIt(t *testing.T) {
 func TestMandatoryScheduleRequiresDelegatedAuthorityAndCannotBeMuted(t *testing.T) {
 	s := openToolsTestStore(t)
 	ctx := context.Background()
+	root := mkToolsUser(t, s, "mandatory-root", true)
 	manager := mkToolsUser(t, s, "mandatory-manager", false)
 	recipient := mkToolsUser(t, s, "mandatory-target", false)
 	target := strconv.FormatInt(recipient.ID, 10)
 	if err := s.GrantPerm(ctx, store.Grant{
 		Kind: store.KindActive, UserID: manager.ID, Action: perm.ActSendMsg,
-		Target: target, GrantedBy: manager.ID,
+		Target: target, GrantedBy: root.ID,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +191,7 @@ func TestMandatoryScheduleRequiresDelegatedAuthorityAndCannotBeMuted(t *testing.
 	}
 	if err := s.GrantPerm(ctx, store.Grant{
 		Kind: store.KindActive, UserID: manager.ID, Action: perm.ActManageMandatorySchedule,
-		Target: target, GrantedBy: manager.ID,
+		Target: target, GrantedBy: root.ID,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -220,6 +221,16 @@ func TestMandatoryScheduleRequiresDelegatedAuthorityAndCannotBeMuted(t *testing.
 	cancelled := callToolByName(t, recipientTools, "cancel_schedule", map[string]any{"schedule_id": items[0].ID})
 	if !strings.Contains(cancelled, "不能取消或退订") {
 		t.Fatalf("mandatory schedule cancel = %q", cancelled)
+	}
+	if err := s.RevokePerm(ctx, root.ID, store.KindActive, manager.ID, perm.ActManageMandatorySchedule, target); err != nil {
+		t.Fatal(err)
+	}
+	deniedUpdate := callToolByName(t, toolset, "update_schedule", map[string]any{
+		"schedule_id": items[0].ID,
+		"at":          time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339),
+	})
+	if !strings.Contains(deniedUpdate, "当前仍对全部目标拥有") {
+		t.Fatalf("mandatory schedule update after authority revocation = %q", deniedUpdate)
 	}
 	downgraded := callToolByName(t, toolset, "update_schedule", map[string]any{
 		"schedule_id": items[0].ID, "recipient_policy": store.ScheduleRecipientOptional,

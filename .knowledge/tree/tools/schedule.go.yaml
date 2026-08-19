@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/schedule.go
-        hash: sha256:48259685afb1fc15bfbf6d44234fbb4bcca2c657685fcadf6eabd7fc04e043c1
+        hash: sha256:7008bf4790259780be60e668fc01af297273a22307b985fd709e75316429d174
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: scheduleTools
-        hash: sha256:1233e8cae86aa7e2d9de48b1196e7649f2fdfa83cf436dc9ebc77ef57ed7f737
-        struct_hash: sha256:6e5c038aa55e4000b7ff5a22b095a72a02cfaeec3ad3b7fc2c5356ce0533ae28
-        doc_struct_hash: sha256:335928b60095b699ff59611558bf82c8f953b3ed80f6e2d8446e5cb47dd36711
-        lines: [43, 433]
+        hash: sha256:65e7fcbcaf705c7814b7aabf9a1152959f44f8e43075961ba36b9d53b73c77f9
+        struct_hash: sha256:1ffb5eb5601364fc22b73bf93f2cc71729f9ad4ddb7b6267e1c30e9ab4c777cf
+        doc_struct_hash: sha256:1decd10b168d1cba9bcadc69a7f8d2f79410911f0a8c31c2bb905be3106325ca
+        lines: [43, 441]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#resolveIncomingSchedule
@@ -60,7 +60,7 @@ nodes:
         hash: sha256:6890453787f2200db1ea0692c3ffc9a4071ae7d5d990c36cb69169f8271789a8
         struct_hash: sha256:845bfe511ae8c18bcc82f9f9ef46d7c359c586c4bd2482a2421b0889246d3877
         doc_struct_hash: sha256:845bfe511ae8c18bcc82f9f9ef46d7c359c586c4bd2482a2421b0889246d3877
-        lines: [397, 436]
+        lines: [443, 482]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: tools/schedule.go#pushScheduleArgs
@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: pushScheduleArgs
-        hash: sha256:d5bebd58e0e9a2ea8d973efc0bd3bb5cb1a3bf2ce9047f2e1ea312c2bd6cf9b8
-        struct_hash: sha256:3e903b630595e8782dc5bbce50487b89a93501175536b359e00e483d8434458e
-        doc_struct_hash: sha256:3e903b630595e8782dc5bbce50487b89a93501175536b359e00e483d8434458e
-        lines: [438, 443]
+        hash: sha256:cf5adba4c34ed4edcc753160b558ea66b2ce6edae7d17446f84bca8478ccc616
+        struct_hash: sha256:e7bcd735968810fc44e0141f3892f2537fd6dda01a65e137c32dee0cf97968d9
+        doc_struct_hash: sha256:e7bcd735968810fc44e0141f3892f2537fd6dda01a65e137c32dee0cf97968d9
+        lines: [484, 490]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#scheduleOncePushTool
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: scheduleOncePushTool
-        hash: sha256:4158d4013798d1ee05b0028ebed36a24c35d11f449be9f7742ddd61bdf575966
-        struct_hash: sha256:2c4ac8873e349790abdd5e4c44932ce426958231f1262056f0c4a7c7044e3642
-        doc_struct_hash: sha256:2c4ac8873e349790abdd5e4c44932ce426958231f1262056f0c4a7c7044e3642
-        lines: [445, 488]
+        hash: sha256:32ca1839c8e0861d449bf108ef4e89995eb49e41d19c0c1fe7f04c5380d32b5d
+        struct_hash: sha256:de2c70b0c0aee70205468e0157461e9073a1818d6ed7b0876c4a2a3b3b7e2dfb
+        doc_struct_hash: sha256:de2c70b0c0aee70205468e0157461e9073a1818d6ed7b0876c4a2a3b3b7e2dfb
+        lines: [492, 537]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#scheduleRecurringPushTool
@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: tools/schedule.go
         symbol: scheduleRecurringPushTool
-        hash: sha256:723c303ef0ef37a26a374e2b37591e152006b410a3aa5ec6e7b95a299f71d7b9
-        struct_hash: sha256:fedbfe05fcb3effe4c48a63d4964726ea5dcd2b0fed382957c1801a926fa3f2c
-        doc_struct_hash: sha256:fedbfe05fcb3effe4c48a63d4964726ea5dcd2b0fed382957c1801a926fa3f2c
-        lines: [490, 542]
+        hash: sha256:c43e4eba4844d3c595db3849a567562475ae2690fbaf3110aa2d400905bc0577
+        struct_hash: sha256:ada8d819a001b541eafb542f89f00b6a35ad59b92c3f80ca7e0b1e9b4ca08a79
+        doc_struct_hash: sha256:ada8d819a001b541eafb542f89f00b6a35ad59b92c3f80ca7e0b1e9b4ca08a79
+        lines: [539, 593]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#preparePushSchedule
@@ -104,9 +104,31 @@ nodes:
         hash: sha256:012f788115468e5f73ae17fffa0205939b67277bd3a72c1adcd6a8899e0703ff
         struct_hash: sha256:37bb37fb3cf52a9909aed37016b741b4161ea14f53a2e743ac8516c5c0fa6da0
         doc_struct_hash: sha256:37bb37fb3cf52a9909aed37016b741b4161ea14f53a2e743ac8516c5c0fa6da0
-        lines: [587, 660]
+        lines: [595, 668]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/schedule.go#normalizeScheduleRecipientPolicy
+      level: function
+      anchor:
+        file: tools/schedule.go
+        symbol: normalizeScheduleRecipientPolicy
+        hash: sha256:58e44adb594354a829f632a644369ead09359d347a57fc172735eed9db106486
+        struct_hash: sha256:7e7147bd53beff1d04064752d16a7475ef76e802eb6a1d7d6762d80ce50e3754
+        doc_struct_hash: sha256:7e7147bd53beff1d04064752d16a7475ef76e802eb6a1d7d6762d80ce50e3754
+        lines: [670, 679]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/schedule.go#canSetMandatorySchedule
+      level: function
+      anchor:
+        file: tools/schedule.go
+        symbol: canSetMandatorySchedule
+        hash: sha256:ed7cd4e10c9977928b32ac0dfa97644258ee9f205170582ecc525711cf9e2771
+        struct_hash: sha256:b638957bf7d7388216a6a3894472dc98d4ed4d25dde7bbd658d5bd40af8f4e57
+        doc_struct_hash: sha256:b638957bf7d7388216a6a3894472dc98d4ed4d25dde7bbd658d5bd40af8f4e57
+        lines: [681, 701]
+      status: fresh
+      since: 2026-08-19T16:26:50.73957Z
     - id: tools/schedule.go#resolveActiveSchedule
       level: function
       anchor:
@@ -115,7 +137,7 @@ nodes:
         hash: sha256:b54df8864890c29efa8396a29dd0eb330a20ca228227bdbd5490423d29217e02
         struct_hash: sha256:85ecb3db5edcedb93931670500a3904dd8edbefeb1805fa87044b1e906a48255
         doc_struct_hash: sha256:85ecb3db5edcedb93931670500a3904dd8edbefeb1805fa87044b1e906a48255
-        lines: [603, 635]
+        lines: [703, 735]
       status: fresh
       since: 2026-07-23T14:41:23.060365Z
     - id: tools/schedule.go#scheduleTimingDescription
@@ -126,7 +148,7 @@ nodes:
         hash: sha256:4f3387a443d9dd431991892523b4352ffd6d6673d7c92b7f3b83fbd72f71fcd9
         struct_hash: sha256:cee690cf983766746ff7eb0c590a42f7d34e29c5bb63c0ae82b1bf406771f584
         doc_struct_hash: sha256:cee690cf983766746ff7eb0c590a42f7d34e29c5bb63c0ae82b1bf406771f584
-        lines: [637, 652]
+        lines: [737, 752]
       status: fresh
       since: 2026-07-23T14:41:23.064139Z
     - id: tools/schedule.go#findVisibleSchedules
@@ -137,7 +159,7 @@ nodes:
         hash: sha256:3570b136d4e1dde0155552fd3ad514d02d91cdb275767d5b130c0d31aa2852cf
         struct_hash: sha256:e4a86c52b294d66e531f29d9e5b509511f0ab66bc5e9e0424b3206f1806dfde6
         doc_struct_hash: sha256:e4a86c52b294d66e531f29d9e5b509511f0ab66bc5e9e0424b3206f1806dfde6
-        lines: [654, 674]
+        lines: [754, 774]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#renderScheduleCandidates
@@ -148,7 +170,7 @@ nodes:
         hash: sha256:7cc0ac551cc865d545945fc83e56bd13c62d658d1ba45f62cd29c11f0476c126
         struct_hash: sha256:d6d4ca08f5671cf1842d3927c5f7c0afa145884ea705cf2f86b4f3e2b296df68
         doc_struct_hash: sha256:d6d4ca08f5671cf1842d3927c5f7c0afa145884ea705cf2f86b4f3e2b296df68
-        lines: [676, 686]
+        lines: [776, 786]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#scheduleVisibleTo
@@ -159,9 +181,20 @@ nodes:
         hash: sha256:1541621bdab991671ac2a06bacfd7544e78f051b339b48f80be060e67531a6a4
         struct_hash: sha256:83906c8b41e36bb77f139d07da94c3b2543956f874a70a199c43504185a2bfd3
         doc_struct_hash: sha256:83906c8b41e36bb77f139d07da94c3b2543956f874a70a199c43504185a2bfd3
-        lines: [688, 690]
+        lines: [788, 790]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
+    - id: tools/schedule.go#scheduleTargetsUser
+      level: function
+      anchor:
+        file: tools/schedule.go
+        symbol: scheduleTargetsUser
+        hash: sha256:d39b5bd103dfa6ef0be0898bbee0916f4b0092bf59bed6cdb27c42939db67d5c
+        struct_hash: sha256:28cca68479426fef31baa52970a3c4edc57577a5d658c36a9fadf3a6dd63d635
+        doc_struct_hash: sha256:28cca68479426fef31baa52970a3c4edc57577a5d658c36a9fadf3a6dd63d635
+        lines: [792, 797]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
     - id: tools/schedule.go#inactiveScheduleResult
       level: function
       anchor:
@@ -170,7 +203,7 @@ nodes:
         hash: sha256:bd0328dc574551af6f7273d6fb529279dbcd943d555c330a6db382c62e5e1043
         struct_hash: sha256:2982815f782cb24d531dd9aed7ad25443fa0a79469d9bfa254251b4dd9ce72ad
         doc_struct_hash: sha256:2982815f782cb24d531dd9aed7ad25443fa0a79469d9bfa254251b4dd9ce72ad
-        lines: [692, 706]
+        lines: [799, 813]
       status: fresh
       since: 2026-07-20T02:42:41.897905Z
     - id: tools/schedule.go#normalizeDailyAt
@@ -181,7 +214,7 @@ nodes:
         hash: sha256:22ff7597c4d53836e5129c826cdd67c089dbaa162ea29d96317c0fe9954fcfd3
         struct_hash: sha256:bf38b0ca124db2055449ccc54299b6a293db9ff5739a913216ab1bf0306dedb0
         doc_struct_hash: sha256:bf38b0ca124db2055449ccc54299b6a293db9ff5739a913216ab1bf0306dedb0
-        lines: [708, 720]
+        lines: [815, 827]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#normalizeWeekdays
@@ -192,7 +225,7 @@ nodes:
         hash: sha256:1cf13c33b261d253321a38485e7042bcc5a3a059959cdc954cd90702ddf4af37
         struct_hash: sha256:3948623a623fb89572cdb24e7c2fcce6d1b775c8a02dd15f487feeee09d38eab
         doc_struct_hash: sha256:3948623a623fb89572cdb24e7c2fcce6d1b775c8a02dd15f487feeee09d38eab
-        lines: [722, 742]
+        lines: [829, 849]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#asciiDigits
@@ -203,7 +236,7 @@ nodes:
         hash: sha256:48849d8c73a38eb1e26a25f7e0da72a2a0f988e2c160ee928581fb269d381a60
         struct_hash: sha256:0c0fe46a091772f69a3cffd2518f9d0363edfbea74ac6b44b4487b17ee4c092d
         doc_struct_hash: sha256:0c0fe46a091772f69a3cffd2518f9d0363edfbea74ac6b44b4487b17ee4c092d
-        lines: [744, 751]
+        lines: [851, 858]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/schedule.go#scheduleDisplayMessage
@@ -214,17 +247,6 @@ nodes:
         hash: sha256:d27261f7ca19f2f99cf243420672109dc5e47d5d7b8e58a7730af880a131865e
         struct_hash: sha256:73fec24e5ff78eb1e51df6bd64567d248f05b9976b3d44d5899ad1a60fdd77de
         doc_struct_hash: sha256:73fec24e5ff78eb1e51df6bd64567d248f05b9976b3d44d5899ad1a60fdd77de
-        lines: [753, 772]
+        lines: [860, 879]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: tools/schedule.go#canSetMandatorySchedule
-      level: function
-      anchor:
-        file: tools/schedule.go
-        symbol: canSetMandatorySchedule
-        hash: sha256:ed7cd4e10c9977928b32ac0dfa97644258ee9f205170582ecc525711cf9e2771
-        struct_hash: sha256:b638957bf7d7388216a6a3894472dc98d4ed4d25dde7bbd658d5bd40af8f4e57
-        doc_struct_hash: sha256:b638957bf7d7388216a6a3894472dc98d4ed4d25dde7bbd658d5bd40af8f4e57
-        lines: [673, 693]
-      status: fresh
-      since: 2026-08-19T16:26:50.73957Z

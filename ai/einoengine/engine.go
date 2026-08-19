@@ -607,6 +607,7 @@ func capabilityFingerprint(tools []ai.Tool, stableScope string) string {
 			string(item.LoadMode),
 			string(item.Completion),
 			item.RequiredAction,
+			strconv.FormatBool(item.ResolvePermissionTarget != nil),
 			strconv.FormatBool(item.GroupSensitive),
 			item.Description,
 			string(schema),

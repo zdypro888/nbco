@@ -36,7 +36,12 @@ type Tool struct {
 	// RequiredAction 声明调用工具所需的主动权限。空值表示沿用内建工具权限
 	// 注册表；外部工具应显式声明，"superadmin" 表示仅超级管理员可用。
 	RequiredAction string
-	GroupSensitive bool // true 表示不得暴露给群共享会话
+	// ResolvePermissionTarget derives the canonical capability target from one
+	// invocation. It lets the common authorization wrapper enforce resource
+	// scopes (for example one Telegram group) without teaching it business
+	// argument names. Nil means the handler owns any target-level check.
+	ResolvePermissionTarget func(context.Context, json.RawMessage) (string, error)
+	GroupSensitive          bool // true 表示不得暴露给群共享会话
 	// ApprovalRequired marks a host-provided destructive capability for nbco's
 	// normal cross-turn confirmation wrapper. Built-ins may still use the
 	// central name registry; extensions must declare the property on the tool

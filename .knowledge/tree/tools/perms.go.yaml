@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/perms.go
-        hash: sha256:a910ddcb929d776ac0de98dd89b75fec59c88d1b8774ea67058175f4d374b0b4
+        hash: sha256:e9ce8164c6bc2c6faa5c4f1450c36a02fe506f61d0303cc78349e2cc0b14a7ba
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/perms.go
         symbol: permTools
-        hash: sha256:7ddffd2c3b9928660178ac19a0a3c83b5784b999ffa926af8e02bb95f6ed1316
-        struct_hash: sha256:bb71dd97937bb625df35c6282c77b632f5c89d702d4ba2a6b1cca164ca696fec
-        doc_struct_hash: sha256:2e2f715db48ba0c68bb958357778109a70dd02d1e24284abb2a2f03792ba8c9b
-        lines: [15, 322]
+        hash: sha256:0500c8984d254e3b3a08bd6726e9716c15254e48b93502e6bb149f19bfcba264
+        struct_hash: sha256:63cb6bab3275491d4cfe45264ff422034b9b1517e81a413153f64a2e4944de34
+        doc_struct_hash: sha256:2e04f8d19eb6ed4ebf9f9e58ef9656c44673ed74567318cd58b641f3bf964d13
+        lines: [16, 360]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/perms.go#activeActionList
@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/perms.go
         symbol: activeActionList
-        hash: sha256:56c8825bc83308395f23108233aa33b196abe2818119d6c7f258a7bff40cb78c
-        struct_hash: sha256:2796839407d149f5ecfca54b89a71f3ef3a27cdf09c113e34143288ea47235b5
-        doc_struct_hash: sha256:2796839407d149f5ecfca54b89a71f3ef3a27cdf09c113e34143288ea47235b5
-        lines: [324, 330]
+        hash: sha256:cb693168a1a85f2978c4a36da5403b08bc4d3bfdb66bf2c6451008b2972823c2
+        struct_hash: sha256:9d726d47e6db45f11dd41f4c59ddeac6233df338fd29b9f0da3d94d6800c08bf
+        doc_struct_hash: sha256:9d726d47e6db45f11dd41f4c59ddeac6233df338fd29b9f0da3d94d6800c08bf
+        lines: [362, 373]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/perms.go#normalizeActiveAction
@@ -35,21 +35,65 @@ nodes:
       anchor:
         file: tools/perms.go
         symbol: normalizeActiveAction
-        hash: sha256:a18d75169e115d9e5e03d0e9d8e94953609c117c4403eebae22f20d6eca87485
-        struct_hash: sha256:639952148b3002a1da5a95720c1ec339628890c4f40f67126bc4db98c6340d85
-        doc_struct_hash: sha256:639952148b3002a1da5a95720c1ec339628890c4f40f67126bc4db98c6340d85
-        lines: [332, 339]
+        hash: sha256:09734d8369817f17637a252f837305183009065d5ee227447eaf1151b01065d4
+        struct_hash: sha256:e37ee8c020121e24c2e6644d3757784f3d694248be8ecafc741cc4bbe14037c3
+        doc_struct_hash: sha256:e37ee8c020121e24c2e6644d3757784f3d694248be8ecafc741cc4bbe14037c3
+        lines: [375, 377]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/perms.go#activeTargetError
+      level: function
+      anchor:
+        file: tools/perms.go
+        symbol: activeTargetError
+        hash: sha256:47e8c9407d2f787e24d84885c63a90ebaf9457c916f2203d1491daf6bce4b47d
+        struct_hash: sha256:d8ec1855e1eb4a045ff6e915522f8c1f9fe16e2d4de3f1ac56cb92c24421bc9c
+        doc_struct_hash: sha256:d8ec1855e1eb4a045ff6e915522f8c1f9fe16e2d4de3f1ac56cb92c24421bc9c
+        lines: [379, 391]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/perms.go#normalizeActivePermissionTarget
+      level: function
+      anchor:
+        file: tools/perms.go
+        symbol: normalizeActivePermissionTarget
+        hash: sha256:a496decaa03afa8fdcd1cf1f70b37b406703db3e79a1aefeb5da8876f64fd2b9
+        struct_hash: sha256:3ded10cefca19d8eae4b3b6fcc386ba8ac57da53612e7549d5d95ce77cae7a8d
+        doc_struct_hash: sha256:3ded10cefca19d8eae4b3b6fcc386ba8ac57da53612e7549d5d95ce77cae7a8d
+        lines: [393, 432]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/perms.go#permissionGrantError
+      level: function
+      anchor:
+        file: tools/perms.go
+        symbol: permissionGrantError
+        hash: sha256:f7a5c6e956f2297283178b2013a9d76fd5a124628d788835d8601553a0a3bb54
+        struct_hash: sha256:357b549e823d63f6cb972d9191ced21a7b26308a51fda5978337b1ec4178ce37
+        doc_struct_hash: sha256:357b549e823d63f6cb972d9191ced21a7b26308a51fda5978337b1ec4178ce37
+        lines: [434, 443]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
+    - id: tools/perms.go#validatePassiveAuthor
+      level: function
+      anchor:
+        file: tools/perms.go
+        symbol: validatePassiveAuthor
+        hash: sha256:52ee52937264369d3612554d5497ef9957cdf3f332407127480bfd24d0f5d1ed
+        struct_hash: sha256:bbe63a2406b48c985ff993ec899b1b4f5d516059f42523f179a7734c21b60ba2
+        doc_struct_hash: sha256:bbe63a2406b48c985ff993ec899b1b4f5d516059f42523f179a7734c21b60ba2
+        lines: [445, 457]
+      status: undigested
+      since: 2026-08-19T17:30:41.606625Z
     - id: tools/perms.go#canManagePermTarget
       level: function
       anchor:
         file: tools/perms.go
         symbol: canManagePermTarget
-        hash: sha256:9d9e8f99552bbe5eb1a1cd827cc352e5894ea5183a4f7d2ac03980d3fddb6936
-        struct_hash: sha256:304bf38ae9bd379921110bd9efc2dd1fdf5dfb3647cde82994deaa1505aedab0
-        doc_struct_hash: sha256:304bf38ae9bd379921110bd9efc2dd1fdf5dfb3647cde82994deaa1505aedab0
-        lines: [341, 352]
+        hash: sha256:05ae8eff0efefacd2c2fd8daf20845c12c2864748629f754effb736852c75194
+        struct_hash: sha256:7480be55532f85657d316220123ddb893ec55e78e3fb377181d6df2bcf469f89
+        doc_struct_hash: sha256:7480be55532f85657d316220123ddb893ec55e78e3fb377181d6df2bcf469f89
+        lines: [459, 470]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/perms.go#renderGrants
@@ -57,10 +101,10 @@ nodes:
       anchor:
         file: tools/perms.go
         symbol: renderGrants
-        hash: sha256:60e6a752d86edffded86b364815dd5676bcc5ec0b48f6fdbf17921874b09b1b1
-        struct_hash: sha256:b5ba68ef381f732d643e2787f79245f1851c42be6aa2e9317487196cf4436f9b
-        doc_struct_hash: sha256:b5ba68ef381f732d643e2787f79245f1851c42be6aa2e9317487196cf4436f9b
-        lines: [354, 366]
+        hash: sha256:3d34bdcaf6a73c5ce2cd87850d90bb22bf1686be2a7a107fb2779f96e157d3ef
+        struct_hash: sha256:9d3bf936889480827c4d6d39bcd005853fdbf67c6c3d1566fd629a30cc7b8d3c
+        doc_struct_hash: sha256:9d3bf936889480827c4d6d39bcd005853fdbf67c6c3d1566fd629a30cc7b8d3c
+        lines: [472, 484]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/perms.go#renderPermTarget
@@ -68,9 +112,9 @@ nodes:
       anchor:
         file: tools/perms.go
         symbol: renderPermTarget
-        hash: sha256:21cac66785124ee966846c99fe9b742cfa5e5b3dc1d850e70bedf7c66bc4f2fc
-        struct_hash: sha256:dd365d06e4fb64bc447b2e8a8941cba7410f45792e2b2a435b20558577daa4c1
-        doc_struct_hash: sha256:dd365d06e4fb64bc447b2e8a8941cba7410f45792e2b2a435b20558577daa4c1
-        lines: [368, 376]
+        hash: sha256:c4c76f0728cdb7d3bab81aa54a12f7b2eca4e9ac024a9117df75299d3f8e2d0a
+        struct_hash: sha256:fcd482603f6f456134ceae97377fdaa55213077246ae7fadef2a1d563ee4e3ad
+        doc_struct_hash: sha256:fcd482603f6f456134ceae97377fdaa55213077246ae7fadef2a1d563ee4e3ad
+        lines: [486, 497]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -353,9 +353,12 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				if w.Status != store.UserActive {
 					return "目标 worker 已停用。", nil
 				}
-				if err := d.Store.SetWorkerAdmin(ctx, args.WorkerID, args.Admin); err != nil {
+				if err := d.Store.SetWorkerAdmin(ctx, u.ID, args.WorkerID, args.Admin); err != nil {
 					if errors.Is(err, store.ErrNotFound) {
 						return "该 AI worker 不存在。", nil
+					}
+					if errors.Is(err, store.ErrForbidden) {
+						return "操作未执行：当前身份已不再具有超级管理员权限。", nil
 					}
 					return "", err
 				}

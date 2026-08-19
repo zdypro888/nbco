@@ -210,9 +210,12 @@ func ForUserContextWithTools(ctx context.Context, d Deps, u *store.User, session
 
 	for i := range ts {
 		// 审计包在审批外层：登记与执行两次调用都留审计记录。
+		// 当前权限校验位于审计内、审批外：每次真实调用都重新读取用户和
+		// 有效委托链，撤权/停用对已开始的 Agent 轮次立即生效且留下失败审计。
 		// 参数归一化放最外层，让审计、审批哈希和实际 handler 看到同一份
 		// schema 规范参数；MCP/HTTP 等非聊天入口也获得相同行为。
-		ts[i] = withArgumentNormalization(withAudit(d.Store, u.ID, sessionID, withApproval(d.Store, u.ID, ts[i])))
+		ts[i] = withArgumentNormalization(withAudit(d.Store, u.ID, sessionID,
+			withCurrentPermission(d.Store, u, withApproval(d.Store, u.ID, ts[i]))))
 	}
 	return ts
 }
@@ -263,7 +266,17 @@ func baseStaticTools(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, telegramGroupTools(d, u)...)
 	ts = append(ts, lowLevelTools(d, u)...)
 	ts = append(ts, adminTools(d, u)...)
+	ts = withPermissionTargetResolvers(ts, d)
 	ts = append(ts, d.Extra...)
+	return ts
+}
+
+func withPermissionTargetResolvers(ts []ai.Tool, d Deps) []ai.Tool {
+	for i := range ts {
+		if toolPerm[ts[i].Name] == perm.ActManageTGGroup {
+			ts[i].ResolvePermissionTarget = telegramGroupPermissionTarget(d)
+		}
+	}
 	return ts
 }
 
@@ -505,13 +518,7 @@ func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 		if u.IsWorker && !u.IsSuperadmin && !workerAllowed[t.Name] {
 			continue
 		}
-		req := strings.TrimSpace(t.RequiredAction)
-		_, gated := toolPerm[t.Name]
-		if req == "" {
-			req = toolPerm[t.Name]
-		} else {
-			gated = true
-		}
+		req, gated := requiredActionForTool(t)
 		if gated && !u.IsSuperadmin {
 			if req == reqSuper || !hasAnyActive(grants, req) {
 				continue
@@ -520,6 +527,69 @@ func filterByPerm(ts []ai.Tool, u *store.User, grants []store.Grant) []ai.Tool {
 		out = append(out, t)
 	}
 	return out
+}
+
+func requiredActionForTool(t ai.Tool) (string, bool) {
+	if required := strings.TrimSpace(t.RequiredAction); required != "" {
+		return required, true
+	}
+	required, gated := toolPerm[t.Name]
+	return required, gated
+}
+
+// withCurrentPermission revalidates the actor immediately before every tool
+// invocation. Assembly-time filtering keeps the model's catalog small; this
+// wrapper is the authoritative time-of-use gate for long-running Agent turns.
+func withCurrentPermission(s *store.Store, actor *store.User, t ai.Tool) ai.Tool {
+	if s == nil || actor == nil {
+		return t
+	}
+	inner := t.Handler
+	required, gated := requiredActionForTool(t)
+	t.Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
+		current, err := s.UserByID(ctx, actor.ID)
+		if err != nil {
+			return "", fmt.Errorf("%w: 当前执行身份不存在", store.ErrForbidden)
+		}
+		if current.Status != store.UserActive {
+			return "", fmt.Errorf("%w: 当前执行身份已停用", store.ErrForbidden)
+		}
+		// Handlers close over the actor snapshot used to assemble this Agent
+		// turn. If its privilege class changed, do not let stale IsSuperadmin or
+		// IsWorker flags influence target-level checks; the next turn will build
+		// a fresh capability set from the new identity.
+		if current.IsSuperadmin != actor.IsSuperadmin || current.IsWorker != actor.IsWorker {
+			return "", fmt.Errorf("%w: 当前执行身份的权限级别已变化，请重新发起操作", store.ErrForbidden)
+		}
+		if current.IsWorker && !current.IsSuperadmin && !workerAllowed[t.Name] {
+			return "", fmt.Errorf("%w: 当前 Worker 身份不能调用该能力", store.ErrForbidden)
+		}
+		if !gated || current.IsSuperadmin {
+			return inner(ctx, args)
+		}
+		if required == reqSuper {
+			return "", fmt.Errorf("%w: 该能力仅限超级管理员", store.ErrForbidden)
+		}
+		grants, err := s.PermsOf(ctx, current.ID)
+		if err != nil {
+			return "", err
+		}
+		if t.ResolvePermissionTarget != nil {
+			target, err := t.ResolvePermissionTarget(ctx, args)
+			if err != nil {
+				return "", fmt.Errorf("%w: 无法确定权限目标: %v", store.ErrForbidden, err)
+			}
+			if !perm.CheckActiveTarget(grants, required, target) {
+				return "", fmt.Errorf("%w: 当前没有 %s 对目标 %s 的有效委托", store.ErrForbidden, required, target)
+			}
+			return inner(ctx, args)
+		}
+		if !hasAnyActive(grants, required) {
+			return "", fmt.Errorf("%w: 当前已没有 %s 的有效委托", store.ErrForbidden, required)
+		}
+		return inner(ctx, args)
+	}
+	return t
 }
 
 // withAudit 每次工具调用落一条审计记录（失败不阻断业务）。

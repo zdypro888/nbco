@@ -2315,6 +2315,27 @@ func TestReadDataEnforcesRowAndFieldVisibility(t *testing.T) {
 	if len(hidden.Info) != 0 {
 		t.Fatalf("hidden info leaked: %#v", hidden.Info)
 	}
+	ghost := mkUser(t, s, "data-unrooted-viewer", false)
+	mustExec(t, s,
+		`INSERT INTO permissions (kind, user_id, action, target, granted_by)
+		 VALUES ('active', $1, 'view_self_intro', $2, $1)`,
+		ghost.ID, fmt.Sprint(other.ID))
+	ghostRows, err := s.ReadData(ctx, ghost.ID, false, DataReadQuery{
+		Source: "users", Filters: map[string]string{"user_id": fmt.Sprint(other.ID)}, Limit: 5,
+	})
+	if err != nil || len(ghostRows) != 1 {
+		t.Fatalf("unrooted user read = %s, %v", ghostRows, err)
+	}
+	if err := json.Unmarshal(ghostRows[0], &hidden); err != nil {
+		t.Fatal(err)
+	}
+	if len(hidden.Info) != 0 {
+		t.Fatalf("unrooted permission leaked info: %#v", hidden.Info)
+	}
+	permissionRows, err := s.ReadData(ctx, ghost.ID, false, DataReadQuery{Source: "permissions", Limit: 5})
+	if err != nil || len(permissionRows) != 0 {
+		t.Fatalf("unrooted permission exposed as effective: %s, %v", permissionRows, err)
+	}
 	if err := s.GrantPerm(ctx, Grant{
 		Kind: KindActive, UserID: owner.ID, Action: "view_self_intro",
 		Target: fmt.Sprint(other.ID), GrantedBy: admin.ID,
@@ -2918,11 +2939,214 @@ func TestPermsCRUD(t *testing.T) {
 	if err != nil || len(grants) != 1 {
 		t.Fatalf("授权列表 = %d err=%v", len(grants), err)
 	}
-	if err := s.RevokePerm(ctx, KindActive, alice.ID, "send_msg", TargetAll); err != nil {
+	if err := s.RevokePerm(ctx, boss.ID, KindActive, alice.ID, "send_msg", TargetAll); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RevokePerm(ctx, KindActive, alice.ID, "send_msg", TargetAll); !errors.Is(err, ErrNotFound) {
+	if err := s.RevokePerm(ctx, boss.ID, KindActive, alice.ID, "send_msg", TargetAll); !errors.Is(err, ErrNotFound) {
 		t.Errorf("重复撤销应 ErrNotFound, got %v", err)
+	}
+}
+
+func TestActivePermissionDelegationGraph(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	root := mkUser(t, s, "permission-root", true)
+	managerA := mkUser(t, s, "permission-manager-a", false)
+	managerB := mkUser(t, s, "permission-manager-b", false)
+	lead := mkUser(t, s, "permission-lead", false)
+	member := mkUser(t, s, "permission-member", false)
+	target := mkUser(t, s, "permission-target", false)
+	targetKey := strconv.FormatInt(target.ID, 10)
+	if err := s.GrantPerm(ctx, Grant{
+		Kind: KindActive, UserID: member.ID, Action: "send_msg", Target: targetKey, GrantedBy: managerA.ID,
+	}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("unrooted grant = %v, want ErrForbidden", err)
+	}
+
+	grant := func(userID, grantedBy int64) {
+		t.Helper()
+		if err := s.GrantPerm(ctx, Grant{
+			Kind: KindActive, UserID: userID, Action: "send_msg", Target: targetKey, GrantedBy: grantedBy,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grant(managerA.ID, root.ID)
+	grant(managerB.ID, root.ID)
+	if err := s.GrantPerm(ctx, Grant{
+		Kind: KindActive, UserID: lead.ID, Action: "send_msg", Target: targetKey, GrantedBy: managerA.ID,
+	}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("delegation without manage_perm = %v, want ErrForbidden", err)
+	}
+	for _, edge := range []Grant{
+		{Kind: KindActive, UserID: managerA.ID, Action: "manage_perm", Target: strconv.FormatInt(lead.ID, 10), GrantedBy: root.ID},
+		{Kind: KindActive, UserID: managerB.ID, Action: "manage_perm", Target: strconv.FormatInt(lead.ID, 10), GrantedBy: root.ID},
+		{Kind: KindActive, UserID: lead.ID, Action: "manage_perm", Target: strconv.FormatInt(member.ID, 10), GrantedBy: root.ID},
+	} {
+		if err := s.GrantPerm(ctx, edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grant(lead.ID, managerA.ID)
+	grant(lead.ID, managerB.ID)
+	grant(member.ID, lead.ID)
+	sendGrants := func(grants []Grant) []Grant {
+		return slices.DeleteFunc(slices.Clone(grants), func(grant Grant) bool {
+			return grant.Kind != KindActive || grant.Action != "send_msg" || grant.Target != targetKey
+		})
+	}
+
+	leadGrants, err := s.PermsOf(ctx, lead.ID)
+	leadGrants = sendGrants(leadGrants)
+	if err != nil || len(leadGrants) != 2 {
+		t.Fatalf("independent grant sources = %+v, %v", leadGrants, err)
+	}
+	if err := s.RevokePerm(ctx, managerA.ID, KindActive, lead.ID, "send_msg", targetKey); err != nil {
+		t.Fatal(err)
+	}
+	leadGrants, err = s.PermsOf(ctx, lead.ID)
+	leadGrants = sendGrants(leadGrants)
+	if err != nil || len(leadGrants) != 1 || leadGrants[0].GrantedBy != managerB.ID {
+		t.Fatalf("peer grant source should survive manager revoke: %+v, %v", leadGrants, err)
+	}
+	if err := s.RevokePerm(ctx, managerA.ID, KindActive, lead.ID, "send_msg", targetKey); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("peer-only grant revoke = %v, want ErrForbidden", err)
+	}
+	grant(lead.ID, managerA.ID)
+	memberGrants, err := s.PermsOf(ctx, member.ID)
+	memberGrants = sendGrants(memberGrants)
+	if err != nil || len(memberGrants) != 1 {
+		t.Fatalf("delegated member grant = %+v, %v", memberGrants, err)
+	}
+	if err := s.RevokePerm(ctx, member.ID, KindActive, managerA.ID, "send_msg", targetKey); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("unauthorized revoke = %v, want ErrForbidden", err)
+	}
+
+	if err := s.RevokePerm(ctx, root.ID, KindActive, managerA.ID, "send_msg", targetKey); err != nil {
+		t.Fatal(err)
+	}
+	leadGrants, err = s.PermsOf(ctx, lead.ID)
+	leadGrants = sendGrants(leadGrants)
+	if err != nil || len(leadGrants) != 1 || leadGrants[0].GrantedBy != managerB.ID {
+		t.Fatalf("alternate authorization path not preserved: %+v, %v", leadGrants, err)
+	}
+	memberGrants, err = s.PermsOf(ctx, member.ID)
+	memberGrants = sendGrants(memberGrants)
+	if err != nil || len(memberGrants) != 1 {
+		t.Fatalf("downstream grant should survive through alternate path: %+v, %v", memberGrants, err)
+	}
+
+	if err := s.RevokePerm(ctx, root.ID, KindActive, managerB.ID, "send_msg", targetKey); err != nil {
+		t.Fatal(err)
+	}
+	leadGrants, err = s.PermsOf(ctx, lead.ID)
+	leadGrants = sendGrants(leadGrants)
+	if err != nil || len(leadGrants) != 0 {
+		t.Fatalf("orphaned lead grant remained effective: %+v, %v", leadGrants, err)
+	}
+	memberGrants, err = s.PermsOf(ctx, member.ID)
+	memberGrants = sendGrants(memberGrants)
+	if err != nil || len(memberGrants) != 0 {
+		t.Fatalf("orphaned downstream grant remained effective: %+v, %v", memberGrants, err)
+	}
+	var orphanEdges int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM permissions
+		  WHERE kind = 'active' AND action = 'send_msg' AND target = $3 AND user_id IN ($1, $2)`,
+		lead.ID, member.ID, targetKey).Scan(&orphanEdges); err != nil {
+		t.Fatal(err)
+	}
+	if orphanEdges != 0 {
+		t.Fatalf("revoked descendants must be pruned permanently, got %d rows", orphanEdges)
+	}
+}
+
+func TestWorkerAdminDemotionPrunesRootedDelegations(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	root := mkUser(t, s, "worker-admin-root", true)
+	ordinary := mkUser(t, s, "worker-admin-ordinary", false)
+	member := mkUser(t, s, "worker-admin-member", false)
+	worker, _, err := s.CreateWorker(ctx, "delegating-worker", root.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetWorkerAdmin(ctx, ordinary.ID, worker.ID, true); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("ordinary promotion = %v, want ErrForbidden", err)
+	}
+	if err := s.SetWorkerAdmin(ctx, root.ID, worker.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.GrantPerm(ctx, Grant{
+		Kind: KindActive, UserID: member.ID, Action: "send_msg", Target: TargetAll, GrantedBy: worker.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if grants, err := s.PermsOf(ctx, member.ID); err != nil || len(grants) != 1 {
+		t.Fatalf("worker-rooted permission = %+v, %v", grants, err)
+	}
+	if err := s.SetWorkerAdmin(ctx, root.ID, worker.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if grants, err := s.PermsOf(ctx, member.ID); err != nil || len(grants) != 0 {
+		t.Fatalf("demoted worker grant remained effective: %+v, %v", grants, err)
+	}
+	if err := s.SetWorkerAdmin(ctx, root.ID, worker.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if grants, err := s.PermsOf(ctx, member.ID); err != nil || len(grants) != 0 {
+		t.Fatalf("stale worker grant revived after promotion: %+v, %v", grants, err)
+	}
+	if err := s.GrantPerm(ctx, Grant{
+		Kind: KindActive, UserID: member.ID, Action: "send_msg", Target: TargetAll, GrantedBy: worker.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RevokeWorker(ctx, worker.ID); err != nil {
+		t.Fatal(err)
+	}
+	revoked, err := s.UserByID(ctx, worker.ID)
+	if err != nil || revoked.Status != UserDisabled || revoked.IsSuperadmin {
+		t.Fatalf("revoked admin worker = %+v, %v", revoked, err)
+	}
+	if grants, err := s.PermsOf(ctx, member.ID); err != nil || len(grants) != 0 {
+		t.Fatalf("revoked worker grant remained effective: %+v, %v", grants, err)
+	}
+}
+
+func TestDisabledDelegationChainIsSuspendedNotPruned(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	root := mkUser(t, s, "suspension-root", true)
+	manager := mkUser(t, s, "suspension-manager", false)
+	member := mkUser(t, s, "suspension-member", false)
+	target := mkUser(t, s, "suspension-target", false)
+	scratch := mkUser(t, s, "suspension-scratch", false)
+	targetKey := strconv.FormatInt(target.ID, 10)
+	for _, grant := range []Grant{
+		{Kind: KindActive, UserID: manager.ID, Action: "send_msg", Target: targetKey, GrantedBy: root.ID},
+		{Kind: KindActive, UserID: manager.ID, Action: "manage_perm", Target: strconv.FormatInt(member.ID, 10), GrantedBy: root.ID},
+		{Kind: KindActive, UserID: member.ID, Action: "send_msg", Target: targetKey, GrantedBy: manager.ID},
+		{Kind: KindActive, UserID: scratch.ID, Action: "send_msg", Target: targetKey, GrantedBy: root.ID},
+	} {
+		if err := s.GrantPerm(ctx, grant); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.SetUserStatus(ctx, manager.ID, UserDisabled); err != nil {
+		t.Fatal(err)
+	}
+	if grants, err := s.PermsOf(ctx, member.ID); err != nil || len(grants) != 0 {
+		t.Fatalf("disabled issuer grant should be suspended: %+v, %v", grants, err)
+	}
+	if err := s.RevokePerm(ctx, root.ID, KindActive, scratch.ID, "send_msg", targetKey); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetUserStatus(ctx, manager.ID, UserActive); err != nil {
+		t.Fatal(err)
+	}
+	if grants, err := s.PermsOf(ctx, member.ID); err != nil || len(grants) != 1 {
+		t.Fatalf("reenabled issuer grant should recover: %+v, %v", grants, err)
 	}
 }
 

@@ -788,7 +788,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 
 	switch cmd {
 	case "/listen":
-		if !bound || u == nil || !g.canManageTelegramGroup(ctx, u) {
+		if !bound || u == nil || !g.canManageTelegramGroup(ctx, u, chatID) {
 			g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 manage_telegram_group。")
 			return
 		}
@@ -944,7 +944,7 @@ func (g *Gateway) groupTranscriptOwner(ctx context.Context, bound *store.User) *
 	return nil
 }
 
-func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User) bool {
+func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User, chatID int64) bool {
 	if u == nil || u.Status != store.UserActive {
 		return false
 	}
@@ -956,12 +956,8 @@ func (g *Gateway) canManageTelegramGroup(ctx context.Context, u *store.User) boo
 		slog.Warn("加载 Telegram 群管理权限失败", "user", u.ID, "err", err)
 		return false
 	}
-	for _, grant := range grants {
-		if grant.Kind == store.KindActive && grant.Action == perm.ActManageTGGroup {
-			return true
-		}
-	}
-	return false
+	return perm.CheckActiveTarget(grants, perm.ActManageTGGroup,
+		fmt.Sprintf("telegram:group:%d", chatID))
 }
 
 func (g *Gateway) handleGroupMonitorMention(ctx context.Context, msg *models.Message, u *store.User, ask string) bool {
@@ -970,7 +966,7 @@ func (g *Gateway) handleGroupMonitorMention(ctx context.Context, msg *models.Mes
 		return false
 	}
 	chatID := msg.Chat.ID
-	if !g.canManageTelegramGroup(ctx, u) {
+	if !g.canManageTelegramGroup(ctx, u, chatID) {
 		g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 <code>manage_telegram_group</code>。")
 		return true
 	}

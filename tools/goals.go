@@ -215,7 +215,6 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 					}
 					return "", err
 				}
-				inheritViewPerms(ctx, d, u, created)
 				for _, t := range created {
 					if t.AssigneeID != u.ID {
 						notifyQuiet(ctx, d, t.AssigneeID,

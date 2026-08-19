@@ -148,24 +148,32 @@ func scheduleTools(d Deps, u *store.User) []ai.Tool {
 					return "只能修改自己创建的日程；收件人如需关闭可选日程，请修改自己的接收设置。", nil
 				}
 				var recipientPolicy *string
+				resultingPolicy := sc.RecipientPolicy
+				if resultingPolicy == "" {
+					resultingPolicy = store.ScheduleRecipientOptional
+				}
 				if args.RecipientPolicy != nil {
 					policy, err := normalizeScheduleRecipientPolicy(*args.RecipientPolicy)
 					if err != nil {
 						return err.Error(), nil
 					}
-					if policy == store.ScheduleRecipientMandatory {
-						if sc.Target == "" || sc.Target == store.ScheduleTargetSelf {
-							return "只发给自己的日程无需设置 mandatory；可直接取消或调整日程。", nil
-						}
-						allowed, err := canSetMandatorySchedule(ctx, d, u, sc.Target, sc.UserID)
-						if err != nil {
-							return "", err
-						}
-						if !allowed {
-							return "设置强制接收需要对全部目标拥有 manage_mandatory_schedule 权限。", nil
-						}
-					}
+					resultingPolicy = policy
 					recipientPolicy = &policy
+				}
+				// A durable schedule survives later personnel changes, but every
+				// mutation that leaves it mandatory must be authorized now. The
+				// owner may always downgrade it to optional or cancel it.
+				if resultingPolicy == store.ScheduleRecipientMandatory {
+					if sc.Target == "" || sc.Target == store.ScheduleTargetSelf {
+						return "只发给自己的日程无需设置 mandatory；可直接取消或调整日程。", nil
+					}
+					allowed, err := canSetMandatorySchedule(ctx, d, u, sc.Target, sc.UserID)
+					if err != nil {
+						return "", err
+					}
+					if !allowed {
+						return "该日程保持 mandatory 需要当前仍对全部目标拥有 manage_mandatory_schedule 权限；你仍可将它改为 optional 或取消。", nil
+					}
 				}
 				fireAt, intervalS := sc.FireAt, sc.IntervalS
 				dailyAt, weekdays := sc.DailyAt, sc.Weekdays
