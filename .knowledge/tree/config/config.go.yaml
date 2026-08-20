@@ -167,9 +167,20 @@ nodes:
       anchor:
         file: config/config.go
         symbol: Config.validate
-        hash: sha256:64a4b5c33889a5bb099cd28c4603fb8ec1bb3fdc4fdbba5020c06d639bf9575a
-        struct_hash: sha256:9d7d13ed5bf187797833b6f2e936472f745ade253fae3548944ee571832cde1d
-        doc_struct_hash: sha256:9d7d13ed5bf187797833b6f2e936472f745ade253fae3548944ee571832cde1d
+        hash: sha256:cbd30e09fc3629f5ddc40904bf2fa97bec07d9a544a16a9756e39a2e0e576283
+        struct_hash: sha256:da23ca19e17d54cef3bd0723557f0f092a92aa4f130c61492efec4772dbe1bcb
+        doc_struct_hash: sha256:da23ca19e17d54cef3bd0723557f0f092a92aa4f130c61492efec4772dbe1bcb
         lines: [246, 361]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: config/config.go#invalidBrandRune
+      level: function
+      anchor:
+        file: config/config.go
+        symbol: invalidBrandRune
+        hash: sha256:02c90962ecc9fb305235d7b0ff26e9dac24b84288288b5c6892b1684496586d0
+        struct_hash: sha256:a18d20cd3ce6a9eefb0d1adaf7c0b8b9c1f26f3cf71e38b6828232ffe8a5ed5b
+        doc_struct_hash: sha256:a18d20cd3ce6a9eefb0d1adaf7c0b8b9c1f26f3cf71e38b6828232ffe8a5ed5b
+        lines: [363, 365]
+      status: fresh
+      since: 2026-08-20T08:06:14.468877Z

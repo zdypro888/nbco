@@ -579,6 +579,10 @@ func TestOnboardingMessages(t *testing.T) {
 	if strings.Contains(help, "/superadmin") {
 		t.Errorf("已有管理员时不应提示 /superadmin:\n%s", help)
 	}
+	escaped := unboundHelpMessage(`OnCoin & <Ops>`, false)
+	if !strings.Contains(escaped, `OnCoin &amp; &lt;Ops&gt;`) || strings.Contains(escaped, `<Ops>`) {
+		t.Errorf("未绑定帮助没有安全转义实例品牌:\n%s", escaped)
+	}
 
 	bootstrap := unboundHelpMessage("Oncoin", true)
 	if !strings.Contains(bootstrap, "/superadmin") {

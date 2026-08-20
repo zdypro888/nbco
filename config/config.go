@@ -245,8 +245,8 @@ func (c *Config) SlogLevel() slog.Level {
 
 func (c *Config) validate() error {
 	var errs []error
-	if utf8.RuneCountInString(c.BrandName) > 48 || strings.IndexFunc(c.BrandName, unicode.IsControl) >= 0 {
-		errs = append(errs, errors.New("brand_name 必须是单行显示名称，且最长 48 个字符"))
+	if utf8.RuneCountInString(c.BrandName) > 48 || strings.IndexFunc(c.BrandName, invalidBrandRune) >= 0 {
+		errs = append(errs, errors.New("brand_name 必须是安全的单行显示名称，最长 48 个字符且不能包含控制字符"))
 	}
 	// telegram_token 可留空：此时不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用。
 	// superadmins 可留空：启用 Telegram 时，全新系统里第一个发 /superadmin 的人自动成为超管。
@@ -358,4 +358,8 @@ func (c *Config) validate() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func invalidBrandRune(r rune) bool {
+	return unicode.IsControl(r) || unicode.In(r, unicode.Zl, unicode.Zp, unicode.Bidi_Control)
 }
