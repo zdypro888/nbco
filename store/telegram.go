@@ -11,6 +11,7 @@ import (
 
 const KVTelegramGroupPrefix = "telegram.group:"
 const KVTelegramGroupListenPrefix = "tg_listen:"
+const kvTelegramGroupMembershipPrefix = "telegram.bot_group_membership:"
 const KVTelegramGroupLastMessagePrefix = "telegram.group.last_message:"
 const KVTelegramGroupSeenMemberPrefix = "telegram.group.seen_member:"
 const KVTelegramGroupAutoInvitePrefix = "telegram.group.auto_invite:"
@@ -74,6 +75,10 @@ func telegramGroupKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupPrefix, chatID)
 }
 
+func telegramGroupMembershipKey(chatID int64) string {
+	return fmt.Sprintf("%s%d", kvTelegramGroupMembershipPrefix, chatID)
+}
+
 func TelegramGroupListenKey(chatID int64) string {
 	return fmt.Sprintf("%s%d", KVTelegramGroupListenPrefix, chatID)
 }
@@ -110,6 +115,114 @@ func (s *Store) SaveTelegramGroupState(ctx context.Context, st TelegramGroupStat
 		return err
 	}
 	return s.SetKV(ctx, telegramGroupKey(st.ChatID), string(raw))
+}
+
+// TransitionTelegramGroupMembership atomically records whether the bot is an
+// active member of a group. Telegram emits both my_chat_member and a service
+// message for one join; only the first observer of an inactive -> active
+// transition receives joined=true. Existing deployments are initialized from
+// their persisted group state, so a later role update does not look like a new
+// join.
+func (s *Store) TransitionTelegramGroupMembership(ctx context.Context, st TelegramGroupState, active bool) (joined bool, err error) {
+	if st.ChatID == 0 {
+		return false, nil
+	}
+	if st.UpdatedAt.IsZero() {
+		st.UpdatedAt = time.Now()
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	membershipKey := telegramGroupMembershipKey(st.ChatID)
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, membershipKey); err != nil {
+		return false, err
+	}
+
+	var previous TelegramGroupState
+	previousFound := false
+	var previousRaw string
+	err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key = $1`, telegramGroupKey(st.ChatID)).Scan(&previousRaw)
+	if err == nil {
+		if err := json.Unmarshal([]byte(previousRaw), &previous); err != nil {
+			return false, fmt.Errorf("解析 Telegram 群状态: %w", err)
+		}
+		previousFound = true
+	} else if wrapErr(err) != ErrNotFound {
+		return false, err
+	}
+
+	var marker string
+	markerFound := false
+	err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key = $1`, membershipKey).Scan(&marker)
+	if err == nil {
+		markerFound = true
+	} else if wrapErr(err) != ErrNotFound {
+		return false, err
+	}
+
+	previousActive := marker == "1"
+	if !markerFound && previousFound {
+		previousActive = telegramGroupStatusActive(previous.Status)
+	}
+	joined = active && !previousActive
+
+	listen := false
+	if active {
+		listen = joined
+		if !joined {
+			var listenRaw string
+			err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key = $1`, TelegramGroupListenKey(st.ChatID)).Scan(&listenRaw)
+			switch {
+			case err == nil:
+				listen = listenRaw == "1"
+			case wrapErr(err) == ErrNotFound:
+				listen = previousFound && previous.Listen
+			default:
+				return false, err
+			}
+		}
+	}
+	st.Listen = listen
+	raw, err := json.Marshal(st)
+	if err != nil {
+		return false, err
+	}
+	marker = ""
+	listenValue := ""
+	if active {
+		marker = "1"
+	}
+	if listen {
+		listenValue = "1"
+	}
+	for key, value := range map[string]string{
+		membershipKey:                     marker,
+		TelegramGroupListenKey(st.ChatID): listenValue,
+		telegramGroupKey(st.ChatID):       string(raw),
+	} {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO kv_state (key, value) VALUES ($1, $2)
+			 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, key, value); err != nil {
+			return false, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return joined, nil
+}
+
+func telegramGroupStatusActive(status string) bool {
+	switch status {
+	case "member", "administrator", "creator", "owner", "restricted":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Store) TelegramGroupState(ctx context.Context, chatID int64) (*TelegramGroupState, error) {

@@ -5320,6 +5320,91 @@ func TestTelegramGroupState(t *testing.T) {
 	}
 }
 
+func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	// Upgrade compatibility: an existing active state predates the transition
+	// marker and must not be announced as a new join.
+	if err := s.SaveTelegramGroupState(ctx, TelegramGroupState{
+		ChatID: -2001, Title: "旧群", Type: "supergroup", Status: "member", Listen: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	joined, err := s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: -2001, Title: "旧群", Type: "supergroup", Status: "administrator",
+	}, true)
+	if err != nil || joined {
+		t.Fatalf("existing active group joined=%v err=%v", joined, err)
+	}
+
+	const chatID int64 = -2002
+	const callers = 16
+	var wg sync.WaitGroup
+	joinedResults := make(chan bool, callers)
+	errResults := make(chan error, callers)
+	for range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			joined, err := s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+				ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "member",
+			}, true)
+			joinedResults <- joined
+			errResults <- err
+		}()
+	}
+	wg.Wait()
+	close(joinedResults)
+	close(errResults)
+	for err := range errResults {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	joinCount := 0
+	for joined := range joinedResults {
+		if joined {
+			joinCount++
+		}
+	}
+	if joinCount != 1 {
+		t.Fatalf("concurrent join announcements = %d, want 1", joinCount)
+	}
+	if listen, err := s.GetKV(ctx, TelegramGroupListenKey(chatID)); err != nil || listen != "1" {
+		t.Fatalf("join should enable listening: value=%q err=%v", listen, err)
+	}
+
+	// Active role changes preserve an explicit listener choice and do not
+	// announce again.
+	if err := s.SetKV(ctx, TelegramGroupListenKey(chatID), ""); err != nil {
+		t.Fatal(err)
+	}
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "administrator",
+	}, true)
+	if err != nil || joined {
+		t.Fatalf("active role change joined=%v err=%v", joined, err)
+	}
+	state, err := s.TelegramGroupState(ctx, chatID)
+	if err != nil || state.Listen {
+		t.Fatalf("role change should preserve disabled listening: state=%+v err=%v", state, err)
+	}
+
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "left",
+	}, false)
+	if err != nil || joined {
+		t.Fatalf("leave joined=%v err=%v", joined, err)
+	}
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "member",
+	}, true)
+	if err != nil || !joined {
+		t.Fatalf("rejoin joined=%v err=%v", joined, err)
+	}
+}
+
 func TestTelegramGroupMonitor(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

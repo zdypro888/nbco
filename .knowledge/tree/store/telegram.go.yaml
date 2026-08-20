@@ -371,3 +371,25 @@ nodes:
         lines: [354, 371]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.TransitionTelegramGroupMembership
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.TransitionTelegramGroupMembership
+        hash: sha256:3ece54f7fb910bfedea217318789718ef86df93bb7275a229a3acac8dedde153
+        struct_hash: sha256:79ce5f671e9190d46f11fe0e8848d89210bdfd757a47fe42a6962e14f1b5b21b
+        doc_struct_hash: sha256:b6d03bbace84473019158d5844cddd1e7ae1e944ae6686e00e86345f66cdeaa5
+        lines: [120, 217]
+      status: fresh
+      since: 2026-08-20T08:21:06.459475Z
+    - id: store/telegram.go#telegramGroupStatusActive
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: telegramGroupStatusActive
+        hash: sha256:61b16d5cf41468070e2c9f535a8fca471ad6d1b81d15be88c946f5312a0793d9
+        struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
+        doc_struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
+        lines: [219, 226]
+      status: fresh
+      since: 2026-08-20T08:21:06.460873Z

@@ -159,6 +159,10 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 		// Construction must not depend on Telegram network readiness. The gateway
 		// performs a retrying GetMe handshake in Run while HTTP/worker APIs stay up.
 		bot.WithSkipGetMe(),
+		// Keep Telegram update routing ordered. Normal messages are dispatched to
+		// per-conversation goroutines below, while lifecycle transitions must retain
+		// Telegram's update order (for example leave followed quickly by rejoin).
+		bot.WithNotAsyncHandlers(),
 		bot.WithDefaultHandler(g.handle),
 		bot.WithAllowedUpdates(bot.AllowedUpdates{
 			models.AllowedUpdateMessage,
@@ -597,19 +601,7 @@ func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMember
 	newStatus := upd.NewChatMember.Type
 	slog.Info("TG bot 群成员状态变化", "chat", chat.ID, "title", chat.Title,
 		"from", upd.From.ID, "old", oldStatus, "new", newStatus)
-	if !isActiveChatMember(newStatus) {
-		if err := g.store.SetKV(ctx, listenKey(chat.ID), ""); err != nil {
-			slog.Warn("关闭群监听失败", "chat", chat.ID, "err", err)
-		}
-		g.saveGroupState(ctx, chat, string(newStatus), false)
-		return
-	}
-	if err := g.store.SetKV(ctx, listenKey(chat.ID), "1"); err != nil {
-		slog.Warn("开启群监听失败", "chat", chat.ID, "err", err)
-	}
-	g.saveGroupState(ctx, chat, string(newStatus), true)
-	// bot 被加入群时不一定能把操作者映射到公司用户；先确保群会话在首次 @ 时可用。
-	g.reply(ctx, chat.ID, g.groupReadyMessage())
+	g.applyBotGroupMembership(ctx, chat, newStatus)
 }
 
 func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Message) bool {
@@ -621,23 +613,36 @@ func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Mes
 		g.saveSeenMember(ctx, msg.Chat.ID, &u, "", msg.ID)
 		if g.botID() != 0 && u.ID == g.botID() {
 			slog.Info("TG bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
-			if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), "1"); err != nil {
-				slog.Warn("开启群监听失败", "chat", msg.Chat.ID, "err", err)
-			}
-			g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), true)
-			g.reply(ctx, msg.Chat.ID, g.groupReadyMessage())
+			g.applyBotGroupMembership(ctx, msg.Chat, models.ChatMemberTypeMember)
 			return true
 		}
 	}
 	if msg.LeftChatMember != nil && g.botID() != 0 && msg.LeftChatMember.ID == g.botID() {
 		slog.Info("TG bot 离开群", "chat", msg.Chat.ID, "title", msg.Chat.Title)
-		if err := g.store.SetKV(ctx, listenKey(msg.Chat.ID), ""); err != nil {
-			slog.Warn("关闭群监听失败", "chat", msg.Chat.ID, "err", err)
-		}
-		g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeLeft), false)
+		g.applyBotGroupMembership(ctx, msg.Chat, models.ChatMemberTypeLeft)
 		return true
 	}
 	return false
+}
+
+// applyBotGroupMembership is the sole gateway path for bot membership facts.
+// Telegram can report one transition through multiple update types, so the
+// store decides atomically whether this is the first active observation.
+func (g *Gateway) applyBotGroupMembership(ctx context.Context, chat models.Chat, status models.ChatMemberType) {
+	joined, err := g.store.TransitionTelegramGroupMembership(ctx, store.TelegramGroupState{
+		ChatID: chat.ID,
+		Title:  chat.Title,
+		Type:   string(chat.Type),
+		Status: string(status),
+	}, isActiveChatMember(status))
+	if err != nil {
+		slog.Warn("保存 Telegram bot 群成员状态失败", "chat", chat.ID, "status", status, "err", err)
+		return
+	}
+	if joined {
+		// 加群操作者不一定能映射到公司用户；先确保群会话在首次 @ 时可用。
+		g.reply(ctx, chat.ID, g.groupReadyMessage())
+	}
 }
 
 func (g *Gateway) saveGroupState(ctx context.Context, chat models.Chat, status string, listen bool) {

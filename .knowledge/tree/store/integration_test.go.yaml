@@ -1240,3 +1240,14 @@ nodes:
         lines: [5937, 5990]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/integration_test.go#TestTelegramGroupMembershipTransitionIsAtomicAndReusable
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestTelegramGroupMembershipTransitionIsAtomicAndReusable
+        hash: sha256:96161670329169b27f20859bab52695a4936dba775014b93acc5c31bba2af0cc
+        struct_hash: sha256:0a67eca1b643dcb06b94014833d538ee6299ba85b4a18a98b44389731cd59d66
+        doc_struct_hash: sha256:0a67eca1b643dcb06b94014833d538ee6299ba85b4a18a98b44389731cd59d66
+        lines: [5323, 5406]
+      status: fresh
+      since: 2026-08-20T08:21:06.530474Z
