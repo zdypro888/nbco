@@ -12,6 +12,10 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/zdypro888/nbco/branding"
 )
 
 var (
@@ -106,6 +110,9 @@ func (c QdrantConfig) Enabled() bool { return strings.TrimSpace(c.URL) != "" }
 
 // Config 全量配置。
 type Config struct {
+	// BrandName 是当前实例面向用户的显示名称。内部协议、二进制和数据库键
+	// 继续使用稳定的 nbco 标识，不随品牌变化。
+	BrandName     string `json:"brand_name"`
 	TelegramToken string `json:"telegram_token"`
 	// TelegramAPIURL 可指向本机 telegram-bot-api；为空使用 Telegram 云端。
 	// 本机服务可突破云端 20MB 下载限制。
@@ -153,6 +160,7 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) applyDefaults() {
+	c.BrandName = branding.Name(c.BrandName)
 	c.TelegramAPIURL = strings.TrimRight(strings.TrimSpace(c.TelegramAPIURL), "/")
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8900"
@@ -237,6 +245,9 @@ func (c *Config) SlogLevel() slog.Level {
 
 func (c *Config) validate() error {
 	var errs []error
+	if utf8.RuneCountInString(c.BrandName) > 48 || strings.IndexFunc(c.BrandName, unicode.IsControl) >= 0 {
+		errs = append(errs, errors.New("brand_name 必须是单行显示名称，且最长 48 个字符"))
+	}
 	// telegram_token 可留空：此时不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用。
 	// superadmins 可留空：启用 Telegram 时，全新系统里第一个发 /superadmin 的人自动成为超管。
 	if strings.TrimSpace(c.PostgresDSN) == "" {

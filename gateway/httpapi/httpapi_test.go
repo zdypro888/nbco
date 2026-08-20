@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/tools"
 	"github.com/zdypro888/nbco/workerproto"
 )
 
@@ -151,6 +152,24 @@ func TestControlCenterUsesPerResponseCSPNonce(t *testing.T) {
 	}
 	if first.Body.String() == second.Body.String() {
 		t.Fatal("CSP nonce must rotate for every control-center response")
+	}
+}
+
+func TestControlCenterUsesEscapedInstanceBrand(t *testing.T) {
+	s := &Server{deps: tools.Deps{BrandName: `Oncoin <Ops> "HQ"`}}
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	body := rec.Body.String()
+	for _, want := range []string{
+		`<title>Oncoin &lt;Ops&gt; &#34;HQ&#34; · AI 运营控制中心</title>`,
+		`data-brand-name="Oncoin &lt;Ops&gt; &#34;HQ&#34;"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("control center missing escaped brand %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "{{BRAND_NAME}}") || strings.Contains(body, `<Ops>`) {
+		t.Fatalf("control center exposed an unescaped or unresolved brand: %s", body)
 	}
 }
 

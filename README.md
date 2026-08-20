@@ -39,6 +39,7 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 
 | 字段 | 说明 |
 |------|------|
+| `brand_name` | 当前实例面向用户的显示名称，默认 `nbco`；Web、Telegram 和 Agent 身份会使用它，内部协议标识保持不变 |
 | `telegram_token` | Bot token；可留空，留空则不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用 |
 | `telegram_api_url` | 可选的自建 `telegram-bot-api` 基地址；为空使用 Telegram 云端。云端只能下载不超过 20MB 的文件，本机服务可接收更大的 Telegram 文件 |
 | `superadmins` | Telegram 用户 ID 列表（启用 Telegram 时可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |

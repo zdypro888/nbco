@@ -82,7 +82,7 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				return renderFileQueue(fs, intakes, d.TZ), nil
 			}),
 
-		tool("send_file", "把 nbco 文件库里的文件发送给用户。适合把 worker 产物、整理好的表格/文档发回 Telegram；发送前先确认 file_id 是系统文件 ID。发给别人需要 send_msg 权限。",
+		tool("send_file", "把系统文件库里的文件发送给用户。适合把 worker 产物、整理好的表格/文档发回 Telegram；发送前先确认 file_id 是系统文件 ID。发给别人需要 send_msg 权限。",
 			obj(map[string]any{
 				"user_id": p("integer", "收件人用户ID；省略或 0 表示发给当前用户"),
 				"file_id": p("integer", "系统文件ID"),
@@ -136,7 +136,7 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				return "已发送文件。", nil
 			}),
 
-		tool("delete_file", "删除 nbco 文件库中的文件记录。调用前用 search_workspace 或 list_recent_files 确认系统 file_id；普通用户只能删除自己上传的文件，超级管理员可删除任意未被任务附件/产物引用的文件。",
+		tool("delete_file", "删除系统文件库中的文件记录。调用前用 search_workspace 或 list_recent_files 确认系统 file_id；普通用户只能删除自己上传的文件，超级管理员可删除任意未被任务附件/产物引用的文件。",
 			obj(map[string]any{
 				"file_id": p("integer", "search_workspace 或 list_recent_files 返回的系统文件ID"),
 			}, "file_id"),
@@ -204,13 +204,13 @@ func renderFileQueue(fs []store.File, intakes []store.FileIntake, tz *time.Locat
 		if b.Len() > 0 {
 			b.WriteString("\n")
 		}
-		b.WriteString("未进入 nbco 的文件接收记录：\n")
+		b.WriteString("未进入系统的文件接收记录：\n")
 		for _, in := range failed {
 			fmt.Fprintf(&b, "- %s（%s，%s）status=%s；原因=%s；时间=%s\n",
 				in.OriginalName, formatBytes(in.SizeBytes), in.MIMEType, in.Status,
 				fileIntakeReason(in), fmtTime(in.CreatedAt, tz))
 		}
-		b.WriteString("这些记录没有系统 file_id，不能读取或分析；不得声称已经收到文件内容。Telegram 失败消息会提供真实的“打开 nbco 文件中心”按钮；不要编造 /upload 等命令或链接。")
+		b.WriteString("这些记录没有系统 file_id，不能读取或分析；不得声称已经收到文件内容。Telegram 失败消息会提供真实的“打开文件中心”按钮；不要编造 /upload 等命令或链接。")
 	}
 	if b.Len() == 0 {
 		return "（最近没有文件接收记录）"

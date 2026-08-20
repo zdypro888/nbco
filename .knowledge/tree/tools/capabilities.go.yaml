@@ -211,9 +211,9 @@ nodes:
       anchor:
         file: tools/capabilities.go
         symbol: capabilityTools
-        hash: sha256:1a3518d4b224301fe75ff6718d6b322cf9b08e149de66f2860b9f1e70656a6dd
-        struct_hash: sha256:4ed495ae7e1f38b7ed029f7a16f5393e021b481c45d62adaab862430a7b7c73d
-        doc_struct_hash: sha256:4ed495ae7e1f38b7ed029f7a16f5393e021b481c45d62adaab862430a7b7c73d
+        hash: sha256:70683f71a65707e437d1153ae3de58ce6f0f232d7e9b8fd75fcf85db3098a08d
+        struct_hash: sha256:2e8f914fb13addea22d455b7d912722bb01c85af2c90b004a48f1fb461b89a27
+        doc_struct_hash: sha256:2e8f914fb13addea22d455b7d912722bb01c85af2c90b004a48f1fb461b89a27
         lines: [441, 474]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

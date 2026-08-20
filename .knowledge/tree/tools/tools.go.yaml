@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: Deps
-        hash: sha256:dd8c3a541d2bb2744b0af42526808bfea226398eaa27a183f22aa66c4a0cd3ec
-        struct_hash: sha256:22b9341f7c2571ec754b1d9497741510b2ff591d66b728a9e984862370d01c55
-        doc_struct_hash: sha256:ea2e237cf73013b206ec272f0545f3f0909c8ade1bb8c6d68f45fed84e12e067
-        lines: [30, 62]
+        hash: sha256:9a05b9fdf55c7f701e3d98dcaed4f7c8888284ab05d5c3a88742681f87e8750f
+        struct_hash: sha256:7be95be588696e22da3699450fd015f88714fd7f68692e3fa683ff158fc0baa5
+        doc_struct_hash: sha256:3ece641de51ae50356eda30f8355ad271d9f937d05d0772976dd0cfe7389990c
+        lines: [31, 65]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#SubcallRequest

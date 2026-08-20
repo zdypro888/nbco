@@ -39,7 +39,7 @@ var workflowTemplates = []WorkflowTemplate{
 	},
 	{
 		Name:        "nbco_upgrade",
-		Title:       "nbco 单 worker 升级",
+		Title:       "系统单 worker 升级",
 		Domain:      CapabilityOps,
 		Risk:        "high",
 		Description: "超级管理员用一个 admin worker 创建一次显式命令任务，执行 scripts/upgrade-nbco.sh，完成拉取、测试、构建、重启、健康检查和自动回滚。",
@@ -53,10 +53,10 @@ var workflowTemplates = []WorkflowTemplate{
 	},
 	{
 		Name:        "nbco_code_change",
-		Title:       "nbco 代码变更与可选上线",
+		Title:       "系统代码变更与可选上线",
 		Domain:      CapabilityOps,
 		Risk:        "high",
-		Description: "超级管理员用一个 admin worker 承接 nbco 源码开发/修复/测试/提交/可选部署。适合“给 nbco 增加某功能然后升级”这类需要先改代码再上线的请求；同一个目标保持在同一个 worker/agent session scope。",
+		Description: "超级管理员用一个 admin worker 承接系统源码开发/修复/测试/提交/可选部署。适合需要先改代码再上线的请求；同一个目标保持在同一个 worker/agent session scope。",
 		Args: map[string]any{
 			"goal":        "必填，代码变更目标",
 			"worker_id":   "可选，指定 admin worker；不填自动选择可用 admin worker",
@@ -75,7 +75,7 @@ var workflowRefRe = regexp.MustCompile(`^[A-Za-z0-9._/@-]+$`)
 
 func workflowTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_workflows", "列出 nbco 已固化的标准工作流模板。遇到资料分析、代码升级、入职、群监控等标准流程时先看是否有匹配模板；没有模板时继续用底层工具或 skill 组合完成。",
+		tool("list_workflows", "列出系统已固化的标准工作流模板。遇到资料分析、代码升级、入职、群监控等标准流程时先看是否有匹配模板；没有模板时继续用底层工具或 skill 组合完成。",
 			obj(map[string]any{"domain": p("string", "可选：workers/ops/...")}),
 			func(_ context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
@@ -257,7 +257,7 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 	command := nbcoUpgradeCommand(args.RepoDir, ref)
 	title := strings.TrimSpace(args.Title)
 	if title == "" {
-		title = "升级 nbco 到 " + ref
+		title = "升级系统到 " + ref
 	}
 	run, err := createWorkerCommandRun(ctx, d, u, w, workerCommandRunArgs{
 		Title:       title,
@@ -273,7 +273,7 @@ func startNBCOUpgradeWorkflow(ctx context.Context, d Deps, u *store.User, raw js
 	if err != nil {
 		return "", err
 	}
-	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「nbco 单 worker 升级」：创建执行（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一条执行记录里。", internalRef("执行", run.ID), w.Name)), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「系统单 worker 升级」：创建执行（%s）并分配给 admin worker %s。命令会以 pipe 模式执行，升级过程保持在同一条执行记录里。", internalRef("执行", run.ID), w.Name)), nil
 }
 
 func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw json.RawMessage) (string, error) {
@@ -320,14 +320,14 @@ func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw
 	}
 	title := strings.TrimSpace(args.Title)
 	if title == "" {
-		title = "修改 nbco：" + textTitle(goal, 32)
+		title = "修改系统：" + textTitle(goal, 32)
 	}
 	t, err := d.Store.CreateTaskWithWorkerRun(ctx, &store.Task{
 		ProjectID:   pj.ID,
 		AssignerID:  u.ID,
 		AssigneeID:  w.ID,
 		Title:       title,
-		Goal:        "用一个可信 admin worker 完成 nbco 代码变更、验证与可选上线。",
+		Goal:        "用一个可信 admin worker 完成系统代码变更、验证与可选上线。",
 		Description: nbcoCodeChangePrompt(goal, args.RepoDir, args.RepoURL, args.Branch, args.CommitPush, args.Deploy),
 		Acceptance:  "完成汇报必须包含：使用/创建的 agent session scope、源码位置、变更摘要、测试命令与结果、git 状态；如果 commit_push=true，包含提交与 push 结果；如果 deploy=true，包含部署命令、readyz、版本检查和失败回滚状态。",
 		Priority:    "high",
@@ -346,7 +346,7 @@ func startNBCOCodeChangeWorkflow(ctx context.Context, d Deps, u *store.User, raw
 	if args.Deploy {
 		mode += "/部署"
 	}
-	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「nbco 代码变更与可选上线」：创建任务（%s）并分配给 admin worker %s。模式：%s；同一目标会在同一个 worker 任务上下文里推进。", internalRef("任务", t.ID), w.Name, mode)), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已启动工作流「系统代码变更与可选上线」：创建任务（%s）并分配给 admin worker %s。模式：%s；同一目标会在同一个 worker 任务上下文里推进。", internalRef("任务", t.ID), w.Name, mode)), nil
 }
 
 func nbcoCodeChangePrompt(goal, repoDir, repoURL, branch string, commitPush, deploy bool) string {

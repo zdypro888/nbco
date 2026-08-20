@@ -75,7 +75,7 @@ func withApproval(s *store.Store, userID int64, t ai.Tool) ai.Tool {
 	t.Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
 		turn, ok := approvalTurnFromContext(ctx)
 		if !ok {
-			return "高危操作需要在 nbco 对话里由用户下一条消息明确确认后执行；当前入口没有可验证的用户确认轮次。", nil
+			return "高危操作需要在当前对话里由用户下一条消息明确确认后执行；当前入口没有可验证的用户确认轮次。", nil
 		}
 		hash := canonicalArgsHash(args)
 		ok, err := s.ConsumePendingApproval(ctx, userID, name, hash, turn.SessionID, turn.MessageID)

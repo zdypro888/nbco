@@ -1,4 +1,6 @@
 const root = document.querySelector("#root");
+const brandName = String(root?.dataset.brandName || "nbco").trim() || "nbco";
+const brandMark = Array.from(brandName)[0]?.toUpperCase() || "N";
 const telegramWebApp = window.Telegram && window.Telegram.WebApp;
 const tg = telegramWebApp && String(telegramWebApp.initData || "").trim() ? telegramWebApp : null;
 const requestedView = new URLSearchParams(window.location.search).get("view");
@@ -148,7 +150,7 @@ function renderLogin(error = "") {
     : "使用你的 Access Token 登录。";
   root.innerHTML = `
     <main class="login">
-      <h1>nbco</h1>
+      <h1>${esc(brandName)}</h1>
       <p>AI 运营控制中心。${hint}</p>
       <input id="loginToken" type="password" autocomplete="off" placeholder="Access Token">
       <button class="btn primary" style="width:100%;margin-top:10px" data-action="login">进入控制中心</button>
@@ -190,7 +192,7 @@ function renderApp() {
   root.innerHTML = `
     <div class="app route-${esc(state.route)}">
       <aside class="sidebar">
-        <div class="brand"><span class="brand-mark">n</span><span>nbco</span></div>
+        <div class="brand"><span class="brand-mark">${esc(brandMark)}</span><span>${esc(brandName)}</span></div>
         <nav class="nav">
           ${navItems().map(([route, ico, label]) => `
             <button data-route="${route}" class="${state.route === route ? "active" : ""}">
@@ -199,7 +201,7 @@ function renderApp() {
         </nav>
         <div class="user-box">
           <div class="user-row">
-            <div class="avatar">${esc((state.me.name || "n").slice(0, 1).toUpperCase())}</div>
+            <div class="avatar">${esc((state.me.name || brandMark).slice(0, 1).toUpperCase())}</div>
             <div>
               <div class="user-name">${esc(state.me.name)}</div>
               <div class="user-role">${state.me.is_superadmin ? "超级管理员" : "成员"}</div>
@@ -1077,7 +1079,7 @@ function upgradeForm() {
         <div class="field"><label>Admin Worker</label><select class="select" id="upgradeWorker">${workerOptions(true)}</select></div>
       </div>
       <div class="field"><label>源码目录</label><input class="input" id="upgradeRepo" placeholder="默认使用 NBCO_REPO_DIR 或 $HOME/src/nbco"></div>
-      <div class="field"><label>任务标题</label><input class="input" id="upgradeTitle" placeholder="升级 nbco 到 origin/main"></div>
+      <div class="field"><label>任务标题</label><input class="input" id="upgradeTitle" placeholder="升级系统到 origin/main"></div>
       <label class="checkline"><input type="checkbox" id="upgradeConfirm">确认执行生产升级工作流</label>
       <button class="btn danger" data-action="start-upgrade">${icon("rocket")}创建升级任务</button>
       ${actionResult("升级会创建一个 worker 命令任务，在同一个任务内完成测试、构建、重启、健康检查和回滚。")}
@@ -1738,7 +1740,7 @@ async function startUpgrade() {
     };
     const data = await api("/api/admin/workflows/start", { method: "POST", body: JSON.stringify({ name: "nbco_upgrade", args }) });
     setResult(data.result || "已创建升级任务。");
-    addLog("workflow", "WARN", "nbco_upgrade 已创建");
+    addLog("workflow", "WARN", "系统升级工作流已创建");
     await loadTasks();
   } catch (err) {
     setResult(err.message, false);

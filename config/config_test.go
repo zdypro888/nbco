@@ -30,6 +30,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Listen != "127.0.0.1:8900" {
 		t.Errorf("Listen 默认值 = %q", cfg.Listen)
 	}
+	if cfg.BrandName != "nbco" {
+		t.Errorf("BrandName 默认值 = %q", cfg.BrandName)
+	}
 	if cfg.Timezone != "Asia/Shanghai" {
 		t.Errorf("Timezone 默认值 = %q", cfg.Timezone)
 	}
@@ -79,6 +82,20 @@ func TestLoadQdrantConfig(t *testing.T) {
 	if cfg.Qdrant.URL != "http://127.0.0.1:6334" || cfg.Qdrant.CollectionPrefix != "nbco_semantic" ||
 		cfg.Qdrant.SyncIntervalSeconds != 120 || cfg.Qdrant.SyncTimeoutSeconds != 3600 {
 		t.Fatalf("Qdrant 默认配置异常: %+v", cfg.Qdrant)
+	}
+}
+
+func TestLoadNormalizesInstanceBrand(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{
+		"brand_name":"  Oncoin  ",
+		"postgres_dsn":"postgres://x",
+		"ai":{"api_key":"k","model":"m"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BrandName != "Oncoin" {
+		t.Fatalf("BrandName = %q", cfg.BrandName)
 	}
 }
 
@@ -134,6 +151,12 @@ func TestLoadValidation(t *testing.T) {
 		{"turn timeout 过大",
 			`{"postgres_dsn":"d","ai":{"api_key":"k","model":"m","turn_timeout_ms":1800001}}`,
 			"ai.turn_timeout_ms"},
+		{"brand_name 包含换行",
+			`{"brand_name":"Oncoin\nInjected","postgres_dsn":"d","ai":{"api_key":"k","model":"m"}}`,
+			"brand_name"},
+		{"brand_name 过长",
+			`{"brand_name":"1234567890123456789012345678901234567890123456789","postgres_dsn":"d","ai":{"api_key":"k","model":"m"}}`,
+			"brand_name"},
 		{"未知引擎",
 			`{"telegram_token":"t","superadmins":[1],"postgres_dsn":"d","ai":{"engine":"gpt"}}`,
 			"ai.engine 不支持"},

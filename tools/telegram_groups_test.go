@@ -114,8 +114,9 @@ func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
 		from,
 		to,
 		tz,
+		"Oncoin",
 	)
-	for _, want := range []string{"项目群", "共 3 条", "仅最新部分", "【Alice】日报完成", "nbco：收到", "next_cursor: 42"} {
+	for _, want := range []string{"项目群", "共 3 条", "仅最新部分", "【Alice】日报完成", "Oncoin：收到", "next_cursor: 42"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("group messages missing %q:\n%s", want, got)
 		}
@@ -127,6 +128,7 @@ func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
 		from,
 		to,
 		tz,
+		"Oncoin",
 	)
 	for _, want := range []string{"persisted_messages=0", "ingress_member_evidence_at_least=0", "查询成功", "事实不足"} {
 		if !strings.Contains(empty, want) {
@@ -145,6 +147,7 @@ func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
 		from,
 		to,
 		tz,
+		"Oncoin",
 	)
 	for _, want := range []string{"ingress_member_evidence_at_least=3", "最近入口观测", "内部持久化不一致"} {
 		if !strings.Contains(inconsistent, want) {
@@ -158,6 +161,7 @@ func TestTelegramGroupMessageRangeAndRender(t *testing.T) {
 		from,
 		to,
 		tz,
+		"Oncoin",
 	)
 	if !strings.Contains(continuation, "没有更早") || strings.Contains(continuation, "内部持久化不一致") {
 		t.Fatalf("empty continuation must not be diagnosed as capture loss:\n%s", continuation)

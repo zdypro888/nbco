@@ -46,9 +46,9 @@ nodes:
       anchor:
         file: tools/workflows.go
         symbol: workflowTools
-        hash: sha256:6697e71c6890cb2066bfe9dcb1edcb650b5efdc18c82c00946c80d876e627763
-        struct_hash: sha256:c4bc9fcce5186b4aecdb4063dcd8b67972f1d8a7621be7d1a7904611b98ca05d
-        doc_struct_hash: sha256:c4bc9fcce5186b4aecdb4063dcd8b67972f1d8a7621be7d1a7904611b98ca05d
+        hash: sha256:dd034e5e100cda9fda8cf2ba8bb980597b55ef35d008e4b72fce76cc248141f2
+        struct_hash: sha256:190643b3ba6009455f2d3dedb2d7a1f8fcbc2c5917198873e30831aa0008b9ad
+        doc_struct_hash: sha256:190643b3ba6009455f2d3dedb2d7a1f8fcbc2c5917198873e30831aa0008b9ad
         lines: [76, 109]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

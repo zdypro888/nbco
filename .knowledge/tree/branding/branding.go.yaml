@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: branding/branding.go
+      level: file
+      anchor:
+        file: branding/branding.go
+        hash: sha256:313a611df7188a386959c99eb3230d1a70cfa67d6b8c061941dcdfdceb92c03b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T07:55:29.84421Z
+    - id: branding/branding.go#Name
+      level: function
+      anchor:
+        file: branding/branding.go
+        symbol: Name
+        hash: sha256:8019a1a747e56cb07578dc24eeb45a3be6915c930ace57703e336a4f4ba411a6
+        struct_hash: sha256:e0a21cf185570a31e37ae6653f478380490dd8ff1a8aad60bc21de42c307398f
+        doc_struct_hash: sha256:b80d3190d9dc70842771ea5f0f5826baebba3ab8acde7baea40c4ae74a74c801
+        lines: [9, 16]
+      status: fresh
+      since: 2026-08-20T07:55:29.844163Z

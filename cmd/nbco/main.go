@@ -167,6 +167,7 @@ func run(configPath string) error {
 		Store:                    st,
 		Notifier:                 hub,
 		TZ:                       tz,
+		BrandName:                cfg.BrandName,
 		Knowledge:                kb,
 		Semantic:                 semanticService,
 		Workers:                  workerhub.New(),
@@ -212,7 +213,7 @@ func run(configPath string) error {
 		res, err := engine.RunTurn(actx, &ai.TurnRequest{
 			Mode:            ai.TurnModeOneShot,
 			SessionID:       "subcall:" + purpose,
-			System:          "你是 nbco 内部的受控 AI 子调用。只完成指定的单一分析任务，不调用工具，不输出无关解释。",
+			System:          "你是公司运营系统内部的受控 AI 子调用。只完成指定的单一分析任务，不调用工具，不输出无关解释。",
 			UserText:        fmt.Sprintf("调用者：%s\n\n%s", name, call.Prompt),
 			Model:           model,
 			MaxOutputTokens: call.MaxOutputTokens,
@@ -272,7 +273,7 @@ func run(configPath string) error {
 		if sttClient != nil {
 			slog.Info("语音转写已启用", "stt_model", cfg.AI.STTModel)
 		}
-		tg, err = telegram.New(cfg.TelegramToken, cfg.TelegramAPIURL, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, cfg.PublicBaseURL, tz)
+		tg, err = telegram.New(cfg.TelegramToken, cfg.TelegramAPIURL, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, cfg.PublicBaseURL, cfg.BrandName, tz)
 		if err != nil {
 			return err
 		}

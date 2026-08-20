@@ -303,7 +303,7 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 				return "已加入组织组。", nil
 			}),
 
-		tool("bind_telegram_group_project", "把 Telegram 群绑定到 nbco 项目。绑定后群监控/上下文可按项目归档和总结。需要 manage_telegram_group 权限。", obj(map[string]any{
+		tool("bind_telegram_group_project", "把 Telegram 群绑定到系统项目。绑定后群监控/上下文可按项目归档和总结。需要 manage_telegram_group 权限。", obj(map[string]any{
 			"group":      p("string", "群名、群名片段或 group_ref"),
 			"project_id": p("integer", "项目ID"),
 			"note":       p("string", "说明，可选"),

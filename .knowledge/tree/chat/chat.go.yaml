@@ -490,7 +490,7 @@ nodes:
         struct_hash: sha256:712caaca943bd5d25d76632d5d992bccce7405a9bfcf166b5d002039ad7c6e78
         doc_struct_hash: sha256:4d9dd3e72d6b92a1cd00c7b87a77fd04e3cc2019853fee4b8bdf2a0b771ab59a
         lines: [381, 386]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_e5aed164
@@ -554,7 +554,7 @@ nodes:
         struct_hash: sha256:c69cda978133d3c534165547d35fefad0a28b385b97a117043f0eb0a87fe9bf8
         doc_struct_hash: sha256:fe65773b9815d07dc030eca23e3a80083f8b0efcae8aa0b4d1395f28f0a49591
         lines: [462, 800]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_2f3027fc
@@ -676,10 +676,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.repairDegenerateTurn
-        hash: sha256:4573d2e1d9e227a491113424da345ee894253d59a1e74d1a6831e6f6ceff9340
-        struct_hash: sha256:2fe61b32f0af2c129c9ecfcc19d1bbb86189579427f7e59013cb85f9b191987f
-        doc_struct_hash: sha256:2fe61b32f0af2c129c9ecfcc19d1bbb86189579427f7e59013cb85f9b191987f
-        lines: [919, 962]
+        hash: sha256:7a08be18d267c220c87f0d5f5867ca824f492716846fb09a62c41e2bf9baa537
+        struct_hash: sha256:2052009ee0e4758391ccd1448fa6a934b4f0acd00925dd157c323f8780bacad2
+        doc_struct_hash: sha256:2052009ee0e4758391ccd1448fa6a934b4f0acd00925dd157c323f8780bacad2
+        lines: [920, 963]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
       lineage:
@@ -1716,10 +1716,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.systemPrompt
-        hash: sha256:7b1163a8ce954cc1d3bfbe3d6e4c5c81e42ce8c6c083ac5bce37ed2cf71b2ecd
-        struct_hash: sha256:62ec8079fb5041c9e07c039d4b8cf17551083ba5d58f52745c4058a8062786fd
-        doc_struct_hash: sha256:7901ea4fac21149d496ad7f546371bba6b76d07a29d57297e2343b9002817190
-        lines: [2625, 2693]
+        hash: sha256:d662682cffeef512d7dd6c8a889e7c7cb81a54f0db4a2195155cc433190b4d9b
+        struct_hash: sha256:f94bf5c61f10952ba8ce280552f523e7f6e9c5607add53097537b395406841b9
+        doc_struct_hash: sha256:a86aa44bdfc3db74f482a8340c041be0df8b56ce71816d3cac0b1c731dde00ec
+        lines: [2626, 2694]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:

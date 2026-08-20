@@ -43,7 +43,7 @@ func TestGatewayTelegramHandshakeRetriesUntilAPIReady(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	g, err := New("123:secret", srv.URL, nil, nil, nil, nil, "", "", "", nil, "", "", time.UTC)
+	g, err := New("123:secret", srv.URL, nil, nil, nil, nil, "", "", "", nil, "", "", "Oncoin", time.UTC)
 	if err != nil {
 		t.Fatalf("New must not depend on API readiness: %v", err)
 	}
@@ -570,8 +570,8 @@ func TestGroupChannelAndListenKey(t *testing.T) {
 }
 
 func TestOnboardingMessages(t *testing.T) {
-	help := unboundHelpMessage(false)
-	for _, want := range []string{"欢迎来到", "加入方式", "一次性邀请链接", "邀请码", "查任务", "设置提醒"} {
+	help := unboundHelpMessage("Oncoin", false)
+	for _, want := range []string{"欢迎来到", "Oncoin", "加入方式", "一次性邀请链接", "邀请码", "查任务", "设置提醒"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("未绑定帮助缺少 %q:\n%s", want, help)
 		}
@@ -580,7 +580,7 @@ func TestOnboardingMessages(t *testing.T) {
 		t.Errorf("已有管理员时不应提示 /superadmin:\n%s", help)
 	}
 
-	bootstrap := unboundHelpMessage(true)
+	bootstrap := unboundHelpMessage("Oncoin", true)
 	if !strings.Contains(bootstrap, "/superadmin") {
 		t.Errorf("全新系统应提示 /superadmin:\n%s", bootstrap)
 	}

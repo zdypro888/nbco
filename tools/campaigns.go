@@ -389,9 +389,9 @@ func dataCampaignMessage(sender *store.User, c *store.DataCollectionCampaign, t 
 	if custom != "" {
 		b.WriteString(custom)
 	} else if initial {
-		fmt.Fprintf(&b, "📋 %s\n请在和 nbco 的私聊中补充以下资料：%s。", c.Title, strings.Join(t.MissingFields, "、"))
+		fmt.Fprintf(&b, "📋 %s\n请在和机器人的私聊中补充以下资料：%s。", c.Title, strings.Join(t.MissingFields, "、"))
 	} else {
-		fmt.Fprintf(&b, "📋 %s 还差这些资料：%s。请在和 nbco 的私聊中补充。", c.Title, strings.Join(t.MissingFields, "、"))
+		fmt.Fprintf(&b, "📋 %s 还差这些资料：%s。请在和机器人的私聊中补充。", c.Title, strings.Join(t.MissingFields, "、"))
 	}
 	if strings.TrimSpace(c.Instruction) != "" {
 		fmt.Fprintf(&b, "\n说明：%s", c.Instruction)

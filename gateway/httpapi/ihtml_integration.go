@@ -56,10 +56,10 @@ func (s *Server) EnableIHTML() error {
 	}
 
 	s.ihtmlTickets = tickets
-	backend := newIHTMLChatBackend(s.orch, s.store, s.llm.Provider, s.runtimeLLMModel,
+	backend := newIHTMLChatBackend(s.orch, s.store, s.llm.Provider, s.brandName(), s.runtimeLLMModel,
 		timeDurationMilliseconds(s.llm.TimeoutMS))
 	handler, err := ihtml.NewHandler(uiStore,
-		ihtml.WithPageTitle("nbco 动态工作台"),
+		ihtml.WithPageTitle(s.brandName()+" 动态工作台"),
 		ihtml.WithUserResolver(s.resolveIHTMLUser),
 		ihtml.WithChatBackend(backend),
 		ihtml.WithPageConfig(s.ihtmlPageConfig),
@@ -185,5 +185,5 @@ func crossChannelIHTMLSystem(publicBaseURL string) string {
 		workspace = base + workspace
 	}
 	return "当前用户拥有一个可持久化的 ihtml 动态工作台。用户要求网页、表格视图、仪表盘或可视化操作界面时，使用 ui_* 工具直接实现；" +
-		"需要实时 nbco 数据时先读取 ui_list_host_apis；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他请求使用对应方法。完成后提供工作台地址：" + workspace
+		"需要实时业务数据时先读取 ui_list_host_apis；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他请求使用对应方法。完成后提供工作台地址：" + workspace
 }

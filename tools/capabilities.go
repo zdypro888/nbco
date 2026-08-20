@@ -440,7 +440,7 @@ var toolEffect = map[string]string{
 
 func capabilityTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		immediateTool(tool("list_capabilities", "查看 nbco 当前可用能力目录，按领域列出工具、权限、风险和当前用户是否可用。",
+		immediateTool(tool("list_capabilities", fmt.Sprintf("查看 %s 当前可用能力目录，按领域列出工具、权限、风险和当前用户是否可用。", instanceBrand(d)),
 			obj(map[string]any{
 				"domain":              p("string", "可选：people/work/workers/memory/comms/automation/ops/extension"),
 				"include_unavailable": p("boolean", "可选：超管为 true 时显示当前入口不可用/无权限能力；普通用户会被忽略"),
@@ -468,7 +468,7 @@ func capabilityTools(d Deps, u *store.User) []ai.Tool {
 					}
 					caps = filtered
 				}
-				return renderCapabilities(caps), nil
+				return renderCapabilities(caps, instanceBrand(d)), nil
 			})),
 	}
 }
@@ -678,12 +678,12 @@ func domainRank(domain string) int {
 	return len(domainOrder)
 }
 
-func renderCapabilities(caps []Capability) string {
+func renderCapabilities(caps []Capability, brandName string) string {
 	if len(caps) == 0 {
 		return "（没有匹配的能力）"
 	}
 	var b strings.Builder
-	b.WriteString("nbco 能力目录\n")
+	fmt.Fprintf(&b, "%s 能力目录\n", brandName)
 	cur := ""
 	for _, c := range caps {
 		if c.Domain != cur {

@@ -330,7 +330,7 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 				return "已停用。", nil
 			}),
 
-		tool("set_worker_admin", "把指定 AI worker 设置/取消为 admin worker。admin worker 视同系统级执行者，可获得完整工具能力；仅用于 nbco 维护、自升级、公司资料入库等可信工作机。",
+		tool("set_worker_admin", "把指定 AI worker 设置/取消为 admin worker。admin worker 视同系统级执行者，可获得完整工具能力；仅用于系统维护、自升级、公司资料入库等可信工作机。",
 			obj(map[string]any{
 				"worker_id": p("integer", "worker 用户ID"),
 				"admin":     p("boolean", "true=设为 admin worker；false=取消"),

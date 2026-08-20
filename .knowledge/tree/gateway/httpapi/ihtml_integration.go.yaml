@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_integration.go
         symbol: Server.EnableIHTML
-        hash: sha256:52387b3c755439a866add419051cc6daa9a552f40115d39af394ce91a0b4b9f8
-        struct_hash: sha256:bcf8416c862a330132a939da988ca8545a86c55ebe3a2a2a908dfa435b1613bd
-        doc_struct_hash: sha256:3fffe9430a35502ed4f7b830f5a716df684b8717175262632959c8c82ea4773e
+        hash: sha256:06470f25b0ad5bdb3483a2c5d267ee704fd5a0335aeb5b53c8a0bf84dd08bcc8
+        struct_hash: sha256:3ca236d3b75d01ceaa2d01cb2071c96036c64177976af171bd5894ded4bb6e7e
+        doc_struct_hash: sha256:c9044f1f383097952f603d56d4736fd3284786fe3cc20f2e3d0cbfff5d4ec8c9
         lines: [23, 98]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

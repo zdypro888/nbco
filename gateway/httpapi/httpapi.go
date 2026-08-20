@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/config"
 	"github.com/zdypro888/nbco/events"
@@ -99,6 +101,13 @@ func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.B
 		downloadPath: downloadPath, telegramToken: strings.TrimSpace(telegramToken)}
 }
 
+func (s *Server) brandName() string {
+	if s == nil {
+		return branding.DefaultName
+	}
+	return branding.Name(s.deps.BrandName)
+}
+
 // Handler 组装路由。
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -111,7 +120,9 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Security-Policy", contentSecurityPolicy(nonce))
-		_, _ = w.Write(bytes.ReplaceAll(indexHTML, []byte("{{CSP_NONCE}}"), []byte(nonce)))
+		page := bytes.ReplaceAll(indexHTML, []byte("{{CSP_NONCE}}"), []byte(nonce))
+		page = bytes.ReplaceAll(page, []byte("{{BRAND_NAME}}"), []byte(html.EscapeString(s.brandName())))
+		_, _ = w.Write(page)
 	})
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(mustWebAssetFS()))))
 	if s.ihtmlHandler != nil {

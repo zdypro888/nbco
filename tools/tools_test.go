@@ -441,8 +441,8 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 			t.Fatalf("nbco code change prompt 缺 %q:\n%s", want, codePrompt)
 		}
 	}
-	prompt := workerSkillTaskPrompt(&store.Knowledge{Title: "通用流程", Content: "执行方法：按步骤做", Tags: []string{"scope:global"}}, "完成本次目标")
-	for _, want := range []string{"通用流程", "完成本次目标", "不要泄露密钥"} {
+	prompt := workerSkillTaskPrompt("Oncoin", &store.Knowledge{Title: "通用流程", Content: "执行方法：按步骤做", Tags: []string{"scope:global"}}, "完成本次目标")
+	for _, want := range []string{"Oncoin", "通用流程", "完成本次目标", "不要泄露密钥"} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("worker skill prompt 缺 %q:\n%s", want, prompt)
 		}

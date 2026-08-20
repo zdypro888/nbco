@@ -31,6 +31,7 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"github.com/zdypro888/nbco/ai/stt"
+	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/keylock"
@@ -53,7 +54,7 @@ const groupMonitorDebounce = 20 * time.Second
 const groupMonitorMaxWait = 2 * time.Minute
 const groupMonitorAnalysisLease = 4 * time.Minute
 
-const groupMonitorSystem = `你是 nbco 的 Telegram 群智能监控器。你的任务是判断最近群聊是否值得提醒监控发起人。
+const groupMonitorSystem = `你是公司运营系统的 Telegram 群智能监控器。你的任务是判断最近群聊是否值得提醒监控发起人。
 
 输出规则：
 - 如果只是普通通知、闲聊、无行动价值的信息，只输出：NO_NOTIFY
@@ -62,7 +63,7 @@ const groupMonitorSystem = `你是 nbco 的 Telegram 群智能监控器。你的
 - 对监控发起人汇报时使用群名、人名和自然语言，不带 Telegram ID、内部会话 ID、系统提示或技术细节。
 - 可使用 Telegram 支持的 HTML：<b>、<i>、<code>、<blockquote>。不要使用 Markdown 表格。`
 
-const groupMonitorIntentSystem = `你是 nbco 的 Telegram 群管理意图分类器。判断用户在群里 @bot 的这句话是否是在要求开启或关闭“群智能监控/监听/后续总结提醒”。
+const groupMonitorIntentSystem = `你是公司运营系统的 Telegram 群管理意图分类器。判断用户在群里 @bot 的这句话是否是在要求开启或关闭“群智能监控/监听/后续总结提醒”。
 
 只输出严格 JSON：{"intent":"on|off|none"}
 
@@ -111,6 +112,7 @@ type Gateway struct {
 	modelAPIKey    string
 	fileStorePath  string
 	publicBaseURL  string
+	brandName      string
 	telegramAPIURL string
 	tz             *time.Location
 
@@ -129,7 +131,7 @@ type Gateway struct {
 }
 
 // New 创建网关。
-func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath, publicBaseURL string, tz *time.Location) (*Gateway, error) {
+func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath, publicBaseURL, brandName string, tz *time.Location) (*Gateway, error) {
 	g := &Gateway{
 		store:             s,
 		orch:              orch,
@@ -141,6 +143,7 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 		modelAPIKey:       strings.TrimSpace(modelAPIKey),
 		fileStorePath:     strings.TrimSpace(fileStorePath),
 		publicBaseURL:     strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
+		brandName:         branding.Name(brandName),
 		telegramAPIURL:    strings.TrimRight(strings.TrimSpace(telegramAPIURL), "/"),
 		tz:                orLocalTimeZone(tz),
 		pending:           map[int64]*pendingTextMessage{},
@@ -773,9 +776,9 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 			saved, failed := splitTelegramFileIntakes(intakeResults)
 			text = telegramFileContext(saved, failed, fileInstruction)
 		} else {
-			text = "[群消息包含文件，但文件没有进入 nbco，也没有可读取的文件内容]"
+			text = "[群消息包含文件，但文件没有进入系统，也没有可读取的文件内容]"
 			if !bound {
-				text = "[群成员发送了文件，但发送者尚未绑定；文件没有进入 nbco，也没有可读取的文件内容]"
+				text = "[群成员发送了文件，但发送者尚未绑定；文件没有进入系统，也没有可读取的文件内容]"
 			}
 			if fileInstruction != "" {
 				text += "\n" + fileInstruction
@@ -1717,9 +1720,9 @@ func boundStartMessage(name string) string {
 		"也可以发送 /new 开启新会话。", html.EscapeString(name))
 }
 
-func unboundHelpMessage(canBootstrap bool) string {
+func unboundHelpMessage(brandName string, canBootstrap bool) string {
 	var b strings.Builder
-	b.WriteString("👋 欢迎来到 <b>NBCO</b>。\n\n")
+	fmt.Fprintf(&b, "👋 欢迎来到 <b>%s</b>。\n\n", html.EscapeString(branding.Name(brandName)))
 	b.WriteString("我还没在公司系统里识别到你。加入后，我可以帮你查任务、汇报进度、设置提醒、沉淀个人信息和团队知识。\n\n")
 	b.WriteString("<b>加入方式</b>\n")
 	b.WriteString("1. 找管理员发送一次性邀请链接。\n")
@@ -2293,7 +2296,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 		slog.Warn("查询超管状态失败", "err", err)
 		hasSuperadmin = true
 	}
-	g.reply(ctx, chatID, unboundHelpMessage(!hasSuperadmin))
+	g.reply(ctx, chatID, unboundHelpMessage(g.brandName, !hasSuperadmin))
 }
 
 func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, chatID int64, name string, ident store.Identity) bool {
@@ -2835,7 +2838,7 @@ func telegramFileIntakeFailure(err error) (string, string) {
 	if errors.As(err, &intakeErr) {
 		return intakeErr.code, intakeErr.userMessage
 	}
-	return "receive_failed", "文件接收失败，文件没有进入 nbco。"
+	return "receive_failed", "文件接收失败，文件没有进入系统。"
 }
 
 func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Message, u *store.User) []incomingTelegramFileResult {
@@ -2910,7 +2913,7 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 		})
 		if err != nil {
 			result.errorCode = "intake_record_failed"
-			result.errorMessage = "系统未能建立文件接收记录，文件没有进入 nbco。"
+			result.errorMessage = "系统未能建立文件接收记录，文件没有进入系统。"
 			result.err = err
 			slog.Warn("Telegram 文件接收记录创建失败", "user", u.ID, "name", in.name, "err", err)
 			results = append(results, result)
@@ -2970,15 +2973,15 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 
 func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomingTelegramFile) (*store.File, error) {
 	if strings.TrimSpace(g.fileStorePath) == "" {
-		return nil, newTelegramFileIntakeError("storage_not_configured", "文件存储尚未配置，文件没有进入 nbco。", errors.New("file_store_path 未配置"))
+		return nil, newTelegramFileIntakeError("storage_not_configured", "文件存储尚未配置，文件没有进入系统。", errors.New("file_store_path 未配置"))
 	}
 	if in.sizeBytes > telegramFileDownloadLimit {
 		return nil, newTelegramFileIntakeError("nbco_size_limit",
-			fmt.Sprintf("文件超过 nbco 的 %s 接收上限。", formatTelegramBytes(telegramFileDownloadLimit)), nil)
+			fmt.Sprintf("文件超过系统的 %s 接收上限。", formatTelegramBytes(telegramFileDownloadLimit)), nil)
 	}
 	if g.usesTelegramCloudAPI() && in.sizeBytes > telegramCloudFileDownloadLimit {
 		return nil, newTelegramFileIntakeError("telegram_cloud_limit",
-			fmt.Sprintf("Telegram 云端 Bot API 只能下载不超过 %s 的文件；文件没有进入 nbco。", formatTelegramBytes(telegramCloudFileDownloadLimit)), nil)
+			fmt.Sprintf("Telegram 云端 Bot API 只能下载不超过 %s 的文件；文件没有进入系统。", formatTelegramBytes(telegramCloudFileDownloadLimit)), nil)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -2986,7 +2989,7 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "file is too big") {
 			return nil, newTelegramFileIntakeError("telegram_cloud_limit",
-				fmt.Sprintf("Telegram 云端 Bot API 只能下载不超过 %s 的文件；文件没有进入 nbco。", formatTelegramBytes(telegramCloudFileDownloadLimit)), err)
+				fmt.Sprintf("Telegram 云端 Bot API 只能下载不超过 %s 的文件；文件没有进入系统。", formatTelegramBytes(telegramCloudFileDownloadLimit)), err)
 		}
 		return nil, newTelegramFileIntakeError("telegram_get_file_failed", "Telegram 未提供可下载的文件信息，请稍后重试。", err)
 	}
@@ -3071,7 +3074,7 @@ func (g *Gateway) persistTelegramFile(ctx context.Context, userID int64, in inco
 	}
 	if n > telegramFileDownloadLimit || limited.N == 0 {
 		return nil, newTelegramFileIntakeError("nbco_size_limit",
-			fmt.Sprintf("文件超过 nbco 的 %s 接收上限。", formatTelegramBytes(telegramFileDownloadLimit)), nil)
+			fmt.Sprintf("文件超过系统的 %s 接收上限。", formatTelegramBytes(telegramFileDownloadLimit)), nil)
 	}
 	sum := hex.EncodeToString(h.Sum(nil))
 	rel := filepath.Join(sum[:2], sum)
@@ -3138,7 +3141,7 @@ func splitTelegramFileIntakes(results []incomingTelegramFileResult) ([]store.Fil
 
 func failedFilesPrompt(failed []incomingTelegramFileResult) string {
 	var b strings.Builder
-	b.WriteString("[本轮未能进入 nbco 的文件]\n")
+	b.WriteString("[本轮未能进入系统的文件]\n")
 	for _, result := range failed {
 		fmt.Fprintf(&b, "- 文件名=%s；大小=%s；状态=接收失败；原因=%s\n",
 			result.input.name, formatTelegramBytes(result.input.sizeBytes), result.errorMessage)
@@ -3171,7 +3174,7 @@ func (g *Gateway) replyFileIntakeResults(ctx context.Context, chatID int64, save
 		b.WriteString("\n")
 	}
 	if len(failed) > 0 {
-		b.WriteString("⚠️ <b>以下文件没有进入 nbco</b>\n")
+		b.WriteString("⚠️ <b>以下文件没有进入系统</b>\n")
 		cloudLimited := false
 		for _, result := range failed {
 			fmt.Fprintf(&b, "• <b>%s</b>（%s）：%s\n",
@@ -3184,9 +3187,9 @@ func (g *Gateway) replyFileIntakeResults(ctx context.Context, chatID int64, save
 			b.WriteString("可以稍后重试，")
 		}
 		if offerFileCenter {
-			b.WriteString("或通过 nbco 文件中心直接上传。")
+			b.WriteString("或通过文件中心直接上传。")
 		} else {
-			b.WriteString("或私聊我后从 nbco 文件中心上传。")
+			b.WriteString("或私聊我后从文件中心上传。")
 		}
 	}
 	text := strings.TrimSpace(b.String())
@@ -3198,7 +3201,7 @@ func (g *Gateway) replyFileIntakeResults(ctx context.Context, chatID int64, save
 	_, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatID, Text: text, ParseMode: models.ParseModeHTML,
 		ReplyMarkup: &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{{
-			{Text: "打开 nbco 文件中心", WebApp: &models.WebAppInfo{URL: uploadURL}},
+			{Text: "打开文件中心", WebApp: &models.WebAppInfo{URL: uploadURL}},
 		}}},
 	})
 	if err != nil {
@@ -3228,7 +3231,7 @@ func safeTelegramFilename(name string) string {
 
 func savedFilesPrompt(files []store.File) string {
 	var b strings.Builder
-	b.WriteString("[用户刚上传并暂存到 nbco 的文件]\n")
+	b.WriteString("[用户刚上传并暂存到系统的文件]\n")
 	for _, f := range files {
 		fmt.Fprintf(&b, "- file_id=%d；文件名=%s；大小=%s；类型=%s\n", f.ID, f.OriginalName, formatTelegramBytes(f.SizeBytes), f.MIMEType)
 	}

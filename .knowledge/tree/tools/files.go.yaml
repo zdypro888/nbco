@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/files.go
         symbol: fileTools
-        hash: sha256:4cadcfc100ba8797df6cd854668fb53482459843c2f0dd88407b4148eedc1e98
-        struct_hash: sha256:1f4f3c15f5e2ea122a84ae2d3725723dd59a0e54d47797c894b053cc6d6233bb
-        doc_struct_hash: sha256:1f4f3c15f5e2ea122a84ae2d3725723dd59a0e54d47797c894b053cc6d6233bb
+        hash: sha256:5d305a62b8e0f2ff0d24138d799411dd15caeccc0aef137358e02c38a1db2d86
+        struct_hash: sha256:b98285ffeeed8fa4f46d4203f6363e7e1a181594ab7646a6d675935412babcff
+        doc_struct_hash: sha256:b98285ffeeed8fa4f46d4203f6363e7e1a181594ab7646a6d675935412babcff
         lines: [17, 172]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

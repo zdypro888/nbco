@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: tools/telegram_groups.go
         symbol: renderTelegramGroupMessages
-        hash: sha256:d4e215d53978992ab0e1e53cc57e56b515b8b9a31bb0604e4c7f31b2904ef961
-        struct_hash: sha256:ee82099e700c412b85338a078d73092f88ee63431f12ede16e46c3d346d1807c
-        doc_struct_hash: sha256:ee82099e700c412b85338a078d73092f88ee63431f12ede16e46c3d346d1807c
-        lines: [877, 932]
+        hash: sha256:98d0387cb87d74afefd0c108d9a6c448e2312a6f559c71bcb6e4450b4b12535f
+        struct_hash: sha256:47effb9efad4014e8c70258496da9ad0226416a7396654a480d7198bd2ec0c93
+        doc_struct_hash: sha256:47effb9efad4014e8c70258496da9ad0226416a7396654a480d7198bd2ec0c93
+        lines: [877, 933]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/telegram_groups.go#telegramGroupDigestText

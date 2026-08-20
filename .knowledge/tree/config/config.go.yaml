@@ -145,10 +145,10 @@ nodes:
       anchor:
         file: config/config.go
         symbol: Config.applyDefaults
-        hash: sha256:343e88ff8bcb5b0dd49c8f0da9fca158a0a44de0f9362dcd8a7d084ba75e5a8c
-        struct_hash: sha256:efc2a7a69d89fadb77a41dfe085227b654e5c4f673b6295a8610c75c9528aa53
-        doc_struct_hash: sha256:efc2a7a69d89fadb77a41dfe085227b654e5c4f673b6295a8610c75c9528aa53
-        lines: [155, 222]
+        hash: sha256:880aa8b43f67a8fa01c123adbc6d59268632d763e4ec96fdd4c1cd5315a1b554
+        struct_hash: sha256:53ea72f76e7ad8396023ee3c4275acd326ad60a863e3a2651c0e50a2a396bba7
+        doc_struct_hash: sha256:53ea72f76e7ad8396023ee3c4275acd326ad60a863e3a2651c0e50a2a396bba7
+        lines: [162, 230]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: config/config.go#Config.SlogLevel
@@ -167,9 +167,9 @@ nodes:
       anchor:
         file: config/config.go
         symbol: Config.validate
-        hash: sha256:33b6c6f16e721dc4a2504382066ccc8be55417f9bb3cb61d13b3f375d8329310
-        struct_hash: sha256:a8d03cb8cd9c4a1dca4ee495144df95e55d1de2b7e13c00983633610a4191676
-        doc_struct_hash: sha256:a8d03cb8cd9c4a1dca4ee495144df95e55d1de2b7e13c00983633610a4191676
-        lines: [238, 350]
+        hash: sha256:64a4b5c33889a5bb099cd28c4603fb8ec1bb3fdc4fdbba5020c06d639bf9575a
+        struct_hash: sha256:9d7d13ed5bf187797833b6f2e936472f745ade253fae3548944ee571832cde1d
+        doc_struct_hash: sha256:9d7d13ed5bf187797833b6f2e936472f745ade253fae3548944ee571832cde1d
+        lines: [246, 361]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

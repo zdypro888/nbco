@@ -75,6 +75,7 @@ button:disabled {
   margin: 0 0 6px;
   font-size: 24px;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .login p {
@@ -149,7 +150,15 @@ button:disabled {
   font-size: 20px;
 }
 
+.brand > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .brand-mark {
+  flex: 0 0 auto;
   width: 24px;
   height: 24px;
   border-radius: 6px;

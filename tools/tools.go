@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
@@ -32,6 +33,8 @@ type Deps struct {
 	Store    *store.Store
 	Notifier notify.Notifier
 	TZ       *time.Location
+	// BrandName 是实例级用户可见名称；内部工具名和协议标识不随它变化。
+	BrandName string
 	// Knowledge 知识库服务（语义+词法混合检索）。可为 nil（测试场景），
 	// 此时知识工具回退到直接走 store 的词法检索。
 	Knowledge *knowledge.Service
@@ -60,6 +63,8 @@ type Deps struct {
 	// the caller identity is always preserved.
 	SubcallAI func(ctx context.Context, u *store.User, req SubcallRequest) (string, error)
 }
+
+func instanceBrand(d Deps) string { return branding.Name(d.BrandName) }
 
 // SubcallRequest lets internal selectors bound cost and disable expensive model
 // reasoning without coupling them to a specific provider API.

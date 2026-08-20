@@ -167,9 +167,9 @@ nodes:
       anchor:
         file: tools/skills.go
         symbol: workerSkillTaskPrompt
-        hash: sha256:be7ff6dfd53005f528bf5f6aca765ecc22d3e3140224e155e9555ea41d5f9289
-        struct_hash: sha256:995036353fb8060c715b4082d0a1cc173a861970d82556021856ed25ed562b18
-        doc_struct_hash: sha256:995036353fb8060c715b4082d0a1cc173a861970d82556021856ed25ed562b18
+        hash: sha256:8f1f487e19e329784bc7b2f6f1f67b8dce542b3fb83243dd6982d0ae98b92ad3
+        struct_hash: sha256:758e5013836c8152ad98f1946ad42eafab1410a22def3ab34e3a163969ea3634
+        doc_struct_hash: sha256:758e5013836c8152ad98f1946ad42eafab1410a22def3ab34e3a163969ea3634
         lines: [434, 450]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

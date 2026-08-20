@@ -27,7 +27,7 @@ type materialAnalysisArgs struct {
 
 func materialTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		asynchronousTool(tool("analyze_company_materials", "把已上传到 nbco 的公司资料文件交给发起人名下的 worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；nbco 会在 worker 提交后抽取候选，供入库审核/发布。简单文本信息直接保存，不必派 worker。",
+		asynchronousTool(tool("analyze_company_materials", fmt.Sprintf("把已上传到 %s 的公司资料文件交给发起人名下的 worker 深度分析，并要求它输出结构化学习候选。适合 PDF/XLSX/TXT/照片等资料整理；%s 会在 worker 提交后抽取候选，供入库审核/发布。简单文本信息直接保存，不必派 worker。", instanceBrand(d), instanceBrand(d)),
 			obj(map[string]any{
 				"file_ids":    arr("integer", "系统文件 ID 列表（/api/files 上传或任务附件里的真实文件 ID）"),
 				"instruction": p("string", "整理目标，例如：提炼公司基本信息、制度、联系人、项目背景、风险点"),
@@ -79,8 +79,8 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 	t, err := d.Store.CreateMaterialTaskWithWorkerRun(ctx, &store.Task{
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
 		Title:       title,
-		Goal:        "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
-		Description: materialAnalysisPrompt(instruction),
+		Goal:        fmt.Sprintf("把公司资料读成可复用、可审计、可检索的 %s 学习资产。", instanceBrand(d)),
+		Description: materialAnalysisPrompt(instanceBrand(d), instruction),
 		Acceptance:  "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
 		Priority:    "high",
 	}, args.FileIDs, "公司资料分析输入", store.WorkerRunSpec{
@@ -93,7 +93,7 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 		return "", err
 	}
 	wakeWorker(d, worker)
-	return asynchronousAcceptedResult(fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 nbco 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs))), nil
+	return asynchronousAcceptedResult(fmt.Sprintf("已创建资料分析任务（%s），分配给你的 worker %s（%s），已挂载 %d 个文件。worker 提交后 %s 会抽取学习候选。", internalRef("任务", t.ID), worker.Name, internalRef("worker", worker.ID), len(args.FileIDs), instanceBrand(d))), nil
 }
 
 func pickMaterialWorker(ctx context.Context, d Deps, u *store.User, workerID int64) (*store.User, error) {
@@ -148,7 +148,7 @@ func pickMaterialWorker(ctx context.Context, d Deps, u *store.User, workerID int
 	return active[0], nil
 }
 
-func materialAnalysisPrompt(instruction string) string {
+func materialAnalysisPrompt(brandName, instruction string) string {
 	return strings.TrimSpace(fmt.Sprintf(`请分析本任务附件中的公司资料。
 
 用户目标：
@@ -159,7 +159,7 @@ func materialAnalysisPrompt(instruction string) string {
 2. 输出一份简洁摘要：资料讲了什么、确认了哪些公司事实、有哪些疑问或冲突。
 3. 只提取有长期价值的信息，不要把一次性状态、寒暄、无证据猜测写成学习候选。
 4. 对每条候选保留 evidence，写明来自哪个文件/工作表/页码/图片观察；不确定时降低 confidence。
-5. 不要直接改 nbco 数据库；由 nbco 中枢解析你的结构化结果后入库或进入审核。
+5. 不要直接改系统数据库；由 %s 中枢解析你的结构化结果后入库或进入审核。
 
 完成汇报末尾必须输出：
 %s
@@ -171,5 +171,5 @@ func materialAnalysisPrompt(instruction string) string {
   "questions": [{"title":"","content":"","evidence":{"files":[],"notes":""}}]
 }
 
-JSON 必须严格合法；没有的数组给 []。`, instruction, materialLearningMarker))
+JSON 必须严格合法；没有的数组给 []。`, instruction, brandName, materialLearningMarker))
 }

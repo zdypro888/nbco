@@ -764,7 +764,7 @@ func emptyTelegramGroupDigestResult(title string, from, to time.Time, tz *time.L
 
 func renderEmptyTelegramGroupDigest(title string, from, to time.Time, tz *time.Location) string {
 	return fmt.Sprintf(
-		"📭 <b>%s 每日摘要</b>\n观察窗口：%s 至 %s（%s）\n系统在该时间范围内没有保存到群消息，因此没有可整理的讨论内容。这只说明 nbco 未记录到消息，不能据此判断 Telegram 群内绝对无人发言、成员是否休假或群外工作状态。",
+		"📭 <b>%s 每日摘要</b>\n观察窗口：%s 至 %s（%s）\n系统在该时间范围内没有保存到群消息，因此没有可整理的讨论内容。这只说明系统未记录到消息，不能据此判断 Telegram 群内绝对无人发言、成员是否休假或群外工作状态。",
 		title,
 		from.In(tz).Format("2006-01-02 15:04"),
 		to.In(tz).Format("2006-01-02 15:04"),

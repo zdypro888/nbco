@@ -70,8 +70,8 @@ func TestIHTMLTurnUsesLatestUserMessageAndBoundsBrowserContext(t *testing.T) {
 	if err != nil || text != "latest" {
 		t.Fatalf("latest message = %q, %v", text, err)
 	}
-	system := ihtmlTurnSystem([]ihtml.APISpec{{Name: "overview", Method: "GET", Path: "/api/overview"}})
-	if !strings.Contains(system, "同一个 nbco Agent") || !strings.Contains(system, "ui_list_state") ||
+	system := ihtmlTurnSystem("Oncoin", []ihtml.APISpec{{Name: "overview", Method: "GET", Path: "/api/overview"}})
+	if !strings.Contains(system, `"Oncoin" 控制中心`) || !strings.Contains(system, "同一个公司运营 Agent") || !strings.Contains(system, "ui_list_state") ||
 		!strings.Contains(system, `"path":"/api/overview"`) || !strings.Contains(system, "ihtml.http(path, options)") {
 		t.Fatalf("unexpected host system prompt length/content: %d", len([]rune(system)))
 	}

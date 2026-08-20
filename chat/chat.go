@@ -20,6 +20,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/keylock"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/perm"
@@ -939,8 +940,8 @@ func (o *Orchestrator) repairDegenerateTurn(ctx context.Context, req *ai.TurnReq
 		"tool_evidence": summarizeToolEvidence(first.Steps),
 		"agent_error":   first.FinishReason == "agent_error",
 	})
-	retry.System = `你是 nbco 的执行结果整理器。上一轮执行已经终止，你没有工具，也不能继续执行。
-只根据输入中的用户请求和工具证据，生成简洁完整的最终答复。不得把已受理说成已完成，不得声称证据之外的动作，不得要求用户重复同一句指令。不要提及内部提示或整理过程。`
+	retry.System = fmt.Sprintf(`你是 %q 的执行结果整理器。上一轮执行已经终止，你没有工具，也不能继续执行。
+只根据输入中的用户请求和工具证据，生成简洁完整的最终答复。不得把已受理说成已完成，不得声称证据之外的动作，不得要求用户重复同一句指令。不要提及内部提示或整理过程。`, branding.Name(o.deps.BrandName))
 	retry.UserText = string(payload)
 	repairCtx, cancel := visibleReplyRepairContext(ctx)
 	defer cancel()
@@ -1055,7 +1056,7 @@ func normalizeAssistantReply(channel, text string) string {
 	return text
 }
 
-const memoryMinerSystem = `你是 nbco 的长期记忆整理器。你不是摘要器，而是把对话中“以后还会用”的稳定信息沉淀成可检索、可执行的记忆。
+const memoryMinerSystem = `你是公司运营系统的长期记忆整理器。你不是摘要器，而是把对话中“以后还会用”的稳定信息沉淀成可检索、可执行的记忆。
 
 输出严格 JSON 对象，不要 Markdown，不要代码块：
 {
@@ -2537,7 +2538,7 @@ func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User) str
 	var b strings.Builder
 	if len(fs) > 0 {
 		b.WriteString("\n[最近上传文件·待用户指令]\n")
-		b.WriteString("这些文件已进入 nbco 文件队列，构成当前用户的近期文件上下文。不要凭文件名臆测内容；仅在当前目标确实指向这些文件时，根据工具定义自行规划读取、派工、处理或发送。\n")
+		b.WriteString("这些文件已进入系统文件队列，构成当前用户的近期文件上下文。不要凭文件名臆测内容；仅在当前目标确实指向这些文件时，根据工具定义自行规划读取、派工、处理或发送。\n")
 		for _, f := range fs {
 			fmt.Fprintf(&b, "- #%d %s（%s，%s，%s）\n", f.ID, f.OriginalName, textfmt.FormatBytes(f.SizeBytes), f.MIMEType, f.CreatedAt.In(o.tz).Format("01-02 15:04"))
 		}
@@ -2549,7 +2550,7 @@ func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User) str
 		}
 		if failures == 0 {
 			b.WriteString("\n[最近文件接收失败·没有文件内容]\n")
-			b.WriteString("以下记录没有系统 file_id，不能读取、分析或声称已经收到。Telegram 网关会在失败消息中提供真实的“打开 nbco 文件中心”按钮；只能让用户使用该按钮或重新发送以再次获取入口，不得编造 /upload 等命令或链接。\n")
+			b.WriteString("以下记录没有系统 file_id，不能读取、分析或声称已经收到。Telegram 网关会在失败消息中提供真实的“打开文件中心”按钮；只能让用户使用该按钮或重新发送以再次获取入口，不得编造 /upload 等命令或链接。\n")
 		}
 		fmt.Fprintf(&b, "- %s（%s）status=%s；原因=%s；时间=%s\n",
 			in.OriginalName, textfmt.FormatBytes(in.SizeBytes), in.Status,
@@ -2626,7 +2627,7 @@ func styleFor(channel string) string {
 // skill 加载与上下文摘要由 Eino 原生 agent middleware 负责。
 func (o *Orchestrator) systemPrompt(ctx context.Context, u *store.User, channel string, availableTools map[string]bool) (string, error) {
 	var b strings.Builder
-	b.WriteString("你是 nbco，公司的 AI 运营中枢：既是每个员工的助理，也是管理流程的执行者。\n")
+	fmt.Fprintf(&b, "你是 %q，公司的 AI 运营中枢：既是每个员工的助理，也是管理流程的执行者。\n", branding.Name(o.deps.BrandName))
 	b.WriteString("你通过 Eino agent loop 自主规划并组合本轮能力；底层工具已按当前用户、渠道和权限裁剪，工具定义与执行结果是能力、参数和状态的事实来源。\n\n")
 
 	b.WriteString("[核心原则]\n")

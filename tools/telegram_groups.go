@@ -120,7 +120,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				if page.Total == 0 && !observation.Continuation {
 					observation = observeTelegramGroupCapture(ctx, d, *g, from, to)
 				}
-				return renderTelegramGroupMessages(*g, page, observation, from, to, d.TZ), nil
+				return renderTelegramGroupMessages(*g, page, observation, from, to, d.TZ, instanceBrand(d)), nil
 			}),
 
 		tool("list_telegram_group_members", "查看 Telegram 群成员可见信息。注意：Bot API 不能枚举所有普通成员；本工具返回成员总数、管理员列表、以及系统已见过的发言人/加入者。",
@@ -180,7 +180,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与 nbco 系统员工，区分已绑定成员、真人和 AI worker。内部用 Telegram ID 精确绑定，最终按姓名和绑定状态自然汇报。",
+		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与系统员工，区分已绑定成员、真人和 AI worker。内部用 Telegram ID 精确绑定，最终按姓名和绑定状态自然汇报。",
 			obj(map[string]any{
 				"group": p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
 			}),
@@ -880,6 +880,7 @@ func renderTelegramGroupMessages(
 	observation telegramGroupCaptureObservation,
 	from, to time.Time,
 	tz *time.Location,
+	brandName string,
 ) string {
 	if tz == nil {
 		tz = time.Local
@@ -920,7 +921,7 @@ func renderTelegramGroupMessages(
 		content := strings.TrimSpace(clipRunes(message.Content, 600))
 		content = strings.ReplaceAll(content, "\n", "\n  ")
 		if message.Role == "assistant" {
-			fmt.Fprintf(&b, "- %s nbco：%s\n", message.CreatedAt.In(tz).Format("01-02 15:04"), content)
+			fmt.Fprintf(&b, "- %s %s：%s\n", message.CreatedAt.In(tz).Format("01-02 15:04"), brandName, content)
 			continue
 		}
 		fmt.Fprintf(&b, "- %s %s\n", message.CreatedAt.In(tz).Format("01-02 15:04"), content)

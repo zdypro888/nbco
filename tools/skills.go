@@ -153,8 +153,8 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 					AssignerID:  u.ID,
 					AssigneeID:  worker.ID,
 					Title:       title,
-					Goal:        "按已保存的 skill 执行本次任务，并把可复用结果沉淀回 nbco。",
-					Description: workerSkillTaskPrompt(k, instruction),
+					Goal:        fmt.Sprintf("按已保存的 skill 执行本次任务，并把可复用结果沉淀回 %s。", instanceBrand(d)),
+					Description: workerSkillTaskPrompt(instanceBrand(d), k, instruction),
 					Acceptance:  "完成汇报必须包含执行了哪条 skill、关键步骤结果、验证情况、产物清单；失败时说明阻塞点和下一步需要什么。",
 					Priority:    skillPriority(highRisk),
 				}, args.FileIDs, "skill 执行输入", store.WorkerRunSpec{
@@ -431,9 +431,9 @@ func skillPriority(highRisk bool) string {
 	return "normal"
 }
 
-func workerSkillTaskPrompt(k *store.Knowledge, instruction string) string {
+func workerSkillTaskPrompt(brandName string, k *store.Knowledge, instruction string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "请按 nbco 已保存的 skill 执行本次任务。\n\n")
+	fmt.Fprintf(&b, "请按 %s 已保存的 skill 执行本次任务。\n\n", brandName)
 	fmt.Fprintf(&b, "本次目标：\n%s\n\n", strings.TrimSpace(instruction))
 	fmt.Fprintf(&b, "skill：%s\n", k.Title)
 	if len(k.Tags) > 0 {
@@ -445,7 +445,7 @@ func workerSkillTaskPrompt(k *store.Knowledge, instruction string) string {
 	b.WriteString("2. 需要读取附件、改文件、运行命令或生成产物时，在 worker 工作机内完成；产物写入任务提示指定的产物目录。\n")
 	b.WriteString("3. 不要泄露密钥、token、数据库 DSN、绑定码或内部凭据。\n")
 	b.WriteString("4. 如果信息不足或前置条件不存在，停止并汇报缺什么，不要猜。\n")
-	b.WriteString("5. 完成后总结可复用经验；确有长期价值时写入 lessons，供 nbco 审核沉淀。\n")
+	fmt.Fprintf(&b, "5. 完成后总结可复用经验；确有长期价值时写入 lessons，供 %s 审核沉淀。\n", brandName)
 	return strings.TrimSpace(b.String())
 }
 
