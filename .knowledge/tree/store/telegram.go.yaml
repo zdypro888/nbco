@@ -374,11 +374,11 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: telegramGroupStatusActive
-        hash: sha256:61b16d5cf41468070e2c9f535a8fca471ad6d1b81d15be88c946f5312a0793d9
-        struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
-        doc_struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
+        hash: sha256:8a33106afbfeeccc98280d2955fdc9280a7de4aa69d1512396eafe3253567589
+        struct_hash: sha256:1eefe612fdc67354225bcd0bae190e2b8ec977e949a93aaf5088e586c1e47ab8
+        doc_struct_hash: sha256:1eefe612fdc67354225bcd0bae190e2b8ec977e949a93aaf5088e586c1e47ab8
         lines: [402, 409]
-      status: suspect
+      status: fresh
       since: 2026-08-20T08:21:06.460873Z
     - id: store/telegram.go#Store.TelegramGroupState
       level: function

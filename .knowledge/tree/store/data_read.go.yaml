@@ -57,11 +57,11 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: dataSourceDefs
-        hash: sha256:abc8718c966e3131b77a2d528fe5c7c208b7851e8d02303cf112bdf01ee2e6fc
-        struct_hash: sha256:9b4a21778aacd9f4f0be7ba9e6f2cc917b6660aece2d73d82bd0307db2891b51
-        doc_struct_hash: sha256:9b4a21778aacd9f4f0be7ba9e6f2cc917b6660aece2d73d82bd0307db2891b51
+        hash: sha256:b88147034800779bdfb9ce23860563e1374375f2d6b3d28e087f4352504649eb
+        struct_hash: sha256:44af1a3125c044937c329ae1009ced60e143970c6697c8fb5d56d45cf5e65e6a
+        doc_struct_hash: sha256:44af1a3125c044937c329ae1009ced60e143970c6697c8fb5d56d45cf5e65e6a
         lines: [50, 740]
-      status: suspect
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_f2b63eaa
