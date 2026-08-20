@@ -35,7 +35,7 @@ var (
 // tool is missing or temporarily misrouted.
 func lowLevelTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("low_level_db_query",
+		experimentalTool(tool("low_level_db_query",
 			"超管兜底读库工具。仅在业务工具缺失/失效、需要核实事实时使用；优先使用 list_users/get_assigned_tasks/list_action_turns 等领域工具。只允许 SELECT/WITH/SHOW/EXPLAIN，禁止读凭据表，结果会限行。授权查询结果保持原值，审计记录另行脱敏。",
 			obj(map[string]any{
 				"sql":   p("string", "只读 SQL；允许 SELECT/WITH/SHOW/EXPLAIN；可使用 $1 参数占位"),
@@ -79,9 +79,9 @@ func lowLevelTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return out, nil
-			}),
+			})),
 
-		tool("low_level_db_exec",
+		experimentalTool(tool("low_level_db_exec",
 			"超管兜底写库工具。仅在明确没有合适领域工具且用户要求强制底层处理时使用；优先使用 update_user_info/delete_assigned_task/delete_file/cancel_schedule 等业务工具。只允许 INSERT/UPDATE/DELETE 单语句，UPDATE/DELETE 必须带 WHERE，禁止 DDL/凭据表；默认最多影响 10 行，超出自动回滚。",
 			obj(map[string]any{
 				"sql":        p("string", "写 SQL；只允许 INSERT/UPDATE/DELETE；可使用 $1 参数占位"),
@@ -128,7 +128,7 @@ func lowLevelTools(d Deps, u *store.User) []ai.Tool {
 					return "", err
 				}
 				return fmt.Sprintf("底层写库已执行：verb=%s affected_rows=%d table_hint=%s reason=%s", verb, affected, strings.TrimSpace(args.TableHint), textfmt.RedactSecrets(strings.TrimSpace(args.Reason))), nil
-			}),
+			})),
 	}
 }
 

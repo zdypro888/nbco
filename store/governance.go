@@ -538,15 +538,15 @@ func (s *Store) TelegramGroupProject(ctx context.Context, chatID int64) (*Projec
 }
 
 type ConversationEvalCase struct {
-	ID         int64
-	Name       string
-	Channel    string
-	UserInput  string
-	Assertions json.RawMessage
-	Enabled    bool
-	CreatedBy  *int64
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID         int64           `json:"id"`
+	Name       string          `json:"name"`
+	Channel    string          `json:"channel"`
+	UserInput  string          `json:"user_input"`
+	Assertions json.RawMessage `json:"assertions"`
+	Enabled    bool            `json:"enabled"`
+	CreatedBy  *int64          `json:"created_by,omitempty"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
 }
 
 const conversationEvalCaseCols = `id, name, channel, user_input, assertions, enabled, created_by, created_at, updated_at`
@@ -598,6 +598,100 @@ func (s *Store) ListConversationEvalCases(ctx context.Context, enabledOnly bool,
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) ConversationEvalCaseByID(ctx context.Context, id int64) (*ConversationEvalCase, error) {
+	return scanConversationEvalCase(s.pool.QueryRow(ctx,
+		`SELECT `+conversationEvalCaseCols+` FROM conversation_eval_cases WHERE id = $1`, id))
+}
+
+type ConversationEvalRun struct {
+	ID        int64           `json:"id"`
+	CaseID    *int64          `json:"case_id,omitempty"`
+	CaseName  string          `json:"case_name,omitempty"`
+	Status    string          `json:"status"`
+	Output    string          `json:"output"`
+	Details   json.RawMessage `json:"details"`
+	RanBy     *int64          `json:"ran_by,omitempty"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+const conversationEvalRunCols = `r.id, r.case_id, COALESCE(c.name,''), r.status, r.output, r.details, r.ran_by, r.created_at`
+
+func scanConversationEvalRun(row interface{ Scan(...any) error }) (*ConversationEvalRun, error) {
+	var run ConversationEvalRun
+	if err := row.Scan(&run.ID, &run.CaseID, &run.CaseName, &run.Status, &run.Output,
+		&run.Details, &run.RanBy, &run.CreatedAt); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &run, nil
+}
+
+func (s *Store) CreateConversationEvalRun(ctx context.Context, run ConversationEvalRun) (*ConversationEvalRun, error) {
+	status := strings.TrimSpace(run.Status)
+	if status == "" {
+		status = "error"
+	}
+	if len(run.Details) == 0 || !json.Valid(run.Details) {
+		run.Details = json.RawMessage(`{}`)
+	}
+	return scanConversationEvalRun(s.pool.QueryRow(ctx,
+		`WITH inserted AS (
+		 INSERT INTO conversation_eval_runs (case_id, status, output, details, ran_by)
+		 VALUES ($1,$2,$3,$4,$5) RETURNING *
+		) SELECT `+conversationEvalRunCols+`
+		    FROM inserted r LEFT JOIN conversation_eval_cases c ON c.id = r.case_id`,
+		run.CaseID, status, run.Output, run.Details, run.RanBy))
+}
+
+func (s *Store) ListConversationEvalRuns(ctx context.Context, limit int) ([]*ConversationEvalRun, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+conversationEvalRunCols+`
+		   FROM conversation_eval_runs r
+		   LEFT JOIN conversation_eval_cases c ON c.id = r.case_id
+		  ORDER BY r.id DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]*ConversationEvalRun, 0, limit)
+	for rows.Next() {
+		run, err := scanConversationEvalRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, run)
+	}
+	return out, rows.Err()
+}
+
+type ConversationEvalStats struct {
+	EnabledCases int64      `json:"enabled_cases"`
+	TestedCases  int64      `json:"tested_cases"`
+	PassingCases int64      `json:"passing_cases"`
+	FailingCases int64      `json:"failing_cases"`
+	LastRunAt    *time.Time `json:"last_run_at,omitempty"`
+}
+
+func (s *Store) ConversationEvalStats(ctx context.Context) (*ConversationEvalStats, error) {
+	var stats ConversationEvalStats
+	err := s.pool.QueryRow(ctx,
+		`WITH latest AS (
+		   SELECT DISTINCT ON (case_id) case_id, status, created_at
+		     FROM conversation_eval_runs WHERE case_id IS NOT NULL
+		    ORDER BY case_id, id DESC
+		 )
+		 SELECT count(*) FILTER (WHERE c.enabled),
+		        count(l.case_id) FILTER (WHERE c.enabled),
+		        count(*) FILTER (WHERE c.enabled AND l.status = 'passed'),
+		        count(*) FILTER (WHERE c.enabled AND l.case_id IS NOT NULL AND l.status <> 'passed'),
+		        max(l.created_at)
+		   FROM conversation_eval_cases c LEFT JOIN latest l ON l.case_id = c.id`).
+		Scan(&stats.EnabledCases, &stats.TestedCases, &stats.PassingCases, &stats.FailingCases, &stats.LastRunAt)
+	return &stats, wrapErr(err)
 }
 
 func normalizeStringList(in []string) []string {

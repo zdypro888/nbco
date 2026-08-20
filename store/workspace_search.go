@@ -9,11 +9,11 @@ import (
 // WorkspaceResource is a permission-filtered reference in the shared resource
 // catalog. Kind is one of task, file, or project.
 type WorkspaceResource struct {
-	Kind      string
-	ID        int64
-	Name      string
-	State     string
-	CreatedAt time.Time
+	Kind      string    `json:"kind"`
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	State     string    `json:"state"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // WorkspaceCandidateFilter describes literal catalog retrieval planned by the

@@ -732,6 +732,16 @@ func (s *Store) AcceptTask(ctx context.Context, id int64) (*Task, []*Task, error
 	if err != nil {
 		return nil, nil, err
 	}
+	acceptedIDs := make([]int64, 1, len(chain)+1)
+	acceptedIDs[0] = t.ID
+	for _, item := range chain {
+		acceptedIDs = append(acceptedIDs, item.ID)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE work_evidence SET status = 'resolved', updated_at = now()
+		  WHERE task_id = ANY($1::bigint[]) AND status = 'active'`, acceptedIDs); err != nil {
+		return nil, nil, err
+	}
 	return t, chain, tx.Commit(ctx)
 }
 
@@ -763,6 +773,11 @@ func (s *Store) RejectTask(ctx context.Context, id, reviewerID int64, reason str
 		return nil, err
 	}
 	if _, _, err := restartTaskWorkerRunTx(ctx, tx, t, "验收打回："+strings.TrimSpace(reason)); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE work_evidence SET status = 'active', updated_at = now()
+		  WHERE task_id = $1 AND status <> 'ignored'`, t.ID); err != nil {
 		return nil, err
 	}
 	return t, tx.Commit(ctx)
@@ -1064,6 +1079,17 @@ func (s *Store) DeleteTask(ctx context.Context, id int64) error {
 		  WHERE status = 'open' AND ref_type = 'task' AND ref_id = ANY($1::bigint[])`, deletedIDs); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE work_evidence SET status = 'ignored', updated_at = now()
+		  WHERE task_id = ANY($1::bigint[]) AND status NOT IN ('resolved','ignored')`, deletedIDs); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE material_cases SET status = 'ignored', last_error = '关联任务已删除',
+		  completed_at = now(), updated_at = now()
+		  WHERE task_id = ANY($1::bigint[]) AND status <> 'ignored'`, deletedIDs); err != nil {
+		return err
+	}
 	tag, err := tx.Exec(ctx, `DELETE FROM tasks WHERE id = $1`, id)
 	if err != nil {
 		return wrapErr(err)
@@ -1247,6 +1273,21 @@ func (s *Store) CancelTask(ctx context.Context, id int64, reason string, superse
 		return nil, nil, err
 	}
 	if _, err := cancelActiveWorkerRunsTx(ctx, tx, task.ID, reason); err != nil {
+		return nil, nil, err
+	}
+	evidenceStatus := WorkEvidenceIgnored
+	if supersededBy != nil {
+		evidenceStatus = WorkEvidenceSuperseded
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE work_evidence SET status = $2, updated_at = now()
+		  WHERE task_id = $1 AND status NOT IN ('resolved','ignored')`, task.ID, evidenceStatus); err != nil {
+		return nil, nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE material_cases SET status = 'ignored', last_error = $2,
+		  completed_at = now(), updated_at = now()
+		  WHERE task_id = $1 AND status <> 'ignored'`, task.ID, reason); err != nil {
 		return nil, nil, err
 	}
 	chain, err := cascadeUp(ctx, tx, task.ParentID)

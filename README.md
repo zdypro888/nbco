@@ -138,10 +138,12 @@ curl -X POST http://<listen>/api/bootstrap \
 
 - `POST /api/chat` `{"message":"..."}` → `{"reply":"..."}` — 与 TG 同一编排器，独立会话
 - `GET /api/me` — 当前用户
+- `GET /api/search?q=...` — 按当前用户的数据权限搜索任务、文件、项目和成员
 - `GET /api/me/tasks` / `GET /api/me/review` / `GET /api/me/assigned` — 待办 / 待我验收 / 我分配的
 - `GET /api/overview` — 全局统计+项目+过期任务（超管）
-- `GET /api/admin/workers` / `/api/admin/learning` / `/api/admin/decisions` / `/api/admin/ops` / `/api/admin/capabilities` — Web 管理面数据源
-- `POST /api/files`（multipart `file`，最大 200MB）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）
+- `GET /api/admin/workers` / `/api/admin/learning` / `/api/admin/decisions` / `/api/admin/ops` / `/api/admin/capabilities` — 运营控制中心数据源
+- `GET /api/admin/evals` / `POST /api/admin/evals/run` — 查看并运行无生产副作用的 Eino 行为回归案例（超管）
+- `POST /api/files`（multipart `file`，最大 200MB）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）；上传会进入显式材料生命周期，等待指令而不自动分析
 - `POST /api/tasks/{id}/attachments` `{"file_id":123,"caption":"..."}` — 把文件挂到任务
 - `GET /version` — 当前服务版本与 Go 版本（部署脚本会把 git SHA 写进版本号）
 - `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具

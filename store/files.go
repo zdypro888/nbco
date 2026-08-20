@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const fileIndexMaxAttempts = 8
@@ -118,6 +120,17 @@ func (s *Store) CreateFile(ctx context.Context, f *File) (*File, error) {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	created, err := createFileTx(ctx, tx, f)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return created, nil
+}
+
+func createFileTx(ctx context.Context, tx pgx.Tx, f *File) (*File, error) {
 	created, err := scanFile(tx.QueryRow(ctx,
 		`INSERT INTO files (source, original_name, mime_type, size_bytes, sha256, storage_path, created_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -128,6 +141,43 @@ func (s *Store) CreateFile(ctx context.Context, f *File) (*File, error) {
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO file_content_indexes (file_id) VALUES ($1)`, created.ID); err != nil {
 		return nil, err
+	}
+	return created, nil
+}
+
+// CreateFileWithMaterialCase publishes one API upload, its indexing job and
+// its awaiting-instruction material projection atomically.
+func (s *Store) CreateFileWithMaterialCase(ctx context.Context, f *File, sourceRef string) (*File, error) {
+	if f == nil || f.CreatedBy == nil || *f.CreatedBy <= 0 {
+		return nil, ErrConflict
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	created, err := createFileTx(ctx, tx, f)
+	if err != nil {
+		return nil, err
+	}
+	sourceRef = strings.TrimSpace(sourceRef)
+	if sourceRef == "" {
+		sourceRef = fmt.Sprintf("file:%d", created.ID)
+	}
+	var caseID int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO material_cases (owner_id, source, source_ref, title, created_by)
+		 VALUES ($1,$2,$3,$4,$1)
+		 ON CONFLICT (owner_id, source, source_ref) DO UPDATE SET
+		   status = 'received', title = EXCLUDED.title, task_id = NULL,
+		   worker_run_id = NULL, last_error = '', completed_at = NULL, updated_at = now()
+		 RETURNING id`, *f.CreatedBy, f.Source, sourceRef, strings.TrimSpace(f.OriginalName)).Scan(&caseID); err != nil {
+		return nil, wrapErr(err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO material_case_files (case_id, file_id) VALUES ($1,$2)
+		 ON CONFLICT DO NOTHING`, caseID, created.ID); err != nil {
+		return nil, wrapErr(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -528,18 +578,96 @@ func scanFileIntake(row interface{ Scan(...any) error }) (*FileIntake, error) {
 const fileIntakeCols = `id, user_id, source, external_ref, original_name, mime_type, size_bytes, status, error_code, error_message, file_id, created_at, updated_at`
 
 func (s *Store) CreateFileIntake(ctx context.Context, in FileIntake) (*FileIntake, error) {
+	in.Source = strings.TrimSpace(in.Source)
+	in.ExternalRef = strings.TrimSpace(in.ExternalRef)
 	return scanFileIntake(s.pool.QueryRow(ctx,
-		`INSERT INTO file_intakes (user_id, source, external_ref, original_name, mime_type, size_bytes)
-		 VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO file_intakes (user_id, source, external_ref, original_name, mime_type, size_bytes, canonical)
+		 VALUES ($1, $2, $3, $4, $5, $6, true)
+		 ON CONFLICT (user_id, source, external_ref)
+		   WHERE canonical AND external_ref <> ''
+		 DO UPDATE SET original_name = EXCLUDED.original_name,
+		               mime_type = EXCLUDED.mime_type,
+		               size_bytes = EXCLUDED.size_bytes,
+		               status = CASE WHEN file_intakes.status = 'saved' THEN 'saved' ELSE 'pending' END,
+		               error_code = CASE WHEN file_intakes.status = 'saved' THEN file_intakes.error_code ELSE '' END,
+		               error_message = CASE WHEN file_intakes.status = 'saved' THEN file_intakes.error_message ELSE '' END,
+		               updated_at = now()
 		 RETURNING `+fileIntakeCols,
 		in.UserID, in.Source, in.ExternalRef, in.OriginalName, in.MIMEType, in.SizeBytes))
 }
 
-func (s *Store) CompleteFileIntake(ctx context.Context, intakeID, fileID int64) error {
-	return s.execOne(ctx,
+// CompleteFileIntake publishes an intake exactly once. Concurrent webhook
+// attempts return the already-published canonical file ID so their duplicate
+// file row can be discarded safely by the caller. materialRef groups multiple
+// provider messages (for example one Telegram album) into one material case.
+func (s *Store) CompleteFileIntake(ctx context.Context, intakeID, fileID int64, materialRef string) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var userID int64
+	var source, sourceRef, name, status string
+	var savedFileID *int64
+	if err := tx.QueryRow(ctx,
+		`SELECT user_id, source, external_ref, original_name, status, file_id
+		   FROM file_intakes WHERE id = $1 AND canonical FOR UPDATE`, intakeID).
+		Scan(&userID, &source, &sourceRef, &name, &status, &savedFileID); err != nil {
+		return 0, wrapErr(err)
+	}
+	if status == "saved" && savedFileID != nil {
+		if err := tx.Commit(ctx); err != nil {
+			return 0, err
+		}
+		return *savedFileID, nil
+	}
+	var ownsFile bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM files WHERE id = $1 AND created_by = $2)`, fileID, userID).Scan(&ownsFile); err != nil {
+		return 0, wrapErr(err)
+	}
+	if !ownsFile {
+		return 0, ErrNotFound
+	}
+	if _, err := tx.Exec(ctx,
 		`UPDATE file_intakes
-		 SET status = 'saved', file_id = $2, error_code = '', error_message = '', updated_at = now()
-		 WHERE id = $1 AND status = 'pending'`, intakeID, fileID)
+		    SET status = 'saved', file_id = $2, error_code = '', error_message = '', updated_at = now()
+		  WHERE id = $1`, intakeID, fileID); err != nil {
+		return 0, wrapErr(err)
+	}
+	// Telegram may deliver several files in one message. Keep receipt identity at
+	// file granularity while grouping the material work item by message ID.
+	caseRef := strings.TrimSpace(materialRef)
+	if caseRef == "" {
+		caseRef = strings.TrimSpace(sourceRef)
+	}
+	if source == "telegram" {
+		if messageRef, _, ok := strings.Cut(caseRef, ":"); ok && messageRef != "" && !strings.HasPrefix(caseRef, "media-group:") {
+			caseRef = messageRef
+		}
+	}
+	if caseRef == "" {
+		caseRef = fmt.Sprintf("intake:%d", intakeID)
+	}
+	var caseID int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO material_cases (owner_id, source, source_ref, title, created_by)
+		 VALUES ($1,$2,$3,$4,$1)
+		 ON CONFLICT (owner_id, source, source_ref) DO UPDATE SET
+		   status = 'received', title = EXCLUDED.title, task_id = NULL,
+		   worker_run_id = NULL, last_error = '', completed_at = NULL, updated_at = now()
+		 RETURNING id`, userID, source, caseRef, strings.TrimSpace(name)).Scan(&caseID); err != nil {
+		return 0, wrapErr(err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO material_case_files (case_id, file_id) VALUES ($1,$2)
+		 ON CONFLICT DO NOTHING`, caseID, fileID); err != nil {
+		return 0, wrapErr(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return fileID, nil
 }
 
 func (s *Store) FailFileIntake(ctx context.Context, intakeID int64, code, message string) error {
@@ -555,7 +683,7 @@ func (s *Store) RecentFileIntakesByUser(ctx context.Context, userID int64, limit
 	}
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+fileIntakeCols+` FROM file_intakes
-		 WHERE user_id = $1 AND created_at >= $2
+		 WHERE user_id = $1 AND canonical AND created_at >= $2
 		 ORDER BY id DESC LIMIT $3`, userID, since, limit)
 	if err != nil {
 		return nil, err
@@ -600,14 +728,26 @@ func (s *Store) AddTaskAttachmentFile(ctx context.Context, taskID, fileID int64,
 // one transaction. Workers poll independently, so a task must never become
 // claimable before the attachments required to execute it are visible.
 func (s *Store) CreateTaskWithFileAttachments(ctx context.Context, task *Task, fileIDs []int64, caption string) (*Task, error) {
-	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, nil)
+	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, nil, nil)
 }
 
 func (s *Store) CreateTaskWithFileAttachmentsAndWorkerRun(ctx context.Context, task *Task, fileIDs []int64, caption string, spec WorkerRunSpec) (*Task, error) {
-	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, &spec)
+	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, &spec, nil)
 }
 
-func (s *Store) createTaskWithFileAttachments(ctx context.Context, task *Task, fileIDs []int64, caption string, spec *WorkerRunSpec) (*Task, error) {
+type MaterialTaskSpec struct {
+	OwnerID     int64
+	Title       string
+	Instruction string
+}
+
+// CreateMaterialTaskWithWorkerRun atomically publishes the task, its worker
+// run, file attachments, and the material lifecycle projection.
+func (s *Store) CreateMaterialTaskWithWorkerRun(ctx context.Context, task *Task, fileIDs []int64, caption string, spec WorkerRunSpec, material MaterialTaskSpec) (*Task, error) {
+	return s.createTaskWithFileAttachments(ctx, task, fileIDs, caption, &spec, &material)
+}
+
+func (s *Store) createTaskWithFileAttachments(ctx context.Context, task *Task, fileIDs []int64, caption string, spec *WorkerRunSpec, material *MaterialTaskSpec) (*Task, error) {
 	for _, fileID := range fileIDs {
 		if fileID <= 0 {
 			return nil, ErrNotFound
@@ -635,6 +775,12 @@ func (s *Store) createTaskWithFileAttachments(ctx context.Context, task *Task, f
 			 VALUES ($1, 'file', $2, $3, $4) ON CONFLICT DO NOTHING`,
 			created.ID, fmt.Sprint(fileID), caption, fileID); err != nil {
 			return nil, wrapErr(err)
+		}
+	}
+	if material != nil {
+		if err := queueMaterialFilesTx(ctx, tx, material.OwnerID, fileIDs, created.ID,
+			material.Title, material.Instruction); err != nil {
+			return nil, err
 		}
 	}
 	return created, tx.Commit(ctx)
@@ -711,33 +857,82 @@ func (s *Store) WorkerCanSubmitArtifact(ctx context.Context, runID, workerID int
 // **只删 DB 行、不碰内容寻址 blob**——同内容的其它上传可能正共享该 blob，物理回收
 // 交给离线 GC，避免删掉别人还在引用的物理文件。
 func (s *Store) DeleteOrphanFileRow(ctx context.Context, fileID int64) error {
-	_, err := s.pool.Exec(ctx,
-		`DELETE FROM files WHERE id = $1
-		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
-		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)
-		   AND NOT EXISTS(SELECT 1 FROM worker_run_files WHERE file_id = $1)`, fileID)
-	return err
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := deleteUnreferencedFileRowTx(ctx, tx, fileID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // DeleteUnreferencedFile deletes file metadata only when no task attachment or
 // artifact still references it. Content-addressed blobs are reclaimed by GC so
 // another file row sharing the same bytes remains safe.
 func (s *Store) DeleteUnreferencedFile(ctx context.Context, fileID int64) error {
-	tag, err := s.pool.Exec(ctx,
-		`DELETE FROM files WHERE id = $1
-		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
-		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)
-		   AND NOT EXISTS(SELECT 1 FROM worker_run_files WHERE file_id = $1)`, fileID)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return wrapErr(err)
+		return err
 	}
-	if tag.RowsAffected() == 1 {
-		return nil
+	defer func() { _ = tx.Rollback(ctx) }()
+	deleted, err := deleteUnreferencedFileRowTx(ctx, tx, fileID)
+	if err != nil {
+		return err
+	}
+	if deleted {
+		return tx.Commit(ctx)
+	}
+	if err := tx.Rollback(ctx); err != nil {
+		return err
 	}
 	if _, err := s.FileByID(ctx, fileID); err != nil {
 		return err
 	}
 	return ErrConflict
+}
+
+func deleteUnreferencedFileRowTx(ctx context.Context, tx pgx.Tx, fileID int64) (bool, error) {
+	rows, err := tx.Query(ctx,
+		`SELECT case_id FROM material_case_files WHERE file_id = $1`, fileID)
+	if err != nil {
+		return false, wrapErr(err)
+	}
+	var caseIDs []int64
+	for rows.Next() {
+		var caseID int64
+		if err := rows.Scan(&caseID); err != nil {
+			rows.Close()
+			return false, wrapErr(err)
+		}
+		caseIDs = append(caseIDs, caseID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return false, wrapErr(err)
+	}
+	rows.Close()
+	tag, err := tx.Exec(ctx,
+		`DELETE FROM files WHERE id = $1
+		   AND NOT EXISTS(SELECT 1 FROM task_attachments WHERE file_id = $1)
+		   AND NOT EXISTS(SELECT 1 FROM task_artifacts WHERE file_id = $1)
+		   AND NOT EXISTS(SELECT 1 FROM worker_run_files WHERE file_id = $1)`, fileID)
+	if err != nil {
+		return false, wrapErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+	if len(caseIDs) > 0 {
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM material_cases c
+			  WHERE c.id = ANY($1::bigint[])
+			    AND NOT EXISTS (SELECT 1 FROM material_case_files cf WHERE cf.case_id = c.id)`, caseIDs); err != nil {
+			return false, wrapErr(err)
+		}
+	}
+	return true, nil
 }
 
 // AddWorkerArtifact records the file against the run. Linked business tasks

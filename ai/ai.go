@@ -19,6 +19,10 @@ import (
 type Tool struct {
 	Name        string
 	Description string
+	// Maturity is explicit governance metadata. The zero value is stable;
+	// experimental tools remain usable but are surfaced separately in the
+	// capability catalog so operators can review adoption and failures.
+	Maturity ToolMaturity
 	// Domain 是稳定的能力领域标识（people/work/workers/...），供能力检索、
 	// 展示和审计使用；外部工具未声明时归入 extension。
 	Domain string
@@ -58,6 +62,15 @@ type Tool struct {
 	// 只有系统性故障才返回 error。
 	Handler func(ctx context.Context, args json.RawMessage) (string, error)
 }
+
+// ToolMaturity describes operational confidence, not authorization. Keeping it
+// on the tool definition avoids inferring governance policy from naming.
+type ToolMaturity string
+
+const (
+	ToolMaturityStable       ToolMaturity = "stable"
+	ToolMaturityExperimental ToolMaturity = "experimental"
+)
 
 const (
 	ToolEffectRead    = "read"

@@ -118,7 +118,12 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 			ErrorMessage: in.ErrorMessage, CreatedAt: in.CreatedAt.Format(time.RFC3339),
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"files": out, "intakes": intakeOut})
+	materials, err := s.store.MaterialCases(r.Context(), u.ID, false, limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取待处理材料失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"files": out, "intakes": intakeOut, "materials": materials})
 }
 
 func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
@@ -346,10 +351,18 @@ func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userI
 	if mimeType == "" {
 		mimeType = mime.TypeByExtension(filepath.Ext(hdr.Filename))
 	}
-	return s.store.CreateFile(r.Context(), &store.File{
+	file := &store.File{
 		Source: source, OriginalName: filepath.Base(hdr.Filename), MIMEType: mimeType,
 		SizeBytes: n, SHA256: sum, StoragePath: rel, CreatedBy: &uid,
-	})
+	}
+	if source == "api" {
+		batchRef := strings.TrimSpace(r.FormValue("batch_ref"))
+		if len(batchRef) > 160 {
+			batchRef = batchRef[:160]
+		}
+		return s.store.CreateFileWithMaterialCase(r.Context(), file, batchRef)
+	}
+	return s.store.CreateFile(r.Context(), file)
 }
 
 func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, id int64) {

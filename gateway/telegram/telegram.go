@@ -785,6 +785,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	if msg.From != nil {
 		g.saveSeenMember(ctx, chatID, msg.From, text, msg.ID)
 	}
+	envelope := telegramMessageEnvelope(msg, u)
 
 	switch cmd {
 	case "/listen":
@@ -837,7 +838,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 			if bound {
 				speaker = u.Name
 			}
-			if err := g.orch.RecordGroupMessage(ctx, g.groupTranscriptOwner(ctx, u), channel, speaker, text); err != nil {
+			if err := g.orch.RecordGroupMessageWithEnvelope(ctx, g.groupTranscriptOwner(ctx, u), channel, speaker, text, envelope); err != nil {
 				slog.Error("Telegram 群消息持久化失败", "chat", chatID, "message", msg.ID, "err", err)
 			}
 			if monitorOn {
@@ -868,7 +869,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 				if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
 					slog.Warn("建立群文件上下文失败", "chat", chatID, "user", u.ID, "err", err)
 				} else {
-					if err := g.orch.RecordGroupMessage(ctx, u, channel, u.Name, savedFilesPrompt(saved)); err != nil {
+					if err := g.orch.RecordGroupMessageWithEnvelope(ctx, u, channel, u.Name, savedFilesPrompt(saved), envelope); err != nil {
 						slog.Error("群文件上下文持久化失败", "chat", chatID, "user", u.ID, "err", err)
 					}
 				}
@@ -887,6 +888,7 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	g.sendTyping(ctx, chatID)
 	turnCtx := chat.WithTurnSourceKey(ctx, telegramTurnSourceKey(msg))
 	turnCtx = chat.WithMemorySourceText(turnCtx, strings.TrimSpace(stripMention(memorySourceText, g.botUsername())))
+	turnCtx = chat.WithMessageEnvelope(turnCtx, envelope)
 	reply, err := g.orch.HandleGroupMessageResult(turnCtx, u, channel, u.Name, ask)
 	if err != nil {
 		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrTurnFailed) ||
@@ -1829,6 +1831,7 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	ed := g.newStreamEditor(ctx, chatID)
 	turnCtx := chat.WithTurnSourceKey(ctx, telegramTurnSourceKey(msg))
 	turnCtx = chat.WithMemorySourceText(turnCtx, memorySourceText)
+	turnCtx = chat.WithMessageEnvelope(turnCtx, telegramMessageEnvelope(msg, u))
 	reply, err := g.orch.HandleMessageStreamResult(turnCtx, u, Provider, text, ed.onDelta)
 	if err != nil {
 		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrTurnFailed) ||
@@ -1861,6 +1864,57 @@ func telegramTurnSourceKey(msg *models.Message) string {
 		return ""
 	}
 	return fmt.Sprintf("telegram:message:%d:%d", msg.Chat.ID, msg.ID)
+}
+
+func telegramMessageEnvelope(msg *models.Message, u *store.User) store.MessageEnvelope {
+	if msg == nil {
+		return store.MessageEnvelope{}
+	}
+	var actorUserID *int64
+	if u != nil {
+		id := u.ID
+		actorUserID = &id
+	}
+	externalActor := ""
+	if msg.From != nil {
+		externalActor = strconv.FormatInt(msg.From.ID, 10)
+	} else if msg.SenderChat != nil {
+		externalActor = "chat:" + strconv.FormatInt(msg.SenderChat.ID, 10)
+	}
+	replyRef := ""
+	if msg.ReplyToMessage != nil {
+		replyRef = strconv.Itoa(msg.ReplyToMessage.ID)
+	}
+	threadRef := ""
+	if msg.MessageThreadID != 0 {
+		threadRef = strconv.Itoa(msg.MessageThreadID)
+	}
+	var sourceAt *time.Time
+	if msg.Date > 0 {
+		at := time.Unix(int64(msg.Date), 0).UTC()
+		sourceAt = &at
+	}
+	metadata, _ := json.Marshal(map[string]any{
+		"edit_date":      msg.EditDate,
+		"media_group_id": msg.MediaGroupID,
+		"sender_chat_id": func() int64 {
+			if msg.SenderChat != nil {
+				return msg.SenderChat.ID
+			}
+			return 0
+		}(),
+	})
+	displayName := displayNameFromMessage(msg)
+	if u != nil {
+		displayName = u.Name
+	}
+	return store.MessageEnvelope{
+		Provider: Provider, ExternalChatRef: strconv.FormatInt(msg.Chat.ID, 10),
+		ExternalMessageRef: strconv.Itoa(msg.ID), ActorUserID: actorUserID,
+		ExternalActorRef: externalActor, ActorDisplayName: displayName,
+		ReplyToExternalRef: replyRef, ThreadRef: threadRef, SourceCreatedAt: sourceAt,
+		Metadata: metadata,
+	}
 }
 
 func telegramMemorySourceText(msg *models.Message, fallback string) string {
@@ -2863,6 +2917,15 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 			continue
 		}
 		result.intake = intake
+		if intake.Status == "saved" && intake.FileID != nil {
+			f, fileErr := g.store.FileByID(ctx, *intake.FileID)
+			if fileErr == nil {
+				result.file = f
+				results = append(results, result)
+				continue
+			}
+			slog.Warn("Telegram 重放接收记录指向缺失文件", "user", u.ID, "intake", intake.ID, "file", *intake.FileID, "err", fileErr)
+		}
 		f, err := g.saveTelegramFile(ctx, u.ID, in)
 		if err != nil {
 			result.errorCode, result.errorMessage = telegramFileIntakeFailure(err)
@@ -2876,9 +2939,30 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 			continue
 		}
 		result.file = f
-		if err := g.store.CompleteFileIntake(ctx, intake.ID, f.ID); err != nil {
+		canonicalFileID, err := g.store.CompleteFileIntake(ctx, intake.ID, f.ID, telegramMaterialSourceRef(msg))
+		if err != nil {
 			slog.Warn("Telegram 文件成功状态保存失败", "user", u.ID, "intake", intake.ID, "file", f.ID, "err", err)
+			_ = g.store.DeleteOrphanFileRow(ctx, f.ID)
+			result.file = nil
+			result.errorCode = "intake_finalize_failed"
+			result.errorMessage = "文件已下载但未能完成接收登记，请重新发送。"
+			result.err = err
+			results = append(results, result)
+			continue
 		}
+		if canonicalFileID != f.ID {
+			_ = g.store.DeleteOrphanFileRow(ctx, f.ID)
+			f, err = g.store.FileByID(ctx, canonicalFileID)
+			if err != nil {
+				result.file = nil
+				result.errorCode = "intake_replay_file_missing"
+				result.errorMessage = "文件接收记录存在，但原文件暂时不可用。"
+				result.err = err
+				results = append(results, result)
+				continue
+			}
+		}
+		result.file = f
 		results = append(results, result)
 	}
 	return results
@@ -3027,6 +3111,16 @@ func telegramFileExternalRef(messageID int, uniqueID, fileID string) string {
 		ref = hex.EncodeToString(sum[:8])
 	}
 	return fmt.Sprintf("%d:%s", messageID, ref)
+}
+
+func telegramMaterialSourceRef(msg *models.Message) string {
+	if msg == nil {
+		return ""
+	}
+	if mediaGroupID := strings.TrimSpace(msg.MediaGroupID); mediaGroupID != "" {
+		return "media-group:" + mediaGroupID
+	}
+	return strconv.Itoa(msg.ID)
 }
 
 func splitTelegramFileIntakes(results []incomingTelegramFileResult) ([]store.File, []incomingTelegramFileResult) {

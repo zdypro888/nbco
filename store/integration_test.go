@@ -168,6 +168,14 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	alice := mkUser(t, s, "alice", false)
 	pj := mkProject(t, s, boss.ID)
 	tk := mkTask(t, s, pj.ID, boss.ID, alice.ID, "写方案", nil)
+	evidence, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "worker_run", SourceKey: "review-lifecycle", Kind: WorkEvidenceDeliverable,
+		Status: WorkEvidenceActive, Title: tk.Title, Content: "已提交方案", TaskID: &tk.ID,
+		ProjectID: &pj.ID, ActorUserID: &alice.ID, EventAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// 提交 → 待验收。
 	t1, chain, err := s.SubmitTask(ctx, tk.ID)
@@ -193,6 +201,13 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	t3, _, err := s.AcceptTask(ctx, tk.ID)
 	if err != nil || t3.Status != TaskAccepted {
 		t.Fatalf("验收后 = %+v err=%v", t3, err)
+	}
+	evidence, err = scanWorkEvidence(s.pool.QueryRow(ctx,
+		`SELECT `+workEvidenceCols+` FROM work_evidence e
+		 LEFT JOIN users u ON u.id = e.actor_user_id
+		 LEFT JOIN projects p ON p.id = e.project_id WHERE e.id = $1`, evidence.ID))
+	if err != nil || evidence.Status != WorkEvidenceResolved {
+		t.Fatalf("验收后的工作证据 = %+v err=%v", evidence, err)
 	}
 	// 终态不可重复操作。
 	if _, _, err := s.AcceptTask(ctx, tk.ID); !errors.Is(err, ErrNotFound) {
@@ -918,6 +933,10 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rule, err := s.CreateRule(ctx, "turn attribution", "record selected context", []string{"scope:global"}, u.ID, true)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	turn, created, err := s.BeginConversationTurn(
 		ctx, "telegram:message:7:11", u.ID, sess.ID, "telegram", "执行并记录")
@@ -978,6 +997,11 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 		TurnID: turn.ID, AssistantText: "已完成", ResultText: "已完成",
 		EngineSession: "eino:turn", Action: action, Usage: usage,
 		EnqueueMemory: true, MemoryEvidence: "[test_tool] ok", MemorySourceText: &memorySource,
+		AssetUsages: []ConversationAssetUsage{
+			{KnowledgeID: rule.ID, Phase: AssetPhaseInjected, TurnOutcome: AssetOutcomeActionSucceeded},
+			{KnowledgeID: rule.ID, Phase: AssetPhaseCandidate, TurnOutcome: AssetOutcomeActionSucceeded},
+			{KnowledgeID: rule.ID, Phase: AssetPhaseCandidate, TurnOutcome: AssetOutcomeActionSucceeded},
+		},
 	})
 	if err != nil || assistantID == 0 {
 		t.Fatalf("CompleteConversationTurn = %d, %v", assistantID, err)
@@ -988,13 +1012,29 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 	if err != nil || secondID != assistantID {
 		t.Fatalf("idempotent completion = %d, %v", secondID, err)
 	}
-	for table, want := range map[string]int{"action_turns": 1, "ai_usage": 1} {
+	for table, want := range map[string]int{"action_turns": 1, "ai_usage": 1, "conversation_asset_usages": 2} {
 		var count int
 		if err := s.pool.QueryRow(ctx,
 			`SELECT count(*) FROM `+table+` WHERE conversation_turn_id = $1`, turn.ID).
 			Scan(&count); err != nil || count != want {
 			t.Fatalf("%s count = %d err=%v", table, count, err)
 		}
+	}
+	var assetOutcome string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT turn_outcome FROM conversation_asset_usages
+		  WHERE conversation_turn_id = $1 AND knowledge_id = $2 AND phase = $3`,
+		turn.ID, rule.ID, AssetPhaseInjected).Scan(&assetOutcome); err != nil || assetOutcome != AssetOutcomeActionSucceeded {
+		t.Fatalf("asset outcome = %q err=%v", assetOutcome, err)
+	}
+	assetStats, err := s.AssetUsageStatsSince(ctx, time.Now().Add(-time.Hour))
+	if err != nil || assetStats.Injected != 1 || assetStats.Candidates != 1 || assetStats.ActionSucceeded != 1 {
+		t.Fatalf("asset usage stats = %+v err=%v", assetStats, err)
+	}
+	effectiveness, err := s.ListAssetEffectivenessSince(ctx, time.Now().Add(-time.Hour), 10)
+	if err != nil || len(effectiveness) != 1 || effectiveness[0].KnowledgeID != rule.ID ||
+		effectiveness[0].Injected != 1 || effectiveness[0].Candidates != 1 || effectiveness[0].ActionSucceeded != 1 {
+		t.Fatalf("asset effectiveness = %+v err=%v", effectiveness, err)
 	}
 	var memoryJobs int
 	if err := s.pool.QueryRow(ctx,
@@ -1035,6 +1075,361 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 	stale, err = s.ConversationTurnByID(ctx, stale.ID)
 	if err != nil || stale.Status != "failed" {
 		t.Fatalf("stale turn = %+v err=%v", stale, err)
+	}
+}
+
+func TestProductOperatingLoopPreservesSourceIdentityAndMaterialLifecycle(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "operating-loop-owner", true)
+	sess, err := s.StartGroupSession(ctx, u.ID, "telegram:group:-10088", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceAt := time.Date(2026, 8, 19, 9, 30, 0, 0, time.UTC)
+	envelope := MessageEnvelope{
+		Provider: "telegram", ExternalChatRef: "-10088", ExternalMessageRef: "42",
+		ActorUserID: &u.ID, ExternalActorRef: "991", ActorDisplayName: "旧显示名",
+		ReplyToExternalRef: "41", ThreadRef: "7", SourceCreatedAt: &sourceAt,
+		Metadata: json.RawMessage(`{"media_group_id":"batch-a"}`),
+	}
+	messageID, err := s.AppendMessageWithEnvelope(ctx, sess.ID, "user", "第一版", envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope.ActorDisplayName = "新显示名"
+	replayedID, err := s.AppendMessageWithEnvelope(ctx, sess.ID, "user", "编辑后的正文", envelope)
+	if err != nil || replayedID != messageID {
+		t.Fatalf("message replay id=%d want=%d err=%v", replayedID, messageID, err)
+	}
+	message, err := s.ChatMessageByID(ctx, messageID)
+	if err != nil || message.Content != "编辑后的正文" || message.ActorUserID == nil || *message.ActorUserID != u.ID ||
+		message.ActorDisplayName != "新显示名" || message.ThreadRef != "7" {
+		t.Fatalf("message envelope = %+v err=%v", message, err)
+	}
+
+	project, err := s.CreateProject(ctx, "证据项目", "", u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "telegram_group_message", SourceKey: "-10088:42",
+		Kind: WorkEvidenceCommunication, Status: WorkEvidenceObserved,
+		Title: "新显示名", Content: "编辑后的正文", ActorUserID: &u.ID,
+		ProjectID: &project.ID, SourceMessageID: &messageID, EventAt: sourceAt,
+	})
+	if err != nil || evidence.ActorName != u.Name || evidence.ProjectName != project.Name {
+		t.Fatalf("work evidence = %+v err=%v", evidence, err)
+	}
+	if _, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "telegram_group_message", SourceKey: "-10088:42",
+		Kind: WorkEvidenceCommunication, Status: WorkEvidenceObserved,
+		Title: "新显示名", Content: "最终正文", ActorUserID: &u.ID,
+		ProjectID: &project.ID, SourceMessageID: &messageID, EventAt: sourceAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := s.WorkEvidenceStatsSince(ctx, sourceAt.Add(-time.Minute))
+	if err != nil || stats.ObservedMessages != 1 || stats.Actors != 1 || stats.Projects != 1 {
+		t.Fatalf("work evidence stats = %+v err=%v", stats, err)
+	}
+
+	files := make([]*File, 0, 2)
+	intakes := make([]*FileIntake, 0, 2)
+	for index, name := range []string{"people.pdf", "roles.xlsx"} {
+		file, err := s.CreateFile(ctx, &File{
+			Source: "telegram", OriginalName: name, MIMEType: "application/octet-stream",
+			SizeBytes: int64(index + 1), SHA256: fmt.Sprintf("material-sha-%d", index),
+			StoragePath: fmt.Sprintf("material/%d", index), CreatedBy: &u.ID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		intake, err := s.CreateFileIntake(ctx, FileIntake{
+			UserID: u.ID, Source: "telegram", ExternalRef: fmt.Sprintf("%d:%d", 77+index, index),
+			OriginalName: name, MIMEType: file.MIMEType, SizeBytes: file.SizeBytes,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if canonicalID, err := s.CompleteFileIntake(ctx, intake.ID, file.ID, "media-group:album-77"); err != nil || canonicalID != file.ID {
+			t.Fatal(err)
+		}
+		files = append(files, file)
+		intakes = append(intakes, intake)
+	}
+	replayedIntake, err := s.CreateFileIntake(ctx, FileIntake{
+		UserID: u.ID, Source: "telegram", ExternalRef: "77:0", OriginalName: "people.pdf",
+	})
+	if err != nil || replayedIntake.ID != intakes[0].ID || replayedIntake.Status != "saved" ||
+		replayedIntake.FileID == nil || *replayedIntake.FileID != files[0].ID {
+		t.Fatalf("replayed intake = %+v err=%v", replayedIntake, err)
+	}
+	cases, err := s.MaterialCases(ctx, u.ID, false, 10)
+	if err != nil || len(cases) != 1 || cases[0].SourceRef != "media-group:album-77" || cases[0].Status != MaterialReceived || len(cases[0].Files) != 2 {
+		t.Fatalf("material cases = %+v err=%v", cases, err)
+	}
+	if err := s.DeleteUnreferencedFile(ctx, files[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	cases, err = s.MaterialCases(ctx, u.ID, false, 10)
+	if err != nil || len(cases) != 1 || len(cases[0].Files) != 1 {
+		t.Fatalf("partially deleted material case = %+v err=%v", cases, err)
+	}
+	if err := s.DeleteUnreferencedFile(ctx, files[1].ID); err != nil {
+		t.Fatal(err)
+	}
+	cases, err = s.MaterialCases(ctx, u.ID, false, 10)
+	if err != nil || len(cases) != 0 {
+		t.Fatalf("empty material case should be removed = %+v err=%v", cases, err)
+	}
+}
+
+func TestQueueMaterialFilesKeepsUnselectedAlbumFilesPending(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "partial-material-owner", true)
+	project, err := s.CreateProject(ctx, "partial-material-project", "", u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	files := make([]*File, 0, 2)
+	for index, name := range []string{"selected.pdf", "pending.pdf"} {
+		file, err := s.CreateFile(ctx, &File{
+			Source: "telegram", OriginalName: name, MIMEType: "application/pdf",
+			SizeBytes: int64(index + 1), SHA256: fmt.Sprintf("partial-material-sha-%d", index),
+			StoragePath: fmt.Sprintf("partial-material/%d", index), CreatedBy: &u.ID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		intake, err := s.CreateFileIntake(ctx, FileIntake{
+			UserID: u.ID, Source: "telegram", ExternalRef: fmt.Sprintf("88:%d", index),
+			OriginalName: name, MIMEType: file.MIMEType, SizeBytes: file.SizeBytes,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.CompleteFileIntake(ctx, intake.ID, file.ID, "media-group:partial-album"); err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, file)
+	}
+	task, err := s.CreateTask(ctx, &Task{
+		ProjectID: project.ID, AssignerID: u.ID, AssigneeID: u.ID,
+		Title: "分析部分材料", Description: "只分析选中的文件", Priority: "normal",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queueMaterialFilesTx(ctx, tx, u.ID, []int64{files[0].ID}, task.ID, task.Title, task.Description); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	cases, err := s.MaterialCases(ctx, u.ID, false, 10)
+	if err != nil || len(cases) != 2 {
+		t.Fatalf("active material cases = %+v err=%v", cases, err)
+	}
+	byRef := make(map[string]*MaterialCase, len(cases))
+	for _, materialCase := range cases {
+		byRef[materialCase.SourceRef] = materialCase
+	}
+	pending := byRef["media-group:partial-album"]
+	queued := byRef[fmt.Sprintf("task:%d", task.ID)]
+	if pending == nil || pending.Status != MaterialReceived || len(pending.Files) != 1 || pending.Files[0].ID != files[1].ID {
+		t.Fatalf("unselected album remainder = %+v", pending)
+	}
+	if queued == nil || queued.Status != MaterialQueued || len(queued.Files) != 1 || queued.Files[0].ID != files[0].ID {
+		t.Fatalf("queued selection = %+v", queued)
+	}
+
+	secondTask, err := s.CreateTask(ctx, &Task{
+		ProjectID: project.ID, AssignerID: u.ID, AssigneeID: u.ID,
+		Title: "分析剩余材料", Description: "处理相册剩余文件", Priority: "normal",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err = s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queueMaterialFilesTx(ctx, tx, u.ID, []int64{files[1].ID}, secondTask.ID, secondTask.Title, secondTask.Description); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	lateFile, err := s.CreateFile(ctx, &File{
+		Source: "telegram", OriginalName: "late.pdf", MIMEType: "application/pdf",
+		SizeBytes: 3, SHA256: "partial-material-sha-late", StoragePath: "partial-material/late", CreatedBy: &u.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lateIntake, err := s.CreateFileIntake(ctx, FileIntake{
+		UserID: u.ID, Source: "telegram", ExternalRef: "88:late",
+		OriginalName: lateFile.OriginalName, MIMEType: lateFile.MIMEType, SizeBytes: lateFile.SizeBytes,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CompleteFileIntake(ctx, lateIntake.ID, lateFile.ID, "media-group:partial-album"); err != nil {
+		t.Fatal(err)
+	}
+	cases, err = s.MaterialCases(ctx, u.ID, false, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byRef = make(map[string]*MaterialCase, len(cases))
+	for _, materialCase := range cases {
+		byRef[materialCase.SourceRef] = materialCase
+	}
+	reopened := byRef["media-group:partial-album"]
+	if reopened == nil || reopened.Status != MaterialReceived || len(reopened.Files) != 1 || reopened.Files[0].ID != lateFile.ID {
+		t.Fatalf("late album file should reopen source case = %+v", reopened)
+	}
+}
+
+func TestMaterialWorkerLifecycleFollowsTaskTransaction(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "material-lifecycle-boss", true)
+	worker, _, err := s.CreateWorker(ctx, "material-lifecycle-worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := mkProject(t, s, boss.ID)
+	file, err := s.CreateFileWithMaterialCase(ctx, &File{
+		Source: "api", OriginalName: "company.pdf", MIMEType: "application/pdf",
+		SizeBytes: 42, SHA256: "material-lifecycle-sha", StoragePath: "material-lifecycle/file", CreatedBy: &boss.ID,
+	}, "material-lifecycle-batch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := s.CreateMaterialTaskWithWorkerRun(ctx, &Task{
+		ProjectID: project.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "整理公司资料", Description: "提炼结构化事实", Priority: "normal",
+	}, []int64{file.ID}, "材料输入", WorkerRunSpec{
+		Executor: workerproto.ExecutorAgent, ScopeType: "materials",
+		ScopeKey: "materials:test", ScopeTitle: "Material lifecycle test",
+	}, MaterialTaskSpec{OwnerID: boss.ID, Title: "整理公司资料", Instruction: "提炼结构化事实"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	materialForTask := func(includeClosed bool) *MaterialCase {
+		t.Helper()
+		cases, err := s.MaterialCases(ctx, boss.ID, includeClosed, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, materialCase := range cases {
+			if materialCase.TaskID != nil && *materialCase.TaskID == task.ID {
+				return materialCase
+			}
+		}
+		return nil
+	}
+	if materialCase := materialForTask(false); materialCase == nil || materialCase.Status != MaterialQueued {
+		t.Fatalf("created material task = %+v", materialCase)
+	}
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if materialCase := materialForTask(false); materialCase == nil || materialCase.Status != MaterialProcessing {
+		t.Fatalf("claimed material task = %+v", materialCase)
+	}
+	if _, completedTask, _, replayed, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+		"已提炼公司资料", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "material-complete")); err != nil || replayed || completedTask == nil || completedTask.Status != TaskDone {
+		t.Fatalf("complete material task = %+v replayed=%v err=%v", completedTask, replayed, err)
+	}
+	if materialCase := materialForTask(true); materialCase == nil || materialCase.Status != MaterialCompleted {
+		t.Fatalf("completed material task = %+v", materialCase)
+	}
+	evidenceRows, err := s.RecentWorkEvidence(ctx, time.Now().Add(-time.Hour), 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence *WorkEvidence
+	for _, item := range evidenceRows {
+		if item.TaskID != nil && *item.TaskID == task.ID {
+			evidence = item
+			break
+		}
+	}
+	if evidence == nil || evidence.Status != WorkEvidenceActive || evidence.WorkerRunID == nil || *evidence.WorkerRunID != claimed.ID {
+		t.Fatalf("atomic worker evidence = %+v", evidence)
+	}
+
+	if _, err := s.RejectTask(ctx, task.ID, boss.ID, "需要补充来源页码"); err != nil {
+		t.Fatal(err)
+	}
+	reopened := materialForTask(false)
+	if reopened == nil || reopened.Status != MaterialQueued || reopened.CompletedAt != nil || reopened.WorkerRunID == nil || *reopened.WorkerRunID == claimed.ID || reopened.LastError != "" {
+		t.Fatalf("rejected material task = %+v", reopened)
+	}
+	if _, err := s.CreateMaterialTaskWithWorkerRun(ctx, &Task{
+		ProjectID: project.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
+		Title: "重复分析", Description: "不应重复创建", Priority: "normal",
+	}, []int64{file.ID}, "重复输入", WorkerRunSpec{
+		Executor: workerproto.ExecutorAgent, ScopeType: "materials", ScopeKey: "materials:duplicate",
+	}, MaterialTaskSpec{OwnerID: boss.ID, Title: "重复分析", Instruction: "不应重复创建"}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("active material workflow duplicate = %v, want ErrConflict", err)
+	}
+	if _, _, err := s.CancelTask(ctx, task.ID, "本轮不再处理", nil); err != nil {
+		t.Fatal(err)
+	}
+	if materialCase := materialForTask(true); materialCase == nil || materialCase.Status != MaterialIgnored {
+		t.Fatalf("cancelled material task = %+v", materialCase)
+	}
+	evidence, err = scanWorkEvidence(s.pool.QueryRow(ctx,
+		`SELECT `+workEvidenceCols+` FROM work_evidence e
+		 LEFT JOIN users u ON u.id = e.actor_user_id
+		 LEFT JOIN projects p ON p.id = e.project_id WHERE e.id = $1`, evidence.ID))
+	if err != nil || evidence.Status != WorkEvidenceIgnored {
+		t.Fatalf("cancelled worker evidence = %+v err=%v", evidence, err)
+	}
+}
+
+func TestConversationEvalRunsExposeLatestCaseHealth(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "eval-owner", true)
+	createdBy := u.ID
+	evalCase, err := s.CreateConversationEvalCase(ctx, ConversationEvalCase{
+		Name: "tool selection", Channel: "telegram", UserInput: "列出员工",
+		Assertions: json.RawMessage(`{"required_tools":["list_users"]}`), Enabled: true, CreatedBy: &createdBy,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseID := evalCase.ID
+	if _, err := s.CreateConversationEvalRun(ctx, ConversationEvalRun{
+		CaseID: &caseID, Status: "failed", Output: "old", Details: json.RawMessage(`{"passed":false}`), RanBy: &createdBy,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	latest, err := s.CreateConversationEvalRun(ctx, ConversationEvalRun{
+		CaseID: &caseID, Status: "passed", Output: "ok", Details: json.RawMessage(`{"passed":true}`), RanBy: &createdBy,
+	})
+	if err != nil || latest.CaseName != evalCase.Name {
+		t.Fatalf("latest eval run = %+v err=%v", latest, err)
+	}
+	stats, err := s.ConversationEvalStats(ctx)
+	if err != nil || stats.EnabledCases != 1 || stats.TestedCases != 1 || stats.PassingCases != 1 || stats.FailingCases != 0 {
+		t.Fatalf("eval stats = %+v err=%v", stats, err)
 	}
 }
 
@@ -2022,7 +2417,7 @@ func TestFileIntakeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CompleteFileIntake(ctx, pending.ID, f.ID); err != nil {
+	if canonicalID, err := s.CompleteFileIntake(ctx, pending.ID, f.ID, ""); err != nil || canonicalID != f.ID {
 		t.Fatal(err)
 	}
 
@@ -2034,6 +2429,11 @@ func TestFileIntakeLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.FailFileIntake(ctx, failed.ID, "telegram_cloud_limit", "文件没有进入 nbco"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO file_intakes (user_id, source, external_ref, original_name, status, error_code, error_message, canonical)
+		 VALUES ($1,'telegram','10:unique','旧重放失败','failed','legacy_duplicate','仅保留审计',false)`, u.ID); err != nil {
 		t.Fatal(err)
 	}
 

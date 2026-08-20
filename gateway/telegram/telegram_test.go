@@ -114,6 +114,28 @@ func TestTelegramMemorySourceExcludesSyntheticFileContext(t *testing.T) {
 	}
 }
 
+func TestTelegramMessageEnvelopeKeepsStableActorAndSourceIdentity(t *testing.T) {
+	msg := &models.Message{
+		ID: 42, Date: 1_787_116_200,
+		Chat:           models.Chat{ID: -10088, Type: models.ChatTypeSupergroup, Title: "项目群"},
+		From:           &models.User{ID: 991, FirstName: "Display"},
+		ReplyToMessage: &models.Message{ID: 41}, MessageThreadID: 7,
+		MediaGroupID: "batch-a", EditDate: 1_787_116_260,
+	}
+	u := &store.User{ID: 12, Name: "稳定员工"}
+	envelope := telegramMessageEnvelope(msg, u)
+	if envelope.Provider != Provider || envelope.ExternalChatRef != "-10088" ||
+		envelope.ExternalMessageRef != "42" || envelope.ExternalActorRef != "991" ||
+		envelope.ActorUserID == nil || *envelope.ActorUserID != u.ID ||
+		envelope.ActorDisplayName != u.Name || envelope.ReplyToExternalRef != "41" ||
+		envelope.ThreadRef != "7" || envelope.SourceCreatedAt == nil {
+		t.Fatalf("envelope = %+v", envelope)
+	}
+	if !strings.Contains(string(envelope.Metadata), "batch-a") {
+		t.Fatalf("metadata = %s", envelope.Metadata)
+	}
+}
+
 func TestDisplayNameFromMessageWithoutFrom(t *testing.T) {
 	got := displayNameFromMessage(&models.Message{
 		Chat:       models.Chat{ID: -1, Type: models.ChatTypeSupergroup, Title: "群"},
@@ -594,6 +616,12 @@ func TestTelegramFileIntakeHelpers(t *testing.T) {
 	uniqueRef := telegramFileExternalRef(42, "unique", rawID)
 	if uniqueRef != "42:unique" {
 		t.Fatalf("unique ref = %q", uniqueRef)
+	}
+	if got := telegramMaterialSourceRef(&models.Message{ID: 42}); got != "42" {
+		t.Fatalf("single-message material ref = %q", got)
+	}
+	if got := telegramMaterialSourceRef(&models.Message{ID: 42, MediaGroupID: "album-7"}); got != "media-group:album-7" {
+		t.Fatalf("album material ref = %q", got)
 	}
 
 	savedFile := &store.File{ID: 9, OriginalName: "saved.pdf"}

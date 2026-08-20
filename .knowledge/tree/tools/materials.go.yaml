@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/materials.go
-        hash: sha256:18cbb493ff6518258a7d889540dbe1b9d4cb98fb8ee8391412c7e6f0d93d07e6
+        hash: sha256:79368033c3a2b7f8ab4a0c2cff08155de704ad505c20dd03db580c17a49f0074
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: startMaterialAnalysis
-        hash: sha256:b2d576f215d1187369ba7348c181780dffb9e4b9f94d45814ba934c7051ce2df
-        struct_hash: sha256:d14fcda64e3cc2b13378c90e8044cee1363c680d67305ef502cdab5249c51be8
-        doc_struct_hash: sha256:d14fcda64e3cc2b13378c90e8044cee1363c680d67305ef502cdab5249c51be8
-        lines: [47, 95]
+        hash: sha256:20e6cd116da0b25341f0c09bd8af4e2e8cfd8f3b0378c8207c45f9e70efd4b94
+        struct_hash: sha256:62c03dc322d5cf55b73c08c2b090119962d913adcc29a4a7da742d0394fbf511
+        doc_struct_hash: sha256:62c03dc322d5cf55b73c08c2b090119962d913adcc29a4a7da742d0394fbf511
+        lines: [47, 97]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#pickMaterialWorker
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:0acac592d19ae611f21f63e2933cfd64254f59fdcec128476260633f50a006e7
         struct_hash: sha256:90c9c914eaab1717d1e1baf4b06eb6b42be0f2a20dc2e23f8f8f485186951b35
         doc_struct_hash: sha256:90c9c914eaab1717d1e1baf4b06eb6b42be0f2a20dc2e23f8f8f485186951b35
-        lines: [97, 147]
+        lines: [99, 149]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#materialAnalysisPrompt
@@ -82,6 +82,6 @@ nodes:
         hash: sha256:f56daef2e66973677e7bc791a9e6fc1a8a5f58b3ba273052793bd4ef36f75e1c
         struct_hash: sha256:7308c4c25918bc520e98209230fc0f9dfa763d2b732bfab7bf311491b42d0380
         doc_struct_hash: sha256:7308c4c25918bc520e98209230fc0f9dfa763d2b732bfab7bf311491b42d0380
-        lines: [149, 173]
+        lines: [151, 175]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

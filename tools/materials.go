@@ -76,7 +76,7 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 	if title == "" {
 		title = "整理公司资料"
 	}
-	t, err := d.Store.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
+	t, err := d.Store.CreateMaterialTaskWithWorkerRun(ctx, &store.Task{
 		ProjectID: pj.ID, AssignerID: u.ID, AssigneeID: worker.ID,
 		Title:       title,
 		Goal:        "把公司资料读成可复用、可审计、可检索的 nbco 学习资产。",
@@ -86,6 +86,8 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 	}, args.FileIDs, "公司资料分析输入", store.WorkerRunSpec{
 		Executor: workerproto.ExecutorAgent, ScopeType: "materials",
 		ScopeKey: "materials:company-intelligence", ScopeTitle: "Company material analysis",
+	}, store.MaterialTaskSpec{
+		OwnerID: u.ID, Title: title, Instruction: instruction,
 	})
 	if err != nil {
 		return "", err

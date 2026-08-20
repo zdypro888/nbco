@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/lowlevel.go
-        hash: sha256:2812d1804c17a1fd530b1bbd3d5d303f4805e5abceb2f3e97766a2ce8fe3d071
+        hash: sha256:a92cdf2d3a022efe8349cea870c9fd2f125db1e72db1c5e92a063d2b0e80f87b
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -101,9 +101,9 @@ nodes:
       anchor:
         file: tools/lowlevel.go
         symbol: lowLevelTools
-        hash: sha256:868b3a8844615fab21207b06a810ac74609760498fe906592856e85e9896edf9
-        struct_hash: sha256:a0042373021b070bcbbe56def4bc44619e3b0794f541429dd40e9903dbf4469e
-        doc_struct_hash: sha256:60852d82e96dfc4a022c5a956dce477df6c8df86e8b11f2ba4ddf7b3feda0859
+        hash: sha256:1269a93c7b0f2f0a8036540afcb509e2a0528c4829a163ad28707b963f95a751
+        struct_hash: sha256:bd9e1e94c2043810a665bee3f486d3df6a377c5171292e6e80ee37b13900b010
+        doc_struct_hash: sha256:46e31942228f2f75d2207758c1b104582ab77acd1df7f38c52fd0c6adaacefba
         lines: [32, 133]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

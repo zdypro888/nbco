@@ -11,6 +11,7 @@ import (
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const bindKeyTTL = 24 * time.Hour
@@ -83,6 +84,35 @@ func CompanyOverview(ctx context.Context, s *store.Store, tz *time.Location) (st
 			fmt.Fprintf(&b, "- %s：%s（执行人 %s，截止 %s）\n",
 				internalRef("任务", task.ID), task.Title, name, fmtTime(*task.Deadline, tz))
 		}
+	}
+	evidenceSince := time.Now().Add(-7 * 24 * time.Hour)
+	evidenceStats, err := s.WorkEvidenceStatsSince(ctx, evidenceSince)
+	if err != nil {
+		return "", err
+	}
+	if evidenceStats.ObservedMessages > 0 || evidenceStats.StructuredItems > 0 {
+		fmt.Fprintf(&b, "工作证据（近7天，区别于正式任务）：群聊消息 %d · 结构化摘要/进展 %d · 已识别成员 %d · 已绑定项目 %d\n",
+			evidenceStats.ObservedMessages, evidenceStats.StructuredItems, evidenceStats.Actors, evidenceStats.Projects)
+		recent, err := s.RecentWorkEvidence(ctx, evidenceSince, 10)
+		if err != nil {
+			return "", err
+		}
+		for _, item := range recent {
+			label := item.Kind
+			if item.ProjectName != "" {
+				label += " / " + item.ProjectName
+			}
+			actor := item.ActorName
+			if actor == "" {
+				actor = item.Title
+			}
+			if actor != "" {
+				label += " / " + actor
+			}
+			fmt.Fprintf(&b, "- [%s] %s：%s\n", item.EventAt.In(tz).Format("01-02 15:04"), label,
+				textfmt.TruncateRunes(strings.TrimSpace(item.Content), 320))
+		}
+		b.WriteString("说明：以上是有来源的沟通/执行证据；未关联任务的内容不能直接视为已承诺、已完成或已验收。\n")
 	}
 	return b.String(), nil
 }

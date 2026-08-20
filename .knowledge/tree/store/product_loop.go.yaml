@@ -1,0 +1,615 @@
+schema: 1
+nodes:
+    - id: store/product_loop.go
+      level: file
+      anchor:
+        file: store/product_loop.go
+        hash: sha256:b48107875f05056df92992d9e8d2ee0c3b818075d9cd43c9ef8e41794699658a
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T06:37:01.374657Z
+    - id: store/product_loop.go#WorkEvidenceCommunication
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceCommunication
+        hash: sha256:e0681ddc9ce22747a63b7b90338574e33d8e0ada3b8bb56475c2718b7f073a38
+        struct_hash: sha256:7d6b2ef6e9cc1516f2a9585a9ad08dd1bb8b26d6daf58045b478feba43207c22
+        doc_struct_hash: sha256:7d6b2ef6e9cc1516f2a9585a9ad08dd1bb8b26d6daf58045b478feba43207c22
+        lines: [14, 14]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceSummary
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceSummary
+        hash: sha256:061d688cbb064d56ae3103331238c37c01758014db480f74eb7c30952278a041
+        struct_hash: sha256:90ee6aed7676e39bf54e12b14a5342f22f1be44c17944e693454819b3e88ec49
+        doc_struct_hash: sha256:90ee6aed7676e39bf54e12b14a5342f22f1be44c17944e693454819b3e88ec49
+        lines: [15, 15]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceUpdate
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceUpdate
+        hash: sha256:5e6ad62d000cd3f53453ef468dbd771c51459e396f846bacdf375ecac6c40d29
+        struct_hash: sha256:e0973ef11ad51f5d854695dc7ae0d1774d724b032a17c618a06f583abca250af
+        doc_struct_hash: sha256:e0973ef11ad51f5d854695dc7ae0d1774d724b032a17c618a06f583abca250af
+        lines: [16, 16]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceDecision
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceDecision
+        hash: sha256:a66f697823b53c7af2f8c59c85c10ddc904856b2be0624f96f10fb4c2047f6f9
+        struct_hash: sha256:c4b5bee0a3cd39b2da3bbeee07c02323ea095a5acd382d0ddaddc5271efe6028
+        doc_struct_hash: sha256:c4b5bee0a3cd39b2da3bbeee07c02323ea095a5acd382d0ddaddc5271efe6028
+        lines: [17, 17]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceRisk
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceRisk
+        hash: sha256:4c35148c1e392f11572829dee42374d805ae09ad94e68ab0d0fe7f8ef85391e7
+        struct_hash: sha256:96ffb764310f22635b3ac7ae4625ae3af8e0699cc4095932182a71015bc89124
+        doc_struct_hash: sha256:96ffb764310f22635b3ac7ae4625ae3af8e0699cc4095932182a71015bc89124
+        lines: [18, 18]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceDeliverable
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceDeliverable
+        hash: sha256:40c9bbbdbc65368142eee0aa28063a502975347565d57f7d4fff30fa347b4496
+        struct_hash: sha256:bac367b8000f50eb98ce5c361a7111a3cd45456f5566538c76fe86a41157f404
+        doc_struct_hash: sha256:bac367b8000f50eb98ce5c361a7111a3cd45456f5566538c76fe86a41157f404
+        lines: [19, 19]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceObserved
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceObserved
+        hash: sha256:01ce7f1e7e57d694e28c4481862403af1843a1c6e879631ddffa93e035272b54
+        struct_hash: sha256:c17b134fd199d3cdd957d941dc2d390249ecaef1770aa5c192f9a2bb655a352a
+        doc_struct_hash: sha256:c17b134fd199d3cdd957d941dc2d390249ecaef1770aa5c192f9a2bb655a352a
+        lines: [21, 21]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceActive
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceActive
+        hash: sha256:02a2e63a41b3a5dc03f440ab6452f2eed74279cbef26c206df087bfa69b0c96e
+        struct_hash: sha256:3bd21446180b8ad570b616121c691461b83e09a4f730eabbffadd596302dede0
+        doc_struct_hash: sha256:3bd21446180b8ad570b616121c691461b83e09a4f730eabbffadd596302dede0
+        lines: [22, 22]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceResolved
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceResolved
+        hash: sha256:458125a0583243c56c26d2325517d453f04a2e595f7afd8f9d17a2ab62d2fd55
+        struct_hash: sha256:170a658e7af4b01da64aa65f10321fc67b0f13388b67ac97b2021a91f1f5352c
+        doc_struct_hash: sha256:170a658e7af4b01da64aa65f10321fc67b0f13388b67ac97b2021a91f1f5352c
+        lines: [23, 23]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceSuperseded
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceSuperseded
+        hash: sha256:071fa0bd0de5a719c677b0eb2ebe02b6ca80ee92315cac229c9cb96d366cf7e3
+        struct_hash: sha256:38f8ad286beb493d07ec0287e8c8eec12e61e2833b30cc44b2d081391fe3327e
+        doc_struct_hash: sha256:38f8ad286beb493d07ec0287e8c8eec12e61e2833b30cc44b2d081391fe3327e
+        lines: [24, 24]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceIgnored
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceIgnored
+        hash: sha256:fe92b119d1d4fac8bdab6225b889bda89602dc2efe1dd59bb59f19d4b429029b
+        struct_hash: sha256:23d2e1eae5dca73a2524a54b6004540d1a0cb671e894b804d98eb3f4794f7fc6
+        doc_struct_hash: sha256:23d2e1eae5dca73a2524a54b6004540d1a0cb671e894b804d98eb3f4794f7fc6
+        lines: [25, 25]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidence
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidence
+        hash: sha256:f551e8b2ddc04b82883f52a6664d9104a81b0ca93d4ce913d0bf36f550706d43
+        struct_hash: sha256:ab8725617ce9409252a47e92b1820837b7bd58aca534e9fdd78148a8abe79deb
+        doc_struct_hash: sha256:ab8725617ce9409252a47e92b1820837b7bd58aca534e9fdd78148a8abe79deb
+        lines: [28, 49]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceInput
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceInput
+        hash: sha256:bc940f17f2249b1c09f6863c5f5820b0fcb72a163ee4b8cf209d7f5dbceddfa2
+        struct_hash: sha256:4dc10e680dd8416c8a7350b8260314de982d14dfe1ebbcbf99ce5456f2be7507
+        doc_struct_hash: sha256:4dc10e680dd8416c8a7350b8260314de982d14dfe1ebbcbf99ce5456f2be7507
+        lines: [51, 67]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#workEvidenceCols
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: workEvidenceCols
+        hash: sha256:c308d33f0828522030e71f33d616125630ed83748d4cd12ed8c33636c550e697
+        struct_hash: sha256:2b47afb78a634446f14a8ad71c122b6dfbd2aa041987f9eaecf8a477da0e86a8
+        doc_struct_hash: sha256:2b47afb78a634446f14a8ad71c122b6dfbd2aa041987f9eaecf8a477da0e86a8
+        lines: [69, 72]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#workEvidenceQueryer
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: workEvidenceQueryer
+        hash: sha256:43cc504c686940e50aa5889cef88b0a32e090dc0f31a94208571c8d736fcbdae
+        struct_hash: sha256:8913ec97b4c3258bfb1cbbec1885a333e9e82221e0c87283b5addd35f4bc782d
+        doc_struct_hash: sha256:8913ec97b4c3258bfb1cbbec1885a333e9e82221e0c87283b5addd35f4bc782d
+        lines: [74, 76]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#scanWorkEvidence
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: scanWorkEvidence
+        hash: sha256:5805618fb30c27e02842c2b9384f389d3e793d626b0183a1af8128b8ac4c9a09
+        struct_hash: sha256:d2864b3faf428c987c99d479ff83af5fc7830739bb78f9f35f8a90dea5602250
+        doc_struct_hash: sha256:d2864b3faf428c987c99d479ff83af5fc7830739bb78f9f35f8a90dea5602250
+        lines: [78, 89]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#normalizeWorkEvidence
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: normalizeWorkEvidence
+        hash: sha256:9098a90f1cc6699ad4737443705573a46c3a44b938729f4ec3e74f364e076027
+        struct_hash: sha256:8b56b6d38e2913a24e86b1777b61f4ef4706fb42c6cb16a9f304e480a2e70a89
+        doc_struct_hash: sha256:8b56b6d38e2913a24e86b1777b61f4ef4706fb42c6cb16a9f304e480a2e70a89
+        lines: [91, 123]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.UpsertWorkEvidence
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.UpsertWorkEvidence
+        hash: sha256:aef3a2c02ec7e28f4d6e515b7ed1f89e6cd90061a54239ca59e80998a3094e2f
+        struct_hash: sha256:995cc25c37eb42066f71e856119d0391037626f41f9d4087e52ab9916b917f33
+        doc_struct_hash: sha256:51fc81a7c45678be7638a57ba9178ac76c8ae5076753f68d1e76c6b2c9e73c7a
+        lines: [125, 130]
+      status: fresh
+      since: 2026-08-20T06:37:01.374552Z
+    - id: store/product_loop.go#upsertWorkEvidence
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: upsertWorkEvidence
+        hash: sha256:7efc51b5008520c455b2e33eb6741d1eb6b976f0a9b8c8356f84dcf110ef5046
+        struct_hash: sha256:173e5d03fd20d1985cc217910d0a30c758937e3c4a7d8f534609dba442eaa9b8
+        doc_struct_hash: sha256:173e5d03fd20d1985cc217910d0a30c758937e3c4a7d8f534609dba442eaa9b8
+        lines: [132, 161]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#WorkEvidenceStats
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: WorkEvidenceStats
+        hash: sha256:4d2ac79da84ea19336915c4dddb38efcbd6a6026ceb746e9eed65bb4e9742887
+        struct_hash: sha256:ba54d1ff7f2213d17ff72e35b4020ed033f3fd94cc989dc95b29900aa8ff74d6
+        doc_struct_hash: sha256:ba54d1ff7f2213d17ff72e35b4020ed033f3fd94cc989dc95b29900aa8ff74d6
+        lines: [163, 169]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.WorkEvidenceStatsSince
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.WorkEvidenceStatsSince
+        hash: sha256:5b20fbf3c93d15d0c5258d29ffaf70b58406c8b0b81523260995836dba51e573
+        struct_hash: sha256:7092a00ee3d8a2f5ed09665d0a59cf1de83015580a89e224e995ec2222bda569
+        doc_struct_hash: sha256:7092a00ee3d8a2f5ed09665d0a59cf1de83015580a89e224e995ec2222bda569
+        lines: [171, 182]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.RecentWorkEvidence
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.RecentWorkEvidence
+        hash: sha256:466abf69c7b4c71d3fef1db6990e026168bf460b8a861cd913ce93db89e942dc
+        struct_hash: sha256:8c9e714f0c77221883530ce4dc17034ba444dd22224b6c937b50afda4ab4ae8d
+        doc_struct_hash: sha256:8c9e714f0c77221883530ce4dc17034ba444dd22224b6c937b50afda4ab4ae8d
+        lines: [184, 208]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialReceived
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialReceived
+        hash: sha256:e0cad5d99a8794bf5595a8fb678357bbd0c2b3fa9bf7fd0af466832ea2fd7ae6
+        struct_hash: sha256:91ea46d4672802df952556c8e9ade745fb839c0ac3f5c776610d64d18cc280e6
+        doc_struct_hash: sha256:91ea46d4672802df952556c8e9ade745fb839c0ac3f5c776610d64d18cc280e6
+        lines: [211, 211]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialQueued
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialQueued
+        hash: sha256:eff61aab72db23bc06652c6ebf3298814d852c08877b4b3af97d864121f1c6e5
+        struct_hash: sha256:787254966c803f0630f8220616dd1d722d66c2d21901f98e904b54b5387d5688
+        doc_struct_hash: sha256:787254966c803f0630f8220616dd1d722d66c2d21901f98e904b54b5387d5688
+        lines: [212, 212]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialProcessing
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialProcessing
+        hash: sha256:24126633077054fe3f603c80f2ab6e1d0374b1d61418f84a0875d25ff11bbc7e
+        struct_hash: sha256:28d1d939b061707cb7a1bf9faa6d1bebaa1fc8ccc35f6dc3dba259627dcae46f
+        doc_struct_hash: sha256:28d1d939b061707cb7a1bf9faa6d1bebaa1fc8ccc35f6dc3dba259627dcae46f
+        lines: [213, 213]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialNeedsInput
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialNeedsInput
+        hash: sha256:580cc154808b1933a7e67ba43ebe47c066e823418b1bb6fa53f9ce644ef44238
+        struct_hash: sha256:7b260c8f6eaceae5a03bd2d357214858f598c86953b4c22d94b6ec96ff25f552
+        doc_struct_hash: sha256:7b260c8f6eaceae5a03bd2d357214858f598c86953b4c22d94b6ec96ff25f552
+        lines: [214, 214]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialCompleted
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialCompleted
+        hash: sha256:639bfd1a022540b17d02aa437327e5cdd1b6e59c4de72cb2d5cfb16e30ade2f8
+        struct_hash: sha256:1b2918c331c486c60dff0236cb7fbc5fd9382ae5ff83e22ad64bad0dc24e865f
+        doc_struct_hash: sha256:1b2918c331c486c60dff0236cb7fbc5fd9382ae5ff83e22ad64bad0dc24e865f
+        lines: [215, 215]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialIgnored
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialIgnored
+        hash: sha256:d1f482fbecfcc74afe01e63d836f067e99b876aaed5d0097f1a38c373a16849c
+        struct_hash: sha256:23d2e1eae5dca73a2524a54b6004540d1a0cb671e894b804d98eb3f4794f7fc6
+        doc_struct_hash: sha256:23d2e1eae5dca73a2524a54b6004540d1a0cb671e894b804d98eb3f4794f7fc6
+        lines: [216, 216]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialCaseFile
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialCaseFile
+        hash: sha256:07612412479a35d4ce64328a4933a10661fda730ded9b6b3c76d9e9e2e9c2ccd
+        struct_hash: sha256:443051caeb415278bbae232628b93ff365e6d6e174712b79593dbe1469b78381
+        doc_struct_hash: sha256:443051caeb415278bbae232628b93ff365e6d6e174712b79593dbe1469b78381
+        lines: [219, 224]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialCase
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialCase
+        hash: sha256:ef9234d1d5fac1681f0e8eb2a74f2953acfc649d3b0f0c4d5df4844ed72987ee
+        struct_hash: sha256:7db4da4d863a62d057e3377c15374257d4d601be3a5facefe633d06ccb38d6b5
+        doc_struct_hash: sha256:7db4da4d863a62d057e3377c15374257d4d601be3a5facefe633d06ccb38d6b5
+        lines: [226, 242]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#queueMaterialFilesTx
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: queueMaterialFilesTx
+        hash: sha256:83abf9216846929f09e04441aad8ff41f5baa0fff4afc58ea923decc7e148c7e
+        struct_hash: sha256:f7c82449236bddedf8f78315632da4c8f1c0c0928b34213e03c7f3515fef61b8
+        doc_struct_hash: sha256:f7c82449236bddedf8f78315632da4c8f1c0c0928b34213e03c7f3515fef61b8
+        lines: [244, 333]
+      status: fresh
+      since: 2026-08-20T06:37:16.964601Z
+    - id: store/product_loop.go#Store.SetMaterialTaskState
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.SetMaterialTaskState
+        hash: sha256:c15438b142c18f343d7ebe5e9f577d82e5794acb4b67991610d0525120be841d
+        struct_hash: sha256:d680edaabab04d9f540c3dcf7b0ff52b58e9f7ec0a1cede6d9788d2e8cd85f4d
+        doc_struct_hash: sha256:d680edaabab04d9f540c3dcf7b0ff52b58e9f7ec0a1cede6d9788d2e8cd85f4d
+        lines: [335, 347]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#setMaterialTaskStateTx
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: setMaterialTaskStateTx
+        hash: sha256:c282cbf89164a3040ec3248d9efd51ed5a09723724d3ba02c0a766062aea874d
+        struct_hash: sha256:f4e56a426ce31bcc770e379a49b31c2fb1da3eb9851f622868991d55fb6e9c3f
+        doc_struct_hash: sha256:f4e56a426ce31bcc770e379a49b31c2fb1da3eb9851f622868991d55fb6e9c3f
+        lines: [349, 361]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#normalizeMaterialTaskState
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: normalizeMaterialTaskState
+        hash: sha256:e9e1963bfdbd68c093ba3d557e75708e57868fb0238f94a4945415d94085a558
+        struct_hash: sha256:e9290876c2896ac840630d13e47894d96a93855709a48e299edb945f41902b78
+        doc_struct_hash: sha256:e9290876c2896ac840630d13e47894d96a93855709a48e299edb945f41902b78
+        lines: [363, 371]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.MaterialCases
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.MaterialCases
+        hash: sha256:e55ba2890679c0b582643b26c597e37ff4b0988a3a9322467e85363560d47694
+        struct_hash: sha256:5bbd099d1878b3377bda6de664538acb2ca950110c6886101843109c849f568d
+        doc_struct_hash: sha256:5bbd099d1878b3377bda6de664538acb2ca950110c6886101843109c849f568d
+        lines: [373, 421]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#MaterialCaseStats
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: MaterialCaseStats
+        hash: sha256:0902fa47faee40d221af00e68f6679ce6264a358760a67cfbccd1226bb2ae24f
+        struct_hash: sha256:2a3a0081fe64d4eabb95ce03d220ec17cc0110b942c936f9c44ee8f1d1f0edac
+        doc_struct_hash: sha256:2a3a0081fe64d4eabb95ce03d220ec17cc0110b942c936f9c44ee8f1d1f0edac
+        lines: [423, 429]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.MaterialCaseStats
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.MaterialCaseStats
+        hash: sha256:b48e5e3f5266fc6de97f42e92beb6e2c52a3f864e45fd8438a1bb495148325a1
+        struct_hash: sha256:86e6f5418547a1bdab993afe59257c3532f32830cf7a69a87358eee35d885bdb
+        doc_struct_hash: sha256:86e6f5418547a1bdab993afe59257c3532f32830cf7a69a87358eee35d885bdb
+        lines: [431, 442]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#ConversationAssetUsage
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: ConversationAssetUsage
+        hash: sha256:ea644fb58fa974245865bbd3a7199ea5d3381842a1844483e0090b1fd879cd8f
+        struct_hash: sha256:5375b5a1c0076ed67566a2a239dfdb1dfd0e3aa3b9d701c718f6414163d73f5c
+        doc_struct_hash: sha256:5375b5a1c0076ed67566a2a239dfdb1dfd0e3aa3b9d701c718f6414163d73f5c
+        lines: [444, 448]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetPhaseInjected
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetPhaseInjected
+        hash: sha256:d28a3900e78a437eb13695aa39e5fb78a702c1a0d7dadde7a2e468d3cf054fa0
+        struct_hash: sha256:81b3306704d76f8ce52fe343b6b1dcc7acdc2a87f1e2a04b053e3fca5a67960a
+        doc_struct_hash: sha256:81b3306704d76f8ce52fe343b6b1dcc7acdc2a87f1e2a04b053e3fca5a67960a
+        lines: [451, 451]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetPhaseCandidate
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetPhaseCandidate
+        hash: sha256:6fa38807cd85fda79f6eab2b2f34ee98460e69bc17773a2aafdc6957dc46a2f6
+        struct_hash: sha256:042560cb02e8b139a83a3da5c63d0ec1494862e59581609e892822d22f985768
+        doc_struct_hash: sha256:042560cb02e8b139a83a3da5c63d0ec1494862e59581609e892822d22f985768
+        lines: [452, 452]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetPhaseLoaded
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetPhaseLoaded
+        hash: sha256:ef090dda102a17909bc8b94eff185f06336296bdd2e80eaed8a0466a3e8fd992
+        struct_hash: sha256:cbc680149baed42e2299240328bf571df9a6dbc355083347af5333e88d04c15a
+        doc_struct_hash: sha256:cbc680149baed42e2299240328bf571df9a6dbc355083347af5333e88d04c15a
+        lines: [453, 453]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetOutcomeCompleted
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetOutcomeCompleted
+        hash: sha256:bcac4ab9278865fff74d25dc10655f381dfcb641e83a628040cecd30790b303a
+        struct_hash: sha256:1b2918c331c486c60dff0236cb7fbc5fd9382ae5ff83e22ad64bad0dc24e865f
+        doc_struct_hash: sha256:1b2918c331c486c60dff0236cb7fbc5fd9382ae5ff83e22ad64bad0dc24e865f
+        lines: [455, 455]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetOutcomeActionSucceeded
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetOutcomeActionSucceeded
+        hash: sha256:e70f162b68bf741013c6ab7f75dd118bc4e1307226564699a0a074ca88631ac9
+        struct_hash: sha256:d194ef21504b43835a08700366d3b8ce8be9be016cc4686d7f29f9e6b3da0d59
+        doc_struct_hash: sha256:d194ef21504b43835a08700366d3b8ce8be9be016cc4686d7f29f9e6b3da0d59
+        lines: [456, 456]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetOutcomePartial
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetOutcomePartial
+        hash: sha256:e551fd0d5db51710417555d1c69b44b5b7e26a43a4c526c0116f94a670bfaf8e
+        struct_hash: sha256:640f46dc2e9ed63361f955d3b368534bd40240fc054fc357202426c3430aac2a
+        doc_struct_hash: sha256:640f46dc2e9ed63361f955d3b368534bd40240fc054fc357202426c3430aac2a
+        lines: [457, 457]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetOutcomeFailed
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetOutcomeFailed
+        hash: sha256:dc997c436af74cd7a78bf6c323578fcf0faf7f4c84b2abfc5aeddb5d9787034a
+        struct_hash: sha256:c2c47c05a7ca97462a3e30ee5f402f7fcb01601c8c06bc3df608755364e7c1fe
+        doc_struct_hash: sha256:c2c47c05a7ca97462a3e30ee5f402f7fcb01601c8c06bc3df608755364e7c1fe
+        lines: [458, 458]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.RecordConversationAssetUsages
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.RecordConversationAssetUsages
+        hash: sha256:1c6ee38b7192c11de321aa733042ed788bf445f92b2b5e8101518868c67090a3
+        struct_hash: sha256:5e4f31582a022b2f284cae673799686e96c45542e5f4c4d123e50f0af3630f3a
+        doc_struct_hash: sha256:5e4f31582a022b2f284cae673799686e96c45542e5f4c4d123e50f0af3630f3a
+        lines: [461, 474]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#recordConversationAssetUsagesTx
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: recordConversationAssetUsagesTx
+        hash: sha256:39494fcead6869f3531045e5360ff5553b914efac1846787520f05b933bf8765
+        struct_hash: sha256:6a81fd2f35a4b121a84606d2b7b8fed8913d38372100947537494f97b5b42642
+        doc_struct_hash: sha256:6a81fd2f35a4b121a84606d2b7b8fed8913d38372100947537494f97b5b42642
+        lines: [476, 500]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#validAssetPhase
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: validAssetPhase
+        hash: sha256:69ff6a1a5c9f14a27d8b7b3fd634a9104eed4b38f4054c75db131e8fa5430119
+        struct_hash: sha256:a9eaf250a5ed6acc7ba26309013fff3f72b6ff3fba5dc9875fc7c8c868b78d0a
+        doc_struct_hash: sha256:a9eaf250a5ed6acc7ba26309013fff3f72b6ff3fba5dc9875fc7c8c868b78d0a
+        lines: [502, 504]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#validAssetOutcome
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: validAssetOutcome
+        hash: sha256:4cb278045ec171753d9f15470a75e8f7c4e9305a517a35879a0e99359cc6bdca
+        struct_hash: sha256:7a28de1bcda2f2dfb8e34075decd6938d3f1d502eab912801eba868552b299e9
+        doc_struct_hash: sha256:7a28de1bcda2f2dfb8e34075decd6938d3f1d502eab912801eba868552b299e9
+        lines: [506, 513]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#AssetUsageStats
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetUsageStats
+        hash: sha256:fd9a000b21af2ac285c055b711c152d06f7288ea8670656ea0b3e7cbe75a99ed
+        struct_hash: sha256:1741a325960edace8dbc3d8c9447facd2f5f55a849c332f3e7affa0ae733a691
+        doc_struct_hash: sha256:1741a325960edace8dbc3d8c9447facd2f5f55a849c332f3e7affa0ae733a691
+        lines: [515, 524]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.AssetUsageStatsSince
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.AssetUsageStatsSince
+        hash: sha256:ac064fc7db609763d639d6531ef7314607e82e1c5a59a2e457458fa2c08a93e0
+        struct_hash: sha256:4f1ff3bb32675f9fae3b943100ef986a42eb22b751ebb4523d64a2274bb7e122
+        doc_struct_hash: sha256:4f1ff3bb32675f9fae3b943100ef986a42eb22b751ebb4523d64a2274bb7e122
+        lines: [526, 541]
+      status: fresh
+      since: 2026-08-20T06:37:28.568505Z
+    - id: store/product_loop.go#AssetEffectiveness
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: AssetEffectiveness
+        hash: sha256:5713743e46d733cb89ea5d92c98a2804c6c2502204420b85ee82c2877d208250
+        struct_hash: sha256:206836dbdfb994145222abb6056e939753f0e8621c85a233a13274b1e6910342
+        doc_struct_hash: sha256:206836dbdfb994145222abb6056e939753f0e8621c85a233a13274b1e6910342
+        lines: [543, 555]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.ListAssetEffectivenessSince
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.ListAssetEffectivenessSince
+        hash: sha256:67aa13c3ca2620163b44f2bbff00bdd2db13aeea1b138b61db32dd162ada90f1
+        struct_hash: sha256:2fe54575ab5c8eaf4c6b50f3a8a30fcb8ef40b4b93496f2f7e36712130927207
+        doc_struct_hash: sha256:2fe54575ab5c8eaf4c6b50f3a8a30fcb8ef40b4b93496f2f7e36712130927207
+        lines: [557, 591]
+      status: fresh
+      since: 2026-08-20T06:37:28.570551Z
+    - id: store/product_loop.go#ProductHealthStats
+      level: decl
+      anchor:
+        file: store/product_loop.go
+        symbol: ProductHealthStats
+        hash: sha256:d2e8fb8949d213a5b1057132ea444c42fb6f03e72f10d6830cff5785572ef1d5
+        struct_hash: sha256:50e3f6f5f4f71300f84355a036c0a80fb8bea8ad3148d273a5324b7f06a9bfbd
+        doc_struct_hash: sha256:50e3f6f5f4f71300f84355a036c0a80fb8bea8ad3148d273a5324b7f06a9bfbd
+        lines: [593, 602]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.ProductHealthStats
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.ProductHealthStats
+        hash: sha256:c754cf16ade45a2dd895dae39e0ec62b8df57a16f998f08e04966a41eca8bb76
+        struct_hash: sha256:d65d1d79cb95ed8828f2f221fb392afc80ad03d878920a570e9c449f35d85464
+        doc_struct_hash: sha256:d65d1d79cb95ed8828f2f221fb392afc80ad03d878920a570e9c449f35d85464
+        lines: [604, 620]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z

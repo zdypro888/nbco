@@ -235,6 +235,12 @@ func TestCapabilityRegistryMetadata(t *testing.T) {
 	if got := byName["low_level_db_exec"].Effect; got != ToolEffectWrite {
 		t.Fatalf("low_level_db_exec effect=%q", got)
 	}
+	if got := byName["low_level_db_query"].Maturity; got != string(ai.ToolMaturityExperimental) {
+		t.Fatalf("low_level_db_query maturity=%q", got)
+	}
+	if got := byName["assign_task"].Maturity; got != string(ai.ToolMaturityStable) {
+		t.Fatalf("assign_task maturity=%q", got)
+	}
 	if !byName["low_level_db_exec"].ApprovalRequired || byName["low_level_db_exec"].GroupAllowed {
 		t.Fatalf("low_level_db_exec 应需要确认且禁止群聊: %+v", byName["low_level_db_exec"])
 	}

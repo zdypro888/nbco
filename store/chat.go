@@ -28,11 +28,50 @@ type ChatSession struct {
 
 // ChatMessage 会话内一条文本消息。
 type ChatMessage struct {
-	ID        int64
-	SessionID int64
-	Role      string
-	Content   string
-	CreatedAt time.Time
+	ID                 int64
+	SessionID          int64
+	Role               string
+	Content            string
+	Provider           string
+	ExternalChatRef    string
+	ExternalMessageRef string
+	ActorUserID        *int64
+	ExternalActorRef   string
+	ActorDisplayName   string
+	ReplyToExternalRef string
+	ThreadRef          string
+	SourceCreatedAt    *time.Time
+	SourceMetadata     json.RawMessage
+	CreatedAt          time.Time
+}
+
+// MessageEnvelope is provider provenance for one human-originated message.
+// Stable identifiers live here; display names remain point-in-time labels.
+type MessageEnvelope struct {
+	Provider           string
+	ExternalChatRef    string
+	ExternalMessageRef string
+	ActorUserID        *int64
+	ExternalActorRef   string
+	ActorDisplayName   string
+	ReplyToExternalRef string
+	ThreadRef          string
+	SourceCreatedAt    *time.Time
+	Metadata           json.RawMessage
+}
+
+const chatMessageCols = `id, session_id, role, content, provider, external_chat_ref,
+external_message_ref, actor_user_id, external_actor_ref, actor_display_name,
+reply_to_external_ref, thread_ref, source_created_at, source_metadata, created_at`
+
+func scanChatMessage(row interface{ Scan(...any) error }) (*ChatMessage, error) {
+	var m ChatMessage
+	if err := row.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.Provider, &m.ExternalChatRef,
+		&m.ExternalMessageRef, &m.ActorUserID, &m.ExternalActorRef, &m.ActorDisplayName,
+		&m.ReplyToExternalRef, &m.ThreadRef, &m.SourceCreatedAt, &m.SourceMetadata, &m.CreatedAt); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &m, nil
 }
 
 // IsGroupChannel reports whether a gateway channel uses the shared-group
@@ -49,13 +88,8 @@ func IsInternalChannel(channel string) bool {
 }
 
 func (s *Store) ChatMessageByID(ctx context.Context, id int64) (*ChatMessage, error) {
-	var m ChatMessage
-	if err := s.pool.QueryRow(ctx,
-		`SELECT id, session_id, role, content, created_at FROM chat_messages WHERE id = $1`, id).
-		Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
-		return nil, wrapErr(err)
-	}
-	return &m, nil
+	return scanChatMessage(s.pool.QueryRow(ctx,
+		`SELECT `+chatMessageCols+` FROM chat_messages WHERE id = $1`, id))
 }
 
 // ChannelMessagePage 是某个渠道在绝对时间范围内的消息页。查询跨越该渠道的
@@ -167,6 +201,65 @@ func (s *Store) AppendMessage(ctx context.Context, sessionID int64, role, conten
 		`INSERT INTO chat_messages (session_id, role, content) VALUES ($1, $2, $3) RETURNING id`,
 		sessionID, role, content).Scan(&id)
 	return id, wrapErr(err)
+}
+
+// AppendMessageWithEnvelope idempotently records provider-originated messages.
+// Webhook retries return the existing row; edited payloads refresh the content
+// and display snapshot without changing the stable source identity.
+func (s *Store) AppendMessageWithEnvelope(ctx context.Context, sessionID int64, role, content string, envelope MessageEnvelope) (int64, error) {
+	provider := strings.TrimSpace(envelope.Provider)
+	chatRef := strings.TrimSpace(envelope.ExternalChatRef)
+	messageRef := strings.TrimSpace(envelope.ExternalMessageRef)
+	if provider == "" || chatRef == "" || messageRef == "" {
+		return s.AppendMessage(ctx, sessionID, role, content)
+	}
+	metadata := envelope.Metadata
+	if len(metadata) == 0 || !json.Valid(metadata) {
+		metadata = json.RawMessage(`{}`)
+	}
+	var id int64
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO chat_messages (
+		   session_id, role, content, provider, external_chat_ref, external_message_ref,
+		   actor_user_id, external_actor_ref, actor_display_name, reply_to_external_ref,
+		   thread_ref, source_created_at, source_metadata
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		 ON CONFLICT (provider, external_chat_ref, external_message_ref)
+		   WHERE provider <> '' AND external_chat_ref <> '' AND external_message_ref <> ''
+		 DO UPDATE SET content = EXCLUDED.content,
+		               actor_user_id = COALESCE(EXCLUDED.actor_user_id, chat_messages.actor_user_id),
+		               external_actor_ref = EXCLUDED.external_actor_ref,
+		               actor_display_name = EXCLUDED.actor_display_name,
+		               reply_to_external_ref = EXCLUDED.reply_to_external_ref,
+		               thread_ref = EXCLUDED.thread_ref,
+		               source_created_at = EXCLUDED.source_created_at,
+		               source_metadata = EXCLUDED.source_metadata
+		 RETURNING id`,
+		sessionID, role, content, provider, chatRef, messageRef, envelope.ActorUserID,
+		strings.TrimSpace(envelope.ExternalActorRef), strings.TrimSpace(envelope.ActorDisplayName),
+		strings.TrimSpace(envelope.ReplyToExternalRef), strings.TrimSpace(envelope.ThreadRef),
+		envelope.SourceCreatedAt, metadata).Scan(&id)
+	return id, wrapErr(err)
+}
+
+// SetMessageEnvelope attaches provider provenance to a message created by the
+// durable conversation-turn transaction.
+func (s *Store) SetMessageEnvelope(ctx context.Context, messageID int64, envelope MessageEnvelope) error {
+	metadata := envelope.Metadata
+	if len(metadata) == 0 || !json.Valid(metadata) {
+		metadata = json.RawMessage(`{}`)
+	}
+	return s.execOne(ctx,
+		`UPDATE chat_messages
+		    SET provider = $2, external_chat_ref = $3, external_message_ref = $4,
+		        actor_user_id = $5, external_actor_ref = $6, actor_display_name = $7,
+		        reply_to_external_ref = $8, thread_ref = $9, source_created_at = $10,
+		        source_metadata = $11
+		  WHERE id = $1`, messageID, strings.TrimSpace(envelope.Provider),
+		strings.TrimSpace(envelope.ExternalChatRef), strings.TrimSpace(envelope.ExternalMessageRef),
+		envelope.ActorUserID, strings.TrimSpace(envelope.ExternalActorRef),
+		strings.TrimSpace(envelope.ActorDisplayName), strings.TrimSpace(envelope.ReplyToExternalRef),
+		strings.TrimSpace(envelope.ThreadRef), envelope.SourceCreatedAt, metadata)
 }
 
 // --- 会话情景记忆（episodic memory）：消息级语义检索 ---

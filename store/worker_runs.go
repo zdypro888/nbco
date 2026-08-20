@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -676,6 +677,14 @@ func (s *Store) ClaimNextWorkerRun(ctx context.Context, workerID int64) (*Worker
 		 VALUES ($1,$2,$3,$4)`, run.ID, run.Attempts, workerID, run.ClaimID); err != nil {
 		return nil, wrapErr(err)
 	}
+	if run.ScopeType == "materials" && run.TaskID != nil {
+		if _, err := tx.Exec(ctx,
+			`UPDATE material_cases SET status = 'processing', worker_run_id = $2,
+			 last_error = '', updated_at = now()
+			 WHERE task_id = $1 AND status IN ('queued','processing')`, *run.TaskID, run.ID); err != nil {
+			return nil, wrapErr(err)
+		}
+	}
 	return run, tx.Commit(ctx)
 }
 
@@ -707,6 +716,11 @@ func (s *Store) ReleaseWorkerRunClaim(ctx context.Context, runID, workerID int64
 	}
 	if attemptTag.RowsAffected() == 0 {
 		return ErrNotFound
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE material_cases SET status = 'queued', updated_at = now()
+		 WHERE worker_run_id = $1 AND status = 'processing'`, runID); err != nil {
+		return wrapErr(err)
 	}
 	return tx.Commit(ctx)
 }
@@ -850,6 +864,11 @@ func (s *Store) RequestWorkerRunInput(ctx context.Context, runID, workerID int64
 			return nil, nil, false, wrapErr(err)
 		}
 	}
+	if run.ScopeType == "materials" && task != nil {
+		if err := setMaterialTaskStateTx(ctx, tx, task.ID, MaterialNeedsInput, content); err != nil {
+			return nil, nil, false, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, false, err
 	}
@@ -943,6 +962,15 @@ func (s *Store) FailWorkerRun(ctx context.Context, runID, workerID int64, claimI
 			return nil, nil, false, wrapErr(err)
 		}
 	}
+	if run.ScopeType == "materials" && task != nil {
+		materialStatus := MaterialQueued
+		if run.Status == WorkerRunAwaitingInput {
+			materialStatus = MaterialNeedsInput
+		}
+		if err := setMaterialTaskStateTx(ctx, tx, task.ID, materialStatus, cause); err != nil {
+			return nil, nil, false, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, false, err
 	}
@@ -1028,6 +1056,33 @@ func (s *Store) CompleteWorkerRun(ctx context.Context, runID, workerID int64, cl
 			}
 		}
 	}
+	if task != nil && strings.TrimSpace(summary) != "" {
+		kind := WorkEvidenceDeliverable
+		status := WorkEvidenceActive
+		if outcome != workerproto.OutcomeSucceeded {
+			kind = WorkEvidenceRisk
+		} else if task.Status == TaskAccepted {
+			status = WorkEvidenceResolved
+		}
+		workerIDCopy, runIDCopy, taskID, projectID := workerID, run.ID, task.ID, task.ProjectID
+		if _, err := upsertWorkEvidence(ctx, tx, WorkEvidenceInput{
+			SourceType: "worker_run", SourceKey: strconv.FormatInt(run.ID, 10), Kind: kind,
+			Status: status, Title: run.Title, Content: summary, ActorUserID: &workerIDCopy,
+			ProjectID: &projectID, TaskID: &taskID, WorkerRunID: &runIDCopy,
+			Confidence: 1, EventAt: time.Now().UTC(), CreatedBy: &workerIDCopy,
+		}); err != nil {
+			return nil, nil, nil, false, err
+		}
+	}
+	if run.ScopeType == "materials" && task != nil {
+		materialStatus := MaterialCompleted
+		if outcome != workerproto.OutcomeSucceeded {
+			materialStatus = MaterialNeedsInput
+		}
+		if err := setMaterialTaskStateTx(ctx, tx, task.ID, materialStatus, summary); err != nil {
+			return nil, nil, nil, false, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -1108,7 +1163,26 @@ func restartTaskWorkerRunTx(ctx context.Context, tx pgx.Tx, task *Task, reason s
 		return nil, nil, err
 	}
 	run, err := enqueueTaskWorkerRunTx(ctx, tx, task, &previous)
-	return run, cancelled, err
+	if err != nil {
+		return nil, nil, err
+	}
+	materialStatus := MaterialNeedsInput
+	var runID *int64
+	materialError := strings.TrimSpace(reason)
+	if run != nil {
+		materialStatus = MaterialQueued
+		id := run.ID
+		runID = &id
+		materialError = ""
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE material_cases SET status = $2, worker_run_id = $3, last_error = $4,
+		 completed_at = NULL, updated_at = now()
+		 WHERE task_id = $1 AND status <> 'ignored'`,
+		task.ID, materialStatus, runID, materialError); err != nil {
+		return nil, nil, wrapErr(err)
+	}
+	return run, cancelled, nil
 }
 
 func (s *Store) ListWorkerRuns(ctx context.Context, requesterID int64, all bool, scope string, limit int) ([]*WorkerRun, error) {

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/governance.go
-        hash: sha256:e46eadefd29af8d85f4411b92e885606a72326cc8b80c34f21c01be840bf2c3e
+        hash: sha256:8b1b8d5a68c0bf6f1ae896ddef79cc4afa0183193ebaaa4dad3b9b8ea8301589
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -420,9 +420,9 @@ nodes:
       anchor:
         file: store/governance.go
         symbol: ConversationEvalCase
-        hash: sha256:a58d70da6f3805e92424996fed60419d90b830689eefe970ffaf12e893a7ff41
-        struct_hash: sha256:e01c9413018b57bf8258c497addb92acbc67e29c19a9e8bdb8e4b2610cb254e4
-        doc_struct_hash: sha256:e01c9413018b57bf8258c497addb92acbc67e29c19a9e8bdb8e4b2610cb254e4
+        hash: sha256:4c687240ae7c2b3b7103ddad48b262a9a49b7ea4184714a307f6f3776b998c07
+        struct_hash: sha256:97f301bc4c697a352ea88ba94a23151c4556080d30a3e87690b60843af40f3ab
+        doc_struct_hash: sha256:97f301bc4c697a352ea88ba94a23151c4556080d30a3e87690b60843af40f3ab
         lines: [540, 550]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -470,6 +470,94 @@ nodes:
         lines: [576, 601]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/governance.go#Store.ConversationEvalCaseByID
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: Store.ConversationEvalCaseByID
+        hash: sha256:5fff4c5348df83d379bfa974134bc37474899dedf78ae0267ef56031ececfdd5
+        struct_hash: sha256:cf170b076d6a7341e19a0120b76288fbd29a0095a5529a109a12c9a2d67105b5
+        doc_struct_hash: sha256:cf170b076d6a7341e19a0120b76288fbd29a0095a5529a109a12c9a2d67105b5
+        lines: [603, 606]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#ConversationEvalRun
+      level: decl
+      anchor:
+        file: store/governance.go
+        symbol: ConversationEvalRun
+        hash: sha256:827ab1890af1837d046105677b77a9cb52c319fc64a575bc5065721b1f32d972
+        struct_hash: sha256:431de5b2bbee282368710306b10b9c31d7737bb2a5808c64e07f0eb0ea18f031
+        doc_struct_hash: sha256:431de5b2bbee282368710306b10b9c31d7737bb2a5808c64e07f0eb0ea18f031
+        lines: [608, 617]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#conversationEvalRunCols
+      level: decl
+      anchor:
+        file: store/governance.go
+        symbol: conversationEvalRunCols
+        hash: sha256:a1dcd936eddf9f479a14fc1a6b7b49fc961963dc69622ba4c09dfc8cc69b9195
+        struct_hash: sha256:13c7d3046df406425dfc5060098bbbdac6596a3a4c95772cb70500411f3386eb
+        doc_struct_hash: sha256:13c7d3046df406425dfc5060098bbbdac6596a3a4c95772cb70500411f3386eb
+        lines: [619, 619]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#scanConversationEvalRun
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: scanConversationEvalRun
+        hash: sha256:41de099dc16bc00bd7ccfd74fc2876bb76f721ca3467fb484312a0e969be0b04
+        struct_hash: sha256:76478f916c30a5c896b4689a66e35bee5693127eb3b2bd2f8e543beb03383631
+        doc_struct_hash: sha256:76478f916c30a5c896b4689a66e35bee5693127eb3b2bd2f8e543beb03383631
+        lines: [621, 628]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#Store.CreateConversationEvalRun
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: Store.CreateConversationEvalRun
+        hash: sha256:955ea51abc357b8a21f335465320c989793b628e775a564dc5aeda903de0fa4a
+        struct_hash: sha256:51fe631e354e04ee731820d34dc6b93606c94c348c9d941fb18df3b76abfeaf5
+        doc_struct_hash: sha256:51fe631e354e04ee731820d34dc6b93606c94c348c9d941fb18df3b76abfeaf5
+        lines: [630, 645]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#Store.ListConversationEvalRuns
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: Store.ListConversationEvalRuns
+        hash: sha256:95dd0f853f0eff39a7a377fffed68c3dd070d92f4ea9735afe4e802fdc54cfea
+        struct_hash: sha256:93bc1090eb3294c1edbd7343ff0660b5d375ce002295778d8807eb377e953bff
+        doc_struct_hash: sha256:93bc1090eb3294c1edbd7343ff0660b5d375ce002295778d8807eb377e953bff
+        lines: [647, 669]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#ConversationEvalStats
+      level: decl
+      anchor:
+        file: store/governance.go
+        symbol: ConversationEvalStats
+        hash: sha256:f2c44360b152536bd60d2070d699518d1ced3903ae7e2250f8fa75737b494ed4
+        struct_hash: sha256:155d68ab1a31487c82e6acc7535ed57f0a752334117ffeb823fc28117256c9fc
+        doc_struct_hash: sha256:155d68ab1a31487c82e6acc7535ed57f0a752334117ffeb823fc28117256c9fc
+        lines: [671, 677]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/governance.go#Store.ConversationEvalStats
+      level: function
+      anchor:
+        file: store/governance.go
+        symbol: Store.ConversationEvalStats
+        hash: sha256:b97897796d78920fdda19813fb4ee7b3f784d600d5d74e640d728fbe1f374a92
+        struct_hash: sha256:1a5ad8e9b17b6ec8943aef8ac4da012a5cd8b3415e925a3684ff4eabd8d6bc23
+        doc_struct_hash: sha256:1a5ad8e9b17b6ec8943aef8ac4da012a5cd8b3415e925a3684ff4eabd8d6bc23
+        lines: [679, 695]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
     - id: store/governance.go#normalizeStringList
       level: function
       anchor:
@@ -478,6 +566,6 @@ nodes:
         hash: sha256:3fa1f4846ac09d7e26013940b1f4c6a3a8b47329d046c1c655fc76f0fc48818d
         struct_hash: sha256:2eddb53b5746b84c7cefebd49d63c0fef8e1cb5876103deb8eac9ad7197645da
         doc_struct_hash: sha256:2eddb53b5746b84c7cefebd49d63c0fef8e1cb5876103deb8eac9ad7197645da
-        lines: [603, 615]
+        lines: [697, 709]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

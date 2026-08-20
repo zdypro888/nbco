@@ -587,8 +587,65 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 		s.retryScheduleRecipient(ctx, d, "通知投递失败")
 		return
 	}
+	s.recordScheduleWorkEvidence(ctx, d, message)
 	if err := s.store.MarkScheduleDeliveryDelivered(ctx, d.ID, *d.ClaimedAt, time.Now().UTC()); err != nil {
 		slog.Warn("接收人投递成功但 ack 失败", "delivery", d.ID, "err", err)
+	}
+}
+
+// recordScheduleWorkEvidence projects domain summaries into the shared company
+// evidence stream. The delivery row remains the transport ledger; this record
+// lets reports consume the underlying work without treating it as a task.
+func (s *Scheduler) recordScheduleWorkEvidence(ctx context.Context, d *store.ScheduleDelivery, message string) {
+	if d == nil || strings.TrimSpace(message) == "" {
+		return
+	}
+	sc, err := s.store.ScheduleByID(ctx, d.ScheduleID)
+	if err != nil || sc.SourceKind != store.ScheduleSourceTelegramGroupDigest {
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			slog.Warn("读取工作证据来源日程失败", "schedule", d.ScheduleID, "err", err)
+		}
+		return
+	}
+	chatID, err := strconv.ParseInt(strings.TrimSpace(sc.SourceKey), 10, 64)
+	if err != nil {
+		slog.Warn("群摘要工作证据来源无效", "schedule", sc.ID, "source", sc.SourceKey)
+		return
+	}
+	title := strings.TrimSpace(sc.Title)
+	if group, groupErr := s.store.TelegramGroupState(ctx, chatID); groupErr == nil && strings.TrimSpace(group.Title) != "" {
+		title = strings.TrimSpace(group.Title) + "每日摘要"
+	}
+	if title == "" {
+		title = "Telegram 群每日摘要"
+	}
+	var projectID *int64
+	if project, projectErr := s.store.TelegramGroupProject(ctx, chatID); projectErr == nil {
+		projectID = &project.ID
+	} else if !errors.Is(projectErr, store.ErrNotFound) {
+		slog.Warn("读取群摘要绑定项目失败", "schedule", sc.ID, "chat", chatID, "err", projectErr)
+	}
+	metadata, _ := json.Marshal(map[string]any{
+		"schedule_id": sc.ID,
+		"delivery_id": d.ID,
+		"chat_id":     chatID,
+		"occurrence":  d.OccurrenceAt,
+	})
+	createdBy := sc.CreatedBy
+	if _, err := s.store.UpsertWorkEvidence(ctx, store.WorkEvidenceInput{
+		SourceType: store.ScheduleSourceTelegramGroupDigest,
+		SourceKey:  fmt.Sprintf("schedule:%d:occurrence:%s", sc.ID, d.OccurrenceAt.UTC().Format(time.RFC3339Nano)),
+		Kind:       store.WorkEvidenceSummary,
+		Status:     store.WorkEvidenceObserved,
+		Title:      title,
+		Content:    strings.TrimSpace(message),
+		ProjectID:  projectID,
+		Confidence: 1,
+		EventAt:    d.OccurrenceAt,
+		Metadata:   metadata,
+		CreatedBy:  &createdBy,
+	}); err != nil {
+		slog.Warn("保存群摘要工作证据失败", "schedule", sc.ID, "delivery", d.ID, "err", err)
 	}
 }
 
@@ -1693,12 +1750,18 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 
 // buildDigest 组装全局日报；没有值得说的内容时返回空串。
 func (s *Scheduler) buildDigest(ctx context.Context, users []*store.User) string {
-	stats, err := s.store.GlobalTaskStats(ctx, time.Now().UTC().Add(-24*time.Hour))
+	since := time.Now().UTC().Add(-24 * time.Hour)
+	stats, err := s.store.GlobalTaskStats(ctx, since)
 	if err != nil {
 		slog.Error("日报统计失败", "err", err)
 		return ""
 	}
-	if stats.Open == 0 && stats.DoneSince == 0 {
+	evidenceStats, err := s.store.WorkEvidenceStatsSince(ctx, since)
+	if err != nil {
+		slog.Error("日报工作证据统计失败", "err", err)
+		return ""
+	}
+	if stats.Open == 0 && stats.DoneSince == 0 && evidenceStats.ObservedMessages == 0 && evidenceStats.StructuredItems == 0 {
 		return ""
 	}
 	var overdue []*store.Task
@@ -1711,7 +1774,35 @@ func (s *Scheduler) buildDigest(ctx context.Context, users []*store.User) string
 	for _, u := range users {
 		names[u.ID] = u.Name
 	}
-	return renderDigest(stats, overdue, names, s.tz)
+	digest := renderDigest(stats, overdue, names, s.tz)
+	if evidenceStats.ObservedMessages == 0 && evidenceStats.StructuredItems == 0 {
+		return digest
+	}
+	recent, err := s.store.RecentWorkEvidence(ctx, since, 6)
+	if err != nil {
+		slog.Error("日报工作证据明细失败", "err", err)
+		return digest
+	}
+	return digest + "\n" + renderWorkEvidenceDigest(evidenceStats, recent, s.tz)
+}
+
+func renderWorkEvidenceDigest(stats *store.WorkEvidenceStats, recent []*store.WorkEvidence, tz *time.Location) string {
+	var b strings.Builder
+	b.WriteString("💬 近24小时工作证据（不等同于正式任务）\n")
+	fmt.Fprintf(&b, "群聊消息 %d · 摘要/进展/风险 %d · 涉及成员 %d · 关联项目 %d\n",
+		stats.ObservedMessages, stats.StructuredItems, stats.Actors, stats.Projects)
+	for _, item := range recent {
+		label := strings.TrimSpace(item.ProjectName)
+		if label == "" {
+			label = strings.TrimSpace(item.Title)
+		}
+		if label == "" {
+			label = item.Kind
+		}
+		fmt.Fprintf(&b, "- %s · %s：%s\n", item.EventAt.In(tz).Format("15:04"), label,
+			textfmt.TruncateRunes(strings.TrimSpace(item.Content), 220))
+	}
+	return b.String()
 }
 
 // renderTodos 个人待办清单（纯函数，可单测）。

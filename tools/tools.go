@@ -745,6 +745,11 @@ func asynchronousTool(t ai.Tool) ai.Tool {
 	return t
 }
 
+func experimentalTool(t ai.Tool) ai.Tool {
+	t.Maturity = ai.ToolMaturityExperimental
+	return t
+}
+
 // --- 通用小助手 ---
 
 // parseTarget 解析 "用户ID或_all"。

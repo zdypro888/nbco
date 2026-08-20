@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/workspace_search.go
-        hash: sha256:29885739a13059779e49264f576a762ca951087b63ae0aaf3ff41a7bdacb2986
+        hash: sha256:6d6bbcc75621e70fc78fb5ffe57f1866742fd88a028053b339f4c36a23e39ff1
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: store/workspace_search.go
         symbol: WorkspaceResource
-        hash: sha256:6586fa02b83df3a3dcc5040bacec10e355264e8db02ee53d1df70f52516f2f5d
-        struct_hash: sha256:a8d0c98f568eee7c9708cd60d91dc2aa27aa11f2a2dac7ce3f318de6014ea93c
-        doc_struct_hash: sha256:11bd9b33598c8f59652dcb26a57c5e1e160055a40a0bfef268a0f8fe04108741
+        hash: sha256:50ab679569d925e6677bb2922b1f3809f4fdc6fa3e30ff2b8208e937e0a7fc31
+        struct_hash: sha256:057282ebcd8001ad48b8d2aff179bed9b729f5909e33bf72e31ca516f0a1d370
+        doc_struct_hash: sha256:0fe10a297e906072b50a6787f07b26d0ab26d65c4c7e46fa61c8ecefe4fd7ed5
         lines: [9, 17]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

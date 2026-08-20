@@ -33,6 +33,32 @@ type AuditActivityFilter struct {
 	Limit     int
 }
 
+type ToolUsageStat struct {
+	Tool       string    `json:"tool"`
+	Calls      int64     `json:"calls"`
+	Failures   int64     `json:"failures"`
+	LastUsedAt time.Time `json:"last_used_at"`
+}
+
+func (s *Store) ToolUsageStatsSince(ctx context.Context, since time.Time) (map[string]ToolUsageStat, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT tool, count(*), count(*) FILTER (WHERE NOT ok), max(created_at)
+		   FROM audit_log WHERE created_at >= $1 GROUP BY tool`, since)
+	if err != nil {
+		return nil, wrapErr(err)
+	}
+	defer rows.Close()
+	out := make(map[string]ToolUsageStat)
+	for rows.Next() {
+		var stat ToolUsageStat
+		if err := rows.Scan(&stat.Tool, &stat.Calls, &stat.Failures, &stat.LastUsedAt); err != nil {
+			return nil, wrapErr(err)
+		}
+		out[stat.Tool] = stat
+	}
+	return out, wrapErr(rows.Err())
+}
+
 // ListAuditActivity queries the low-level tool ledger. It is deliberately
 // domain-neutral so new tools automatically become observable without adding
 // another status-specific API.

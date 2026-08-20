@@ -1,0 +1,109 @@
+schema: 1
+nodes:
+    - id: chat/eval.go
+      level: file
+      anchor:
+        file: chat/eval.go
+        hash: sha256:874d41d8fd70fd6ff6c974f244ac2103972c36c0d1d5b787f8b7811a2b4633cd
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T06:37:28.571506Z
+    - id: chat/eval.go#EvalAssertions
+      level: decl
+      anchor:
+        file: chat/eval.go
+        symbol: EvalAssertions
+        hash: sha256:b2e5901d97333eb9c84e175fa06c870e7c392df21980b6ab2ecd6e7d32e73224
+        struct_hash: sha256:219a109a40dffe2a8e418763f4ebffe9ef3d77459bb9d98db4beb6e772c9fabe
+        doc_struct_hash: sha256:eeaf5b42da4e770bfee8a6f75dcf38e86a92cbbbc2ac19c8a1498b249506850c
+        lines: [17, 29]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval.go#evalRunDetails
+      level: decl
+      anchor:
+        file: chat/eval.go
+        symbol: evalRunDetails
+        hash: sha256:65c3796d58e3bbe1299de698030a9241d37f120bda7dc9bbcd1bebba7fda1c2b
+        struct_hash: sha256:0d608321921d1a4c733567bc993e271582b535fb9ad75a7b37839be6939381ff
+        doc_struct_hash: sha256:0d608321921d1a4c733567bc993e271582b535fb9ad75a7b37839be6939381ff
+        lines: [31, 41]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval.go#Orchestrator.RunEvalCase
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: Orchestrator.RunEvalCase
+        hash: sha256:515afce7967bd103f58ed8e13111b939ce23b038290387ca65d7046ee14f2520
+        struct_hash: sha256:4636ca30e59904f4525b6efcf47b041561af073deef0336e89f2be3d84826808
+        doc_struct_hash: sha256:3a99f8dcc4da495e41ea890f8eb2445c39ddbe53c20ac38e9dca1eec6d776d9c
+        lines: [43, 121]
+      status: fresh
+      since: 2026-08-20T06:37:28.571482Z
+    - id: chat/eval.go#Orchestrator.persistEvalRun
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: Orchestrator.persistEvalRun
+        hash: sha256:9390e558167667b8883914ad549bd860785c347ec0fd1f5da6818ffe9fddbd94
+        struct_hash: sha256:c58f8b8d4eb28199e796349cb9217db1512695c43488c12809eb0f46053de85d
+        doc_struct_hash: sha256:c58f8b8d4eb28199e796349cb9217db1512695c43488c12809eb0f46053de85d
+        lines: [123, 137]
+      status: fresh
+      since: 2026-08-20T06:37:28.572796Z
+    - id: chat/eval.go#evalPersistenceContext
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: evalPersistenceContext
+        hash: sha256:cd0d3ebca0412801b3db39855243cd899fbbc062328570dbfc0a738342fde76c
+        struct_hash: sha256:fead36d36960ce497babaebafa76a8bf6baa26fef7ffa3febd3ec72e87ef52d4
+        doc_struct_hash: sha256:fead36d36960ce497babaebafa76a8bf6baa26fef7ffa3febd3ec72e87ef52d4
+        lines: [139, 144]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval.go#simulatedEvalTools
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: simulatedEvalTools
+        hash: sha256:6fdf5979f9d4727a2ca0758e07aa89a5c1a6a332b97561bced826a99bd00bda3
+        struct_hash: sha256:8acd60316c61ac07c98ba853587fb7bf9559dc536850a41d076f2070f7c02c7b
+        doc_struct_hash: sha256:8acd60316c61ac07c98ba853587fb7bf9559dc536850a41d076f2070f7c02c7b
+        lines: [146, 168]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval.go#evaluateAssertions
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: evaluateAssertions
+        hash: sha256:c20f2d8bb3fe1766582056d80dc9c47c22996cb274252767a54c284e58b30032
+        struct_hash: sha256:0e3932f1141e55b408a003c3c0953d87d88c7f653cb0b9953dcbd8855f868d13
+        doc_struct_hash: sha256:0e3932f1141e55b408a003c3c0953d87d88c7f653cb0b9953dcbd8855f868d13
+        lines: [170, 215]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval.go#hasMarkdownTable
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: hasMarkdownTable
+        hash: sha256:e9dd2681ac906cca40f3d80f6adeb77e31b1c308fd8fae1e2cad3826bd16547f
+        struct_hash: sha256:afb1c21f6d829e1acbff598fef89dc4b8123c22dcaa7b13df2261f25c9cd01bd
+        doc_struct_hash: sha256:afb1c21f6d829e1acbff598fef89dc4b8123c22dcaa7b13df2261f25c9cd01bd
+        lines: [217, 225]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval.go#markdownTableSeparator
+      level: function
+      anchor:
+        file: chat/eval.go
+        symbol: markdownTableSeparator
+        hash: sha256:99c434ae48a0a2cad86ee9953bec75c622c1017a6c30af4a8033ebb67a097adc
+        struct_hash: sha256:b926cc1a7520de48a4165274bdf487b939b566c9883e373df16ada78c0fee22d
+        doc_struct_hash: sha256:b926cc1a7520de48a4165274bdf487b939b566c9883e373df16ada78c0fee22d
+        lines: [227, 239]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
@@ -31,20 +32,25 @@ const (
 )
 
 type Capability struct {
-	Name             string   `json:"name"`
-	Domain           string   `json:"domain"`
-	Effect           string   `json:"effect"`
-	LoadMode         string   `json:"load_mode"`
-	Completion       string   `json:"completion"`
-	Description      string   `json:"description"`
-	RequiredAction   string   `json:"required_action,omitempty"`
-	GrantedTargets   []string `json:"granted_targets,omitempty"`
-	Risk             string   `json:"risk"`
-	Available        bool     `json:"available"`
-	SuperadminOnly   bool     `json:"superadmin_only"`
-	WorkerAllowed    bool     `json:"worker_allowed"`
-	GroupAllowed     bool     `json:"group_allowed"`
-	ApprovalRequired bool     `json:"approval_required"`
+	Name             string     `json:"name"`
+	CanonicalName    string     `json:"canonical_name"`
+	Maturity         string     `json:"maturity"`
+	Domain           string     `json:"domain"`
+	Effect           string     `json:"effect"`
+	LoadMode         string     `json:"load_mode"`
+	Completion       string     `json:"completion"`
+	Description      string     `json:"description"`
+	RequiredAction   string     `json:"required_action,omitempty"`
+	GrantedTargets   []string   `json:"granted_targets,omitempty"`
+	Risk             string     `json:"risk"`
+	Available        bool       `json:"available"`
+	SuperadminOnly   bool       `json:"superadmin_only"`
+	WorkerAllowed    bool       `json:"worker_allowed"`
+	GroupAllowed     bool       `json:"group_allowed"`
+	ApprovalRequired bool       `json:"approval_required"`
+	Usage30D         int64      `json:"usage_30d"`
+	Failures30D      int64      `json:"failures_30d"`
+	LastUsedAt       *time.Time `json:"last_used_at,omitempty"`
 }
 
 var domainLabels = map[string]string{
@@ -482,6 +488,14 @@ func CapabilityRegistry(ctx context.Context, d Deps, u *store.User, includeUnava
 	}
 	all = append(all, dynamicScriptTools(ctx, d, u, grants)...)
 	all = dedupeTools(all)
+	usage := map[string]store.ToolUsageStat{}
+	if d.Store != nil {
+		var err error
+		usage, err = d.Store.ToolUsageStatsSince(ctx, time.Now().Add(-30*24*time.Hour))
+		if err != nil {
+			return nil, err
+		}
+	}
 	available := map[string]bool{}
 	filterInput := make([]ai.Tool, len(all))
 	copy(filterInput, all)
@@ -496,6 +510,12 @@ func CapabilityRegistry(ctx context.Context, d Deps, u *store.User, includeUnava
 		}
 		seen[t.Name] = true
 		c := capabilityForTool(t)
+		if stat, ok := usage[t.Name]; ok {
+			c.Usage30D = stat.Calls
+			c.Failures30D = stat.Failures
+			lastUsedAt := stat.LastUsedAt
+			c.LastUsedAt = &lastUsedAt
+		}
 		c.Available = available[t.Name]
 		if c.RequiredAction != "" && c.RequiredAction != reqSuper {
 			if u.IsSuperadmin {
@@ -558,6 +578,8 @@ func capabilityForTool(t ai.Tool) Capability {
 	}
 	return Capability{
 		Name:             t.Name,
+		CanonicalName:    t.Name,
+		Maturity:         capabilityMaturity(t),
 		Domain:           domain,
 		Effect:           effectForTool(t),
 		LoadMode:         string(t.LoadMode),
@@ -570,6 +592,13 @@ func capabilityForTool(t ai.Tool) Capability {
 		GroupAllowed:     !t.GroupSensitive && !groupSensitive[t.Name],
 		ApprovalRequired: requiresApproval(t),
 	}
+}
+
+func capabilityMaturity(t ai.Tool) string {
+	if t.Maturity == ai.ToolMaturityExperimental {
+		return string(ai.ToolMaturityExperimental)
+	}
+	return string(ai.ToolMaturityStable)
 }
 
 func ToolEffect(name string) string {
@@ -676,7 +705,7 @@ func renderCapabilities(caps []Capability) string {
 				req += "；范围=" + strings.Join(c.GrantedTargets, ",")
 			}
 		}
-		flags := []string{status, "效果=" + c.Effect, "风险=" + c.Risk}
+		flags := []string{status, "成熟度=" + c.Maturity, "效果=" + c.Effect, "风险=" + c.Risk}
 		if c.Completion == string(ai.ToolCompletionAsynchronous) {
 			flags = append(flags, "异步受理")
 		}
@@ -685,6 +714,9 @@ func renderCapabilities(caps []Capability) string {
 		}
 		if c.WorkerAllowed {
 			flags = append(flags, "worker可用")
+		}
+		if c.Usage30D > 0 {
+			flags = append(flags, fmt.Sprintf("近30天调用=%d", c.Usage30D))
 		}
 		fmt.Fprintf(&b, "• %s：%s（%s%s）\n", c.Name, firstSentence(c.Description), strings.Join(flags, "，"), req)
 	}

@@ -266,6 +266,7 @@ func dynamicScriptTools(ctx context.Context, d Deps, u *store.User, grants []sto
 		})
 		// 脚本可组合领域工具和 AI，保守地按执行型能力审计。
 		toolDef.Effect = ai.ToolEffectExecute
+		toolDef.Maturity = ai.ToolMaturityExperimental
 		toolDef.RequiredAction = script.RequiredAction
 		toolDef.GroupSensitive = true
 		out = append(out, toolDef)

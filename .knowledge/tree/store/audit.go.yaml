@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/audit.go
-        hash: sha256:c1210669a66ad5e3a85fb5d2ef855733dc9c632ff57dff1eccf3a82b5c37b6ac
+        hash: sha256:aa01fcdd57913b71baa8829eccab2b7c2fcfac2a636a5f0e67d6928bb52686c6
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -30,6 +30,28 @@ nodes:
         lines: [27, 34]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/audit.go#ToolUsageStat
+      level: decl
+      anchor:
+        file: store/audit.go
+        symbol: ToolUsageStat
+        hash: sha256:c99b3e80a187f9c385310e2cb5b4e8e47862f3ff293e017d65169b8330aeb09e
+        struct_hash: sha256:2ee41a8014f6a667a771fdc5c42c6a688b4aa3966647e127adad82d77140907a
+        doc_struct_hash: sha256:2ee41a8014f6a667a771fdc5c42c6a688b4aa3966647e127adad82d77140907a
+        lines: [36, 41]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: store/audit.go#Store.ToolUsageStatsSince
+      level: function
+      anchor:
+        file: store/audit.go
+        symbol: Store.ToolUsageStatsSince
+        hash: sha256:5ed38df92d754eb14ee79d28a126ed0f98193c74b93b6bb0255e8c5ac3c6ec3c
+        struct_hash: sha256:35adca4cbc376b2beced18e17deca06ad4d5b8c13b984125ea3a289c325bfd85
+        doc_struct_hash: sha256:35adca4cbc376b2beced18e17deca06ad4d5b8c13b984125ea3a289c325bfd85
+        lines: [43, 60]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
     - id: store/audit.go#Store.ListAuditActivity
       level: function
       anchor:
@@ -38,6 +60,6 @@ nodes:
         hash: sha256:934247eec348ee20aff0f0c23124ea38d3538b103a47e222d13e1b8d81f48c85
         struct_hash: sha256:729eae32a62bf795bc32b1ce57515a19fb4f84c0336b18754db512d2873bcf73
         doc_struct_hash: sha256:edeaa1966c35d10d508b8f70e6664fced0390273eec73eeb8256b5bc07e4914f
-        lines: [36, 89]
+        lines: [62, 115]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

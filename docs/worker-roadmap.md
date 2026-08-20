@@ -25,13 +25,12 @@
 - worker 运维命令：`status` 校验身份与能力，`doctor` 做本机配置检查，`workspace` 展示主题 workspace 映射，`once` 单次领取任务，`logs` 读取平台服务状态。
 - worker 能力上报：启动/单次执行前把 OS/Arch、引擎、CLI 版本、可用能力（code/go/python/pdf/xlsx/images 等）写回中枢，自动派工会优先匹配能力。
 
-## 核心缺口
+## 后续增强
 
-1. Web UI 还没有文件上传/下载控件；HTTP API、Telegram 适配和 worker 文件链路已有。
-2. worker 还缺少更细的本机可观测性：当前任务进度、最近 N 条任务日志、平台日志 tail 的服务端视图。
-3. 安装分发仍偏工程化：已有多平台二进制下载和校验文件，但还缺平台安装脚本/包管理器体验。
-4. workspace 边界还不够产品化：已有主题 workspace 与 `session_workspaces` 映射，但 Web/Ops 里缺少可视化检查。
-5. workflow 化刚开始：`material_intake` 与 `nbco_upgrade` 已固化，更多稳定流程需要进入 `tools/workflows.go`。
+1. worker 还可增加更细的本机可观测性：当前任务进度、最近 N 条任务日志、平台日志 tail 的服务端视图。
+2. 安装分发已有多平台二进制、校验文件和系统服务，仍可补平台包管理器体验。
+3. workspace 已有主题映射、CLI session resume 和控制中心执行视图，后续可增加更完整的时间线比较。
+4. `material_intake` 与 `nbco_upgrade` 已固化；只在流程稳定、可复用、可验收时新增 workflow，避免为单句需求写高层补丁。
 
 ## 文件链路
 
@@ -47,7 +46,7 @@
   -> nbco 通知验收人，可通过 Telegram/Web 下载
 ```
 
-服务端需要新增统一文件模型：
+服务端统一文件模型：
 
 - `files`：文件元数据，含来源、原文件名、MIME、大小、sha256、存储路径、创建人。
 - `task_attachments`：任务附件关系，引用 `files.id`，保留 caption、来源消息。
@@ -111,7 +110,7 @@ worker 是明示安装、明示绑定、明示运行的工作代理：
 2. [x] 任务附件下发：`/api/worker/next` 返回附件，worker 下载到 `attachments/`。
 3. [x] worker 产物上传：`artifacts/` 扫描、上传接口、验收通知展示。
 4. [x] 显式命令任务：`run_worker_command` → `worker_command` → worker pipe/可选 PTY 执行并回传。
-5. [ ] Web UI 文件入口：网页上传/下载，脱离 Telegram 完整可用。
+5. [x] Web UI 文件入口：网页上传/下载、材料状态池，脱离 Telegram 完整可用。
 6. [x] Telegram 文件适配：Bot API 下载上传文件、必要时发 artifact。
 7. [x] worker 运维命令：`status`、`doctor`、`logs`、`workspace`、`once`。
 8. [x] 分发安装基础：release 二进制、校验和、服务端下载；仍由用户显式执行。

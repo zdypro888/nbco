@@ -42,8 +42,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 边界：
 
 - 不做 HR 薪酬/考勤系统。
-- 不向用户展示内部 user_id、Telegram ID、token hash 等系统细节。
-- 内部 ID/ref 是模型工作内存和工具参数，不是能力限制；最终展示由 `textfmt.SanitizeVisibleReply` 与渠道格式化层清理。
+- 稳定员工 ID 是业务编号，可以在成员目录、任务和管理操作中展示并优先作为工具参数；姓名只是可变展示名。
+- Telegram 外部 ID、token、token hash 和密钥仍按权限与场景限制；不能把“外部渠道标识”与“内部业务 ID”混为一谈。
 - 真人邀请、用户 Access Token、worker 绑定码、Worker Access Token 必须严格区分。
 - 资料收集活动是专项追踪基线；没有活动不能证明员工没有自行更新，实际发生记录以 `audit_log` 为准。
 - `pending` 只表示字段仍缺失，`notified` 只表示消息已投递。资料更新会刷新完成率，但重复提醒和主动汇报必须由显式提醒或定时规则驱动。
@@ -58,6 +58,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `chat_messages` 是唯一跨轮对话事实，`action_turns` 是工具执行事实；二者与成功轮次同事务提交。每个业务轮次使用独立 Eino managed session，Eino 继续独占本轮规划、工具循环、checkpoint 和恢复，下一轮只从规范聊天与限量动作证据建立上下文，不从另一个可分叉的长期引擎会话读取。
 - `action_turns` 不再用关键词猜用户是否想执行动作，也不把 handler 正常返回等同于业务成功。它按实际工具轨迹记录摘要、handler 返回数、证据 JSON 和 outcome，为连续对话和审计提供事实，但不控制 DeepAgent 的本轮回复。
 - `audit_log` 是所有工具调用的底层事实流水，超级管理员可通过 `list_system_activity` 按人员、会话、工具、时间和文字查询，不依赖是否创建了专项任务或活动。
+- 消息来源信封保存 provider、外部 chat/message/actor 引用、内部 actor user ID、回复/thread 和源时间。Webhook 重放按来源幂等，改名只更新显示快照。
 
 ### 2. Work：目标、项目、任务、验收、决策
 
@@ -96,6 +97,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 单一明确执行项直接派任务。
 - 复杂、多依赖、多人并行的工作先拆分。
 - 已提交任务需要深度核查时委派审核，不在普通对话里“脑补验收”。
+- `work_evidence` 统一投影群消息、群摘要、Worker 结果、风险和交付物；它让日报/周报看到真实发生的工作，但没有任务关联时绝不冒充正式承诺或验收结果。
 
 ### 3. Workers：AI 员工和工作机执行
 
@@ -174,6 +176,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - assistant 文本不能独立成为学习证据；抽取结果还要经过独立 AI 治理复核，过度泛化、一次性请求和可变运行状态进入待审或拒绝。冲突规则不会自动并排生效。
 - 有效聊天全部可语义检索；`search_history` 与 `search_knowledge` 作为常驻只读工具由主 Agent 按当前目标调用，不再运行独立的记忆路由模型。历史短答碎片和退役控制文案保留审计但不进入重放或 Qdrant。
 - 知识、规则和 Skill 使用可逆 active 生命周期。归档项不再参与检索、常驻提示或 Skill 路由，版本和原始数据仍可审计、恢复。
+- 每个已提交对话轮次原子记录规则 `injected`、Skill `candidate/loaded` 和轮次结果；治理页面可区分“召回过”与“真正被 Agent 使用过”。
 
 ### 5. Comms：Telegram、群、通知、文件
 
@@ -213,6 +216,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 群共享会话禁用 token、权限、worker 命令、规则修改等敏感工具。
 - Telegram 格式只使用 Telegram HTML 子集；非法 HTML 自动降级纯文本。
 - 交互回复先完成 `conversation_turns` 结果事务，再调用 Telegram；实际发送成功后才标记 `delivery_status=delivered`。失败保留可查询的结果与错误，不把“模型完成”和“用户收到”混成一个布尔值。
+- 上传材料具有 `received → queued → processing → needs_input/completed` 生命周期。Web 文件、索引任务和待处理材料项同事务建立；Telegram 同一 media group 归为一个材料项。
 
 ### 6. Automation：工作流、脚本、MCP
 
@@ -248,7 +252,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 暴露 `/healthz`、`/version`、管理页运维状态。
 - 监控 AI 引擎连续失败并告警超管。
 - 管理部署升级脚本和 worker 发行物。
-- 管理对话 eval case，逐步形成回归测试体系。
+- 管理并真实执行对话 eval case：使用生产工具 schema、权限、检索和 Eino Agent loop，但用模拟 handler 隔离副作用。
+- 运营控制中心集中展示对话/工具/动作/投递失败、Worker 重试/待输入、学习冲突、材料积压和评测退化。
 
 关键工具：
 
@@ -258,6 +263,11 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `ai_usage_stats`
 - `list_eval_cases`
 - `create_eval_case`
+
+管理 API：
+
+- `GET /api/admin/evals`：案例、最近运行和最新健康。
+- `POST /api/admin/evals/run`：运行单个或全部启用案例并持久化结果。
 
 边界：
 
@@ -276,6 +286,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `available`：当前用户/入口是否可用。
 - `worker_allowed`：worker 机器账号是否可用。
 - `group_allowed`：群共享会话是否可用。
+- `maturity`：`stable` / `experimental`。
+- `usage_30d` / `failures_30d` / `last_used_at`：能力真实使用与健康度。
 
 AI 或管理员可用 `list_capabilities` 查询，而不是依赖手写 README 猜工具。
 
@@ -302,12 +314,12 @@ AI 或管理员可用 `list_capabilities` 查询，而不是依赖手写 README 
 3. 高风险 workflow 必须有显式确认参数或两段式审批。
 4. workflow 文案和参数必须能被 `list_workflows` 清楚展示。
 
-## 下一步系统化方向
+## 控制中心信息架构
 
-优先级从高到低：
-
-1. Web 管理台补齐文件上传/下载、worker 任务/日志、知识/规则/skill、群管理、eval run。
-2. 对话 eval runner 真正执行 `conversation_eval_cases`，覆盖 Telegram 格式、隐私、工具选择和群权限。
-3. Learning Controller：定期从聊天、worker lessons、资料分析中归纳候选，自动去重/冲突打分。
-4. 委托策略：在不把职位硬编码成权限的前提下，支持可审计、可预览、原子应用的动态能力授权方案。
-5. Ops 中心：worker 离线、队列堆积、Telegram 失败、AI 成本异常、模型健康集中展示。
+- `运营总览`：异常、待处理材料、业务任务、Worker 执行、验收、自动化、审批和近期工作证据。
+- `工作中心`：正式任务、Worker run 与定时自动化的队列和历史。
+- `文件中心`：完整文件库与材料处理状态分离展示。
+- `人员`：以稳定员工 ID 为主键的成员目录。
+- `学习与评测`：候选治理、规则/Skill 使用归因、可执行模型回归。
+- `系统运维`：运行时、索引、迁移、产品健康和能力成熟度/使用率。
+- `动态工作台` 与 `对话`：共享同一个 nbco Orchestrator/Eino，不另建 AI 栈。

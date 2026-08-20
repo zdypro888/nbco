@@ -145,6 +145,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/me", s.handleMe)
 	mux.HandleFunc("GET /api/users", s.handleUsers)
+	mux.HandleFunc("GET /api/search", s.handleSearch)
 	mux.HandleFunc("GET /api/me/tasks", s.handleMyTasks)
 	mux.HandleFunc("GET /api/me/review", s.handleReview)
 	mux.HandleFunc("GET /api/me/assigned", s.handleAssigned)
@@ -155,6 +156,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/task-queue", s.handleAdminTaskQueue)
 	mux.HandleFunc("GET /api/admin/worker-runs", s.handleAdminWorkerRuns)
 	mux.HandleFunc("GET /api/admin/learning", s.handleAdminLearning)
+	mux.HandleFunc("GET /api/admin/evals", s.handleAdminEvals)
+	mux.HandleFunc("POST /api/admin/evals/run", s.handleAdminRunEvals)
 	mux.HandleFunc("GET /api/admin/decisions", s.handleAdminDecisions)
 	mux.HandleFunc("GET /api/admin/approvals", s.handleAdminApprovals)
 	mux.HandleFunc("GET /api/admin/action-turns", s.handleAdminActionTurns)
@@ -402,6 +405,36 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	u := s.requireUser(w, r)
+	if u == nil {
+		return
+	}
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "q 不能为空"})
+		return
+	}
+	if runes := []rune(query); len(runes) > 200 {
+		query = string(runes[:200])
+	}
+	resources, err := s.store.WorkspaceCandidates(r.Context(), u.ID, u.IsSuperadmin, store.WorkspaceCandidateFilter{
+		Terms: []string{query}, Limit: 30,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "搜索工作对象失败"})
+		return
+	}
+	users, err := s.store.ReadData(r.Context(), u.ID, u.IsSuperadmin, store.DataReadQuery{
+		Source: "users", Terms: []string{query}, Limit: 30,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "搜索成员失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"query": query, "resources": resources, "users": users})
+}
+
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version": Version,
@@ -523,7 +556,90 @@ func (s *Server) handleAdminLearning(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取学习候选失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"candidates": items})
+	usage, err := s.store.AssetUsageStatsSince(r.Context(), time.Now().Add(-30*24*time.Hour))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取学习使用成效失败"})
+		return
+	}
+	effectiveness, err := s.store.ListAssetEffectivenessSince(r.Context(), time.Now().Add(-30*24*time.Hour), 100)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取学习资产归因失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"candidates": items, "asset_usage_30d": usage, "asset_effectiveness_30d": effectiveness,
+	})
+}
+
+func (s *Server) handleAdminEvals(w http.ResponseWriter, r *http.Request) {
+	if s.requireSuper(w, r) == nil {
+		return
+	}
+	cases, err := s.store.ListConversationEvalCases(r.Context(), false, 100)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取评测案例失败"})
+		return
+	}
+	runs, err := s.store.ListConversationEvalRuns(r.Context(), 50)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取评测记录失败"})
+		return
+	}
+	stats, err := s.store.ConversationEvalStats(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取评测状态失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"cases": cases, "runs": runs, "stats": stats})
+}
+
+func (s *Server) handleAdminRunEvals(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	if s.orch == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "AI 编排器不可用"})
+		return
+	}
+	var req struct {
+		CaseID int64 `json:"case_id"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体必须是 JSON 对象"})
+		return
+	}
+	var cases []*store.ConversationEvalCase
+	if req.CaseID > 0 {
+		evalCase, err := s.store.ConversationEvalCaseByID(r.Context(), req.CaseID)
+		if err != nil {
+			code := http.StatusInternalServerError
+			if errors.Is(err, store.ErrNotFound) {
+				code = http.StatusNotFound
+			}
+			writeJSON(w, code, map[string]string{"error": "评测案例不存在"})
+			return
+		}
+		cases = []*store.ConversationEvalCase{evalCase}
+	} else {
+		var err error
+		cases, err = s.store.ListConversationEvalCases(r.Context(), true, 20)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取启用评测案例失败"})
+			return
+		}
+	}
+	runs := make([]*store.ConversationEvalRun, 0, len(cases))
+	for _, evalCase := range cases {
+		run, err := s.orch.RunEvalCase(r.Context(), u, evalCase)
+		if err != nil {
+			slog.Error("执行模型评测失败", "case", evalCase.ID, "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存评测结果失败"})
+			return
+		}
+		runs = append(runs, run)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"runs": runs})
 }
 
 func (s *Server) handleAdminDecisions(w http.ResponseWriter, r *http.Request) {
@@ -611,6 +727,42 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		semanticStatus = structToMap(s.deps.Semantic.Health(ctx))
 		cancel()
 	}
+	now := time.Now()
+	workEvidence, err := s.store.WorkEvidenceStatsSince(r.Context(), now.Add(-7*24*time.Hour))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取工作证据状态失败"})
+		return
+	}
+	recentEvidence, err := s.store.RecentWorkEvidence(r.Context(), now.Add(-7*24*time.Hour), 20)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取近期工作证据失败"})
+		return
+	}
+	materialStats, err := s.store.MaterialCaseStats(r.Context(), 0)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取材料处理状态失败"})
+		return
+	}
+	materials, err := s.store.MaterialCases(r.Context(), 0, false, 50)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取待处理材料失败"})
+		return
+	}
+	assetUsage, err := s.store.AssetUsageStatsSince(r.Context(), now.Add(-30*24*time.Hour))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取学习资产成效失败"})
+		return
+	}
+	evalStats, err := s.store.ConversationEvalStats(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取模型评测状态失败"})
+		return
+	}
+	productHealth, err := s.store.ProductHealthStats(r.Context(), now.Add(-24*time.Hour))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取产品健康状态失败"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version":    Version,
 		"go":         runtime.Version(),
@@ -618,11 +770,17 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		"workers": map[string]any{
 			"hub_configured": s.deps.Workers != nil,
 		},
-		"engine":         s.engineHealth(),
-		"eino_runtime":   einoRuntime,
-		"semantic_index": semanticStatus,
-		"file_index":     fileIndexStatus,
-		"message_index":  messageIndex,
+		"engine":          s.engineHealth(),
+		"eino_runtime":    einoRuntime,
+		"semantic_index":  semanticStatus,
+		"file_index":      fileIndexStatus,
+		"message_index":   messageIndex,
+		"work_evidence":   workEvidence,
+		"recent_evidence": recentEvidence,
+		"materials":       map[string]any{"stats": materialStats, "active": materials},
+		"learning":        map[string]any{"asset_usage_30d": assetUsage},
+		"evals":           evalStats,
+		"product_health":  productHealth,
 	})
 }
 

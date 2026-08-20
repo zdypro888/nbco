@@ -99,6 +99,7 @@ type internalTurnKey struct{}
 type automationTurnOptionsKey struct{}
 type turnSourceKey struct{}
 type memorySourceTextKey struct{}
+type messageEnvelopeKey struct{}
 
 // TurnReply carries the canonical result and its durable lifecycle identity.
 // Gateways use TurnID to acknowledge external delivery after the Agent result
@@ -128,6 +129,12 @@ func WithTurnSourceKey(ctx context.Context, key string) context.Context {
 func WithMemorySourceText(ctx context.Context, text string) context.Context {
 	value := strings.TrimSpace(text)
 	return context.WithValue(ctx, memorySourceTextKey{}, value)
+}
+
+// WithMessageEnvelope attaches stable provider provenance to the durable user
+// message created by this turn. It is transport metadata, never model input.
+func WithMessageEnvelope(ctx context.Context, envelope store.MessageEnvelope) context.Context {
+	return context.WithValue(ctx, messageEnvelopeKey{}, envelope)
 }
 
 func sourceKeyForTurn(ctx context.Context) string {
@@ -375,6 +382,12 @@ func speakerLine(speaker, text string) string {
 // running the Agent. Recording is a gateway invariant: an inactive session is
 // restored instead of silently dropping an update that Telegram already sent.
 func (o *Orchestrator) RecordGroupMessage(ctx context.Context, owner *store.User, channel, speaker, text string) error {
+	return o.RecordGroupMessageWithEnvelope(ctx, owner, channel, speaker, text, store.MessageEnvelope{})
+}
+
+// RecordGroupMessageWithEnvelope records passive group context and its stable
+// actor/source identity without invoking the Agent.
+func (o *Orchestrator) RecordGroupMessageWithEnvelope(ctx context.Context, owner *store.User, channel, speaker, text string, envelope store.MessageEnvelope) error {
 	release, err := o.groupLocks.AcquireContext(ctx, channel)
 	if err != nil {
 		return err
@@ -386,15 +399,54 @@ func (o *Orchestrator) RecordGroupMessage(ctx context.Context, owner *store.User
 		return err
 	}
 	line := speakerLine(speaker, text)
-	id, err := o.store.AppendMessage(ctx, sess.ID, string(ai.RoleUser), line)
+	id, err := o.store.AppendMessageWithEnvelope(ctx, sess.ID, string(ai.RoleUser), line, envelope)
 	if err != nil {
 		return err
 	}
+	o.recordGroupWorkEvidence(ctx, owner, id, text, envelope)
 	o.embedMessage(id, line)
 	// 旁听积压也要触发压缩：否则两次 @ 之间攒够 40 条时，被 @ 的那轮只重放
 	// 最新 40 条，更早的旁听内容既不在摘要也不在窗口，AI 接不住前文。
 	o.maybeCompactByCount(ctx, sess)
 	return nil
+}
+
+func (o *Orchestrator) recordGroupWorkEvidence(ctx context.Context, owner *store.User, messageID int64, content string, envelope store.MessageEnvelope) {
+	if o == nil || o.store == nil || messageID <= 0 || strings.TrimSpace(content) == "" {
+		return
+	}
+	provider := strings.TrimSpace(envelope.Provider)
+	chatRef := strings.TrimSpace(envelope.ExternalChatRef)
+	messageRef := strings.TrimSpace(envelope.ExternalMessageRef)
+	if provider == "" || chatRef == "" || messageRef == "" {
+		return
+	}
+	var projectID *int64
+	if provider == "telegram" {
+		if chatID, err := strconv.ParseInt(chatRef, 10, 64); err == nil {
+			if project, err := o.store.TelegramGroupProject(ctx, chatID); err == nil {
+				projectID = &project.ID
+			}
+		}
+	}
+	eventAt := time.Now().UTC()
+	if envelope.SourceCreatedAt != nil {
+		eventAt = envelope.SourceCreatedAt.UTC()
+	}
+	createdBy := envelope.ActorUserID
+	if createdBy == nil && owner != nil {
+		createdBy = &owner.ID
+	}
+	messageIDCopy := messageID
+	if _, err := o.store.UpsertWorkEvidence(ctx, store.WorkEvidenceInput{
+		SourceType: provider + "_group_message", SourceKey: chatRef + ":" + messageRef,
+		Kind: store.WorkEvidenceCommunication, Status: store.WorkEvidenceObserved,
+		Title: strings.TrimSpace(envelope.ActorDisplayName), Content: content,
+		ActorUserID: envelope.ActorUserID, ProjectID: projectID, SourceMessageID: &messageIDCopy,
+		Confidence: 1, EventAt: eventAt, Metadata: envelope.Metadata, CreatedBy: createdBy,
+	}); err != nil {
+		slog.Warn("群消息工作证据写入失败", "message", messageID, "provider", provider, "err", err)
+	}
 }
 
 // maybeCompactByCount 按会话未折叠消息条数判断是否需要压缩（旁听路径用，
@@ -424,6 +476,8 @@ func (o *Orchestrator) runTurn(
 	turnCommitted := internal
 	storedUserText := text
 	memorySourceText := storedUserText
+	var ruleIDs []int64
+	var turnSkills []ai.Skill
 	if source, ok := ctx.Value(memorySourceTextKey{}).(string); ok {
 		memorySourceText = source
 	}
@@ -464,9 +518,21 @@ func (o *Orchestrator) runTurn(
 			if failErr := o.store.FailConversationTurn(failCtx, durableTurn.ID, cause); failErr != nil {
 				slog.Warn("轮次失败状态落库失败", "turn", durableTurn.ID, "err", failErr)
 			}
+			if usageErr := o.store.RecordConversationAssetUsages(failCtx, durableTurn.ID,
+				conversationAssetUsages(ruleIDs, turnSkills, nil, AutomationExecution{}, store.AssetOutcomeFailed)); usageErr != nil {
+				slog.Warn("失败轮次学习资产归因落库失败", "turn", durableTurn.ID, "err", usageErr)
+			}
 		}()
 		if durableTurn.UserMessageID == nil {
 			return TurnReply{TurnID: durableTurn.ID}, errors.New("轮次缺少用户消息")
+		}
+		if envelope, ok := ctx.Value(messageEnvelopeKey{}).(store.MessageEnvelope); ok {
+			if err := o.store.SetMessageEnvelope(ctx, *durableTurn.UserMessageID, envelope); err != nil {
+				return TurnReply{TurnID: durableTurn.ID}, fmt.Errorf("保存消息来源身份: %w", err)
+			}
+			if isGroupChannel(channel) {
+				o.recordGroupWorkEvidence(ctx, u, *durableTurn.UserMessageID, text, envelope)
+			}
 		}
 		o.embedMessage(*durableTurn.UserMessageID, storedUserText)
 		ctx = tools.WithApprovalTurn(ctx, sess.ID, *durableTurn.UserMessageID)
@@ -535,14 +601,13 @@ func (o *Orchestrator) runTurn(
 	// They still honor pinned company policy, but skip semantic rules and skills
 	// that can only add latency or unrelated instructions to the bounded job.
 	var ruleBlock string
-	var turnSkills []ai.Skill
 	if automationOptions.ClosedContext {
-		ruleBlock = o.pinnedRuleContext(ctx, u, channel)
+		ruleBlock, ruleIDs = o.pinnedRuleContext(ctx, u, channel)
 	} else {
 		// Rules and skill candidates share one bounded retrieval window. Running
 		// the independent reads concurrently lets the semantic layer coalesce
 		// identical query embeddings instead of stacking cold-start latency.
-		ruleBlock, turnSkills = o.turnRetrievalContext(ctx, u, channel, text, turnMode != ai.TurnModeOneShot)
+		ruleBlock, turnSkills, ruleIDs = o.turnRetrievalContext(ctx, u, channel, text, turnMode != ai.TurnModeOneShot)
 	}
 	system += ruleBlock
 	// 当前用户身份与画像是稳定的会话输入；其他人物、历史和业务状态由
@@ -717,6 +782,7 @@ func (o *Orchestrator) runTurn(
 		EnqueueMemory:    !strings.HasPrefix(storedUserText, "[系统"),
 		MemoryEvidence:   verifiedMemoryToolEvidence(toolset, res.Steps),
 		MemorySourceText: &memorySourceText,
+		AssetUsages:      conversationAssetUsages(ruleIDs, turnSkills, res.Steps, execution, ""),
 	})
 	if err != nil {
 		return TurnReply{TurnID: durableTurn.ID}, fmt.Errorf("提交对话轮次: %w", err)
@@ -2091,7 +2157,7 @@ const (
 // ruleContext 组装本轮适用的行为规则块：常驻规则全量注入，非常驻规则用本轮
 // 输入做语义检索取 top N，都再按作用域（scope: 标签 vs 渠道/用户）过滤。
 // 任何失败只降级不报错——规则是增强，不该让对话轮次失败。
-func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, text string) string {
+func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, text string) (string, []int64) {
 	pinned, err := o.store.PinnedRules(ctx)
 	if err != nil {
 		slog.Warn("常驻规则加载失败，本轮跳过", "err", err)
@@ -2106,16 +2172,33 @@ func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, 
 		slog.Warn("动态规则检索失败，本轮跳过", "err", err)
 	}
 	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel) +
-		renderApplicableRules("[本轮相关规则·同样必须遵守]", dyn, u, channel)
+			renderApplicableRules("[本轮相关规则·同样必须遵守]", dyn, u, channel),
+		uniqueApplicableKnowledgeIDs(u, channel, pinned, dyn)
 }
 
-func (o *Orchestrator) pinnedRuleContext(ctx context.Context, u *store.User, channel string) string {
+func (o *Orchestrator) pinnedRuleContext(ctx context.Context, u *store.User, channel string) (string, []int64) {
 	pinned, err := o.store.PinnedRules(ctx)
 	if err != nil {
 		slog.Warn("常驻规则加载失败，本轮跳过", "err", err)
-		return ""
+		return "", nil
 	}
-	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel)
+	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel),
+		uniqueApplicableKnowledgeIDs(u, channel, pinned)
+}
+
+func uniqueApplicableKnowledgeIDs(u *store.User, channel string, groups ...[]*store.Knowledge) []int64 {
+	seen := make(map[int64]bool)
+	var out []int64
+	for _, group := range groups {
+		for _, item := range group {
+			if item == nil || item.ID <= 0 || seen[item.ID] || !knowledge.RuleApplies(item.Tags, channel, u.ID) {
+				continue
+			}
+			seen[item.ID] = true
+			out = append(out, item.ID)
+		}
+	}
+	return out
 }
 
 func renderApplicableRules(header string, rules []*store.Knowledge, u *store.User, channel string) string {
@@ -2177,19 +2260,20 @@ func (o *Orchestrator) turnRetrievalContext(
 	u *store.User,
 	channel, text string,
 	includeSkills bool,
-) (string, []ai.Skill) {
+) (string, []ai.Skill, []int64) {
 	rctx, cancel := context.WithTimeout(ctx, retrievalFetchTimeout)
 	defer cancel()
 
 	var (
-		rules  string
-		skills []ai.Skill
-		wg     sync.WaitGroup
+		rules   string
+		ruleIDs []int64
+		skills  []ai.Skill
+		wg      sync.WaitGroup
 	)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		rules = o.ruleContext(rctx, u, channel, text)
+		rules, ruleIDs = o.ruleContext(rctx, u, channel, text)
 	}()
 	if includeSkills {
 		wg.Add(1)
@@ -2199,7 +2283,62 @@ func (o *Orchestrator) turnRetrievalContext(
 		}()
 	}
 	wg.Wait()
-	return rules, skills
+	return rules, skills, ruleIDs
+}
+
+func conversationAssetUsages(ruleIDs []int64, skills []ai.Skill, steps []ai.Step, execution AutomationExecution, forcedOutcome string) []store.ConversationAssetUsage {
+	outcome := forcedOutcome
+	if !validConversationAssetOutcome(outcome) {
+		outcome = store.AssetOutcomeCompleted
+		for _, step := range steps {
+			if step.Kind == ai.StepToolCall && (step.Err != "" || step.Replayed || tools.ToolResultRejected(step.Result)) {
+				outcome = store.AssetOutcomePartial
+				break
+			}
+		}
+		if execution.ActionCalls > execution.SuccessfulActionCalls {
+			outcome = store.AssetOutcomePartial
+		} else if outcome != store.AssetOutcomePartial && execution.SuccessfulActionCalls > 0 {
+			outcome = store.AssetOutcomeActionSucceeded
+		}
+	}
+	usages := make([]store.ConversationAssetUsage, 0, len(ruleIDs)+len(skills)+2)
+	for _, id := range ruleIDs {
+		usages = append(usages, store.ConversationAssetUsage{KnowledgeID: id, Phase: store.AssetPhaseInjected, TurnOutcome: outcome})
+	}
+	for _, skill := range skills {
+		if id, ok := skillKnowledgeID(skill.Name); ok {
+			usages = append(usages, store.ConversationAssetUsage{KnowledgeID: id, Phase: store.AssetPhaseCandidate, TurnOutcome: outcome})
+		}
+	}
+	for _, step := range steps {
+		if step.Kind != ai.StepToolCall || step.ToolName != "skill" || step.Err != "" {
+			continue
+		}
+		var args struct {
+			Skill string `json:"skill"`
+		}
+		if json.Unmarshal(step.Args, &args) == nil {
+			if id, ok := skillKnowledgeID(args.Skill); ok {
+				usages = append(usages, store.ConversationAssetUsage{KnowledgeID: id, Phase: store.AssetPhaseLoaded, TurnOutcome: outcome})
+			}
+		}
+	}
+	return usages
+}
+
+func validConversationAssetOutcome(outcome string) bool {
+	return outcome == store.AssetOutcomeCompleted || outcome == store.AssetOutcomeActionSucceeded ||
+		outcome == store.AssetOutcomePartial || outcome == store.AssetOutcomeFailed
+}
+
+func skillKnowledgeID(name string) (int64, bool) {
+	value := strings.TrimPrefix(strings.TrimSpace(name), "nbco-skill-")
+	if value == name || value == "" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(value, 10, 64)
+	return id, err == nil && id > 0
 }
 
 func filterApplicableSkills(skills []*store.Knowledge, channel string, userID int64) []*store.Knowledge {

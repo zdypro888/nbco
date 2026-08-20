@@ -54,6 +54,7 @@ type ConversationTurnCompletion struct {
 	MemoryEvidence   string
 	MemorySourceText *string
 	ExplicitMemory   bool
+	AssetUsages      []ConversationAssetUsage
 }
 
 func scanConversationTurn(row interface{ Scan(...any) error }) (*ConversationTurn, error) {
@@ -238,6 +239,9 @@ func (s *Store) CompleteConversationTurn(ctx context.Context, in ConversationTur
 			in.MemoryEvidence, in.MemorySourceText, in.ExplicitMemory); err != nil {
 			return 0, wrapErr(err)
 		}
+	}
+	if err := recordConversationAssetUsagesTx(ctx, tx, turn.ID, in.AssetUsages); err != nil {
+		return 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err

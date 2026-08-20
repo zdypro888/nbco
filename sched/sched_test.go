@@ -59,6 +59,21 @@ func TestRenderDigest(t *testing.T) {
 	}
 }
 
+func TestRenderWorkEvidenceDigestKeepsEvidenceSeparateFromTasks(t *testing.T) {
+	tz := time.FixedZone("CST", 8*60*60)
+	out := renderWorkEvidenceDigest(&store.WorkEvidenceStats{
+		ObservedMessages: 7, StructuredItems: 2, Actors: 3, Projects: 1,
+	}, []*store.WorkEvidence{{
+		Kind: store.WorkEvidenceSummary, ProjectName: "视频项目",
+		Content: "讨论了素材交付风险", EventAt: time.Date(2026, 8, 19, 1, 0, 0, 0, time.UTC),
+	}}, tz)
+	for _, want := range []string{"不等同于正式任务", "群聊消息 7", "视频项目", "讨论了素材交付风险"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("digest missing %q: %s", want, out)
+		}
+	}
+}
+
 func TestRenderDigestUnknownUser(t *testing.T) {
 	dl := time.Now()
 	out := renderDigest(

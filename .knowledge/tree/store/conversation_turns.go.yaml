@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/conversation_turns.go
-        hash: sha256:60a9488d37fa7465e741c5f6d0e81a2d493a2d3cf726e83958dc17daec72cb61
+        hash: sha256:dd92efb657e9acac4e67f6c78f3884bdedbc9572a4606b2e90704c6bb7b1c4b5
         lines: [0, 0]
       status: undigested
       since: 2026-07-25T10:14:40.5053Z
@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/conversation_turns.go
         symbol: ConversationTurnCompletion
-        hash: sha256:16c061cf8c322a5a02cf12c98df02879b4f08fbfca9f9c87be229061c8aa9117
-        struct_hash: sha256:900c3d196387e8c7e73a8872b8f10fc591a0f55a9de6eef9fffae2bed1234574
-        doc_struct_hash: sha256:900c3d196387e8c7e73a8872b8f10fc591a0f55a9de6eef9fffae2bed1234574
-        lines: [46, 57]
+        hash: sha256:9f843d772f32d48d309f4fcd72d0ce7fbb851d4ab92e3aa7e1babaaed50c73d0
+        struct_hash: sha256:272d3658b9b9a0e98ee1d1bdcc4303e02250961f0009ec65e5f776c10ff0e60a
+        doc_struct_hash: sha256:272d3658b9b9a0e98ee1d1bdcc4303e02250961f0009ec65e5f776c10ff0e60a
+        lines: [46, 58]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#scanConversationTurn
@@ -71,7 +71,7 @@ nodes:
         hash: sha256:dca61f24eaea99e7fc5b5a8495c08e0fb76d705c952ef2dcaf70ba7bb8874195
         struct_hash: sha256:796fd24a12398d23957e9464224e286deade68881c1c436cbffe69e7a3f2830c
         doc_struct_hash: sha256:796fd24a12398d23957e9464224e286deade68881c1c436cbffe69e7a3f2830c
-        lines: [59, 70]
+        lines: [60, 71]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#conversationSourceHash
@@ -82,7 +82,7 @@ nodes:
         hash: sha256:525b6c9e16881fb27dd9d4ab9dbc3e307767c43b1de8e35c5fafc5b318e1ff0f
         struct_hash: sha256:891c66fce81a4d25d0541dbf656d7ede81db6ef5e83deebac829c069fd7fd180
         doc_struct_hash: sha256:891c66fce81a4d25d0541dbf656d7ede81db6ef5e83deebac829c069fd7fd180
-        lines: [72, 79]
+        lines: [73, 80]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#Store.BeginConversationTurn
@@ -93,7 +93,7 @@ nodes:
         hash: sha256:d4116607fafc1e5fafe61efa83e619f85188ef689a44a3e99892640acd73692e
         struct_hash: sha256:e4b9cef48613ebed328fba3a5d4843dc3c73dac31f6069a5df16f9488a9783f2
         doc_struct_hash: sha256:2b36aa03ac02d5ad96b5fcdf4d0b6f093563f534b49c572e4dcc1cda5d88fd18
-        lines: [81, 158]
+        lines: [82, 159]
       status: fresh
       since: 2026-07-25T10:14:40.505234Z
     - id: store/conversation_turns.go#Store.CompleteConversationTurn
@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: store/conversation_turns.go
         symbol: Store.CompleteConversationTurn
-        hash: sha256:f0101f191e8f9b710469000126f35e81d0c17f76d2b7a0ecbed212dee4342494
-        struct_hash: sha256:fc19aaa9e6d7cd6fe8e46b7418c497c2e42501a276e3544a25762ced5d75d2ee
-        doc_struct_hash: sha256:5edec7c0b716489b2f3f90f2c7c8f7007cda789f01903e017ae7a20314f230a5
-        lines: [160, 246]
+        hash: sha256:36aeee58cb54088fbe72864b533e7097730a8c8ed7a908b18413cf6371c2f43e
+        struct_hash: sha256:ff6a325bb385bdc59fc5ea646f7f061eab5181f430f885ee5f33a19bb13a3be0
+        doc_struct_hash: sha256:97dfeabfd614fe78eaa74057cd4f4a61f308f450c747d9576600b98f8e8a03e5
+        lines: [161, 250]
       status: fresh
       since: 2026-07-25T10:14:40.50635Z
     - id: store/conversation_turns.go#insertActionTurn
@@ -115,7 +115,7 @@ nodes:
         hash: sha256:cdeef7a75de429d43b5351aa9d5b38ff788c9d65a659035818ee419da03209b7
         struct_hash: sha256:8df0012ae5866feb8147dc575f57cc4305f22b36ea3225c278793075e50305b4
         doc_struct_hash: sha256:8df0012ae5866feb8147dc575f57cc4305f22b36ea3225c278793075e50305b4
-        lines: [248, 272]
+        lines: [252, 276]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#Store.FailConversationTurn
@@ -126,7 +126,7 @@ nodes:
         hash: sha256:114921c18c011e42ea9f9153d912ae7486a1cbc2b47f6d9cc79f31178f332cff
         struct_hash: sha256:f11c6f6c2836f8794aaf726db3019146c69b43d2c5c3b972a063bd029e913656
         doc_struct_hash: sha256:f11c6f6c2836f8794aaf726db3019146c69b43d2c5c3b972a063bd029e913656
-        lines: [274, 284]
+        lines: [278, 288]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#Store.FailStaleConversationTurns
@@ -137,7 +137,7 @@ nodes:
         hash: sha256:47f848e261fdc09190816aa029336248e2b4b9d0e6565b0ef5abdfc102df9c5f
         struct_hash: sha256:8c2f8c573f1d9313f6f3158c363a89a6b7804b1a799f1a523c97c0eeb7b5d395
         doc_struct_hash: sha256:9c43f5691c7e46acc09cca01d77859a88bfe3f0e79457304a57418ea8b7a75a5
-        lines: [286, 304]
+        lines: [290, 308]
       status: fresh
       since: 2026-07-25T10:14:40.507408Z
     - id: store/conversation_turns.go#Store.MarkConversationTurnDelivered
@@ -148,7 +148,7 @@ nodes:
         hash: sha256:f85c31235ad42b51335fa6a6a52272fa3c18b8126fd18621888c29b9c8fb25a8
         struct_hash: sha256:145eb5c419b191ab3b96ace1f0b07a2ebf919c4200924ec06fef0352b19db131
         doc_struct_hash: sha256:145eb5c419b191ab3b96ace1f0b07a2ebf919c4200924ec06fef0352b19db131
-        lines: [306, 312]
+        lines: [310, 316]
       status: fresh
       since: 2026-07-25T10:14:40.508351Z
     - id: store/conversation_turns.go#Store.MarkConversationTurnDeliveryFailed
@@ -159,7 +159,7 @@ nodes:
         hash: sha256:53a348630122f9c5d29e8ea6388672a7ad6727b8ea87a2d9aef834f2511928a2
         struct_hash: sha256:0b51439056a7e46ad970a967ced59652d99e2035333a6311c3df74b70dc9c169
         doc_struct_hash: sha256:0b51439056a7e46ad970a967ced59652d99e2035333a6311c3df74b70dc9c169
-        lines: [314, 321]
+        lines: [318, 325]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: store/conversation_turns.go#Store.ConversationTurnByID
@@ -170,6 +170,6 @@ nodes:
         hash: sha256:2c8ae96a4248994e55b00356c629eb288a350f3abab16721fbf1968e7f3e9228
         struct_hash: sha256:d4dfea5ee9289ec45a2a019759a7bec3506af63486f987ae6ba415675707e9bd
         doc_struct_hash: sha256:d4dfea5ee9289ec45a2a019759a7bec3506af63486f987ae6ba415675707e9bd
-        lines: [323, 326]
+        lines: [327, 330]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z

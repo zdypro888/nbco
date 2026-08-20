@@ -2,7 +2,7 @@ const root = document.querySelector("#root");
 const telegramWebApp = window.Telegram && window.Telegram.WebApp;
 const tg = telegramWebApp && String(telegramWebApp.initData || "").trim() ? telegramWebApp : null;
 const requestedView = new URLSearchParams(window.location.search).get("view");
-const knownViews = new Set(["command", "files", "tasks", "workers", "workspace", "model", "ops", "chat"]);
+const knownViews = new Set(["command", "files", "tasks", "people", "workers", "learning", "workspace", "model", "ops", "chat"]);
 
 const state = {
   me: null,
@@ -11,6 +11,7 @@ const state = {
   notice: "",
   files: [],
   fileIntakes: [],
+  materials: [],
   selectedFileIDs: new Set(),
   tasks: { todo: [], assigned: [], review: [] },
   taskQueue: [],
@@ -20,6 +21,9 @@ const state = {
   workerRunHistory: [],
   schedules: [],
   workers: [],
+	users: [],
+	learning: { candidates: [], asset_usage_30d: {}, asset_effectiveness_30d: [] },
+	evals: { cases: [], runs: [], stats: {} },
   workflows: [],
   capabilities: [],
   decisions: [],
@@ -34,6 +38,7 @@ const state = {
   ],
   actionResult: "",
   actionOK: true,
+	search: null,
 };
 
 let memoryToken = "";
@@ -154,21 +159,21 @@ function renderLogin(error = "") {
 
 function navItems() {
   const base = [
-    ["command", "sliders", "命令队列"],
-    ["files", "file-upload", "文件中心"],
-    ["tasks", "checkbox", "任务队列"],
-    ["workspace", "layout-dashboard", "动态工作台"],
-    ["chat", "messages", "对话"],
+	["command", "layout-dashboard", "运营总览"],
+	["tasks", "checkbox", "工作中心"],
+	["files", "file-upload", "文件中心"],
+	["people", "users", "人员"],
   ];
   if (state.me?.is_superadmin || canStartWorkflow()) {
-    base.splice(3, 0, ["workers", "robot", "Worker 管理"]);
+	base.push(["workers", "robot", "Worker 管理"]);
   }
   if (state.me?.is_superadmin) {
-    base.splice(4, 0,
-      ["model", "brain", "模型管理"],
-      ["ops", "shield-check", "系统升级"],
-    );
+	base.push(["learning", "school", "学习与评测"]);
+	base.push(["model", "brain", "模型管理"]);
+	base.push(["ops", "shield-check", "系统运维"]);
   }
+	base.push(["workspace", "apps", "动态工作台"]);
+	base.push(["chat", "messages", "对话"]);
   return base;
 }
 
@@ -202,6 +207,9 @@ function renderApp() {
           </div>
         </div>
       </aside>
+		<nav class="mobile-nav" aria-label="控制中心导航">
+			${navItems().map(([route, ico, label]) => `<button title="${esc(label)}" aria-label="${esc(label)}" data-route="${route}" class="${state.route === route ? "active" : ""}">${icon(ico)}<span>${esc(label)}</span></button>`).join("")}
+		</nav>
       <header class="topbar">
         <div class="command-actions">
           <button class="btn primary" data-action="focus-chat">${icon("plus")}新建命令</button>
@@ -211,7 +219,7 @@ function renderApp() {
         </div>
         <div class="command-search">
           ${icon("search")}
-          <input id="globalSearch" placeholder="搜索命令 / 任务 / 员工 / 文件 / 日志">
+			<input id="globalSearch" value="${esc(state.search?.query || "")}" placeholder="搜索任务 / 员工 / 文件 / 项目">
         </div>
         <div class="status-strip">
           <div class="status-meta">
@@ -257,6 +265,13 @@ function renderContent() {
     el.innerHTML = `<div class="surface"><div class="empty">加载中…</div></div>`;
     return;
   }
+	if (state.search?.query) {
+		el.innerHTML = renderSearchResults();
+		if (state.notice) {
+			el.insertAdjacentHTML("afterbegin", `<div class="result bad page-notice">${esc(state.notice)}</div>`);
+		}
+		return;
+	}
   switch (state.route) {
   case "files":
     el.innerHTML = renderFilesRoute();
@@ -267,6 +282,12 @@ function renderContent() {
   case "workers":
     el.innerHTML = renderWorkersRoute();
     break;
+	case "people":
+		el.innerHTML = renderPeopleRoute();
+		break;
+	case "learning":
+		el.innerHTML = renderLearningRoute();
+		break;
   case "model":
     el.innerHTML = renderModelRoute();
     break;
@@ -293,8 +314,22 @@ function renderContent() {
   }
 }
 
+function renderSearchResults() {
+	const resources = state.search?.resources || [];
+	const users = state.search?.users || [];
+	const resourceRows = resources.length
+		? `<table class="data-table"><thead><tr><th>类型</th><th>ID</th><th>名称</th><th>状态</th><th>创建时间</th></tr></thead><tbody>${resources.map(item => `<tr><td>${esc({ task: "任务", file: "文件", project: "项目" }[item.kind] || item.kind)}</td><td>#${item.id}</td><td class="td-title"><div class="title-strong">${esc(item.name)}</div></td><td>${statusPill(item.state)}</td><td>${fmtTime(item.created_at)}</td></tr>`).join("")}</tbody></table>`
+		: `<div class="empty">没有匹配的任务、文件或项目。</div>`;
+	const userRows = users.length
+		? `<table class="data-table"><thead><tr><th>员工 ID</th><th>姓名</th><th>类型</th><th>状态</th></tr></thead><tbody>${users.map(user => `<tr><td>#${esc(user.user_id)}</td><td class="td-title"><div class="title-strong">${esc(user.name)}</div></td><td>${user.is_worker ? "Worker" : "员工"}</td><td>${statusPill(user.status)}</td></tr>`).join("")}</tbody></table>`
+		: `<div class="empty">没有匹配的可见成员。</div>`;
+	return `<section class="surface section"><div class="section-head"><h2>搜索：${esc(state.search.query)}</h2><span class="count">${resources.length + users.length}</span><span class="spacer"></span><button class="btn" data-action="clear-search">${icon("x")}清除</button></div>${resourceRows}</section>
+		<section class="surface section"><div class="section-head"><h2>成员</h2><span class="count">${users.length}</span></div>${userRows}</section>`;
+}
+
 function renderCommandRoute() {
-  const pendingFiles = state.files.length;
+	const materialCases = state.me?.is_superadmin ? (state.ops?.materials?.active || state.materials) : state.materials;
+	const pendingMaterials = materialCases.length;
   const queuedTasks = taskQueueSource().filter(t => ["pending", "in_progress", "awaiting_input"].includes(t.status));
   const workerRuns = state.me?.is_superadmin ? state.workerRuns : [];
   const reviewTasks = state.me?.is_superadmin ? state.taskReview : state.tasks.review;
@@ -306,17 +341,23 @@ function renderCommandRoute() {
   const riskCount = state.me?.is_superadmin ? approvals.length : 0;
   const decisions = state.decisions.length;
   const activeWorkers = state.workers.filter(w => w.online).length;
+	const health = state.ops?.product_health || {};
+	const exceptionCount = [health.delivery_failures_24h, health.tool_failures_24h,
+		health.action_failures_24h, health.conversation_failures_24h, health.worker_needs_input,
+		health.worker_retrying, health.learning_conflicts, state.ops?.evals?.failing_cases]
+		.filter(value => Number(value || 0) > 0).length;
   const materialActions = canStartWorkflow()
-    ? `<button class="btn" data-action="batch-select-files">${icon("checks")}选中最近文件</button>
-      <button class="btn primary" data-action="start-material-from-selection">${icon("send")}派 Worker</button>`
-    : `<button class="btn" data-action="batch-select-files">${icon("checks")}选中最近文件</button>`;
+		? `<button class="btn" data-action="batch-select-files">${icon("checks")}选中待处理文件</button>
+			<button class="btn primary" data-action="start-material-from-selection">${icon("settings")}配置分析</button>`
+		: `<button class="btn" data-action="batch-select-files">${icon("checks")}选中待处理文件</button>`;
   const riskActions = state.me?.is_superadmin
     ? `<button class="btn" data-action="select-risk" data-risk="model">${icon("switch-2")}模型</button>
       <button class="btn danger" data-action="select-risk" data-risk="upgrade">${icon("rocket")}升级</button>`
     : "";
   return `
     <div class="metrics">
-      ${metric("folder-up", "待处理材料", pendingFiles, `${selectedFileList().length} 个已选`)}
+		${metric(exceptionCount ? "alert-triangle" : "circle-check", "异常类别", exceptionCount, exceptionCount ? "需要优先处理" : "当前没有已知异常")}
+		${metric("folder-up", "待处理材料", pendingMaterials, `${Number(state.ops?.materials?.stats?.needs_input || 0)} 个需要补充`)}
       ${metric("checkbox", "业务任务", queuedTasks.length, `${taskCounts.pending} 待处理 · ${taskCounts.in_progress} 进行中 · ${taskCounts.awaiting_input} 待补充`)}
       ${metric("player-play", "Worker 执行", workerRuns.length, `${claimedRuns} 正在执行 · ${waitingRuns} 重试或待输入`)}
       ${metric("clipboard-check", "待验收", reviewTasks.length, "已停止执行，等待确认结果")}
@@ -324,7 +365,8 @@ function renderCommandRoute() {
       ${metric("calendar-time", "定时自动化", activeSchedules.length, `${state.schedules.length} 条可见规则`)}
       ${metric("alert-triangle", "需要确认", riskCount + decisions, `${decisions} 个决策项`)}
     </div>
-    ${queueSection("待处理材料", pendingFiles, renderMaterialRows(), materialActions)}
+		${state.me?.is_superadmin ? queueSection("运营异常", exceptionCount, renderProductExceptions(), `<button class="btn" data-route="ops">${icon("activity")}查看运维</button>`) : ""}
+		${queueSection("待处理材料", pendingMaterials, renderMaterialRows(materialCases), materialActions)}
     ${queueSection("业务任务", queuedTasks.length, renderTaskRows(queuedTasks.slice(0, 12)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
@@ -335,7 +377,8 @@ function renderCommandRoute() {
     ${queueSection("定时自动化", activeSchedules.length, renderScheduleRows(activeSchedules.slice(0, 8)), `
       <button class="btn" data-action="refresh">${icon("refresh")}刷新</button>
     `)}
-    ${queueSection("待确认高风险操作", riskCount, renderRiskRows(approvals), riskActions)}
+		${queueSection("待确认高风险操作", riskCount, renderRiskRows(approvals), riskActions)}
+		${state.me?.is_superadmin ? queueSection("近期工作证据", (state.ops?.recent_evidence || []).length, renderWorkEvidenceRows(), "") : ""}
   `;
 }
 
@@ -361,27 +404,79 @@ function queueSection(title, count, rows, actions) {
     </section>`;
 }
 
-function renderMaterialRows() {
-  if (!state.files.length) return `<div class="empty">最近没有上传材料。</div>`;
+function renderMaterialRows(items = state.materials) {
+  if (!items.length) return `<div class="empty">当前没有待处理材料。</div>`;
   return `
     <table class="data-table">
-      <thead><tr><th></th><th>ID</th><th>类型</th><th>标题</th><th>提交人</th><th>优先级</th><th>提交时间</th><th>状态</th><th>SLA</th></tr></thead>
-      <tbody>${state.files.slice(0, 12).map(f => {
-        const selected = state.selected?.kind === "file" && Number(state.selected.id) === Number(f.id);
-        const checked = state.selectedFileIDs.has(Number(f.id));
-        return `<tr class="selectable ${selected ? "selected" : ""}" data-select-kind="file" data-id="${f.id}">
-          <td><input type="checkbox" data-action="toggle-file" data-id="${f.id}" ${checked ? "checked" : ""}></td>
-          <td>MAT-${f.id}</td>
-          <td>${esc(typeLabel(f))}</td>
-          <td class="td-title"><div class="title-strong">${esc(f.original_name)}</div><div class="subline">${esc(f.mime_type || "未知类型")} · ${fmtBytes(f.size_bytes)}</div></td>
-          <td>${esc(state.me?.name || "我")}</td>
-          <td>${priorityPill(filePriority(f))}</td>
-          <td>${fmtTime(f.created_at)}</td>
-          <td><span class="pill blue">待分类</span></td>
-          <td><span class="pill amber">待指令</span></td>
+      <thead><tr><th></th><th>ID</th><th>材料</th><th>提交人</th><th>文件</th><th>提交时间</th><th>状态</th><th>关联工作</th></tr></thead>
+		<tbody>${items.slice(0, 12).map(item => {
+        const files = item.files || [];
+        const first = files[0];
+				const canQueue = item.source !== "workflow" && Number(item.owner_id) === Number(state.me?.id);
+				const selectKind = item.task_id ? "task" : (first && canQueue ? "file" : "");
+				const selectID = item.task_id || first?.id;
+				const selected = selectKind && state.selected?.kind === selectKind && Number(state.selected.id) === Number(selectID);
+				const checked = canQueue && files.length > 0 && files.every(f => state.selectedFileIDs.has(Number(f.id)));
+				return `<tr class="${selectKind ? "selectable" : ""} ${selected ? "selected" : ""}" ${selectKind ? `data-select-kind="${selectKind}" data-id="${selectID}"` : ""}>
+					<td><input type="checkbox" ${canQueue ? `data-action="toggle-material" data-id="${item.id}"` : "disabled"} ${checked ? "checked" : ""}></td>
+          <td>MAT-${item.id}</td>
+          <td class="td-title"><div class="title-strong">${esc(item.title || files.map(f => f.original_name).join("、") || "未命名材料")}</div><div class="subline">${esc(item.instruction || "等待处理指令")}</div></td>
+          <td>${esc(item.owner_name || state.me?.name || "")}</td>
+          <td>${files.length} 个<div class="subline">${esc(files.slice(0, 2).map(f => f.original_name).join("、"))}</div></td>
+          <td>${fmtTime(item.created_at)}</td>
+          <td>${materialStatusPill(item.status)}</td>
+          <td>${item.task_id ? `TSK-${esc(item.task_id)}` : "未派发"}</td>
         </tr>`;
       }).join("")}</tbody>
     </table>`;
+}
+
+function renderProductExceptions() {
+	const health = state.ops?.product_health || {};
+	const evals = state.ops?.evals || {};
+	const rows = [
+		["对话执行失败", health.conversation_failures_24h, "近24小时", "conversation"],
+		["动作工具失败", health.action_failures_24h, "近24小时", "action"],
+		["底层工具错误", health.tool_failures_24h, "近24小时", "tool"],
+		["定时投递失败", health.delivery_failures_24h, "近24小时", "schedule"],
+		["Worker 待补充", health.worker_needs_input, "当前", "worker"],
+		["Worker 等待重试", health.worker_retrying, "当前", "worker"],
+		["学习候选冲突", health.learning_conflicts, "当前", "learning"],
+		["模型评测未通过", evals.failing_cases, "最近一次", "eval"],
+	].filter(row => Number(row[1] || 0) > 0);
+	if (!rows.length) return `<div class="empty">当前没有已知运营异常。</div>`;
+	return `<table class="data-table"><thead><tr><th>异常</th><th>数量</th><th>窗口</th><th>来源</th></tr></thead>
+		<tbody>${rows.map(row => `<tr><td class="td-title"><div class="title-strong">${esc(row[0])}</div></td><td><span class="pill red">${Number(row[1])}</span></td><td>${esc(row[2])}</td><td>${esc(row[3])}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function renderWorkEvidenceRows() {
+	const items = state.ops?.recent_evidence || [];
+	if (!items.length) return `<div class="empty">近7天没有可展示的工作证据。</div>`;
+	return `<table class="data-table"><thead><tr><th>时间</th><th>类型</th><th>项目 / 人员</th><th>有来源的事实</th><th>状态</th></tr></thead>
+		<tbody>${items.map(item => `<tr><td>${fmtTime(item.event_at)}</td><td>${esc(item.kind)}</td><td>${esc(item.project_name || item.actor_name || item.title || "")}</td><td class="td-title">${esc(truncate(item.content, 220))}</td><td>${materialStatusPill(item.status)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function renderFileLibraryRows() {
+  if (!state.files.length) return `<div class="empty">文件库为空。</div>`;
+  return `<table class="data-table">
+    <thead><tr><th></th><th>ID</th><th>文件</th><th>类型</th><th>大小</th><th>上传时间</th><th></th></tr></thead>
+    <tbody>${state.files.map(file => `<tr class="selectable" data-select-kind="file" data-id="${file.id}">
+      <td><input type="checkbox" data-action="toggle-file" data-id="${file.id}" ${state.selectedFileIDs.has(Number(file.id)) ? "checked" : ""}></td>
+      <td>FILE-${file.id}</td><td class="td-title"><div class="title-strong">${esc(file.original_name)}</div></td>
+      <td>${esc(typeLabel(file))}</td><td>${fmtBytes(file.size_bytes)}</td><td>${fmtTime(file.created_at)}</td>
+      <td><button class="icon-btn" title="下载" data-action="download-file" data-id="${file.id}">${icon("download")}</button></td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+function materialStatusPill(status) {
+  const labels = {
+    received: ["amber", "待指令"], queued: ["blue", "已排队"], processing: ["blue", "处理中"],
+    needs_input: ["red", "需补充"], completed: ["green", "已完成"], ignored: ["", "已忽略"],
+		observed: ["blue", "已观察"], active: ["amber", "需跟进"], resolved: ["green", "已闭合"],
+		superseded: ["", "已替代"],
+  };
+  const [tone, label] = labels[status] || ["", status || "未知"];
+  return `<span class="pill ${tone}">${esc(label)}</span>`;
 }
 
 function renderTaskRows(tasks = taskQueueSource().slice(0, 10)) {
@@ -474,7 +569,7 @@ function renderFilesRoute() {
         <div class="result ${state.actionResult ? (state.actionOK ? "ok" : "bad") : ""}">${esc(state.actionResult || "文件上传后只进入待处理材料池，不会自动分析。")}</div>
       </div>
       ${renderFailedFileIntakes()}
-      ${renderMaterialRows()}
+      ${renderFileLibraryRows()}
     </section>`;
 }
 
@@ -541,6 +636,67 @@ function renderWorkersRoute() {
     </section>`;
 }
 
+function renderPeopleRoute() {
+	if (!state.users.length) return `<div class="surface"><div class="empty">成员目录为空。</div></div>`;
+	return `<section class="surface section">
+		<div class="section-head"><h2>成员目录</h2><span class="count">${state.users.length}</span></div>
+		<table class="data-table"><thead><tr><th>员工 ID</th><th>姓名</th><th>类型</th><th>状态</th><th>职位 / 组别</th><th>创建时间</th></tr></thead>
+		<tbody>${state.users.map(user => {
+			const info = user.info || {};
+			const details = [info.position || info.role || "", info.group || info.department || ""].filter(Boolean).join(" · ");
+			return `<tr><td>#${esc(user.user_id)}</td><td class="td-title"><div class="title-strong">${esc(user.name)}</div>${user.is_superadmin ? '<div class="subline">超级管理员</div>' : ""}</td><td>${user.is_worker ? '<span class="pill blue">Worker</span>' : '<span class="pill">员工</span>'}</td><td>${statusPill(user.status)}</td><td>${esc(details || "未完善")}</td><td>${fmtTime(user.created_at)}</td></tr>`;
+		}).join("")}</tbody></table>
+	</section>`;
+}
+
+function renderLearningRoute() {
+	if (!state.me?.is_superadmin) return `<div class="surface"><div class="empty">需要超级管理员权限。</div></div>`;
+	const usage = state.learning?.asset_usage_30d || {};
+	const stats = state.evals?.stats || {};
+	const cases = state.evals?.cases || [];
+	const runs = state.evals?.runs || [];
+	return `<div class="metrics">
+		${metric("bulb", "待治理学习", state.learning?.candidates?.length || 0, "当前待审核候选")}
+		${metric("filter", "规则注入", Number(usage.injected || 0), "近30天")}
+		${metric("route", "Skill 候选", Number(usage.candidates || 0), `${Number(usage.loaded || 0)} 次实际加载`)}
+		${metric("activity", "资产异常归因", Number(usage.partial || 0) + Number(usage.failed || 0), `${Number(usage.action_succeeded || 0)} 次动作成功`)}
+		${metric("test-pipe", "评测通过", Number(stats.passing_cases || 0), `${Number(stats.failing_cases || 0)} 失败 · ${Number(stats.enabled_cases || 0)} 启用`)}
+	</div>
+	${queueSection("模型行为评测", cases.length, renderEvalCases(cases), `<button class="btn primary" data-action="run-evals">${icon("player-play")}运行全部启用案例</button>`)}
+	${queueSection("最近评测结果", runs.length, renderEvalRuns(runs), "")}
+	${queueSection("规则与 Skill 使用成效", state.learning?.asset_effectiveness_30d?.length || 0, renderAssetEffectiveness(), "")}
+	${queueSection("待治理学习候选", state.learning?.candidates?.length || 0, renderLearningCandidates(), "")}`;
+}
+
+function renderEvalCases(cases) {
+	if (!cases.length) return `<div class="empty">暂无评测案例。</div>`;
+	return `<table class="data-table"><thead><tr><th>ID</th><th>案例</th><th>渠道</th><th>输入</th><th>状态</th><th></th></tr></thead>
+		<tbody>${cases.map(item => `<tr><td>EVAL-${item.ID || item.id}</td><td class="td-title"><div class="title-strong">${esc(item.Name || item.name)}</div></td><td>${esc(item.Channel || item.channel)}</td><td>${esc(truncate(item.UserInput || item.user_input, 120))}</td><td>${(item.Enabled ?? item.enabled) ? '<span class="pill green">启用</span>' : '<span class="pill">停用</span>'}</td><td><button class="btn" data-action="run-eval" data-id="${item.ID || item.id}">${icon("player-play")}运行</button></td></tr>`).join("")}</tbody></table>`;
+}
+
+function renderEvalRuns(runs) {
+	if (!runs.length) return `<div class="empty">还没有评测记录。</div>`;
+	return `<table class="data-table"><thead><tr><th>时间</th><th>案例</th><th>结果</th><th>工具轨迹</th><th>耗时</th><th>输出</th></tr></thead>
+		<tbody>${runs.map(run => {
+			const details = run.details || {};
+			return `<tr><td>${fmtTime(run.created_at)}</td><td>${esc(run.case_name || `#${run.case_id || ""}`)}</td><td>${run.status === "passed" ? '<span class="pill green">通过</span>' : '<span class="pill red">未通过</span>'}</td><td>${esc((details.tool_calls || []).join(" → ") || "无")}</td><td>${Number(details.duration_ms || 0)}ms</td><td class="td-title">${esc(truncate((details.failures || []).join("；") || run.output, 180))}</td></tr>`;
+		}).join("")}</tbody></table>`;
+}
+
+function renderLearningCandidates() {
+	const items = state.learning?.candidates || [];
+	if (!items.length) return `<div class="empty">当前没有待治理候选。</div>`;
+	return `<table class="data-table"><thead><tr><th>ID</th><th>类型</th><th>标题</th><th>作用域</th><th>价值</th><th>来源</th></tr></thead>
+		<tbody>${items.map(item => `<tr><td>#${item.ID || item.id}</td><td>${esc(item.Kind || item.kind)}</td><td class="td-title"><div class="title-strong">${esc(item.Title || item.title)}</div><div class="subline">${esc(truncate(item.Content || item.content, 160))}</div></td><td>${esc(item.Scope || item.scope)}</td><td>${Number(item.ValueScore ?? item.value_score ?? 0).toFixed(2)}</td><td>${esc(item.SourceType || item.source_type || "")}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function renderAssetEffectiveness() {
+	const items = state.learning?.asset_effectiveness_30d || [];
+	if (!items.length) return `<div class="empty">近30天还没有规则或 Skill 使用记录。</div>`;
+	return `<table class="data-table"><thead><tr><th>资产</th><th>类型</th><th>注入</th><th>候选 / 加载</th><th>动作成功</th><th>部分 / 失败</th><th>最近使用</th></tr></thead>
+		<tbody>${items.map(item => `<tr><td class="td-title"><div class="title-strong">#${item.knowledge_id} ${esc(item.title)}</div></td><td>${esc(item.kind)}</td><td>${Number(item.injected || 0)}</td><td>${Number(item.candidates || 0)} / ${Number(item.loaded || 0)}</td><td>${Number(item.action_succeeded || 0)}</td><td>${Number(item.partial || 0)} / ${Number(item.failed || 0)}</td><td>${fmtTime(item.last_used_at)}</td></tr>`).join("")}</tbody></table>`;
+}
+
 function renderModelRoute() {
   if (!state.me?.is_superadmin) return `<div class="surface"><div class="empty">需要超级管理员权限。</div></div>`;
   const models = state.ai?.loaded_models || [];
@@ -568,7 +724,15 @@ function renderModelRoute() {
 
 function renderOpsRoute() {
   if (!state.me?.is_superadmin) return `<div class="surface"><div class="empty">需要超级管理员权限。</div></div>`;
-  return `
+	const health = state.ops?.product_health || {};
+	const evals = state.ops?.evals || {};
+	return `
+		<div class="metrics">
+			${metric("message-circle", "群聊工作证据", Number(state.ops?.work_evidence?.observed_messages || 0), "近7天")}
+			${metric("folder-up", "待处理材料", Number(state.ops?.materials?.stats?.received || 0) + Number(state.ops?.materials?.stats?.queued || 0) + Number(state.ops?.materials?.stats?.processing || 0) + Number(state.ops?.materials?.stats?.needs_input || 0), `${Number(state.ops?.materials?.stats?.needs_input || 0)} 需补充`)}
+			${metric("alert-triangle", "24小时异常类别", [health.tool_failures_24h, health.action_failures_24h, health.conversation_failures_24h].filter(value => Number(value || 0) > 0).length, "工具 / 动作 / 对话")}
+			${metric("test-pipe", "评测健康", Number(evals.passing_cases || 0), `${Number(evals.failing_cases || 0)} 未通过`)}
+		</div>
     <div class="two-col">
       <section class="surface section">
         <div class="section-head"><h2>生产升级</h2><span class="pill red">高风险</span></div>
@@ -578,7 +742,14 @@ function renderOpsRoute() {
         <div class="section-head"><h2>运维状态</h2></div>
         ${opsTable()}
       </section>
-    </div>`;
+		</div>
+		${queueSection("能力成熟度与使用", state.capabilities.length, renderCapabilityRows(), "")}`;
+}
+
+function renderCapabilityRows() {
+	if (!state.capabilities.length) return `<div class="empty">能力目录为空。</div>`;
+	return `<table class="data-table"><thead><tr><th>能力</th><th>领域</th><th>成熟度</th><th>效果</th><th>近30天调用</th><th>失败</th><th>最后使用</th></tr></thead>
+		<tbody>${state.capabilities.map(item => `<tr><td class="td-title"><div class="title-strong">${esc(item.name)}</div><div class="subline">${esc(truncate(item.description, 100))}</div></td><td>${esc(item.domain)}</td><td>${item.maturity === "stable" ? '<span class="pill green">稳定</span>' : '<span class="pill amber">实验</span>'}</td><td>${esc(item.effect)}</td><td>${Number(item.usage_30d || 0)}</td><td>${Number(item.failures_30d || 0)}</td><td>${fmtTime(item.last_used_at) || "未使用"}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function renderChatRoute() {
@@ -673,6 +844,10 @@ function mountIHTMLWorkspace(generation) {
 function renderInspector() {
   const el = document.querySelector("#inspector");
   if (!el) return;
+	if (state.search?.query) {
+		el.innerHTML = inspectorFrame("搜索结果", "search", `<dl class="kv"><dt>工作对象</dt><dd>${state.search.resources?.length || 0}</dd><dt>可见成员</dt><dd>${state.search.users?.length || 0}</dd></dl>`);
+		return;
+	}
   if (state.route === "chat") {
     el.innerHTML = inspectorFrame("对话上下文", "messages", `<div class="result">临时问题走对话；文件分析、升级、模型切换等高影响动作建议走命令队列。</div>`);
     return;
@@ -681,6 +856,27 @@ function renderInspector() {
     el.replaceChildren();
     return;
   }
+	if (state.route === "people") {
+		const humans = state.users.filter(user => !user.is_worker).length;
+		const workers = state.users.filter(user => user.is_worker).length;
+		el.innerHTML = inspectorFrame("成员概况", "users", `<dl class="kv"><dt>可见成员</dt><dd>${state.users.length}</dd><dt>真实员工</dt><dd>${humans}</dd><dt>AI Worker</dt><dd>${workers}</dd><dt>稳定标识</dt><dd>员工 ID</dd></dl>`);
+		return;
+	}
+	if (state.route === "learning") {
+		const usage = state.learning?.asset_usage_30d || {};
+		const stats = state.evals?.stats || {};
+		el.innerHTML = inspectorFrame("学习健康", "school", `<dl class="kv"><dt>待治理候选</dt><dd>${state.learning?.candidates?.length || 0}</dd><dt>实际加载 Skill</dt><dd>${Number(usage.loaded || 0)}</dd><dt>部分 / 失败归因</dt><dd>${Number(usage.partial || 0)} / ${Number(usage.failed || 0)}</dd><dt>评测通过</dt><dd>${Number(stats.passing_cases || 0)} / ${Number(stats.enabled_cases || 0)}</dd></dl>`);
+		return;
+	}
+	if (state.route === "model") {
+		el.innerHTML = inspectorFrame("模型与推理设置", "brain", modelForm());
+		return;
+	}
+	if (state.route === "ops") {
+		const health = state.ops?.product_health || {};
+		el.innerHTML = inspectorFrame("当前异常", "activity", `<dl class="kv"><dt>对话失败</dt><dd>${Number(health.conversation_failures_24h || 0)}</dd><dt>动作失败</dt><dd>${Number(health.action_failures_24h || 0)}</dd><dt>投递失败</dt><dd>${Number(health.delivery_failures_24h || 0)}</dd><dt>Worker 待输入</dt><dd>${Number(health.worker_needs_input || 0)}</dd></dl>`);
+		return;
+	}
   const selected = selectedItem();
   if (!selected) {
     el.innerHTML = inspectorFrame("上下文检查器", "clipboard-list", `<div class="empty">选择左侧队列中的一行。</div>`);
@@ -1228,9 +1424,11 @@ async function loadRoute(route) {
     }
     if (route === "files") await settleLoads("文件中心", [loadFiles(), loadAdminData(["workers", "capabilities"])]);
     else if (route === "tasks") await settleLoads("任务中心", [loadTasks(), loadSchedules("all"), loadAdminData(["taskQueue", "workerRuns"])]);
+		else if (route === "people") await loadPeople();
     else if (route === "workers") await loadAdminData(["workers"]);
+		else if (route === "learning") await loadAdminData(["learning", "evals"]);
     else if (route === "model") await loadAdminData(["ai", "capabilities"]);
-    else if (route === "ops") await loadAdminData(["ops", "ai", "workers", "actionTurns"]);
+		else if (route === "ops") await loadAdminData(["ops", "ai", "workers", "actionTurns", "capabilities"]);
     else await loadCommandData();
   } catch (err) {
     state.notice = err.message;
@@ -1259,6 +1457,7 @@ async function loadFiles() {
   const data = await api("/api/files?limit=40&since_hours=720");
   state.files = data.files || [];
   state.fileIntakes = data.intakes || [];
+  state.materials = data.materials || [];
 }
 
 async function loadTasks() {
@@ -1275,6 +1474,11 @@ async function loadTasks() {
 async function loadSchedules(status = "active") {
   const data = await api(`/api/schedules?status=${encodeURIComponent(status)}`);
   state.schedules = data.schedules || [];
+}
+
+async function loadPeople() {
+	const data = await api("/api/users?limit=100");
+	state.users = data.users || [];
 }
 
 async function loadAdminData(parts) {
@@ -1296,7 +1500,46 @@ async function loadAdminData(parts) {
   if (parts.includes("actionTurns")) jobs.push(api(`/api/admin/action-turns${state.me?.is_superadmin ? "?scope=all" : ""}`).then(d => { state.actionTurns = d.turns || []; }));
   if (state.me?.is_superadmin && parts.includes("ops")) jobs.push(api("/api/admin/ops").then(d => { state.ops = d; }));
   if (state.me?.is_superadmin && parts.includes("ai")) jobs.push(api("/api/admin/ai-settings").then(d => { state.ai = d; }));
+	if (state.me?.is_superadmin && parts.includes("learning")) jobs.push(api("/api/admin/learning").then(d => { state.learning = d; }));
+	if (state.me?.is_superadmin && parts.includes("evals")) jobs.push(api("/api/admin/evals").then(d => { state.evals = d; }));
   await settleLoads("管理数据", jobs);
+}
+
+async function runEvals(caseID = 0) {
+	try {
+		setResult(caseID ? `正在运行评测 EVAL-${caseID}…` : "正在运行全部启用评测…");
+		renderApp();
+		const data = await api("/api/admin/evals/run", { method: "POST", body: JSON.stringify({ case_id: Number(caseID || 0) }) });
+		const passed = (data.runs || []).filter(run => run.status === "passed").length;
+		setResult(`评测完成：${passed}/${(data.runs || []).length} 通过。`, passed === (data.runs || []).length);
+		await loadAdminData(["learning", "evals", "ops"]);
+	} catch (err) {
+		setResult(err.message, false);
+	}
+	renderApp();
+}
+
+async function performGlobalSearch(query) {
+	query = String(query || "").trim();
+	if (!query) {
+		state.search = null;
+		state.notice = "";
+		renderApp();
+		return;
+	}
+	state.notice = "";
+	state.loading = true;
+	renderApp();
+	try {
+		const data = await api(`/api/search?q=${encodeURIComponent(query)}`);
+		state.search = { query: data.query || query, resources: data.resources || [], users: data.users || [] };
+	} catch (err) {
+		state.notice = err.message;
+		state.search = { query, resources: [], users: [] };
+	} finally {
+		state.loading = false;
+		renderApp();
+	}
 }
 
 function canStartWorkflow() {
@@ -1305,19 +1548,30 @@ function canStartWorkflow() {
 
 function ensureSelection() {
   const selected = selectedItem();
-  if (selected?.item || selected?.kind === "risk") return;
-  if (state.files.length) {
+	const allowed = {
+		command: new Set(["file", "task", "workerRun", "schedule", "worker", "risk"]),
+		files: new Set(["file"]), tasks: new Set(["task", "schedule"]),
+		workers: new Set(["worker", "workerRun"]),
+	};
+	const allowedKinds = allowed[state.route];
+	if (allowedKinds && ((selected?.item && allowedKinds.has(selected.kind)) || (selected?.kind === "risk" && allowedKinds.has("risk")))) return;
+	state.selected = null;
+	if (state.route === "files" && state.files.length) {
     state.selected = { kind: "file", id: state.files[0].id };
-  } else if (taskQueueSource().length) {
+	} else if (state.route === "tasks" && taskQueueSource().length) {
     state.selected = { kind: "task", id: taskQueueSource()[0].id };
-  } else if (state.taskReview.length) {
+	} else if (state.route === "tasks" && state.taskReview.length) {
     state.selected = { kind: "task", id: state.taskReview[0].id };
-  } else if (state.schedules.length) {
+	} else if (state.route === "tasks" && state.schedules.length) {
     state.selected = { kind: "schedule", id: state.schedules[0].id };
-  } else if (state.me?.is_superadmin) {
+	} else if (state.route === "workers" && state.workers.length) {
+		state.selected = { kind: "worker", id: state.workers[0].id };
+	} else if (state.route === "command" && state.files.length) {
+		state.selected = { kind: "file", id: state.files[0].id };
+	} else if (state.route === "command" && taskQueueSource().length) {
+		state.selected = { kind: "task", id: taskQueueSource()[0].id };
+	} else if (state.route === "command" && state.me?.is_superadmin) {
     state.selected = { kind: "risk", id: "model" };
-  } else {
-    state.selected = null;
   }
 }
 
@@ -1382,10 +1636,12 @@ async function uploadFiles() {
   }
   const uploaded = [];
   const failures = [];
+  const batchRef = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
   for (const file of input.files) {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      fd.append("batch_ref", batchRef);
       const data = await api("/api/files", { method: "POST", body: fd });
       if (data.file?.id) {
         uploaded.push(Number(data.file.id));
@@ -1547,6 +1803,7 @@ document.addEventListener("click", async event => {
   const routeBtn = event.target.closest("[data-route]");
   if (routeBtn) {
     state.actionResult = "";
+		state.search = null;
     await loadRoute(routeBtn.dataset.route);
     return;
   }
@@ -1576,6 +1833,9 @@ document.addEventListener("click", async event => {
   } else if (action === "clear-logs") {
     state.logs = [];
     renderLogsOnly();
+	} else if (action === "clear-search") {
+		state.search = null;
+		renderApp();
   } else if (routeFromAction(action)) {
     await loadRoute(routeFromAction(action));
   } else if (action === "select-risk") {
@@ -1586,8 +1846,15 @@ document.addEventListener("click", async event => {
   } else if (action === "toggle-file") {
     const id = Number(btn.dataset.id);
     btn.checked ? state.selectedFileIDs.add(id) : state.selectedFileIDs.delete(id);
+  } else if (action === "toggle-material") {
+		const item = [...state.materials, ...(state.ops?.materials?.active || [])].find(x => Number(x.id) === Number(btn.dataset.id));
+    for (const file of item?.files || []) {
+      if (btn.checked) state.selectedFileIDs.add(Number(file.id));
+      else state.selectedFileIDs.delete(Number(file.id));
+    }
   } else if (action === "batch-select-files") {
-    state.files.slice(0, 10).forEach(f => state.selectedFileIDs.add(Number(f.id)));
+		state.materials.filter(item => item.source !== "workflow" && Number(item.owner_id) === Number(state.me?.id))
+			.slice(0, 10).flatMap(item => item.files || []).forEach(f => state.selectedFileIDs.add(Number(f.id)));
     renderApp();
   } else if (action === "start-material-from-selection") {
     if (!canStartWorkflow()) {
@@ -1614,6 +1881,10 @@ document.addEventListener("click", async event => {
     if (select) select.value = btn.dataset.model;
   } else if (action === "apply-model") {
     await applyModel();
+	} else if (action === "run-evals") {
+		await runEvals();
+	} else if (action === "run-eval") {
+		await runEvals(btn.dataset.id);
   }
 });
 
@@ -1632,6 +1903,10 @@ document.addEventListener("keydown", event => {
     event.preventDefault();
     event.target.closest("form")?.requestSubmit();
   }
+	if (event.target?.id === "globalSearch" && event.key === "Enter") {
+		event.preventDefault();
+		performGlobalSearch(event.target.value);
+	}
 });
 
 if (storage.token || tg) {

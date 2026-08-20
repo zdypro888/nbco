@@ -1,0 +1,76 @@
+schema: 1
+nodes:
+    - id: chat/eval_test.go
+      level: file
+      anchor:
+        file: chat/eval_test.go
+        hash: sha256:d6b537d7462d9e7231caeb9f03597cc2d2e47418628175841c86ddf745fcc93d
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval_test.go#evalContextKey
+      level: decl
+      anchor:
+        file: chat/eval_test.go
+        symbol: evalContextKey
+        hash: sha256:22f726f46400e7c342cb7a98f58fbea1731b734cfa096ad1e5daae9e67935695
+        struct_hash: sha256:4b0bb53f758bd35796f18525d2b3a100fd7031ed976200d1e825b1b4ffaf0d6a
+        doc_struct_hash: sha256:4b0bb53f758bd35796f18525d2b3a100fd7031ed976200d1e825b1b4ffaf0d6a
+        lines: [14, 14]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval_test.go#TestEvalPersistenceContextSurvivesRequestCancellation
+      level: function
+      anchor:
+        file: chat/eval_test.go
+        symbol: TestEvalPersistenceContextSurvivesRequestCancellation
+        hash: sha256:8426f26b7bbe67ba26a6cb6682725da4d072cc758d50d40385a66fbd9f8a83c1
+        struct_hash: sha256:13919aca30e1ee14b5ab899c64723f09bdd2b782b7e6d9f9d4ba3e50a8838a25
+        doc_struct_hash: sha256:13919aca30e1ee14b5ab899c64723f09bdd2b782b7e6d9f9d4ba3e50a8838a25
+        lines: [16, 28]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval_test.go#TestEvaluateAssertionsChecksBehaviorNotWordingIntent
+      level: function
+      anchor:
+        file: chat/eval_test.go
+        symbol: TestEvaluateAssertionsChecksBehaviorNotWordingIntent
+        hash: sha256:9a5eda4aeedc75ae7f0c6154ba821bbe084e379ca5d619941d5b0309eaf547e8
+        struct_hash: sha256:fca65826df95567b19a6ed092408de6bad1e87877d4caed0d80383a5054b1253
+        doc_struct_hash: sha256:fca65826df95567b19a6ed092408de6bad1e87877d4caed0d80383a5054b1253
+        lines: [30, 49]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval_test.go#TestMarkdownTableDetectionCatchesRawModelFormatting
+      level: function
+      anchor:
+        file: chat/eval_test.go
+        symbol: TestMarkdownTableDetectionCatchesRawModelFormatting
+        hash: sha256:375d8b7c1f0a0fcf5294495a2fab73636ff488bd5e70e32c5cdd9f50c98e9c12
+        struct_hash: sha256:2f2fa0f4a910568d6f51a91c4b30dfb6e74be07dff1ded352442222a2ff2caa5
+        doc_struct_hash: sha256:2f2fa0f4a910568d6f51a91c4b30dfb6e74be07dff1ded352442222a2ff2caa5
+        lines: [51, 58]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval_test.go#TestSimulatedEvalToolsNeverInvokeProductionHandler
+      level: function
+      anchor:
+        file: chat/eval_test.go
+        symbol: TestSimulatedEvalToolsNeverInvokeProductionHandler
+        hash: sha256:9a76022f041d251639c33fe793f41a922025d1828ffc8c35a31c0bd3d5a940e3
+        struct_hash: sha256:559681d4e602487baf3a43d2407ef192e67d88414ae366ed9d775651d55d58aa
+        doc_struct_hash: sha256:559681d4e602487baf3a43d2407ef192e67d88414ae366ed9d775651d55d58aa
+        lines: [60, 72]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
+    - id: chat/eval_test.go#TestConversationAssetUsagesDistinguishesCandidatesFromLoadedSkills
+      level: function
+      anchor:
+        file: chat/eval_test.go
+        symbol: TestConversationAssetUsagesDistinguishesCandidatesFromLoadedSkills
+        hash: sha256:b3244d62187a26269765e2889a53c907d4a8f200cc652c44aa9741ed718897ed
+        struct_hash: sha256:2cd7e0c2717d4ba872e09cbedb8f0b104f64660f03722ee2a86315ffb9437265
+        doc_struct_hash: sha256:2cd7e0c2717d4ba872e09cbedb8f0b104f64660f03722ee2a86315ffb9437265
+        lines: [74, 97]
+      status: undigested
+      since: 2026-08-20T06:41:03.169207Z
