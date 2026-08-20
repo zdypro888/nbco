@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/product_loop.go
-        hash: sha256:b48107875f05056df92992d9e8d2ee0c3b818075d9cd43c9ef8e41794699658a
+        hash: sha256:48c6a1d2ebdc66d4a932c3e405d6208413dbfb28adf65d694aeb9344e06a0c0f
         lines: [0, 0]
       status: undigested
       since: 2026-08-20T06:37:01.374657Z
@@ -596,10 +596,10 @@ nodes:
       anchor:
         file: store/product_loop.go
         symbol: ProductHealthStats
-        hash: sha256:d2e8fb8949d213a5b1057132ea444c42fb6f03e72f10d6830cff5785572ef1d5
-        struct_hash: sha256:50e3f6f5f4f71300f84355a036c0a80fb8bea8ad3148d273a5324b7f06a9bfbd
-        doc_struct_hash: sha256:50e3f6f5f4f71300f84355a036c0a80fb8bea8ad3148d273a5324b7f06a9bfbd
-        lines: [593, 602]
+        hash: sha256:2fe4346111bc4a5580a597bc81d0346be5d5a7eea394682e024a4713edcc848c
+        struct_hash: sha256:52d5580ad73569f8ab676c9cf8d713120d532045c1b23d1bf96075831dced0a8
+        doc_struct_hash: sha256:52d5580ad73569f8ab676c9cf8d713120d532045c1b23d1bf96075831dced0a8
+        lines: [593, 614]
       status: undigested
       since: 2026-08-20T06:41:03.169207Z
     - id: store/product_loop.go#Store.ProductHealthStats
@@ -607,9 +607,9 @@ nodes:
       anchor:
         file: store/product_loop.go
         symbol: Store.ProductHealthStats
-        hash: sha256:c754cf16ade45a2dd895dae39e0ec62b8df57a16f998f08e04966a41eca8bb76
-        struct_hash: sha256:d65d1d79cb95ed8828f2f221fb392afc80ad03d878920a570e9c449f35d85464
-        doc_struct_hash: sha256:d65d1d79cb95ed8828f2f221fb392afc80ad03d878920a570e9c449f35d85464
-        lines: [604, 620]
+        hash: sha256:12c4919dad15b84e05e0f9008d8e12c229f88b2ba121f43678c5e03e8e14abf7
+        struct_hash: sha256:1a5afba3ce60c5662cf1d518889b0cd6d14700fd4b5cba3fb9aca024d183b331
+        doc_struct_hash: sha256:1a5afba3ce60c5662cf1d518889b0cd6d14700fd4b5cba3fb9aca024d183b331
+        lines: [616, 654]
       status: undigested
       since: 2026-08-20T06:41:03.169207Z

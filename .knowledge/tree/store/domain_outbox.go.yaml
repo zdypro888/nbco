@@ -1,0 +1,229 @@
+schema: 1
+nodes:
+    - id: store/domain_outbox.go
+      level: file
+      anchor:
+        file: store/domain_outbox.go
+        hash: sha256:9e7448c48d035b6290e872c3073fb6c49e97fdc175d26385ea0a43e78084fafd
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T13:39:44.168373Z
+    - id: store/domain_outbox.go#DomainOutboxPending
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: DomainOutboxPending
+        hash: sha256:55f090404b5942d214e270b6640d46765975dd9a9796f70c38ae02c81937d70d
+        struct_hash: sha256:6d6828979f01c598257628cd2f5908b200c2cbc3515bae5a3cea7e6c209a5c0e
+        doc_struct_hash: sha256:6d6828979f01c598257628cd2f5908b200c2cbc3515bae5a3cea7e6c209a5c0e
+        lines: [13, 13]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#DomainOutboxProcessing
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: DomainOutboxProcessing
+        hash: sha256:e98bc1469e1e28ab63ad2c36eb4bb7e04973192bee207dc4adcc3deec3d66f9f
+        struct_hash: sha256:55c314aa9838bbb02368382dfb047b6451bacb4d379ec4a7976e3ac50945db0d
+        doc_struct_hash: sha256:55c314aa9838bbb02368382dfb047b6451bacb4d379ec4a7976e3ac50945db0d
+        lines: [14, 14]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#DomainOutboxDone
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: DomainOutboxDone
+        hash: sha256:11808fc71909b939e5d2807f871df08369204dc72ebc6148de07c39f5af80fd7
+        struct_hash: sha256:daaac857273f0732c416162c6682bab3df3e46a756f0ec1eb837962706e453ef
+        doc_struct_hash: sha256:daaac857273f0732c416162c6682bab3df3e46a756f0ec1eb837962706e453ef
+        lines: [15, 15]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#DomainOutboxFailed
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: DomainOutboxFailed
+        hash: sha256:e8e484f2a2f3dc815e5e77caa847a388e8347887cdcf15d71429a1d8e906ab17
+        struct_hash: sha256:4d7d22807981a2e30619ef42e94f2f9da430642cd6ea58df4ad2dd3d05d297c1
+        doc_struct_hash: sha256:4d7d22807981a2e30619ef42e94f2f9da430642cd6ea58df4ad2dd3d05d297c1
+        lines: [16, 16]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#domainOutboxClaimLease
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: domainOutboxClaimLease
+        hash: sha256:bd0dbf9b45939115dc7c1adeba6e3b922ac48bb7d0c14fd1ec17d85eb5ca4f16
+        struct_hash: sha256:7ad0f06330d3f1690f54e57fd9ca4fa207c5ea033e568d7792a3b58b6a7f87d1
+        doc_struct_hash: sha256:7ad0f06330d3f1690f54e57fd9ca4fa207c5ea033e568d7792a3b58b6a7f87d1
+        lines: [18, 18]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#domainOutboxMaxAttempts
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: domainOutboxMaxAttempts
+        hash: sha256:be2ae7c90a9112952f1f6ed961e918a5cba63dc473ec39d560646884c7fc7cff
+        struct_hash: sha256:c29e1fa906bbe232f0accfd8d019affde1bb4199b692d51e4e209f562daa3ce2
+        doc_struct_hash: sha256:c29e1fa906bbe232f0accfd8d019affde1bb4199b692d51e4e209f562daa3ce2
+        lines: [19, 19]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#DomainOutboxEvent
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: DomainOutboxEvent
+        hash: sha256:cf5c66a770192e20d40dcf04b0c065115c73b2ca769f9dcbfd49b6889a64a3ed
+        struct_hash: sha256:553404c8c20f3ada56e08401a062d18a01c4617c349aea969b643899c2f3d002
+        doc_struct_hash: sha256:553404c8c20f3ada56e08401a062d18a01c4617c349aea969b643899c2f3d002
+        lines: [22, 36]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#domainOutboxEventCols
+      level: decl
+      anchor:
+        file: store/domain_outbox.go
+        symbol: domainOutboxEventCols
+        hash: sha256:4e0e57e396f36505b2c3e71a464850ee577c03266d4ea190f8404ba6dcdf02d1
+        struct_hash: sha256:19a23d69586bea6902c8ea17b9355f3e67e5dfaac34011601f74ed7ce6278174
+        doc_struct_hash: sha256:19a23d69586bea6902c8ea17b9355f3e67e5dfaac34011601f74ed7ce6278174
+        lines: [38, 38]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#scanDomainOutboxEvent
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: scanDomainOutboxEvent
+        hash: sha256:8f0ff22e609f6c5897c605718ed32176f78b18ea9e4922ce7d0ce85371ea819d
+        struct_hash: sha256:ce4ca033c73930748b9552bdece3fa132771a79322a0a779fdabbb4879760341
+        doc_struct_hash: sha256:ce4ca033c73930748b9552bdece3fa132771a79322a0a779fdabbb4879760341
+        lines: [40, 49]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#Store.EnqueueDomainOutboxEvent
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: Store.EnqueueDomainOutboxEvent
+        hash: sha256:b46d9f257fd3bcb309e6d3f5af8c34a7ae544e394888f7929db84c0c322e8465
+        struct_hash: sha256:dc4c34ff49f22fd7fea7574d1aa46feb6e18b1c5264b6c8c1def7a74ed44db34
+        doc_struct_hash: sha256:90114a4ece3ee7598b30fe119753818c625f1469ac5f78a8eb07f538aaea138a
+        lines: [51, 68]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#enqueueDomainOutboxEventTx
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: enqueueDomainOutboxEventTx
+        hash: sha256:b940761d6bb053afde924e4b3085cf85b7bc938b3cdf532e9222fbc32169b207
+        struct_hash: sha256:6b3f137ae3db2c839d6c20df910cb4490a6882e0f00ab291643bb4a96b2ececd
+        doc_struct_hash: sha256:6b3f137ae3db2c839d6c20df910cb4490a6882e0f00ab291643bb4a96b2ececd
+        lines: [70, 99]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#Store.ClaimDomainOutboxEvents
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: Store.ClaimDomainOutboxEvents
+        hash: sha256:68b575906f321b28738597836b853fd0af1e6fcace972659ad1dd46094dd21a0
+        struct_hash: sha256:5b258c86ae95a53dd8432f00bb92c0f8cd352bc712b1fc45886b0b63b15995ff
+        doc_struct_hash: sha256:ca12a2b5db0a70e00cd1b744989d20b304a690e20ff026791f6d3dff65078b52
+        lines: [101, 152]
+      status: fresh
+      since: 2026-08-20T13:39:44.168302Z
+      entries:
+        - id: e_f8464ac7
+          kind: contract
+          text: domain_outbox_events 用 occurrence_key 表示不可变领域发生项；相同 key 的 topic/payload 不同必须 ErrConflict。消费者只按自己声明的 topic 认领，使用 PostgreSQL 时钟、SKIP LOCKED、短租约和有限重试恢复。
+          confidence: verified
+          at: 2026-08-20T13:39:44.171123Z
+          confirmed_at: 2026-08-20T13:40:41.313298Z
+          author: codex-mcp-client
+        - id: e_d7ae22fe
+          kind: pitfall
+          text: outbox 只解决数据库事实与待处理副作用的原子提交；跨 PostgreSQL 与 Telegram 的发送仍不可能事务原子化，消费者必须继续使用稳定 delivery key 的 Telegram 分片账本，结果不确定时禁止盲目重发。
+          confidence: verified
+          at: 2026-08-20T13:39:44.17359Z
+          confirmed_at: 2026-08-20T13:40:41.731709Z
+          author: codex-mcp-client
+      keywords:
+        - domain outbox
+        - transactional outbox
+        - topic scoped durable queue
+        - lease retry
+        - external side effects
+    - id: store/domain_outbox.go#normalizeDomainOutboxTopics
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: normalizeDomainOutboxTopics
+        hash: sha256:e1dc22c0d22535ed899170c8f1256ddfa920a94f65d72c666a3363726b4daf78
+        struct_hash: sha256:73292a5e9a1a8d2eff59b83419ab1ebca9d4684e88473d0b68f0bf60a8db1a8d
+        doc_struct_hash: sha256:73292a5e9a1a8d2eff59b83419ab1ebca9d4684e88473d0b68f0bf60a8db1a8d
+        lines: [154, 169]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#domainOutboxEventColsWithAlias
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: domainOutboxEventColsWithAlias
+        hash: sha256:1bc4bd985658de08466d09e1bad5e1badb847cacd181ea2d4b2988439152b697
+        struct_hash: sha256:c0458f6d712b1db63555f999b968b9ed24a3f836621e50d789cdccc1100fec1e
+        doc_struct_hash: sha256:c0458f6d712b1db63555f999b968b9ed24a3f836621e50d789cdccc1100fec1e
+        lines: [171, 177]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#Store.CompleteDomainOutboxEvent
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: Store.CompleteDomainOutboxEvent
+        hash: sha256:73e369b7ac925bc6d77de3f20cf360c83c3e2772bd7f3f3984ed77904a426a2c
+        struct_hash: sha256:f21954407ffe739a262992ceaf8cd65e991e8debc0241b742b359d5e2776a675
+        doc_struct_hash: sha256:f21954407ffe739a262992ceaf8cd65e991e8debc0241b742b359d5e2776a675
+        lines: [179, 185]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#Store.RetryDomainOutboxEvent
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: Store.RetryDomainOutboxEvent
+        hash: sha256:e9cdf42fdeb7db25e0b23e45a9c1174ec0090e66784bd02c3692c57bd0c738fb
+        struct_hash: sha256:6b8994582a0b5ec0688b88454b1ff2a459beab665c143d76a4addd033a58a7f3
+        doc_struct_hash: sha256:6b8994582a0b5ec0688b88454b1ff2a459beab665c143d76a4addd033a58a7f3
+        lines: [187, 194]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#Store.FailDomainOutboxEvent
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: Store.FailDomainOutboxEvent
+        hash: sha256:9d3aa8d893a025902260624dd1d27f9c4884adbd2448d86ba815df3f7ee222c4
+        struct_hash: sha256:b41ea2fabb25ee7973088b3b90641da0c0257b4d7eb32b7014ef84a36b093236
+        doc_struct_hash: sha256:b41ea2fabb25ee7973088b3b90641da0c0257b4d7eb32b7014ef84a36b093236
+        lines: [196, 202]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/domain_outbox.go#Store.DeleteExpiredDomainOutboxEvents
+      level: function
+      anchor:
+        file: store/domain_outbox.go
+        symbol: Store.DeleteExpiredDomainOutboxEvents
+        hash: sha256:2686f8504b5aad60965810da29b82515e188432f81fb9efe1a74eaef07e15bb5
+        struct_hash: sha256:08629c21275066ce5b14d3257b52cb87c39ba31cc4207494678e381bf295c751
+        doc_struct_hash: sha256:08629c21275066ce5b14d3257b52cb87c39ba31cc4207494678e381bf295c751
+        lines: [204, 212]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z

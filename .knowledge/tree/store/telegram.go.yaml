@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/telegram.go
-        hash: sha256:bd3bc070640c1f86667eb5270adb6724b397da05a216e84465c056d980da98ae
+        hash: sha256:e4c6c6db0d2e5d51752b38cd092baf4c3bc80912004ee70438100092153f82ab
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: KVTelegramGroupPrefix
-        hash: sha256:c713d1afd9a2a57500d728ac124961ac71ea18bc10973a3b8f6541aa9994e356
-        struct_hash: sha256:6c51a7492d3985a36bd9c78076c130857edef6d838a135d03d99a496b231b02c
-        doc_struct_hash: sha256:6c51a7492d3985a36bd9c78076c130857edef6d838a135d03d99a496b231b02c
-        lines: [12, 12]
+        hash: sha256:de664d8bfa8d2fa5ec263ed338494f1502ac39332fe3bd9bd5dda6528d2734b5
+        struct_hash: sha256:ee296bc59526de6fe03a84385420b60939dafe06f9bb6cf0fd86f1f05a3eaeb8
+        doc_struct_hash: sha256:ee296bc59526de6fe03a84385420b60939dafe06f9bb6cf0fd86f1f05a3eaeb8
+        lines: [13, 13]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#KVTelegramGroupListenPrefix
@@ -24,21 +24,32 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: KVTelegramGroupListenPrefix
-        hash: sha256:d4d6822a37dd239863678bec36ced32e778e772d95ac07617f4438bde91a3ed3
-        struct_hash: sha256:57e461d47a7d4e244bb858b32f79b35346460f28beb2b46abd4a248d34bca5cc
-        doc_struct_hash: sha256:57e461d47a7d4e244bb858b32f79b35346460f28beb2b46abd4a248d34bca5cc
-        lines: [13, 13]
+        hash: sha256:3aa9c1d3dca9a21414f48611b17e7a1619c1cb4a30f69a1e5558797fe82291d5
+        struct_hash: sha256:940aaf7ff62f419c80ff7179663107862b0dcbd1658f1d95aee8e86ef743adb3
+        doc_struct_hash: sha256:940aaf7ff62f419c80ff7179663107862b0dcbd1658f1d95aee8e86ef743adb3
+        lines: [14, 14]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#kvTelegramGroupMembershipPrefix
+      level: decl
+      anchor:
+        file: store/telegram.go
+        symbol: kvTelegramGroupMembershipPrefix
+        hash: sha256:c8893e279d0fc5e460ecb3e441f6faf2fd3ecfb2a9e813ad6d6286113da2a3c5
+        struct_hash: sha256:eab5c65576abed49fd072b1b31fa2fe10da86abb034d282bbdf76e509fc9bd89
+        doc_struct_hash: sha256:eab5c65576abed49fd072b1b31fa2fe10da86abb034d282bbdf76e509fc9bd89
+        lines: [15, 15]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
     - id: store/telegram.go#KVTelegramGroupLastMessagePrefix
       level: decl
       anchor:
         file: store/telegram.go
         symbol: KVTelegramGroupLastMessagePrefix
-        hash: sha256:19988f65e76d8bfc8da46f846cb37b7a3a5e60b26c6ac164c6e5d2c9d26c68ee
-        struct_hash: sha256:362ab77f6932dcfa5200b2f9b2d52f63679eb2a6710dc56d221630772b7fb866
-        doc_struct_hash: sha256:362ab77f6932dcfa5200b2f9b2d52f63679eb2a6710dc56d221630772b7fb866
-        lines: [14, 14]
+        hash: sha256:dd35cba700f6e2dc32c56415e4e7b7f7e6efdc1b6c1553a28cd4781f620ae280
+        struct_hash: sha256:c15018efac6a40a2bf96b2ef4567f22944d1697ef9f02ff237eef87ff9cea1cf
+        doc_struct_hash: sha256:c15018efac6a40a2bf96b2ef4567f22944d1697ef9f02ff237eef87ff9cea1cf
+        lines: [16, 16]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#KVTelegramGroupSeenMemberPrefix
@@ -46,10 +57,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: KVTelegramGroupSeenMemberPrefix
-        hash: sha256:105d6c79086db410a686cc7ba912119fd9cd0e922aca98e5ad882d4dec8925ee
-        struct_hash: sha256:98db184e87184b8e28784c3784b8aa240697fc48ead07d3d96efce8ff7f7d093
-        doc_struct_hash: sha256:98db184e87184b8e28784c3784b8aa240697fc48ead07d3d96efce8ff7f7d093
-        lines: [15, 15]
+        hash: sha256:a072c86e537590438102166c580992e6970c89105f7dbd988d8d2e98bc2f497c
+        struct_hash: sha256:757b40d4e9b38886ae37d96605542af43a9fec4a6a4bda6c718776290f3377c0
+        doc_struct_hash: sha256:757b40d4e9b38886ae37d96605542af43a9fec4a6a4bda6c718776290f3377c0
+        lines: [17, 17]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#KVTelegramGroupAutoInvitePrefix
@@ -57,10 +68,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: KVTelegramGroupAutoInvitePrefix
-        hash: sha256:b073bbe5fbaa83e6fc5f98159f30b61d4ff3a7f85ee85e597b4e736d681c9b02
-        struct_hash: sha256:88600a6c6355a0601e22f6d9d86067b16fe993b6ea93ee6781430ef5987abef5
-        doc_struct_hash: sha256:88600a6c6355a0601e22f6d9d86067b16fe993b6ea93ee6781430ef5987abef5
-        lines: [16, 16]
+        hash: sha256:e06f9ea3e207632bbc6abedc1072032c60c42026436ac2d2890a00e381912489
+        struct_hash: sha256:2fb7ab2353874e9d8536dcb2a9a9671c810a1d8c2428188cad026b452864b4ba
+        doc_struct_hash: sha256:2fb7ab2353874e9d8536dcb2a9a9671c810a1d8c2428188cad026b452864b4ba
+        lines: [18, 18]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#KVTelegramGroupMonitorPrefix
@@ -68,10 +79,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: KVTelegramGroupMonitorPrefix
-        hash: sha256:b0fb3825a9c21a2aaf3941fe066ac992c24b5c3530f2e543f22c4eed72ee71dd
-        struct_hash: sha256:b4dd0a6c6bcc42a7f7ba8e30bab277b4661bfee02a1f72bb621707c40d51eda6
-        doc_struct_hash: sha256:b4dd0a6c6bcc42a7f7ba8e30bab277b4661bfee02a1f72bb621707c40d51eda6
-        lines: [17, 17]
+        hash: sha256:da9649b4b0f58e02208e9e8e351a58193ac4b36f01ca1b80a19ce4c21b5fc6eb
+        struct_hash: sha256:e3374ef4d91ce11d4bc6d64411c9e2581cecbd91d7d4b2265d1dd26a45bf5fc2
+        doc_struct_hash: sha256:e3374ef4d91ce11d4bc6d64411c9e2581cecbd91d7d4b2265d1dd26a45bf5fc2
+        lines: [19, 19]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#KVTelegramPendingEmployeeInvitePrefix
@@ -79,32 +90,54 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: KVTelegramPendingEmployeeInvitePrefix
-        hash: sha256:e458a847de838ea5f5fa1de9caa3ae0ce7c5eef0a6c255f4fabdd6143cf2039a
-        struct_hash: sha256:138bbf1283829e12e8b0ee98e8769f10b6603c08076d224f328182c8aaa562df
-        doc_struct_hash: sha256:138bbf1283829e12e8b0ee98e8769f10b6603c08076d224f328182c8aaa562df
-        lines: [18, 18]
+        hash: sha256:1e86415aa188112eae32f015562b688b744a0c16fe183f9938a68aaae1cfc11e
+        struct_hash: sha256:76c835dbdb5950274f3bad60cfe2a65203e7a4d79c7c39175627141eb65aa710
+        doc_struct_hash: sha256:76c835dbdb5950274f3bad60cfe2a65203e7a4d79c7c39175627141eb65aa710
+        lines: [20, 20]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#DomainTopicTelegramBotMembershipActivated
+      level: decl
+      anchor:
+        file: store/telegram.go
+        symbol: DomainTopicTelegramBotMembershipActivated
+        hash: sha256:fa09a4a149c68e6a909af960c48568285c954191eb828422ee01d0b50b918e03
+        struct_hash: sha256:376c76855f35716165732e8c61a7088d9332ed709eea29dc782b750eb003600b
+        doc_struct_hash: sha256:376c76855f35716165732e8c61a7088d9332ed709eea29dc782b750eb003600b
+        lines: [22, 22]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
     - id: store/telegram.go#TelegramGroupState
       level: decl
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupState
-        hash: sha256:0c531d763c8a59d2af2f2255b742aafe2970b75e5454932ab6de8fb630a47a9e
-        struct_hash: sha256:145110e095cb0dd50f9abad463b52870ba3668447b010735dc370285678d8341
-        doc_struct_hash: sha256:e8d4eabf92d7b27a0d560630dbc8a1f5ceebbabeb0771bab9c9f6dea8a60830a
-        lines: [20, 29]
+        hash: sha256:5df48cdf9120ed0b1963b56fb05aad472b3e16175f4bd58b86cce85748b60ac3
+        struct_hash: sha256:98a837f2e10a39257c89e258663eec7caeb9693f76b173eda89c0a0ecab7f580
+        doc_struct_hash: sha256:f7ef7628bb8641dfe45a65e8e2e0366941a2c5f3c3559ba9e5f400a1991adc0e
+        lines: [24, 34]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#TelegramBotMembershipActivated
+      level: decl
+      anchor:
+        file: store/telegram.go
+        symbol: TelegramBotMembershipActivated
+        hash: sha256:dcdca9114fd1471792d3d5f8f36b959430baed8a0f3e42eb6ebf1213b374bb4c
+        struct_hash: sha256:d023d9ec478bb7e13dc5901ced4620a64e5faaa808bf5daefa630d4200a5dd25
+        doc_struct_hash: sha256:fd15832110229f806c577c45f1adefe57cdec89671a9c583e1b2539f044e7ced
+        lines: [36, 44]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
     - id: store/telegram.go#TelegramGroupSeenMember
       level: decl
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupSeenMember
-        hash: sha256:593bb6133e39c77ebaf1ea9b074b72567b9a4ac28da7ac0146ff98316c2f167d
-        struct_hash: sha256:ae7bfa0cfe490887212c5fe8652ebfbf353d23f781f87df036070bc2a88df956
-        doc_struct_hash: sha256:ae7bfa0cfe490887212c5fe8652ebfbf353d23f781f87df036070bc2a88df956
-        lines: [31, 40]
+        hash: sha256:e4433cc620fd8981562e2305e93da26f70e29a25807b65532195c8f05557b73f
+        struct_hash: sha256:4678be6e02da2a67cef2f66add68620dff892da5fe85f32034a7b9a269ea1eba
+        doc_struct_hash: sha256:4678be6e02da2a67cef2f66add68620dff892da5fe85f32034a7b9a269ea1eba
+        lines: [46, 55]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#TelegramPendingEmployeeInvite
@@ -112,10 +145,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: TelegramPendingEmployeeInvite
-        hash: sha256:297b3e869a7504089f104529b05465454276101c6add50c934c8638d9378f39c
-        struct_hash: sha256:f063428428e79aaef716cedd83a5a083df9bcaf721c65f1ff43c0cd7fa216cb5
-        doc_struct_hash: sha256:f063428428e79aaef716cedd83a5a083df9bcaf721c65f1ff43c0cd7fa216cb5
-        lines: [42, 49]
+        hash: sha256:e41fb1625d37c11fdd495f389e91f7cab5e38006ef40908efc86a624931500e4
+        struct_hash: sha256:002c0eb67c96785ee77bf7a74e1884b149ed10f3fe2d5dbb06b2c30529f5a4c1
+        doc_struct_hash: sha256:002c0eb67c96785ee77bf7a74e1884b149ed10f3fe2d5dbb06b2c30529f5a4c1
+        lines: [57, 64]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#TelegramGroupMonitor
@@ -123,10 +156,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupMonitor
-        hash: sha256:1659d64898ebd34df1139718f568c9feb2747b3ad8259fb234d32476cfa41186
-        struct_hash: sha256:8c59f150bb38b81c2525a14dfaf8d1cf975ccb5be65058b7102506ba3e193f0f
-        doc_struct_hash: sha256:3e43e4659969d750d8c6e0f3696e2a4c9b11255c9764190348f1c4ab7e0afb26
-        lines: [51, 71]
+        hash: sha256:879b35ee2d3da12f2a6648948f2bc930f8eea32bcfe143f6bbe3ed9b3170852c
+        struct_hash: sha256:4184850cb4518137108b83744446a621962fc11855de11c67751cc164419029b
+        doc_struct_hash: sha256:cadbdda1d278ce55e5df8cd2f49d7dc1a1f3828b4f82ef7d700743727596a2f0
+        lines: [66, 86]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#telegramGroupKey
@@ -134,21 +167,32 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: telegramGroupKey
-        hash: sha256:91da362c4ca1c17a611cecd6aaac06d071934c74c646840714a60c00c203bf4e
-        struct_hash: sha256:2c21792d0e4a809976d4918273cac921e3e94d82fcf34596be8cd89a76418e98
-        doc_struct_hash: sha256:2c21792d0e4a809976d4918273cac921e3e94d82fcf34596be8cd89a76418e98
-        lines: [73, 75]
+        hash: sha256:f7268fa49b52550029ae21405df57444d4db9e4065fa87e694e4be5245a0bd80
+        struct_hash: sha256:8c35623dd31065f8253f36309270c7b35ad25c1e1c278dc7391891835b800cc9
+        doc_struct_hash: sha256:8c35623dd31065f8253f36309270c7b35ad25c1e1c278dc7391891835b800cc9
+        lines: [88, 90]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#telegramGroupMembershipKey
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: telegramGroupMembershipKey
+        hash: sha256:408dc2db2ebb01176785624034a6917bc80fcb578be8098c1882c49c53d1c953
+        struct_hash: sha256:81a0b15891402fc3f8e4ead19959e648e11ea31f93b8df00012e19670631f6d4
+        doc_struct_hash: sha256:81a0b15891402fc3f8e4ead19959e648e11ea31f93b8df00012e19670631f6d4
+        lines: [92, 94]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
     - id: store/telegram.go#TelegramGroupListenKey
       level: function
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupListenKey
-        hash: sha256:1e76f71ec3c3181606ac1e0d22406c68b464a5457c6600101bd2b214474a6777
-        struct_hash: sha256:3f145a2beba399c9ea014fe847382a58a14de4dcda5d647051de97df6416aaee
-        doc_struct_hash: sha256:3f145a2beba399c9ea014fe847382a58a14de4dcda5d647051de97df6416aaee
-        lines: [77, 79]
+        hash: sha256:1b237620a191287b26f0b48e6aa12ff8a8b5f185f6802ebde4fd91e1ea5e66c1
+        struct_hash: sha256:ad4d8a6c5bf967383fea117b474358b44a186d6279de4db4aa392ac9b9aac28c
+        doc_struct_hash: sha256:ad4d8a6c5bf967383fea117b474358b44a186d6279de4db4aa392ac9b9aac28c
+        lines: [96, 98]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#TelegramGroupAutoInviteKey
@@ -156,10 +200,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupAutoInviteKey
-        hash: sha256:1c51558b99444f62e7e8740df34050a2c5ddca00cca9e798919883179b4c4d23
-        struct_hash: sha256:d6993f2ae6a1a34d1fb6b05cf1679c77ad597f1a80b75f6ac33e6a77cb8321c6
-        doc_struct_hash: sha256:d6993f2ae6a1a34d1fb6b05cf1679c77ad597f1a80b75f6ac33e6a77cb8321c6
-        lines: [81, 83]
+        hash: sha256:c819444c80bc61d41d90d3fa9cf2a84b5346b4d46a51def1bd3f3be1d627fb6c
+        struct_hash: sha256:6328c069ca75563a050d74a790c18471bc0abeb6ee09a0439a406534ab68b370
+        doc_struct_hash: sha256:6328c069ca75563a050d74a790c18471bc0abeb6ee09a0439a406534ab68b370
+        lines: [100, 102]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#TelegramGroupMonitorKey
@@ -167,10 +211,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupMonitorKey
-        hash: sha256:78a98a163afc22c6b8441bf32e83e2737afe28b6c1124d82767fcebbe8439994
-        struct_hash: sha256:575f9ffcb21382de1818d547881c9cb6ef1f19d38666dbfb32b5ebc8470f0361
-        doc_struct_hash: sha256:575f9ffcb21382de1818d547881c9cb6ef1f19d38666dbfb32b5ebc8470f0361
-        lines: [85, 87]
+        hash: sha256:2466a92b707e4c6e90a28bb8b3691ff5d809ee8386415ccac32aa9273126e85e
+        struct_hash: sha256:e188e4da1324023b62a351c60f68558a0a3a56e16be675a54a25fe22fe2bc800
+        doc_struct_hash: sha256:e188e4da1324023b62a351c60f68558a0a3a56e16be675a54a25fe22fe2bc800
+        lines: [104, 106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#TelegramPendingEmployeeInviteKey
@@ -178,10 +222,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: TelegramPendingEmployeeInviteKey
-        hash: sha256:9639b42eaee36fedc03dbedb5700dc003b52072e852b64c6eec438e0ff6b51aa
-        struct_hash: sha256:05d56b19932d7f6a7c97f0a6e54cffa28d115d806fcdb7d33b4231d959f70f04
-        doc_struct_hash: sha256:05d56b19932d7f6a7c97f0a6e54cffa28d115d806fcdb7d33b4231d959f70f04
-        lines: [89, 91]
+        hash: sha256:10962e234032a539faf67bc044870d14d9b2160e4325d4ffb08b8ae9bbe630e8
+        struct_hash: sha256:0be017d57b79f90b432a7c08986241753873f70e61e6600b32ad8d51136c7ed7
+        doc_struct_hash: sha256:0be017d57b79f90b432a7c08986241753873f70e61e6600b32ad8d51136c7ed7
+        lines: [108, 110]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#telegramGroupLastMessageKey
@@ -189,10 +233,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: telegramGroupLastMessageKey
-        hash: sha256:3f67781dec8ca050091b95729b9ccdb52b10f1c0b752f4c7040c10ead911d635
-        struct_hash: sha256:7b0477da01c0753c13a0c584a1ae56fbc56de27e57b422f130e053b55e16d208
-        doc_struct_hash: sha256:7b0477da01c0753c13a0c584a1ae56fbc56de27e57b422f130e053b55e16d208
-        lines: [93, 95]
+        hash: sha256:b4fd339753d40594bc60f8199569c2bd15580cc1e8638b546d660e8819757729
+        struct_hash: sha256:12f2342c4692ed3db37c690adcb89a8d5fa8649075e093c740d16995cbb23889
+        doc_struct_hash: sha256:12f2342c4692ed3db37c690adcb89a8d5fa8649075e093c740d16995cbb23889
+        lines: [112, 114]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#telegramGroupSeenMemberKey
@@ -200,10 +244,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: telegramGroupSeenMemberKey
-        hash: sha256:58bcc988f075f9924246dedcc11582c49e04729231b69cbd55b8c0181d680384
-        struct_hash: sha256:3bc2222bde02f012f0ce681c74d419dddeca5ae4bbabf2696533f9af7f425bb2
-        doc_struct_hash: sha256:3bc2222bde02f012f0ce681c74d419dddeca5ae4bbabf2696533f9af7f425bb2
-        lines: [97, 99]
+        hash: sha256:abee1a2968f0cab051cf3ad9df5c438eca1d64f44b939191ec89440d73afaa28
+        struct_hash: sha256:09b6943478c4fc1cc0aee9b5f9ab489f053ca4565c08af1578e1a011695c737c
+        doc_struct_hash: sha256:09b6943478c4fc1cc0aee9b5f9ab489f053ca4565c08af1578e1a011695c737c
+        lines: [116, 118]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#Store.SaveTelegramGroupState
@@ -214,7 +258,7 @@ nodes:
         hash: sha256:fe0e6787605e33983279dd7d9ae945a6019edad06ddc4d66205e58bbb1b683f9
         struct_hash: sha256:f9cb1464bd30cf4d14b2129c337f45128d3c9564914001ee4601b30a1917203d
         doc_struct_hash: sha256:f9cb1464bd30cf4d14b2129c337f45128d3c9564914001ee4601b30a1917203d
-        lines: [108, 142]
+        lines: [120, 154]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -229,171 +273,39 @@ nodes:
         - group state full replacement
         - 初始化测试
         - membership observation merge
-    - id: store/telegram.go#Store.TelegramGroupState
+    - id: store/telegram.go#Store.SetTelegramGroupListen
       level: function
       anchor:
         file: store/telegram.go
-        symbol: Store.TelegramGroupState
-        hash: sha256:8aebbd82d4c10e7afd0188ad0599607b0a453afa92c74893ab47337be0fc9000
-        struct_hash: sha256:53d7186ec805ca405a5ac7fb11f481004a7eec18958fdb03a072e5271f31fcb0
-        doc_struct_hash: sha256:53d7186ec805ca405a5ac7fb11f481004a7eec18958fdb03a072e5271f31fcb0
-        lines: [115, 128]
+        symbol: Store.SetTelegramGroupListen
+        hash: sha256:95017347be032844daae6044749217e46afd6154019aa5e9ad0e3fd7aa01729d
+        struct_hash: sha256:eb024a26688bbf1e3f24f190c224d577931dcb4c09a814dcb467de7b8ec1b547
+        doc_struct_hash: sha256:e840fc400ca17c56729c3c2ab838832ddb1ac70791b652a2edbb73abf1996e22
+        lines: [156, 164]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.ListTelegramGroupStates
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/telegram.go#Store.SetTelegramGroupTitle
       level: function
       anchor:
         file: store/telegram.go
-        symbol: Store.ListTelegramGroupStates
-        hash: sha256:bf095536a3f9e8ebf063a67d94b88c04300e90f45e21f38d3c2c84fe959b3f33
-        struct_hash: sha256:c45c71a4a270866a53ae394ea90cd4c9e51031c3bebc87efbc8c4e8ecaa154aa
-        doc_struct_hash: sha256:c45c71a4a270866a53ae394ea90cd4c9e51031c3bebc87efbc8c4e8ecaa154aa
-        lines: [130, 156]
+        symbol: Store.SetTelegramGroupTitle
+        hash: sha256:2da88ec744156caa1d4c67115109bbd5b83bf3f8668e4b639ab8b19859fb5f2c
+        struct_hash: sha256:0dcc0ce9a4ff82d24b8ff8e93e09fa2110e17b7ca8e820aea34332cb67ab3b5e
+        doc_struct_hash: sha256:f1eea76bcd94ef6aa93db71a4a19780ac246c606abc02c6f6d829cdfd243acfb
+        lines: [166, 176]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.SaveTelegramGroupLastMessage
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/telegram.go#Store.updateTelegramGroupView
       level: function
       anchor:
         file: store/telegram.go
-        symbol: Store.SaveTelegramGroupLastMessage
-        hash: sha256:d1e3c3d802036dd8eabdc89ac4161fda8dfe9d3c099e52dc20bc96743b6a98bd
-        struct_hash: sha256:58f7d4ff4dfa3a01e37af4f277d32ff629c4d287336e246e4d805b3fc1213b91
-        doc_struct_hash: sha256:58f7d4ff4dfa3a01e37af4f277d32ff629c4d287336e246e4d805b3fc1213b91
-        lines: [158, 163]
+        symbol: Store.updateTelegramGroupView
+        hash: sha256:675ecefa14e19761806cc62fd2fb84dc33d293010af6f62f62ac363ec2a03e6f
+        struct_hash: sha256:73ae7d19ac1dfd4f2114bcbdc077be2ac278aca87c7b51a219c5d214ed94c8db
+        doc_struct_hash: sha256:73ae7d19ac1dfd4f2114bcbdc077be2ac278aca87c7b51a219c5d214ed94c8db
+        lines: [178, 221]
       status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.TelegramGroupLastMessage
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.TelegramGroupLastMessage
-        hash: sha256:1451911f4b1571ffeb55969d28dbf357eb7e349f210ba917d1acf0800e142050
-        struct_hash: sha256:760cb5ed5a59ebbb5351eb460321136f2891d548174a0b3edeec3f7de2fe2405
-        doc_struct_hash: sha256:760cb5ed5a59ebbb5351eb460321136f2891d548174a0b3edeec3f7de2fe2405
-        lines: [165, 178]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.SaveTelegramGroupSeenMember
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.SaveTelegramGroupSeenMember
-        hash: sha256:5f3d0950f38b1582006ea9844ce8eaa445d195ff1993acd058f52d8cbc40ec9e
-        struct_hash: sha256:2d79c68d75d23b91b794aa48301f277af1109598e8c28bb99276c4a63b890fd4
-        doc_struct_hash: sha256:2d79c68d75d23b91b794aa48301f277af1109598e8c28bb99276c4a63b890fd4
-        lines: [180, 192]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.ListTelegramGroupSeenMembers
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.ListTelegramGroupSeenMembers
-        hash: sha256:acdc64eb2a27378ab7d399eef80cc99d5b99a24418aaa719147c4a8c645ba0b5
-        struct_hash: sha256:68d272d2079e0d668701957e21dac654c0226b3121e94b5716368faa7887e9e0
-        doc_struct_hash: sha256:68d272d2079e0d668701957e21dac654c0226b3121e94b5716368faa7887e9e0
-        lines: [194, 220]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.SaveTelegramPendingEmployeeInvite
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.SaveTelegramPendingEmployeeInvite
-        hash: sha256:344ed2e188a9955c08399e66e01c802291c89e843bdaa710aed4fe5bfbb1ac06
-        struct_hash: sha256:32a6f8031fdbdba6e0ab28cc14b3bd45f6db18c680191df3934f7ae57b211713
-        doc_struct_hash: sha256:32a6f8031fdbdba6e0ab28cc14b3bd45f6db18c680191df3934f7ae57b211713
-        lines: [222, 231]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.TelegramPendingEmployeeInvite
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.TelegramPendingEmployeeInvite
-        hash: sha256:e217d552332fdc5847a1870309384294c4cda762019c4495fd40d309c475d999
-        struct_hash: sha256:58245f63e3aa7cfb50006501ce648bece06f49c6b2ebad5ac60453d40563ec30
-        doc_struct_hash: sha256:58245f63e3aa7cfb50006501ce648bece06f49c6b2ebad5ac60453d40563ec30
-        lines: [233, 250]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.ClearTelegramPendingEmployeeInvite
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.ClearTelegramPendingEmployeeInvite
-        hash: sha256:645d7e57c1ae45f0f3416bebc258f11bea85f9742668aaef2d05599c5e2d6b92
-        struct_hash: sha256:b5c22f3cfe925f820fba05a12ba95a356ab004d1a47f0d1036cb2cb861a94e32
-        doc_struct_hash: sha256:b5c22f3cfe925f820fba05a12ba95a356ab004d1a47f0d1036cb2cb861a94e32
-        lines: [252, 254]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.SaveTelegramGroupMonitor
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.SaveTelegramGroupMonitor
-        hash: sha256:58b4434470310e28f69d08780c91c0f802ec3625a013482188f7b9dd2b6f3e68
-        struct_hash: sha256:c0375d0a895e55d7259c2bc44d389ca4036f7fe51b0b19d2f340e5a1364d6b99
-        doc_struct_hash: sha256:c0375d0a895e55d7259c2bc44d389ca4036f7fe51b0b19d2f340e5a1364d6b99
-        lines: [256, 266]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.UpdateTelegramGroupMonitor
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.UpdateTelegramGroupMonitor
-        hash: sha256:d3795b16502286d0ee26a12285b28acdd21e463978e0b5b3211be044d96b30c5
-        struct_hash: sha256:f8cd71e14557d0b2bea720c53965ea5fafd27927667867badc5eac36bade98fe
-        doc_struct_hash: sha256:1ef5865e5c19dcecea9bea9a073e2cd848ee433eb9cedea0024bd42d181f8e3b
-        lines: [268, 312]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#normalizeTelegramGroupMonitor
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: normalizeTelegramGroupMonitor
-        hash: sha256:ee7aa07bb9bbcbf9522664b8e6e6207aa868cd89f9ffc00dbc7081bd5fb9686d
-        struct_hash: sha256:3cdbb4ef1b7a620b15be9ca1f30af5a3919ab8f64acef77c4bbd2a6ee94bea2e
-        doc_struct_hash: sha256:3cdbb4ef1b7a620b15be9ca1f30af5a3919ab8f64acef77c4bbd2a6ee94bea2e
-        lines: [314, 334]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.TelegramGroupMonitor
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.TelegramGroupMonitor
-        hash: sha256:4c8ebf731c9e7e36fbff30755f683c61447d91e5471167a1bcc74562cb8a9cad
-        struct_hash: sha256:44c695ccfa7e2c07e52cc561d76c013ad19929c51d0870b7cf6fc074201402b1
-        doc_struct_hash: sha256:44c695ccfa7e2c07e52cc561d76c013ad19929c51d0870b7cf6fc074201402b1
-        lines: [336, 352]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.ListTelegramGroupMonitors
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.ListTelegramGroupMonitors
-        hash: sha256:94af68aa199eb6653ef51122584e94ea201b26f03a0d1249a4d681babed0b996
-        struct_hash: sha256:a497689d3f1925b48d6295957d71966e0c9bc972bbeacb3fb70bd963d8073cdb
-        doc_struct_hash: sha256:a497689d3f1925b48d6295957d71966e0c9bc972bbeacb3fb70bd963d8073cdb
-        lines: [354, 371]
-      status: undigested
-      since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#telegramGroupStatusActive
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: telegramGroupStatusActive
-        hash: sha256:61b16d5cf41468070e2c9f535a8fca471ad6d1b81d15be88c946f5312a0793d9
-        struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
-        doc_struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
-        lines: [219, 226]
-      status: fresh
-      since: 2026-08-20T08:21:06.460873Z
+      since: 2026-08-20T13:40:03.420324Z
     - id: store/telegram.go#Store.MergeTelegramGroupObservation
       level: function
       anchor:
@@ -402,7 +314,7 @@ nodes:
         hash: sha256:db5ac42029201283c7f8990e476d1a5169a5fa7af87bc30f833e6894b7fcd8c5
         struct_hash: sha256:3b6b5ef580f716f412a0b8fe5eae5dfd01a883f0768142ceb4a5f8d44aab08e6
         doc_struct_hash: sha256:dac81f7058649cd2f49a24d52fcd6520b7c382771e9508c70d0b0c20030e0c4b
-        lines: [211, 266]
+        lines: [223, 278]
       status: fresh
       since: 2026-08-20T12:56:34.466535Z
     - id: store/telegram.go#Store.ApplyTelegramBotMembershipUpdate
@@ -410,10 +322,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: Store.ApplyTelegramBotMembershipUpdate
-        hash: sha256:9785b7f7487e4afcd4dc7cc52550494267c30c206ff5c63de85193d23145db0c
-        struct_hash: sha256:0dfc5903989bb674e695fbaf741ae30129d481efbcc86b47ac566dca8140791b
-        doc_struct_hash: sha256:4101539428fd247bbbefe1bfa3606af1f748babbbb973271816ddbb2f5fc8340
-        lines: [268, 369]
+        hash: sha256:e616b2b8ed956f6e8a24f47521d91fbeb232251c781a95bf141cff67914eb0a6
+        struct_hash: sha256:ddb2fe956d1a809220b39f819c1c17141eb976af339e17ea3a53bebecd402081
+        doc_struct_hash: sha256:74bac99fadd45252b535d47d40d55ec9c319a7a668820e2e4f083446f33f2302
+        lines: [280, 396]
       status: fresh
       since: 2026-08-20T13:18:38.761455Z
       entries:
@@ -423,16 +335,202 @@ nodes:
           confidence: inferred
           at: 2026-08-20T13:19:03.304604Z
           author: codex-mcp-client
+          superseded_by: e_aaea1249
         - id: e_1c6bdec3
           kind: pitfall
           text: 普通群消息和 new_chat_members/left_chat_member 服务字段不得调用此入口；它们没有 Bot 自身成员状态的单一权威职责，必须分别走 MergeTelegramGroupObservation/成员观察。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T13:19:03.306347Z
+          confirmed_at: 2026-08-20T13:44:23.701052Z
+          author: codex-mcp-client
+        - id: e_aaea1249
+          kind: contract
+          text: ApplyTelegramBotMembershipUpdate 只接受带正 update_id 和精确 status 的 my_chat_member 事实；按群 advisory lock 原子应用有序成员状态，并在同一事务中为 inactive→active 写入唯一的 telegram.bot_membership.activated outbox 事件。返回值只表示本次是否新建事件，调用方不得直接执行欢迎发送。
+          confidence: verified
+          at: 2026-08-20T13:39:34.332257Z
+          confirmed_at: 2026-08-20T13:44:23.175504Z
           author: codex-mcp-client
       keywords:
         - authoritative telegram membership update
-        - my_chat_member update_id ordering
+        - transactional outbox
         - inactive active transition
+        - my_chat_member update_id ordering
         - group listen preservation
       lineage:
         - store/telegram.go#Store.TransitionTelegramGroupMembership
+    - id: store/telegram.go#telegramBotMembershipActivatedOccurrenceKey
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: telegramBotMembershipActivatedOccurrenceKey
+        hash: sha256:af26432fe9d019cff2ef2dc201bb6e98c8d294cff52b296f76a627ab48a320e8
+        struct_hash: sha256:34c1d7f1db5f01c87ea609c05869105d79d156acfb2e9511534c938e09ae996d
+        doc_struct_hash: sha256:34c1d7f1db5f01c87ea609c05869105d79d156acfb2e9511534c938e09ae996d
+        lines: [398, 400]
+      status: undigested
+      since: 2026-08-20T13:40:03.420324Z
+    - id: store/telegram.go#telegramGroupStatusActive
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: telegramGroupStatusActive
+        hash: sha256:61b16d5cf41468070e2c9f535a8fca471ad6d1b81d15be88c946f5312a0793d9
+        struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
+        doc_struct_hash: sha256:575de490f19283e2d2de40b0cf529a65b902d443ca806dae03dcea8e7c3bba94
+        lines: [402, 409]
+      status: suspect
+      since: 2026-08-20T08:21:06.460873Z
+    - id: store/telegram.go#Store.TelegramGroupState
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.TelegramGroupState
+        hash: sha256:93055b7297e9bccaaccdcd837a96ccfd4990a8f80dc39f6b18e8ea7ace1bec77
+        struct_hash: sha256:f86d98056596b5a079d6c2704f544de74aafd82c496e4fa1a855635ef08f07da
+        doc_struct_hash: sha256:f86d98056596b5a079d6c2704f544de74aafd82c496e4fa1a855635ef08f07da
+        lines: [411, 424]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.ListTelegramGroupStates
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.ListTelegramGroupStates
+        hash: sha256:f2a82a0c8d1580a5f22348f354244a70ebf1d9c53303ec4a3f3f75504d6b2d21
+        struct_hash: sha256:1a2f1fad1d1c546a062985c0fd2794b6544923198fe6d545ab2119c36e148c9d
+        doc_struct_hash: sha256:1a2f1fad1d1c546a062985c0fd2794b6544923198fe6d545ab2119c36e148c9d
+        lines: [426, 452]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.SaveTelegramGroupLastMessage
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.SaveTelegramGroupLastMessage
+        hash: sha256:73e6bb9f5cda98701ed7f385c7ce371879f410a0e2548df7da99476d9f242b8a
+        struct_hash: sha256:36ba7773a7e80ae0d429cb5d4de4727c6ce3c18a77419afa08508583d8863863
+        doc_struct_hash: sha256:36ba7773a7e80ae0d429cb5d4de4727c6ce3c18a77419afa08508583d8863863
+        lines: [454, 467]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.TelegramGroupLastMessage
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.TelegramGroupLastMessage
+        hash: sha256:f089b7dd5405f2a270bb957cbb47575bd7b892deff0b6d5c2a47769864f02c1d
+        struct_hash: sha256:b41224453d3b968f2abb8989173ea1d93216ce80a924025506753f118a7f9c48
+        doc_struct_hash: sha256:b41224453d3b968f2abb8989173ea1d93216ce80a924025506753f118a7f9c48
+        lines: [469, 482]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.SaveTelegramGroupSeenMember
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.SaveTelegramGroupSeenMember
+        hash: sha256:b70125c7265f15ea1c80e9eb81b32ce361dac409e7f7293a115cf0ac4f8796cf
+        struct_hash: sha256:673d9b6d8bcf981f2f3050a87d450806b2f0efc586b8e8ad51bd1269e97c78e1
+        doc_struct_hash: sha256:673d9b6d8bcf981f2f3050a87d450806b2f0efc586b8e8ad51bd1269e97c78e1
+        lines: [484, 534]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.ListTelegramGroupSeenMembers
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.ListTelegramGroupSeenMembers
+        hash: sha256:8af7210afaa898da0e05690b4f26a19ca4b04dcfdf764541cf6c144a22579ab4
+        struct_hash: sha256:70ffa3d479d0334be25b6d014b3b8510599e5b4c5cc1a84633af33479df84904
+        doc_struct_hash: sha256:70ffa3d479d0334be25b6d014b3b8510599e5b4c5cc1a84633af33479df84904
+        lines: [536, 562]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.SaveTelegramPendingEmployeeInvite
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.SaveTelegramPendingEmployeeInvite
+        hash: sha256:431c5963f62212d6db074c887961d304ddfb6003ec83aa2cfbccc377ba4e1822
+        struct_hash: sha256:bf49086e7088cac532815df4b24e70e356561e29eef8b9b299dcb69ffe415495
+        doc_struct_hash: sha256:bf49086e7088cac532815df4b24e70e356561e29eef8b9b299dcb69ffe415495
+        lines: [564, 573]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.TelegramPendingEmployeeInvite
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.TelegramPendingEmployeeInvite
+        hash: sha256:81ed3edc06fdb050f73ca38be0a4c095d16ebff4566ab4dc6d09102d3e55a88a
+        struct_hash: sha256:6ed19cec20ee41eaca8ef75cb20ac6a63169adef688b625fec8f5a0d2beb8736
+        doc_struct_hash: sha256:6ed19cec20ee41eaca8ef75cb20ac6a63169adef688b625fec8f5a0d2beb8736
+        lines: [575, 592]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.ClearTelegramPendingEmployeeInvite
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.ClearTelegramPendingEmployeeInvite
+        hash: sha256:db32d422645b2017ada39851c4616f2e9baeca898db96a19d1ea24ba1ff0a4f5
+        struct_hash: sha256:613f364b63162113c1bb9cb215f3481ed138e386193313719f4118685d99f33e
+        doc_struct_hash: sha256:613f364b63162113c1bb9cb215f3481ed138e386193313719f4118685d99f33e
+        lines: [594, 596]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.SaveTelegramGroupMonitor
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.SaveTelegramGroupMonitor
+        hash: sha256:9aaf13b52c17f64e84e7f43e1117464dbc9ec45b1cbbfd3977ccb8d895f2cd48
+        struct_hash: sha256:e96e692aab848bbfdf348b4d34c0e6570db5e099b87af98eda414ac05b344fec
+        doc_struct_hash: sha256:e96e692aab848bbfdf348b4d34c0e6570db5e099b87af98eda414ac05b344fec
+        lines: [598, 608]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.UpdateTelegramGroupMonitor
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.UpdateTelegramGroupMonitor
+        hash: sha256:dab629657e8d9b99a2a237929e6edc6de9d084ba9f7944085bd6ea4b11c48ff7
+        struct_hash: sha256:d41954fba8fa5f944ba1bc9c04c7527b483a5d29e970deb3cf91b44214cfd5b3
+        doc_struct_hash: sha256:fbcc4ae6851b645967fcded0aa1b74de6e5ce0b8b558316d5b7079f8e4b3696d
+        lines: [610, 654]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#normalizeTelegramGroupMonitor
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: normalizeTelegramGroupMonitor
+        hash: sha256:97c41374eb6d320866ea7d7a3fbbd4505ab113b9a91337d35b88d3ea9a22683b
+        struct_hash: sha256:dbb8f52a35d53c709a21c94a89d8726425f465ad35b9776563f34cec20f13a49
+        doc_struct_hash: sha256:dbb8f52a35d53c709a21c94a89d8726425f465ad35b9776563f34cec20f13a49
+        lines: [656, 676]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.TelegramGroupMonitor
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.TelegramGroupMonitor
+        hash: sha256:3261ab228cde51453bcb6b10983a31b6aac4e822de143ef3a9d460c151aa778f
+        struct_hash: sha256:a0df51605a439ece9891825353cf4bb5c7c41c0ceaee217152d3fa6420e592eb
+        doc_struct_hash: sha256:a0df51605a439ece9891825353cf4bb5c7c41c0ceaee217152d3fa6420e592eb
+        lines: [678, 694]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
+    - id: store/telegram.go#Store.ListTelegramGroupMonitors
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.ListTelegramGroupMonitors
+        hash: sha256:7a9b1cacca342651860d7d7e309baa5cea6700f0e4fc584e730a401db280f96b
+        struct_hash: sha256:c2ceca5a3d8610030e5015b1175d65887561a34e48ab3ca68ba471e66b2c5cce
+        doc_struct_hash: sha256:c2ceca5a3d8610030e5015b1175d65887561a34e48ab3ca68ba471e66b2c5cce
+        lines: [696, 713]
+      status: undigested
+      since: 2026-07-19T18:32:51.345695Z
