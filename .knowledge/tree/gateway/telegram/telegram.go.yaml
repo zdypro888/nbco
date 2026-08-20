@@ -477,9 +477,9 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleMyChatMember
-        hash: sha256:61476347313519a7a1798e5a2c22e596974deaaea1268dda24525f435314ace7
-        struct_hash: sha256:669cda7f0aae4dcba3cb6fa651106a08d8a5ca97807400df985dc832300f4535
-        doc_struct_hash: sha256:669cda7f0aae4dcba3cb6fa651106a08d8a5ca97807400df985dc832300f4535
+        hash: sha256:a4ba77a42fb695e2c26a07ef011056e3f71640cfe6c440c1c2c9934f6d18a839
+        struct_hash: sha256:f1a9a763db423672212fa0320c06afd8c04e8bc56aeffb4fa16f37db074ace41
+        doc_struct_hash: sha256:f1a9a763db423672212fa0320c06afd8c04e8bc56aeffb4fa16f37db074ace41
         lines: [1175, 1186]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -488,10 +488,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleGroupServiceMessage
-        hash: sha256:d72eac801e841ae6092d503decd1ed0cea669097066772c1874c44b0ae797ff3
-        struct_hash: sha256:0b99320d59839472cab86676351d2dc96908c1a089ce772e167193d9a7e8035b
-        doc_struct_hash: sha256:0b99320d59839472cab86676351d2dc96908c1a089ce772e167193d9a7e8035b
-        lines: [1188, 1211]
+        hash: sha256:84ffba98ac714fc7c2bd09564965b5a776ab482f7631dd12d0ce9f3e9d573952
+        struct_hash: sha256:5d8b70c982c6f66f86c24977ba024e44ee5fbc02561945b47ba1ced4088fd4fb
+        doc_struct_hash: sha256:5d8b70c982c6f66f86c24977ba024e44ee5fbc02561945b47ba1ced4088fd4fb
+        lines: [1188, 1214]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.saveGroupState
@@ -1936,38 +1936,6 @@ nodes:
         lines: [3294, 3297]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: gateway/telegram/telegram.go#Gateway.applyBotGroupMembership
-      level: function
-      anchor:
-        file: gateway/telegram/telegram.go
-        symbol: Gateway.applyBotGroupMembership
-        hash: sha256:aa348c51ed590637b7c425b942625f8d8ccfc4684546a9f6fadc2994c105b2d8
-        struct_hash: sha256:8a329ee9f3ff18779e526e29978e9eb88812f6504eee4b1f7a85b767b8b397db
-        doc_struct_hash: sha256:393ff774dae1329d1d8526246b2822394d024910a679fafd2db298025855dc1f
-        lines: [1213, 1239]
-      status: fresh
-      since: 2026-08-20T08:21:06.472877Z
-      entries:
-        - id: e_c78766e4
-          kind: contract
-          text: Bot 自身的 my_chat_member 与群服务消息可能描述同一次加入/离开；两条入口必须统一调用 Store.TransitionTelegramGroupMembership，并且只有其 joined=true 时发送欢迎语。
-          confidence: verified
-          at: 2026-08-20T08:21:11.723937Z
-          confirmed_at: 2026-08-20T12:57:29.07877Z
-          author: codex-mcp-client
-        - id: e_434f722d
-          kind: pitfall
-          text: 活跃身份之间的变化（member/administrator/creator/restricted）不是重新入群，不能重发欢迎，也不能覆盖用户已关闭的群监听开关。
-          confidence: verified
-          at: 2026-08-20T08:21:11.725347Z
-          confirmed_at: 2026-08-20T12:57:28.719135Z
-          author: codex-mcp-client
-      keywords:
-        - telegram bot 入群重复欢迎
-        - my_chat_member
-        - new_chat_members
-        - 群成员状态迁移
-        - 监听状态
     - id: gateway/telegram/telegram.go#Gateway.addInboundClaim
       level: function
       anchor:
@@ -2087,3 +2055,54 @@ nodes:
         lines: [1307, 1319]
       status: fresh
       since: 2026-08-20T12:56:34.449532Z
+    - id: gateway/telegram/telegram.go#Gateway.applyMyChatMemberUpdate
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.applyMyChatMemberUpdate
+        hash: sha256:4b644b78754d99fe48011068e3159fab512908d005889bf8cb9c8a0db92e4533
+        struct_hash: sha256:28d5daeb612744c2969fbd4a234b118559e31febabe3c02056b2e01a54fad713
+        doc_struct_hash: sha256:556415a3e9514ca3b7b6827987bfda214c2cce2e6d14d661b457591b76723899
+        lines: [1216, 1234]
+      status: fresh
+      since: 2026-08-20T13:18:38.744747Z
+      entries:
+        - id: e_c78766e4
+          kind: contract
+          text: Bot 自身的 my_chat_member 与群服务消息可能描述同一次加入/离开；两条入口必须统一调用 Store.TransitionTelegramGroupMembership，并且只有其 joined=true 时发送欢迎语。
+          confidence: inferred
+          at: 2026-08-20T08:21:11.723937Z
+          confirmed_at: 2026-08-20T12:57:29.07877Z
+          author: codex-mcp-client
+          superseded_by: e_bd07565e
+        - id: e_434f722d
+          kind: pitfall
+          text: 活跃身份之间的变化（member/administrator/creator/restricted）不是重新入群，不能重发欢迎，也不能覆盖用户已关闭的群监听开关。
+          confidence: verified
+          at: 2026-08-20T08:21:11.725347Z
+          confirmed_at: 2026-08-20T13:18:57.273372Z
+          author: codex-mcp-client
+        - id: e_bd07565e
+          kind: contract
+          text: Bot 自身成员生命周期只有 my_chat_member 一个权威入口：handleMyChatMember 调用 applyMyChatMemberUpdate；new_chat_members/left_chat_member 只作服务消息成员观察和消费，绝不写 Bot 成员状态或触发欢迎。
+          confidence: inferred
+          at: 2026-08-20T13:18:51.808194Z
+          author: codex-mcp-client
+      keywords:
+        - my_chat_member single owner
+        - telegram bot membership lifecycle
+        - 服务消息不触发欢迎
+        - bot 入群根因
+      lineage:
+        - gateway/telegram/telegram.go#Gateway.applyBotGroupMembership
+    - id: gateway/telegram/telegram.go#Gateway.routeUpdate
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.routeUpdate
+        hash: sha256:bced957df922ba22b19d6df46d442de20dcc14ece7795ab6bb1e571cc51a5b4a
+        struct_hash: sha256:6e9ebed8b3eb89d844bcba29f687ad2d7ab052de507628bce23ea6cb3ba4818c
+        doc_struct_hash: sha256:e9249497f169d9b53ae54958673297af86b52487aa14b02c228a3a5946399a0f
+        lines: [764, 808]
+      status: fresh
+      since: 2026-08-20T13:18:38.759117Z

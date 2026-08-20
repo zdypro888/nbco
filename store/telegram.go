@@ -265,15 +265,13 @@ func (s *Store) MergeTelegramGroupObservation(ctx context.Context, st TelegramGr
 	return tx.Commit(ctx)
 }
 
-// TransitionTelegramGroupMembership atomically records whether the bot is an
-// active member of a group. Telegram emits both my_chat_member and a service
-// message for one join; only the first observer of an inactive -> active
-// transition receives joined=true. Existing deployments are initialized from
-// their persisted group state, so a later role update does not look like a new
-// join.
-func (s *Store) TransitionTelegramGroupMembership(ctx context.Context, st TelegramGroupState, active bool) (joined bool, err error) {
-	if st.ChatID == 0 {
-		return false, nil
+// ApplyTelegramBotMembershipUpdate atomically applies an ordered
+// my_chat_member update. becameActive is true only when the persisted aggregate
+// moves from inactive to active; retries and role refinements do not create
+// another lifecycle transition.
+func (s *Store) ApplyTelegramBotMembershipUpdate(ctx context.Context, st TelegramGroupState, active bool) (becameActive bool, err error) {
+	if st.ChatID == 0 || st.LastMembershipUpdateID <= 0 || strings.TrimSpace(st.Status) == "" {
+		return false, fmt.Errorf("应用 Telegram bot 成员更新: chat_id、update_id 和 status 必填")
 	}
 	if st.UpdatedAt.IsZero() {
 		st.UpdatedAt = time.Now()
@@ -322,25 +320,12 @@ func (s *Store) TransitionTelegramGroupMembership(ctx context.Context, st Telegr
 	if !markerFound && previousFound {
 		previousActive = telegramGroupStatusActive(previous.Status)
 	}
-	joined = active && !previousActive
-	if strings.TrimSpace(st.Status) == "" {
-		switch {
-		case previousFound && telegramGroupStatusActive(previous.Status) == active:
-			st.Status = previous.Status
-		case active:
-			st.Status = "member"
-		default:
-			st.Status = "left"
-		}
-	}
-	if previousFound && st.LastMembershipUpdateID == 0 {
-		st.LastMembershipUpdateID = previous.LastMembershipUpdateID
-	}
+	becameActive = active && !previousActive
 
 	listen := false
 	if active {
-		listen = joined
-		if !joined {
+		listen = becameActive
+		if !becameActive {
 			var listenRaw string
 			err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key = $1`, TelegramGroupListenKey(st.ChatID)).Scan(&listenRaw)
 			switch {
@@ -380,7 +365,7 @@ func (s *Store) TransitionTelegramGroupMembership(ctx context.Context, st Telegr
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
-	return joined, nil
+	return becameActive, nil
 }
 
 func telegramGroupStatusActive(status string) bool {

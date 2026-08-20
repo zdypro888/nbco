@@ -776,7 +776,7 @@ func (g *Gateway) routeUpdate(ctx context.Context, update *models.Update) bool {
 	if msg == nil {
 		return false
 	}
-	if g.handleGroupServiceMessage(ctx, update.ID, msg) {
+	if g.handleGroupServiceMessage(ctx, msg) {
 		return false
 	}
 	// 路由阶段只判「有没有内容」，不做媒体加工：真正的转写/文本组装在
@@ -1182,57 +1182,52 @@ func (g *Gateway) handleMyChatMember(ctx context.Context, updateID int64, upd *m
 	newStatus := upd.NewChatMember.Type
 	slog.Info("TG bot 群成员状态变化", "chat", chat.ID, "title", chat.Title,
 		"from", upd.From.ID, "old", oldStatus, "new", newStatus)
-	g.applyBotGroupMembership(ctx, updateID, chat, newStatus, chatMemberIsActive(&upd.NewChatMember), true)
+	g.applyMyChatMemberUpdate(ctx, updateID, chat, newStatus, chatMemberIsActive(&upd.NewChatMember))
 }
 
-func (g *Gateway) handleGroupServiceMessage(ctx context.Context, updateID int64, msg *models.Message) bool {
+func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Message) bool {
 	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
 	if !isGroup {
 		return false
 	}
+	selfID := g.botID()
 	botAdded := false
 	for _, u := range msg.NewChatMembers {
-		g.saveSeenMember(ctx, msg.Chat.ID, &u, "", msg.ID)
-		if g.botID() != 0 && u.ID == g.botID() {
+		if selfID != 0 && u.ID == selfID {
 			botAdded = true
+			continue
 		}
+		g.saveSeenMember(ctx, msg.Chat.ID, &u, "", msg.ID)
 	}
 	if botAdded {
-		slog.Info("TG bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
-		g.applyBotGroupMembership(ctx, updateID, msg.Chat, models.ChatMemberTypeMember, true, false)
+		// new_chat_members is a service-message observation. Telegram's
+		// my_chat_member update is the sole owner of the bot's membership
+		// lifecycle and its resulting side effects.
+		slog.Info("TG 服务消息观察到 bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
 		return true
 	}
-	if msg.LeftChatMember != nil && g.botID() != 0 && msg.LeftChatMember.ID == g.botID() {
-		slog.Info("TG bot 离开群", "chat", msg.Chat.ID, "title", msg.Chat.Title)
-		g.applyBotGroupMembership(ctx, updateID, msg.Chat, models.ChatMemberTypeLeft, false, false)
+	if msg.LeftChatMember != nil && selfID != 0 && msg.LeftChatMember.ID == selfID {
+		slog.Info("TG 服务消息观察到 bot 离开群", "chat", msg.Chat.ID, "title", msg.Chat.Title)
 		return true
 	}
 	return false
 }
 
-// applyBotGroupMembership is the sole gateway path for bot membership facts.
-// Telegram can report one transition through multiple update types, so the
-// store decides atomically whether this is the first active observation.
-func (g *Gateway) applyBotGroupMembership(ctx context.Context, updateID int64, chat models.Chat, status models.ChatMemberType, active, authoritative bool) {
-	storedStatus := string(status)
-	if !authoritative {
-		// Service messages prove the active/inactive transition but do not carry
-		// the bot's exact administrator role. An authoritative my_chat_member
-		// update, when present, remains the source of that detail.
-		storedStatus = ""
-	}
-	joined, err := g.store.TransitionTelegramGroupMembership(ctx, store.TelegramGroupState{
+// applyMyChatMemberUpdate applies the authoritative Telegram update for the
+// bot's own membership. Service messages never enter this lifecycle path.
+func (g *Gateway) applyMyChatMemberUpdate(ctx context.Context, updateID int64, chat models.Chat, status models.ChatMemberType, active bool) {
+	becameActive, err := g.store.ApplyTelegramBotMembershipUpdate(ctx, store.TelegramGroupState{
 		ChatID:                 chat.ID,
 		Title:                  chat.Title,
 		Type:                   string(chat.Type),
-		Status:                 storedStatus,
+		Status:                 string(status),
 		LastMembershipUpdateID: updateID,
 	}, active)
 	if err != nil {
 		slog.Warn("保存 Telegram bot 群成员状态失败", "chat", chat.ID, "status", status, "err", err)
 		return
 	}
-	if joined {
+	if becameActive {
 		// 加群操作者不一定能映射到公司用户；先确保群会话在首次 @ 时可用。
 		g.reply(ctx, chat.ID, g.groupReadyMessage())
 	}

@@ -415,3 +415,14 @@ nodes:
         lines: [643, 679]
       status: fresh
       since: 2026-08-20T12:56:34.471059Z
+    - id: gateway/telegram/telegram_test.go#TestBotServiceMembershipDoesNotOwnLifecycle
+      level: function
+      anchor:
+        file: gateway/telegram/telegram_test.go
+        symbol: TestBotServiceMembershipDoesNotOwnLifecycle
+        hash: sha256:fe6c652409e27d5d82291282d22676f4c321d76347135b1768f93bb1fe4266d4
+        struct_hash: sha256:41208aed5f0bf9f227e19159230f32dbec71c4295cef25c1ba430510d0a2a950
+        doc_struct_hash: sha256:41208aed5f0bf9f227e19159230f32dbec71c4295cef25c1ba430510d0a2a950
+        lines: [70, 87]
+      status: fresh
+      since: 2026-08-20T13:18:38.764632Z

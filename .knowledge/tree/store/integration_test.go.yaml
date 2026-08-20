@@ -1273,3 +1273,14 @@ nodes:
         lines: [6289, 6337]
       status: fresh
       since: 2026-08-20T12:56:34.522159Z
+    - id: store/integration_test.go#TestTelegramBotMembershipUpdatesAreAtomicAndOrdered
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestTelegramBotMembershipUpdatesAreAtomicAndOrdered
+        hash: sha256:4f63b60608945b39a68dd4e8b01759005b1da58122209919bb17b2ff2164796c
+        struct_hash: sha256:16a3425207d7c0c679668fb1ec19153750d2c0c6ba17b66823a66df600b7b55a
+        doc_struct_hash: sha256:16a3425207d7c0c679668fb1ec19153750d2c0c6ba17b66823a66df600b7b55a
+        lines: [6138, 6281]
+      status: fresh
+      since: 2026-08-20T13:18:38.788956Z

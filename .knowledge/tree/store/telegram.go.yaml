@@ -383,17 +383,6 @@ nodes:
         lines: [354, 371]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: store/telegram.go#Store.TransitionTelegramGroupMembership
-      level: function
-      anchor:
-        file: store/telegram.go
-        symbol: Store.TransitionTelegramGroupMembership
-        hash: sha256:b8d980aeb65b5312e278e5d1aa9fa7e1e45b70d749a20a2096e83a36f07985b3
-        struct_hash: sha256:14e08bd9926dc1cf8c71b6c28dbbbfbb1487a7bc6f478fa685c720e2b608e78a
-        doc_struct_hash: sha256:43d5a4caa2b9b3b7586313a591e90b0fa4ea40e5010f7f7b61d49c710a2066e7
-        lines: [268, 384]
-      status: fresh
-      since: 2026-08-20T08:21:06.459475Z
     - id: store/telegram.go#telegramGroupStatusActive
       level: function
       anchor:
@@ -416,3 +405,34 @@ nodes:
         lines: [211, 266]
       status: fresh
       since: 2026-08-20T12:56:34.466535Z
+    - id: store/telegram.go#Store.ApplyTelegramBotMembershipUpdate
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.ApplyTelegramBotMembershipUpdate
+        hash: sha256:9785b7f7487e4afcd4dc7cc52550494267c30c206ff5c63de85193d23145db0c
+        struct_hash: sha256:0dfc5903989bb674e695fbaf741ae30129d481efbcc86b47ac566dca8140791b
+        doc_struct_hash: sha256:4101539428fd247bbbefe1bfa3606af1f748babbbb973271816ddbb2f5fc8340
+        lines: [268, 369]
+      status: fresh
+      since: 2026-08-20T13:18:38.761455Z
+      entries:
+        - id: e_20cc9841
+          kind: contract
+          text: ApplyTelegramBotMembershipUpdate 只接受带正 update_id 和精确 status 的 my_chat_member 事实；按 chat advisory lock 原子比较 update_id，拒绝陈旧更新，并且只有持久状态 inactive→active 返回 becameActive=true。
+          confidence: inferred
+          at: 2026-08-20T13:19:03.304604Z
+          author: codex-mcp-client
+        - id: e_1c6bdec3
+          kind: pitfall
+          text: 普通群消息和 new_chat_members/left_chat_member 服务字段不得调用此入口；它们没有 Bot 自身成员状态的单一权威职责，必须分别走 MergeTelegramGroupObservation/成员观察。
+          confidence: inferred
+          at: 2026-08-20T13:19:03.306347Z
+          author: codex-mcp-client
+      keywords:
+        - authoritative telegram membership update
+        - my_chat_member update_id ordering
+        - inactive active transition
+        - group listen preservation
+      lineage:
+        - store/telegram.go#Store.TransitionTelegramGroupMembership

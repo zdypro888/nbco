@@ -6135,9 +6135,14 @@ func TestTelegramGroupState(t *testing.T) {
 	}
 }
 
-func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
+func TestTelegramBotMembershipUpdatesAreAtomicAndOrdered(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
+	if _, err := s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: -2000, Type: "supergroup", Status: "member",
+	}, true); err == nil {
+		t.Fatal("membership writer accepted a non-authoritative observation without update_id")
+	}
 
 	// Upgrade compatibility: an existing active state predates the transition
 	// marker and must not be announced as a new join.
@@ -6146,8 +6151,8 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	joined, err := s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: -2001, Title: "旧群", Type: "supergroup", Status: "administrator",
+	joined, err := s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: -2001, Title: "旧群", Type: "supergroup", Status: "administrator", LastMembershipUpdateID: 100,
 	}, true)
 	if err != nil || joined {
 		t.Fatalf("existing active group joined=%v err=%v", joined, err)
@@ -6162,8 +6167,8 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			joined, err := s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-				ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "member",
+			joined, err := s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+				ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 200,
 			}, true)
 			joinedResults <- joined
 			errResults <- err
@@ -6184,7 +6189,7 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 		}
 	}
 	if joinCount != 1 {
-		t.Fatalf("concurrent join announcements = %d, want 1", joinCount)
+		t.Fatalf("concurrent inactive-to-active transitions = %d, want 1", joinCount)
 	}
 	if listen, err := s.GetKV(ctx, TelegramGroupListenKey(chatID)); err != nil || listen != "1" {
 		t.Fatalf("join should enable listening: value=%q err=%v", listen, err)
@@ -6195,8 +6200,8 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 	if err := s.SetTelegramGroupListen(ctx, chatID, false); err != nil {
 		t.Fatal(err)
 	}
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "administrator",
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "administrator", LastMembershipUpdateID: 201,
 	}, true)
 	if err != nil || joined {
 		t.Fatalf("active role change joined=%v err=%v", joined, err)
@@ -6205,51 +6210,40 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 	if err != nil || state.Listen {
 		t.Fatalf("role change should preserve disabled listening: state=%+v err=%v", state, err)
 	}
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: chatID, Title: "并发群", Type: "supergroup",
-	}, true)
-	if err != nil || joined {
-		t.Fatalf("imprecise active observation joined=%v err=%v", joined, err)
-	}
-	state, err = s.TelegramGroupState(ctx, chatID)
-	if err != nil || state.Status != "administrator" {
-		t.Fatalf("imprecise observation downgraded role: state=%+v err=%v", state, err)
-	}
-
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "left",
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "left", LastMembershipUpdateID: 202,
 	}, false)
 	if err != nil || joined {
 		t.Fatalf("leave joined=%v err=%v", joined, err)
 	}
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "member",
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 203,
 	}, true)
 	if err != nil || !joined {
 		t.Fatalf("rejoin joined=%v err=%v", joined, err)
 	}
 
-	// Reordered webhook retries cannot roll membership backward. Equal update IDs
-	// may still refine an imprecise service observation with an authoritative role.
+	// Reordered webhook retries cannot roll membership backward. Replaying the
+	// same authoritative update is idempotent.
 	const orderedChatID int64 = -2003
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", LastMembershipUpdateID: 300,
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 300,
 	}, true)
 	if err != nil || !joined {
 		t.Fatalf("ordered first join joined=%v err=%v", joined, err)
 	}
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
-		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "administrator", LastMembershipUpdateID: 300,
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 300,
 	}, true)
 	if err != nil || joined {
-		t.Fatalf("same update role refinement joined=%v err=%v", joined, err)
+		t.Fatalf("same update replay joined=%v err=%v", joined, err)
 	}
-	if _, err := s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+	if _, err := s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
 		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "left", LastMembershipUpdateID: 301,
 	}, false); err != nil {
 		t.Fatal(err)
 	}
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
 		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 299,
 	}, true)
 	if err != nil || joined {
@@ -6278,7 +6272,7 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 	if err != nil || state.Title != "新群名" || state.Status != "left" || state.LastMembershipUpdateID != 301 || state.Listen {
 		t.Fatalf("title-only update overwrote group state: state=%+v err=%v", state, err)
 	}
-	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+	joined, err = s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
 		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 302,
 	}, true)
 	if err != nil || !joined {

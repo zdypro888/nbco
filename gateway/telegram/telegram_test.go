@@ -67,6 +67,25 @@ func TestTelegramDirectCommandClassification(t *testing.T) {
 	}
 }
 
+func TestBotServiceMembershipDoesNotOwnLifecycle(t *testing.T) {
+	g := &Gateway{self: &models.User{ID: 77, IsBot: true, Username: "nbco_bot"}}
+	chat := models.Chat{ID: -1001, Type: models.ChatTypeSupergroup, Title: "项目群"}
+
+	if !g.handleGroupServiceMessage(context.Background(), &models.Message{
+		ID: 10, Chat: chat, NewChatMembers: []models.User{{ID: 77, IsBot: true}},
+	}) {
+		t.Fatal("bot-added service message must be consumed")
+	}
+	if !g.handleGroupServiceMessage(context.Background(), &models.Message{
+		ID: 11, Chat: chat, LeftChatMember: &models.User{ID: 77, IsBot: true},
+	}) {
+		t.Fatal("bot-left service message must be consumed")
+	}
+	// The gateway intentionally has no store or Telegram client. Reaching the
+	// authoritative membership writer or welcome sender from either service
+	// message would make this test fail instead of being silently deduplicated.
+}
+
 func TestGatewayTelegramHandshakeRetriesUntilAPIReady(t *testing.T) {
 	attempts := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
