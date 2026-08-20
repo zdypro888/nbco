@@ -2856,6 +2856,90 @@ func TestReadDataWorkEvidenceUsesStableIdentityAndRelationshipVisibility(t *test
 	}
 }
 
+func TestSemanticDocumentsDoNotDuplicateRawGroupCommunications(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "semantic-evidence-owner", true)
+	communication, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "telegram_group_message", SourceKey: "semantic-communication",
+		Kind: WorkEvidenceCommunication, Content: "群消息原文", ActorUserID: &owner.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deliverable, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "worker_run", SourceKey: "semantic-deliverable",
+		Kind: WorkEvidenceDeliverable, Content: "已验证交付物", ActorUserID: &owner.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs, err := s.SemanticDocuments(ctx, "work_evidence", nil, nil, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(docs) != 1 || docs[0].EntityID != fmt.Sprint(deliverable.ID) ||
+		docs[0].EntityID == fmt.Sprint(communication.ID) || !strings.Contains(docs[0].Content, "已验证交付物") {
+		t.Fatalf("work evidence semantic documents = %+v", docs)
+	}
+}
+
+func TestGroupMessageProvenanceBackfillUsesOnlyUnambiguousExactActors(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "backfill-owner", true)
+	alice := mkUser(t, s, "backfill-alice", false)
+	ambiguousA := mkUser(t, s, "backfill-duplicate", false)
+	ambiguousB, err := s.CreateUser(ctx, ambiguousA.Name, false, Identity{Provider: "test", ExternalID: "backfill-duplicate-2"})
+	if err != nil || ambiguousB.ID == ambiguousA.ID {
+		t.Fatalf("create duplicate display name = %+v, %v", ambiguousB, err)
+	}
+	session, err := s.StartGroupSession(ctx, owner.ID, "telegram:group:-9001", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliceID, err := s.AppendMessage(ctx, session.ID, "user", "【"+alice.Name+"】完成历史任务")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambiguousID, err := s.AppendMessage(ctx, session.ID, "user", "【"+ambiguousA.Name+"】不能猜身份")
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration, err := migrationsFS.ReadFile("migrations/0090_backfill_group_message_provenance.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.pool.Exec(ctx, string(migration)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	aliceMessage, err := s.ChatMessageByID(ctx, aliceID)
+	if err != nil || aliceMessage.ActorUserID == nil || *aliceMessage.ActorUserID != alice.ID ||
+		aliceMessage.ActorDisplayName != alice.Name || aliceMessage.Provider != "telegram" ||
+		aliceMessage.ExternalChatRef != "-9001" || aliceMessage.SourceCreatedAt == nil {
+		t.Fatalf("backfilled exact actor = %+v, %v", aliceMessage, err)
+	}
+	ambiguousMessage, err := s.ChatMessageByID(ctx, ambiguousID)
+	if err != nil || ambiguousMessage.ActorUserID != nil || ambiguousMessage.ActorDisplayName != ambiguousA.Name {
+		t.Fatalf("ambiguous actor must stay unbound = %+v, %v", ambiguousMessage, err)
+	}
+	var evidenceCount int
+	var evidenceActor *int64
+	var evidenceContent string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*), max(actor_user_id), max(content)
+		   FROM work_evidence WHERE source_message_id = $1`, aliceID).
+		Scan(&evidenceCount, &evidenceActor, &evidenceContent); err != nil {
+		t.Fatal(err)
+	}
+	if evidenceCount != 1 || evidenceActor == nil || *evidenceActor != alice.ID || evidenceContent != "完成历史任务" {
+		t.Fatalf("backfilled evidence count=%d actor=%v content=%q", evidenceCount, evidenceActor, evidenceContent)
+	}
+}
+
 func dataReadIDs(t *testing.T, rows []json.RawMessage, field string) map[int64]bool {
 	t.Helper()
 	out := map[int64]bool{}
@@ -6841,7 +6925,11 @@ func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstID, err := s.AppendMessage(ctx, first.ID, "user", "视频项目本周发布路线图")
+	sourceAt := time.Date(2026, 8, 20, 9, 30, 0, 0, time.UTC)
+	firstID, err := s.AppendMessageWithEnvelope(ctx, first.ID, "user", "视频项目本周发布路线图", MessageEnvelope{
+		Provider: "telegram", ExternalChatRef: "-1001", ExternalMessageRef: "41",
+		ActorUserID: &owner.ID, ActorDisplayName: "历史显示名", SourceCreatedAt: &sourceAt,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -6883,6 +6971,26 @@ func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
 	})
 	if err != nil || len(dataRows) != 2 {
 		t.Fatalf("superadmin query_data group messages = %s, %v", dataRows, err)
+	}
+	actorRows, err := s.ReadData(ctx, owner.ID, true, DataReadQuery{
+		Source: "chat_messages", EntityIDs: []string{fmt.Sprint(firstID)}, Limit: 1,
+	})
+	if err != nil || len(actorRows) != 1 {
+		t.Fatalf("stable actor query = %s, %v", actorRows, err)
+	}
+	var actorRow struct {
+		Provider         string     `json:"provider"`
+		ActorUserID      int64      `json:"actor_user_id"`
+		ActorName        string     `json:"actor_name"`
+		ActorDisplayName string     `json:"actor_display_name"`
+		SourceCreatedAt  *time.Time `json:"source_created_at"`
+	}
+	if err := json.Unmarshal(actorRows[0], &actorRow); err != nil {
+		t.Fatal(err)
+	}
+	if actorRow.Provider != "telegram" || actorRow.ActorUserID != owner.ID || actorRow.ActorName != owner.Name ||
+		actorRow.ActorDisplayName != "历史显示名" || actorRow.SourceCreatedAt == nil || !actorRow.SourceCreatedAt.Equal(sourceAt) {
+		t.Fatalf("stable actor row = %+v", actorRow)
 	}
 	doc, err := s.MessageSemanticDocumentByID(ctx, firstID)
 	if err != nil || doc.Channel != "telegram:group:-1001" || doc.UserID != owner.ID {

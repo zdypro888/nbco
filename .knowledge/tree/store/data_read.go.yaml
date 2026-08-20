@@ -57,18 +57,19 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: dataSourceDefs
-        hash: sha256:0c577ade553073d9847ff195807e0690fa36acfbb0d389039c112676fd049343
-        struct_hash: sha256:4d21e8a5aa9d090aa8ca3a14ae45f7299f999dc2ee712d4c7504362fb9c4d312
-        doc_struct_hash: sha256:4d21e8a5aa9d090aa8ca3a14ae45f7299f999dc2ee712d4c7504362fb9c4d312
-        lines: [50, 783]
+        hash: sha256:e48fb10a01549012e031b5bef80bc4559b18396a9f86f4243c81322c5af43f0d
+        struct_hash: sha256:d4295566bcb7cc9d83582e08a3f2e35da66e28c9cd9c8ba652aed24f8c370f79
+        doc_struct_hash: sha256:d4295566bcb7cc9d83582e08a3f2e35da66e28c9cd9c8ba652aed24f8c370f79
+        lines: [51, 796]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_f2b63eaa
           kind: contract
           text: dataSourceDefs 是 AI 通用读接口的权限边界而非裸表目录：每个 source 的 SQL 必须先按调用者稳定 user_id/授权图裁剪，再应用 EntityIDs 语义候选；semanticFields 只能包含该 source 对所有可查询者均可公开的字段，字段级隐藏内容不得进入全局向量索引。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T13:02:08.191323Z
+          confirmed_at: 2026-08-20T14:59:32.911758Z
           author: codex-mcp-client
       keywords:
         - query_data curated sources
@@ -146,10 +147,10 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: Store.SemanticDocuments
-        hash: sha256:2dc4571e03f3f9db495776ac48a255891e0cbc32c0416c8b3c23d38d234a18e3
-        struct_hash: sha256:1de7e4120dcef9d280d664223f148647af3afb4784213ca56ae733e7490db0bc
-        doc_struct_hash: sha256:5489fb7c3c029afba436e7b6948cb325a16a787b632c3792f9c9d13f11896e31
-        lines: [804, 862]
+        hash: sha256:0debc471d429dff7d4d9fba07d24203d4c9b2a0fd4e8099e532244898cc89401
+        struct_hash: sha256:97aa073941d4db3fd345769fc940c66e29d168b397d166d92ef657ba9146e8de
+        doc_struct_hash: sha256:4f5971abd6710debcdedcc60ff3b45a9d4dac568104bac9b0032fbddac3e4452
+        lines: [860, 921]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/data_read.go#semanticDocumentText

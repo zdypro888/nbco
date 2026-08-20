@@ -32,10 +32,11 @@ type DataReadQuery struct {
 
 type dataSourceDef struct {
 	DataSource
-	query          string
-	order          string
-	semanticID     string
-	semanticFields []string
+	query             string
+	order             string
+	semanticID        string
+	semanticFields    []string
+	semanticPredicate string
 }
 
 var dataSourceOrder = []string{
@@ -324,6 +325,10 @@ var dataSourceDefs = map[string]dataSourceDef{
 		semanticID: "evidence_id", semanticFields: []string{
 			"source_type", "kind", "status", "title", "content", "actor_name", "project_name",
 		},
+		// Communication evidence is the structured projection of chat_messages,
+		// whose immediate vector pipeline already preserves channel scope. Keep
+		// richer derived facts searchable here without indexing chat text twice.
+		semanticPredicate: "item ->> 'kind' <> 'communication'",
 	},
 	"files": {
 		DataSource: DataSource{
@@ -684,18 +689,26 @@ var dataSourceDefs = map[string]dataSourceDef{
 	},
 	"chat_messages": {
 		DataSource: DataSource{
-			Name: "chat_messages", Description: "逐条聊天事实；普通用户只读自己的私聊会话，超级管理员可跨会话检索。",
-			Fields: []string{"chat_message_id", "session_id", "session_user_id", "channel", "role", "content", "context_eligible", "previous_role", "previous_content", "created_at"},
+			Name: "chat_messages", Description: "逐条聊天事实及稳定发言人身份；普通用户只读自己的私聊会话，超级管理员可跨会话检索。",
+			Fields: []string{
+				"chat_message_id", "session_id", "session_user_id", "channel", "role", "content",
+				"provider", "actor_user_id", "actor_name", "actor_display_name", "source_created_at",
+				"context_eligible", "previous_role", "previous_content", "created_at",
+			},
 		},
 		query: `SELECT jsonb_build_object(
 			'chat_message_id', m.id, 'session_id', m.session_id,
 			'session_user_id', cs.user_id, 'channel', cs.channel,
-			'role', m.role, 'content', m.content, 'context_eligible', m.context_eligible,
+			'role', m.role, 'content', m.content, 'provider', m.provider,
+			'actor_user_id', m.actor_user_id, 'actor_name', COALESCE(actor.name, ''),
+			'actor_display_name', m.actor_display_name, 'source_created_at', m.source_created_at,
+			'context_eligible', m.context_eligible,
 			'previous_role', COALESCE(prev.role, ''),
 			'previous_content', left(COALESCE(prev.content, ''), 1200),
 			'created_at', m.created_at
 		) AS item, m.created_at AS sort_at, m.id AS sort_id
 		FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
+		LEFT JOIN users actor ON actor.id = m.actor_user_id
 		LEFT JOIN LATERAL (
 			SELECT p.role, p.content FROM chat_messages p
 			 WHERE p.session_id = m.session_id AND p.id < m.id
@@ -859,6 +872,9 @@ func (s *Store) SemanticDocuments(ctx context.Context, source string, after *Sem
 	}
 	args := []any{int64(0), true}
 	var predicates []string
+	if strings.TrimSpace(def.semanticPredicate) != "" {
+		predicates = append(predicates, "("+def.semanticPredicate+")")
+	}
 	if changedSince != nil && !changedSince.IsZero() {
 		args = append(args, changedSince.UTC())
 		predicates = append(predicates, fmt.Sprintf("COALESCE(sort_at, 'epoch'::timestamptz) >= $%d", len(args)))
