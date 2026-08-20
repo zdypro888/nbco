@@ -40,7 +40,7 @@ type dataSourceDef struct {
 
 var dataSourceOrder = []string{
 	"users", "identities", "profiles", "permissions", "workers", "worker_sessions", "worker_capabilities",
-	"roles", "org_groups", "projects", "tasks", "task_updates",
+	"roles", "org_groups", "projects", "tasks", "task_updates", "work_evidence",
 	"files", "file_intakes", "file_chunks", "schedules", "deliveries", "notification_deliveries", "external_action_receipts",
 	"domain_outbox_events", "telegram_inbound_updates", "telegram_delivery_parts", "worker_llm_calls", "knowledge", "learning_candidates",
 	"goals", "milestones", "campaigns", "decisions", "events", "conversation_turns", "action_turns", "chat_messages",
@@ -281,6 +281,49 @@ var dataSourceDefs = map[string]dataSourceDef{
 		WHERE $2 OR t.assigner_id = $1 OR t.assignee_id = $1
 		 OR EXISTS (SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $1)`,
 		semanticID: "update_id", semanticFields: []string{"kind", "content", "done", "outcome", "task_kind", "reason"},
+	},
+	"work_evidence": {
+		DataSource: DataSource{
+			Name: "work_evidence", Description: "跨群消息、任务、Worker产物、风险、决策与摘要的统一工作事实；按本人及可见任务/项目裁剪。",
+			Fields: []string{
+				"evidence_id", "source_type", "kind", "status", "title", "content",
+				"actor_user_id", "actor_name", "project_id", "project_name", "task_id",
+				"worker_run_id", "source_message_id", "confidence", "event_at", "created_by",
+				"created_at", "updated_at",
+			},
+		},
+		query: `SELECT jsonb_build_object(
+			'evidence_id', e.id, 'source_type', e.source_type,
+			'kind', e.kind, 'status', e.status, 'title', e.title, 'content', e.content,
+			'actor_user_id', e.actor_user_id, 'actor_name', COALESCE(u.name, ''),
+			'project_id', e.project_id, 'project_name', COALESCE(p.name, ''),
+			'task_id', e.task_id, 'worker_run_id', e.worker_run_id,
+			'source_message_id', e.source_message_id, 'confidence', e.confidence,
+			'event_at', e.event_at, 'created_by', e.created_by,
+			'created_at', e.created_at, 'updated_at', e.updated_at
+		) AS item, e.event_at AS sort_at, e.id AS sort_id
+		FROM work_evidence e
+		LEFT JOIN users u ON u.id = e.actor_user_id
+		LEFT JOIN projects p ON p.id = e.project_id
+		WHERE $2 OR e.actor_user_id = $1 OR e.created_by = $1
+		 OR EXISTS (
+			SELECT 1 FROM tasks t WHERE t.id = e.task_id
+			 AND (t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+				SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $1
+			 ))
+		 )
+		 OR EXISTS (
+			SELECT 1 FROM projects vp WHERE vp.id = e.project_id
+			 AND (vp.creator_id = $1 OR EXISTS (
+				SELECT 1 FROM tasks t WHERE t.project_id = vp.id
+				 AND (t.assigner_id = $1 OR t.assignee_id = $1 OR EXISTS (
+					SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $1
+				 ))
+			 ))
+		 )`,
+		semanticID: "evidence_id", semanticFields: []string{
+			"source_type", "kind", "status", "title", "content", "actor_name", "project_name",
+		},
 	},
 	"files": {
 		DataSource: DataSource{

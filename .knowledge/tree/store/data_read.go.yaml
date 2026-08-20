@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: dataSourceDefs
-        hash: sha256:b88147034800779bdfb9ce23860563e1374375f2d6b3d28e087f4352504649eb
-        struct_hash: sha256:44af1a3125c044937c329ae1009ced60e143970c6697c8fb5d56d45cf5e65e6a
-        doc_struct_hash: sha256:44af1a3125c044937c329ae1009ced60e143970c6697c8fb5d56d45cf5e65e6a
-        lines: [50, 740]
+        hash: sha256:0c577ade553073d9847ff195807e0690fa36acfbb0d389039c112676fd049343
+        struct_hash: sha256:4d21e8a5aa9d090aa8ca3a14ae45f7299f999dc2ee712d4c7504362fb9c4d312
+        doc_struct_hash: sha256:4d21e8a5aa9d090aa8ca3a14ae45f7299f999dc2ee712d4c7504362fb9c4d312
+        lines: [50, 783]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -116,7 +116,7 @@ nodes:
         hash: sha256:3fbe3caf3bb55b9921ce69ef0630893b5bc7c7f7c19815adcad4565d1875d232
         struct_hash: sha256:05674f63be180fbf0989d6a77b166804f7190626e3cba2c80f6383f05223b8c1
         doc_struct_hash: sha256:7a0663ab712e8033b3750c85ca07fcf7e5e6ab0aa387e914c0548749d651219b
-        lines: [772, 782]
+        lines: [815, 825]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/data_read.go#DataSourceIDField
@@ -182,6 +182,6 @@ nodes:
         hash: sha256:ddccf065c6497f3d58c0baa841e1be59be45a3c0a17ba3a45233e4ce289e811f
         struct_hash: sha256:4e922c52bdaad9cb0d08cd773ea781bf098afa4079fe16e5bee2d892eb5e3845
         doc_struct_hash: sha256:049e95c281137e37e2f01dc35738e96f2bc753037b677076dad21eefec167020
-        lines: [904, 989]
+        lines: [947, 1032]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

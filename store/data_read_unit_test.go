@@ -19,7 +19,7 @@ func TestSemanticDataSourcesOnlyIncludeCuratedTextModels(t *testing.T) {
 	sources := SemanticDataSources()
 	for _, required := range []string{
 		"users", "worker_sessions", "worker_capabilities", "roles", "org_groups",
-		"projects", "tasks", "task_updates", "files", "file_intakes",
+		"projects", "tasks", "task_updates", "work_evidence", "files", "file_intakes",
 		"schedules", "deliveries", "learning_candidates", "events", "material_entities",
 		"script_tools", "eval_cases",
 	} {

@@ -2783,6 +2783,79 @@ func TestReadDataEnforcesRowAndFieldVisibility(t *testing.T) {
 	}
 }
 
+func TestReadDataWorkEvidenceUsesStableIdentityAndRelationshipVisibility(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "evidence-owner", false)
+	participant := mkUser(t, s, "evidence-participant", false)
+	unrelated := mkUser(t, s, "evidence-unrelated", false)
+	admin := mkUser(t, s, "evidence-admin", true)
+	project := mkProject(t, s, owner.ID)
+	task := mkTask(t, s, project.ID, owner.ID, owner.ID, "evidence task", nil)
+	if _, err := s.ReplaceTaskParticipants(ctx, task.ID, owner.ID, []TaskParticipantInput{{
+		UserID: participant.ID, Role: TaskParticipantWatcher,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	visible, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "telegram_group_message", SourceKey: "evidence-visible",
+		Kind: WorkEvidenceCommunication, Status: WorkEvidenceObserved,
+		Title: "旧显示名", Content: "稳定身份关联的工作事实", ActorUserID: &owner.ID,
+		ProjectID: &project.ID, TaskID: &task.ID, CreatedBy: &owner.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hidden, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: "telegram_group_message", SourceKey: "evidence-hidden",
+		Kind: WorkEvidenceCommunication, Status: WorkEvidenceObserved,
+		Title: unrelated.Name, Content: "无关系工作事实", ActorUserID: &unrelated.ID,
+		CreatedBy: &unrelated.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, viewer := range []*User{owner, participant} {
+		rows, err := s.ReadData(ctx, viewer.ID, false, DataReadQuery{Source: "work_evidence", Limit: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids := dataReadIDs(t, rows, "evidence_id")
+		if !ids[visible.ID] || ids[hidden.ID] {
+			t.Fatalf("viewer %d evidence visibility = %v", viewer.ID, ids)
+		}
+		var item struct {
+			ActorUserID int64  `json:"actor_user_id"`
+			ActorName   string `json:"actor_name"`
+		}
+		if err := json.Unmarshal(rows[0], &item); err != nil {
+			t.Fatal(err)
+		}
+		if item.ActorUserID != owner.ID || item.ActorName != owner.Name {
+			t.Fatalf("stable actor identity = %+v, want %d/%q", item, owner.ID, owner.Name)
+		}
+	}
+
+	rows, err := s.ReadData(ctx, unrelated.ID, false, DataReadQuery{Source: "work_evidence", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := dataReadIDs(t, rows, "evidence_id")
+	if ids[visible.ID] || !ids[hidden.ID] {
+		t.Fatalf("unrelated evidence visibility = %v", ids)
+	}
+	rows, err = s.ReadData(ctx, admin.ID, true, DataReadQuery{Source: "work_evidence", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids = dataReadIDs(t, rows, "evidence_id")
+	if !ids[visible.ID] || !ids[hidden.ID] {
+		t.Fatalf("admin evidence visibility = %v", ids)
+	}
+}
+
 func dataReadIDs(t *testing.T, rows []json.RawMessage, field string) map[int64]bool {
 	t.Helper()
 	out := map[int64]bool{}
