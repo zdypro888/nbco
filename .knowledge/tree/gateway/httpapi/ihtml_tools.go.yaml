@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_tools.go
         symbol: ihtmlAgentTools
-        hash: sha256:a66a362d87004eaa1c88d86290cfe209928aa5dd5ec50f882f7ad8ddc5612487
-        struct_hash: sha256:53437c19206163579cbe901f8cca76b6a115f167b69a50c47bebccd7ba71639c
-        doc_struct_hash: sha256:53437c19206163579cbe901f8cca76b6a115f167b69a50c47bebccd7ba71639c
-        lines: [14, 244]
+        hash: sha256:ec619d446862eda56a060484cd76e96bde9bee5e6521a1defecb3b42f6c3f0aa
+        struct_hash: sha256:df6932544a54fad507ad4df8c16a4b6c74ddd4298b9c1b21def37fb9e49c9b6f
+        doc_struct_hash: sha256:df6932544a54fad507ad4df8c16a4b6c74ddd4298b9c1b21def37fb9e49c9b6f
+        lines: [122, 550]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/ihtml_tools.go#ihtmlTool
@@ -96,3 +96,25 @@ nodes:
         lines: [310, 316]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/ihtml_tools.go#inspectIHTMLPage
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: inspectIHTMLPage
+        hash: sha256:bea5d73b8cbd0b0e59395ee1cecf244ff3a8f2e127c67b4e78febd58d9b190d1
+        struct_hash: sha256:a3b77711cbc181dc79516a168a5732242b913d9c22b96e97cd3a99e5b91ac894
+        doc_struct_hash: sha256:a3b77711cbc181dc79516a168a5732242b913d9c22b96e97cd3a99e5b91ac894
+        lines: [48, 99]
+      status: fresh
+      since: 2026-08-20T14:37:26.164163Z
+    - id: gateway/httpapi/ihtml_tools.go#ihtmlWorkspaceURL
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_tools.go
+        symbol: ihtmlWorkspaceURL
+        hash: sha256:bdae8dcd9eda196e2df2f3abfad10be79cd595171219916d373c5f1bfd93fb6b
+        struct_hash: sha256:a3dd21893c288f9a58c270a5501f921fea9cc674ce499230bcac7312a90055be
+        doc_struct_hash: sha256:a3dd21893c288f9a58c270a5501f921fea9cc674ce499230bcac7312a90055be
+        lines: [35, 46]
+      status: fresh
+      since: 2026-08-20T14:37:26.168509Z

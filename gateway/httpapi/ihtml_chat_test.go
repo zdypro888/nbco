@@ -72,7 +72,8 @@ func TestIHTMLTurnUsesLatestUserMessageAndBoundsBrowserContext(t *testing.T) {
 	}
 	system := ihtmlTurnSystem("Oncoin", []ihtml.APISpec{{Name: "overview", Method: "GET", Path: "/api/overview"}})
 	if !strings.Contains(system, `"Oncoin" 控制中心`) || !strings.Contains(system, "同一个公司运营 Agent") || !strings.Contains(system, "ui_list_state") ||
-		!strings.Contains(system, `"path":"/api/overview"`) || !strings.Contains(system, "ihtml.http(path, options)") {
+		!strings.Contains(system, `"path":"/api/overview"`) || !strings.Contains(system, "ihtml.http(path, options)") ||
+		!strings.Contains(system, "ui_publish_page") || !strings.Contains(system, "workspace_url") {
 		t.Fatalf("unexpected host system prompt length/content: %d", len([]rune(system)))
 	}
 	browser := ihtmlBrowserContext(ihtml.ChatClientContext{Page: ihtml.ChatClientPage{VisibleText: strings.Repeat("x", 5000)}})
@@ -83,10 +84,10 @@ func TestIHTMLTurnUsesLatestUserMessageAndBoundsBrowserContext(t *testing.T) {
 
 func TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces(t *testing.T) {
 	const callable = "ihtml.http(path, options)"
-	if system := crossChannelIHTMLSystem("https://nbco.example"); !strings.Contains(system, callable) {
+	if system := crossChannelIHTMLSystem(); !strings.Contains(system, callable) {
 		t.Fatalf("cross-channel contract does not document callable HTTP: %q", system)
 	}
-	for _, item := range ihtmlAgentTools(nil) {
+	for _, item := range ihtmlAgentTools(nil, ihtmlAgentToolOptions{}) {
 		if item.Name != "ui_list_host_apis" {
 			continue
 		}
@@ -96,6 +97,18 @@ func TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces(t *testing.T) {
 		return
 	}
 	t.Fatal("ui_list_host_apis tool is missing")
+}
+
+func TestCrossChannelIHTMLPublishesVerifiablePageLinks(t *testing.T) {
+	system := crossChannelIHTMLSystem()
+	for _, expected := range []string{"ui_put_data", "ui_publish_page", "ui_inspect_page", "workspace_url", "ihtml.kv.get(key)"} {
+		if !strings.Contains(system, expected) {
+			t.Fatalf("cross-channel ihtml contract is missing %q: %s", expected, system)
+		}
+	}
+	if strings.Contains(system, "https://nbco.example/?view=workspace") {
+		t.Fatalf("cross-channel contract retained a generic workspace link: %s", system)
+	}
 }
 
 func TestIHTMLUsersAPIDocumentsItsResponseContract(t *testing.T) {

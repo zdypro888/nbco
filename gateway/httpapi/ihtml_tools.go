@@ -1,17 +1,126 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
+	"slices"
 	"strings"
+	"time"
 
 	ihtml "github.com/zdypro888/ihtml"
 
 	"github.com/zdypro888/nbco/ai"
 )
 
-func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
+type ihtmlAgentToolOptions struct {
+	APIs          []ihtml.APISpec
+	PublicBaseURL string
+}
+
+type ihtmlPageInspection struct {
+	Registered    bool              `json:"registered"`
+	Page          *ihtml.Page       `json:"page,omitempty"`
+	ItemCount     int               `json:"item_count"`
+	ItemIDs       []string          `json:"item_ids"`
+	ContentBytes  int               `json:"content_bytes"`
+	LastUpdatedAt *time.Time        `json:"last_updated_at,omitempty"`
+	RecentErrors  []ihtml.PageError `json:"recent_errors"`
+	WorkspaceURL  string            `json:"workspace_url"`
+}
+
+func ihtmlWorkspaceURL(publicBaseURL, page string) string {
+	query := url.Values{"view": []string{"workspace"}}
+	if ihtml.ValidatePageName(page) == nil {
+		query.Set("workspace_page", page)
+	}
+	path := "/?" + query.Encode()
+	base := strings.TrimRight(strings.TrimSpace(publicBaseURL), "/")
+	if base == "" {
+		return path
+	}
+	return base + path
+}
+
+func inspectIHTMLPage(ctx context.Context, svc ihtml.ScopedService, publicBaseURL, name string) (ihtmlPageInspection, error) {
+	result := ihtmlPageInspection{WorkspaceURL: ihtmlWorkspaceURL(publicBaseURL, name), ItemIDs: []string{}, RecentErrors: []ihtml.PageError{}}
+	pages, err := svc.ListPages(ctx)
+	if err != nil {
+		return result, err
+	}
+	for i := range pages {
+		if pages[i].Name == name {
+			page := pages[i]
+			result.Registered = true
+			result.Page = &page
+			break
+		}
+	}
+	items, err := svc.ListItems(ctx)
+	if err != nil {
+		return result, err
+	}
+	itemUpdatedAt := make(map[string]time.Time)
+	var latest time.Time
+	for _, item := range items {
+		if item.Page != name {
+			continue
+		}
+		result.ItemCount++
+		result.ItemIDs = append(result.ItemIDs, item.ID)
+		result.ContentBytes += len(item.Content)
+		itemUpdatedAt[item.ID] = item.UpdatedAt
+		if item.UpdatedAt.After(latest) {
+			latest = item.UpdatedAt
+		}
+	}
+	if !latest.IsZero() {
+		result.LastUpdatedAt = &latest
+	}
+	slices.Sort(result.ItemIDs)
+	errs, err := svc.PageErrors(ctx)
+	if err != nil {
+		return result, err
+	}
+	for _, pageErr := range errs {
+		updatedAt, ok := itemUpdatedAt[pageErr.ItemID]
+		if !ok || pageErr.Time.Before(updatedAt) {
+			continue
+		}
+		result.RecentErrors = append(result.RecentErrors, pageErr)
+		if len(result.RecentErrors) == 20 {
+			break
+		}
+	}
+	return result, nil
+}
+
+func jsonValueShape(raw json.RawMessage) (kind string, entries int) {
+	var value any
+	if json.Unmarshal(raw, &value) != nil {
+		return "invalid", 0
+	}
+	switch typed := value.(type) {
+	case []any:
+		return "array", len(typed)
+	case map[string]any:
+		return "object", len(typed)
+	case nil:
+		return "null", 0
+	case string:
+		return "string", 0
+	case bool:
+		return "boolean", 0
+	default:
+		return "number", 0
+	}
+}
+
+func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []ai.Tool {
+	apis := options.APIs
 	return []ai.Tool{
 		ihtmlTool("ui_list_host_apis",
 			"列出宿主登记、会自动携带当前用户身份的同源 HTTP API。构建需要实时业务数据的页面前调用；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他方法使用 ihtml.http.post/put(path, body, options) 或 ihtml.http.del(path, options)。",
@@ -78,10 +187,140 @@ func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 				if len(errs) > 20 {
 					errs = errs[:20]
 				}
+				type pageView struct {
+					ihtml.Page
+					WorkspaceURL string `json:"workspace_url"`
+				}
+				pageViews := make([]pageView, 0, len(pages))
+				for _, page := range pages {
+					pageViews = append(pageViews, pageView{Page: page, WorkspaceURL: ihtmlWorkspaceURL(options.PublicBaseURL, page.Name)})
+				}
 				return marshalToolResult(map[string]any{
 					"item_count": len(items), "offset": args.Offset, "next_offset": end,
-					"truncated": end < len(items), "pages": pages, "items": views, "recent_errors": errs,
+					"truncated": end < len(items), "pages": pageViews, "items": views, "recent_errors": errs,
 				})
+			}),
+
+		ihtmlTool("ui_get_data", "读取动态工作台的结构化 JSON 数据。数据与 HTML/CSS/JS 分离，页面运行时可用 ihtml.kv.get(key) 读取。",
+			ai.ToolEffectRead, false,
+			objectSchema(map[string]any{"key": property("string", "稳定数据键，字母数字及 ._-")}, "key"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Key string `json:"key"`
+				}
+				if err := json.Unmarshal(defaultObject(raw), &args); err != nil || strings.TrimSpace(args.Key) == "" {
+					return "key 必填。", nil
+				}
+				key := strings.TrimSpace(args.Key)
+				var (
+					value    json.RawMessage
+					revision string
+					err      error
+				)
+				if versioned, ok := svc.(ihtml.ScopedVersionedKVService); ok {
+					value, revision, err = versioned.KVGetWithRevision(ctx, key)
+				} else {
+					value, err = svc.KVGet(ctx, key)
+				}
+				if errors.Is(err, ihtml.ErrNotFound) {
+					return marshalToolResult(map[string]any{"exists": false, "key": key})
+				}
+				if err != nil {
+					return "", err
+				}
+				kind, entries := jsonValueShape(value)
+				return marshalToolResult(map[string]any{
+					"exists": true, "key": key, "value": value, "bytes": len(value),
+					"kind": kind, "entries": entries, "revision": revision,
+				})
+			}),
+
+		ihtmlTool("ui_put_data", "写入动态工作台使用的结构化 JSON 数据。数据量较大或需要反复更新时，先存数据，再让页面通过 ihtml.kv.get(key) 加载，避免把业务记录硬编码进页面源码。结果中的 committed 表示写入已提交；verified=false 时只需重新读取核对，不要盲目重写。",
+			ai.ToolEffectWrite, false,
+			objectSchema(map[string]any{
+				"key":               property("string", "稳定数据键，字母数字及 ._-"),
+				"value_json":        property("string", "完整且有效的 JSON 文本"),
+				"expected_revision": property("string", "可选：ui_get_data 返回的版本；提供时执行原子条件写"),
+			}, "key", "value_json"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Key              string `json:"key"`
+					ValueJSON        string `json:"value_json"`
+					ExpectedRevision string `json:"expected_revision"`
+				}
+				if err := json.Unmarshal(defaultObject(raw), &args); err != nil {
+					return "参数格式错误。", nil
+				}
+				key := strings.TrimSpace(args.Key)
+				value := json.RawMessage(strings.TrimSpace(args.ValueJSON))
+				if key == "" || len(value) == 0 || !json.Valid(value) {
+					return "key 必填，value_json 必须是有效 JSON。", nil
+				}
+				revision := ""
+				if expected := strings.TrimSpace(args.ExpectedRevision); expected != "" {
+					versioned, ok := svc.(ihtml.ScopedVersionedKVService)
+					if !ok {
+						return "当前存储不支持条件写。", nil
+					}
+					var err error
+					revision, err = versioned.KVCompareAndSet(ctx, key, value, expected)
+					if err != nil {
+						return "", err
+					}
+				} else {
+					if err := svc.KVSet(ctx, key, value); err != nil {
+						return "", err
+					}
+				}
+				verified := false
+				verificationError := ""
+				persisted := value
+				if versioned, ok := svc.(ihtml.ScopedVersionedKVService); ok {
+					current, currentRevision, verifyErr := versioned.KVGetWithRevision(ctx, key)
+					if verifyErr != nil {
+						verificationError = verifyErr.Error()
+					} else {
+						persisted, revision = current, currentRevision
+						verified = bytes.Equal(current, value)
+						if !verified {
+							verificationError = "写入后该数据已被另一轮更新"
+						}
+					}
+				} else {
+					current, verifyErr := svc.KVGet(ctx, key)
+					if verifyErr != nil {
+						verificationError = verifyErr.Error()
+					} else {
+						persisted = current
+						verified = bytes.Equal(current, value)
+						if !verified {
+							verificationError = "写入后该数据已被另一轮更新"
+						}
+					}
+				}
+				kind, entries := jsonValueShape(persisted)
+				return marshalToolResult(map[string]any{
+					"ok": true, "committed": true, "verified": verified,
+					"verification_error": verificationError, "key": key,
+					"bytes": len(persisted), "kind": kind, "entries": entries, "revision": revision,
+				})
+			}),
+
+		ihtmlTool("ui_delete_data", "删除动态工作台的一项结构化数据；调用前确认没有页面仍依赖该 key。需要下一轮用户确认。",
+			ai.ToolEffectWrite, true,
+			objectSchema(map[string]any{"key": property("string", "要删除的数据键")}, "key"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Key string `json:"key"`
+				}
+				if err := json.Unmarshal(defaultObject(raw), &args); err != nil || strings.TrimSpace(args.Key) == "" {
+					return "key 必填。", nil
+				}
+				key := strings.TrimSpace(args.Key)
+				if err := svc.KVDelete(ctx, key); err != nil {
+					return "", err
+				}
+				return marshalToolResult(map[string]any{"ok": true, "key": key})
 			}),
 
 		ihtmlTool("ui_get_item", "按稳定 Item ID 和字符偏移分块读取现有 UI 源码，适合局部修改前精确检查；按 next_offset 继续读取直到 truncated=false。",
@@ -132,7 +371,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 			}),
 
 		ihtmlTool("ui_apply_items",
-			"批量新增或按稳定 ID 覆盖 HTML/JS/CSS Item。它会保存可回滚修订并通过 SSE 实时上屏；只在用户明确要求创建或修改界面时调用。",
+			"批量新增或按稳定 ID 局部覆盖 HTML/JS/CSS Item。它会保存可回滚修订并通过 SSE 实时上屏；创建或整体更新一个页面时改用 ui_publish_page，避免页面注册和内容分步提交。",
 			ai.ToolEffectWrite, false,
 			objectSchema(map[string]any{
 				"items": map[string]any{"type": "array", "description": "要新增或覆盖的 Item", "items": ihtmlItemSchema()},
@@ -153,10 +392,14 @@ func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 					return "", err
 				}
 				ids := make([]string, 0, len(args.Items))
+				pageURLs := make(map[string]string)
 				for _, item := range args.Items {
 					ids = append(ids, item.ID)
+					if item.Page != "" {
+						pageURLs[item.Page] = ihtmlWorkspaceURL(options.PublicBaseURL, item.Page)
+					}
 				}
-				return marshalToolResult(map[string]any{"ok": true, "updated_ids": ids})
+				return marshalToolResult(map[string]any{"ok": true, "updated_ids": ids, "workspace_urls": pageURLs})
 			}),
 
 		ihtmlTool("ui_delete_items", "按稳定 ID 删除 UI Item；删除前自动留修订快照，可回滚。需要下一轮用户确认。",
@@ -180,7 +423,67 @@ func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 				return marshalToolResult(map[string]any{"ok": true, "deleted_ids": deleted})
 			}),
 
-		ihtmlTool("ui_set_page", "新增或更新动态工作台页面注册项；页面是菜单和 Item.page 的稳定容器。",
+		ihtmlTool("ui_publish_page", "原子发布一个完整页面：一次提交同时新增或更新页面注册项，并完整替换该页所有 Item；全局和其他页面不受影响。创建页面、生成报表或整体更新页面时优先使用。结果中的 committed 表示发布已提交；verified=false 时只调用 ui_inspect_page 复核，不要盲目重复发布。",
+			ai.ToolEffectWrite, false,
+			objectSchema(map[string]any{
+				"page":  ihtmlPageSchema(),
+				"items": map[string]any{"type": "array", "description": "该页完整 Item 集合；每项 page 必须等于 page.name", "items": ihtmlItemSchema()},
+				"note":  property("string", "简短说明这次完整页面发布的目的"),
+			}, "page", "items"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Page  ihtml.Page   `json:"page"`
+					Items []ihtml.Item `json:"items"`
+					Note  string       `json:"note"`
+				}
+				if err := json.Unmarshal(defaultObject(raw), &args); err != nil {
+					return "参数格式错误。", nil
+				}
+				if len(args.Items) == 0 {
+					return "items 不能为空。", nil
+				}
+				publisher, ok := svc.(ihtml.ScopedPagePublicationService)
+				if !ok {
+					return "当前 ihtml 版本不支持原子页面发布。", nil
+				}
+				if err := publisher.PublishPage(ctx, args.Page, args.Items, "nbco-agent", strings.TrimSpace(args.Note)); err != nil {
+					return "", err
+				}
+				inspection, err := inspectIHTMLPage(ctx, svc, options.PublicBaseURL, args.Page.Name)
+				if err != nil {
+					return marshalToolResult(map[string]any{
+						"ok": true, "committed": true, "verified": false,
+						"page": args.Page.Name, "workspace_url": ihtmlWorkspaceURL(options.PublicBaseURL, args.Page.Name),
+						"verification_error": err.Error(),
+					})
+				}
+				return marshalToolResult(map[string]any{
+					"ok": true, "committed": true, "verified": true,
+					"page": inspection.Page, "registered": inspection.Registered,
+					"item_count": inspection.ItemCount, "item_ids": inspection.ItemIDs,
+					"content_bytes": inspection.ContentBytes, "last_updated_at": inspection.LastUpdatedAt,
+					"recent_errors": inspection.RecentErrors, "workspace_url": inspection.WorkspaceURL,
+				})
+			}),
+
+		ihtmlTool("ui_inspect_page", "核对一个页面持久化后的注册项、Item 数量与 ID、源码总字节、最近运行错误和可直达地址。发布后调用它确认实际结果；它不虚构浏览器渲染状态。",
+			ai.ToolEffectRead, false,
+			objectSchema(map[string]any{"name": property("string", "页面稳定名称")}, "name"),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Name string `json:"name"`
+				}
+				if err := json.Unmarshal(defaultObject(raw), &args); err != nil || ihtml.ValidatePageName(strings.TrimSpace(args.Name)) != nil {
+					return "name 必须是有效页面名。", nil
+				}
+				inspection, err := inspectIHTMLPage(ctx, svc, options.PublicBaseURL, strings.TrimSpace(args.Name))
+				if err != nil {
+					return "", err
+				}
+				return marshalToolResult(inspection)
+			}),
+
+		ihtmlTool("ui_set_page", "仅新增或更新动态工作台页面的注册元数据（标题、图标、排序、模板）；不会写入页面内容。创建或整体更新页面应使用 ui_publish_page。",
 			ai.ToolEffectWrite, false,
 			objectSchema(map[string]any{"page": ihtmlPageSchema()}, "page"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -193,7 +496,10 @@ func ihtmlAgentTools(svc ihtml.ScopedService, apis ...ihtml.APISpec) []ai.Tool {
 				if err := svc.SetPage(ctx, args.Page); err != nil {
 					return "", err
 				}
-				return marshalToolResult(map[string]any{"ok": true, "page": args.Page.Name})
+				return marshalToolResult(map[string]any{
+					"ok": true, "page": args.Page.Name,
+					"workspace_url": ihtmlWorkspaceURL(options.PublicBaseURL, args.Page.Name),
+				})
 			}),
 
 		ihtmlTool("ui_delete_page", "删除一个页面及其所属 Item；删除前自动留修订快照，需要下一轮用户确认。",
@@ -308,9 +614,11 @@ func defaultObject(raw json.RawMessage) json.RawMessage {
 }
 
 func marshalToolResult(value any) (string, error) {
-	raw, err := json.Marshal(value)
-	if err != nil {
+	var out bytes.Buffer
+	encoder := json.NewEncoder(&out)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
 		return "", fmt.Errorf("编码 UI 工具结果: %w", err)
 	}
-	return string(raw), nil
+	return strings.TrimSuffix(out.String(), "\n"), nil
 }

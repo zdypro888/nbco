@@ -86,8 +86,10 @@ func (s *Server) EnableIHTML() error {
 			return nil, fmt.Errorf("绑定 ihtml 用户作用域: %w", err)
 		}
 		return &chat.TurnExtension{
-			System: crossChannelIHTMLSystem(s.deps.PublicBaseURL),
-			Tools:  ihtmlAgentTools(scoped, apis...),
+			System: crossChannelIHTMLSystem(),
+			Tools: ihtmlAgentTools(scoped, ihtmlAgentToolOptions{
+				APIs: apis, PublicBaseURL: s.deps.PublicBaseURL,
+			}),
 		}, nil
 	})
 	s.ihtmlClose = func() error {
@@ -160,6 +162,8 @@ func nbcoIHTMLAPIs() []ihtml.APISpec {
 		{Name: "nbco_overview", Title: "运营总览", Method: "GET", Path: "/api/overview", Description: "当前用户可见的运营概览。"},
 		{Name: "nbco_me", Title: "当前身份", Method: "GET", Path: "/api/me", Description: "当前用户的稳定内部 ID、名称和权限摘要。"},
 		{Name: "nbco_users", Title: "成员目录", Method: "GET", Path: "/api/users", Description: "权限感知的成员目录。支持 q、status(active|disabled)、kind(human|worker)、limit(1..100)、offset 查询参数。响应为 {users:[{user_id,name,status,is_superadmin,is_worker,owner_id,worker_last_seen,info,created_at}],limit,offset,next_offset}；员工自定义字段位于 info 对象中，并已按当前身份裁剪。必须使用稳定 user_id 标识成员，使用 is_worker 区分真人与 Worker。"},
+		{Name: "nbco_data_sources", Title: "数据源目录", Method: "GET", Path: "/api/data/sources", Description: "列出当前身份可访问的权限感知数据源、字段、稳定实体 ID 字段和说明。"},
+		{Name: "nbco_data", Title: "通用数据读取", Method: "GET", Path: "/api/data/{source}", Description: "读取一个权限感知数据源。source 使用目录中的稳定名称；支持重复 q 做词法筛选、在目录声明 stable_id_field 时用重复 id 回读稳定实体ID、filter.<field>=value 精确筛选、limit(1..100)、offset(0..10000)。响应为 {source,rows,count,limit,offset,next_offset,page_full}；page_full 只表示本页达到上限，不虚构后续必有数据。权限在数据库读取层执行，页面不得缓存或推断不可见字段。"},
 		{Name: "nbco_my_tasks", Title: "我的任务", Method: "GET", Path: "/api/me/tasks", Description: "当前用户的待办任务。"},
 		{Name: "nbco_my_review", Title: "待我验收", Method: "GET", Path: "/api/me/review", Description: "当前用户待验收的任务。"},
 		{Name: "nbco_my_assigned", Title: "我分配的任务", Method: "GET", Path: "/api/me/assigned", Description: "当前用户分配给他人的任务。"},
@@ -178,12 +182,9 @@ func nbcoIHTMLAPIs() []ihtml.APISpec {
 	}
 }
 
-func crossChannelIHTMLSystem(publicBaseURL string) string {
-	base := strings.TrimRight(strings.TrimSpace(publicBaseURL), "/")
-	workspace := "/?view=workspace"
-	if base != "" {
-		workspace = base + workspace
-	}
+func crossChannelIHTMLSystem() string {
 	return "当前用户拥有一个可持久化的 ihtml 动态工作台。用户要求网页、表格视图、仪表盘或可视化操作界面时，使用 ui_* 工具直接实现；" +
-		"需要实时业务数据时先读取 ui_list_host_apis；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他请求使用对应方法。完成后提供工作台地址：" + workspace
+		"需要实时业务数据时先读取 ui_list_host_apis；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他请求使用对应方法。" +
+		"已有宿主数据必须由页面通过已登记 API 按稳定 ID 加载，不要把大批业务记录手工复制进源码；派生数据量较大或需要独立更新时，用 ui_put_data 保存结构化 JSON，页面通过 ihtml.kv.get(key) 读取；创建或整体更新页面用 ui_publish_page 原子发布。" +
+		"发布后用 ui_inspect_page 核对，并把工具返回的 workspace_url 原样交给用户；不要自行拼接地址，也不要用通用工作台首页代替具体页面。"
 }

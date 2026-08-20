@@ -3,12 +3,15 @@ const brandName = String(root?.dataset.brandName || "nbco").trim() || "nbco";
 const brandMark = Array.from(brandName)[0]?.toUpperCase() || "N";
 const telegramWebApp = window.Telegram && window.Telegram.WebApp;
 const tg = telegramWebApp && String(telegramWebApp.initData || "").trim() ? telegramWebApp : null;
-const requestedView = new URLSearchParams(window.location.search).get("view");
+const initialURLParams = new URLSearchParams(window.location.search);
+const requestedView = initialURLParams.get("view");
+const requestedWorkspacePage = normalizeWorkspacePage(initialURLParams.get("workspace_page"));
 const knownViews = new Set(["command", "files", "tasks", "people", "workers", "learning", "workspace", "model", "ops", "chat"]);
 
 const state = {
   me: null,
   route: knownViews.has(requestedView) ? requestedView : "command",
+  workspacePage: requestedWorkspacePage,
   loading: false,
   notice: "",
   files: [],
@@ -102,6 +105,22 @@ function parseIDs(value) {
     .split(/[,\s，、]+/)
     .map(x => Number(x.trim()))
     .filter(x => Number.isInteger(x) && x > 0);
+}
+
+function normalizeWorkspacePage(value) {
+  const page = String(value || "").trim();
+  return /^[a-z0-9][a-z0-9_-]{0,63}$/.test(page) ? page : "";
+}
+
+function syncBrowserLocation() {
+  const next = new URL(window.location.href);
+  next.searchParams.set("view", state.route);
+  if (state.route === "workspace" && state.workspacePage) {
+    next.searchParams.set("workspace_page", state.workspacePage);
+  } else {
+    next.searchParams.delete("workspace_page");
+  }
+  window.history.replaceState(window.history.state, "", next);
 }
 
 function truncate(value, max) {
@@ -868,11 +887,18 @@ function mountIHTMLWorkspace(generation) {
       connectionAuth: getIHTMLTicket,
       theme: "inherit",
       routing: "memory",
+      page: state.workspacePage,
       menu,
       chatEntry: true,
       storageKey: `nbco-dynamic-workspace:${state.me.id}`,
       scriptNonce: root.dataset.cspNonce || "",
       onAuthError: resetIHTMLAuth,
+      onChange: navState => {
+        const page = normalizeWorkspacePage(navState?.page);
+        if (page === state.workspacePage) return;
+        state.workspacePage = page;
+        syncBrowserLocation();
+      },
     });
   } catch (err) {
     host.textContent = `动态工作台启动失败：${err.message}`;
@@ -1452,6 +1478,7 @@ async function enter() {
 
 async function loadRoute(route) {
   state.route = route;
+  syncBrowserLocation();
   state.loading = true;
   state.notice = "";
   renderApp();
@@ -1881,6 +1908,7 @@ document.addEventListener("click", async event => {
     if (!state.me?.is_superadmin) return;
     state.selected = { kind: "risk", id: btn.dataset.risk };
     if (state.route !== "command") state.route = "command";
+    syncBrowserLocation();
     renderApp();
   } else if (action === "toggle-file") {
     const id = Number(btn.dataset.id);

@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/data_api.go
+      level: file
+      anchor:
+        file: gateway/httpapi/data_api.go
+        hash: sha256:69084261a373e08e44d30983bc3d4292e2e054572221e562e5986aca4e972c68
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T14:37:36.882998Z
+    - id: gateway/httpapi/data_api.go#Server.handleDataSources
+      level: function
+      anchor:
+        file: gateway/httpapi/data_api.go
+        symbol: Server.handleDataSources
+        hash: sha256:639f19875a5fb85385e203e6402fdeecad2613cc491d930356703e83f3ffc5a1
+        struct_hash: sha256:2701002784fba51288ff19e3250e62a57d950306f7b108bf212a19ae3f447fb1
+        doc_struct_hash: sha256:2701002784fba51288ff19e3250e62a57d950306f7b108bf212a19ae3f447fb1
+        lines: [20, 26]
+      status: fresh
+      since: 2026-08-20T14:37:36.882915Z
+    - id: gateway/httpapi/data_api.go#Server.handleReadData
+      level: function
+      anchor:
+        file: gateway/httpapi/data_api.go
+        symbol: Server.handleReadData
+        hash: sha256:16a7f080172bc488bbb7207c54b65d53d24e3f105db42e47c995ef0898b54739
+        struct_hash: sha256:13226e06a16a9fc2a0ac3bc7ece293f9f48dd9885531d712a332418056431174
+        doc_struct_hash: sha256:13226e06a16a9fc2a0ac3bc7ece293f9f48dd9885531d712a332418056431174
+        lines: [28, 71]
+      status: fresh
+      since: 2026-08-20T14:37:36.88381Z
+    - id: gateway/httpapi/data_api.go#dataReadQueryFromRequest
+      level: function
+      anchor:
+        file: gateway/httpapi/data_api.go
+        symbol: dataReadQueryFromRequest
+        hash: sha256:cc00e7050e97c6be34afffd167a9817808eb84ff7414fc4bb5d4158239333d44
+        struct_hash: sha256:68489a71c491c60c63fd2aaf62e4e3709d762deeeb3f1394a5bb09c7a71e27ea
+        doc_struct_hash: sha256:68489a71c491c60c63fd2aaf62e4e3709d762deeeb3f1394a5bb09c7a71e27ea
+        lines: [92, 143]
+      status: fresh
+      since: 2026-08-20T14:37:36.884519Z
+    - id: gateway/httpapi/data_api.go#visibleDataSourceViews
+      level: function
+      anchor:
+        file: gateway/httpapi/data_api.go
+        symbol: visibleDataSourceViews
+        hash: sha256:f7219acfe69d2a87a9324cebffed285cf760f00ce2bba5035c52dbda8b501c92
+        struct_hash: sha256:f26b337be6809260a61b9a84fea880a7dfd8e91abe305756f1de29fd59d043e5
+        doc_struct_hash: sha256:f26b337be6809260a61b9a84fea880a7dfd8e91abe305756f1de29fd59d043e5
+        lines: [73, 81]
+      status: fresh
+      since: 2026-08-20T14:37:36.885146Z

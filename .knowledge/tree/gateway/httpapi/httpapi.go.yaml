@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.Handler
-        hash: sha256:bcc2d58feb20d4a9fe927782dc3d76650979feed1f525a55d5478cc65f86a336
-        struct_hash: sha256:af2ec70d18c6fce79d9cbf38be070258a3c2f0cf42624425678b597d579c759c
-        doc_struct_hash: sha256:ca0f1b1bfb68008771f00779ba4714feae2c7cbc4911c129028b50d4e071582a
-        lines: [111, 201]
+        hash: sha256:7226fd92491f0b4e2362934b94a72fe782c671b86874b1c76f1702fa5f16b804
+        struct_hash: sha256:697e78bd794de6d58f4779e80d9b4db95c5f8929d156b23260dee095b45703a5
+        doc_struct_hash: sha256:21e731236974cd07c44d49134fbe427f34e883926d506517f57ea54c084a1399
+        lines: [143, 238]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#Server.handleReady

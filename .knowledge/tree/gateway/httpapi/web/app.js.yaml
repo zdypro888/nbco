@@ -180,3 +180,23 @@ nodes:
         - pending materials
       lineage:
         - gateway/httpapi/web/app.js#renderCommandRoute
+    - id: gateway/httpapi/web/app.js#syncBrowserLocation
+      level: function
+      anchor:
+        file: gateway/httpapi/web/app.js
+        symbol: syncBrowserLocation
+        hash: sha256:89e43c90ac335b9f84348e6dd37527356d103b07af53cbd67094995156a1b5e1
+        struct_hash: sha256:f8f029046a4a615e743746fde9f8d5027684667b7d7d26a5033a840ef49ae4d7
+        lines: [115, 124]
+      status: fresh
+      since: 2026-08-20T14:37:26.173044Z
+    - id: gateway/httpapi/web/app.js#normalizeWorkspacePage
+      level: function
+      anchor:
+        file: gateway/httpapi/web/app.js
+        symbol: normalizeWorkspacePage
+        hash: sha256:e628d5e4ecc75afc084004021521b809ba9a899403fbaa5a21bcf0b3a2e6dbfc
+        struct_hash: sha256:532310f2f60896b5b04a8ca1aa8ade832e6f2dcda1bfb429cdee4f0c4c1974c6
+        lines: [110, 113]
+      status: fresh
+      since: 2026-08-20T14:37:26.173392Z

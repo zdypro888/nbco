@@ -299,6 +299,24 @@ func TestIHTMLStandaloneRootRedirectsIntoControlCenter(t *testing.T) {
 	}
 }
 
+func TestControlCenterKeepsIHTMLPageInShareableURL(t *testing.T) {
+	source, err := webAssets.ReadFile("web/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(source)
+	for _, expected := range []string{
+		`initialURLParams.get("workspace_page")`,
+		`page: state.workspacePage`,
+		`onChange: navState =>`,
+		`next.searchParams.set("workspace_page", state.workspacePage)`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("workspace deep-link contract is missing %q", expected)
+		}
+	}
+}
+
 func TestWorkerDownloadBinary(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "worker")
