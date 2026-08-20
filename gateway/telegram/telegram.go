@@ -58,6 +58,7 @@ const groupMonitorDebounce = 20 * time.Second
 const groupMonitorMaxWait = 2 * time.Minute
 const groupMonitorAnalysisLease = 4 * time.Minute
 const telegramInboundPollInterval = 250 * time.Millisecond
+const domainOutboxPollInterval = 5 * time.Second
 const telegramTransportRetention = 30 * 24 * time.Hour
 const telegramWebhookMaxBody = 2 << 20
 const telegramInboundMaxInFlight = 256
@@ -187,6 +188,7 @@ type Gateway struct {
 	inboundClaimsMu   sync.Mutex
 	inboundClaims     map[int64]struct{}
 	inboundWake       chan struct{}
+	domainOutboxWake  chan struct{}
 }
 
 // New 创建网关。
@@ -228,6 +230,7 @@ func New(token, telegramAPIURL, webhookURL string, s *store.Store, orch *chat.Or
 		monitorInstanceID: newGroupMonitorInstanceID(),
 		inboundClaims:     map[int64]struct{}{},
 		inboundWake:       make(chan struct{}, 1),
+		domainOutboxWake:  make(chan struct{}, 1),
 	}
 	for _, id := range superadmins {
 		g.superadmins[id] = true
@@ -349,6 +352,7 @@ func (g *Gateway) Run(ctx context.Context) {
 	defer g.stopGroupMonitorTimers()
 	go g.monitorReadiness(ctx)
 	go g.runInboundUpdates(ctx)
+	go g.runDomainOutbox(ctx)
 	if g.webhookURL != "" {
 		<-ctx.Done()
 		return
@@ -642,6 +646,123 @@ func (g *Gateway) runInboundUpdates(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// runDomainOutbox is the Telegram transport adapter for durable domain
+// effects. Domain writers commit facts and outbox events atomically; this loop
+// crosses the external Telegram boundary independently and can resume after a
+// process restart.
+func (g *Gateway) runDomainOutbox(ctx context.Context) {
+	ticker := time.NewTicker(domainOutboxPollInterval)
+	defer ticker.Stop()
+	for {
+		g.drainDomainOutboxSafely(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-g.domainOutboxWake:
+		case <-ticker.C:
+		}
+	}
+}
+
+func (g *Gateway) drainDomainOutboxSafely(ctx context.Context) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			slog.Error("领域 outbox 投递 panic 已恢复", "panic", recovered)
+		}
+	}()
+	g.drainDomainOutbox(ctx)
+}
+
+func (g *Gateway) wakeDomainOutbox() {
+	select {
+	case g.domainOutboxWake <- struct{}{}:
+	default:
+	}
+}
+
+func (g *Gateway) drainDomainOutbox(ctx context.Context) {
+	owner := "telegram:" + g.monitorInstanceID
+	for ctx.Err() == nil {
+		events, err := g.store.ClaimDomainOutboxEvents(ctx, owner,
+			[]string{store.DomainTopicTelegramBotMembershipActivated}, 1)
+		if err != nil {
+			slog.Warn("认领领域 outbox 事件失败", "err", err)
+			return
+		}
+		if len(events) == 0 {
+			return
+		}
+		g.deliverDomainOutboxEvent(ctx, owner, events[0])
+	}
+}
+
+func (g *Gateway) deliverDomainOutboxEvent(parent context.Context, owner string, event *store.DomainOutboxEvent) {
+	deliverTelegramDomainOutboxEvent(parent, g.store, owner, event, g.groupReadyMessage(), g.sendChunks)
+}
+
+type domainOutboxLedger interface {
+	CompleteDomainOutboxEvent(context.Context, int64, string, time.Time) error
+	RetryDomainOutboxEvent(context.Context, int64, string, time.Time, string) error
+	FailDomainOutboxEvent(context.Context, int64, string, time.Time, string) error
+}
+
+func deliverTelegramDomainOutboxEvent(
+	parent context.Context,
+	ledger domainOutboxLedger,
+	owner string,
+	event *store.DomainOutboxEvent,
+	message string,
+	send func(context.Context, int64, string) error,
+) {
+	if ledger == nil || event == nil || event.ClaimedAt == nil || send == nil {
+		return
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			slog.Error("领域 outbox 事件处理 panic 已恢复", "event", event.ID, "topic", event.Topic, "panic", recovered)
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+			defer cancel()
+			if err := ledger.RetryDomainOutboxEvent(ctx, event.ID, owner, *event.ClaimedAt,
+				textfmt.RedactSecrets(fmt.Sprintf("panic: %v", recovered))); err != nil {
+				slog.Warn("领域 outbox panic 后释放租约失败", "event", event.ID, "err", err)
+			}
+		}
+	}()
+	ack := func(action func(context.Context) error) {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+		defer cancel()
+		if err := action(ctx); err != nil {
+			slog.Warn("更新领域 outbox 状态失败", "event", event.ID, "topic", event.Topic, "err", err)
+		}
+	}
+
+	var activated store.TelegramBotMembershipActivated
+	decodeErr := json.Unmarshal(event.Payload, &activated)
+	if event.Topic != store.DomainTopicTelegramBotMembershipActivated ||
+		decodeErr != nil || activated.ChatID == 0 || activated.UpdateID <= 0 {
+		ack(func(ctx context.Context) error {
+			return ledger.FailDomainOutboxEvent(ctx, event.ID, owner, *event.ClaimedAt, "invalid or unsupported domain outbox payload")
+		})
+		return
+	}
+
+	sendCtx, cancel := context.WithTimeout(parent, 30*time.Second)
+	sendCtx = withTelegramDeliveryKey(sendCtx, fmt.Sprintf("domain-outbox:%d", event.ID))
+	err := send(sendCtx, activated.ChatID, message)
+	cancel()
+	if err != nil {
+		slog.Warn("领域 outbox Telegram 投递失败，等待安全重放", "event", event.ID,
+			"topic", event.Topic, "chat", activated.ChatID, "err", err)
+		ack(func(ctx context.Context) error {
+			return ledger.RetryDomainOutboxEvent(ctx, event.ID, owner, *event.ClaimedAt, textfmt.RedactSecrets(err.Error()))
+		})
+		return
+	}
+	ack(func(ctx context.Context) error {
+		return ledger.CompleteDomainOutboxEvent(ctx, event.ID, owner, *event.ClaimedAt)
+	})
 }
 
 func (g *Gateway) drainInboundUpdates(ctx context.Context) {
@@ -1216,7 +1337,7 @@ func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Mes
 // applyMyChatMemberUpdate applies the authoritative Telegram update for the
 // bot's own membership. Service messages never enter this lifecycle path.
 func (g *Gateway) applyMyChatMemberUpdate(ctx context.Context, updateID int64, chat models.Chat, status models.ChatMemberType, active bool) {
-	becameActive, err := g.store.ApplyTelegramBotMembershipUpdate(ctx, store.TelegramGroupState{
+	eventCreated, err := g.store.ApplyTelegramBotMembershipUpdate(ctx, store.TelegramGroupState{
 		ChatID:                 chat.ID,
 		Title:                  chat.Title,
 		Type:                   string(chat.Type),
@@ -1227,9 +1348,8 @@ func (g *Gateway) applyMyChatMemberUpdate(ctx context.Context, updateID int64, c
 		slog.Warn("保存 Telegram bot 群成员状态失败", "chat", chat.ID, "status", status, "err", err)
 		return
 	}
-	if becameActive {
-		// 加群操作者不一定能映射到公司用户；先确保群会话在首次 @ 时可用。
-		g.reply(ctx, chat.ID, g.groupReadyMessage())
+	if eventCreated {
+		g.wakeDomainOutbox()
 	}
 }
 

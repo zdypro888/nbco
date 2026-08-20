@@ -19,6 +19,8 @@ const KVTelegramGroupAutoInvitePrefix = "telegram.group.auto_invite:"
 const KVTelegramGroupMonitorPrefix = "telegram.group_monitor:"
 const KVTelegramPendingEmployeeInvitePrefix = "telegram.pending_employee_invite:"
 
+const DomainTopicTelegramBotMembershipActivated = "telegram.bot_membership.activated"
+
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
 // 这是系统事实状态，不是聊天记忆；AI 回答群接入问题时应以它为准。
 type TelegramGroupState struct {
@@ -29,6 +31,16 @@ type TelegramGroupState struct {
 	Listen                 bool      `json:"listen"`
 	LastMembershipUpdateID int64     `json:"last_membership_update_id,omitempty"`
 	UpdatedAt              time.Time `json:"updated_at"`
+}
+
+// TelegramBotMembershipActivated is the immutable domain fact emitted when
+// the persisted bot membership aggregate crosses inactive -> active.
+type TelegramBotMembershipActivated struct {
+	ChatID   int64  `json:"chat_id"`
+	Title    string `json:"title,omitempty"`
+	Type     string `json:"type"`
+	Status   string `json:"status"`
+	UpdateID int64  `json:"update_id"`
 }
 
 type TelegramGroupSeenMember struct {
@@ -266,10 +278,10 @@ func (s *Store) MergeTelegramGroupObservation(ctx context.Context, st TelegramGr
 }
 
 // ApplyTelegramBotMembershipUpdate atomically applies an ordered
-// my_chat_member update. becameActive is true only when the persisted aggregate
-// moves from inactive to active; retries and role refinements do not create
-// another lifecycle transition.
-func (s *Store) ApplyTelegramBotMembershipUpdate(ctx context.Context, st TelegramGroupState, active bool) (becameActive bool, err error) {
+// my_chat_member fact and appends any resulting domain event to the outbox.
+// eventCreated is true only for a newly persisted inactive -> active
+// transition; no external side effect occurs inside this transaction.
+func (s *Store) ApplyTelegramBotMembershipUpdate(ctx context.Context, st TelegramGroupState, active bool) (eventCreated bool, err error) {
 	if st.ChatID == 0 || st.LastMembershipUpdateID <= 0 || strings.TrimSpace(st.Status) == "" {
 		return false, fmt.Errorf("应用 Telegram bot 成员更新: chat_id、update_id 和 status 必填")
 	}
@@ -320,7 +332,7 @@ func (s *Store) ApplyTelegramBotMembershipUpdate(ctx context.Context, st Telegra
 	if !markerFound && previousFound {
 		previousActive = telegramGroupStatusActive(previous.Status)
 	}
-	becameActive = active && !previousActive
+	becameActive := active && !previousActive
 
 	listen := false
 	if active {
@@ -362,10 +374,29 @@ func (s *Store) ApplyTelegramBotMembershipUpdate(ctx context.Context, st Telegra
 			return false, err
 		}
 	}
+	if becameActive {
+		payload, err := json.Marshal(TelegramBotMembershipActivated{
+			ChatID: st.ChatID, Title: st.Title, Type: st.Type, Status: st.Status,
+			UpdateID: st.LastMembershipUpdateID,
+		})
+		if err != nil {
+			return false, err
+		}
+		_, eventCreated, err = enqueueDomainOutboxEventTx(ctx, tx,
+			telegramBotMembershipActivatedOccurrenceKey(st.ChatID, st.LastMembershipUpdateID),
+			DomainTopicTelegramBotMembershipActivated, payload)
+		if err != nil {
+			return false, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
-	return becameActive, nil
+	return eventCreated, nil
+}
+
+func telegramBotMembershipActivatedOccurrenceKey(chatID, updateID int64) string {
+	return fmt.Sprintf("telegram:bot_membership:activated:%d:%d", chatID, updateID)
 }
 
 func telegramGroupStatusActive(status string) bool {

@@ -42,7 +42,7 @@ var dataSourceOrder = []string{
 	"users", "identities", "profiles", "permissions", "workers", "worker_sessions", "worker_capabilities",
 	"roles", "org_groups", "projects", "tasks", "task_updates",
 	"files", "file_intakes", "file_chunks", "schedules", "deliveries", "notification_deliveries", "external_action_receipts",
-	"telegram_inbound_updates", "telegram_delivery_parts", "worker_llm_calls", "knowledge", "learning_candidates",
+	"domain_outbox_events", "telegram_inbound_updates", "telegram_delivery_parts", "worker_llm_calls", "knowledge", "learning_candidates",
 	"goals", "milestones", "campaigns", "decisions", "events", "conversation_turns", "action_turns", "chat_messages",
 	"telegram_groups", "material_entities", "script_tools", "eval_cases", "audit_activity",
 }
@@ -432,6 +432,21 @@ var dataSourceDefs = map[string]dataSourceDef{
 		) AS item, r.updated_at AS sort_at,
 		  hashtextextended(r.action_key, 0) AS sort_id
 		FROM external_action_receipts r WHERE $2`,
+	},
+	"domain_outbox_events": {
+		DataSource: DataSource{
+			Name: "domain_outbox_events", Description: "领域状态转换产生的可靠副作用队列；仅超级管理员可读，用于核对事实是否已进入外部投递链路。",
+			Fields:         []string{"event_id", "occurrence_key", "topic", "status", "attempts", "available_at", "claimed_at", "claim_owner", "completed_at", "last_error", "created_at", "updated_at"},
+			SuperadminOnly: true,
+		},
+		query: `SELECT jsonb_build_object(
+			'event_id', e.id, 'occurrence_key', e.occurrence_key, 'topic', e.topic,
+			'status', e.status, 'attempts', e.attempts,
+			'available_at', e.available_at, 'claimed_at', e.claimed_at,
+			'claim_owner', e.claim_owner, 'completed_at', e.completed_at,
+			'last_error', e.last_error, 'created_at', e.created_at, 'updated_at', e.updated_at
+		) AS item, e.updated_at AS sort_at, e.id AS sort_id
+		FROM domain_outbox_events e WHERE $2`,
 	},
 	"telegram_inbound_updates": {
 		DataSource: DataSource{

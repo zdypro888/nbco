@@ -86,6 +86,81 @@ func TestBotServiceMembershipDoesNotOwnLifecycle(t *testing.T) {
 	// message would make this test fail instead of being silently deduplicated.
 }
 
+type domainOutboxLedgerStub struct {
+	completed int
+	retried   int
+	failed    int
+	lastCause string
+}
+
+func (s *domainOutboxLedgerStub) CompleteDomainOutboxEvent(context.Context, int64, string, time.Time) error {
+	s.completed++
+	return nil
+}
+
+func (s *domainOutboxLedgerStub) RetryDomainOutboxEvent(_ context.Context, _ int64, _ string, _ time.Time, cause string) error {
+	s.retried++
+	s.lastCause = cause
+	return nil
+}
+
+func (s *domainOutboxLedgerStub) FailDomainOutboxEvent(_ context.Context, _ int64, _ string, _ time.Time, cause string) error {
+	s.failed++
+	s.lastCause = cause
+	return nil
+}
+
+func TestTelegramDomainOutboxAdapterOwnsDeliveryAfterCommit(t *testing.T) {
+	claimedAt := time.Now().UTC()
+	event := &store.DomainOutboxEvent{
+		ID: 42, Topic: store.DomainTopicTelegramBotMembershipActivated,
+		Payload:   []byte(`{"chat_id":-1001,"type":"supergroup","status":"member","update_id":700}`),
+		ClaimedAt: &claimedAt,
+	}
+	ledger := &domainOutboxLedgerStub{}
+	sends := 0
+	deliverTelegramDomainOutboxEvent(context.Background(), ledger, "telegram:test", event, "welcome",
+		func(ctx context.Context, chatID int64, text string) error {
+			sends++
+			if chatID != -1001 || text != "welcome" {
+				t.Fatalf("send chat=%d text=%q", chatID, text)
+			}
+			if key := telegramContextDeliveryKey(ctx, chatID); key != "domain-outbox:42" {
+				t.Fatalf("delivery key = %q", key)
+			}
+			return nil
+		})
+	if sends != 1 || ledger.completed != 1 || ledger.retried != 0 || ledger.failed != 0 {
+		t.Fatalf("success sends=%d ledger=%+v", sends, ledger)
+	}
+
+	retryLedger := &domainOutboxLedgerStub{}
+	deliverTelegramDomainOutboxEvent(context.Background(), retryLedger, "telegram:test", event, "welcome",
+		func(context.Context, int64, string) error { return errors.New("temporary send failure") })
+	if retryLedger.retried != 1 || retryLedger.completed != 0 || retryLedger.failed != 0 {
+		t.Fatalf("retry ledger=%+v", retryLedger)
+	}
+
+	invalidLedger := &domainOutboxLedgerStub{}
+	invalid := *event
+	invalid.Payload = []byte(`{"chat_id":0}`)
+	deliverTelegramDomainOutboxEvent(context.Background(), invalidLedger, "telegram:test", &invalid, "welcome",
+		func(context.Context, int64, string) error {
+			t.Fatal("invalid event crossed transport boundary")
+			return nil
+		})
+	if invalidLedger.failed != 1 || invalidLedger.completed != 0 || invalidLedger.retried != 0 {
+		t.Fatalf("invalid ledger=%+v", invalidLedger)
+	}
+
+	panicLedger := &domainOutboxLedgerStub{}
+	deliverTelegramDomainOutboxEvent(context.Background(), panicLedger, "telegram:test", event, "welcome",
+		func(context.Context, int64, string) error { panic("sender panic") })
+	if panicLedger.retried != 1 || panicLedger.completed != 0 || panicLedger.failed != 0 {
+		t.Fatalf("panic ledger=%+v", panicLedger)
+	}
+}
+
 func TestGatewayTelegramHandshakeRetriesUntilAPIReady(t *testing.T) {
 	attempts := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

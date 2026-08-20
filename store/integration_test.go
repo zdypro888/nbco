@@ -54,7 +54,7 @@ func openTestStore(t *testing.T) *Store {
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields,
 		 ai_usage, pending_approvals, goals, automation_runs, automation_snapshots,
 		 notification_deliveries, external_action_receipts, telegram_inbound_updates,
-		 telegram_delivery_parts RESTART IDENTITY CASCADE`); err != nil {
+		 telegram_delivery_parts, domain_outbox_events RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
@@ -6135,7 +6135,7 @@ func TestTelegramGroupState(t *testing.T) {
 	}
 }
 
-func TestTelegramBotMembershipUpdatesAreAtomicAndOrdered(t *testing.T) {
+func TestTelegramBotMembershipUpdatesAndOutboxAreAtomicAndOrdered(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	if _, err := s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
@@ -6189,7 +6189,17 @@ func TestTelegramBotMembershipUpdatesAreAtomicAndOrdered(t *testing.T) {
 		}
 	}
 	if joinCount != 1 {
-		t.Fatalf("concurrent inactive-to-active transitions = %d, want 1", joinCount)
+		t.Fatalf("concurrent inactive-to-active outbox events = %d, want 1", joinCount)
+	}
+	var outboxCount int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM domain_outbox_events
+		  WHERE topic=$1 AND payload->>'chat_id'=$2`,
+		DomainTopicTelegramBotMembershipActivated, strconv.FormatInt(chatID, 10)).Scan(&outboxCount); err != nil {
+		t.Fatal(err)
+	}
+	if outboxCount != 1 {
+		t.Fatalf("concurrent transition persisted %d outbox events, want 1", outboxCount)
 	}
 	if listen, err := s.GetKV(ctx, TelegramGroupListenKey(chatID)); err != nil || listen != "1" {
 		t.Fatalf("join should enable listening: value=%q err=%v", listen, err)
@@ -6221,6 +6231,15 @@ func TestTelegramBotMembershipUpdatesAreAtomicAndOrdered(t *testing.T) {
 	}, true)
 	if err != nil || !joined {
 		t.Fatalf("rejoin joined=%v err=%v", joined, err)
+	}
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM domain_outbox_events
+		  WHERE topic=$1 AND payload->>'chat_id'=$2`,
+		DomainTopicTelegramBotMembershipActivated, strconv.FormatInt(chatID, 10)).Scan(&outboxCount); err != nil {
+		t.Fatal(err)
+	}
+	if outboxCount != 2 {
+		t.Fatalf("leave/rejoin persisted %d outbox events, want 2", outboxCount)
 	}
 
 	// Reordered webhook retries cannot roll membership backward. Replaying the
@@ -6277,6 +6296,94 @@ func TestTelegramBotMembershipUpdatesAreAtomicAndOrdered(t *testing.T) {
 	}, true)
 	if err != nil || !joined {
 		t.Fatalf("newer rejoin joined=%v err=%v", joined, err)
+	}
+
+	// The aggregate and its event share one transaction. A conflicting immutable
+	// occurrence must roll the state mutation back instead of committing an
+	// active group without a corresponding side effect.
+	const rollbackChatID int64 = -2004
+	const rollbackUpdateID int64 = 400
+	if _, _, err := s.EnqueueDomainOutboxEvent(ctx,
+		telegramBotMembershipActivatedOccurrenceKey(rollbackChatID, rollbackUpdateID),
+		DomainTopicTelegramBotMembershipActivated,
+		json.RawMessage(`{"chat_id":-999,"type":"supergroup","status":"member","update_id":400}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyTelegramBotMembershipUpdate(ctx, TelegramGroupState{
+		ChatID: rollbackChatID, Title: "回滚群", Type: "supergroup", Status: "member",
+		LastMembershipUpdateID: rollbackUpdateID,
+	}, true); !errors.Is(err, ErrConflict) {
+		t.Fatalf("conflicting outbox occurrence error = %v, want ErrConflict", err)
+	}
+	if _, err := s.TelegramGroupState(ctx, rollbackChatID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("membership committed without outbox event: err=%v", err)
+	}
+}
+
+func TestDomainOutboxLifecycleIsDurableAndTopicScoped(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	payload := json.RawMessage(`{"chat_id":-7001,"update_id":81}`)
+	id, created, err := s.EnqueueDomainOutboxEvent(ctx, "occurrence:81", "telegram.test", payload)
+	if err != nil || !created || id <= 0 {
+		t.Fatalf("enqueue id=%d created=%v err=%v", id, created, err)
+	}
+	if replayID, replayCreated, err := s.EnqueueDomainOutboxEvent(ctx, "occurrence:81", "telegram.test", payload); err != nil || replayCreated || replayID != id {
+		t.Fatalf("replay id=%d created=%v err=%v", replayID, replayCreated, err)
+	}
+	if _, _, err := s.EnqueueDomainOutboxEvent(ctx, "occurrence:81", "telegram.test", json.RawMessage(`{"chat_id":-7002}`)); !errors.Is(err, ErrConflict) {
+		t.Fatalf("payload conflict error = %v, want ErrConflict", err)
+	}
+	if events, err := s.ClaimDomainOutboxEvents(ctx, "wrong-consumer", []string{"other.topic"}, 10); err != nil || len(events) != 0 {
+		t.Fatalf("unrelated topic claim events=%v err=%v", events, err)
+	}
+	events, err := s.ClaimDomainOutboxEvents(ctx, "consumer-a", []string{"telegram.test", "telegram.test", ""}, 10)
+	if err != nil || len(events) != 1 || events[0].ID != id || events[0].ClaimedAt == nil {
+		t.Fatalf("claim events=%+v err=%v", events, err)
+	}
+	claimedAt := *events[0].ClaimedAt
+	if err := s.RetryDomainOutboxEvent(ctx, id, "consumer-a", claimedAt, "temporary"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE domain_outbox_events SET available_at=now()-interval '1 second' WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	events, err = s.ClaimDomainOutboxEvents(ctx, "consumer-b", []string{"telegram.test"}, 1)
+	if err != nil || len(events) != 1 || events[0].Attempts != 2 || events[0].ClaimedAt == nil {
+		t.Fatalf("reclaim events=%+v err=%v", events, err)
+	}
+	if err := s.CompleteDomainOutboxEvent(ctx, id, "consumer-b", *events[0].ClaimedAt); err != nil {
+		t.Fatal(err)
+	}
+	if events, err := s.ClaimDomainOutboxEvents(ctx, "consumer-c", []string{"telegram.test"}, 1); err != nil || len(events) != 0 {
+		t.Fatalf("completed event reclaimed: events=%v err=%v", events, err)
+	}
+
+	failedID, _, err := s.EnqueueDomainOutboxEvent(ctx, "occurrence:failed", "telegram.test", payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err = s.ClaimDomainOutboxEvents(ctx, "consumer-failed", []string{"telegram.test"}, 1)
+	if err != nil || len(events) != 1 || events[0].ID != failedID || events[0].ClaimedAt == nil {
+		t.Fatalf("failed-event claim=%+v err=%v", events, err)
+	}
+	if err := s.FailDomainOutboxEvent(ctx, failedID, "consumer-failed", *events[0].ClaimedAt, "permanent"); err != nil {
+		t.Fatal(err)
+	}
+	backlogID, _, err := s.EnqueueDomainOutboxEvent(ctx, "occurrence:backlog", "telegram.test", payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE domain_outbox_events SET available_at=now()-interval '3 minutes' WHERE id=$1`, backlogID); err != nil {
+		t.Fatal(err)
+	}
+	health, err := s.ProductHealthStats(ctx, time.Now().UTC().Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if health.DomainOutboxFailures != 1 || health.DomainOutboxBacklog != 1 {
+		t.Fatalf("domain outbox health = %+v", health)
 	}
 }
 

@@ -598,6 +598,8 @@ type ProductHealthStats struct {
 	NotificationUncertain     int64 `json:"notification_uncertain"`
 	ExternalActionFailures    int64 `json:"external_action_failures_24h"`
 	ExternalActionUncertain   int64 `json:"external_action_uncertain"`
+	DomainOutboxFailures      int64 `json:"domain_outbox_failures_24h"`
+	DomainOutboxBacklog       int64 `json:"domain_outbox_backlog"`
 	TelegramInboundFailures   int64 `json:"telegram_inbound_failures_24h"`
 	TelegramInboundBacklog    int64 `json:"telegram_inbound_backlog"`
 	TelegramDeliveryFailures  int64 `json:"telegram_delivery_failures_24h"`
@@ -622,6 +624,10 @@ func (s *Store) ProductHealthStats(ctx context.Context, since time.Time) (*Produ
 		   (SELECT count(*) FROM notification_deliveries WHERE status = 'started' AND updated_at < now() - interval '2 minutes'),
 		   (SELECT count(*) FROM external_action_receipts WHERE status = 'failed' AND updated_at >= $1),
 		   (SELECT count(*) FROM external_action_receipts WHERE status = 'started' AND updated_at < now() - interval '2 minutes'),
+		   (SELECT count(*) FROM domain_outbox_events WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM domain_outbox_events
+		      WHERE (status = 'pending' AND available_at < now() - interval '2 minutes')
+		         OR (status = 'processing' AND claimed_at < now() - interval '2 minutes')),
 		   (SELECT count(*) FROM telegram_inbound_updates WHERE status = 'failed' AND updated_at >= $1),
 		   (SELECT count(*) FROM telegram_inbound_updates
 		      WHERE (status = 'pending' AND available_at < now() - interval '2 minutes')
@@ -638,6 +644,7 @@ func (s *Store) ProductHealthStats(ctx context.Context, since time.Time) (*Produ
 		Scan(&stats.LearningPending, &stats.LearningConflicts, &stats.DeliveryFailures24H,
 			&stats.NotificationFailures24H, &stats.NotificationUncertain,
 			&stats.ExternalActionFailures, &stats.ExternalActionUncertain,
+			&stats.DomainOutboxFailures, &stats.DomainOutboxBacklog,
 			&stats.TelegramInboundFailures, &stats.TelegramInboundBacklog,
 			&stats.TelegramDeliveryFailures, &stats.TelegramDeliveryUncertain,
 			&stats.WorkerLLMFailures, &stats.WorkerLLMUncertain,

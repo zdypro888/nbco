@@ -451,6 +451,12 @@ func (s *Scheduler) tick(ctx context.Context) {
 			slog.Info("已清理过期投递账本", "notifications", notifications, "actions", actions,
 				"worker_llm_calls", workerLLMCalls)
 		}
+		outboxEvents, outboxErr := s.store.DeleteExpiredDomainOutboxEvents(ctx, now.Add(-deliveryReceiptRetention))
+		if outboxErr != nil {
+			slog.Warn("清理过期领域 outbox 事件失败", "err", outboxErr)
+		} else if outboxEvents > 0 {
+			slog.Info("已清理过期领域 outbox 事件", "count", outboxEvents)
+		}
 		s.nextReceiptCleanup = now.Add(24 * time.Hour)
 	}
 	if !now.Before(s.nextCredentialCleanup) {
