@@ -32,7 +32,7 @@ func TestCancelScheduleReportsCompletedStateWithoutRewritingHistory(t *testing.T
 	if len(due) != 1 || due[0].DeliveryClaimedAt == nil {
 		t.Fatalf("due schedules = %+v", due)
 	}
-	if err := s.MarkScheduleDelivered(ctx, sc.ID, *due[0].DeliveryClaimedAt, time.Now().UTC(), nil, true); err != nil {
+	if err := s.MarkScheduleDelivered(ctx, sc.ID, due[0].OccurrenceGeneration, *due[0].DeliveryClaimedAt, time.Now().UTC(), nil, true); err != nil {
 		t.Fatal(err)
 	}
 

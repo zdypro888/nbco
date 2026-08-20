@@ -273,9 +273,14 @@ func run(configPath string) error {
 		if sttClient != nil {
 			slog.Info("语音转写已启用", "stt_model", cfg.AI.STTModel)
 		}
-		tg, err = telegram.New(cfg.TelegramToken, cfg.TelegramAPIURL, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, cfg.PublicBaseURL, cfg.BrandName, tz)
+		tg, err = telegram.New(cfg.TelegramToken, cfg.TelegramAPIURL, cfg.TelegramWebhookURL, st, orch, bus, cfg.Superadmins, cfg.AI.Model, cfg.AI.BaseURL, cfg.AI.APIKey, sttClient, cfg.FileStorePath, cfg.PublicBaseURL, cfg.BrandName, tz)
 		if err != nil {
 			return err
+		}
+		if tg.WebhookEnabled() {
+			if err := api.SetTelegramWebhook(tg.WebhookPath(), tg.WebhookHandler()); err != nil {
+				return fmt.Errorf("挂载 Telegram webhook: %w", err)
+			}
 		}
 		hub.Set(tg)
 		tgGroups.Set(tg)

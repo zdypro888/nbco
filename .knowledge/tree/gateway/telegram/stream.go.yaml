@@ -68,12 +68,24 @@ nodes:
       anchor:
         file: gateway/telegram/stream.go
         symbol: Gateway.newStreamEditorEvery
-        hash: sha256:9db5168ec8efb8149cdd8127cf085222fa592f437205df0f62334111668c0302
-        struct_hash: sha256:d6c3d1e79da6be15af72c252494f32065988f228d3b22b9af72acc480a8861d3
-        doc_struct_hash: sha256:f4fc38ce4c4ee47ede2c4222aeb74b27b638811014717bdc3c16d1b0cc976ef4
-        lines: [51, 64]
-      status: undigested
+        hash: sha256:579592e7e6d9ed9a1808e17962c3d89c00f978524fbb43fc5974c9ef940b56f0
+        struct_hash: sha256:dcf08b3babc5fc47ac8cc7e5e0ca60d1533337924c643ab4d26bba67493c47fc
+        doc_struct_hash: sha256:c70f8551d91f7f0a1de4d40ca7434e2ec83e1e9ec75418e2e89efc445840430b
+        lines: [53, 59]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_712d8837
+          kind: contract
+          text: 流式编辑器启动时只续 typing，不立即创建占位消息；首个可见 delta 才发送占位。finish 必须先停止后台编辑，再让最终首片编辑/兜底发送与后续分片共用 conversation turn 的持久投递账本，避免重放留下空占位或重复最终答复。
+          confidence: inferred
+          at: 2026-08-20T13:02:08.432128Z
+          author: codex-mcp-client
+      keywords:
+        - lazy telegram stream placeholder
+        - 流式占位消息
+        - final delivery ledger
+        - typing heartbeat
     - id: gateway/telegram/stream.go#streamEditor.loop
       level: function
       anchor:
@@ -134,12 +146,32 @@ nodes:
       anchor:
         file: gateway/telegram/stream.go
         symbol: streamEditor.finish
-        hash: sha256:366724298446a9ca34d92b82a2356795dbd25fb1d9f69ea3e6a9736cc34f7880
-        struct_hash: sha256:4135e298bc7c4daa2241cc6af4be1a92d4d21ef8323f14cd0bb8a141e2974861
-        doc_struct_hash: sha256:5cd62e70692c342465be1e521490550e1c0f12939044cacf2792e08700ed610d
-        lines: [153, 178]
-      status: undigested
+        hash: sha256:4eaf2873680af0f9e189de723e3e56233f7626c148f927893c617a28c71e871a
+        struct_hash: sha256:446ed4b092285518800685a81d5fd790b27d3b327a642c717195d2d39ecc5ed6
+        doc_struct_hash: sha256:2e5787204341ed858ad0a810d3baf10e2f1fd707b05cdd5cb988d6be618ab3c0
+        lines: [156, 211]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_0305c9ec
+          kind: contract
+          text: 有稳定 Telegram delivery key 时，最终首片无论通过 EditMessageText 覆盖占位还是因占位不可编辑而 SendMessage，都必须先认领同一个 telegram_delivery_parts 分片；后续重放不得再次跨外部边界。
+          confidence: inferred
+          at: 2026-08-20T12:57:17.646477Z
+          author: codex-mcp-client
+        - id: e_969aca14
+          kind: pitfall
+          text: conversation turn 完成只证明 Agent 结果已持久化，不证明 Telegram 最终消息已送达；编辑成功与 turn delivery_status 写回之间的崩溃窗口必须由分片账本覆盖。
+          confidence: inferred
+          at: 2026-08-20T12:57:17.64797Z
+          author: codex-mcp-client
+      keywords:
+        - telegram 流式回复
+        - 占位消息
+        - 最终答复重复
+        - delivery receipt
+        - 编辑消息幂等
+        - 进程重启
     - id: gateway/telegram/stream.go#streamEditor.discard
       level: function
       anchor:

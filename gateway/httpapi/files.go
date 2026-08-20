@@ -131,10 +131,30 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
+	// Reject requests without a usable transport identity before parsing a body
+	// that may spool hundreds of megabytes to disk.
+	if _, err := requestIdempotencyKey(r, true); err != nil {
+		switch {
+		case errors.Is(err, errIdempotencyKeyRequired):
+			writeJSON(w, http.StatusPreconditionRequired, map[string]string{"error": "文件上传必须提供 Idempotency-Key"})
+		default:
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Idempotency-Key 过长或无效"})
+		}
+		return
+	}
 	f, err := s.saveMultipartFile(w, r, u.ID, "api")
 	if err != nil {
 		slog.Warn("文件上传失败", "user", u.ID, "err", err)
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		switch {
+		case errors.Is(err, errIdempotencyKeyRequired):
+			writeJSON(w, http.StatusPreconditionRequired, map[string]string{"error": "文件上传必须提供 Idempotency-Key"})
+		case errors.Is(err, errIdempotencyKeyInvalid):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Idempotency-Key 过长或无效"})
+		case errors.Is(err, store.ErrConflict):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "Idempotency-Key 已用于另一份文件"})
+		default:
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"file": toFileJSON(*f, "/api/files/"+strconv.FormatInt(f.ID, 10))})
@@ -276,24 +296,42 @@ func (s *Server) handleWorkerArtifact(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许上传产物"})
 		return
 	}
+	requestID := strings.TrimSpace(r.URL.Query().Get("request_id"))
+	if len(requestID) > 128 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request_id 过长"})
+		return
+	}
 	// 授权通过才落盘。
 	f, err := s.saveMultipartFile(w, r, u.ID, "worker")
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	if err := s.store.AddWorkerArtifact(r.Context(), runID, u.ID, claimID, f.ID, r.URL.Query().Get("caption")); err != nil {
+	canonicalFileID, inserted, err := s.store.AddWorkerArtifact(r.Context(), runID, u.ID, claimID, f.ID, requestID, r.URL.Query().Get("caption"))
+	if err != nil {
 		// 预校验已过、此处失败=落盘期间 claim 恰好失效的极窄竞态。只删孤儿 files 行、
 		// 不碰内容寻址 blob（blob 可能被并发的同内容上传复用，物理回收交离线 GC）。
 		_ = s.store.DeleteOrphanFileRow(r.Context(), f.ID)
-		if errors.Is(err, store.ErrNotFound) {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许上传产物"})
+			return
+		case errors.Is(err, store.ErrConflict):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "request_id 已被另一份产物内容使用"})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "产物登记失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"file": toFileJSON(*f, "")})
+	if canonicalFileID != f.ID {
+		_ = s.store.DeleteOrphanFileRow(r.Context(), f.ID)
+		f, err = s.store.FileByID(r.Context(), canonicalFileID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取已登记产物失败"})
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"file": toFileJSON(*f, ""), "recorded": inserted})
 }
 
 // saveMultipartFile 解析上传并落盘（内容寻址）。调用方须在调用【之前】完成授权
@@ -356,13 +394,85 @@ func (s *Server) saveMultipartFile(w http.ResponseWriter, r *http.Request, userI
 		SizeBytes: n, SHA256: sum, StoragePath: rel, CreatedBy: &uid,
 	}
 	if source == "api" {
+		requestKey, err := requestIdempotencyKey(r, true)
+		if err != nil {
+			return nil, err
+		}
 		batchRef := strings.TrimSpace(r.FormValue("batch_ref"))
 		if len(batchRef) > 160 {
 			batchRef = batchRef[:160]
 		}
-		return s.store.CreateFileWithMaterialCase(r.Context(), file, batchRef)
+		return s.publishAPIUpload(r.Context(), file, requestKey, batchRef)
 	}
 	return s.store.CreateFile(r.Context(), file)
+}
+
+func (s *Server) publishAPIUpload(ctx context.Context, file *store.File, requestKey, batchRef string) (*store.File, error) {
+	if file == nil || file.CreatedBy == nil || *file.CreatedBy <= 0 {
+		return nil, store.ErrConflict
+	}
+	identity := fmt.Sprintf("%s\x00%s\x00%d\x00%s\x00%s",
+		file.OriginalName, file.MIMEType, file.SizeBytes, file.SHA256, batchRef)
+	receipt, created, err := s.beginHTTPAction(ctx, *file.CreatedBy, "file-upload", []byte(identity), requestKey)
+	if err != nil {
+		return nil, err
+	}
+	// Continue through the canonical intake lookup even for a settled receipt so
+	// a lost HTTP response returns the original metadata instead of publishing a
+	// second file row.
+	intake, err := s.store.CreateFileIntake(ctx, store.FileIntake{
+		UserID: *file.CreatedBy, Source: file.Source, ExternalRef: receipt.Key,
+		OriginalName: file.OriginalName, MIMEType: file.MIMEType, SizeBytes: file.SizeBytes,
+	})
+	if err != nil {
+		if created {
+			s.failHTTPAction(ctx, receipt.Key, err)
+		}
+		return nil, err
+	}
+	if intake.Status == "saved" && intake.FileID != nil {
+		canonical, err := s.store.FileByID(ctx, *intake.FileID)
+		if err != nil {
+			return nil, err
+		}
+		if canonical.SHA256 != file.SHA256 {
+			return nil, store.ErrConflict
+		}
+		if err := s.store.CompleteRecoverableExternalAction(ctx, receipt.Key); err != nil {
+			slog.Warn("API 文件已规范入箱，但幂等收据结算失败", "file", canonical.ID, "action", receipt.Key, "err", err)
+		}
+		return canonical, nil
+	}
+
+	createdFile, err := s.store.CreateFile(ctx, file)
+	if err != nil {
+		if created {
+			s.failHTTPAction(ctx, receipt.Key, err)
+		}
+		return nil, err
+	}
+	canonicalID, err := s.store.CompleteFileIntake(ctx, intake.ID, createdFile.ID, batchRef)
+	if err != nil {
+		_ = s.store.DeleteOrphanFileRow(ctx, createdFile.ID)
+		if created {
+			s.failHTTPAction(ctx, receipt.Key, err)
+		}
+		return nil, err
+	}
+	if canonicalID != createdFile.ID {
+		_ = s.store.DeleteOrphanFileRow(ctx, createdFile.ID)
+		createdFile, err = s.store.FileByID(ctx, canonicalID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if createdFile.SHA256 != file.SHA256 {
+		return nil, store.ErrConflict
+	}
+	if err := s.store.CompleteRecoverableExternalAction(ctx, receipt.Key); err != nil {
+		slog.Warn("API 文件已规范入箱，但幂等收据结算失败", "file", createdFile.ID, "action", receipt.Key, "err", err)
+	}
+	return createdFile, nil
 }
 
 func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, id int64) {

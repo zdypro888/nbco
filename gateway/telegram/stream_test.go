@@ -101,8 +101,8 @@ func TestStreamEditorSlowTypingDoesNotStallFlush(t *testing.T) {
 		t.Fatalf("bot.New: %v", err)
 	}
 	ed := (&Gateway{bot: b}).newStreamEditorEvery(context.Background(), 1, editEvery, typingIvl)
-	if !ed.ok {
-		t.Fatal("占位消息未创建")
+	if ed.ok {
+		t.Fatal("没有可见增量前不应创建 Telegram 消息")
 	}
 	done := make(chan struct{})
 	go func() {
@@ -157,10 +157,27 @@ func TestStreamEditorFinishReportsTotalDeliveryFailure(t *testing.T) {
 		t.Fatalf("bot.New: %v", err)
 	}
 	ed := (&Gateway{bot: b}).newStreamEditorEvery(context.Background(), 1, time.Hour, time.Hour)
+	ed.onDelta("处理中")
+	ed.flush(context.Background())
 	if !ed.ok {
-		t.Fatal("placeholder was not created")
+		t.Fatal("首个可见增量应创建流式消息")
 	}
 	if err := ed.finish(context.Background(), "最终答复"); err == nil {
 		t.Fatal("finish must report failure when edit and fallback sends all fail")
+	}
+}
+
+func TestStreamEditorWithoutVisibleDeltaCreatesNoMessage(t *testing.T) {
+	h := &streamDeliveryFailureHTTP{}
+	b, err := bot.New("TESTTOKEN", bot.WithHTTPClient(time.Second, h), bot.WithSkipGetMe())
+	if err != nil {
+		t.Fatalf("bot.New: %v", err)
+	}
+	ed := (&Gateway{bot: b}).newStreamEditorEvery(context.Background(), 1, time.Hour, time.Hour)
+	ed.discard(context.Background())
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.sendCalls != 0 {
+		t.Fatalf("replayed turn created %d transient messages", h.sendCalls)
 	}
 }

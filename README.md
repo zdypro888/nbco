@@ -42,6 +42,8 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `brand_name` | 当前实例面向用户的显示名称，默认 `nbco`；Web、Telegram 和 Agent 身份会使用它，内部协议标识保持不变 |
 | `telegram_token` | Bot token；可留空，留空则不启动 Telegram 网关，HTTP/API/MCP/worker 仍可用 |
 | `telegram_api_url` | 可选的自建 `telegram-bot-api` 基地址；为空使用 Telegram 云端。云端只能下载不超过 20MB 的文件，本机服务可接收更大的 Telegram 文件 |
+| `telegram_update_mode` | `auto`（默认）在配置 HTTPS `public_base_url` 时启用持久化 webhook，否则使用长轮询；也可显式设为 `webhook` 或 `polling` |
+| `telegram_webhook_url` | 可选的完整 HTTPS webhook 地址；通常留空，由 `public_base_url` 自动生成 `/api/telegram/webhook` |
 | `superadmins` | Telegram 用户 ID 列表（启用 Telegram 时可留空：全新系统里第一个对 bot 发 `/superadmin` 的人自动成为超管） |
 | `postgres_dsn` | PostgreSQL 连接串（首次启动自动建表） |
 | `qdrant.url` | Qdrant gRPC 地址，例如 `http://127.0.0.1:6334`；空值禁用并回退 PostgreSQL 旧向量/词法路径 |
@@ -115,12 +117,15 @@ DNS 必须先指向服务器，并确保公网 `80/443` 可达，Caddy 才能完
 普通浏览器和 API 使用 `Authorization: Bearer <token>`；从 Bot 按钮打开的 Telegram Mini App 使用 Telegram 签名自动登录，不在 URL 中传凭据。全新系统且没有 Telegram 时，先调一次：
 
 ```bash
+BOOTSTRAP_KEY="$(openssl rand -hex 16)"
+BOOTSTRAP_TOKEN="$(openssl rand -hex 24)"
 curl -X POST http://<listen>/api/bootstrap \
   -H 'Content-Type: application/json' \
-  -d '{"name":"老板"}'
+  -H "Idempotency-Key: ${BOOTSTRAP_KEY}" \
+  -d "{\"name\":\"老板\",\"access_token\":\"${BOOTSTRAP_TOKEN}\"}"
 ```
 
-该接口仅在系统没有活跃超管时可用，会返回首任超管和首个 API token；已有超管后再调用会返回 `409`。已有账号可在 TG/Web 对话里让 AI 调 `generate_api_token` 重新生成自己的 token。
+该接口仅在系统没有活跃超管时可用，会返回首任超管和首个 API token。若响应丢失，使用相同的 `Idempotency-Key`、`access_token` 和请求体重试即可取回同一结果；已有超管或改写请求后再调用会返回 `409`。已有账号可在 TG/Web 对话里让 AI 调 `generate_api_token` 重新生成自己的 token。
 
 ## 凭证区别
 
@@ -129,7 +134,7 @@ curl -X POST http://<listen>/api/bootstrap \
 | 真人员工一次性邀请 | 真人员工 | `invite_employee` | 默认 24 小时有效，只能用一次 | 员工首次在 Telegram 通过邀请链接或邀请码绑定身份 |
 | 用户 Access Token | 真人员工或超管 | Telegram 私聊 `/token new` → `/token confirm`，或 AI 工具 `generate_api_token` | 常驻，重新生成会替换旧 token | HTTP API / Web / MCP / 控制中心认证 |
 | Worker 绑定码（`wbc_` 前缀） | `nbco-worker` 客户端 | `create_worker` / `issue_worker_bind_code` | 24 小时有效，只能用一次 | 工作机 `bind/bootstrap` 时兑换 Worker Access Token |
-| Worker Access Token | `nbco-worker` 客户端 | 绑定码兑换时由服务端签发 | 常驻，新绑定码被兑换或吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
+| Worker Access Token | `nbco-worker` 客户端 | 客户端在兑换绑定码前生成并落盘，服务端只保存哈希 | 常驻，新绑定码被兑换或吊销 worker 时失效 | worker 轮询任务、回传进度、上传产物 |
 
 这几种不要混用：邀请和绑定码是一次性的进门票，Access Token 是持续认证凭证。Worker Access Token 只在工作机兑换绑定码那一刻出现，不进入对话与会话历史。多个 worker 必须各自 `create_worker`；同一个 worker 的凭据放到多台机器上，服务端仍把它们视为同一个 AI worker（且后兑换的绑定码会替换旧 token）。
 
@@ -137,19 +142,22 @@ curl -X POST http://<listen>/api/bootstrap \
 
 常用接口：
 
-- `POST /api/chat` `{"message":"..."}` → `{"reply":"..."}` — 与 TG 同一编排器，独立会话
+- `POST /api/chat` `{"message":"..."}` → `{"reply":"..."}` — 与 TG 同一编排器，独立会话；必须携带 `Idempotency-Key`
 - `GET /api/me` — 当前用户
 - `GET /api/search?q=...` — 按当前用户的数据权限搜索任务、文件、项目和成员
 - `GET /api/me/tasks` / `GET /api/me/review` / `GET /api/me/assigned` — 待办 / 待我验收 / 我分配的
 - `GET /api/overview` — 全局统计+项目+过期任务（超管）
 - `GET /api/admin/workers` / `/api/admin/learning` / `/api/admin/decisions` / `/api/admin/ops` / `/api/admin/capabilities` — 运营控制中心数据源
 - `GET /api/admin/evals` / `POST /api/admin/evals/run` — 查看并运行无生产副作用的 Eino 行为回归案例（超管）
+- `POST /api/tools/{name}` / `POST /api/admin/workflows/start` — 调用当前用户有权使用的工具或工作流
 - `POST /api/files`（multipart `file`，最大 200MB）/ `GET /api/files/{id}` — 上传/下载文件（按权限校验）；上传会进入显式材料生命周期，等待指令而不自动分析
 - `POST /api/tasks/{id}/attachments` `{"file_id":123,"caption":"..."}` — 把文件挂到任务
 - `GET /version` — 当前服务版本与 Go 版本（部署脚本会把 git SHA 写进版本号）
-- `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具
+- `/mcp` — 对外 MCP 端点（Streamable HTTP），暴露该用户权限内的全部工具；写入/执行调用可携带 `Idempotency-Key`，网络重试复用原值
 - `GET /healthz` — 进程与数据库存活检查
 - `GET /readyz` — 数据库及已配置外部网关就绪检查（部署切流应使用此接口）
+
+`POST /api/chat`、`POST /api/tools/{name}`、`POST /api/admin/workflows/start`、`POST /api/admin/evals/run` 和 `POST /api/files` 必须携带每次用户动作唯一的 `Idempotency-Key`；网络重试复用原值。对外 MCP 的写入/执行工具也会透传同名 HTTP header。相同用户、接口和 key 的重放不会再次产生副作用；同一 key 改写请求内容会返回 `409`。
 
 ## 任务流转（验收状态机）
 
@@ -310,7 +318,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 
 `chat_messages` 是唯一的跨轮对话事实源；`action_turns` 是与回复同事务提交的执行证据。每个交互轮次先在 `conversation_turns` 原子登记用户输入，再创建独立的 Eino managed session：Eino 原生 DeepAgent 在该轮内部持久记录模型消息、工具调用、结果和 checkpoint，完成后一次性提交助手消息、动作证据、用量和 Memory Miner 队列。下一轮从滚动摘要、近期聊天和限量执行事实重新建立 Eino session，不依赖上一轮可能回滚或缺失的引擎事件。
 
-`conversation_turns` 同时记录 Agent 执行状态与渠道交付状态。Telegram 消息 ID 和 HTTP `Idempotency-Key` 只保存哈希，用于抑制重放；结果提交与外部发送分开确认，因此“Agent 已完成但 Telegram 发送失败”可被准确审计。进程启动会关闭超过轮次截止时间的失联 claim，但不会自动重放可能已经产生外部副作用的操作。私聊、群聊和 ihtml 共用这套生命周期；群 `/listen` 的旁听消息仍直接进入共享聊天事实，随后由同一产品层摘要和历史重放处理。
+`conversation_turns` 同时记录 Agent 执行状态与渠道交付状态。Telegram 消息 ID 和 HTTP `Idempotency-Key` 经过用户与操作域隔离后只保存哈希，用于抑制重放；结果提交与外部发送分开确认，因此“Agent 已完成但 Telegram 发送失败”可被准确审计。进程启动会关闭超过轮次截止时间的失联 claim，但不会自动重放可能已经产生外部副作用的操作。私聊、群聊和 ihtml 共用这套生命周期；群 `/listen` 的旁听消息仍直接进入共享聊天事实，随后由同一产品层摘要和历史重放处理。
 
 ## 主动运营（AI 主动，人被动）
 

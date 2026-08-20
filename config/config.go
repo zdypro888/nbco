@@ -35,6 +35,12 @@ const (
 	ProviderOpenAI = "openai"
 )
 
+const (
+	TelegramUpdateAuto    = "auto"
+	TelegramUpdateWebhook = "webhook"
+	TelegramUpdatePolling = "polling"
+)
+
 // AIConfig AI 引擎配置。
 type AIConfig struct {
 	Engine    string `json:"engine"`     // 仅支持 eino；CLI 自动执行走 nbco-worker 交互式 PTY
@@ -116,12 +122,18 @@ type Config struct {
 	TelegramToken string `json:"telegram_token"`
 	// TelegramAPIURL 可指向本机 telegram-bot-api；为空使用 Telegram 云端。
 	// 本机服务可突破云端 20MB 下载限制。
-	TelegramAPIURL string  `json:"telegram_api_url"`
-	Superadmins    []int64 `json:"superadmins"`
-	PostgresDSN    string  `json:"postgres_dsn"`
-	Listen         string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
-	LogLevel       string  `json:"log_level"` // debug | info | warn | error，默认 info
-	FileStorePath  string  `json:"file_store_path"`
+	TelegramAPIURL string `json:"telegram_api_url"`
+	// TelegramUpdateMode 默认 auto：有 HTTPS public_base_url 时使用持久化
+	// webhook，否则回退长轮询。polling 可显式用于无公网回调的环境。
+	TelegramUpdateMode string `json:"telegram_update_mode"`
+	// TelegramWebhookURL 通常由 public_base_url 自动生成；多层反代或自定义
+	// 路径时可显式配置完整 HTTPS URL。
+	TelegramWebhookURL string  `json:"telegram_webhook_url"`
+	Superadmins        []int64 `json:"superadmins"`
+	PostgresDSN        string  `json:"postgres_dsn"`
+	Listen             string  `json:"listen"`    // MCP/HTTP 监听地址，默认 127.0.0.1:8900
+	LogLevel           string  `json:"log_level"` // debug | info | warn | error，默认 info
+	FileStorePath      string  `json:"file_store_path"`
 	// WorkerDownloadPath 保存 nbco-worker 多平台发行二进制；为空默认 downloads。
 	WorkerDownloadPath string `json:"worker_download_path"`
 	TLSCertFile        string `json:"tls_cert_file"` // 可选；配置后 HTTP 服务改用 HTTPS
@@ -162,6 +174,18 @@ func Load(path string) (*Config, error) {
 func (c *Config) applyDefaults() {
 	c.BrandName = branding.Name(c.BrandName)
 	c.TelegramAPIURL = strings.TrimRight(strings.TrimSpace(c.TelegramAPIURL), "/")
+	c.PublicBaseURL = strings.TrimRight(strings.TrimSpace(c.PublicBaseURL), "/")
+	c.TelegramUpdateMode = strings.ToLower(strings.TrimSpace(c.TelegramUpdateMode))
+	if c.TelegramUpdateMode == "" {
+		c.TelegramUpdateMode = TelegramUpdateAuto
+	}
+	c.TelegramWebhookURL = strings.TrimSpace(c.TelegramWebhookURL)
+	if (c.TelegramUpdateMode == TelegramUpdateAuto || c.TelegramUpdateMode == TelegramUpdateWebhook) &&
+		c.TelegramWebhookURL == "" && strings.TrimSpace(c.TelegramToken) != "" {
+		if publicURL, err := url.Parse(c.PublicBaseURL); err == nil && publicURL.Scheme == "https" && publicURL.Host != "" {
+			c.TelegramWebhookURL = c.PublicBaseURL + "/api/telegram/webhook"
+		}
+	}
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8900"
 	}
@@ -257,6 +281,31 @@ func (c *Config) validate() error {
 		parsed, err := url.Parse(c.TelegramAPIURL)
 		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.RawQuery != "" || parsed.Fragment != "" {
 			errs = append(errs, errors.New("telegram_api_url 必须是无查询参数的 http/https 基地址"))
+		}
+	}
+	if c.PublicBaseURL != "" {
+		parsed, err := url.Parse(c.PublicBaseURL)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			errs = append(errs, errors.New("public_base_url 必须是无凭据和查询参数的 http/https 基地址"))
+		}
+	}
+	switch c.TelegramUpdateMode {
+	case TelegramUpdateAuto:
+	case TelegramUpdateWebhook:
+		if c.TelegramWebhookURL == "" {
+			errs = append(errs, errors.New("telegram_update_mode=webhook 时必须配置 telegram_webhook_url 或 HTTPS public_base_url"))
+		}
+	case TelegramUpdatePolling:
+		if c.TelegramWebhookURL != "" {
+			errs = append(errs, errors.New("telegram_update_mode=polling 不能同时配置 telegram_webhook_url"))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("telegram_update_mode 不支持: %q", c.TelegramUpdateMode))
+	}
+	if c.TelegramWebhookURL != "" {
+		parsed, err := url.Parse(c.TelegramWebhookURL)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path == "" || parsed.Path == "/" {
+			errs = append(errs, errors.New("telegram_webhook_url 必须是带非根路径、无凭据和查询参数的完整 HTTPS URL"))
 		}
 	}
 	if (strings.TrimSpace(c.TLSCertFile) == "") != (strings.TrimSpace(c.TLSKeyFile) == "") {

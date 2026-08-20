@@ -16,43 +16,45 @@ const (
 
 // Goal 战略目标（公司级，跨项目）。
 type Goal struct {
-	ID          int64
-	Title       string
-	Description string
-	OwnerID     int64
-	Deadline    *time.Time
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                 int64
+	Title              string
+	Description        string
+	OwnerID            int64
+	Deadline           *time.Time
+	DeadlineGeneration int64
+	Status             string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // Milestone 里程碑：Goal 下的可验收关键节点。Task 通过可选 milestone_id 归因到此。
 type Milestone struct {
-	ID          int64
-	GoalID      int64
-	Title       string
-	Description string
-	Deadline    *time.Time
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                 int64
+	GoalID             int64
+	Title              string
+	Description        string
+	Deadline           *time.Time
+	DeadlineGeneration int64
+	Status             string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
-const goalCols = `id, title, description, owner_id, deadline, status, created_at, updated_at`
+const goalCols = `id, title, description, owner_id, deadline, deadline_generation, status, created_at, updated_at`
 
 func scanGoal(row interface{ Scan(...any) error }) (*Goal, error) {
 	var g Goal
-	if err := row.Scan(&g.ID, &g.Title, &g.Description, &g.OwnerID, &g.Deadline, &g.Status, &g.CreatedAt, &g.UpdatedAt); err != nil {
+	if err := row.Scan(&g.ID, &g.Title, &g.Description, &g.OwnerID, &g.Deadline, &g.DeadlineGeneration, &g.Status, &g.CreatedAt, &g.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &g, nil
 }
 
-const milestoneCols = `id, goal_id, title, description, deadline, status, created_at, updated_at`
+const milestoneCols = `id, goal_id, title, description, deadline, deadline_generation, status, created_at, updated_at`
 
 func scanMilestone(row interface{ Scan(...any) error }) (*Milestone, error) {
 	var m Milestone
-	if err := row.Scan(&m.ID, &m.GoalID, &m.Title, &m.Description, &m.Deadline, &m.Status, &m.CreatedAt, &m.UpdatedAt); err != nil {
+	if err := row.Scan(&m.ID, &m.GoalID, &m.Title, &m.Description, &m.Deadline, &m.DeadlineGeneration, &m.Status, &m.CreatedAt, &m.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &m, nil
@@ -121,10 +123,6 @@ func (s *Store) UpdateGoal(ctx context.Context, id int64, title, description *st
 		   title = COALESCE($2, title),
 		   description = COALESCE($3, description),
 		   deadline = COALESCE($4, deadline),
-		   deadline_reminded_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminded_at END,
-		   overdue_notified_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE overdue_notified_at END,
-		   deadline_reminder_claimed_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminder_claimed_at END,
-		   overdue_notice_claimed_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE overdue_notice_claimed_at END,
 		   updated_at = now()
 		 WHERE id = $1 RETURNING `+goalCols,
 		id, title, description, deadline))
@@ -173,10 +171,6 @@ func (s *Store) UpdateMilestone(ctx context.Context, id int64, title, descriptio
 		   title = COALESCE($2, title),
 		   description = COALESCE($3, description),
 		   deadline = COALESCE($4, deadline),
-		   deadline_reminded_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminded_at END,
-		   overdue_notified_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE overdue_notified_at END,
-		   deadline_reminder_claimed_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE deadline_reminder_claimed_at END,
-		   overdue_notice_claimed_at = CASE WHEN $4::timestamptz IS NOT NULL THEN NULL ELSE overdue_notice_claimed_at END,
 		   updated_at = now()
 		 WHERE id = $1 RETURNING `+milestoneCols,
 		id, title, description, deadline))
@@ -319,40 +313,54 @@ func (s *Store) queryGoals(ctx context.Context, sql string, args ...any) ([]Goal
 	return out, rows.Err()
 }
 
-// DueGoalDeadlineReminders 原子认领「临近截止」目标提醒：active、截止落在 (now, now+window]、未提醒过。
+// DueGoalDeadlineReminders 原子认领「临近截止」目标提醒：active、截止落在 (now, now+window]、本轮尚未尝试。
 func (s *Store) DueGoalDeadlineReminders(ctx context.Context, now time.Time, window time.Duration) ([]Goal, error) {
 	stale := now.Add(-goalReminderClaimLease)
 	return s.queryGoals(ctx,
 		`UPDATE goals SET deadline_reminder_claimed_at = $1
 		 WHERE status = 'active' AND deadline IS NOT NULL
-		   AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
+		   AND deadline_reminder_attempted_at IS NULL AND deadline > $1 AND deadline <= $2
 		   AND (deadline_reminder_claimed_at IS NULL OR deadline_reminder_claimed_at <= $3)
 		 RETURNING `+goalCols, now, now.Add(window), stale)
 }
 
-// DueGoalOverdueNotices 原子认领「已过期」目标通知：active、截止已过、未通知过。
+// DueGoalOverdueNotices 原子认领「已过期」目标通知：active、截止已过、本轮尚未尝试。
 func (s *Store) DueGoalOverdueNotices(ctx context.Context, now time.Time) ([]Goal, error) {
 	stale := now.Add(-goalReminderClaimLease)
 	return s.queryGoals(ctx,
 		`UPDATE goals SET overdue_notice_claimed_at = $1
 		 WHERE status = 'active' AND deadline IS NOT NULL
-		   AND overdue_notified_at IS NULL AND deadline <= $1
+		   AND overdue_notice_attempted_at IS NULL AND deadline <= $1
 		   AND (overdue_notice_claimed_at IS NULL OR overdue_notice_claimed_at <= $2)
 		 RETURNING `+goalCols, now, stale)
 }
 
 // MarkGoalDeadlineReminderSent 投递成功后 ack：写提醒时间、清租约。
-func (s *Store) MarkGoalDeadlineReminderSent(ctx context.Context, id int64, sentAt time.Time) error {
+func (s *Store) MarkGoalDeadlineReminderSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkGoalDeadlineReminderAttempt(ctx, id, generation, sentAt, true)
+}
+
+func (s *Store) MarkGoalDeadlineReminderAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
 	return s.execOne(ctx,
-		`UPDATE goals SET deadline_reminded_at = $2, deadline_reminder_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND deadline_reminder_claimed_at IS NOT NULL`, id, sentAt)
+		`UPDATE goals
+		 SET deadline_reminder_attempted_at=$3,
+		     deadline_reminded_at=CASE WHEN $4 THEN $3 ELSE deadline_reminded_at END,
+		     deadline_reminder_claimed_at=NULL, updated_at=now()
+		 WHERE id=$1 AND deadline_generation=$2 AND deadline_reminder_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
 }
 
 // MarkGoalOverdueNoticeSent 投递成功后 ack：写通知时间、清租约。
-func (s *Store) MarkGoalOverdueNoticeSent(ctx context.Context, id int64, sentAt time.Time) error {
+func (s *Store) MarkGoalOverdueNoticeSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkGoalOverdueNoticeAttempt(ctx, id, generation, sentAt, true)
+}
+
+func (s *Store) MarkGoalOverdueNoticeAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
 	return s.execOne(ctx,
-		`UPDATE goals SET overdue_notified_at = $2, overdue_notice_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND overdue_notice_claimed_at IS NOT NULL`, id, sentAt)
+		`UPDATE goals
+		 SET overdue_notice_attempted_at=$3,
+		     overdue_notified_at=CASE WHEN $4 THEN $3 ELSE overdue_notified_at END,
+		     overdue_notice_claimed_at=NULL, updated_at=now()
+		 WHERE id=$1 AND deadline_generation=$2 AND overdue_notice_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
 }
 
 // --- 里程碑截止提醒/过期通知（镜像目标的原子认领 + ack 模式） ---
@@ -381,7 +389,7 @@ func (s *Store) DueMilestoneDeadlineReminders(ctx context.Context, now time.Time
 	return s.queryMilestones(ctx,
 		`UPDATE milestones SET deadline_reminder_claimed_at = $1
 		 WHERE status = 'active' AND deadline IS NOT NULL
-		   AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
+		   AND deadline_reminder_attempted_at IS NULL AND deadline > $1 AND deadline <= $2
 		   AND (deadline_reminder_claimed_at IS NULL OR deadline_reminder_claimed_at <= $3)
 		 RETURNING `+milestoneCols, now, now.Add(window), stale)
 }
@@ -392,21 +400,35 @@ func (s *Store) DueMilestoneOverdueNotices(ctx context.Context, now time.Time) (
 	return s.queryMilestones(ctx,
 		`UPDATE milestones SET overdue_notice_claimed_at = $1
 		 WHERE status = 'active' AND deadline IS NOT NULL
-		   AND overdue_notified_at IS NULL AND deadline <= $1
+		   AND overdue_notice_attempted_at IS NULL AND deadline <= $1
 		   AND (overdue_notice_claimed_at IS NULL OR overdue_notice_claimed_at <= $2)
 		 RETURNING `+milestoneCols, now, stale)
 }
 
-func (s *Store) MarkMilestoneDeadlineReminderSent(ctx context.Context, id int64, sentAt time.Time) error {
-	return s.execOne(ctx,
-		`UPDATE milestones SET deadline_reminded_at = $2, deadline_reminder_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND deadline_reminder_claimed_at IS NOT NULL`, id, sentAt)
+func (s *Store) MarkMilestoneDeadlineReminderSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkMilestoneDeadlineReminderAttempt(ctx, id, generation, sentAt, true)
 }
 
-func (s *Store) MarkMilestoneOverdueNoticeSent(ctx context.Context, id int64, sentAt time.Time) error {
+func (s *Store) MarkMilestoneDeadlineReminderAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
 	return s.execOne(ctx,
-		`UPDATE milestones SET overdue_notified_at = $2, overdue_notice_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND overdue_notice_claimed_at IS NOT NULL`, id, sentAt)
+		`UPDATE milestones
+		 SET deadline_reminder_attempted_at=$3,
+		     deadline_reminded_at=CASE WHEN $4 THEN $3 ELSE deadline_reminded_at END,
+		     deadline_reminder_claimed_at=NULL, updated_at=now()
+		 WHERE id=$1 AND deadline_generation=$2 AND deadline_reminder_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
+}
+
+func (s *Store) MarkMilestoneOverdueNoticeSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkMilestoneOverdueNoticeAttempt(ctx, id, generation, sentAt, true)
+}
+
+func (s *Store) MarkMilestoneOverdueNoticeAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
+	return s.execOne(ctx,
+		`UPDATE milestones
+		 SET overdue_notice_attempted_at=$3,
+		     overdue_notified_at=CASE WHEN $4 THEN $3 ELSE overdue_notified_at END,
+		     overdue_notice_claimed_at=NULL, updated_at=now()
+		 WHERE id=$1 AND deadline_generation=$2 AND overdue_notice_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
 }
 
 // --- decompose 用：批量建任务 ---

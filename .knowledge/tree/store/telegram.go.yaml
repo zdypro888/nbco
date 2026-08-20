@@ -211,12 +211,24 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: Store.SaveTelegramGroupState
-        hash: sha256:600dbe8386cfdae2102449840b423febabc6c951081e754a288781ac66451eb6
-        struct_hash: sha256:2504e82fc945e82d834d437ba8d65d90847c4f2d4d3eb100126d81017ac9a64a
-        doc_struct_hash: sha256:2504e82fc945e82d834d437ba8d65d90847c4f2d4d3eb100126d81017ac9a64a
-        lines: [101, 113]
-      status: undigested
+        hash: sha256:fe0e6787605e33983279dd7d9ae945a6019edad06ddc4d66205e58bbb1b683f9
+        struct_hash: sha256:f9cb1464bd30cf4d14b2129c337f45128d3c9564914001ee4601b30a1917203d
+        doc_struct_hash: sha256:f9cb1464bd30cf4d14b2129c337f45128d3c9564914001ee4601b30a1917203d
+        lines: [108, 142]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_df2f8bd1
+          kind: usage
+          text: SaveTelegramGroupState 是受同一 advisory lock 保护的完整视图替换原语，适用于受控初始化和测试；生产运行时的普通消息、成员状态、监听开关和标题更新必须分别走 MergeTelegramGroupObservation、TransitionTelegramGroupMembership、SetTelegramGroupListen、SetTelegramGroupTitle，避免陈旧快照覆盖权威字段。
+          confidence: inferred
+          at: 2026-08-20T13:01:25.015037Z
+          author: codex-mcp-client
+      keywords:
+        - telegram 群状态完整替换
+        - group state full replacement
+        - 初始化测试
+        - membership observation merge
     - id: store/telegram.go#Store.TelegramGroupState
       level: function
       anchor:
@@ -376,10 +388,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: Store.TransitionTelegramGroupMembership
-        hash: sha256:3ece54f7fb910bfedea217318789718ef86df93bb7275a229a3acac8dedde153
-        struct_hash: sha256:79ce5f671e9190d46f11fe0e8848d89210bdfd757a47fe42a6962e14f1b5b21b
-        doc_struct_hash: sha256:b6d03bbace84473019158d5844cddd1e7ae1e944ae6686e00e86345f66cdeaa5
-        lines: [120, 217]
+        hash: sha256:b8d980aeb65b5312e278e5d1aa9fa7e1e45b70d749a20a2096e83a36f07985b3
+        struct_hash: sha256:14e08bd9926dc1cf8c71b6c28dbbbfbb1487a7bc6f478fa685c720e2b608e78a
+        doc_struct_hash: sha256:43d5a4caa2b9b3b7586313a591e90b0fa4ea40e5010f7f7b61d49c710a2066e7
+        lines: [268, 384]
       status: fresh
       since: 2026-08-20T08:21:06.459475Z
     - id: store/telegram.go#telegramGroupStatusActive
@@ -393,3 +405,14 @@ nodes:
         lines: [219, 226]
       status: fresh
       since: 2026-08-20T08:21:06.460873Z
+    - id: store/telegram.go#Store.MergeTelegramGroupObservation
+      level: function
+      anchor:
+        file: store/telegram.go
+        symbol: Store.MergeTelegramGroupObservation
+        hash: sha256:db5ac42029201283c7f8990e476d1a5169a5fa7af87bc30f833e6894b7fcd8c5
+        struct_hash: sha256:3b6b5ef580f716f412a0b8fe5eae5dfd01a883f0768142ceb4a5f8d44aab08e6
+        doc_struct_hash: sha256:dac81f7058649cd2f49a24d52fcd6520b7c382771e9508c70d0b0c20030e0c4b
+        lines: [211, 266]
+      status: fresh
+      since: 2026-08-20T12:56:34.466535Z

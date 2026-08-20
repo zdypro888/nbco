@@ -2,6 +2,8 @@
   "brand_name": "nbco",
   "telegram_token": "123456:ABC-DEF...",
   "telegram_api_url": "",
+  "telegram_update_mode": "auto",
+  "telegram_webhook_url": "",
   "superadmins": [111111111],
   "postgres_dsn": "postgres://nbco:nbco@127.0.0.1:5432/nbco?sslmode=disable",
   "listen": "127.0.0.1:8900",

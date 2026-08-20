@@ -9,12 +9,20 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
 )
 
 const bindKeyTTL = 24 * time.Hour
+
+type inviteEmployeeArgs struct {
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	Note     string `json:"note"`
+	TTLHours int    `json:"ttl_hours"`
+}
 
 // CompanyOverview renders the same bounded, database-backed company snapshot
 // used by the Agent tool. Scheduler-owned reports can preload it and use a
@@ -392,7 +400,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("批量更新完成：成功 %d 条，跳过 %d 条。\n%s", ok, skipped, b.String()), nil
 			}),
 
-		tool("invite_employee", "邀请真人员工加入系统：生成一次性 Telegram 邀请链接和兜底邀请码。可指定姓名/角色/备注/有效期；不是 worker access token。需要员工邀请权限。",
+		recoverableResultTool(tool("invite_employee", "邀请真人员工加入系统：生成一次性 Telegram 邀请链接和兜底邀请码。可指定姓名/角色/备注/有效期；不是 worker access token。需要员工邀请权限。",
 			obj(map[string]any{
 				"name":      p("string", "被邀请员工姓名，可选；填写后绑定时直接作为系统姓名"),
 				"role":      p("string", "被邀请员工角色/职位，可选，如 CEO、产品经理；绑定后写入用户动态信息 role"),
@@ -400,12 +408,7 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 				"ttl_hours": p("integer", "有效小时数，可选，默认24，范围1-168"),
 			}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var args struct {
-					Name     string `json:"name"`
-					Role     string `json:"role"`
-					Note     string `json:"note"`
-					TTLHours int    `json:"ttl_hours"`
-				}
+				var args inviteEmployeeArgs
 				if err := decode(raw, &args); err != nil {
 					return err.Error(), nil
 				}
@@ -425,26 +428,29 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 					}
 					ttl = time.Duration(args.TTLHours) * time.Hour
 				}
-				bk, err := d.Store.CreateBindInvite(ctx, u.ID, ttl, args.Name, args.Role, args.Note)
+				bk, err := d.Store.CreateBindInviteForRequest(ctx, u.ID, ttl, args.Name, args.Role, args.Note,
+					toolInvocationRequestKey(ctx, u.ID, "invite_employee"))
 				if err != nil {
 					return "", err
 				}
-				var b strings.Builder
-				b.WriteString("已生成真人员工一次性邀请。\n")
-				if bk.InvitedName != "" {
-					fmt.Fprintf(&b, "邀请对象：%s\n", bk.InvitedName)
-				}
-				if bk.InvitedRole != "" {
-					fmt.Fprintf(&b, "角色/职位：%s\n", bk.InvitedRole)
-				}
-				if link := employeeInviteLink(ctx, d, bk.Key); link != "" {
-					fmt.Fprintf(&b, "Telegram 邀请链接：%s\n", link)
-				}
-				fmt.Fprintf(&b, "兜底邀请码：%s\n", bk.Key)
-				fmt.Fprintf(&b, "有效期至 %s，仅可使用一次。\n", fmtTime(bk.ExpiresAt, d.TZ))
-				b.WriteString("注意：这是一次性邀请，不是 worker access token，不能用于 nbco-worker bind。")
-				return b.String(), nil
-			}),
+				return inviteEmployeeToolResult(ctx, d, bk), nil
+			}), func(ctx context.Context, raw json.RawMessage) (string, bool, error) {
+			var args inviteEmployeeArgs
+			if err := decode(raw, &args); err != nil {
+				return "", false, nil
+			}
+			bk, err := d.Store.BindInviteByRequest(ctx, u.ID, toolInvocationRequestKey(ctx, u.ID, "invite_employee"))
+			if errors.Is(err, store.ErrNotFound) {
+				return "", false, nil
+			}
+			if err != nil {
+				return "", false, err
+			}
+			if bk.InvitedName != strings.TrimSpace(args.Name) || bk.InvitedRole != strings.TrimSpace(args.Role) || bk.Note != strings.TrimSpace(args.Note) {
+				return "", false, store.ErrConflict
+			}
+			return inviteEmployeeToolResult(ctx, d, bk), true, nil
+		}),
 
 		tool("cancel_invites", "作废我生成的全部未使用真人员工邀请。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
@@ -501,7 +507,12 @@ func adminTools(d Deps, u *store.User) []ai.Tool {
 						return "你没有对该用户的 send_msg 权限。", nil
 					}
 				}
-				if err := d.Notifier.Send(ctx, target.ID, fmt.Sprintf("💬 来自 %s：\n%s", u.Name, args.Text)); err != nil {
+				body := fmt.Sprintf("💬 来自 %s：\n%s", u.Name, args.Text)
+				delivery, err := notify.SendForToolInvocation(ctx, d.Store, d.Notifier, "send-message", target.ID, body)
+				if err != nil || !delivery.Delivered {
+					if err == nil {
+						err = fmt.Errorf("投递结果不确定，系统未自动重发")
+					}
 					return "发送失败：" + err.Error(), nil
 				}
 				return fmt.Sprintf("已发送给 %s。", target.Name), nil
@@ -824,7 +835,8 @@ func sendMessageToAll(ctx context.Context, d Deps, sender *store.User, text stri
 		if target == nil || target.Status != store.UserActive || target.IsWorker || target.ID == sender.ID {
 			continue
 		}
-		if err := d.Notifier.Send(ctx, target.ID, body); err != nil {
+		delivery, err := notify.SendForToolInvocation(ctx, d.Store, d.Notifier, "send-message-all", target.ID, body)
+		if err != nil || !delivery.Delivered {
 			failed++
 			if len(failedNames) < 5 {
 				failedNames = append(failedNames, target.Name)
@@ -939,4 +951,22 @@ func employeeInviteLink(ctx context.Context, d Deps, key string) string {
 		return ""
 	}
 	return "https://t.me/" + username + "?start=" + key
+}
+
+func inviteEmployeeToolResult(ctx context.Context, d Deps, bk *store.BindKey) string {
+	var b strings.Builder
+	b.WriteString("已生成真人员工一次性邀请。\n")
+	if bk.InvitedName != "" {
+		fmt.Fprintf(&b, "邀请对象：%s\n", bk.InvitedName)
+	}
+	if bk.InvitedRole != "" {
+		fmt.Fprintf(&b, "角色/职位：%s\n", bk.InvitedRole)
+	}
+	if link := employeeInviteLink(ctx, d, bk.Key); link != "" {
+		fmt.Fprintf(&b, "Telegram 邀请链接：%s\n", link)
+	}
+	fmt.Fprintf(&b, "兜底邀请码：%s\n", bk.Key)
+	fmt.Fprintf(&b, "有效期至 %s，仅可使用一次。\n", fmtTime(bk.ExpiresAt, d.TZ))
+	b.WriteString("注意：这是一次性邀请，不是 worker access token，不能用于 nbco-worker bind。")
+	return b.String()
 }

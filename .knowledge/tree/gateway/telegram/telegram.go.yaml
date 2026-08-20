@@ -222,12 +222,24 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.Run
-        hash: sha256:8c3df2b2ef90993f4c83a06c46247b17e4fa9b4fd2b605fd5a4d2a0905e725bf
-        struct_hash: sha256:b9658125bba980a7e974b59aefa9adcd27c9bfacbba79092a66520ad75899bd1
-        doc_struct_hash: sha256:8c499a6e5d018e9a654cf983940bcf292afba2b2682c0ad90f1861b854fde526
-        lines: [192, 212]
-      status: undigested
+        hash: sha256:bd1a1722be392546934599a22f70515abd3246e0b5205be4a6e93dbedd64e34d
+        struct_hash: sha256:e1867923c7112bc1f9d787a861ace81326405d83bbefbcc9a4c25ba1f165839a
+        doc_struct_hash: sha256:f191c3bb5aa677cc074f26b4339e7c62427228ca70d676abcf028a7948ef5757
+        lines: [329, 357]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_a1c1318c
+          kind: contract
+          text: Webhook 与长轮询只负责把原始 update 提交同一 PostgreSQL inbox；Gateway.Run 无论哪种 transport 都启动 runInboundUpdates，webhook 模式随后等待 ctx，polling 模式再启动 bot.Start。两种入口不能各自直接执行业务路由。
+          confidence: inferred
+          at: 2026-08-20T12:58:28.777325Z
+          author: codex-mcp-client
+      keywords:
+        - telegram webhook polling durable inbox
+        - update transport
+        - runinboundupdates
+        - 持久化入站
     - id: gateway/telegram/telegram.go#Gateway.waitUntilReady
       level: function
       anchor:
@@ -321,12 +333,24 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handle
-        hash: sha256:033ca99b440975df78bb725aabfa93fb226a4c78a4547218ac7b410aabe2b6e9
-        struct_hash: sha256:29ceb34a6f99b8dac38124ea1d315304ce6d8ae15308ec3b17ee83ee71fecabc
-        doc_struct_hash: sha256:29ceb34a6f99b8dac38124ea1d315304ce6d8ae15308ec3b17ee83ee71fecabc
-        lines: [385, 422]
-      status: undigested
+        hash: sha256:4dceb60942fd46e7e1c2d3848caf06566987e7d8cb6a5783f7416d3b4451e97e
+        struct_hash: sha256:eb4f878e37657de434fbeb700faf84d0a118af8f0a026c86963aa95d71b510d7
+        doc_struct_hash: sha256:eb4f878e37657de434fbeb700faf84d0a118af8f0a026c86963aa95d71b510d7
+        lines: [586, 595]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_ff449785
+          kind: contract
+          text: Telegram SDK 的长轮询回调 handle 不执行任何业务，只把完整 update 持久化到统一 inbox 并唤醒消费者；webhook 也必须走同一 enqueueInboundUpdate。业务处理、认领、续租、完成和重试只能发生在 inbox 消费链，避免两种传输模式形成不同语义。
+          confidence: inferred
+          at: 2026-08-20T13:02:48.664013Z
+          author: codex-mcp-client
+      keywords:
+        - telegram polling durable inbox
+        - 长轮询入站
+        - webhook polling unified inbox
+        - enqueue only
     - id: gateway/telegram/telegram.go#Gateway.shouldDebounce
       level: function
       anchor:
@@ -431,10 +455,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.finishQueuedMessage
-        hash: sha256:cee65ba9ec1b98fb7ab056af7a9929194ff566261f8bd1efab478952274fc087
-        struct_hash: sha256:8151048eb45a21a4734707f21eb29724632b5f22d95161b6938fa3d8899621c9
-        doc_struct_hash: sha256:8151048eb45a21a4734707f21eb29724632b5f22d95161b6938fa3d8899621c9
-        lines: [565, 572]
+        hash: sha256:44781916beea5ce709158b62869547ac41f0c561d4f6ff06bf9cce7a5398fe50
+        struct_hash: sha256:9d532a318361e54e9f20cd5c4b39763a52eb7c7a0c688f69a57f1be3820c8f4f
+        doc_struct_hash: sha256:9d532a318361e54e9f20cd5c4b39763a52eb7c7a0c688f69a57f1be3820c8f4f
+        lines: [1077, 1103]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleChatMember
@@ -453,10 +477,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleMyChatMember
-        hash: sha256:a995c6787ae6a6a7ed7c25c9a8f0c0a4ffd8716a4d66190fe574f9d07e0099bd
-        struct_hash: sha256:7eef96ef3bad1c4853da0930ab1f6f76745db32f5ff4ebe5d8aef5369f87c995
-        doc_struct_hash: sha256:7eef96ef3bad1c4853da0930ab1f6f76745db32f5ff4ebe5d8aef5369f87c995
-        lines: [594, 605]
+        hash: sha256:61476347313519a7a1798e5a2c22e596974deaaea1268dda24525f435314ace7
+        struct_hash: sha256:669cda7f0aae4dcba3cb6fa651106a08d8a5ca97807400df985dc832300f4535
+        doc_struct_hash: sha256:669cda7f0aae4dcba3cb6fa651106a08d8a5ca97807400df985dc832300f4535
+        lines: [1175, 1186]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.handleGroupServiceMessage
@@ -464,10 +488,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleGroupServiceMessage
-        hash: sha256:f97cd5dd4a0fc56848816114848eb1daa173af4d446149279a49dc8766dc173f
-        struct_hash: sha256:03172b42cbeec2f4531a329352498d5e05d57993447387bf43548c5ed7f041fc
-        doc_struct_hash: sha256:03172b42cbeec2f4531a329352498d5e05d57993447387bf43548c5ed7f041fc
-        lines: [607, 626]
+        hash: sha256:d72eac801e841ae6092d503decd1ed0cea669097066772c1874c44b0ae797ff3
+        struct_hash: sha256:0b99320d59839472cab86676351d2dc96908c1a089ce772e167193d9a7e8035b
+        doc_struct_hash: sha256:0b99320d59839472cab86676351d2dc96908c1a089ce772e167193d9a7e8035b
+        lines: [1188, 1211]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.saveGroupState
@@ -475,10 +499,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.saveGroupState
-        hash: sha256:d2495fabc10b292e214d0a450fa8266261c33720623e9da275e6071bbbd67c1a
-        struct_hash: sha256:ced6a3b1ce6f3f589f67a9153b9e014aa537576c94ad23063f8f8926e73605f2
-        doc_struct_hash: sha256:ced6a3b1ce6f3f589f67a9153b9e014aa537576c94ad23063f8f8926e73605f2
-        lines: [640, 650]
+        hash: sha256:980726d6132ecdd7068a9c0a2472f4519e79cf49d9dfb7cb7cc6900cf3316cdc
+        struct_hash: sha256:c3e0503be15f6de396abbb5794e38127b72652a62267efc5d3cf4b2dcde42e53
+        doc_struct_hash: sha256:c3e0503be15f6de396abbb5794e38127b72652a62267efc5d3cf4b2dcde42e53
+        lines: [1241, 1247]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#Gateway.saveSeenMember
@@ -1058,12 +1082,24 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleTokenCommand
-        hash: sha256:60696dfb5c207661e538c119d2740f7edcdd545b731abc3a736d83f6df203816
-        struct_hash: sha256:923b7efc6aea6a40e936d2a3db923a991defecaafd0f29780dc587606671ac45
-        doc_struct_hash: sha256:923b7efc6aea6a40e936d2a3db923a991defecaafd0f29780dc587606671ac45
-        lines: [1992, 2045]
-      status: undigested
+        hash: sha256:3c7aa30fa9e8087dcdd1cb439de25f8d5a338d12a927400faa52e09ef02f1363
+        struct_hash: sha256:79e598eb3ec62837371546342166e7a5596c2ace267e1f3b839dea85fab3705a
+        doc_struct_hash: sha256:79e598eb3ec62837371546342166e7a5596c2ace267e1f3b839dea85fab3705a
+        lines: [2720, 2773]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_3ffeafba
+          kind: contract
+          text: Access Token 换发是 prepare/confirm/deliver/ack 四阶段：confirm 生成候选并在短 TTL 内可重复取得同一个明文，Telegram 确认送达后才 Acknowledge 清理候选；不能在发送前永久丢弃明文，也不能因 confirm 重试再次换发。processMessages 的 direct-action 收据负责按 Telegram 来源消息去重命令本身。
+          confidence: inferred
+          at: 2026-08-20T13:02:48.921111Z
+          author: codex-mcp-client
+      keywords:
+        - api token rotation recover delivery
+        - 一次性 token 恢复
+        - token confirm
+        - secret delivery acknowledgement
     - id: gateway/telegram/telegram.go#Gateway.apiTokenStatusMessage
       level: function
       anchor:
@@ -1905,24 +1941,26 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.applyBotGroupMembership
-        hash: sha256:0d4db3731a2fb150beb694014172a7d19298a5031d6c1304ed478954b6b2a49a
-        struct_hash: sha256:5bc9ec33eda44d27467cbbe7b6d4863264a137eb52fd3ed52f0d76dd96781b63
-        doc_struct_hash: sha256:72272279de7efdbe280c76f1c321fb10acc1eeef33a0126a27331eca5d6bf750
-        lines: [628, 646]
+        hash: sha256:aa348c51ed590637b7c425b942625f8d8ccfc4684546a9f6fadc2994c105b2d8
+        struct_hash: sha256:8a329ee9f3ff18779e526e29978e9eb88812f6504eee4b1f7a85b767b8b397db
+        doc_struct_hash: sha256:393ff774dae1329d1d8526246b2822394d024910a679fafd2db298025855dc1f
+        lines: [1213, 1239]
       status: fresh
       since: 2026-08-20T08:21:06.472877Z
       entries:
         - id: e_c78766e4
           kind: contract
           text: Bot 自身的 my_chat_member 与群服务消息可能描述同一次加入/离开；两条入口必须统一调用 Store.TransitionTelegramGroupMembership，并且只有其 joined=true 时发送欢迎语。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T08:21:11.723937Z
+          confirmed_at: 2026-08-20T12:57:29.07877Z
           author: codex-mcp-client
         - id: e_434f722d
           kind: pitfall
           text: 活跃身份之间的变化（member/administrator/creator/restricted）不是重新入群，不能重发欢迎，也不能覆盖用户已关闭的群监听开关。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T08:21:11.725347Z
+          confirmed_at: 2026-08-20T12:57:28.719135Z
           author: codex-mcp-client
       keywords:
         - telegram bot 入群重复欢迎
@@ -1930,3 +1968,122 @@ nodes:
         - new_chat_members
         - 群成员状态迁移
         - 监听状态
+    - id: gateway/telegram/telegram.go#Gateway.addInboundClaim
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.addInboundClaim
+        hash: sha256:b9ac02c576cf7aa5c09740f2cd0f4c9ec9640a3459f38fa6a8f3a0fd09b39704
+        struct_hash: sha256:97980758f068a65aa847dbe462116c5a5f66e50c715f2ef25e606aef543e21f1
+        doc_struct_hash: sha256:97980758f068a65aa847dbe462116c5a5f66e50c715f2ef25e606aef543e21f1
+        lines: [668, 681]
+      status: fresh
+      since: 2026-08-20T12:56:16.057864Z
+    - id: gateway/telegram/telegram.go#Gateway.releaseInboundClaims
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.releaseInboundClaims
+        hash: sha256:3fb5f50b6990203625ec7738d266b79fe5b9bc8271ef64e3284a43215006ff2b
+        struct_hash: sha256:480a0fa9044efe7fee6cd9b28506dd432bfa71bf9c1f61dbf4ca81aefe822765
+        doc_struct_hash: sha256:480a0fa9044efe7fee6cd9b28506dd432bfa71bf9c1f61dbf4ca81aefe822765
+        lines: [683, 700]
+      status: fresh
+      since: 2026-08-20T12:56:16.073054Z
+    - id: gateway/telegram/telegram.go#Gateway.activeInboundClaimIDs
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.activeInboundClaimIDs
+        hash: sha256:d7035691020a4aaa2a65b9722f58a460be12aaa761326c0a391fd4935447e1e2
+        struct_hash: sha256:f6ed8b475457119d1632a86958e773ac1164dd6d55dde7336ad1da8987c6356b
+        doc_struct_hash: sha256:f6ed8b475457119d1632a86958e773ac1164dd6d55dde7336ad1da8987c6356b
+        lines: [702, 711]
+      status: fresh
+      since: 2026-08-20T12:56:16.08796Z
+    - id: gateway/telegram/telegram.go#Gateway.runInboundUpdates
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.runInboundUpdates
+        hash: sha256:0413e978b45af0f74f779c58c9212fdaf7cbcc84c77cce0f6f6c60cd2d567d2b
+        struct_hash: sha256:4cc141399bcf41ec99542f340c7cc35aaaf0f69348664228de993ebdf35b0c0b
+        doc_struct_hash: sha256:4cc141399bcf41ec99542f340c7cc35aaaf0f69348664228de993ebdf35b0c0b
+        lines: [617, 645]
+      status: fresh
+      since: 2026-08-20T12:56:16.103363Z
+    - id: gateway/telegram/telegram.go#Gateway.processInboundUpdate
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.processInboundUpdate
+        hash: sha256:c14c71d3f0d0b44dba813abbe4439555e26e560eda6a39e8744fe317ec56c8ae
+        struct_hash: sha256:934b19aded297e50350bc5db6bade52143d959c028d4a0a639655e7db89cd84c
+        doc_struct_hash: sha256:934b19aded297e50350bc5db6bade52143d959c028d4a0a639655e7db89cd84c
+        lines: [713, 762]
+      status: fresh
+      since: 2026-08-20T12:56:16.121142Z
+      entries:
+        - id: e_4d1a4829
+          kind: contract
+          text: Webhook 只有在原始 update 已按 update_id+payload_hash 提交 PostgreSQL 后才返回 204；路由异步化不改变这一持久化边界。
+          confidence: inferred
+          at: 2026-08-20T12:57:12.32578Z
+          author: codex-mcp-client
+        - id: e_bd745d8e
+          kind: pitfall
+          text: claim_owner 不能代表 update 仍在执行；心跳只能续租 Gateway 当前 activeInboundClaims 中的 ID，队列收尾即使 ack 失败也必须释放本地 ID，让 PostgreSQL 租约恢复生效。
+          confidence: inferred
+          at: 2026-08-20T12:57:12.327599Z
+          author: codex-mcp-client
+      keywords:
+        - telegram 入站持久化
+        - webhook 204
+        - update 重放
+        - claim 心跳
+        - 租约恢复
+        - durable inbox
+    - id: gateway/telegram/telegram.go#Gateway.deliverPreparedPartOnce
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.deliverPreparedPartOnce
+        hash: sha256:16a953417f1aa87420b19a18a8ec60b2e669f294dc0f266b0491f9ee5149ed28
+        struct_hash: sha256:3dcfa80ecb1a3b92146b16f66583c1064d7fbcf0a59403625f3acfb1f40fb7c2
+        doc_struct_hash: sha256:ec1f4795c0ac7867e4bbe2faa901abb347263ba61f87d3005eb367554717f5d2
+        lines: [3154, 3169]
+      status: fresh
+      since: 2026-08-20T12:56:25.136963Z
+    - id: gateway/telegram/telegram.go#deliverTelegramPartOnce
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: deliverTelegramPartOnce
+        hash: sha256:4dbdf208f503013177d185750ae1918e25188c739a42bed024917f885d63c449
+        struct_hash: sha256:b32f324bde59e15c2e23f2ff0764c0e4208a502c1160a5240327c35f54ed4971
+        doc_struct_hash: sha256:b32f324bde59e15c2e23f2ff0764c0e4208a502c1160a5240327c35f54ed4971
+        lines: [3177, 3219]
+      status: fresh
+      since: 2026-08-20T12:56:25.154208Z
+    - id: gateway/telegram/telegram.go#Gateway.sendPreparedPartOnce
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.sendPreparedPartOnce
+        hash: sha256:ddf463749892d4310f69d526c42d4ba3b63b3c0d2e76eee6681c7c77f507d513
+        struct_hash: sha256:cb715ce8abf7f1d56912ef025ed15b7e7e32971a9aa9ae19b36f0e6546608016
+        doc_struct_hash: sha256:cb715ce8abf7f1d56912ef025ed15b7e7e32971a9aa9ae19b36f0e6546608016
+        lines: [3148, 3152]
+      status: fresh
+      since: 2026-08-20T12:56:25.168591Z
+    - id: gateway/telegram/telegram.go#chatMemberIsActive
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: chatMemberIsActive
+        hash: sha256:8b6845aeca084cdbbc90c6a10acac4e06e3ac69b332a219e78f6097185ad4ea3
+        struct_hash: sha256:26d5698e655b062ea482b5fe0b327f81243f97d8db5c8f09d073abc55b1cae86
+        doc_struct_hash: sha256:26d5698e655b062ea482b5fe0b327f81243f97d8db5c8f09d073abc55b1cae86
+        lines: [1307, 1319]
+      status: fresh
+      since: 2026-08-20T12:56:34.449532Z

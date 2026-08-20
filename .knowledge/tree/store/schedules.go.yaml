@@ -486,10 +486,10 @@ nodes:
       anchor:
         file: store/schedules.go
         symbol: Store.MarkScheduleDelivered
-        hash: sha256:caa2208351047198aa9c880b47fcdf5af86c1421bc5244105db909fe59616e4e
-        struct_hash: sha256:d8599d0a6cc83ee9526bdecd58a88564f78fad42768b03e65a48e7d15a00de74
-        doc_struct_hash: sha256:95f3e961a9c6e19e754f9ae1b9b269cf8f489a7adeae8e6d148c56b38257275b
-        lines: [508, 522]
+        hash: sha256:e61f46d37043b9c3163d47702eb209b90cec24357e1707fc9ec2032ec9527105
+        struct_hash: sha256:0216ac4bd4fd6e27f6acb61dd457a225674a9caae030519a3ba66f3789be6e64
+        doc_struct_hash: sha256:620990614eb2102a714f9a323849977812a27bece2a6626655167b7487890664
+        lines: [513, 528]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/schedules.go#Store.FanOutScheduleOccurrence
@@ -497,10 +497,10 @@ nodes:
       anchor:
         file: store/schedules.go
         symbol: Store.FanOutScheduleOccurrence
-        hash: sha256:ef6ce03edaf8696630756d9b79bf643875c96bf44f07b90fd1d3f175bbf7302f
-        struct_hash: sha256:a9066f437d6dc51444b115a1771ed925c0fc9f98ab9ea31d75859c06c835040c
-        doc_struct_hash: sha256:655b801bdeb250bb0edb39c5ec03ca0fcd8c633b51ed25c21092a2392f7b9f7e
-        lines: [524, 561]
+        hash: sha256:66997325752af8fb121ca3d1a2d943fa5782fe5695c62a071e4715d7e00a4c8e
+        struct_hash: sha256:e1b33d32193a6adcb4b13d010848804dc431744e880cc9a3a5ebc5b5337900bc
+        doc_struct_hash: sha256:92ab5100331ee18c76d9711d0bcd3fffce186d8ed93faa5802649709ad7f61e6
+        lines: [530, 568]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/schedules.go#Store.DueScheduleDeliveries

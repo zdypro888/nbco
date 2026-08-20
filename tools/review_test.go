@@ -51,7 +51,7 @@ func TestDelegateReviewCarriesExecutionScopeAndEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddWorkerArtifact(ctx, run.ID, executor.ID, run.ClaimID, artifact.ID, "delivery"); err != nil {
+	if _, _, err := s.AddWorkerArtifact(ctx, run.ID, executor.ID, run.ClaimID, artifact.ID, "", "delivery"); err != nil {
 		t.Fatal(err)
 	}
 	if _, completed, _, _, err := s.CompleteWorkerRun(ctx, run.ID, executor.ID, run.ClaimID,

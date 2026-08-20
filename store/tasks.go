@@ -48,20 +48,22 @@ func scanProject(row interface{ Scan(...any) error }) (*Project, error) {
 
 // Task 任务。Goal 是"为什么做"，Description 是"做什么"，Acceptance 是验收标准。
 type Task struct {
-	ID          int64
-	ProjectID   int64
-	ParentID    *int64
-	AssignerID  int64
-	AssigneeID  int64
-	Title       string
-	Goal        string
-	Description string
-	Acceptance  string
-	Priority    string
-	Deadline    *time.Time
-	Status      string
-	Revision    int64 // 业务要求版本；执行只能提交其认领时对应的版本
-	NudgeCount  int64 // 累计 AI 催办次数（有进度后调度器不再催，但计数保留作履历）
+	ID                 int64
+	ProjectID          int64
+	ParentID           *int64
+	AssignerID         int64
+	AssigneeID         int64
+	Title              string
+	Goal               string
+	Description        string
+	Acceptance         string
+	Priority           string
+	Deadline           *time.Time
+	DeadlineGeneration int64
+	Status             string
+	Revision           int64 // 业务要求版本；执行只能提交其认领时对应的版本
+	NudgeCount         int64 // 渠道已确认送达的 AI 催办次数
+	NudgeAttemptCount  int64 // 已结算的投递尝试次数（含失败/结果不确定）
 	// DependsOn 前置任务 ID：全部 accepted 之前 worker 领不到本任务。
 	// 依赖只能指向已存在的任务（新任务 id 恒大于依赖），天然无环。
 	DependsOn []int64
@@ -105,7 +107,7 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, status, revision, nudge_count, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, deadline_generation, status, revision, nudge_count, nudge_attempt_count, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
 
 // successfulTaskCompletionStatusSQL is the business review rule. Work assigned
 // to somebody else requires review; self-owned work can close directly unless
@@ -132,7 +134,7 @@ func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
 		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.Priority, &t.Deadline,
-		&t.Status, &t.Revision, &t.NudgeCount, &t.DependsOn, &t.MilestoneID,
+		&t.DeadlineGeneration, &t.Status, &t.Revision, &t.NudgeCount, &t.NudgeAttemptCount, &t.DependsOn, &t.MilestoneID,
 		&t.SubmittedBy, &t.SubmittedAt, &t.CancelReason, &t.CancelledAt, &t.SupersededBy,
 		&t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
@@ -562,8 +564,11 @@ func (s *Store) ReassignTaskWithProgress(ctx context.Context, id, newAssigneeID,
 			   submitted_by = NULL,
 			   submitted_at = NULL,
 		   nudge_count = 0,
+		   nudge_attempt_count = 0,
 		   deadline_reminded_at = NULL,
 		   overdue_notified_at = NULL,
+		   deadline_reminder_attempted_at = NULL,
+		   overdue_notice_attempted_at = NULL,
 		   nudged_at = NULL,
 		   deadline_reminder_claimed_at = NULL,
 		   overdue_notice_claimed_at = NULL,
@@ -644,11 +649,10 @@ func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, descripti
 			   status = CASE WHEN $6::boolean THEN 'pending' ELSE t.status END,
 			   revision = t.revision + 1,
 			   deadline = COALESCE($5, t.deadline),
-			   deadline_reminded_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.deadline_reminded_at END,
-			   overdue_notified_at  = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.overdue_notified_at END,
-			   deadline_reminder_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.deadline_reminder_claimed_at END,
-			   overdue_notice_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.overdue_notice_claimed_at END,
-			   nudge_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL THEN NULL ELSE t.nudge_claimed_at END,
+			   nudge_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN NULL ELSE t.nudge_claimed_at END,
+			   nudged_at = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN NULL ELSE t.nudged_at END,
+			   nudge_count = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN 0 ELSE t.nudge_count END,
+			   nudge_attempt_count = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN 0 ELSE t.nudge_attempt_count END,
 			   updated_at = now()
 			 WHERE t.id = $1 AND t.status IN ('pending', 'in_progress', 'awaiting_input')
 			 RETURNING `+taskColsWithAlias("t"), id, goal, description, acceptance, deadline, isWorker))
@@ -853,14 +857,14 @@ func (s *Store) DueNudges(ctx context.Context, now time.Time, interval time.Dura
 		 FROM due WHERE t.id = due.id RETURNING `+taskColsWithAlias("t"), now, now.Add(-interval), stale)
 }
 
-// DueDeadlineReminders 原子认领「临近截止」提醒：开放任务、截止落在 (now, now+window]、未成功提醒过。
+// DueDeadlineReminders 原子认领「临近截止」提醒：开放任务、截止落在 (now, now+window]、本轮尚未尝试。
 func (s *Store) DueDeadlineReminders(ctx context.Context, now time.Time, window time.Duration) ([]*Task, error) {
 	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
 		`WITH due AS (
 		   SELECT id FROM tasks
 		    WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
-		      AND deadline_reminded_at IS NULL AND deadline > $1 AND deadline <= $2
+		      AND deadline_reminder_attempted_at IS NULL AND deadline > $1 AND deadline <= $2
 		      AND (deadline_reminder_claimed_at IS NULL OR deadline_reminder_claimed_at <= $3)
 		    ORDER BY deadline, id LIMIT 128 FOR UPDATE SKIP LOCKED
 		 )
@@ -868,14 +872,14 @@ func (s *Store) DueDeadlineReminders(ctx context.Context, now time.Time, window 
 		 FROM due WHERE t.id = due.id RETURNING `+taskColsWithAlias("t"), now, now.Add(window), stale)
 }
 
-// DueOverdueNotices 原子认领「已过期」通知：开放任务、截止已过、未成功通知过。
+// DueOverdueNotices 原子认领「已过期」通知：开放任务、截止已过、本轮尚未尝试。
 func (s *Store) DueOverdueNotices(ctx context.Context, now time.Time) ([]*Task, error) {
 	stale := now.Add(-taskReminderClaimLease)
 	return s.queryTasks(ctx,
 		`WITH due AS (
 		   SELECT id FROM tasks
 		    WHERE status IN ('pending', 'in_progress') AND deadline IS NOT NULL
-		      AND overdue_notified_at IS NULL AND deadline <= $1
+		      AND overdue_notice_attempted_at IS NULL AND deadline <= $1
 		      AND (overdue_notice_claimed_at IS NULL OR overdue_notice_claimed_at <= $2)
 		    ORDER BY deadline, id LIMIT 128 FOR UPDATE SKIP LOCKED
 		 )
@@ -883,22 +887,47 @@ func (s *Store) DueOverdueNotices(ctx context.Context, now time.Time) ([]*Task, 
 		 FROM due WHERE t.id = due.id RETURNING `+taskColsWithAlias("t"), now, stale)
 }
 
-func (s *Store) MarkDeadlineReminderSent(ctx context.Context, id int64, sentAt time.Time) error {
-	return s.execOne(ctx,
-		`UPDATE tasks SET deadline_reminded_at = $2, deadline_reminder_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND deadline_reminder_claimed_at IS NOT NULL`, id, sentAt)
+func (s *Store) MarkDeadlineReminderSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkDeadlineReminderAttempt(ctx, id, generation, sentAt, true)
 }
 
-func (s *Store) MarkOverdueNoticeSent(ctx context.Context, id int64, sentAt time.Time) error {
+func (s *Store) MarkDeadlineReminderAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
 	return s.execOne(ctx,
-		`UPDATE tasks SET overdue_notified_at = $2, overdue_notice_claimed_at = NULL, updated_at = now()
-		 WHERE id = $1 AND overdue_notice_claimed_at IS NOT NULL`, id, sentAt)
+		`UPDATE tasks
+		 SET deadline_reminder_attempted_at=$3,
+		     deadline_reminded_at=CASE WHEN $4 THEN $3 ELSE deadline_reminded_at END,
+		     deadline_reminder_claimed_at=NULL, updated_at=now()
+		 WHERE id=$1 AND deadline_generation=$2 AND deadline_reminder_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
 }
 
-func (s *Store) MarkNudgeSent(ctx context.Context, id int64, sentAt time.Time) error {
+func (s *Store) MarkOverdueNoticeSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkOverdueNoticeAttempt(ctx, id, generation, sentAt, true)
+}
+
+func (s *Store) MarkOverdueNoticeAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
 	return s.execOne(ctx,
-		`UPDATE tasks SET nudged_at = $2, nudge_claimed_at = NULL, nudge_count = nudge_count + 1, updated_at = now()
-		 WHERE id = $1 AND nudge_claimed_at IS NOT NULL`, id, sentAt)
+		`UPDATE tasks
+		 SET overdue_notice_attempted_at=$3,
+		     overdue_notified_at=CASE WHEN $4 THEN $3 ELSE overdue_notified_at END,
+		     overdue_notice_claimed_at=NULL, updated_at=now()
+		 WHERE id=$1 AND deadline_generation=$2 AND overdue_notice_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
+}
+
+func (s *Store) MarkNudgeSent(ctx context.Context, id, generation int64, sentAt time.Time) error {
+	return s.MarkNudgeAttempt(ctx, id, generation, sentAt, true)
+}
+
+// MarkNudgeAttempt settles one claimed transport occurrence. Failed or
+// uncertain deliveries advance only the attempt sequence, allowing a later
+// scheduled attempt to use a fresh key without inflating successful nudges.
+func (s *Store) MarkNudgeAttempt(ctx context.Context, id, generation int64, attemptedAt time.Time, delivered bool) error {
+	return s.execOne(ctx,
+		`UPDATE tasks
+		    SET nudged_at=$3, nudge_claimed_at=NULL,
+		        nudge_attempt_count=nudge_attempt_count+1,
+		        nudge_count=nudge_count+CASE WHEN $4 THEN 1 ELSE 0 END,
+		        updated_at=now()
+		  WHERE id=$1 AND deadline_generation=$2 AND nudge_claimed_at IS NOT NULL`, id, generation, attemptedAt, delivered)
 }
 
 // TaskStats 全局任务统计（老板摘要用）。

@@ -76,6 +76,9 @@ type Schedule struct {
 	RecipientPolicy string
 	// DeliveryClaimedAt 标识 DueSchedules 当前认领租约；ack 必须携带同一值。
 	DeliveryClaimedAt *time.Time
+	// OccurrenceGeneration is the durable identity of the next occurrence.
+	// FireAt remains display/scheduling data and may legitimately repeat.
+	OccurrenceGeneration int64
 }
 
 type ScheduleView struct {
@@ -89,28 +92,29 @@ type ScheduleView struct {
 // ScheduleDelivery 是一次日程触发对一个接收人的独立投递。日程本身只负责
 // 生成 occurrence；每个接收人单独 claim/retry，避免部分失败导致整批重发。
 type ScheduleDelivery struct {
-	ID           int64
-	ScheduleID   int64
-	OccurrenceAt time.Time
-	UserID       int64
-	Mode         string
-	Message      string
-	Title        string
-	ResultText   string
-	Status       string
-	Attempts     int
-	AvailableAt  time.Time
-	ClaimedAt    *time.Time
-	DeliveredAt  *time.Time
-	LastError    string
-	CreatedAt    time.Time
+	ID                   int64
+	ScheduleID           int64
+	OccurrenceAt         time.Time
+	OccurrenceGeneration int64
+	UserID               int64
+	Mode                 string
+	Message              string
+	Title                string
+	ResultText           string
+	Status               string
+	Attempts             int
+	AvailableAt          time.Time
+	ClaimedAt            *time.Time
+	DeliveredAt          *time.Time
+	LastError            string
+	CreatedAt            time.Time
 }
 
-const scheduleDeliveryCols = `id, schedule_id, occurrence_at, user_id, mode, message, title, result_text, status, attempts, available_at, claimed_at, delivered_at, last_error, created_at`
+const scheduleDeliveryCols = `id, schedule_id, occurrence_at, occurrence_generation, user_id, mode, message, title, result_text, status, attempts, available_at, claimed_at, delivered_at, last_error, created_at`
 
 func scanScheduleDelivery(row interface{ Scan(...any) error }) (*ScheduleDelivery, error) {
 	var d ScheduleDelivery
-	if err := row.Scan(&d.ID, &d.ScheduleID, &d.OccurrenceAt, &d.UserID, &d.Mode, &d.Message,
+	if err := row.Scan(&d.ID, &d.ScheduleID, &d.OccurrenceAt, &d.OccurrenceGeneration, &d.UserID, &d.Mode, &d.Message,
 		&d.Title, &d.ResultText, &d.Status, &d.Attempts, &d.AvailableAt, &d.ClaimedAt, &d.DeliveredAt,
 		&d.LastError, &d.CreatedAt); err != nil {
 		return nil, wrapErr(err)
@@ -118,7 +122,7 @@ func scanScheduleDelivery(row interface{ Scan(...any) error }) (*ScheduleDeliver
 	return &d, nil
 }
 
-const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title, source_message_id, recipient_policy`
+const scheduleCols = `id, user_id, kind, message, fire_at, interval_s, status, last_fired, created_at, target, mode, daily_at, weekdays, created_by, delivery_claimed_at, source_kind, source_key, title, source_message_id, recipient_policy, occurrence_generation`
 
 func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	var sc Schedule
@@ -126,7 +130,7 @@ func scanSchedule(row interface{ Scan(...any) error }) (*Schedule, error) {
 	if err := row.Scan(&sc.ID, &sc.UserID, &sc.Kind, &sc.Message, &sc.FireAt,
 		&sc.IntervalS, &sc.Status, &sc.LastFired, &sc.CreatedAt,
 		&sc.Target, &sc.Mode, &sc.DailyAt, &sc.Weekdays, &sc.CreatedBy, &sc.DeliveryClaimedAt,
-		&sc.SourceKind, &sc.SourceKey, &sc.Title, &sourceMessageID, &sc.RecipientPolicy); err != nil {
+		&sc.SourceKind, &sc.SourceKey, &sc.Title, &sourceMessageID, &sc.RecipientPolicy, &sc.OccurrenceGeneration); err != nil {
 		return nil, wrapErr(err)
 	}
 	if sourceMessageID.Valid {
@@ -300,6 +304,7 @@ func (s *Store) SchedulesVisible(ctx context.Context, userID int64, superadmin b
 			&v.IntervalS, &v.Status, &v.LastFired, &v.CreatedAt,
 			&v.Target, &v.Mode, &v.DailyAt, &v.Weekdays, &v.CreatedBy, &v.DeliveryClaimedAt,
 			&v.SourceKind, &v.SourceKey, &v.Title, &sourceMessageID, &v.RecipientPolicy,
+			&v.OccurrenceGeneration,
 			&v.ReceiverName, &v.CreatorName, &v.TargetsViewer, &v.DeliveryEnabled); err != nil {
 			return nil, wrapErr(err)
 		}
@@ -499,14 +504,14 @@ func (s *Store) DueSchedules(ctx context.Context, now time.Time) ([]*Schedule, e
 }
 
 // ReleaseScheduleClaim 释放尚未开始执行的认领，让下一轮调度可立即重试。
-func (s *Store) ReleaseScheduleClaim(ctx context.Context, id int64, claimAt time.Time) error {
+func (s *Store) ReleaseScheduleClaim(ctx context.Context, id, occurrenceGeneration int64, claimAt time.Time) error {
 	return s.execOne(ctx,
 		`UPDATE schedules SET delivery_claimed_at = NULL
-		 WHERE id = $1 AND delivery_claimed_at = $2`, id, claimAt)
+		 WHERE id = $1 AND occurrence_generation = $2 AND delivery_claimed_at = $3`, id, occurrenceGeneration, claimAt)
 }
 
 // MarkScheduleDelivered ack 一次成功投递并推进下一次触发时间。
-func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, claimAt, firedAt time.Time, nextFireAt *time.Time, done bool) error {
+func (s *Store) MarkScheduleDelivered(ctx context.Context, id, occurrenceGeneration int64, claimAt, firedAt time.Time, nextFireAt *time.Time, done bool) error {
 	status := ScheduleActive
 	if done {
 		status = ScheduleDone
@@ -518,7 +523,8 @@ func (s *Store) MarkScheduleDelivered(ctx context.Context, id int64, claimAt, fi
 		   fire_at = COALESCE($4, fire_at),
 		   delivery_claimed_at = NULL,
 		   updated_at = now()
-		 WHERE id = $1 AND delivery_claimed_at = $5`, id, firedAt, status, nextFireAt, claimAt)
+		 WHERE id = $1 AND occurrence_generation = $5 AND delivery_claimed_at = $6`,
+		id, firedAt, status, nextFireAt, occurrenceGeneration, claimAt)
 }
 
 // FanOutScheduleOccurrence 原子完成两件事：为本次 occurrence 创建逐人投递记录，
@@ -537,9 +543,9 @@ func (s *Store) FanOutScheduleOccurrence(ctx context.Context, sc *Schedule, user
 			continue
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO schedule_deliveries (schedule_id, occurrence_at, user_id, mode, message, title)
-			 VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (schedule_id, occurrence_at, user_id) DO NOTHING`,
-			sc.ID, sc.FireAt, userID, sc.Mode, sc.Message, sc.Title); err != nil {
+			`INSERT INTO schedule_deliveries (schedule_id, occurrence_at, occurrence_generation, user_id, mode, message, title)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (schedule_id, occurrence_generation, user_id) DO NOTHING`,
+			sc.ID, sc.FireAt, sc.OccurrenceGeneration, userID, sc.Mode, sc.Message, sc.Title); err != nil {
 			return err
 		}
 	}
@@ -550,7 +556,8 @@ func (s *Store) FanOutScheduleOccurrence(ctx context.Context, sc *Schedule, user
 	tag, err := tx.Exec(ctx,
 		`UPDATE schedules SET last_fired=$2, status=$3, fire_at=COALESCE($4, fire_at),
 		 updated_at=now(), delivery_claimed_at=NULL
-		 WHERE id=$1 AND delivery_claimed_at=$5`, sc.ID, firedAt, status, nextFireAt, *sc.DeliveryClaimedAt)
+		 WHERE id=$1 AND occurrence_generation=$5 AND delivery_claimed_at=$6`,
+		sc.ID, firedAt, status, nextFireAt, sc.OccurrenceGeneration, *sc.DeliveryClaimedAt)
 	if err != nil {
 		return err
 	}
@@ -620,7 +627,8 @@ func (s *Store) MarkScheduleDeliverySuppressed(ctx context.Context, id int64, cl
 }
 
 // PrepareScheduleDeliveryResult stores the exact AI-generated message before
-// transport. A retry can then resend it without another model turn.
+// transport. Reclaims reuse it to resolve the same at-most-once delivery key
+// without another model turn or an ambiguous resend.
 func (s *Store) PrepareScheduleDeliveryResult(ctx context.Context, id int64, claimAt time.Time, result string) error {
 	return s.execOne(ctx,
 		`UPDATE schedule_deliveries SET result_text=$3, last_error=''

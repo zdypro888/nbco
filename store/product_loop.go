@@ -591,14 +591,24 @@ func (s *Store) ListAssetEffectivenessSince(ctx context.Context, since time.Time
 }
 
 type ProductHealthStats struct {
-	LearningPending         int64 `json:"learning_pending"`
-	LearningConflicts       int64 `json:"learning_conflicts"`
-	DeliveryFailures24H     int64 `json:"delivery_failures_24h"`
-	ToolFailures24H         int64 `json:"tool_failures_24h"`
-	ActionFailures24H       int64 `json:"action_failures_24h"`
-	ConversationFailures24H int64 `json:"conversation_failures_24h"`
-	WorkerNeedsInput        int64 `json:"worker_needs_input"`
-	WorkerRetrying          int64 `json:"worker_retrying"`
+	LearningPending           int64 `json:"learning_pending"`
+	LearningConflicts         int64 `json:"learning_conflicts"`
+	DeliveryFailures24H       int64 `json:"delivery_failures_24h"`
+	NotificationFailures24H   int64 `json:"notification_failures_24h"`
+	NotificationUncertain     int64 `json:"notification_uncertain"`
+	ExternalActionFailures    int64 `json:"external_action_failures_24h"`
+	ExternalActionUncertain   int64 `json:"external_action_uncertain"`
+	TelegramInboundFailures   int64 `json:"telegram_inbound_failures_24h"`
+	TelegramInboundBacklog    int64 `json:"telegram_inbound_backlog"`
+	TelegramDeliveryFailures  int64 `json:"telegram_delivery_failures_24h"`
+	TelegramDeliveryUncertain int64 `json:"telegram_delivery_uncertain"`
+	WorkerLLMFailures         int64 `json:"worker_llm_failures_24h"`
+	WorkerLLMUncertain        int64 `json:"worker_llm_uncertain"`
+	ToolFailures24H           int64 `json:"tool_failures_24h"`
+	ActionFailures24H         int64 `json:"action_failures_24h"`
+	ConversationFailures24H   int64 `json:"conversation_failures_24h"`
+	WorkerNeedsInput          int64 `json:"worker_needs_input"`
+	WorkerRetrying            int64 `json:"worker_retrying"`
 }
 
 func (s *Store) ProductHealthStats(ctx context.Context, since time.Time) (*ProductHealthStats, error) {
@@ -608,12 +618,29 @@ func (s *Store) ProductHealthStats(ctx context.Context, since time.Time) (*Produ
 		   (SELECT count(*) FROM learning_candidates WHERE status = 'pending'),
 		   (SELECT count(*) FROM learning_candidates WHERE status = 'pending' AND conflict_with IS NOT NULL),
 		   (SELECT count(*) FROM schedule_deliveries WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM notification_deliveries WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM notification_deliveries WHERE status = 'started' AND updated_at < now() - interval '2 minutes'),
+		   (SELECT count(*) FROM external_action_receipts WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM external_action_receipts WHERE status = 'started' AND updated_at < now() - interval '2 minutes'),
+		   (SELECT count(*) FROM telegram_inbound_updates WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM telegram_inbound_updates
+		      WHERE (status = 'pending' AND available_at < now() - interval '2 minutes')
+		         OR (status = 'processing' AND claimed_at < now() - interval '2 minutes')),
+		   (SELECT count(*) FROM telegram_delivery_parts WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM telegram_delivery_parts WHERE status = 'started' AND updated_at < now() - interval '2 minutes'),
+		   (SELECT count(*) FROM worker_llm_calls WHERE status = 'failed' AND updated_at >= $1),
+		   (SELECT count(*) FROM worker_llm_calls WHERE status = 'started' AND updated_at < now() - interval '7 minutes'),
 		   (SELECT count(*) FROM audit_log WHERE NOT ok AND created_at >= $1),
 		   (SELECT count(*) FROM action_turns WHERE outcome = 'tool_handler_error' AND created_at >= $1),
 		   (SELECT count(*) FROM conversation_turns WHERE status = 'failed' AND updated_at >= $1),
 		   (SELECT count(*) FROM worker_runs WHERE status = 'awaiting_input'),
 		   (SELECT count(*) FROM worker_runs WHERE status = 'retry_wait')`, since).
 		Scan(&stats.LearningPending, &stats.LearningConflicts, &stats.DeliveryFailures24H,
+			&stats.NotificationFailures24H, &stats.NotificationUncertain,
+			&stats.ExternalActionFailures, &stats.ExternalActionUncertain,
+			&stats.TelegramInboundFailures, &stats.TelegramInboundBacklog,
+			&stats.TelegramDeliveryFailures, &stats.TelegramDeliveryUncertain,
+			&stats.WorkerLLMFailures, &stats.WorkerLLMUncertain,
 			&stats.ToolFailures24H, &stats.ActionFailures24H, &stats.ConversationFailures24H,
 			&stats.WorkerNeedsInput, &stats.WorkerRetrying)
 	return &stats, wrapErr(err)

@@ -758,47 +758,63 @@ func (s *Store) HeartbeatWorkerRun(ctx context.Context, runID, workerID int64, c
 	return tx.Commit(ctx)
 }
 
-func (s *Store) AddWorkerRunProgress(ctx context.Context, runID, workerID int64, claimID, content string) error {
+func (s *Store) AddWorkerRunProgress(ctx context.Context, runID, workerID int64, claimID, requestID, content string) (bool, error) {
 	if strings.TrimSpace(claimID) == "" {
-		return ErrNotFound
+		return false, ErrNotFound
 	}
+	requestID = strings.TrimSpace(requestID)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	taskID, err := lockWorkerRunTx(ctx, tx, runID, workerID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE worker_runs SET claimed_at = now(), updated_at = now()
 		 WHERE id = $1 AND worker_id = $2 AND status = 'claimed' AND claim_id = $3
 		`, runID, workerID, claimID); err != nil {
-		return wrapErr(err)
+		return false, wrapErr(err)
 	}
 	attemptTag, err := tx.Exec(ctx,
 		`UPDATE worker_run_attempts SET heartbeat_at = now(), updated_at = now()
 		 WHERE run_id = $1 AND worker_id = $2 AND claim_id = $3 AND status = 'claimed'`, runID, workerID, claimID)
 	if err != nil {
-		return wrapErr(err)
+		return false, wrapErr(err)
 	}
 	if attemptTag.RowsAffected() == 0 {
-		return ErrNotFound
+		return false, ErrNotFound
 	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO worker_run_progress (run_id, author_id, content) VALUES ($1,$2,$3)`,
-		runID, workerID, content); err != nil {
-		return wrapErr(err)
+	progressTag, err := tx.Exec(ctx,
+		`INSERT INTO worker_run_progress (run_id, author_id, content, request_id)
+		 VALUES ($1,$2,$3,$4)
+		 ON CONFLICT (run_id, request_id) WHERE request_id <> '' DO NOTHING`,
+		runID, workerID, content, requestID)
+	if err != nil {
+		return false, wrapErr(err)
 	}
-	if taskID != nil {
+	inserted := progressTag.RowsAffected() == 1
+	if !inserted && requestID != "" {
+		var existing string
+		if err := tx.QueryRow(ctx,
+			`SELECT content FROM worker_run_progress WHERE run_id=$1 AND request_id=$2`, runID, requestID).
+			Scan(&existing); err != nil {
+			return false, wrapErr(err)
+		}
+		if existing != content {
+			return false, ErrConflict
+		}
+	}
+	if taskID != nil && inserted {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO task_progress (task_id, author_id, content) VALUES ($1,$2,$3)`,
 			*taskID, workerID, content); err != nil {
-			return wrapErr(err)
+			return false, wrapErr(err)
 		}
 	}
-	return tx.Commit(ctx)
+	return inserted, tx.Commit(ctx)
 }
 
 func (s *Store) RequestWorkerRunInput(ctx context.Context, runID, workerID int64, claimID, content string, finalization WorkerRunFinalization) (*WorkerRun, *Task, bool, error) {

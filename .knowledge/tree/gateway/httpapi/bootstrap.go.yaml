@@ -24,9 +24,9 @@ nodes:
       anchor:
         file: gateway/httpapi/bootstrap.go
         symbol: Server.handleBootstrap
-        hash: sha256:412730e72fba3e4944aebffd8575236ce17905c421d76da6909bdbf7a831d4d0
-        struct_hash: sha256:594fadfca2cdc711bde0090444415ca2dd0cc4a6a388b4196b2c8edc60b03743
-        doc_struct_hash: sha256:594fadfca2cdc711bde0090444415ca2dd0cc4a6a388b4196b2c8edc60b03743
-        lines: [17, 52]
+        hash: sha256:b1e7c61473fa8f7e63ca547e02f7d87be67201b3f7b732ffb7a86360c760a363
+        struct_hash: sha256:191cf4b02f0c987e4ea853c16d077d7f35756ba54354d53d7f09678f9f35c159
+        doc_struct_hash: sha256:191cf4b02f0c987e4ea853c16d077d7f35756ba54354d53d7f09678f9f35c159
+        lines: [15, 62]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

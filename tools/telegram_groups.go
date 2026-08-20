@@ -254,24 +254,16 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 					if err := ensureTelegramGroupTranscript(ctx, d, u, g); err != nil {
 						return "", err
 					}
-					if err := d.Store.SetKV(ctx, store.TelegramGroupListenKey(g.ChatID), "1"); err != nil {
+					if err := d.Store.SetTelegramGroupListen(ctx, g.ChatID, true); err != nil {
 						return "", err
 					}
 					g.Listen = true
-					g.UpdatedAt = time.Now()
-					if err := d.Store.SaveTelegramGroupState(ctx, *g); err != nil {
-						return "", err
-					}
 					return fmt.Sprintf("已更新 %s：%s。", telegramGroupTitle(*g), telegramGroupListenText(*g)), nil
 				}
-				if err := d.Store.SetKV(ctx, store.TelegramGroupListenKey(g.ChatID), ""); err != nil {
+				if err := d.Store.SetTelegramGroupListen(ctx, g.ChatID, false); err != nil {
 					return "", err
 				}
 				g.Listen = false
-				g.UpdatedAt = time.Now()
-				if err := d.Store.SaveTelegramGroupState(ctx, *g); err != nil {
-					return "", err
-				}
 				return fmt.Sprintf("已更新 %s：%s。", telegramGroupTitle(*g), telegramGroupListenText(*g)), nil
 			}),
 

@@ -41,7 +41,7 @@ func openToolsTestStore(t *testing.T) *store.Store {
 		s.Close()
 	})
 	if _, err := lockPool.Exec(ctx,
-		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields, ai_usage, pending_approvals, goals RESTART IDENTITY CASCADE`); err != nil {
+		`TRUNCATE notification_deliveries, external_action_receipts, users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields, ai_usage, pending_approvals, goals RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	return s

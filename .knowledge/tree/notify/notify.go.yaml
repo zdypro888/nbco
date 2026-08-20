@@ -107,3 +107,36 @@ nodes:
         lines: [72, 84]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: notify/notify.go#SendOnce
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: SendOnce
+        hash: sha256:4388cf96b2755dfe377ea0096355613005dad9448d4aa73421cc4cac4c6215c4
+        struct_hash: sha256:859284019d41e681282083cf2cf484a30637798443e789298dbcbb4c3f46c1e7
+        doc_struct_hash: sha256:72abc3f6d51db1f6aad75380690765316d8868a9f97527678caf8e2de1c01e0e
+        lines: [79, 87]
+      status: fresh
+      since: 2026-08-20T12:58:21.97288Z
+    - id: notify/notify.go#SendForToolInvocation
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: SendForToolInvocation
+        hash: sha256:2b705d0514dd2f094552d37a44c95ada3de321a93c233142095d06a80229fcac
+        struct_hash: sha256:b5e7c5c3fab11d0ca40779dcef087c9c76c4aadc4d924e57b3fad3b8811f786c
+        doc_struct_hash: sha256:a5f1b3e358534bc623713121353c9fc42c2e550f2e4abe5c36b1c2b7647f43ad
+        lines: [89, 104]
+      status: fresh
+      since: 2026-08-20T12:58:21.973693Z
+    - id: notify/notify.go#deliverOnce
+      level: function
+      anchor:
+        file: notify/notify.go
+        symbol: deliverOnce
+        hash: sha256:ff0931b1ab9d9f797db525f92f998e61b6047ab2c37c3b41dca5e861f42b9ae7
+        struct_hash: sha256:8517009c42a4c62da7600ac1b66458dae50b1d6f5284a8a5d67e751e1aa521e7
+        doc_struct_hash: sha256:8517009c42a4c62da7600ac1b66458dae50b1d6f5284a8a5d67e751e1aa521e7
+        lines: [131, 175]
+      status: fresh
+      since: 2026-08-20T12:58:21.974694Z

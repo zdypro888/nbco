@@ -17,6 +17,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 const (
@@ -37,6 +38,7 @@ type turnToolMiddleware struct {
 	toolInfos    map[string]*schema.ToolInfo
 	tools        map[string]ai.Tool
 	exposure     *ai.ToolExposure
+	sessionID    string
 
 	mu            sync.Mutex
 	selected      map[string]struct{}
@@ -52,7 +54,7 @@ type effectCall struct {
 	err    error
 }
 
-func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, exposure *ai.ToolExposure) (*turnToolMiddleware, error) {
+func newTurnToolMiddleware(ctx context.Context, sessionID string, tools []ai.Tool, exposure *ai.ToolExposure) (*turnToolMiddleware, error) {
 	dynamicNames := make(map[string]struct{}, len(tools))
 	toolInfos := make(map[string]*schema.ToolInfo, len(tools))
 	toolsByName := make(map[string]ai.Tool, len(tools))
@@ -73,6 +75,7 @@ func newTurnToolMiddleware(ctx context.Context, tools []ai.Tool, exposure *ai.To
 		toolInfos:     toolInfos,
 		tools:         toolsByName,
 		exposure:      exposure,
+		sessionID:     strings.TrimSpace(sessionID),
 		selected:      make(map[string]struct{}),
 		blockedCalls:  make(map[string]struct{}),
 		replayedCalls: make(map[string]struct{}),
@@ -169,7 +172,7 @@ func (m *turnToolMiddleware) AfterModelRewriteState(
 	}
 	message.ToolCalls = kept
 	if len(kept) == 0 && strings.TrimSpace(message.Content) == "" {
-		message.Content = "本轮相同操作已经成功返回，系统已停止重复执行；请根据本轮实际工具结果向用户说明。"
+		message.Content = "本轮相同操作已有工具结果，系统已停止重复执行；请根据实际工具结果判断成功、失败或状态未知，并如实向用户说明。"
 	}
 	return ctx, state, nil
 }
@@ -287,7 +290,7 @@ func (m *turnToolMiddleware) invokeSideEffectOnce(
 			return nil, ctx.Err()
 		case <-existing.done:
 			if existing.err != nil {
-				return nil, existing.err
+				return &compose.ToolOutput{Result: replayedFailedSideEffectResult(existing.err)}, nil
 			}
 			return &compose.ToolOutput{Result: replayedSideEffectResult(existing.result)}, nil
 		}
@@ -296,15 +299,17 @@ func (m *turnToolMiddleware) invokeSideEffectOnce(
 	m.effectCalls[key] = current
 	m.mu.Unlock()
 
-	output, err := next(ctx, input)
+	callCtx := ctx
+	if m.sessionID != "" {
+		sum := sha256.Sum256([]byte(m.sessionID + "\x00" + key))
+		callCtx = ai.WithToolInvocationKey(ctx, fmt.Sprintf("%x", sum[:]))
+	}
+	output, err := next(callCtx, input)
 	current.err = err
 	if output != nil {
 		current.result = output.Result
 	}
 	m.mu.Lock()
-	if err != nil {
-		delete(m.effectCalls, key)
-	}
 	close(current.done)
 	m.mu.Unlock()
 	return output, err
@@ -386,6 +391,18 @@ func replayedSideEffectResult(firstResult string) string {
 	return string(result)
 }
 
+func replayedFailedSideEffectResult(firstErr error) string {
+	message := "前一次相同的写入或执行调用返回了错误；它可能在报错前已经产生部分副作用，因此本轮没有盲目重放。请先用只读能力核实当前状态，再决定后续动作。"
+	if firstErr != nil {
+		message += " 原错误：" + textfmt.TruncateRunes(textfmt.RedactSecrets(firstErr.Error()), 1200)
+	}
+	result, _ := json.Marshal(map[string]any{
+		"status":  "execution_state_unknown",
+		"message": message,
+	})
+	return string(result)
+}
+
 func (m *turnToolMiddleware) observe(infos []*schema.ToolInfo) {
 	if m.exposure == nil {
 		return
@@ -398,8 +415,10 @@ func (m *turnToolMiddleware) observe(infos []*schema.ToolInfo) {
 		}
 		names = append(names, info.Name)
 		chars += len(info.Name) + len(info.Desc)
-		if raw, err := json.Marshal(info.ParamsOneOf); err == nil {
-			chars += len(raw)
+		if params, err := info.ParamsOneOf.ToJSONSchema(); err == nil && params != nil {
+			if raw, err := json.Marshal(params); err == nil {
+				chars += len(raw)
+			}
 		}
 	}
 	sort.Strings(names)

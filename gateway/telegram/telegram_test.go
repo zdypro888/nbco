@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -19,11 +20,50 @@ import (
 	"github.com/zdypro888/nbco/store"
 )
 
+func TestInboundClaimBookkeepingIsSetBased(t *testing.T) {
+	g := &Gateway{inboundClaims: map[int64]struct{}{}}
+	g.addInboundClaim(7)
+	g.addInboundClaim(3)
+	g.addInboundClaim(7)
+	if got := g.activeInboundClaimIDs(); !slices.Equal(got, []int64{3, 7}) {
+		t.Fatalf("active claims = %v", got)
+	}
+	if got := g.inboundInFlight.Load(); got != 2 {
+		t.Fatalf("in-flight count = %d, want 2", got)
+	}
+	g.releaseInboundClaims([]int64{7, 7, 9})
+	if got := g.activeInboundClaimIDs(); !slices.Equal(got, []int64{3}) {
+		t.Fatalf("remaining claims = %v", got)
+	}
+	if got := g.inboundInFlight.Load(); got != 1 {
+		t.Fatalf("remaining in-flight count = %d, want 1", got)
+	}
+}
+
 func TestGatewayFormatsTimeInBusinessTimezone(t *testing.T) {
 	g := &Gateway{tz: time.FixedZone("CST", 8*60*60)}
 	utc := time.Date(2026, 7, 9, 17, 30, 0, 0, time.UTC)
 	if got := g.formatTime(utc); got != "2026-07-10 01:30:00 +08:00 (CST)" {
 		t.Fatalf("formatted time = %q", got)
+	}
+}
+
+func TestTelegramDirectCommandClassification(t *testing.T) {
+	for _, command := range []string{"/listen", "/new", "/model"} {
+		if !isTelegramGroupDirectCommand(command) {
+			t.Errorf("group command %q is not classified as direct", command)
+		}
+	}
+	if isTelegramGroupDirectCommand("/token") || isTelegramGroupDirectCommand("") {
+		t.Fatal("group direct command classifier accepted an unsupported command")
+	}
+	for _, command := range []string{"/new", "/start", "/superadmin", "/model", "/token"} {
+		if !isTelegramPrivateDirectCommand(command) {
+			t.Errorf("private command %q is not classified as direct", command)
+		}
+	}
+	if isTelegramPrivateDirectCommand("/listen") || isTelegramPrivateDirectCommand("") {
+		t.Fatal("private direct command classifier accepted an unsupported command")
 	}
 }
 
@@ -43,14 +83,14 @@ func TestGatewayTelegramHandshakeRetriesUntilAPIReady(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	g, err := New("123:secret", srv.URL, nil, nil, nil, nil, "", "", "", nil, "", "", "Oncoin", time.UTC)
+	g, err := New("123:secret", srv.URL, "", nil, nil, nil, nil, "", "", "", nil, "", "", "Oncoin", time.UTC)
 	if err != nil {
 		t.Fatalf("New must not depend on API readiness: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if !g.waitUntilReady(ctx) || !g.Ready() {
-		t.Fatal("gateway did not become ready")
+	if !g.waitUntilReady(ctx) || g.botID() != 123 {
+		t.Fatal("gateway did not complete API identity handshake")
 	}
 	if attempts != 3 {
 		t.Fatalf("getMe attempts = %d, want 3", attempts)
@@ -125,7 +165,7 @@ func TestTelegramMessageEnvelopeKeepsStableActorAndSourceIdentity(t *testing.T) 
 	u := &store.User{ID: 12, Name: "稳定员工"}
 	envelope := telegramMessageEnvelope(msg, u)
 	if envelope.Provider != Provider || envelope.ExternalChatRef != "-10088" ||
-		envelope.ExternalMessageRef != "42" || envelope.ExternalActorRef != "991" ||
+		envelope.ExternalMessageRef != "media-group:batch-a" || envelope.ExternalActorRef != "991" ||
 		envelope.ActorUserID == nil || *envelope.ActorUserID != u.ID ||
 		envelope.ActorDisplayName != u.Name || envelope.ReplyToExternalRef != "41" ||
 		envelope.ThreadRef != "7" || envelope.SourceCreatedAt == nil {
@@ -133,6 +173,42 @@ func TestTelegramMessageEnvelopeKeepsStableActorAndSourceIdentity(t *testing.T) 
 	}
 	if !strings.Contains(string(envelope.Metadata), "batch-a") {
 		t.Fatalf("metadata = %s", envelope.Metadata)
+	}
+}
+
+func TestTelegramMediaGroupBecomesOneLogicalMessage(t *testing.T) {
+	messages := []*models.Message{
+		{ID: 12, Chat: models.Chat{ID: 7, Type: models.ChatTypePrivate}, From: &models.User{ID: 9},
+			MediaGroupID: "album-1", Document: &models.Document{FileID: "b", FileName: "b.pdf"}},
+		{ID: 11, Chat: models.Chat{ID: 7, Type: models.ChatTypePrivate}, From: &models.User{ID: 9},
+			MediaGroupID: "album-1", Caption: "整理这两份文件", Document: &models.Document{FileID: "a", FileName: "a.pdf"}},
+	}
+	merged := telegramMediaGroupMessage(messages)
+	if merged == nil || merged.ID != 11 || merged.Caption != "整理这两份文件" {
+		t.Fatalf("merged = %+v", merged)
+	}
+	if hasIncomingTelegramFiles(merged) {
+		t.Fatal("synthetic batch message must not duplicate the original file payload")
+	}
+	if got := telegramTurnSourceKey(merged); got != "telegram:media-group:7:album-1" {
+		t.Fatalf("source key = %q", got)
+	}
+	if got := telegramMessageEnvelope(merged, nil).ExternalMessageRef; got != "media-group:album-1" {
+		t.Fatalf("external message ref = %q", got)
+	}
+}
+
+func TestTelegramMediaGroupRecognizesMentionOutsideFirstMessage(t *testing.T) {
+	g := &Gateway{self: &models.User{ID: 77, Username: "oncoin_team_bot"}}
+	messages := []*models.Message{
+		{ID: 11, Caption: "第一份资料"},
+		{ID: 12, Caption: "请处理", CaptionEntities: []models.MessageEntity{{
+			Type: models.MessageEntityTypeTextMention,
+			User: &models.User{ID: 77},
+		}}},
+	}
+	if !g.mentionedInMessages(messages) {
+		t.Fatal("mention on a non-leading album item was ignored")
 	}
 }
 
@@ -204,6 +280,30 @@ func TestShouldDebouncePlainTextOnly(t *testing.T) {
 	}
 }
 
+func TestPendingTextIgnoresReplayedTelegramMessage(t *testing.T) {
+	const key int64 = 42
+	g := &Gateway{
+		pending: map[int64]*pendingTextMessage{}, pendingMedia: map[int64]*pendingMediaGroup{},
+		dispatchTails: map[int64]chan struct{}{},
+	}
+	msg := &models.Message{
+		ID: 9, Text: "同一条", Chat: models.Chat{ID: key, Type: models.ChatTypePrivate},
+		From: &models.User{ID: key},
+	}
+	g.enqueueTextMessage(context.Background(), key, false, msg, msg.Text)
+	g.enqueueTextMessage(context.Background(), key, false, msg, msg.Text)
+	g.mu.Lock()
+	pending := g.pending[key]
+	if pending != nil {
+		pending.timer.Stop()
+		delete(g.pending, key)
+	}
+	g.mu.Unlock()
+	if pending == nil || len(pending.texts) != 1 || pending.texts[0] != "同一条" {
+		t.Fatalf("duplicate update entered the prompt: %+v", pending)
+	}
+}
+
 func TestImmediateMessageQueuesAfterPendingText(t *testing.T) {
 	const key int64 = 42
 	g := &Gateway{
@@ -215,7 +315,7 @@ func TestImmediateMessageQueuesAfterPendingText(t *testing.T) {
 		ctx: context.Background(), lockKey: key, msg: &models.Message{Text: "first"},
 		texts: []string{"first", "second"}, timer: timer,
 	}
-	queued := g.queueMessageAfterPendingLocked(context.Background(), key, false, &models.Message{Text: "/new"})
+	queued := g.queueMessageAfterPendingLocked(context.Background(), key, false, &models.Message{Text: "/new"}, 0)
 	if len(queued) != 2 {
 		t.Fatalf("queued messages = %d", len(queued))
 	}
@@ -322,6 +422,47 @@ type sendFallbackHTTP struct {
 	calls      int
 	texts      []string
 	parseModes []string
+}
+
+type ambiguousSendHTTP struct{ calls int }
+
+func (h *ambiguousSendHTTP) Do(req *http.Request) (*http.Response, error) {
+	if !strings.HasSuffix(req.URL.Path, "/sendMessage") {
+		return streamLoopResp("true"), nil
+	}
+	h.calls++
+	return nil, io.ErrUnexpectedEOF
+}
+
+func TestSendOneDoesNotFallbackAfterAmbiguousTransportError(t *testing.T) {
+	h := &ambiguousSendHTTP{}
+	b, err := bot.New("TESTTOKEN", bot.WithHTTPClient(time.Second, h), bot.WithSkipGetMe())
+	if err != nil {
+		t.Fatalf("bot.New: %v", err)
+	}
+	g := &Gateway{bot: b}
+	if err := g.sendOne(context.Background(), 1, "hello"); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("send error = %v", err)
+	}
+	if h.calls != 1 {
+		t.Fatalf("ambiguous send was replayed: calls=%d", h.calls)
+	}
+}
+
+func TestTelegramPartContinuationRequiresConfirmedSend(t *testing.T) {
+	transportErr := io.ErrUnexpectedEOF
+	if telegramPartCanContinue(0, false, nil) {
+		t.Fatal("unsettled part must stop the sequence")
+	}
+	if telegramPartCanContinue(0, true, transportErr) {
+		t.Fatal("failed send must not expose later message parts")
+	}
+	if !telegramPartCanContinue(42, true, transportErr) {
+		t.Fatal("confirmed send with only a receipt error may continue")
+	}
+	if !telegramPartCanContinue(42, true, nil) {
+		t.Fatal("delivered part should continue")
+	}
 }
 
 func (h *sendFallbackHTTP) Do(req *http.Request) (*http.Response, error) {
@@ -496,6 +637,44 @@ func TestLoadedModelsHelpAndMembership(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Fatalf("help missing %q: %s", want, help)
 		}
+	}
+}
+
+func TestChatMemberIsActiveHonorsRestrictedMembershipFlag(t *testing.T) {
+	for name, tc := range map[string]struct {
+		member models.ChatMember
+		want   bool
+	}{
+		"member": {
+			member: models.ChatMember{Type: models.ChatMemberTypeMember},
+			want:   true,
+		},
+		"administrator": {
+			member: models.ChatMember{Type: models.ChatMemberTypeAdministrator},
+			want:   true,
+		},
+		"restricted member": {
+			member: models.ChatMember{Type: models.ChatMemberTypeRestricted, Restricted: &models.ChatMemberRestricted{IsMember: true}},
+			want:   true,
+		},
+		"restricted non-member": {
+			member: models.ChatMember{Type: models.ChatMemberTypeRestricted, Restricted: &models.ChatMemberRestricted{IsMember: false}},
+		},
+		"restricted without payload": {
+			member: models.ChatMember{Type: models.ChatMemberTypeRestricted},
+		},
+		"left": {
+			member: models.ChatMember{Type: models.ChatMemberTypeLeft},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := chatMemberIsActive(&tc.member); got != tc.want {
+				t.Fatalf("chatMemberIsActive() = %t, want %t", got, tc.want)
+			}
+		})
+	}
+	if chatMemberIsActive(nil) {
+		t.Fatal("nil membership must be inactive")
 	}
 }
 

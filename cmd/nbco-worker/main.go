@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -23,6 +24,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -35,8 +37,12 @@ type Config struct {
 	Token      string `json:"token"`       // Worker Access Token（bind 时用一次性绑定码兑换写入）
 	WorkerID   int64  `json:"worker_id"`   // token 对应的 worker 用户 ID（bind 时校验写入）
 	WorkerName string `json:"worker_name"` // token 对应的 worker 名字（bind 时校验写入）
-	Engine     string `json:"engine"`      // 引擎名：claude | codex | builtin（内置智能体，无 CLI 也能干活），或自定义（配 bin+args）
-	Bin        string `json:"bin"`         // CLI 可执行文件，默认同 engine
+	// PendingBindHash marks a locally persisted candidate token that may already
+	// have crossed the server's one-time bind boundary. It contains only a hash
+	// of the bind code and is cleared after identity recovery succeeds.
+	PendingBindHash string `json:"pending_bind_hash,omitempty"`
+	Engine          string `json:"engine"` // 引擎名：claude | codex | builtin（内置智能体，无 CLI 也能干活），或自定义（配 bin+args）
+	Bin             string `json:"bin"`    // CLI 可执行文件，默认同 engine
 	// 深执行引擎可插拔（前瞻「买管道、留业务」）：把任意交互式 harness（如
 	// swarm 编排器 ruflo/claude-flow 的交互 REPL）配成一个引擎，无需改代码。
 	// 仍守 PTY 交互铁律——只是换掉「启动哪个 CLI、怎么判完成」。
@@ -144,24 +150,69 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 	if cfg.Engine == "" {
 		cfg.Engine = "claude"
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	path := configPath(cfgFile)
 	redeemed := false
 	if isBindCode(token) {
-		// 一次性绑定码：先兑换出真正的 access token。兑换即销码+吊销旧 token，
-		// 所以拿到 token 后必须【立刻落盘】——若先跑校验、校验因网络抖动失败
-		// 就退出，token 只在内存里，这台机器（连同原 worker）就被彻底废掉了。
-		res, err := newClient(cfg.Server, "").RedeemBindCode(ctx, token)
+		recoveryHash := bindCodeRecoveryHash(token)
+		candidate := ""
+		previous, previousErr := loadConfig(path)
+		previousExists := previousErr == nil
+		if previousErr != nil && !errors.Is(previousErr, os.ErrNotExist) {
+			cancel()
+			log.Fatalf("读取现有 Worker 配置失败，未开始绑定: %v", previousErr)
+		}
+		reusingPending := previousExists && previous.Server == cfg.Server &&
+			previous.PendingBindHash == recoveryHash && strings.TrimSpace(previous.Token) != ""
+		if reusingPending {
+			candidate = previous.Token
+		}
+		if candidate == "" {
+			var err error
+			candidate, err = newWorkerAccessToken()
+			if err != nil {
+				cancel()
+				log.Fatalf("生成 Worker Access Token 失败: %v", err)
+			}
+		}
+		if !reusingPending {
+			if err := preservePreBindConfig(path, previous, previousExists); err != nil {
+				cancel()
+				log.Fatalf("保存绑定前 Worker 配置失败，绑定码尚未消费: %v", err)
+			}
+		}
+		// Persist before consuming the one-time code. If the process or network
+		// stops after server commit, the next bind attempt reuses this candidate
+		// and authenticates it instead of asking for another code.
+		cfg.Token = candidate
+		cfg.WorkerID = 0
+		cfg.WorkerName = ""
+		cfg.PendingBindHash = recoveryHash
+		if err := saveConfig(path, cfg); err != nil {
+			cancel()
+			log.Fatalf("保存待兑换 Worker Token 失败（绑定码尚未消费）: %v", err)
+		}
+		res, err := newClient(cfg.Server, "").RedeemBindCodeWithToken(ctx, token, candidate)
 		if err != nil {
 			cancel()
-			log.Fatalf("绑定码兑换失败: %v", err)
+			if definitiveClientRejection(err) {
+				if restoreErr := restorePreBindConfig(path); restoreErr != nil {
+					log.Fatalf("绑定码被服务端拒绝（%v），且恢复原 Worker 配置失败: %v", err, restoreErr)
+				}
+				log.Fatalf("绑定码被服务端拒绝，原 Worker 配置已恢复: %v", err)
+			}
+			log.Fatalf("绑定码兑换状态未确认: %v；候选 Token 已安全保存在 %s，使用同一绑定码重试可继续恢复", err, path)
 		}
 		cfg.Token = res.Token
 		cfg.WorkerID = res.WorkerID
 		cfg.WorkerName = res.WorkerName
+		cfg.PendingBindHash = ""
 		if err := saveConfig(path, cfg); err != nil {
 			cancel()
-			log.Fatalf("绑定码已兑换，但写配置失败: %v\n为避免泄露，Worker Access Token 不会打印到终端；请在 nbco 里给该 worker 补发一次性绑定码后重新绑定。", err)
+			log.Fatalf("绑定码已兑换，但写最终配置失败: %v；候选 Token 已提前保存在同一配置文件，可用该 Token 重新 bind", err)
+		}
+		if err := clearPreBindConfig(path); err != nil {
+			log.Printf("警告：新绑定已完成，但清理绑定前配置快照失败: %v", err)
 		}
 		redeemed = true
 	}
@@ -180,6 +231,7 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 	}
 	cfg.WorkerID = ident.ID
 	cfg.WorkerName = ident.Name
+	cfg.PendingBindHash = ""
 	if err := saveConfig(path, cfg); err != nil {
 		log.Fatalf("写配置失败: %v", err)
 	}
@@ -375,4 +427,46 @@ func saveConfig(path string, cfg Config) error {
 		return err
 	}
 	return os.Chmod(path, 0o600)
+}
+
+func preBindConfigPath(path string) string { return path + ".prebind" }
+
+// preservePreBindConfig snapshots the complete previous worker configuration
+// before a candidate token replaces it. The snapshot survives process loss so
+// a later, definitive bind rejection can restore a previously working worker.
+func preservePreBindConfig(path string, previous Config, previousExists bool) error {
+	backup := preBindConfigPath(path)
+	if !previousExists {
+		if err := os.Remove(backup); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+	return saveConfig(backup, previous)
+}
+
+func restorePreBindConfig(path string) error {
+	backup := preBindConfigPath(path)
+	previous, err := loadConfig(backup)
+	if err == nil {
+		if err := saveConfig(path, previous); err != nil {
+			return err
+		}
+		return clearPreBindConfig(path)
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+func clearPreBindConfig(path string) error {
+	err := os.Remove(preBindConfigPath(path))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }

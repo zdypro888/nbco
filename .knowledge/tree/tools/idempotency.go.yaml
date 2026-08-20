@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: tools/idempotency.go
+      level: file
+      anchor:
+        file: tools/idempotency.go
+        hash: sha256:84cdedc3a98d77240d78871f77df5c8c0dd84ef93a6458e735d3f4d5c8c2d6d7
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T13:01:42.709515Z
+    - id: tools/idempotency.go#withInvocationIdempotency
+      level: function
+      anchor:
+        file: tools/idempotency.go
+        symbol: withInvocationIdempotency
+        hash: sha256:0c9a8c5644c7e170da8df16114436d993d2bc6a966e2ff301ed38b3c25ab571c
+        struct_hash: sha256:59f2ec483057d2996dc34047f6bba7b8b3b86fa3371270658c68268f6acc7cd7
+        doc_struct_hash: sha256:f0291b6715ea2b4ad72108459886419019a0edad779ae6f8aa19ec93b2a15cee
+        lines: [24, 88]
+      status: fresh
+      since: 2026-08-20T13:01:42.70944Z
+    - id: tools/idempotency.go#settledInvocationReplayResult
+      level: function
+      anchor:
+        file: tools/idempotency.go
+        symbol: settledInvocationReplayResult
+        hash: sha256:18efb49a2bbf5849442d42eca765e79baf11e405412e66857780a7bdb02a6651
+        struct_hash: sha256:eaeffdce6388faa3bbdf1d7aa7c81d8e201b21b1965a6a6bdcb125b2ede07481
+        doc_struct_hash: sha256:eaeffdce6388faa3bbdf1d7aa7c81d8e201b21b1965a6a6bdcb125b2ede07481
+        lines: [127, 143]
+      status: fresh
+      since: 2026-08-20T13:01:42.710148Z

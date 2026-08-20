@@ -57,10 +57,38 @@ type Tool struct {
 	// handler. Agent runtimes use it only to derive stable per-turn invocation
 	// identities; nil means canonical JSON is sufficient.
 	NormalizeInput func(json.RawMessage) json.RawMessage
+	// RecoverResult performs a read-only reconstruction after the durable
+	// invocation boundary exists but its exact result was not persisted. It is
+	// reserved for handlers whose domain transaction stores an invocation-scoped
+	// recovery record; ordinary write tools must leave it nil.
+	RecoverResult func(ctx context.Context, args json.RawMessage) (result string, recovered bool, err error)
+	// ResultPersisted runs after the durable invocation receipt contains the
+	// exact result. It may erase short-lived recovery plaintext; failures do not
+	// invalidate the already durable tool result.
+	ResultPersisted func(ctx context.Context, args json.RawMessage, result string) error
 	// Handler 执行工具并返回给模型的文本结果。
 	// 业务错误（权限不足、目标不存在）应返回 (提示文本, nil) 让模型自行转述；
 	// 只有系统性故障才返回 error。
 	Handler func(ctx context.Context, args json.RawMessage) (string, error)
+}
+
+type toolInvocationKey struct{}
+
+// WithToolInvocationKey attaches the runtime-owned identity of one logical
+// write/execute invocation. Domain handlers may use it as an idempotency key;
+// user input must never be trusted as this value.
+func WithToolInvocationKey(ctx context.Context, key string) context.Context {
+	if key == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, toolInvocationKey{}, key)
+}
+
+// ToolInvocationKey returns the opaque identity assigned by the Agent runtime.
+// It is empty for direct/MCP calls that do not provide a durable invocation.
+func ToolInvocationKey(ctx context.Context) string {
+	key, _ := ctx.Value(toolInvocationKey{}).(string)
+	return key
 }
 
 // ToolMaturity describes operational confidence, not authorization. Keeping it
@@ -189,6 +217,10 @@ type TurnRequest struct {
 	Mode TurnMode
 	// SessionID 是 nbco 侧会话 ID（落库主键），引擎可用它做日志关联。
 	SessionID string
+	// InvocationScope identifies one logical Agent execution for side-effect
+	// idempotency. Retries of the same execution must reuse it; distinct user
+	// turns or automation occurrences must not. Empty falls back to SessionID.
+	InvocationScope string
 	// EngineSession 是引擎侧持久会话标识。空表示由引擎创建；调用方应保存
 	// TurnResult 返回值并在下一轮传回。
 	EngineSession string

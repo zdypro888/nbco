@@ -211,12 +211,24 @@ nodes:
       anchor:
         file: cmd/nbco-worker/supervisor.go
         symbol: agentSupervisor.assess
-        hash: sha256:06fbcbc7224e498ea9bfdeb7505fc45172e4e0e0a2d9046428ed86e81149ba66
-        struct_hash: sha256:3565b7d3c33dd00537f42e1966efee75617221d0d4f9d9cb3e0e796d94fd0fda
-        doc_struct_hash: sha256:3565b7d3c33dd00537f42e1966efee75617221d0d4f9d9cb3e0e796d94fd0fda
-        lines: [153, 196]
-      status: suspect
+        hash: sha256:56d792e520d1e807284c76ca301cc7002cec5fb5a4384d38ec6cb832389510bc
+        struct_hash: sha256:13e8bfd57ee8328f749dc72b322f36be734a7e84af3321564b0951036381abd0
+        doc_struct_hash: sha256:13e8bfd57ee8328f749dc72b322f36be734a7e84af3321564b0951036381abd0
+        lines: [153, 209]
+      status: fresh
       since: 2026-07-21T04:37:52.802176Z
+      entries:
+        - id: e_4f4c55b1
+          kind: contract
+          text: 监督模型调用把 transport retry 与 semantic retry 分开：超时/连接错误继续使用同一个 requestID，以便服务端返回同一逻辑调用结果；已收到完整响应但工具调用/JSON 语义无效时必须换新 requestID，否则持久幂等层会永远重放同一畸形响应。
+          confidence: inferred
+          at: 2026-08-20T13:02:49.156036Z
+          author: codex-mcp-client
+      keywords:
+        - worker supervisor request id retry
+        - semantic retry request id
+        - transport idempotency
+        - malformed assessment replay
     - id: cmd/nbco-worker/supervisor.go#validateAgentAssessment
       level: function
       anchor:

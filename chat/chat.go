@@ -23,6 +23,7 @@ import (
 	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/keylock"
 	"github.com/zdypro888/nbco/knowledge"
+	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
@@ -98,6 +99,7 @@ type TurnExtensionProvider func(context.Context, *store.User, string) (*TurnExte
 type readOnlyTurnKey struct{}
 type internalTurnKey struct{}
 type automationTurnOptionsKey struct{}
+type automationExecutionIdentityKey struct{}
 type turnSourceKey struct{}
 type memorySourceTextKey struct{}
 type messageEnvelopeKey struct{}
@@ -263,6 +265,7 @@ func (o *Orchestrator) HandleAutomationMessageResult(ctx context.Context, u *sto
 		return TurnReply{}, err
 	}
 	ctx = context.WithValue(ctx, internalTurnKey{}, true)
+	ctx = context.WithValue(ctx, automationExecutionIdentityKey{}, executionKey)
 	if options.ReadOnly {
 		ctx = context.WithValue(ctx, readOnlyTurnKey{}, true)
 	}
@@ -637,14 +640,19 @@ func (o *Orchestrator) runTurn(
 
 	modelText := modelUserContent(extendedUserText(text, extension), start, o.tz)
 	engineSessionID := fmt.Sprintf("internal:%d", sess.ID)
+	invocationScope := engineSessionID
 	disableEngineSession := true
 	if durableTurn != nil {
 		engineSessionID = fmt.Sprintf("turn:%d", durableTurn.ID)
+		invocationScope = engineSessionID
 		disableEngineSession = false
+	} else if executionKey, _ := ctx.Value(automationExecutionIdentityKey{}).(string); strings.TrimSpace(executionKey) != "" {
+		invocationScope = automationInvocationScope(u.ID, channel, executionKey)
 	}
 	req := &ai.TurnRequest{
 		Mode:              turnMode,
 		SessionID:         engineSessionID,
+		InvocationScope:   invocationScope,
 		EngineSession:     "",
 		DisableSession:    disableEngineSession,
 		SessionCapability: sessionCapability,
@@ -1773,10 +1781,15 @@ func (o *Orchestrator) alertSuperadmins(ctx context.Context, text string) {
 		slog.Warn("引擎告警取超管失败", "err", err)
 		return
 	}
+	bucket := time.Now().UTC().Unix() / int64(engineAlertInterval/time.Second)
 	for _, u := range users {
 		if u.IsSuperadmin && u.Status == store.UserActive && !u.IsWorker {
-			if err := o.deps.Notifier.Send(ctx, u.ID, text); err != nil {
+			key := fmt.Sprintf("engine-alert:%s:%d:%d", contentHash(text), bucket, u.ID)
+			delivery, err := notify.SendOnce(ctx, o.store, o.deps.Notifier, key, u.ID, text)
+			if err != nil {
 				slog.Warn("引擎告警推送失败", "superadmin", u.ID, "err", err)
+			} else if !delivery.Delivered {
+				slog.Warn("引擎告警投递状态不确定", "superadmin", u.ID, "state", delivery.State)
 			}
 		}
 	}
@@ -2126,6 +2139,11 @@ func (o *Orchestrator) startGroupSessionOrReuse(ctx context.Context, ownerID int
 func contentHash(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:8])
+}
+
+func automationInvocationScope(userID int64, channel, executionKey string) string {
+	identity := strings.TrimSpace(channel) + "\x00" + strings.TrimSpace(executionKey)
+	return fmt.Sprintf("automation:%d:%s", userID, contentHash(identity))
 }
 
 // ensureSession 取活跃会话；不存在或引擎不匹配时新开。

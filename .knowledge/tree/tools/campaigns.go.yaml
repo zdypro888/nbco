@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: tools/campaigns.go
         symbol: notifyDataCampaignTargets
-        hash: sha256:643e4cc347bf1c58eedae919d65b76d7e73fd5629e1554486452abe739ae9087
-        struct_hash: sha256:17f37d842ad70dc41c0be8b16234e33a208d5cf2c547b642cad22d2b5ef6a370
-        doc_struct_hash: sha256:17f37d842ad70dc41c0be8b16234e33a208d5cf2c547b642cad22d2b5ef6a370
-        lines: [341, 376]
+        hash: sha256:a82dfeea0dbbdcf8996530455e3ac09b6b21f65525b8ec05b00abc230f73dcab
+        struct_hash: sha256:40daeda754de1f0758e687379e9b6f70b351c49fbb53c5a4280ba82f2dee3caf
+        doc_struct_hash: sha256:40daeda754de1f0758e687379e9b6f70b351c49fbb53c5a4280ba82f2dee3caf
+        lines: [344, 384]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/campaigns.go#dataCampaignTargetName

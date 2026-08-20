@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
@@ -1285,7 +1286,8 @@ func notifyQuiet(ctx context.Context, d Deps, userID int64, text string) {
 	if d.Notifier == nil {
 		return
 	}
-	if err := d.Notifier.Send(ctx, userID, text); err != nil {
+	delivery, err := notify.SendForToolInvocation(ctx, d.Store, d.Notifier, "task-notification", userID, text)
+	if err != nil || !delivery.Delivered {
 		slog.Warn("通知投递失败", "user", userID, "err", err)
 	}
 }
@@ -1675,7 +1677,7 @@ func FireReadyDependents(ctx context.Context, d Deps, acceptedID int64) {
 		if assignee, err := d.Store.UserByID(ctx, t.AssigneeID); err == nil {
 			wakeWorker(d, assignee)
 		}
-		emitRequiredEvent(d, "前置任务完成",
+		emitRequiredEventOnce(d, fmt.Sprintf("dependency-ready:%d:%d", acceptedID, t.ID), "前置任务完成",
 			t.AssignerID,
 			fmt.Sprintf("任务「%s」（%s）的全部前置已验收通过，现在可以开工（执行人：%s）。", t.Title, internalRef("任务", t.ID), assigneeName))
 	}

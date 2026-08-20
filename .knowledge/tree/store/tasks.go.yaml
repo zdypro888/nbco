@@ -888,3 +888,14 @@ nodes:
         lines: [1506, 1514]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/tasks.go#Store.MarkNudgeAttempt
+      level: function
+      anchor:
+        file: store/tasks.go
+        symbol: Store.MarkNudgeAttempt
+        hash: sha256:7e7103490cd78fc0899ae52e69e6b1667782e14cf8fadc6da7aec1b373cd2847
+        struct_hash: sha256:8890fb1d890949caf674e78e4a8d8e264a16d9dae0e3efd1e0dd3f33e446b444
+        doc_struct_hash: sha256:daf4cf0dbd30a72e270438ae31f57e6e490030c507729125e8f3e3d6f03b441d
+        lines: [920, 931]
+      status: fresh
+      since: 2026-08-20T12:58:22.019172Z

@@ -393,3 +393,25 @@ nodes:
         lines: [610, 651]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/telegram/telegram_test.go#TestInboundClaimBookkeepingIsSetBased
+      level: function
+      anchor:
+        file: gateway/telegram/telegram_test.go
+        symbol: TestInboundClaimBookkeepingIsSetBased
+        hash: sha256:07f93eee056e0865bb7c41abb4fafbf28bb3c32db70e14fd3a665a10f1902e97
+        struct_hash: sha256:8102bca455fdb842a0c1d5d81cd0e13cc976d4bf19e19a47471ab1896e2e963b
+        doc_struct_hash: sha256:8102bca455fdb842a0c1d5d81cd0e13cc976d4bf19e19a47471ab1896e2e963b
+        lines: [23, 41]
+      status: fresh
+      since: 2026-08-20T12:56:16.141214Z
+    - id: gateway/telegram/telegram_test.go#TestChatMemberIsActiveHonorsRestrictedMembershipFlag
+      level: function
+      anchor:
+        file: gateway/telegram/telegram_test.go
+        symbol: TestChatMemberIsActiveHonorsRestrictedMembershipFlag
+        hash: sha256:031b36f3736f6a8d5cc1015863427d5705bc8652cd939ec5250c58dd29e9f6b4
+        struct_hash: sha256:8c6cbb3a06f98c09cb7bf0e0f358d9d4aa7852abeac9b449a59db5a1ab0752e5
+        doc_struct_hash: sha256:8c6cbb3a06f98c09cb7bf0e0f358d9d4aa7852abeac9b449a59db5a1ab0752e5
+        lines: [643, 679]
+      status: fresh
+      since: 2026-08-20T12:56:34.471059Z

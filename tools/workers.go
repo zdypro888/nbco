@@ -12,6 +12,35 @@ import (
 	"github.com/zdypro888/nbco/workerproto"
 )
 
+type createWorkerArgs struct {
+	Name string `json:"name"`
+}
+
+type issueWorkerBindCodeArgs struct {
+	WorkerID int64 `json:"worker_id"`
+}
+
+func createWorkerToolResult(d Deps, w *store.User, code string) string {
+	base := strings.TrimSpace(d.PublicBaseURL)
+	if base == "" {
+		base = "<服务器地址>"
+	}
+	return fmt.Sprintf("已创建 AI worker「%s」（%s）。一次性绑定码（24小时内有效，兑换即失效）：\n<code>%s</code>\n"+
+		"工作机绑定时会自动用它兑换 Worker Access Token；token 不会在对话里出现。\n\n"+
+		"macOS Apple Silicon 一键安装示例：\n"+
+		"<pre>curl -fsSL -o nbco-worker %s/downloads/worker/nbco-worker-darwin-arm64\n"+
+		"chmod +x nbco-worker\n"+
+		"./nbco-worker bootstrap -install-service=true %s %s</pre>\n"+
+		"Linux/Windows 也可从 /downloads/worker/ 下载对应平台二进制；bootstrap 会绑定并安装为系统服务。\n"+
+		"绑定码过期或遗失时用 issue_worker_bind_code 补发。",
+		w.Name, internalRef("worker", w.ID), code, base, base, code)
+}
+
+func workerBindCodeToolResult(code string) string {
+	return fmt.Sprintf("已补发绑定码（24小时内有效，兑换即失效）：\n<code>%s</code>\n"+
+		"在工作机上运行 nbco-worker bind &lt;server&gt; %s 即可重绑；新码兑换后旧 token 自动作废。", code, code)
+}
+
 // workerTools AI 员工管理：列出对所有人开放（只看自己名下）；创建/绑定码/命令/
 // 停用按 manage_worker 主动权限裁剪（toolPerm 注册表），且 handler 内做目标级
 // 校验——非超管只能操作自己名下（owner）的 worker。
@@ -63,61 +92,89 @@ func workerTools(d Deps, u *store.User) []ai.Tool {
 			return b.String(), nil
 		}))
 
+	createWorker := tool("create_worker", "创建一个 AI worker 账号并签发一次性绑定码（24小时有效、一次一用；不是真人员工邀请）。在工作机上运行 nbco-worker bootstrap 时用绑定码兑换 access token——真正的长期凭据不会出现在对话里。需要 AI 员工管理权限（manage_worker）；创建者自动成为该 worker 的监护人。",
+		obj(map[string]any{"name": p("string", "AI worker 名，如「小码」")}, "name"),
+		func(ctx context.Context, raw json.RawMessage) (string, error) {
+			var args createWorkerArgs
+			if err := decode(raw, &args); err != nil {
+				return err.Error(), nil
+			}
+			if strings.TrimSpace(args.Name) == "" {
+				return "AI worker 名不能为空。", nil
+			}
+			w, code, err := d.Store.CreateWorkerForRequest(ctx, args.Name, u.ID,
+				toolInvocationRequestKey(ctx, u.ID, "create_worker"))
+			if err != nil {
+				return "", err
+			}
+			return createWorkerToolResult(d, w, code), nil
+		})
+	createWorker.RecoverResult = func(ctx context.Context, raw json.RawMessage) (string, bool, error) {
+		var args createWorkerArgs
+		if err := decode(raw, &args); err != nil {
+			return "", false, nil
+		}
+		w, code, err := d.Store.WorkerBindCodeByRequest(ctx, u.ID, toolInvocationRequestKey(ctx, u.ID, "create_worker"))
+		if errors.Is(err, store.ErrNotFound) {
+			return "", false, nil
+		}
+		if err != nil {
+			return "", false, err
+		}
+		if strings.TrimSpace(w.Name) != strings.TrimSpace(args.Name) {
+			return "", false, store.ErrConflict
+		}
+		return createWorkerToolResult(d, w, code), true, nil
+	}
+	createWorker.ResultPersisted = func(ctx context.Context, _ json.RawMessage, _ string) error {
+		return d.Store.ClearWorkerBindCodeRecovery(ctx, u.ID, toolInvocationRequestKey(ctx, u.ID, "create_worker"))
+	}
+
+	issueBindCode := tool("issue_worker_bind_code", "给已有 AI worker 补发一次性绑定码（旧码作废；已绑定机器的 token 在新码被兑换前仍有效）。用于绑定码过期、遗失或换机重绑。非超管只能给自己名下的 worker 补发。",
+		obj(map[string]any{"worker_id": p("integer", "worker 用户ID")}, "worker_id"),
+		func(ctx context.Context, raw json.RawMessage) (string, error) {
+			var args issueWorkerBindCodeArgs
+			if err := decode(raw, &args); err != nil {
+				return err.Error(), nil
+			}
+			if _, msg := mustOwnWorker(ctx, d, u, args.WorkerID); msg != "" {
+				return msg, nil
+			}
+			code, err := d.Store.NewWorkerBindCodeForRequest(ctx, args.WorkerID, u.ID,
+				toolInvocationRequestKey(ctx, u.ID, "issue_worker_bind_code"))
+			if err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					return "该 AI worker 不存在或已停用。", nil
+				}
+				return "", err
+			}
+			return workerBindCodeToolResult(code), nil
+		})
+	issueBindCode.RecoverResult = func(ctx context.Context, raw json.RawMessage) (string, bool, error) {
+		var args issueWorkerBindCodeArgs
+		if err := decode(raw, &args); err != nil {
+			return "", false, nil
+		}
+		w, code, err := d.Store.WorkerBindCodeByRequest(ctx, u.ID, toolInvocationRequestKey(ctx, u.ID, "issue_worker_bind_code"))
+		if errors.Is(err, store.ErrNotFound) {
+			return "", false, nil
+		}
+		if err != nil {
+			return "", false, err
+		}
+		if w.ID != args.WorkerID {
+			return "", false, store.ErrConflict
+		}
+		return workerBindCodeToolResult(code), true, nil
+	}
+	issueBindCode.ResultPersisted = func(ctx context.Context, _ json.RawMessage, _ string) error {
+		return d.Store.ClearWorkerBindCodeRecovery(ctx, u.ID, toolInvocationRequestKey(ctx, u.ID, "issue_worker_bind_code"))
+	}
+
 	return []ai.Tool{
 		list,
-		tool("create_worker", "创建一个 AI worker 账号并签发一次性绑定码（24小时有效、一次一用；不是真人员工邀请）。在工作机上运行 nbco-worker bootstrap 时用绑定码兑换 access token——真正的长期凭据不会出现在对话里。需要 AI 员工管理权限（manage_worker）；创建者自动成为该 worker 的监护人。",
-			obj(map[string]any{"name": p("string", "AI worker 名，如「小码」")}, "name"),
-			func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var args struct {
-					Name string `json:"name"`
-				}
-				if err := decode(raw, &args); err != nil {
-					return err.Error(), nil
-				}
-				if strings.TrimSpace(args.Name) == "" {
-					return "AI worker 名不能为空。", nil
-				}
-				w, code, err := d.Store.CreateWorker(ctx, args.Name, u.ID)
-				if err != nil {
-					return "", err
-				}
-				base := strings.TrimSpace(d.PublicBaseURL)
-				if base == "" {
-					base = "<服务器地址>"
-				}
-				return fmt.Sprintf("已创建 AI worker「%s」（%s）。一次性绑定码（24小时内有效，兑换即失效）：\n<code>%s</code>\n"+
-					"工作机绑定时会自动用它兑换 Worker Access Token；token 不会在对话里出现。\n\n"+
-					"macOS Apple Silicon 一键安装示例：\n"+
-					"<pre>curl -fsSL -o nbco-worker %s/downloads/worker/nbco-worker-darwin-arm64\n"+
-					"chmod +x nbco-worker\n"+
-					"./nbco-worker bootstrap -install-service=true %s %s</pre>\n"+
-					"Linux/Windows 也可从 /downloads/worker/ 下载对应平台二进制；bootstrap 会绑定并安装为系统服务。\n"+
-					"绑定码过期或遗失时用 issue_worker_bind_code 补发。",
-					w.Name, internalRef("worker", w.ID), code, base, base, code), nil
-			}),
-
-		tool("issue_worker_bind_code", "给已有 AI worker 补发一次性绑定码（旧码作废；已绑定机器的 token 在新码被兑换前仍有效）。用于绑定码过期、遗失或换机重绑。非超管只能给自己名下的 worker 补发。",
-			obj(map[string]any{"worker_id": p("integer", "worker 用户ID")}, "worker_id"),
-			func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var args struct {
-					WorkerID int64 `json:"worker_id"`
-				}
-				if err := decode(raw, &args); err != nil {
-					return err.Error(), nil
-				}
-				if _, msg := mustOwnWorker(ctx, d, u, args.WorkerID); msg != "" {
-					return msg, nil
-				}
-				code, err := d.Store.NewWorkerBindCode(ctx, args.WorkerID, u.ID)
-				if err != nil {
-					if errors.Is(err, store.ErrNotFound) {
-						return "该 AI worker 不存在或已停用。", nil
-					}
-					return "", err
-				}
-				return fmt.Sprintf("已补发绑定码（24小时内有效，兑换即失效）：\n<code>%s</code>\n"+
-					"在工作机上运行 nbco-worker bind &lt;server&gt; %s 即可重绑；新码兑换后旧 token 自动作废。", code, code), nil
-			}),
+		createWorker,
+		issueBindCode,
 
 		asynchronousTool(tool("run_worker_command", "让指定 AI worker 在其工作机主题目录中执行一条确定性的 shell/cmd 命令，并把输出作为执行进度和结果回传。仅适合命令自身的退出码可以完整表达技术执行结果的原子操作，例如运行测试或读取一个无需解释的状态；退出码 0 只证明命令进程正常结束，不证明业务目标已经达成。它不会启动 Codex/Claude。凡是需要解释 stdout、核验外部数据、根据结果继续判断、初始化仓库、修改代码、研究或部署，都应使用 delegate_worker_agent 或对应工作流，让 Agent 自行观察并适配。默认用 stdout/stderr pipe；只有确实需要终端行为时才设置 pty=true。非超管仅限自己名下的 worker；这是独立执行，不会伪装成业务任务。",
 			obj(map[string]any{

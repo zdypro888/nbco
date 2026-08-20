@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -61,7 +62,8 @@ func (s *Store) BeginAutomationAction(ctx context.Context, run *AutomationRun) e
 }
 
 // PrepareAutomationResult stores the generated report before notification. A
-// transport retry then resends this exact text without rerunning the AI agent.
+// reclaimed run reuses this text and resolves the stable transport occurrence;
+// it never reruns the AI action or blindly resends an uncertain delivery.
 func (s *Store) PrepareAutomationResult(ctx context.Context, run *AutomationRun, result, outcome, cause string) error {
 	if run == nil || run.ClaimedAt == nil {
 		return ErrNotFound
@@ -191,6 +193,23 @@ func (s *Store) CompleteAutomationRun(ctx context.Context, run *AutomationRun) e
 		        updated_at=now()
 		 WHERE automation_key=$1 AND occurrence_key=$2 AND subject_id=$3 AND status='processing' AND claimed_at=$4`,
 		run.AutomationKey, run.OccurrenceKey, run.SubjectID, *run.ClaimedAt)
+}
+
+// FailAutomationRunDelivery closes an occurrence whose business result is
+// already durable but whose external notification was failed or ambiguous.
+// It preserves result_text/outcome and never reopens the action for replay.
+func (s *Store) FailAutomationRunDelivery(ctx context.Context, run *AutomationRun, cause string) error {
+	if run == nil || run.ClaimedAt == nil {
+		return ErrNotFound
+	}
+	return s.execOne(ctx,
+		`UPDATE automation_runs
+		    SET status='failed', claimed_at=NULL, completed_at=now(),
+		        last_error=$5, updated_at=now()
+		 WHERE automation_key=$1 AND occurrence_key=$2 AND subject_id=$3
+		   AND status='processing' AND claimed_at=$4`,
+		run.AutomationKey, run.OccurrenceKey, run.SubjectID, *run.ClaimedAt,
+		truncateRunes(strings.TrimSpace(cause), 500))
 }
 
 func (s *Store) RetryAutomationRun(ctx context.Context, run *AutomationRun, cause string) error {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,11 +32,13 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/ai/stt"
 	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/keylock"
+	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/safefs"
 	"github.com/zdypro888/nbco/store"
@@ -53,6 +57,10 @@ const telegramMessageTimeout = 15 * time.Minute
 const groupMonitorDebounce = 20 * time.Second
 const groupMonitorMaxWait = 2 * time.Minute
 const groupMonitorAnalysisLease = 4 * time.Minute
+const telegramInboundPollInterval = 250 * time.Millisecond
+const telegramTransportRetention = 30 * 24 * time.Hour
+const telegramWebhookMaxBody = 2 << 20
+const telegramInboundMaxInFlight = 256
 
 const groupMonitorSystem = `你是公司运营系统的 Telegram 群智能监控器。你的任务是判断最近群聊是否值得提醒监控发起人。
 
@@ -80,23 +88,66 @@ var htmlLooseTagRe = regexp.MustCompile(`(?is)<[^<>\n]*>`)
 var htmlMalformedKnownTagRe = regexp.MustCompile(`(?i)</?\s*(b|strong|i|em|u|s|del|code|pre|blockquote|a|table|tr|td|th)\s*[:：，,。；;、]?`)
 
 type pendingTextMessage struct {
-	id      int64
-	ctx     context.Context
-	msg     *models.Message
-	texts   []string
-	isGroup bool
-	lockKey int64
-	fromID  int64
-	timer   *time.Timer
+	id        int64
+	ctx       context.Context
+	msg       *models.Message
+	texts     []string
+	seenIDs   map[int]struct{}
+	updateIDs []int64
+	isGroup   bool
+	lockKey   int64
+	fromID    int64
+	timer     *time.Timer
+}
+
+type pendingMediaGroup struct {
+	id           int64
+	ctx          context.Context
+	messages     []*models.Message
+	updateIDs    []int64
+	mediaGroupID string
+	isGroup      bool
+	lockKey      int64
+	fromID       int64
+	ready        chan struct{}
+	closed       bool
+	timer        *time.Timer
 }
 
 type queuedTelegramMessage struct {
-	ctx     context.Context
-	msg     *models.Message
-	isGroup bool
-	lockKey int64
-	prev    <-chan struct{}
-	done    chan struct{}
+	ctx       context.Context
+	msg       *models.Message
+	media     *pendingMediaGroup
+	isGroup   bool
+	lockKey   int64
+	prev      <-chan struct{}
+	done      chan struct{}
+	updateIDs []int64
+}
+
+type telegramDeliveryKeyContextKey struct{}
+
+func withTelegramDeliveryKey(ctx context.Context, key string) context.Context {
+	key = strings.TrimSpace(key)
+	if ctx == nil || key == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, telegramDeliveryKeyContextKey{}, key)
+}
+
+func telegramContextDeliveryKey(ctx context.Context, chatID int64) string {
+	if key := notify.DeliveryKey(ctx); key != "" {
+		return "notification:" + key
+	}
+	if invocation := ai.ToolInvocationKey(ctx); invocation != "" {
+		return fmt.Sprintf("agent:%s:telegram:%d", invocation, chatID)
+	}
+	if ctx != nil {
+		if key, _ := ctx.Value(telegramDeliveryKeyContextKey{}).(string); strings.TrimSpace(key) != "" {
+			return strings.TrimSpace(key)
+		}
+	}
+	return ""
 }
 
 // Gateway Telegram 网关。
@@ -114,12 +165,16 @@ type Gateway struct {
 	publicBaseURL  string
 	brandName      string
 	telegramAPIURL string
+	webhookURL     string
+	webhookPath    string
+	webhookSecret  string
 	tz             *time.Location
 
 	mu                sync.Mutex
 	locks             keylock.Map[int64] // 串行化键：私聊=用户ID（正数），群=chat ID（负数），天然不撞
 	self              *models.User       // bot 自身身份（Run 时 GetMe 缓存，@提及与回复检测用）
 	pending           map[int64]*pendingTextMessage
+	pendingMedia      map[int64]*pendingMediaGroup
 	pendingSeq        int64
 	dispatchTails     map[int64]chan struct{}
 	monitorTimers     map[int64]*time.Timer
@@ -128,10 +183,26 @@ type Gateway struct {
 	runCtx            context.Context
 	ready             atomic.Bool
 	privacyWarned     atomic.Bool
+	inboundInFlight   atomic.Int64
+	inboundClaimsMu   sync.Mutex
+	inboundClaims     map[int64]struct{}
+	inboundWake       chan struct{}
 }
 
 // New 创建网关。
-func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath, publicBaseURL, brandName string, tz *time.Location) (*Gateway, error) {
+func New(token, telegramAPIURL, webhookURL string, s *store.Store, orch *chat.Orchestrator, bus *events.Bus, superadmins []int64, defaultModel, modelBaseURL, modelAPIKey string, sttClient *stt.Client, fileStorePath, publicBaseURL, brandName string, tz *time.Location) (*Gateway, error) {
+	webhookURL = strings.TrimSpace(webhookURL)
+	webhookPath := ""
+	webhookSecret := ""
+	if webhookURL != "" {
+		parsed, err := url.Parse(webhookURL)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path == "" || parsed.Path == "/" {
+			return nil, errors.New("telegram webhook URL 无效")
+		}
+		webhookPath = parsed.Path
+		sum := sha256.Sum256([]byte(strings.TrimSpace(token) + "\x00nbco-telegram-webhook"))
+		webhookSecret = hex.EncodeToString(sum[:])
+	}
 	g := &Gateway{
 		store:             s,
 		orch:              orch,
@@ -145,12 +216,18 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 		publicBaseURL:     strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"),
 		brandName:         branding.Name(brandName),
 		telegramAPIURL:    strings.TrimRight(strings.TrimSpace(telegramAPIURL), "/"),
+		webhookURL:        webhookURL,
+		webhookPath:       webhookPath,
+		webhookSecret:     webhookSecret,
 		tz:                orLocalTimeZone(tz),
 		pending:           map[int64]*pendingTextMessage{},
+		pendingMedia:      map[int64]*pendingMediaGroup{},
 		dispatchTails:     map[int64]chan struct{}{},
 		monitorTimers:     map[int64]*time.Timer{},
 		monitorGeneration: map[int64]uint64{},
 		monitorInstanceID: newGroupMonitorInstanceID(),
+		inboundClaims:     map[int64]struct{}{},
+		inboundWake:       make(chan struct{}, 1),
 	}
 	for _, id := range superadmins {
 		g.superadmins[id] = true
@@ -169,6 +246,9 @@ func New(token, telegramAPIURL string, s *store.Store, orch *chat.Orchestrator, 
 			models.AllowedUpdateMyChatMember,
 			models.AllowedUpdateChatMember,
 		}),
+	}
+	if webhookSecret != "" {
+		options = append(options, bot.WithWebhookSecretToken(webhookSecret))
 	}
 	if g.telegramAPIURL != "" {
 		options = append(options,
@@ -196,10 +276,63 @@ func newGroupMonitorInstanceID() string {
 // Ready reports whether the Telegram API handshake is currently healthy.
 func (g *Gateway) Ready() bool { return g != nil && g.ready.Load() }
 
+func (g *Gateway) WebhookEnabled() bool { return g != nil && g.webhookURL != "" }
+
+func (g *Gateway) WebhookPath() string {
+	if g == nil {
+		return ""
+	}
+	return g.webhookPath
+}
+
+// WebhookHandler acknowledges Telegram only after the immutable raw update is
+// committed to PostgreSQL. Processing happens through the same durable inbox
+// used by polling mode.
+func (g *Gateway) WebhookHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if g == nil || !g.WebhookEnabled() || r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		provided := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
+		if len(provided) != len(g.webhookSecret) || subtle.ConstantTimeCompare([]byte(provided), []byte(g.webhookSecret)) != 1 {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		body := http.MaxBytesReader(w, r.Body, telegramWebhookMaxBody)
+		defer body.Close()
+		decoder := json.NewDecoder(body)
+		var update models.Update
+		if err := decoder.Decode(&update); err != nil || update.ID <= 0 {
+			http.Error(w, "invalid update", http.StatusBadRequest)
+			return
+		}
+		var trailing any
+		if err := decoder.Decode(&trailing); err != io.EOF {
+			http.Error(w, "invalid update", http.StatusBadRequest)
+			return
+		}
+		if err := g.enqueueInboundUpdate(r.Context(), &update); err != nil {
+			if errors.Is(err, store.ErrConflict) {
+				slog.Error("Telegram update_id 内容冲突，拒绝覆盖既有事实", "update", update.ID)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			slog.Warn("Telegram webhook 入站落库失败", "update", update.ID, "err", err)
+			http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
 // Run 长轮询直到 ctx 结束。Telegram API 尚未就绪时持续退避重试，不影响
 // HTTP/MCP/worker 等核心入口继续运行。
 func (g *Gateway) Run(ctx context.Context) {
 	if !g.waitUntilReady(ctx) {
+		return
+	}
+	if !g.configureUpdateTransport(ctx) {
 		return
 	}
 	defer g.ready.Store(false)
@@ -215,6 +348,11 @@ func (g *Gateway) Run(ctx context.Context) {
 	g.resumeGroupMonitors(ctx)
 	defer g.stopGroupMonitorTimers()
 	go g.monitorReadiness(ctx)
+	go g.runInboundUpdates(ctx)
+	if g.webhookURL != "" {
+		<-ctx.Done()
+		return
+	}
 	g.bot.Start(ctx)
 }
 
@@ -226,11 +364,53 @@ func (g *Gateway) waitUntilReady(ctx context.Context) bool {
 		cancel()
 		if err == nil {
 			g.setBotIdentity(ctx, me)
-			g.ready.Store(true)
 			return true
 		}
 		g.ready.Store(false)
 		slog.Warn("Telegram API 尚未就绪，将重试", "retry_in", backoff, "err", err)
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false
+		case <-timer.C:
+		}
+		backoff = min(backoff*2, 10*time.Second)
+	}
+	return false
+}
+
+func (g *Gateway) configureUpdateTransport(ctx context.Context) bool {
+	backoff := 250 * time.Millisecond
+	for ctx.Err() == nil {
+		attemptCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		var ok bool
+		var err error
+		if g.webhookURL != "" {
+			ok, err = g.bot.SetWebhook(attemptCtx, &bot.SetWebhookParams{
+				URL: g.webhookURL,
+				AllowedUpdates: []string{
+					models.AllowedUpdateMessage,
+					models.AllowedUpdateMyChatMember,
+					models.AllowedUpdateChatMember,
+				},
+				SecretToken: g.webhookSecret,
+			})
+		} else {
+			ok, err = g.bot.DeleteWebhook(attemptCtx, &bot.DeleteWebhookParams{DropPendingUpdates: false})
+		}
+		cancel()
+		if err == nil && ok {
+			g.ready.Store(true)
+			if g.webhookURL != "" {
+				slog.Info("Telegram 持久化 webhook 已启用", "path", g.webhookPath)
+			} else {
+				slog.Info("Telegram 长轮询已启用；无 HTTPS webhook 时仅提供尽力而为的入站持久化")
+			}
+			return true
+		}
+		g.ready.Store(false)
+		slog.Warn("配置 Telegram update transport 失败，将重试", "webhook", g.webhookURL != "", "retry_in", backoff, "err", err)
 		timer := time.NewTimer(backoff)
 		select {
 		case <-ctx.Done():
@@ -272,12 +452,23 @@ func (g *Gateway) monitorReadiness(ctx context.Context) {
 		case <-ticker.C:
 			pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			me, err := g.bot.GetMe(pingCtx)
+			if err == nil {
+				info, webhookErr := g.bot.GetWebhookInfo(pingCtx)
+				if webhookErr != nil {
+					err = webhookErr
+				} else if (g.webhookURL != "" && info.URL != g.webhookURL) || (g.webhookURL == "" && info.URL != "") {
+					err = errors.New("telegram update transport 配置已漂移")
+				}
+			}
 			cancel()
 			g.ready.Store(err == nil)
 			if err == nil {
 				g.setBotIdentity(ctx, me)
 			} else {
-				slog.Warn("Telegram API 就绪检查失败", "err", err)
+				slog.Warn("Telegram API/update transport 就绪检查失败", "err", err)
+				if ctx.Err() == nil {
+					g.configureUpdateTransport(ctx)
+				}
 			}
 		}
 	}
@@ -375,6 +566,9 @@ func (g *Gateway) SendFile(ctx context.Context, userID int64, fileID int64, capt
 	if err == nil {
 		return nil
 	}
+	if !errors.Is(err, bot.ErrorBadRequest) {
+		return err
+	}
 	if _, seekErr := fp.Seek(0, io.SeekStart); seekErr != nil {
 		return err
 	}
@@ -390,30 +584,210 @@ func (g *Gateway) SendFile(ctx context.Context, userID int64, fileID int64, capt
 }
 
 func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update) {
-	if update.MyChatMember != nil {
-		g.handleMyChatMember(ctx, update.MyChatMember)
+	if err := g.enqueueInboundUpdate(ctx, update); err != nil {
+		slog.Error("Telegram 长轮询 update 入站落库失败", "update", func() int64 {
+			if update != nil {
+				return update.ID
+			}
+			return 0
+		}(), "err", err)
+	}
+}
+
+func (g *Gateway) enqueueInboundUpdate(ctx context.Context, update *models.Update) error {
+	if g == nil || g.store == nil || update == nil || update.ID <= 0 {
+		return store.ErrNotFound
+	}
+	payload, err := json.Marshal(update)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(payload)
+	_, err = g.store.EnqueueTelegramInboundUpdate(ctx, update.ID, payload, hex.EncodeToString(sum[:]))
+	if err != nil {
+		return err
+	}
+	select {
+	case g.inboundWake <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+func (g *Gateway) runInboundUpdates(ctx context.Context) {
+	ticker := time.NewTicker(telegramInboundPollInterval)
+	defer ticker.Stop()
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+	cleanup := time.NewTicker(24 * time.Hour)
+	defer cleanup.Stop()
+	for {
+		g.drainInboundUpdates(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-g.inboundWake:
+		case <-ticker.C:
+		case <-heartbeat.C:
+			if err := g.store.HeartbeatTelegramInboundClaims(ctx, g.monitorInstanceID, g.activeInboundClaimIDs()); err != nil {
+				slog.Warn("续租 Telegram 入站 update 失败", "err", err)
+			}
+		case <-cleanup.C:
+			before := time.Now().UTC().Add(-telegramTransportRetention)
+			updates, parts, err := g.store.DeleteExpiredTelegramTransportRecords(ctx, before)
+			if err != nil {
+				slog.Warn("清理 Telegram 传输账本失败", "err", err)
+			} else if updates+parts > 0 {
+				slog.Info("已清理 Telegram 传输账本", "updates", updates, "parts", parts)
+			}
+		}
+	}
+}
+
+func (g *Gateway) drainInboundUpdates(ctx context.Context) {
+	for ctx.Err() == nil {
+		available := telegramInboundMaxInFlight - int(g.inboundInFlight.Load())
+		if available <= 0 {
+			return
+		}
+		updates, err := g.store.ClaimTelegramInboundUpdates(ctx, g.monitorInstanceID, min(available, 32))
+		if err != nil {
+			slog.Warn("认领 Telegram 入站 update 失败", "err", err)
+			return
+		}
+		if len(updates) == 0 {
+			return
+		}
+		for _, update := range updates {
+			g.addInboundClaim(update.UpdateID)
+			g.processInboundUpdate(ctx, update)
+		}
+	}
+}
+
+func (g *Gateway) addInboundClaim(updateID int64) {
+	if updateID <= 0 {
 		return
+	}
+	g.inboundClaimsMu.Lock()
+	if g.inboundClaims == nil {
+		g.inboundClaims = make(map[int64]struct{})
+	}
+	if _, exists := g.inboundClaims[updateID]; !exists {
+		g.inboundClaims[updateID] = struct{}{}
+		g.inboundInFlight.Add(1)
+	}
+	g.inboundClaimsMu.Unlock()
+}
+
+func (g *Gateway) releaseInboundClaims(updateIDs []int64) {
+	if len(updateIDs) == 0 {
+		return
+	}
+	released := int64(0)
+	g.inboundClaimsMu.Lock()
+	for _, updateID := range updateIDs {
+		if _, exists := g.inboundClaims[updateID]; !exists {
+			continue
+		}
+		delete(g.inboundClaims, updateID)
+		released++
+	}
+	g.inboundClaimsMu.Unlock()
+	if released > 0 {
+		g.inboundInFlight.Add(-released)
+	}
+}
+
+func (g *Gateway) activeInboundClaimIDs() []int64 {
+	g.inboundClaimsMu.Lock()
+	defer g.inboundClaimsMu.Unlock()
+	ids := make([]int64, 0, len(g.inboundClaims))
+	for updateID := range g.inboundClaims {
+		ids = append(ids, updateID)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+func (g *Gateway) processInboundUpdate(ctx context.Context, persisted *store.TelegramInboundUpdate) {
+	if persisted == nil {
+		return
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			g.releaseInboundClaims([]int64{persisted.UpdateID})
+		}
+	}()
+	var update models.Update
+	if err := json.Unmarshal(persisted.Payload, &update); err != nil || update.ID != persisted.UpdateID {
+		cause := "invalid persisted Telegram update"
+		if err != nil {
+			cause = err.Error()
+		}
+		if failErr := g.store.FailTelegramInboundUpdate(ctx, g.monitorInstanceID, persisted.UpdateID, cause); failErr != nil {
+			slog.Warn("隔离损坏 Telegram update 失败", "update", persisted.UpdateID, "err", failErr)
+		}
+		return
+	}
+	completed := false
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("Telegram update 路由 panic 已恢复", "update", persisted.UpdateID, "panic", r)
+		}
+		if completed {
+			return
+		}
+		ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		if err := g.store.RetryTelegramInboundUpdates(ackCtx, g.monitorInstanceID, []int64{persisted.UpdateID}, "routing interrupted before durable handoff"); err != nil {
+			slog.Warn("释放 Telegram update 重试失败", "update", persisted.UpdateID, "err", err)
+		}
+	}()
+	routeCtx := withTelegramDeliveryKey(ctx, fmt.Sprintf("telegram:update:%d", persisted.UpdateID))
+	async := g.routeUpdate(routeCtx, &update)
+	if async {
+		handedOff = true
+		completed = true
+		return
+	}
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if err := g.store.CompleteTelegramInboundUpdates(ackCtx, g.monitorInstanceID, []int64{persisted.UpdateID}, time.Now().UTC()); err != nil {
+		slog.Warn("确认 Telegram update 完成失败", "update", persisted.UpdateID, "err", err)
+		return
+	}
+	completed = true
+}
+
+// routeUpdate returns true when completion is owned by an asynchronous
+// per-conversation queue item.
+func (g *Gateway) routeUpdate(ctx context.Context, update *models.Update) bool {
+	if update.MyChatMember != nil {
+		g.handleMyChatMember(ctx, update.ID, update.MyChatMember)
+		return false
 	}
 	if update.ChatMember != nil {
 		g.handleChatMember(ctx, update.ChatMember)
-		return
+		return false
 	}
 	msg := update.Message
 	if msg == nil {
-		return
+		return false
 	}
-	if g.handleGroupServiceMessage(ctx, msg) {
-		return
+	if g.handleGroupServiceMessage(ctx, update.ID, msg) {
+		return false
 	}
 	// 路由阶段只判「有没有内容」，不做媒体加工：真正的转写/文本组装在
 	// process/processGroup 里做一次（此前 handle 也调 messageText，语音被转写两次）。
 	text := strings.TrimSpace(msg.Text)
 	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
 	if !hasMessagePayload(msg) {
-		return
+		return false
 	}
 	if !isGroup && msg.From == nil {
-		return
+		return false
 	}
 	// 逐 update 起 goroutine 并加锁串行：私聊按用户、群按 chat（群共享会话不并发）。
 	// 慢轮次不阻塞其他人/其他群。
@@ -421,11 +795,16 @@ func (g *Gateway) handle(ctx context.Context, _ *bot.Bot, update *models.Update)
 	if isGroup {
 		lockKey = msg.Chat.ID // 群 chat ID 为负数，与用户 ID 不冲突
 	}
-	if g.shouldDebounce(msg, text) {
-		g.enqueueTextMessage(ctx, lockKey, isGroup, msg, text)
-		return
+	if strings.TrimSpace(msg.MediaGroupID) != "" {
+		g.enqueueMediaGroupUpdate(ctx, lockKey, isGroup, msg, update.ID)
+		return true
 	}
-	g.dispatchMessageAfterPending(ctx, lockKey, isGroup, msg)
+	if g.shouldDebounce(msg, text) {
+		g.enqueueTextMessageUpdate(ctx, lockKey, isGroup, msg, text, update.ID)
+		return true
+	}
+	g.dispatchMessageAfterPendingUpdate(ctx, lockKey, isGroup, msg, update.ID)
+	return true
 }
 
 func (g *Gateway) shouldDebounce(msg *models.Message, text string) bool {
@@ -440,6 +819,10 @@ func (g *Gateway) shouldDebounce(msg *models.Message, text string) bool {
 }
 
 func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, text string) {
+	g.enqueueTextMessageUpdate(ctx, lockKey, isGroup, msg, text, 0)
+}
+
+func (g *Gateway) enqueueTextMessageUpdate(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, text string, updateID int64) {
 	fromID := userID(msg.From)
 	clone := *msg
 	clone.Text = strings.TrimSpace(text)
@@ -447,8 +830,22 @@ func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup
 
 	var queued []*queuedTelegramMessage
 	g.mu.Lock()
+	g.finishPendingMediaLocked(lockKey)
 	if cur := g.pending[lockKey]; cur != nil && cur.isGroup == isGroup && cur.fromID == fromID && cur.msg.Chat.ID == msg.Chat.ID {
+		if clone.ID != 0 {
+			if _, duplicate := cur.seenIDs[clone.ID]; duplicate {
+				cur.updateIDs = appendUniqueInt64(cur.updateIDs, updateID)
+				cur.timer.Reset(textDebounceWindow)
+				g.mu.Unlock()
+				return
+			}
+			if cur.seenIDs == nil {
+				cur.seenIDs = make(map[int]struct{})
+			}
+			cur.seenIDs[clone.ID] = struct{}{}
+		}
 		cur.texts = append(cur.texts, clone.Text)
+		cur.updateIDs = appendUniqueInt64(cur.updateIDs, updateID)
 		cur.timer.Reset(textDebounceWindow)
 		g.mu.Unlock()
 		return
@@ -462,12 +859,100 @@ func (g *Gateway) enqueueTextMessage(ctx context.Context, lockKey int64, isGroup
 	id := g.pendingSeq
 	p := &pendingTextMessage{
 		id: id, ctx: ctx, msg: &clone, texts: []string{clone.Text},
+		seenIDs: map[int]struct{}{clone.ID: {}}, updateIDs: appendUniqueInt64(nil, updateID),
 		isGroup: isGroup, lockKey: lockKey, fromID: fromID,
 	}
 	p.timer = time.AfterFunc(textDebounceWindow, func() { g.flushPendingText(lockKey, id) })
 	g.pending[lockKey] = p
 	g.mu.Unlock()
 	g.startQueuedMessages(queued)
+}
+
+func (g *Gateway) enqueueMediaGroupUpdate(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, updateID int64) {
+	if msg == nil || strings.TrimSpace(msg.MediaGroupID) == "" {
+		return
+	}
+	clone := *msg
+	fromID := userID(msg.From)
+	var queued []*queuedTelegramMessage
+	g.mu.Lock()
+	if pending := g.pending[lockKey]; pending != nil {
+		pending.timer.Stop()
+		delete(g.pending, lockKey)
+		queued = append(queued, g.queuePendingTextLocked(pending))
+	}
+	if cur := g.pendingMedia[lockKey]; cur != nil {
+		if cur.mediaGroupID == msg.MediaGroupID && cur.isGroup == isGroup && cur.fromID == fromID &&
+			len(cur.messages) > 0 && cur.messages[0].Chat.ID == msg.Chat.ID {
+			for _, existing := range cur.messages {
+				if existing.ID == clone.ID {
+					cur.updateIDs = appendUniqueInt64(cur.updateIDs, updateID)
+					cur.timer.Reset(textDebounceWindow)
+					g.mu.Unlock()
+					g.startQueuedMessages(queued)
+					return
+				}
+			}
+			cur.messages = append(cur.messages, &clone)
+			cur.updateIDs = appendUniqueInt64(cur.updateIDs, updateID)
+			cur.timer.Reset(textDebounceWindow)
+			g.mu.Unlock()
+			g.startQueuedMessages(queued)
+			return
+		}
+		g.finishPendingMediaLocked(lockKey)
+	}
+	g.pendingSeq++
+	p := &pendingMediaGroup{
+		id: g.pendingSeq, ctx: ctx, messages: []*models.Message{&clone}, mediaGroupID: msg.MediaGroupID,
+		updateIDs: appendUniqueInt64(nil, updateID), isGroup: isGroup, lockKey: lockKey,
+		fromID: fromID, ready: make(chan struct{}),
+	}
+	g.pendingMedia[lockKey] = p
+	queued = append(queued, g.queueMediaGroupLocked(p))
+	p.timer = time.AfterFunc(textDebounceWindow, func() { g.flushPendingMedia(lockKey, p.id) })
+	g.mu.Unlock()
+	g.startQueuedMessages(queued)
+}
+
+func (g *Gateway) flushPendingMedia(lockKey, id int64) {
+	g.mu.Lock()
+	p := g.pendingMedia[lockKey]
+	if p != nil && p.id == id {
+		g.finishPendingMediaLocked(lockKey)
+	}
+	g.mu.Unlock()
+}
+
+func (g *Gateway) finishPendingMediaLocked(lockKey int64) {
+	p := g.pendingMedia[lockKey]
+	if p == nil {
+		return
+	}
+	delete(g.pendingMedia, lockKey)
+	if p.timer != nil {
+		p.timer.Stop()
+	}
+	if !p.closed {
+		p.closed = true
+		close(p.ready)
+	}
+}
+
+func (g *Gateway) queueMediaGroupLocked(p *pendingMediaGroup) *queuedTelegramMessage {
+	if p == nil {
+		return nil
+	}
+	if g.dispatchTails == nil {
+		g.dispatchTails = map[int64]chan struct{}{}
+	}
+	done := make(chan struct{})
+	queued := &queuedTelegramMessage{
+		ctx: p.ctx, media: p, isGroup: p.isGroup, lockKey: p.lockKey,
+		prev: g.dispatchTails[p.lockKey], done: done, updateIDs: append([]int64(nil), p.updateIDs...),
+	}
+	g.dispatchTails[p.lockKey] = done
+	return queued
 }
 
 func (g *Gateway) flushPendingText(lockKey, id int64) {
@@ -489,28 +974,31 @@ func (g *Gateway) queuePendingTextLocked(p *pendingTextMessage) *queuedTelegramM
 	}
 	merged := *p.msg
 	merged.Text = strings.Join(p.texts, "\n")
-	return g.queueMessageLocked(p.ctx, p.lockKey, p.isGroup, &merged)
+	queued := g.queueMessageLocked(p.ctx, p.lockKey, p.isGroup, &merged, 0)
+	queued.updateIDs = append([]int64(nil), p.updateIDs...)
+	return queued
 }
 
-func (g *Gateway) dispatchMessageAfterPending(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) {
+func (g *Gateway) dispatchMessageAfterPendingUpdate(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, updateID int64) {
 	g.mu.Lock()
-	queued := g.queueMessageAfterPendingLocked(ctx, lockKey, isGroup, msg)
+	queued := g.queueMessageAfterPendingLocked(ctx, lockKey, isGroup, msg, updateID)
 	g.mu.Unlock()
 	g.startQueuedMessages(queued)
 }
 
-func (g *Gateway) queueMessageAfterPendingLocked(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) []*queuedTelegramMessage {
+func (g *Gateway) queueMessageAfterPendingLocked(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, updateID int64) []*queuedTelegramMessage {
 	queued := make([]*queuedTelegramMessage, 0, 2)
 	if pending := g.pending[lockKey]; pending != nil {
 		pending.timer.Stop()
 		delete(g.pending, lockKey)
 		queued = append(queued, g.queuePendingTextLocked(pending))
 	}
-	queued = append(queued, g.queueMessageLocked(ctx, lockKey, isGroup, msg))
+	g.finishPendingMediaLocked(lockKey)
+	queued = append(queued, g.queueMessageLocked(ctx, lockKey, isGroup, msg, updateID))
 	return queued
 }
 
-func (g *Gateway) queueMessageLocked(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message) *queuedTelegramMessage {
+func (g *Gateway) queueMessageLocked(ctx context.Context, lockKey int64, isGroup bool, msg *models.Message, updateID int64) *queuedTelegramMessage {
 	if msg == nil {
 		return nil
 	}
@@ -520,7 +1008,7 @@ func (g *Gateway) queueMessageLocked(ctx context.Context, lockKey int64, isGroup
 	done := make(chan struct{})
 	queued := &queuedTelegramMessage{
 		ctx: ctx, msg: msg, isGroup: isGroup, lockKey: lockKey,
-		prev: g.dispatchTails[lockKey], done: done,
+		prev: g.dispatchTails[lockKey], done: done, updateIDs: appendUniqueInt64(nil, updateID),
 	}
 	g.dispatchTails[lockKey] = done
 	return queued
@@ -537,7 +1025,8 @@ func (g *Gateway) startQueuedMessage(queued *queuedTelegramMessage) {
 		return
 	}
 	go func() {
-		defer g.finishQueuedMessage(queued)
+		processed := false
+		defer func() { g.finishQueuedMessage(queued, processed) }()
 		defer func() {
 			if r := recover(); r != nil {
 				slog.Error("Telegram 消息处理 panic 已恢复", "chat", queued.lockKey, "panic", r)
@@ -550,6 +1039,14 @@ func (g *Gateway) startQueuedMessage(queued *queuedTelegramMessage) {
 				return
 			}
 		}
+		if queued.media != nil {
+			select {
+			case <-queued.media.ready:
+				queued.updateIDs = append([]int64(nil), queued.media.updateIDs...)
+			case <-queued.ctx.Done():
+				return
+			}
+		}
 		handleCtx, cancel := context.WithTimeout(queued.ctx, telegramMessageTimeout)
 		defer cancel()
 		release, err := g.locks.AcquireContext(handleCtx, queued.lockKey)
@@ -558,24 +1055,108 @@ func (g *Gateway) startQueuedMessage(queued *queuedTelegramMessage) {
 			return
 		}
 		defer release()
+		if queued.media != nil {
+			g.processMediaGroup(handleCtx, queued.media.messages, queued.isGroup)
+			processed = true
+			return
+		}
 		if queued.isGroup {
 			g.processGroup(handleCtx, queued.msg)
+			processed = true
 			return
 		}
 		if queued.msg.Chat.Type != models.ChatTypePrivate {
+			processed = true
 			return // channel 等场景不处理
 		}
 		g.process(handleCtx, queued.msg)
+		processed = true
 	}()
 }
 
-func (g *Gateway) finishQueuedMessage(queued *queuedTelegramMessage) {
+func (g *Gateway) finishQueuedMessage(queued *queuedTelegramMessage, processed bool) {
 	close(queued.done)
 	g.mu.Lock()
 	if g.dispatchTails[queued.lockKey] == queued.done {
 		delete(g.dispatchTails, queued.lockKey)
 	}
 	g.mu.Unlock()
+	if len(queued.updateIDs) == 0 || g.store == nil {
+		return
+	}
+	ackCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var err error
+	if processed {
+		err = g.store.CompleteTelegramInboundUpdates(ackCtx, g.monitorInstanceID, queued.updateIDs, time.Now().UTC())
+	} else {
+		err = g.store.RetryTelegramInboundUpdates(ackCtx, g.monitorInstanceID, queued.updateIDs, "queued processing interrupted before completion")
+	}
+	if err != nil {
+		slog.Warn("保存 Telegram 队列完成状态失败", "updates", queued.updateIDs, "processed", processed, "err", err)
+	}
+	g.releaseInboundClaims(queued.updateIDs)
+	select {
+	case g.inboundWake <- struct{}{}:
+	default:
+	}
+}
+
+func appendUniqueInt64(values []int64, value int64) []int64 {
+	if value <= 0 {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func (g *Gateway) processMediaGroup(ctx context.Context, messages []*models.Message, isGroup bool) {
+	msg := telegramMediaGroupMessage(messages)
+	if msg == nil {
+		return
+	}
+	if isGroup {
+		g.processGroupMessages(ctx, msg, messages)
+		return
+	}
+	if msg.Chat.Type == models.ChatTypePrivate {
+		g.processMessages(ctx, msg, messages)
+	}
+}
+
+func telegramMediaGroupMessage(messages []*models.Message) *models.Message {
+	ordered := make([]*models.Message, 0, len(messages))
+	for _, msg := range messages {
+		if msg != nil {
+			ordered = append(ordered, msg)
+		}
+	}
+	if len(ordered) == 0 {
+		return nil
+	}
+	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	merged := *ordered[0]
+	var texts []string
+	seen := map[string]bool{}
+	for _, msg := range ordered {
+		if text := strings.TrimSpace(nonMediaText(msg)); text != "" && !seen[text] {
+			seen[text] = true
+			texts = append(texts, text)
+		}
+	}
+	merged.Text = ""
+	merged.Caption = strings.Join(texts, "\n")
+	merged.Document = nil
+	merged.Photo = nil
+	merged.Video = nil
+	merged.Animation = nil
+	merged.Audio = nil
+	merged.VideoNote = nil
+	return &merged
 }
 
 func (g *Gateway) handleChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
@@ -591,7 +1172,7 @@ func (g *Gateway) handleChatMember(ctx context.Context, upd *models.ChatMemberUp
 	g.saveSeenMember(ctx, chat.ID, member, "", 0)
 }
 
-func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMemberUpdated) {
+func (g *Gateway) handleMyChatMember(ctx context.Context, updateID int64, upd *models.ChatMemberUpdated) {
 	chat := upd.Chat
 	isGroup := chat.Type == models.ChatTypeGroup || chat.Type == models.ChatTypeSupergroup
 	if !isGroup {
@@ -601,25 +1182,29 @@ func (g *Gateway) handleMyChatMember(ctx context.Context, upd *models.ChatMember
 	newStatus := upd.NewChatMember.Type
 	slog.Info("TG bot 群成员状态变化", "chat", chat.ID, "title", chat.Title,
 		"from", upd.From.ID, "old", oldStatus, "new", newStatus)
-	g.applyBotGroupMembership(ctx, chat, newStatus)
+	g.applyBotGroupMembership(ctx, updateID, chat, newStatus, chatMemberIsActive(&upd.NewChatMember), true)
 }
 
-func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Message) bool {
+func (g *Gateway) handleGroupServiceMessage(ctx context.Context, updateID int64, msg *models.Message) bool {
 	isGroup := msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup
 	if !isGroup {
 		return false
 	}
+	botAdded := false
 	for _, u := range msg.NewChatMembers {
 		g.saveSeenMember(ctx, msg.Chat.ID, &u, "", msg.ID)
 		if g.botID() != 0 && u.ID == g.botID() {
-			slog.Info("TG bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
-			g.applyBotGroupMembership(ctx, msg.Chat, models.ChatMemberTypeMember)
-			return true
+			botAdded = true
 		}
+	}
+	if botAdded {
+		slog.Info("TG bot 被加入群", "chat", msg.Chat.ID, "title", msg.Chat.Title, "by", userID(msg.From))
+		g.applyBotGroupMembership(ctx, updateID, msg.Chat, models.ChatMemberTypeMember, true, false)
+		return true
 	}
 	if msg.LeftChatMember != nil && g.botID() != 0 && msg.LeftChatMember.ID == g.botID() {
 		slog.Info("TG bot 离开群", "chat", msg.Chat.ID, "title", msg.Chat.Title)
-		g.applyBotGroupMembership(ctx, msg.Chat, models.ChatMemberTypeLeft)
+		g.applyBotGroupMembership(ctx, updateID, msg.Chat, models.ChatMemberTypeLeft, false, false)
 		return true
 	}
 	return false
@@ -628,13 +1213,21 @@ func (g *Gateway) handleGroupServiceMessage(ctx context.Context, msg *models.Mes
 // applyBotGroupMembership is the sole gateway path for bot membership facts.
 // Telegram can report one transition through multiple update types, so the
 // store decides atomically whether this is the first active observation.
-func (g *Gateway) applyBotGroupMembership(ctx context.Context, chat models.Chat, status models.ChatMemberType) {
+func (g *Gateway) applyBotGroupMembership(ctx context.Context, updateID int64, chat models.Chat, status models.ChatMemberType, active, authoritative bool) {
+	storedStatus := string(status)
+	if !authoritative {
+		// Service messages prove the active/inactive transition but do not carry
+		// the bot's exact administrator role. An authoritative my_chat_member
+		// update, when present, remains the source of that detail.
+		storedStatus = ""
+	}
 	joined, err := g.store.TransitionTelegramGroupMembership(ctx, store.TelegramGroupState{
-		ChatID: chat.ID,
-		Title:  chat.Title,
-		Type:   string(chat.Type),
-		Status: string(status),
-	}, isActiveChatMember(status))
+		ChatID:                 chat.ID,
+		Title:                  chat.Title,
+		Type:                   string(chat.Type),
+		Status:                 storedStatus,
+		LastMembershipUpdateID: updateID,
+	}, active)
 	if err != nil {
 		slog.Warn("保存 Telegram bot 群成员状态失败", "chat", chat.ID, "status", status, "err", err)
 		return
@@ -646,12 +1239,8 @@ func (g *Gateway) applyBotGroupMembership(ctx context.Context, chat models.Chat,
 }
 
 func (g *Gateway) saveGroupState(ctx context.Context, chat models.Chat, status string, listen bool) {
-	if err := g.store.SaveTelegramGroupState(ctx, store.TelegramGroupState{
-		ChatID: chat.ID,
-		Title:  chat.Title,
-		Type:   string(chat.Type),
-		Status: status,
-		Listen: listen,
+	if err := g.store.MergeTelegramGroupObservation(ctx, store.TelegramGroupState{
+		ChatID: chat.ID, Title: chat.Title, Type: string(chat.Type), Status: status, Listen: listen,
 	}); err != nil {
 		slog.Warn("保存 Telegram 群状态失败", "chat", chat.ID, "err", err)
 	}
@@ -715,11 +1304,18 @@ func memberUser(m *models.ChatMember) *models.User {
 	}
 }
 
-func isActiveChatMember(status models.ChatMemberType) bool {
-	return status == models.ChatMemberTypeMember ||
-		status == models.ChatMemberTypeAdministrator ||
-		status == models.ChatMemberTypeOwner ||
-		status == models.ChatMemberTypeRestricted
+func chatMemberIsActive(member *models.ChatMember) bool {
+	if member == nil {
+		return false
+	}
+	switch member.Type {
+	case models.ChatMemberTypeMember, models.ChatMemberTypeAdministrator, models.ChatMemberTypeOwner:
+		return true
+	case models.ChatMemberTypeRestricted:
+		return member.Restricted != nil && member.Restricted.IsMember
+	default:
+		return false
+	}
 }
 
 func userID(u *models.User) int64 {
@@ -741,6 +1337,10 @@ func listenKey(chatID int64) string { return store.TelegramGroupListenKey(chatID
 // 其余消息在监听、事件监控或摘要任一消费者启用时写入共享事实流（不回复）。
 // 绝不在群里做绑定引导。
 func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
+	g.processGroupMessages(ctx, msg, []*models.Message{msg})
+}
+
+func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message, sourceMessages []*models.Message) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
 	text := g.messageText(ctx, msg)
@@ -767,17 +1367,13 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 		slog.Warn("读取群摘要采集状态失败", "chat", chatID, "err", err)
 	}
 	g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), listenOn)
-	mentionText := text
-	if hasIncomingTelegramFiles(msg) {
-		mentionText = nonMediaText(msg)
-	}
-	mentioned := g.mentioned(msg, mentionText)
+	mentioned := g.mentionedInMessages(sourceMessages)
 	var intakeResults []incomingTelegramFileResult
 	fileInstruction := ""
-	if hasIncomingTelegramFiles(msg) {
+	if telegramMessagesHaveFiles(sourceMessages) {
 		fileInstruction = strings.TrimSpace(nonMediaText(msg))
 		if bound && (mentioned || listenOn || monitorOn || digestOn) {
-			intakeResults = g.saveIncomingTelegramFiles(ctx, msg, u)
+			intakeResults = g.saveIncomingTelegramFileMessages(ctx, sourceMessages, u)
 			saved, failed := splitTelegramFileIntakes(intakeResults)
 			text = telegramFileContext(saved, failed, fileInstruction)
 		} else {
@@ -795,47 +1391,51 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 	}
 	envelope := telegramMessageEnvelope(msg, u)
 
-	switch cmd {
-	case "/listen":
-		if !bound || u == nil || !g.canManageTelegramGroup(ctx, u, chatID) {
-			g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 manage_telegram_group。")
-			return
-		}
-		if listenOn {
-			if err := g.store.SetKV(ctx, listenKey(chatID), ""); err != nil {
-				g.reply(ctx, chatID, "操作失败，请稍后再试。")
-				return
+	if isTelegramGroupDirectCommand(cmd) {
+		_, err := g.runTelegramDirectAction(ctx, msg, "group-command:"+cmd, text, func() {
+			switch cmd {
+			case "/listen":
+				if !bound || u == nil || !g.canManageTelegramGroup(ctx, u, chatID) {
+					g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 manage_telegram_group。")
+					return
+				}
+				if listenOn {
+					if err := g.store.SetTelegramGroupListen(ctx, chatID, false); err != nil {
+						g.reply(ctx, chatID, "操作失败，请稍后再试。")
+						return
+					}
+					g.reply(ctx, chatID, "🔇 已关闭本群监听。之后只有 @我 才会参与。")
+					return
+				}
+				if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
+					slog.Error("建立群监听会话失败", "chat", chatID, "err", err)
+					g.reply(ctx, chatID, "开启监听失败，请稍后再试。")
+					return
+				}
+				if err := g.store.SetTelegramGroupListen(ctx, chatID, true); err != nil {
+					g.reply(ctx, chatID, "操作失败，请稍后再试。")
+					return
+				}
+				g.reply(ctx, chatID, "🎧 已开启本群监听：我会把群里的讨论记为上下文（不插话），@我 时能接住前文。\n"+
+					"注意：若我收不到普通群消息，请在 @BotFather 的 /setprivacy 里选择 Disable。再次 /listen 关闭。")
+			case "/new":
+				if !bound || u == nil || !u.IsSuperadmin {
+					g.reply(ctx, chatID, "只有超级管理员能重置群会话。")
+					return
+				}
+				if err := g.orch.NewGroupSession(ctx, u, channel); err != nil {
+					g.reply(ctx, chatID, "重置失败，请稍后再试。")
+					return
+				}
+				g.reply(ctx, chatID, "🆕 本群会话已重置。")
+			case "/model":
+				g.reply(ctx, chatID, "模型切换属于超级管理员操作，请私聊我使用 /model。")
 			}
-			g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), false)
-			g.reply(ctx, chatID, "🔇 已关闭本群监听。之后只有 @我 才会参与。")
-			return
+		})
+		if err != nil {
+			slog.Error("领取 Telegram 群命令失败", "chat", chatID, "message", msg.ID, "command", cmd, "err", err)
+			g.reply(ctx, chatID, "操作暂时无法登记，请稍后重新发送。")
 		}
-		if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
-			slog.Error("建立群监听会话失败", "chat", chatID, "err", err)
-			g.reply(ctx, chatID, "开启监听失败，请稍后再试。")
-			return
-		}
-		if err := g.store.SetKV(ctx, listenKey(chatID), "1"); err != nil {
-			g.reply(ctx, chatID, "操作失败，请稍后再试。")
-			return
-		}
-		g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), true)
-		g.reply(ctx, chatID, "🎧 已开启本群监听：我会把群里的讨论记为上下文（不插话），@我 时能接住前文。\n"+
-			"注意：若我收不到普通群消息，请在 @BotFather 的 /setprivacy 里选择 Disable。再次 /listen 关闭。")
-		return
-	case "/new":
-		if !bound || u == nil || !u.IsSuperadmin {
-			g.reply(ctx, chatID, "只有超级管理员能重置群会话。")
-			return
-		}
-		if err := g.orch.NewGroupSession(ctx, u, channel); err != nil {
-			g.reply(ctx, chatID, "重置失败，请稍后再试。")
-			return
-		}
-		g.reply(ctx, chatID, "🆕 本群会话已重置。")
-		return
-	case "/model":
-		g.reply(ctx, chatID, "模型切换属于超级管理员操作，请私聊我使用 /model。")
 		return
 	}
 
@@ -850,39 +1450,59 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) {
 				slog.Error("Telegram 群消息持久化失败", "chat", chatID, "message", msg.ID, "err", err)
 			}
 			if monitorOn {
-				g.observeGroupMonitor(ctx, msg.Chat, text)
+				_, actionErr := g.runTelegramDirectAction(ctx, msg, "group-monitor-observation", text, func() {
+					g.observeGroupMonitor(ctx, msg.Chat, text)
+				})
+				if actionErr != nil {
+					slog.Error("登记群监控消息失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+				}
 			}
 		}
 		return
 	}
 	slog.Info("TG 群提及", "chat", chatID, "tg_user", tgID, "bound", bound, "sender_chat", senderChatTitle(msg))
 	if tgID == 0 {
-		g.reply(ctx, chatID, "我收到了，但这条消息没有个人 Telegram 身份（可能是匿名管理员或频道身份发言）。请切回个人身份再 @ 我。")
+		_, err := g.runTelegramDirectAction(ctx, msg, "group-missing-actor", text, func() {
+			g.reply(ctx, chatID, "我收到了，但这条消息没有个人 Telegram 身份（可能是匿名管理员或频道身份发言）。请切回个人身份再 @ 我。")
+		})
+		if err != nil {
+			slog.Error("登记匿名群消息失败", "chat", chatID, "message", msg.ID, "err", err)
+		}
 		return
 	}
 	if !bound {
-		if g.handleGroupAutoInvite(ctx, msg, chatID, tgID) {
-			return
+		_, err := g.runTelegramDirectAction(ctx, msg, "group-unbound-mention", text, func() {
+			if g.handleGroupAutoInvite(ctx, msg, chatID, tgID) {
+				return
+			}
+			g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
+		})
+		if err != nil {
+			slog.Error("登记未绑定群消息失败", "chat", chatID, "message", msg.ID, "err", err)
 		}
-		g.reply(ctx, chatID, "你还未加入公司系统，请先私聊我完成绑定（找管理员要员工邀请链接或邀请码），之后就能在群里 @我 了。")
 		return
 	}
 	if len(intakeResults) > 0 {
 		saved, failed := splitTelegramFileIntakes(intakeResults)
 		if len(saved) == 0 || fileInstruction == "" {
-			if len(saved) > 0 {
-				// A file-only mention still belongs to this shared conversation.
-				// Persist the system file IDs without running the model, so a later
-				// "处理刚才的文件" can resolve them without exposing private uploads.
-				if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
-					slog.Warn("建立群文件上下文失败", "chat", chatID, "user", u.ID, "err", err)
-				} else {
-					if err := g.orch.RecordGroupMessageWithEnvelope(ctx, u, channel, u.Name, savedFilesPrompt(saved), envelope); err != nil {
-						slog.Error("群文件上下文持久化失败", "chat", chatID, "user", u.ID, "err", err)
+			_, actionErr := g.runTelegramDirectAction(ctx, msg, "group-file-intake", text, func() {
+				if len(saved) > 0 {
+					// A file-only mention still belongs to this shared conversation.
+					// Persist the system file IDs without running the model, so a later
+					// "处理刚才的文件" can resolve them without exposing private uploads.
+					if err := g.orch.TouchGroupSession(ctx, u, channel); err != nil {
+						slog.Warn("建立群文件上下文失败", "chat", chatID, "user", u.ID, "err", err)
+					} else {
+						if err := g.orch.RecordGroupMessageWithEnvelope(ctx, u, channel, u.Name, savedFilesPrompt(saved), envelope); err != nil {
+							slog.Error("群文件上下文持久化失败", "chat", chatID, "user", u.ID, "err", err)
+						}
 					}
 				}
+				g.replyFileIntakeResults(ctx, chatID, saved, failed, false)
+			})
+			if actionErr != nil {
+				slog.Error("登记群文件确认失败", "chat", chatID, "message", msg.ID, "err", actionErr)
 			}
-			g.replyFileIntakeResults(ctx, chatID, saved, failed, false)
 			return
 		}
 	}
@@ -976,65 +1596,71 @@ func (g *Gateway) handleGroupMonitorMention(ctx context.Context, msg *models.Mes
 		return false
 	}
 	chatID := msg.Chat.ID
-	if !g.canManageTelegramGroup(ctx, u, chatID) {
-		g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 <code>manage_telegram_group</code>。")
-		return true
-	}
-	if intent == "off" {
+	_, actionErr := g.runTelegramDirectAction(ctx, msg, "group-monitor-command:"+intent, ask, func() {
+		if !g.canManageTelegramGroup(ctx, u, chatID) {
+			g.reply(ctx, chatID, "你没有管理 Telegram 群的权限。请让超级管理员给你授权 <code>manage_telegram_group</code>。")
+			return
+		}
+		if intent == "off" {
+			_, err := g.store.UpdateTelegramGroupMonitor(ctx, chatID, func(mon *store.TelegramGroupMonitor) error {
+				mon.Enabled = false
+				mon.GroupTitle = strings.TrimSpace(msg.Chat.Title)
+				mon.UpdatedAt = time.Now()
+				mon.PendingCount = 0
+				mon.BatchStartedAt = time.Time{}
+				mon.AnalysisOwner = ""
+				mon.AnalysisStartedAt = time.Time{}
+				mon.AnalysisThrough = time.Time{}
+				mon.AnalysisFailures = 0
+				mon.Buffer = nil
+				return nil
+			})
+			if err != nil {
+				slog.Error("保存群监控失败", "chat", chatID, "err", err)
+				g.reply(ctx, chatID, "关闭监控失败，请稍后再试。")
+				return
+			}
+			g.reply(ctx, chatID, "🔕 已关闭本群智能监控。")
+			return
+		}
+
+		now := time.Now()
+		if err := g.orch.TouchGroupSession(ctx, u, groupChannel(chatID)); err != nil {
+			slog.Error("建立群监控会话失败", "chat", chatID, "err", err)
+			g.reply(ctx, chatID, "开启监控失败，请稍后再试。")
+			return
+		}
 		_, err := g.store.UpdateTelegramGroupMonitor(ctx, chatID, func(mon *store.TelegramGroupMonitor) error {
-			mon.Enabled = false
+			wasEnabled := mon.Enabled
+			mon.Enabled = true
 			mon.GroupTitle = strings.TrimSpace(msg.Chat.Title)
-			mon.UpdatedAt = time.Now()
-			mon.PendingCount = 0
-			mon.BatchStartedAt = time.Time{}
-			mon.AnalysisOwner = ""
-			mon.AnalysisStartedAt = time.Time{}
-			mon.AnalysisThrough = time.Time{}
-			mon.AnalysisFailures = 0
-			mon.Buffer = nil
+			mon.Instruction = strings.TrimSpace(ask)
+			mon.NotifyUserID = u.ID
+			mon.CreatedBy = u.ID
+			mon.UpdatedAt = now
+			if !wasEnabled {
+				mon.LastCheckedAt = now
+				mon.BatchStartedAt = time.Time{}
+				mon.PendingCount = 0
+				mon.AnalysisOwner = ""
+				mon.AnalysisStartedAt = time.Time{}
+				mon.AnalysisThrough = time.Time{}
+				mon.AnalysisFailures = 0
+				mon.Buffer = nil
+			}
 			return nil
 		})
 		if err != nil {
 			slog.Error("保存群监控失败", "chat", chatID, "err", err)
-			g.reply(ctx, chatID, "关闭监控失败，请稍后再试。")
-			return true
+			g.reply(ctx, chatID, "开启监控失败，请稍后再试。")
+			return
 		}
-		g.reply(ctx, chatID, "🔕 已关闭本群智能监控。")
-		return true
-	}
-
-	now := time.Now()
-	if err := g.orch.TouchGroupSession(ctx, u, groupChannel(chatID)); err != nil {
-		slog.Error("建立群监控会话失败", "chat", chatID, "err", err)
-		g.reply(ctx, chatID, "开启监控失败，请稍后再试。")
-		return true
-	}
-	_, err := g.store.UpdateTelegramGroupMonitor(ctx, chatID, func(mon *store.TelegramGroupMonitor) error {
-		wasEnabled := mon.Enabled
-		mon.Enabled = true
-		mon.GroupTitle = strings.TrimSpace(msg.Chat.Title)
-		mon.Instruction = strings.TrimSpace(ask)
-		mon.NotifyUserID = u.ID
-		mon.CreatedBy = u.ID
-		mon.UpdatedAt = now
-		if !wasEnabled {
-			mon.LastCheckedAt = now
-			mon.BatchStartedAt = time.Time{}
-			mon.PendingCount = 0
-			mon.AnalysisOwner = ""
-			mon.AnalysisStartedAt = time.Time{}
-			mon.AnalysisThrough = time.Time{}
-			mon.AnalysisFailures = 0
-			mon.Buffer = nil
-		}
-		return nil
+		g.reply(ctx, chatID, "👀 已开启本群智能监控。我会记录后续讨论，遇到问题、阻塞或风险时私聊汇总给你；普通消息不会逐条转发。")
 	})
-	if err != nil {
-		slog.Error("保存群监控失败", "chat", chatID, "err", err)
-		g.reply(ctx, chatID, "开启监控失败，请稍后再试。")
-		return true
+	if actionErr != nil {
+		slog.Error("登记群监控命令失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+		g.reply(ctx, chatID, "操作暂时无法登记，请稍后重新发送。")
 	}
-	g.reply(ctx, chatID, "👀 已开启本群智能监控。我会记录后续讨论，遇到问题、阻塞或风险时私聊汇总给你；普通消息不会逐条转发。")
 	return true
 }
 
@@ -1414,17 +2040,18 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 	if latest.NotifyUserID != mon.NotifyUserID || latest.Instruction != mon.Instruction || latest.GroupTitle != mon.GroupTitle {
 		return
 	}
-	chatID, err := g.privateTelegramChatID(ctx, mon.NotifyUserID)
-	if err != nil {
-		slog.Warn("群监控找不到通知用户 Telegram", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)
-		return
-	}
 	msg := fmt.Sprintf("📣 <b>群监控提醒</b>｜%s\n\n%s", html.EscapeString(title), out)
-	if err := g.sendChunks(ctx, chatID, msg); err != nil {
-		slog.Warn("发送群监控提醒失败", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)
+	deliveryKey := fmt.Sprintf("telegram-group-monitor:%d:%d:%d", mon.ChatID, through.UnixNano(), mon.NotifyUserID)
+	delivery, err := notify.SendOnce(ctx, g.store, g, deliveryKey, mon.NotifyUserID, msg)
+	if !delivery.Settled() {
+		slog.Warn("群监控提醒未跨过投递边界，等待重试", "chat", mon.ChatID, "user", mon.NotifyUserID, "err", err)
 		return
 	}
-	notified = true
+	if !delivery.Delivered {
+		slog.Warn("群监控提醒投递结果不确定，禁止自动重发", "chat", mon.ChatID,
+			"user", mon.NotifyUserID, "state", delivery.State, "err", err)
+	}
+	notified = delivery.Delivered
 	success = true
 }
 
@@ -1487,22 +2114,6 @@ func groupMonitorNoNotify(text string) bool {
 	clean := strings.TrimSpace(htmlTagTokenRe.ReplaceAllString(text, ""))
 	clean = strings.Trim(clean, " \n\r\t。.!！")
 	return strings.EqualFold(clean, "NO_NOTIFY") || strings.EqualFold(clean, "无需提醒")
-}
-
-func (g *Gateway) privateTelegramChatID(ctx context.Context, userID int64) (int64, error) {
-	ident, err := g.store.IdentityOfUser(ctx, userID, Provider)
-	if err != nil {
-		return 0, err
-	}
-	raw := strings.TrimSpace(ident.ChatRef)
-	if raw == "" {
-		raw = strings.TrimSpace(ident.ExternalID)
-	}
-	chatID, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || chatID == 0 {
-		return 0, fmt.Errorf("telegram 私聊地址不可用")
-	}
-	return chatID, nil
 }
 
 func (g *Gateway) handleGroupAutoInvite(ctx context.Context, msg *models.Message, chatID, tgID int64) bool {
@@ -1589,6 +2200,15 @@ func (g *Gateway) mentioned(msg *models.Message, text string) bool {
 		g.botID() != 0 && msg.ReplyToMessage.From.ID == g.botID()
 }
 
+func (g *Gateway) mentionedInMessages(messages []*models.Message) bool {
+	for _, message := range messages {
+		if message != nil && g.mentioned(message, nonMediaText(message)) {
+			return true
+		}
+	}
+	return false
+}
+
 func hasTextMention(entities []models.MessageEntity, botID int64) bool {
 	for _, e := range entities {
 		if e.Type == models.MessageEntityTypeTextMention && e.User != nil && e.User.ID == botID {
@@ -1670,6 +2290,24 @@ func commandArgs(text string) string {
 		return strings.Join(fields[1:], " ")
 	}
 	return strings.TrimSpace(text[idx+len(first):])
+}
+
+func isTelegramGroupDirectCommand(command string) bool {
+	switch command {
+	case "/listen", "/new", "/model":
+		return true
+	default:
+		return false
+	}
+}
+
+func isTelegramPrivateDirectCommand(command string) bool {
+	switch command {
+	case "/new", "/start", "/superadmin", "/model", "/token":
+		return true
+	default:
+		return false
+	}
 }
 
 // displayName TG 用户显示名（名+姓，否则用户名）。
@@ -1761,6 +2399,10 @@ func (g *Gateway) groupReadyMessage() string {
 }
 
 func (g *Gateway) process(ctx context.Context, msg *models.Message) {
+	g.processMessages(ctx, msg, []*models.Message{msg})
+}
+
+func (g *Gateway) processMessages(ctx context.Context, msg *models.Message, sourceMessages []*models.Message) {
 	chatID := msg.Chat.ID
 	text := g.messageText(ctx, msg)
 	memorySourceText := telegramMemorySourceText(msg, text)
@@ -1771,7 +2413,13 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 	u, err := g.store.UserByIdentity(ctx, Provider, externalID)
 	if errors.Is(err, store.ErrNotFound) {
 		slog.Info("TG 未绑定用户", "tg_user", msg.From.ID, "text_len", len(text))
-		g.onboard(ctx, msg, chatID, externalID, text)
+		_, actionErr := g.runTelegramDirectAction(ctx, msg, "private-onboarding", text, func() {
+			g.onboard(ctx, msg, chatID, externalID, text)
+		})
+		if actionErr != nil {
+			slog.Error("登记 Telegram 入职消息失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+			g.reply(ctx, chatID, "暂时无法登记这条消息，请稍后重新发送。")
+		}
 		return
 	}
 	if err != nil {
@@ -1780,57 +2428,77 @@ func (g *Gateway) process(ctx context.Context, msg *models.Message) {
 		return
 	}
 	if u.Status != store.UserActive {
-		g.reply(ctx, chatID, "你的账号已被停用，如有疑问请联系管理员。")
+		_, actionErr := g.runTelegramDirectAction(ctx, msg, "private-inactive-user", text, func() {
+			g.reply(ctx, chatID, "你的账号已被停用，如有疑问请联系管理员。")
+		})
+		if actionErr != nil {
+			slog.Error("登记停用用户消息失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+		}
 		return
 	}
 
-	if intakes := g.saveIncomingTelegramFiles(ctx, msg, u); len(intakes) > 0 {
+	if intakes := g.saveIncomingTelegramFileMessages(ctx, sourceMessages, u); len(intakes) > 0 {
 		instruction := strings.TrimSpace(nonMediaText(msg))
 		saved, failed := splitTelegramFileIntakes(intakes)
 		if len(saved) == 0 {
-			g.replyFileIntakeResults(ctx, chatID, saved, failed, true)
+			_, actionErr := g.runTelegramDirectAction(ctx, msg, "private-file-intake", text, func() {
+				g.replyFileIntakeResults(ctx, chatID, saved, failed, true)
+			})
+			if actionErr != nil {
+				slog.Error("登记私聊文件失败确认失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+			}
 			return
 		}
 		if instruction == "" {
-			g.replyFileIntakeResults(ctx, chatID, saved, failed, true)
+			_, actionErr := g.runTelegramDirectAction(ctx, msg, "private-file-intake", text, func() {
+				g.replyFileIntakeResults(ctx, chatID, saved, failed, true)
+			})
+			if actionErr != nil {
+				slog.Error("登记私聊文件确认失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+			}
 			return
 		}
 		text = telegramFileContext(saved, failed, instruction)
 	}
 
-	switch commandOf(text, g.botUsername()) {
-	case "/new":
-		if err := g.orch.NewSession(ctx, u, Provider); err != nil {
-			slog.Error("开新会话失败", "err", err)
-			g.reply(ctx, chatID, "开新会话失败，请稍后再试。")
-			return
+	cmd := commandOf(text, g.botUsername())
+	if isTelegramPrivateDirectCommand(cmd) {
+		_, actionErr := g.runTelegramDirectAction(ctx, msg, "private-command:"+cmd, text, func() {
+			switch cmd {
+			case "/new":
+				if err := g.orch.NewSession(ctx, u, Provider); err != nil {
+					slog.Error("开新会话失败", "err", err)
+					g.reply(ctx, chatID, "开新会话失败，请稍后再试。")
+					return
+				}
+				g.reply(ctx, chatID, "🆕 已开启新会话。")
+			case "/start":
+				g.reply(ctx, chatID, boundStartMessage(u.Name))
+			case "/superadmin":
+				// 首任超管引导：已绑定但系统无超管的用户可自我晋升。
+				if u.IsSuperadmin {
+					g.reply(ctx, chatID, "你已经是超级管理员。")
+					return
+				}
+				switch err := g.store.PromoteFirstSuperadmin(ctx, u.ID); {
+				case errors.Is(err, store.ErrConflict):
+					g.reply(ctx, chatID, "系统已有超级管理员，此命令仅用于首次初始化。")
+				case err != nil:
+					slog.Error("超管晋升失败", "err", err)
+					g.reply(ctx, chatID, "操作失败，请稍后再试。")
+				default:
+					g.reply(ctx, chatID, "👑 你已成为超级管理员。")
+				}
+			case "/model":
+				g.handleModelCommand(ctx, chatID, u, commandArgs(text))
+			case "/token":
+				g.handleTokenCommand(ctx, chatID, u, commandArgs(text))
+			}
+		})
+		if actionErr != nil {
+			slog.Error("领取 Telegram 私聊命令失败", "chat", chatID, "message", msg.ID, "command", cmd, "err", actionErr)
+			g.reply(ctx, chatID, "操作暂时无法登记，请稍后重新发送。")
 		}
-		g.reply(ctx, chatID, "🆕 已开启新会话。")
-		return
-	case "/start":
-		g.reply(ctx, chatID, boundStartMessage(u.Name))
-		return
-	case "/superadmin":
-		// 首任超管引导：已绑定但系统无超管的用户可自我晋升。
-		if u.IsSuperadmin {
-			g.reply(ctx, chatID, "你已经是超级管理员。")
-			return
-		}
-		switch err := g.store.PromoteFirstSuperadmin(ctx, u.ID); {
-		case errors.Is(err, store.ErrConflict):
-			g.reply(ctx, chatID, "系统已有超级管理员，此命令仅用于首次初始化。")
-		case err != nil:
-			slog.Error("超管晋升失败", "err", err)
-			g.reply(ctx, chatID, "操作失败，请稍后再试。")
-		default:
-			g.reply(ctx, chatID, "👑 你已成为超级管理员。")
-		}
-		return
-	case "/model":
-		g.handleModelCommand(ctx, chatID, u, commandArgs(text))
-		return
-	case "/token":
-		g.handleTokenCommand(ctx, chatID, u, commandArgs(text))
 		return
 	}
 
@@ -1871,7 +2539,59 @@ func telegramTurnSourceKey(msg *models.Message) string {
 	if msg == nil {
 		return ""
 	}
+	if mediaGroupID := strings.TrimSpace(msg.MediaGroupID); mediaGroupID != "" {
+		return fmt.Sprintf("telegram:media-group:%d:%s", msg.Chat.ID, mediaGroupID)
+	}
 	return fmt.Sprintf("telegram:message:%d:%d", msg.Chat.ID, msg.ID)
+}
+
+// runTelegramDirectAction gives transport-owned actions the same durable
+// source boundary as Agent turns. Telegram may redeliver an update after a
+// reconnect or an uncertain webhook response; a claimed action is therefore
+// never executed again, even when the previous process stopped mid-handler.
+func (g *Gateway) runTelegramDirectAction(
+	ctx context.Context,
+	msg *models.Message,
+	kind string,
+	payload string,
+	action func(),
+) (bool, error) {
+	if g == nil || g.store == nil || msg == nil || action == nil {
+		return false, store.ErrNotFound
+	}
+	sourceKey := telegramTurnSourceKey(msg)
+	kind = strings.TrimSpace(kind)
+	if sourceKey == "" || kind == "" {
+		return false, store.ErrNotFound
+	}
+	payloadSum := sha256.Sum256([]byte(strings.TrimSpace(payload)))
+	actionKey := sourceKey + ":direct:" + kind
+	_, created, err := g.store.BeginExternalAction(ctx, actionKey, kind, hex.EncodeToString(payloadSum[:]))
+	if errors.Is(err, store.ErrConflict) {
+		slog.Warn("Telegram 重放来源与原动作不一致，已拒绝", "action_key", actionKey, "kind", kind)
+		return false, nil
+	}
+	if err != nil || !created {
+		return false, err
+	}
+
+	completed := false
+	defer func() {
+		ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		if completed {
+			if err := g.store.CompleteExternalAction(ackCtx, actionKey); err != nil {
+				slog.Error("确认 Telegram 直达动作完成失败", "action_key", actionKey, "err", err)
+			}
+			return
+		}
+		if err := g.store.FailExternalAction(ackCtx, actionKey, "handler interrupted before completion"); err != nil {
+			slog.Error("记录 Telegram 直达动作中断失败", "action_key", actionKey, "err", err)
+		}
+	}()
+	action()
+	completed = true
+	return true, nil
 }
 
 func telegramMessageEnvelope(msg *models.Message, u *store.User) store.MessageEnvelope {
@@ -1916,9 +2636,13 @@ func telegramMessageEnvelope(msg *models.Message, u *store.User) store.MessageEn
 	if u != nil {
 		displayName = u.Name
 	}
+	externalMessageRef := strconv.Itoa(msg.ID)
+	if mediaGroupID := strings.TrimSpace(msg.MediaGroupID); mediaGroupID != "" {
+		externalMessageRef = "media-group:" + mediaGroupID
+	}
 	return store.MessageEnvelope{
 		Provider: Provider, ExternalChatRef: strconv.FormatInt(msg.Chat.ID, 10),
-		ExternalMessageRef: strconv.Itoa(msg.ID), ActorUserID: actorUserID,
+		ExternalMessageRef: externalMessageRef, ActorUserID: actorUserID,
 		ExternalActorRef: externalActor, ActorDisplayName: displayName,
 		ReplyToExternalRef: replyRef, ThreadRef: threadRef, SourceCreatedAt: sourceAt,
 		Metadata: metadata,
@@ -1993,54 +2717,50 @@ func (g *Gateway) handleModelCommand(ctx context.Context, chatID int64, u *store
 
 const apiTokenConfirmTTL = 10 * time.Minute
 
-func apiTokenConfirmKey(userID int64) string {
-	return fmt.Sprintf("telegram.pending_api_token:%d", userID)
-}
-
 func (g *Gateway) handleTokenCommand(ctx context.Context, chatID int64, u *store.User, args string) {
 	args = strings.ToLower(strings.TrimSpace(args))
 	switch args {
 	case "":
 		g.reply(ctx, chatID, g.apiTokenStatusMessage(ctx, u))
 	case "new", "rotate", "regen", "regenerate":
-		expiresAt := time.Now().UTC().Add(apiTokenConfirmTTL)
-		if err := g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), strconv.FormatInt(expiresAt.Unix(), 10)); err != nil {
+		if _, err := g.store.BeginAPITokenRotation(ctx, u.ID, apiTokenConfirmTTL); err != nil {
 			slog.Error("登记 Access Token 换发确认失败", "user", u.ID, "err", err)
 			g.reply(ctx, chatID, "登记确认失败，请稍后再试。")
 			return
 		}
 		g.reply(ctx, chatID,
 			"⚠️ <b>Access Token 换发确认</b>\n\n"+
-				"这会立即作废你当前的控制中心/API Access Token，并生成一个新的 token。\n"+
+				"确认换发后会立即作废你当前的控制中心/API Access Token，并生成一个新的 token。\n"+
 				"旧 token 明文无法查询；新 token 只会显示一次。\n\n"+
 				"确认换发请在 10 分钟内发送：<code>/token confirm</code>\n"+
 				"取消请发送：<code>/token cancel</code>")
 	case "confirm":
-		raw, err := g.store.GetKV(ctx, apiTokenConfirmKey(u.ID))
-		if err != nil {
-			slog.Error("读取 Access Token 换发确认失败", "user", u.ID, "err", err)
-			g.reply(ctx, chatID, "读取确认状态失败，请稍后再试。")
-			return
-		}
-		expiresUnix, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if expiresUnix <= time.Now().UTC().Unix() {
-			_ = g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), "")
+		rotation, err := g.store.ConfirmAPITokenRotation(ctx, u.ID)
+		if errors.Is(err, store.ErrNotFound) {
 			g.reply(ctx, chatID, "没有有效的换发确认。请先发送 <code>/token new</code>，再发送 <code>/token confirm</code>。")
 			return
 		}
-		plain, err := g.store.IssueAPIToken(ctx, u.ID)
 		if err != nil {
 			slog.Error("Access Token 换发失败", "user", u.ID, "err", err)
 			g.reply(ctx, chatID, "Access Token 换发失败，请稍后再试。")
 			return
 		}
-		_ = g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), "")
-		g.reply(ctx, chatID,
+		if err := g.sendChunks(ctx, chatID,
 			"✅ <b>新的 Access Token 已生成</b>\n\n"+
-				"<code>"+html.EscapeString(plain)+"</code>\n\n"+
-				"请现在保存；系统只保存哈希，之后无法查询明文。")
+				"<code>"+html.EscapeString(rotation.Candidate)+"</code>\n\n"+
+				"请现在保存；送达后系统只保留哈希。若本条未送达，可在确认有效期内再次发送 <code>/token confirm</code> 恢复同一个 token。"); err != nil {
+			slog.Error("Access Token 已换发但回执发送失败，可重试恢复", "user", u.ID, "err", err)
+			return
+		}
+		if err := g.store.AcknowledgeAPITokenRotation(ctx, u.ID, rotation.Candidate); err != nil {
+			slog.Warn("Access Token 回执已送达但清理恢复记录失败", "user", u.ID, "err", err)
+		}
 	case "cancel":
-		_ = g.store.SetKV(ctx, apiTokenConfirmKey(u.ID), "")
+		if err := g.store.CancelAPITokenRotation(ctx, u.ID); err != nil {
+			slog.Warn("取消 Access Token 换发失败", "user", u.ID, "err", err)
+			g.reply(ctx, chatID, "取消失败，请稍后再试。")
+			return
+		}
 		g.reply(ctx, chatID, "已取消 Access Token 换发。")
 	default:
 		g.reply(ctx, chatID,
@@ -2287,7 +3007,7 @@ func (g *Gateway) onboard(ctx context.Context, msg *models.Message, chatID int64
 			slog.Warn("清理已被显式邀请覆盖的待领取记录失败", "tg_user", msg.From.ID, "err", err)
 		}
 		g.reply(ctx, chatID, bindSuccessMessage(u.Name))
-		g.bus.EmitRequired("员工加入", invitedBy,
+		g.bus.EnqueueRequiredOnce(fmt.Sprintf("employee-joined:%d", u.ID), "员工加入", invitedBy,
 			fmt.Sprintf("新员工「%s」刚通过你签发的邀请完成 Telegram 绑定，正式加入公司。", u.Name))
 		return
 	}
@@ -2332,7 +3052,7 @@ func (g *Gateway) consumePendingEmployeeInvite(ctx context.Context, tgUserID, ch
 		slog.Warn("清理已领取邀请失败", "tg_user", tgUserID, "err", clearErr)
 	}
 	g.reply(ctx, chatID, bindSuccessMessage(u.Name))
-	g.bus.EmitRequired("员工加入", invitedBy,
+	g.bus.EnqueueRequiredOnce(fmt.Sprintf("employee-joined:%d", u.ID), "员工加入", invitedBy,
 		fmt.Sprintf("新员工「%s」刚通过群自动邀请完成 Telegram 绑定，正式加入公司。", u.Name))
 	return true
 }
@@ -2365,6 +3085,11 @@ func (g *Gateway) reply(ctx context.Context, chatID int64, text string) {
 
 // sendChunks 按长度分片发送，避免超过 Telegram 单条消息长度。
 func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) error {
+	_, err := g.sendChunksResult(ctx, chatID, text, false)
+	return err
+}
+
+func (g *Gateway) sendChunksResult(ctx context.Context, chatID int64, text string, disableNotification bool) (int, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		text = "（空回复）"
@@ -2372,26 +3097,152 @@ func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) err
 	slog.Debug("TG 发送", "chat", chatID, "text_len", len(text))
 	// 模型不守 HTML 指引时（本地模型常见）把 Markdown 兜底转成 TG HTML。
 	text = toTelegramHTML(text)
-	for _, chunk := range splitChunks(text, chunkLimit) {
-		if err := g.sendOne(ctx, chatID, chunk); err != nil {
-			return err
+	chunks := splitChunks(text, chunkLimit)
+	return g.sendPreparedParts(ctx, chatID, chunks, 0, disableNotification)
+}
+
+func (g *Gateway) sendPreparedParts(ctx context.Context, chatID int64, chunks []string, start int, disableNotification bool) (int, error) {
+	if start < 0 || start > len(chunks) {
+		return 0, errors.New("telegram 分片起点无效")
+	}
+	key := telegramContextDeliveryKey(ctx, chatID)
+	lastID := 0
+	var resultErr error
+	for index := start; index < len(chunks); index++ {
+		chunk := chunks[index]
+		if key == "" {
+			messageID, err := g.sendOneMessage(ctx, chatID, chunk, disableNotification)
+			if err != nil {
+				return 0, err
+			}
+			lastID = messageID
+			continue
+		}
+		messageID, settled, err := g.sendPreparedPartOnce(ctx, key, chatID, index, len(chunks), chunk, disableNotification)
+		if messageID > 0 {
+			lastID = messageID
+		}
+		if err != nil {
+			resultErr = errors.Join(resultErr, err)
+		}
+		if !telegramPartCanContinue(messageID, settled, err) {
+			break
 		}
 	}
-	return nil
+	if resultErr != nil {
+		return 0, resultErr
+	}
+	return lastID, nil
+}
+
+func telegramPartCanContinue(messageID int, settled bool, err error) bool {
+	if !settled {
+		return false
+	}
+	// A confirmed Telegram message may be followed by later parts even when its
+	// local receipt ack failed. A send failure has no message ID; emitting the
+	// suffix after that point would expose a structurally incomplete response.
+	return err == nil || messageID > 0
+}
+
+func (g *Gateway) sendPreparedPartOnce(ctx context.Context, key string, chatID int64, index, count int, chunk string, disableNotification bool) (messageID int, settled bool, err error) {
+	return g.deliverPreparedPartOnce(ctx, key, chatID, index, count, chunk, func() (int, error) {
+		return g.sendOneMessage(ctx, chatID, chunk, disableNotification)
+	})
+}
+
+// deliverPreparedPartOnce claims one logical Telegram part before crossing an
+// external boundary. The delivery callback may send a new message or edit an
+// existing one; both operations therefore share the same replay semantics.
+func (g *Gateway) deliverPreparedPartOnce(
+	ctx context.Context,
+	key string,
+	chatID int64,
+	index, count int,
+	chunk string,
+	deliver func() (int, error),
+) (messageID int, settled bool, err error) {
+	if g.store == nil {
+		return 0, false, errors.New("telegram 分片投递账本不可用")
+	}
+	return deliverTelegramPartOnce(ctx, g.store, key, chatID, index, count, chunk, deliver)
+}
+
+type telegramDeliveryLedger interface {
+	BeginTelegramDeliveryPart(context.Context, string, int, int, int64, string) (*store.TelegramDeliveryPart, bool, error)
+	MarkTelegramDeliveryPartDelivered(context.Context, string, int, int64, time.Time) error
+	MarkTelegramDeliveryPartFailed(context.Context, string, int, string) error
+}
+
+func deliverTelegramPartOnce(
+	ctx context.Context,
+	ledger telegramDeliveryLedger,
+	key string,
+	chatID int64,
+	index, count int,
+	chunk string,
+	deliver func() (int, error),
+) (messageID int, settled bool, err error) {
+	if ledger == nil {
+		return 0, false, errors.New("telegram 分片投递账本不可用")
+	}
+	if deliver == nil {
+		return 0, false, errors.New("telegram 分片投递函数不可用")
+	}
+	sum := sha256.Sum256([]byte(chunk))
+	part, created, err := ledger.BeginTelegramDeliveryPart(ctx, key, index, count, chatID, hex.EncodeToString(sum[:]))
+	if err != nil {
+		return 0, false, err
+	}
+	if !created {
+		if part.TelegramMessageID != nil {
+			messageID = int(*part.TelegramMessageID)
+		}
+		if part.Status == store.TelegramDeliveryDelivered {
+			return messageID, true, nil
+		}
+		return messageID, true, fmt.Errorf("telegram 分片 %d/%d 已跨过投递边界但结果为 %s", index+1, count, part.Status)
+	}
+	messageID, sendErr := deliver()
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if sendErr != nil {
+		if markErr := ledger.MarkTelegramDeliveryPartFailed(ackCtx, key, index, textfmt.RedactSecrets(sendErr.Error())); markErr != nil {
+			return 0, true, errors.Join(sendErr, fmt.Errorf("保存 telegram 分片失败状态: %w", markErr))
+		}
+		return 0, true, sendErr
+	}
+	if err := ledger.MarkTelegramDeliveryPartDelivered(ackCtx, key, index, int64(messageID), time.Now().UTC()); err != nil {
+		return messageID, true, fmt.Errorf("telegram 分片已发送但回执保存失败: %w", err)
+	}
+	return messageID, true, nil
 }
 
 // sendOne 先按 Telegram HTML 发送（AI 与系统消息均按 HTML 子集排版）；
 // 格式非法被 API 拒绝时降级纯文本重发，保证必达。
 func (g *Gateway) sendOne(ctx context.Context, chatID int64, chunk string) error {
-	_, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatID, Text: chunk, ParseMode: models.ParseModeHTML,
+	_, err := g.sendOneMessage(ctx, chatID, chunk, false)
+	return err
+}
+
+func (g *Gateway) sendOneMessage(ctx context.Context, chatID int64, chunk string, disableNotification bool) (int, error) {
+	message, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatID, Text: chunk, ParseMode: models.ParseModeHTML, DisableNotification: disableNotification,
 	})
 	if err == nil {
-		return nil
+		return message.ID, nil
+	}
+	if !errors.Is(err, bot.ErrorBadRequest) {
+		return 0, err
 	}
 	slog.Debug("HTML 发送被拒，降级纯文本", "chat", chatID, "err", err)
-	_, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: telegramPlainText(chunk)})
-	return err
+	message, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatID, Text: telegramPlainText(chunk), DisableNotification: disableNotification,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return message.ID, nil
 }
 
 func (g *Gateway) sendTyping(ctx context.Context, chatID int64) {
@@ -2414,27 +3265,7 @@ func (g *Gateway) EnsureTelegramGroupSession(ctx context.Context, chatID int64, 
 }
 
 func (g *Gateway) SendTelegramGroupMessage(ctx context.Context, chatID int64, text string, disableNotification bool) (int, error) {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		text = "（空消息）"
-	}
-	text = toTelegramHTML(text)
-	var lastID int
-	for _, chunk := range splitChunks(text, chunkLimit) {
-		msg, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatID, Text: chunk, ParseMode: models.ParseModeHTML, DisableNotification: disableNotification,
-		})
-		if err != nil {
-			msg, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chatID, Text: telegramPlainText(chunk), DisableNotification: disableNotification,
-			})
-			if err != nil {
-				return 0, err
-			}
-		}
-		lastID = msg.ID
-	}
-	return lastID, nil
+	return g.sendChunksResult(ctx, chatID, text, disableNotification)
 }
 
 func (g *Gateway) GetTelegramGroupMemberCount(ctx context.Context, chatID int64) (int, error) {
@@ -2545,6 +3376,9 @@ func (g *Gateway) EditTelegramGroupMessage(ctx context.Context, chatID int64, me
 	if err == nil {
 		return nil
 	}
+	if !errors.Is(err, bot.ErrorBadRequest) {
+		return err
+	}
 	_, err = g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: chatID, MessageID: messageID, Text: telegramPlainText(htmlText),
 	})
@@ -2573,10 +3407,8 @@ func (g *Gateway) SetTelegramGroupTitle(ctx context.Context, chatID int64, title
 	if err != nil {
 		return err
 	}
-	if st, serr := g.store.TelegramGroupState(ctx, chatID); serr == nil {
-		st.Title = title
-		st.UpdatedAt = time.Now()
-		_ = g.store.SaveTelegramGroupState(ctx, *st)
+	if err := g.store.SetTelegramGroupTitle(ctx, chatID, title); err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Warn("更新 Telegram 群标题缓存失败", "chat", chatID, "err", err)
 	}
 	return nil
 }
@@ -2976,6 +3808,14 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 	return results
 }
 
+func (g *Gateway) saveIncomingTelegramFileMessages(ctx context.Context, messages []*models.Message, u *store.User) []incomingTelegramFileResult {
+	var results []incomingTelegramFileResult
+	for _, msg := range messages {
+		results = append(results, g.saveIncomingTelegramFiles(ctx, msg, u)...)
+	}
+	return results
+}
+
 func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomingTelegramFile) (*store.File, error) {
 	if strings.TrimSpace(g.fileStorePath) == "" {
 		return nil, newTelegramFileIntakeError("storage_not_configured", "文件存储尚未配置，文件没有进入系统。", errors.New("file_store_path 未配置"))
@@ -3209,9 +4049,11 @@ func (g *Gateway) replyFileIntakeResults(ctx context.Context, chatID int64, save
 			{Text: "打开文件中心", WebApp: &models.WebAppInfo{URL: uploadURL}},
 		}}},
 	})
-	if err != nil {
+	if err != nil && errors.Is(err, bot.ErrorBadRequest) {
 		slog.Warn("发送文件中心按钮失败，降级普通回复", "chat", chatID, "err", err)
 		g.reply(ctx, chatID, text+"\n"+html.EscapeString(uploadURL))
+	} else if err != nil {
+		slog.Warn("发送文件收件结果状态不确定，不盲目重发", "chat", chatID, "err", err)
 	}
 }
 
@@ -3302,4 +4144,13 @@ func hasMessagePayload(msg *models.Message) bool {
 func hasIncomingTelegramFiles(msg *models.Message) bool {
 	return msg != nil && (msg.Document != nil || len(msg.Photo) > 0 || msg.Video != nil ||
 		msg.Animation != nil || msg.Audio != nil || msg.VideoNote != nil)
+}
+
+func telegramMessagesHaveFiles(messages []*models.Message) bool {
+	for _, msg := range messages {
+		if hasIncomingTelegramFiles(msg) {
+			return true
+		}
+	}
+	return false
 }

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
@@ -93,6 +95,81 @@ func TestDecodeJSONLimitsBody(t *testing.T) {
 	}
 }
 
+func TestDecodeJSONRejectsTrailingValues(t *testing.T) {
+	for name, body := range map[string]string{
+		"second object": `{"value":1} {"value":2}`,
+		"second scalar": `{"value":1} true`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			var dst struct {
+				Value int `json:"value"`
+			}
+			if err := decodeJSON(httptest.NewRecorder(), req, &dst); err == nil {
+				t.Fatal("decodeJSON accepted more than one JSON value")
+			}
+		})
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{\"value\":1}\n\t"))
+	var dst struct {
+		Value int `json:"value"`
+	}
+	if err := decodeJSON(httptest.NewRecorder(), req, &dst); err != nil || dst.Value != 1 {
+		t.Fatalf("valid single JSON value rejected: value=%d err=%v", dst.Value, err)
+	}
+}
+
+func TestRequestIdempotencyKeyAndActionScope(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/tools/save_rule", nil)
+	if _, err := requestIdempotencyKey(req, true); !errors.Is(err, errIdempotencyKeyRequired) {
+		t.Fatalf("missing required key error = %v", err)
+	}
+	req.Header.Set("Idempotency-Key", strings.Repeat("x", maxIdempotencyKeyBytes+1))
+	if _, err := requestIdempotencyKey(req, true); !errors.Is(err, errIdempotencyKeyInvalid) {
+		t.Fatalf("oversized key error = %v", err)
+	}
+	req.Header.Set("Idempotency-Key", " request-1 ")
+	key, err := requestIdempotencyKey(req, true)
+	if err != nil || key != "request-1" {
+		t.Fatalf("normalized key = %q, %v", key, err)
+	}
+	firstActionKey := httpActionKey(7, "tool:save_rule", key)
+	secondActionKey := httpActionKey(7, "tool:save_rule", key)
+	if firstActionKey != secondActionKey {
+		t.Fatal("same logical request must have a stable action key")
+	}
+	if httpActionKey(7, "tool:save_rule", key) == httpActionKey(8, "tool:save_rule", key) {
+		t.Fatal("request identities must be isolated by authenticated user")
+	}
+	if httpActionKey(7, "tool:save_rule", key) == httpActionKey(7, "tool:update_rule", key) {
+		t.Fatal("request identities must be isolated by operation kind")
+	}
+	if payloadHash([]byte(`{"a":1,"b":2}`)) != payloadHash([]byte(`{ "b": 2, "a": 1 }`)) {
+		t.Fatal("semantic JSON retries must share one payload identity")
+	}
+}
+
+func TestHTTPActionReplayReturnsStoredResult(t *testing.T) {
+	until := time.Now().UTC().Add(time.Hour)
+	rec := httptest.NewRecorder()
+	writeHTTPActionClaimError(rec, nil, &store.ExternalActionReceipt{
+		Status: store.ExternalActionCompleted, ResultText: `{"result":"one-time-token"}`, ResultUntil: &until,
+	})
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"result":"one-time-token"}` {
+		t.Fatalf("stored action replay code=%d body=%q", rec.Code, rec.Body.String())
+	}
+
+	expired := time.Now().UTC().Add(-time.Hour)
+	rec = httptest.NewRecorder()
+	writeHTTPActionClaimError(rec, nil, &store.ExternalActionReceipt{
+		Status: store.ExternalActionCompleted, ResultText: `{"result":"expired"}`, ResultUntil: &expired,
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expired action result code=%d body=%q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestHandleVersion(t *testing.T) {
 	prev := Version
 	Version = "test-rev"
@@ -116,6 +193,36 @@ func TestHandlerSetsSecurityHeaders(t *testing.T) {
 	}
 	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "script-src 'self' https://telegram.org") || !strings.Contains(got, "object-src 'none'") {
 		t.Fatalf("Content-Security-Policy 不完整: %q", got)
+	}
+}
+
+func TestTelegramWebhookRouteIsMethodScoped(t *testing.T) {
+	s := &Server{}
+	if err := s.SetTelegramWebhook("/", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})); err == nil {
+		t.Fatal("root path must not be accepted as Telegram webhook")
+	}
+	for _, invalid := range []string{"/api/chat", "/api/telegram/", "/api/telegram/../chat", "/api/telegram/webhook/"} {
+		if err := s.SetTelegramWebhook(invalid, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})); err == nil {
+			t.Fatalf("unsafe webhook path %q was accepted", invalid)
+		}
+	}
+	called := 0
+	if err := s.SetTelegramWebhook("/api/telegram/webhook", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called++
+		w.WriteHeader(http.StatusNoContent)
+	})); err != nil {
+		t.Fatal(err)
+	}
+	handler := s.Handler()
+	post := httptest.NewRecorder()
+	handler.ServeHTTP(post, httptest.NewRequest(http.MethodPost, "/api/telegram/webhook", nil))
+	if post.Code != http.StatusNoContent || called != 1 {
+		t.Fatalf("POST webhook status=%d called=%d", post.Code, called)
+	}
+	get := httptest.NewRecorder()
+	handler.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "/api/telegram/webhook", nil))
+	if get.Code != http.StatusMethodNotAllowed || called != 1 {
+		t.Fatalf("GET webhook status=%d called=%d", get.Code, called)
 	}
 }
 

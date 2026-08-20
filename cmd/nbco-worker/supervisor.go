@@ -166,10 +166,14 @@ func (s *agentSupervisor) assess(ctx context.Context, mode, evidence string) (ag
 	}
 
 	messages := []chatMessage{{Role: "system", Content: system}, {Role: "user", Content: evidence}}
+	requestID, err := newTransportRequestID()
+	if err != nil {
+		return agentTurnAssessment{}, fmt.Errorf("生成监督模型请求 ID: %w", err)
+	}
 	var lastErr error
 	for attempt := 0; attempt <= agentSupervisorRetries; attempt++ {
 		callCtx, cancel := context.WithTimeout(ctx, agentSupervisorTimeout)
-		msg, err := s.worker.client.LLM(callCtx, messages, agentSupervisorTools)
+		msg, err := s.worker.client.LLMWithRequestID(callCtx, requestID, messages, agentSupervisorTools)
 		cancel()
 		if err == nil {
 			assessment, parseErr := parseAgentAssessment(msg)
@@ -180,6 +184,15 @@ func (s *agentSupervisor) assess(ctx context.Context, mode, evidence string) (ag
 				return assessment, nil
 			}
 			err = parseErr
+			// A valid transport response with invalid semantics is a new logical
+			// model attempt. Reusing the transport ID would only replay the exact
+			// cached malformed response forever.
+			if attempt < agentSupervisorRetries {
+				requestID, parseErr = newTransportRequestID()
+				if parseErr != nil {
+					return agentTurnAssessment{}, fmt.Errorf("生成监督模型重试 ID: %w", parseErr)
+				}
+			}
 		}
 		lastErr = err
 		if attempt == agentSupervisorRetries || ctx.Err() != nil {

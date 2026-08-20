@@ -54,7 +54,7 @@
 
 接口建议：
 
-- `POST /api/files`：Web/API 上传文件。
+- `POST /api/files`：Web/API 上传文件；每次用户动作携带唯一 `Idempotency-Key`，网络重试复用原值。
 - `GET /api/files/{id}`：下载文件，按权限校验。
 - `POST /api/tasks/{id}/attachments`：把文件挂到任务。
 - `GET /api/worker/files/{id}?task_id=...&claim_id=...`：worker 用当前 claim 下载被授权任务文件。

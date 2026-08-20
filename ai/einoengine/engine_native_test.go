@@ -13,6 +13,7 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/session"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
 	"github.com/zdypro888/nbco/ai"
@@ -69,6 +70,47 @@ func newNativeTestEngine(chatModel model.ToolCallingChatModel, runtime RuntimeSt
 		defaultModel: "test",
 		models:       map[string]model.ToolCallingChatModel{"test": chatModel},
 		runtime:      runtime,
+	}
+}
+
+func TestTurnToolMiddlewareDoesNotReplayUncertainSideEffect(t *testing.T) {
+	middleware, err := newTurnToolMiddleware(context.Background(), "session-42", []ai.Tool{{
+		Name:     "write_value",
+		Effect:   ai.ToolEffectWrite,
+		LoadMode: ai.ToolLoadImmediate,
+	}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var calls int
+	var invocationKey string
+	guarded := middleware.guardInvokable(func(ctx context.Context, _ *compose.ToolInput) (*compose.ToolOutput, error) {
+		calls++
+		invocationKey = ai.ToolInvocationKey(ctx)
+		return nil, fmt.Errorf("response lost after commit")
+	})
+	first := &compose.ToolInput{Name: "write_value", Arguments: `{"value":"alpha"}`, CallID: "call-1"}
+	if _, err := guarded(context.Background(), first); err == nil {
+		t.Fatal("first call should preserve the handler error")
+	}
+	if calls != 1 || invocationKey == "" {
+		t.Fatalf("calls=%d invocationKey=%q", calls, invocationKey)
+	}
+
+	replay := &compose.ToolInput{Name: "write_value", Arguments: `{ "value": "alpha" }`, CallID: "call-2"}
+	output, err := guarded(context.Background(), replay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("uncertain side effect was replayed: calls=%d", calls)
+	}
+	if output == nil || !strings.Contains(output.Result, `"status":"execution_state_unknown"`) {
+		t.Fatalf("unexpected replay result: %#v", output)
+	}
+	if !middleware.replayed("write_value", "call-2") {
+		t.Fatal("replayed call was not recorded")
 	}
 }
 

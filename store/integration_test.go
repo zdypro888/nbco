@@ -7,7 +7,10 @@ package store
 // 未设置时自动跳过。每个测试开始时清空全库。
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,7 +52,9 @@ func openTestStore(t *testing.T) *Store {
 	})
 	if _, err := s.pool.Exec(ctx,
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields,
-		 ai_usage, pending_approvals, goals, automation_runs, automation_snapshots RESTART IDENTITY CASCADE`); err != nil {
+		 ai_usage, pending_approvals, goals, automation_runs, automation_snapshots,
+		 notification_deliveries, external_action_receipts, telegram_inbound_updates,
+		 telegram_delivery_parts RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
@@ -158,6 +163,22 @@ func TestBindKeyFlow(t *testing.T) {
 	}
 	if u.Info["role"] != "CEO" {
 		t.Fatalf("邀请指定角色应写入用户信息，got %#v", u.Info)
+	}
+
+	recoverable, err := s.CreateBindInviteForRequest(ctx, admin.ID, time.Hour, "李四", "产品", "定向邀请", "invite-request-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := s.CreateBindInviteForRequest(ctx, admin.ID, 2*time.Hour, "李四", "产品", "定向邀请", "invite-request-1")
+	if err != nil || replayed.Key != recoverable.Key || !replayed.ExpiresAt.Equal(recoverable.ExpiresAt) {
+		t.Fatalf("邀请结果恢复=%+v first=%+v err=%v", replayed, recoverable, err)
+	}
+	byRequest, err := s.BindInviteByRequest(ctx, admin.ID, "invite-request-1")
+	if err != nil || byRequest.Key != recoverable.Key {
+		t.Fatalf("按调用恢复邀请=%+v err=%v", byRequest, err)
+	}
+	if _, err := s.CreateBindInviteForRequest(ctx, admin.ID, time.Hour, "不同的人", "产品", "定向邀请", "invite-request-1"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("复用请求身份改变参数应冲突: %v", err)
 	}
 }
 
@@ -2318,10 +2339,10 @@ func TestTaskFilesAndWorkerArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, "stale", out.ID, "旧 claim"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, "stale", out.ID, "", "旧 claim"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 不应可登记产物: %v", err)
 	}
-	if err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claimed.ClaimID, out.ID, "结果"); err != nil {
+	if _, _, err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claimed.ClaimID, out.ID, "", "结果"); err != nil {
 		t.Fatal(err)
 	}
 	arts, err := s.TaskArtifacts(ctx, tk.ID)
@@ -2907,6 +2928,7 @@ func TestDeadlineClaims(t *testing.T) {
 	if err != nil || len(warn) != 1 || warn[0].ID != tk.ID {
 		t.Fatalf("首次认领 = %d err=%v", len(warn), err)
 	}
+	deadlineGeneration := warn[0].DeadlineGeneration
 	if warn, _ = s.DueDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
 		t.Fatalf("租约内重复认领应为空, got %d", len(warn))
 	}
@@ -2914,7 +2936,7 @@ func TestDeadlineClaims(t *testing.T) {
 	if warn, err = s.DueDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 {
 		t.Fatalf("租约过期应可重试, got %d err=%v", len(warn), err)
 	}
-	if err := s.MarkDeadlineReminderSent(ctx, tk.ID, now); err != nil {
+	if err := s.MarkDeadlineReminderSent(ctx, tk.ID, deadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if warn, _ = s.DueDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
@@ -2940,11 +2962,55 @@ func TestDeadlineClaims(t *testing.T) {
 	if over, err = s.DueOverdueNotices(ctx, now); err != nil || len(over) != 1 {
 		t.Fatalf("过期通知租约过期应可重试, got %d err=%v", len(over), err)
 	}
-	if err := s.MarkOverdueNoticeSent(ctx, tk.ID, now); err != nil {
+	if err := s.MarkOverdueNoticeSent(ctx, tk.ID, over[0].DeadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if over, _ = s.DueOverdueNotices(ctx, now); len(over) != 0 {
 		t.Fatalf("过期通知 ack 后不应再认领, got %d", len(over))
+	}
+
+	// 传输边界已结算但渠道未确认时，不重放，也不伪造 sent 事实。
+	failedSoon := now.Add(3 * time.Hour)
+	failed := mkTask(t, s, pj.ID, boss.ID, alice.ID, "投递未确认", &failedSoon)
+	if warn, err = s.DueDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 || warn[0].ID != failed.ID {
+		t.Fatalf("未确认提醒认领=%v err=%v", warn, err)
+	}
+	if err := s.MarkDeadlineReminderAttempt(ctx, failed.ID, warn[0].DeadlineGeneration, now, false); err != nil {
+		t.Fatal(err)
+	}
+	var attemptedAt, sentAt *time.Time
+	if err := s.pool.QueryRow(ctx,
+		`SELECT deadline_reminder_attempted_at, deadline_reminded_at FROM tasks WHERE id=$1`, failed.ID).
+		Scan(&attemptedAt, &sentAt); err != nil || attemptedAt == nil || sentAt != nil {
+		t.Fatalf("未确认提醒 attempted=%v sent=%v err=%v", attemptedAt, sentAt, err)
+	}
+	if warn, _ = s.DueDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
+		t.Fatalf("已结算未确认提醒不应盲目重放, got %d", len(warn))
+	}
+
+	// 投递期间改期时，旧 claim 不能结算新一代；改走再改回原值也是新事件。
+	replayedDeadline := now.Add(5 * time.Hour)
+	replayed := mkTask(t, s, pj.ID, boss.ID, alice.ID, "改期回滚", &replayedDeadline)
+	if warn, err = s.DueDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 || warn[0].ID != replayed.ID {
+		t.Fatalf("改期任务首次认领=%v err=%v", warn, err)
+	}
+	oldGeneration := warn[0].DeadlineGeneration
+	movedDeadline := now.Add(6 * time.Hour)
+	if _, err := s.UpdateTaskContent(ctx, replayed.ID, nil, nil, nil, &movedDeadline); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkDeadlineReminderSent(ctx, replayed.ID, oldGeneration, now); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("旧代次 ack 应被拒绝，got %v", err)
+	}
+	updated, err := s.UpdateTaskContent(ctx, replayed.ID, nil, nil, nil, &replayedDeadline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.DeadlineGeneration <= oldGeneration {
+		t.Fatalf("截止时间回滚必须产生新代次: old=%d new=%d", oldGeneration, updated.DeadlineGeneration)
+	}
+	if warn, err = s.DueDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 || warn[0].DeadlineGeneration != updated.DeadlineGeneration {
+		t.Fatalf("回滚后的新一代应可认领: warn=%v err=%v", warn, err)
 	}
 }
 
@@ -2987,11 +3053,53 @@ func TestNudgeClaims(t *testing.T) {
 	if due, err = s.DueNudges(ctx, now, 48*time.Hour); err != nil || len(due) != 1 {
 		t.Fatalf("催办租约过期应可重试, got %d err=%v", len(due), err)
 	}
-	if err := s.MarkNudgeSent(ctx, stale.ID, now); err != nil {
+	if err := s.MarkNudgeSent(ctx, stale.ID, due[0].DeadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if due, _ = s.DueNudges(ctx, now, 48*time.Hour); len(due) != 0 {
 		t.Fatalf("催办 ack 后不应重复, got %d", len(due))
+	}
+}
+
+func TestFailedNudgeAttemptDoesNotCountAsDelivered(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	alice := mkUser(t, s, "alice", false)
+	pj := mkProject(t, s, boss.ID)
+	now := time.Now().UTC()
+	past := now.Add(-72 * time.Hour)
+	task := mkTask(t, s, pj.ID, boss.ID, alice.ID, "投递失败", &past)
+	mustExec(t, s, `UPDATE tasks SET overdue_notified_at=$2 WHERE id=$1`, task.ID, now.Add(-49*time.Hour))
+
+	due, err := s.DueNudges(ctx, now, 48*time.Hour)
+	if err != nil || len(due) != 1 || due[0].NudgeAttemptCount != 0 || due[0].NudgeCount != 0 {
+		t.Fatalf("first nudge claim = %+v err=%v", due, err)
+	}
+	if err := s.MarkNudgeAttempt(ctx, task.ID, due[0].DeadlineGeneration, now, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.TaskByID(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.NudgeAttemptCount != 1 || got.NudgeCount != 0 {
+		t.Fatalf("failed attempt counts = attempts:%d delivered:%d", got.NudgeAttemptCount, got.NudgeCount)
+	}
+	mustExec(t, s, `UPDATE tasks SET nudged_at=$2 WHERE id=$1`, task.ID, now.Add(-49*time.Hour))
+	due, err = s.DueNudges(ctx, now, 48*time.Hour)
+	if err != nil || len(due) != 1 || due[0].NudgeAttemptCount != 1 {
+		t.Fatalf("next nudge claim = %+v err=%v", due, err)
+	}
+	if err := s.MarkNudgeAttempt(ctx, task.ID, due[0].DeadlineGeneration, now, true); err != nil {
+		t.Fatal(err)
+	}
+	got, err = s.TaskByID(ctx, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.NudgeAttemptCount != 2 || got.NudgeCount != 1 {
+		t.Fatalf("settled nudge counts = attempts:%d delivered:%d", got.NudgeAttemptCount, got.NudgeCount)
 	}
 }
 
@@ -3249,6 +3357,31 @@ func TestSuperadminBootstrap(t *testing.T) {
 	}
 }
 
+func TestSuperadminBootstrapResponseRecovery(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	token := strings.Repeat("ab", 24)
+	ident := Identity{Provider: "api", ExternalID: "bootstrap:http:stable", ChatRef: "api:bootstrap:http:stable"}
+
+	first, firstToken, err := s.BootstrapSuperadminWithAPITokenCandidate(ctx, "老板", ident, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, replayedToken, err := s.BootstrapSuperadminWithAPITokenCandidate(ctx, "老板", ident, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ID != replayed.ID || firstToken != token || replayedToken != token {
+		t.Fatalf("bootstrap replay changed result: first=%+v replay=%+v tokens=%q/%q", first, replayed, firstToken, replayedToken)
+	}
+	if _, _, err := s.BootstrapSuperadminWithAPITokenCandidate(ctx, "另一个名字", ident, token); !errors.Is(err, ErrConflict) {
+		t.Fatalf("changed bootstrap payload = %v, want ErrConflict", err)
+	}
+	if _, _, err := s.BootstrapSuperadminWithAPITokenCandidate(ctx, "老板", ident, strings.Repeat("cd", 24)); !errors.Is(err, ErrConflict) {
+		t.Fatalf("changed bootstrap token = %v, want ErrConflict", err)
+	}
+}
+
 func TestSeedRoles(t *testing.T) {
 	s := openTestStore(t)
 	roles, err := s.ListRoles(context.Background())
@@ -3319,6 +3452,62 @@ func TestAPITokenRoundtrip(t *testing.T) {
 	}
 	if _, err := s.UserByAPIToken(ctx, plain2); !errors.Is(err, ErrNotFound) {
 		t.Errorf("撤销后应失效, got %v", err)
+	}
+}
+
+func TestAPITokenCandidateAndRotationRecovery(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "token-rotation-boss", true)
+
+	first := strings.Repeat("ab", 24)
+	if got, err := s.IssueAPITokenCandidate(ctx, boss.ID, first); err != nil || got != first {
+		t.Fatalf("issue candidate got=%q err=%v", got, err)
+	}
+	if got, err := s.IssueAPITokenCandidate(ctx, boss.ID, first); err != nil || got != first {
+		t.Fatalf("replay candidate got=%q err=%v", got, err)
+	}
+	var tokenCount int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM api_tokens WHERE user_id=$1`, boss.ID).Scan(&tokenCount); err != nil || tokenCount != 1 {
+		t.Fatalf("candidate token count=%d err=%v", tokenCount, err)
+	}
+
+	pending, err := s.BeginAPITokenRotation(ctx, boss.ID, 10*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayedPending, err := s.BeginAPITokenRotation(ctx, boss.ID, 10*time.Minute)
+	if err != nil || replayedPending.Candidate != pending.Candidate || !replayedPending.ExpiresAt.Equal(pending.ExpiresAt) {
+		t.Fatalf("pending replay=%+v first=%+v err=%v", replayedPending, pending, err)
+	}
+	confirmed, err := s.ConfirmAPITokenRotation(ctx, boss.ID)
+	if err != nil || confirmed.Candidate != pending.Candidate || confirmed.IssuedAt == nil {
+		t.Fatalf("confirm=%+v err=%v", confirmed, err)
+	}
+	confirmedAgain, err := s.ConfirmAPITokenRotation(ctx, boss.ID)
+	if err != nil || confirmedAgain.Candidate != confirmed.Candidate {
+		t.Fatalf("confirm replay=%+v err=%v", confirmedAgain, err)
+	}
+	if _, err := s.UserByAPIToken(ctx, confirmed.Candidate); err != nil {
+		t.Fatalf("confirmed token invalid: %v", err)
+	}
+	if _, err := s.UserByAPIToken(ctx, first); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("old candidate remains valid: %v", err)
+	}
+	if err := s.AcknowledgeAPITokenRotation(ctx, boss.ID, confirmed.Candidate); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ConfirmAPITokenRotation(ctx, boss.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("acknowledged rotation confirm=%v, want ErrNotFound", err)
+	}
+
+	expired, err := s.BeginAPITokenRotation(ctx, boss.ID, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(5 * time.Millisecond)
+	if deleted, err := s.DeleteExpiredAPITokenRotations(ctx, time.Now().UTC()); err != nil || deleted != 1 {
+		t.Fatalf("expired rotation=%+v deleted=%d err=%v", expired, deleted, err)
 	}
 }
 
@@ -3591,10 +3780,10 @@ func TestDirectedDailySchedule(t *testing.T) {
 		t.Fatalf("daily 租约过期应可重试, got %d err=%v", len(due2), err)
 	}
 	next := time.Now().UTC().Add(24 * time.Hour)
-	if err := s.MarkScheduleDelivered(ctx, sc.ID, *due[0].DeliveryClaimedAt, time.Now().UTC(), &next, false); !errors.Is(err, ErrNotFound) {
+	if err := s.MarkScheduleDelivered(ctx, sc.ID, due[0].OccurrenceGeneration, *due[0].DeliveryClaimedAt, time.Now().UTC(), &next, false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧租约不得确认新认领, got %v", err)
 	}
-	if err := s.MarkScheduleDelivered(ctx, sc.ID, *due2[0].DeliveryClaimedAt, time.Now().UTC(), &next, false); err != nil {
+	if err := s.MarkScheduleDelivered(ctx, sc.ID, due2[0].OccurrenceGeneration, *due2[0].DeliveryClaimedAt, time.Now().UTC(), &next, false); err != nil {
 		t.Fatal(err)
 	}
 	if due2, err = s.DueSchedules(ctx, time.Now().UTC()); err != nil || len(due2) != 0 {
@@ -3902,6 +4091,74 @@ func TestScheduleOccurrenceFansOutPerRecipient(t *testing.T) {
 	}
 }
 
+func TestScheduleOccurrenceIdentitySurvivesReturningToPriorFireTime(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "occurrence-owner", true)
+	recipient := mkUser(t, s, "occurrence-recipient", false)
+	firstFire := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+	sc, err := s.CreateSchedule(ctx, &Schedule{
+		UserID: owner.ID, CreatedBy: owner.ID, Kind: ScheduleRepeat,
+		FireAt: firstFire, IntervalS: 3600, Target: ScheduleTargetAll,
+		Mode: ScheduleModeMessage, Message: "repeatable occurrence",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	due, err := s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due) != 1 {
+		t.Fatalf("first DueSchedules = %+v, %v", due, err)
+	}
+	first := due[0]
+	next := firstFire.Add(time.Hour)
+	if err := s.FanOutScheduleOccurrence(ctx, first, []int64{recipient.ID}, time.Now().UTC(), &next, false); err != nil {
+		t.Fatal(err)
+	}
+	afterFirst, err := s.ScheduleByID(ctx, sc.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterFirst.OccurrenceGeneration <= first.OccurrenceGeneration {
+		t.Fatalf("generation did not advance after fanout: first=%d next=%d", first.OccurrenceGeneration, afterFirst.OccurrenceGeneration)
+	}
+
+	away := firstFire.Add(2 * time.Hour)
+	if _, err := s.UpdateScheduleTimingVisible(ctx, sc.ID, owner.ID, true, away, sc.IntervalS, "", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	returned, err := s.UpdateScheduleTimingVisible(ctx, sc.ID, owner.ID, true, firstFire, sc.IntervalS, "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if returned.OccurrenceGeneration <= afterFirst.OccurrenceGeneration {
+		t.Fatalf("generation did not advance across reschedule: prior=%d returned=%d", afterFirst.OccurrenceGeneration, returned.OccurrenceGeneration)
+	}
+	if err := s.FanOutScheduleOccurrence(ctx, first, []int64{recipient.ID}, time.Now().UTC(), &next, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stale occurrence fanout = %v, want ErrNotFound", err)
+	}
+
+	due, err = s.DueSchedules(ctx, time.Now().UTC())
+	if err != nil || len(due) != 1 || due[0].OccurrenceGeneration != returned.OccurrenceGeneration {
+		t.Fatalf("returned DueSchedules = %+v, %v", due, err)
+	}
+	finalNext := firstFire.Add(3 * time.Hour)
+	if err := s.FanOutScheduleOccurrence(ctx, due[0], []int64{recipient.ID}, time.Now().UTC(), &finalNext, false); err != nil {
+		t.Fatal(err)
+	}
+	var deliveries, generations int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*), count(DISTINCT occurrence_generation)
+		   FROM schedule_deliveries
+		  WHERE schedule_id=$1 AND user_id=$2 AND occurrence_at=$3`,
+		sc.ID, recipient.ID, firstFire).Scan(&deliveries, &generations); err != nil {
+		t.Fatal(err)
+	}
+	if deliveries != 2 || generations != 2 {
+		t.Fatalf("same fire time should retain two occurrences: deliveries=%d generations=%d", deliveries, generations)
+	}
+}
+
 func TestScheduleRecipientPreferencesControlIncomingBroadcasts(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -3981,7 +4238,7 @@ func TestScheduleRecipientPreferencesControlIncomingBroadcasts(t *testing.T) {
 	if err != nil || len(due) != 1 || due[0].ID != historical.ID {
 		t.Fatalf("historical due schedule = %+v, %v", due, err)
 	}
-	if err := s.MarkScheduleDelivered(ctx, historical.ID, *due[0].DeliveryClaimedAt, time.Now().UTC(), nil, true); err != nil {
+	if err := s.MarkScheduleDelivered(ctx, historical.ID, due[0].OccurrenceGeneration, *due[0].DeliveryClaimedAt, time.Now().UTC(), nil, true); err != nil {
 		t.Fatal(err)
 	}
 	history, err := s.SchedulesVisible(ctx, member.ID, false, "all", 50)
@@ -4047,6 +4304,383 @@ func TestMandatoryScheduleOverridesRecipientPreferences(t *testing.T) {
 	}
 	if status != "processing" {
 		t.Fatalf("global opt-out suppressed mandatory delivery: %q", status)
+	}
+}
+
+func TestNotificationDeliveryBoundaryIsConcurrentAndImmutable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	recipient := mkUser(t, s, "notification-recipient", false)
+
+	const workers = 16
+	var wg sync.WaitGroup
+	created := make(chan bool, workers)
+	errs := make(chan error, workers)
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			delivery, won, err := s.BeginNotificationDelivery(ctx, "event:42", recipient.ID, "sha256:alpha")
+			if err == nil && (delivery == nil || delivery.Key != "event:42") {
+				err = fmt.Errorf("unexpected delivery: %+v", delivery)
+			}
+			created <- won
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(created)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	winners := 0
+	for won := range created {
+		if won {
+			winners++
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("delivery boundary winners=%d, want 1", winners)
+	}
+
+	if err := s.MarkNotificationDeliveryDelivered(ctx, "event:42", time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	delivery, won, err := s.BeginNotificationDelivery(ctx, "event:42", recipient.ID, "sha256:alpha")
+	if err != nil || won || delivery == nil || delivery.Status != NotificationDeliveryDelivered {
+		t.Fatalf("settled replay = %+v created=%v err=%v", delivery, won, err)
+	}
+	if delivery, won, err = s.BeginNotificationDelivery(ctx, "event:42", recipient.ID, "sha256:changed"); !errors.Is(err, ErrConflict) || won || delivery == nil {
+		t.Fatalf("content mutation = %+v created=%v err=%v", delivery, won, err)
+	}
+	other := mkUser(t, s, "notification-other", false)
+	if delivery, won, err = s.BeginNotificationDelivery(ctx, "event:42", other.ID, "sha256:alpha"); !errors.Is(err, ErrConflict) || won || delivery == nil {
+		t.Fatalf("recipient mutation = %+v created=%v err=%v", delivery, won, err)
+	}
+}
+
+func TestTelegramInboundUpdateInboxIsDurableAndOwnerFenced(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	payload := json.RawMessage(`{"update_id":9001,"message":{"message_id":1}}`)
+	sum := sha256.Sum256(payload)
+	hash := hex.EncodeToString(sum[:])
+
+	const writers = 12
+	var wg sync.WaitGroup
+	created := make(chan bool, writers)
+	errs := make(chan error, writers)
+	for range writers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wasCreated, err := s.EnqueueTelegramInboundUpdate(ctx, 9001, payload, hash)
+			created <- wasCreated
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(created)
+	close(errs)
+	createdCount := 0
+	for wasCreated := range created {
+		if wasCreated {
+			createdCount++
+		}
+	}
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if createdCount != 1 {
+		t.Fatalf("created count = %d, want 1", createdCount)
+	}
+	if _, err := s.EnqueueTelegramInboundUpdate(ctx, 9001, json.RawMessage(`{"update_id":9001}`), "different"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("mutated update identity = %v, want ErrConflict", err)
+	}
+
+	claimed, err := s.ClaimTelegramInboundUpdates(ctx, "instance-a", 10)
+	if err != nil || len(claimed) != 1 || claimed[0].ClaimOwner != "instance-a" {
+		t.Fatalf("first claim = %+v, %v", claimed, err)
+	}
+	if err := s.HeartbeatTelegramInboundClaims(ctx, "instance-a", []int64{9001}); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = s.ClaimTelegramInboundUpdates(ctx, "instance-b", 10)
+	if err != nil || len(claimed) != 0 {
+		t.Fatalf("live owner was stolen: %+v, %v", claimed, err)
+	}
+	mustExec(t, s, `UPDATE telegram_inbound_updates SET claimed_at=clock_timestamp() - $2::interval WHERE update_id=$1`,
+		9001, telegramInboundLease+time.Second)
+	claimed, err = s.ClaimTelegramInboundUpdates(ctx, "instance-b", 10)
+	if err != nil || len(claimed) != 1 || claimed[0].ClaimOwner != "instance-b" {
+		t.Fatalf("stale claim was not recovered: %+v, %v", claimed, err)
+	}
+	if err := s.CompleteTelegramInboundUpdates(ctx, "instance-a", []int64{9001}, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	var status, owner string
+	if err := s.pool.QueryRow(ctx, `SELECT status, claim_owner FROM telegram_inbound_updates WHERE update_id=9001`).Scan(&status, &owner); err != nil {
+		t.Fatal(err)
+	}
+	if status != TelegramInboundProcessing || owner != "instance-b" {
+		t.Fatalf("stale owner settled new claim: status=%q owner=%q", status, owner)
+	}
+	if err := s.CompleteTelegramInboundUpdates(ctx, "instance-b", []int64{9001}, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT status, claim_owner FROM telegram_inbound_updates WHERE update_id=9001`).Scan(&status, &owner); err != nil {
+		t.Fatal(err)
+	}
+	if status != TelegramInboundDone || owner != "" {
+		t.Fatalf("completed inbound update = status %q owner %q", status, owner)
+	}
+}
+
+func TestTelegramInboundHeartbeatOnlyRenewsActiveClaims(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	for _, updateID := range []int64{9011, 9012} {
+		payload := json.RawMessage(fmt.Sprintf(`{"update_id":%d}`, updateID))
+		sum := sha256.Sum256(payload)
+		if _, err := s.EnqueueTelegramInboundUpdate(ctx, updateID, payload, hex.EncodeToString(sum[:])); err != nil {
+			t.Fatal(err)
+		}
+	}
+	claimed, err := s.ClaimTelegramInboundUpdates(ctx, "instance-a", 10)
+	if err != nil || len(claimed) != 2 {
+		t.Fatalf("initial claims = %+v, %v", claimed, err)
+	}
+	mustExec(t, s,
+		`UPDATE telegram_inbound_updates SET claimed_at=clock_timestamp() - $2::interval WHERE update_id=ANY($1)`,
+		[]int64{9011, 9012}, telegramInboundLease+time.Second)
+	if err := s.HeartbeatTelegramInboundClaims(ctx, "instance-a", []int64{9011}); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err = s.ClaimTelegramInboundUpdates(ctx, "instance-b", 10)
+	if err != nil || len(claimed) != 1 || claimed[0].UpdateID != 9012 {
+		t.Fatalf("inactive claim was not selectively released: %+v, %v", claimed, err)
+	}
+}
+
+func TestTelegramDeliveryPartsAreIndependentAndImmutable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	part, created, err := s.BeginTelegramDeliveryPart(ctx, "reply:42", 0, 2, -1001, "hash-a")
+	if err != nil || !created || part.Status != TelegramDeliveryStarted {
+		t.Fatalf("first part = %+v created=%t err=%v", part, created, err)
+	}
+	part, created, err = s.BeginTelegramDeliveryPart(ctx, "reply:42", 0, 2, -1001, "hash-a")
+	if err != nil || created || part.Status != TelegramDeliveryStarted {
+		t.Fatalf("replayed part = %+v created=%t err=%v", part, created, err)
+	}
+	if _, _, err := s.BeginTelegramDeliveryPart(ctx, "reply:42", 0, 2, -1001, "hash-b"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("changed part payload = %v, want ErrConflict", err)
+	}
+	if err := s.MarkTelegramDeliveryPartDelivered(ctx, "reply:42", 0, 77, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	part, created, err = s.BeginTelegramDeliveryPart(ctx, "reply:42", 0, 2, -1001, "hash-a")
+	if err != nil || created || part.Status != TelegramDeliveryDelivered || part.TelegramMessageID == nil || *part.TelegramMessageID != 77 {
+		t.Fatalf("delivered replay = %+v created=%t err=%v", part, created, err)
+	}
+	second, created, err := s.BeginTelegramDeliveryPart(ctx, "reply:42", 1, 2, -1001, "hash-c")
+	if err != nil || !created || second.PartIndex != 1 {
+		t.Fatalf("independent second part = %+v created=%t err=%v", second, created, err)
+	}
+}
+
+func TestExternalActionReceiptConcurrentBoundaryAndImmutableIdentity(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	const workers = 16
+	var wg sync.WaitGroup
+	created := make(chan bool, workers)
+	errs := make(chan error, workers)
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			receipt, won, err := s.BeginExternalAction(ctx, "telegram:message:-7:42:direct:group-command:/listen", "group-command:/listen", "sha256:alpha")
+			if err == nil && (receipt == nil || receipt.Key == "") {
+				err = fmt.Errorf("unexpected receipt: %+v", receipt)
+			}
+			created <- won
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(created)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	winners := 0
+	for won := range created {
+		if won {
+			winners++
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("external action winners=%d, want 1", winners)
+	}
+
+	const key = "telegram:message:-7:42:direct:group-command:/listen"
+	if err := s.CompleteExternalAction(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	receipt, won, err := s.BeginExternalAction(ctx, key, "group-command:/listen", "sha256:alpha")
+	if err != nil || won || receipt == nil || receipt.Status != ExternalActionCompleted {
+		t.Fatalf("completed replay = %+v created=%v err=%v", receipt, won, err)
+	}
+	if receipt, won, err = s.BeginExternalAction(ctx, key, "group-command:/listen", "sha256:changed"); !errors.Is(err, ErrConflict) || won || receipt == nil {
+		t.Fatalf("payload mutation = %+v created=%v err=%v", receipt, won, err)
+	}
+	if receipt, won, err = s.BeginExternalAction(ctx, key, "group-command:/new", "sha256:alpha"); !errors.Is(err, ErrConflict) || won || receipt == nil {
+		t.Fatalf("kind mutation = %+v created=%v err=%v", receipt, won, err)
+	}
+
+	recoverableKey := "http:file-upload:recoverable"
+	if _, won, err = s.BeginExternalAction(ctx, recoverableKey, "file-upload", "sha256:file"); err != nil || !won {
+		t.Fatalf("begin recoverable action: won=%v err=%v", won, err)
+	}
+	if err := s.FailExternalAction(ctx, recoverableKey, "temporary database failure"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CompleteRecoverableExternalAction(ctx, recoverableKey); err != nil {
+		t.Fatal(err)
+	}
+	receipt, won, err = s.BeginExternalAction(ctx, recoverableKey, "file-upload", "sha256:file")
+	if err != nil || won || receipt == nil || receipt.Status != ExternalActionCompleted || receipt.LastError != "" {
+		t.Fatalf("recovered action = %+v created=%v err=%v", receipt, won, err)
+	}
+}
+
+func TestDeliveryReceiptCleanupKeepsUncertainBoundaries(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	recipient := mkUser(t, s, "receipt-cleanup-recipient", false)
+
+	if _, created, err := s.BeginNotificationDelivery(ctx, "delivery:old-terminal", recipient.ID, "sha256:terminal"); err != nil || !created {
+		t.Fatalf("begin terminal notification created=%v err=%v", created, err)
+	}
+	if err := s.MarkNotificationDeliveryDelivered(ctx, "delivery:old-terminal", time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if _, created, err := s.BeginNotificationDelivery(ctx, "delivery:old-uncertain", recipient.ID, "sha256:uncertain"); err != nil || !created {
+		t.Fatalf("begin uncertain notification created=%v err=%v", created, err)
+	}
+	if _, created, err := s.BeginExternalAction(ctx, "action:old-terminal", "test", "sha256:terminal"); err != nil || !created {
+		t.Fatalf("begin terminal action created=%v err=%v", created, err)
+	}
+	if err := s.CompleteExternalAction(ctx, "action:old-terminal"); err != nil {
+		t.Fatal(err)
+	}
+	if _, created, err := s.BeginExternalAction(ctx, "action:old-uncertain", "test", "sha256:uncertain"); err != nil || !created {
+		t.Fatalf("begin uncertain action created=%v err=%v", created, err)
+	}
+	if _, created, err := s.BeginExternalAction(ctx, "action:recent-expired-result", "test", "sha256:result"); err != nil || !created {
+		t.Fatalf("begin result action created=%v err=%v", created, err)
+	}
+	if err := s.CompleteExternalActionWithResult(ctx, "action:recent-expired-result", "one-time-secret", time.Now().UTC().Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, created, err := s.BeginWorkerLLMCall(ctx, recipient.ID, "llm-old-terminal", "sha256:terminal"); err != nil || !created {
+		t.Fatalf("begin terminal worker llm call created=%v err=%v", created, err)
+	}
+	if err := s.CompleteWorkerLLMCall(ctx, recipient.ID, "llm-old-terminal", 200, []byte(`{"ok":true}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, created, err := s.BeginWorkerLLMCall(ctx, recipient.ID, "llm-old-uncertain", "sha256:uncertain"); err != nil || !created {
+		t.Fatalf("begin uncertain worker llm call created=%v err=%v", created, err)
+	}
+
+	old := time.Now().UTC().AddDate(0, 0, -100)
+	mustExec(t, s, `UPDATE notification_deliveries SET updated_at=$1 WHERE delivery_key LIKE 'delivery:old-%'`, old)
+	mustExec(t, s, `UPDATE external_action_receipts SET updated_at=$1 WHERE action_key LIKE 'action:old-%'`, old)
+	mustExec(t, s, `UPDATE worker_llm_calls SET updated_at=$1 WHERE request_id LIKE 'llm-old-%'`, old)
+	if cleared, err := s.ClearExpiredExternalActionResults(ctx, time.Now().UTC()); err != nil || cleared != 1 {
+		t.Fatalf("expired action results cleared=%d err=%v", cleared, err)
+	}
+	notifications, actions, workerLLMCalls, err := s.DeleteExpiredDeliveryReceipts(ctx, time.Now().UTC().AddDate(0, 0, -90))
+	if err != nil || notifications != 1 || actions != 1 || workerLLMCalls != 1 {
+		t.Fatalf("cleanup notifications=%d actions=%d worker_llm_calls=%d err=%v", notifications, actions, workerLLMCalls, err)
+	}
+	for table, keys := range map[string][3]string{
+		"notification_deliveries":  {"delivery_key", "delivery:old-terminal", "delivery:old-uncertain"},
+		"external_action_receipts": {"action_key", "action:old-terminal", "action:old-uncertain"},
+		"worker_llm_calls":         {"request_id", "llm-old-terminal", "llm-old-uncertain"},
+	} {
+		keyColumn, terminal, uncertain := keys[0], keys[1], keys[2]
+		var terminalCount, uncertainCount int
+		if err := s.pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE %s=$1`, table, keyColumn), terminal).Scan(&terminalCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*) FROM %s WHERE %s=$1`, table, keyColumn), uncertain).Scan(&uncertainCount); err != nil {
+			t.Fatal(err)
+		}
+		if terminalCount != 0 || uncertainCount != 1 {
+			t.Fatalf("%s terminal=%d uncertain=%d, want 0/1", table, terminalCount, uncertainCount)
+		}
+	}
+	receipt, created, err := s.BeginExternalAction(ctx, "action:recent-expired-result", "test", "sha256:result")
+	if err != nil || created || receipt == nil || receipt.Status != ExternalActionCompleted || receipt.ResultText != "" || receipt.ResultUntil != nil {
+		t.Fatalf("expired result cleanup = %+v created=%v err=%v", receipt, created, err)
+	}
+}
+
+func TestWorkerLLMCallReceiptReplaysExactResponse(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	worker := mkUser(t, s, "llm-receipt-worker", false)
+
+	call, created, err := s.BeginWorkerLLMCall(ctx, worker.ID, "request-1", "sha256:alpha")
+	if err != nil || !created || call == nil || call.Status != WorkerLLMCallStarted {
+		t.Fatalf("begin worker llm call = %+v created=%v err=%v", call, created, err)
+	}
+	body := []byte(`{"choices":[{"message":{"role":"assistant","content":"done"}}]}`)
+	if err := s.CompleteWorkerLLMCall(ctx, worker.ID, "request-1", 200, body); err != nil {
+		t.Fatal(err)
+	}
+	call, created, err = s.BeginWorkerLLMCall(ctx, worker.ID, "request-1", "sha256:alpha")
+	if err != nil || created || call == nil || call.Status != WorkerLLMCallCompleted ||
+		call.HTTPStatus == nil || *call.HTTPStatus != 200 || !bytes.Equal(call.Response, body) {
+		t.Fatalf("replayed worker llm call = %+v created=%v err=%v", call, created, err)
+	}
+	if call, created, err = s.BeginWorkerLLMCall(ctx, worker.ID, "request-1", "sha256:changed"); !errors.Is(err, ErrConflict) || created || call == nil {
+		t.Fatalf("mutated worker llm replay = %+v created=%v err=%v", call, created, err)
+	}
+}
+
+func TestStableRequiredEventDoesNotReopenAfterTerminalFailure(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "stable-event-owner", true)
+	id, wake, err := s.EnqueueEventOnceWithPolicy(ctx, "task:7:ready", "task_ready", u.ID, "task 7", true)
+	if err != nil || !wake {
+		t.Fatalf("enqueue stable event = %d wake=%v err=%v", id, wake, err)
+	}
+	events, err := s.DueEvents(ctx, time.Now().UTC(), 4)
+	if err != nil || len(events) != 1 || events[0].SourceKey != "task:7:ready" {
+		t.Fatalf("claim stable event = %+v err=%v", events, err)
+	}
+	if err := s.RetryEvent(ctx, id, *events[0].ClaimedAt, eventMaxAttempts, "ambiguous transport failure"); err != nil {
+		t.Fatal(err)
+	}
+
+	duplicateID, wake, err := s.EnqueueEventOnceWithPolicy(ctx, "task:7:ready", "renamed_kind", u.ID, "changed generated detail", true)
+	if !errors.Is(err, ErrConflict) || wake || duplicateID != id {
+		t.Fatalf("terminal stable replay = %d wake=%v err=%v", duplicateID, wake, err)
+	}
+	if due, err := s.DueEvents(ctx, time.Now().UTC(), 4); err != nil || len(due) != 0 {
+		t.Fatalf("terminal stable event reopened = %+v err=%v", due, err)
 	}
 }
 
@@ -4222,9 +4856,9 @@ func TestExhaustedInterruptedClaimsReachTerminalState(t *testing.T) {
 	}
 	var deliveryID int64
 	if err := s.pool.QueryRow(ctx,
-		`INSERT INTO schedule_deliveries (schedule_id, occurrence_at, user_id, mode, message, status, attempts, claimed_at)
-		 VALUES ($1,now(),$2,'message','x','processing',$3,now()-interval '1 hour') RETURNING id`,
-		sc.ID, u.ID, scheduleRecipientMaxAttempts).Scan(&deliveryID); err != nil {
+		`INSERT INTO schedule_deliveries (schedule_id, occurrence_at, occurrence_generation, user_id, mode, message, status, attempts, claimed_at)
+		 VALUES ($1,now(),$2,$3,'message','x','processing',$4,now()-interval '1 hour') RETURNING id`,
+		sc.ID, sc.OccurrenceGeneration, u.ID, scheduleRecipientMaxAttempts).Scan(&deliveryID); err != nil {
 		t.Fatal(err)
 	}
 	if deliveries, err := s.DueScheduleDeliveries(ctx, time.Now().UTC()); err != nil || len(deliveries) != 0 {
@@ -4331,6 +4965,25 @@ func TestAutomationOutcomeExpiryAndReplaySafety(t *testing.T) {
 		`SELECT status, outcome FROM automation_runs WHERE automation_key='maintenance' AND occurrence_key='delivery-failed' AND subject_id=$1`, u.ID).
 		Scan(&status, &outcome); err != nil || status != "failed" || outcome != AutomationOutcomeSucceeded {
 		t.Fatalf("delivery failure overwrote business outcome: status=%q outcome=%q err=%v", status, outcome, err)
+	}
+
+	ambiguous, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "delivery-ambiguous", u.ID, now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareAutomationResult(ctx, ambiguous, "业务结果已持久化", AutomationOutcomeSucceeded, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.FailAutomationRunDelivery(ctx, ambiguous, "response lost after send"); err != nil {
+		t.Fatal(err)
+	}
+	var resultText, lastError string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT status, outcome, result_text, last_error FROM automation_runs
+		 WHERE automation_key='maintenance' AND occurrence_key='delivery-ambiguous' AND subject_id=$1`, u.ID).
+		Scan(&status, &outcome, &resultText, &lastError); err != nil || status != "failed" ||
+		outcome != AutomationOutcomeSucceeded || resultText != "业务结果已持久化" || !strings.Contains(lastError, "response lost") {
+		t.Fatalf("ambiguous delivery status=%q outcome=%q result=%q error=%q err=%v", status, outcome, resultText, lastError, err)
 	}
 
 	expiringDelivery, err := s.ClaimAutomationRunUntil(ctx, "maintenance", "delivery-expired", u.ID, now, now.Add(time.Minute))
@@ -4478,7 +5131,7 @@ func TestCompleteWorkerRunAtomic(t *testing.T) {
 	if reclaimed.ClaimID == "" || reclaimed.ClaimID == claimed.ClaimID {
 		t.Fatalf("重新认领应换 claim id: old=%q new=%q", claimed.ClaimID, reclaimed.ClaimID)
 	}
-	if err := s.AddWorkerRunProgress(ctx, claimed.ID, worker.ID, claimed.ClaimID, "旧进度"); !errors.Is(err, ErrNotFound) {
+	if _, err := s.AddWorkerRunProgress(ctx, claimed.ID, worker.ID, claimed.ClaimID, "stale-progress", "旧进度"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("旧 claim 进度应被拒: %v", err)
 	}
 	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID, "旧结果", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "old")); !errors.Is(err, ErrNotFound) {
@@ -4590,6 +5243,42 @@ func TestConcurrentWorkerFinalizationCommitsOnce(t *testing.T) {
 	}
 }
 
+func TestWorkerProgressRequestIsIdempotentAndImmutable(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "progress-boss", true)
+	worker, _, err := s.CreateWorker(ctx, "progress-worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := mkTask(t, s, mkProject(t, s, boss.ID).ID, boss.ID, worker.ID, "进度幂等", nil)
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inserted, err := s.AddWorkerRunProgress(ctx, claimed.ID, worker.ID, claimed.ClaimID, "progress-1", "完成 50%")
+	if err != nil || !inserted {
+		t.Fatalf("first progress inserted=%v err=%v", inserted, err)
+	}
+	inserted, err = s.AddWorkerRunProgress(ctx, claimed.ID, worker.ID, claimed.ClaimID, "progress-1", "完成 50%")
+	if err != nil || inserted {
+		t.Fatalf("progress replay inserted=%v err=%v", inserted, err)
+	}
+	if _, err := s.AddWorkerRunProgress(ctx, claimed.ID, worker.ID, claimed.ClaimID, "progress-1", "篡改后的进度"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("same request with another payload must conflict: %v", err)
+	}
+	var runCount, taskCount int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM worker_run_progress WHERE run_id=$1`, claimed.ID).Scan(&runCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM task_progress WHERE task_id=$1`, task.ID).Scan(&taskCount); err != nil {
+		t.Fatal(err)
+	}
+	if runCount != 1 || taskCount != 1 {
+		t.Fatalf("progress rows run=%d task=%d, want 1/1", runCount, taskCount)
+	}
+}
+
 // worker 产物落盘前的 claim 预校验 + 孤儿清理。
 func TestWorkerArtifactGating(t *testing.T) {
 	s := openTestStore(t)
@@ -4600,7 +5289,7 @@ func TestWorkerArtifactGating(t *testing.T) {
 		t.Fatal(err)
 	}
 	pj := mkProject(t, s, boss.ID)
-	mkTask(t, s, pj.ID, boss.ID, worker.ID, "产物任务", nil)
+	task := mkTask(t, s, pj.ID, boss.ID, worker.ID, "产物任务", nil)
 	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -4622,12 +5311,75 @@ func TestWorkerArtifactGating(t *testing.T) {
 	}
 
 	// 建一个文件、挂成产物：有引用时 DeleteOrphanFileRow 不动它。
-	f, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "a.txt", SHA256: "abc", StoragePath: "ab/abc", CreatedBy: &worker.ID})
+	f, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "a.txt", SizeBytes: 3, SHA256: "abc", StoragePath: "ab/abc", CreatedBy: &worker.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claim, f.ID, ""); err != nil {
+	canonicalID, inserted, err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claim, f.ID, "artifact-1", "report")
+	if err != nil || !inserted || canonicalID != f.ID {
+		t.Fatalf("first artifact canonical=%d inserted=%v err=%v", canonicalID, inserted, err)
+	}
+	replayFile, err := s.CreateFile(ctx, &File{Source: "worker", OriginalName: "replayed.txt", SizeBytes: 3, SHA256: "abc", StoragePath: "ab/abc", CreatedBy: &worker.ID})
+	if err != nil {
 		t.Fatal(err)
+	}
+	canonicalID, inserted, err = s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claim, replayFile.ID, "artifact-1", " report ")
+	if err != nil || inserted || canonicalID != f.ID {
+		t.Fatalf("artifact replay canonical=%d inserted=%v err=%v", canonicalID, inserted, err)
+	}
+	if _, _, err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claim, replayFile.ID, "artifact-1", "changed caption"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("same artifact request with another payload must conflict: %v", err)
+	}
+	var runFiles, taskArtifacts int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM worker_run_files WHERE run_id=$1 AND role='artifact'`, claimed.ID).Scan(&runFiles); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM task_artifacts WHERE task_id=$1`, task.ID).Scan(&taskArtifacts); err != nil {
+		t.Fatal(err)
+	}
+	if runFiles != 1 || taskArtifacts != 1 {
+		t.Fatalf("artifact rows run=%d task=%d, want 1/1", runFiles, taskArtifacts)
+	}
+
+	concurrentFiles := make([]*File, 2)
+	for i := range concurrentFiles {
+		concurrentFiles[i], err = s.CreateFile(ctx, &File{
+			Source: "worker", OriginalName: fmt.Sprintf("concurrent-%d.txt", i), SizeBytes: 4,
+			SHA256: "same", StoragePath: fmt.Sprintf("sa/same-%d", i), CreatedBy: &worker.ID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	type artifactResult struct {
+		canonicalID int64
+		inserted    bool
+		err         error
+	}
+	start := make(chan struct{})
+	results := make(chan artifactResult, len(concurrentFiles))
+	for _, candidate := range concurrentFiles {
+		candidate := candidate
+		go func() {
+			<-start
+			canonicalID, inserted, err := s.AddWorkerArtifact(ctx, claimed.ID, worker.ID, claim, candidate.ID, "artifact-concurrent", "same report")
+			results <- artifactResult{canonicalID: canonicalID, inserted: inserted, err: err}
+		}()
+	}
+	close(start)
+	first := <-results
+	second := <-results
+	if first.err != nil || second.err != nil || first.canonicalID == 0 || first.canonicalID != second.canonicalID {
+		t.Fatalf("concurrent artifact results first=%+v second=%+v", first, second)
+	}
+	if first.inserted == second.inserted {
+		t.Fatalf("concurrent artifact insert flags first=%v second=%v, want exactly one", first.inserted, second.inserted)
+	}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM worker_run_files WHERE run_id=$1 AND request_id='artifact-concurrent'`, claimed.ID).Scan(&runFiles); err != nil {
+		t.Fatal(err)
+	}
+	if runFiles != 1 {
+		t.Fatalf("concurrent artifact rows=%d, want 1", runFiles)
 	}
 	if err := s.DeleteOrphanFileRow(ctx, f.ID); err != nil {
 		t.Fatal(err)
@@ -4795,6 +5547,32 @@ func TestWorkerBindCodes(t *testing.T) {
 	if _, err := s.UserByAPIToken(ctx, token2); err != nil {
 		t.Fatalf("新 token 应可认证: %v", err)
 	}
+	// 客户端预持久化的候选 token 原样激活；响应丢失后客户端可直接用它认证恢复。
+	codeCandidate, err := s.NewWorkerBindCode(ctx, worker.ID, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := strings.Repeat("ab", 24)
+	if _, got, err := s.RedeemWorkerBindCodeWithToken(ctx, codeCandidate, candidate); err != nil || got != candidate {
+		t.Fatalf("候选 token 兑换 got=%q err=%v", got, err)
+	}
+	if authed, err := s.UserByAPIToken(ctx, candidate); err != nil || authed.ID != worker.ID {
+		t.Fatalf("候选 token 未激活: user=%+v err=%v", authed, err)
+	}
+	if replayed, got, err := s.RedeemWorkerBindCodeWithToken(ctx, codeCandidate, candidate); err != nil ||
+		replayed.ID != worker.ID || got != candidate {
+		t.Fatalf("兑换响应丢失后的服务端恢复 user=%+v token=%q err=%v", replayed, got, err)
+	}
+	codeInvalid, err := s.NewWorkerBindCode(ctx, worker.ID, boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.RedeemWorkerBindCodeWithToken(ctx, codeInvalid, "weak"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("弱候选 token 应拒绝: %v", err)
+	}
+	if _, _, err := s.RedeemWorkerBindCode(ctx, codeInvalid); err != nil {
+		t.Fatalf("格式错误不应消费绑定码: %v", err)
+	}
 	// 过期码不可兑换。
 	code3, err := s.NewWorkerBindCode(ctx, worker.ID, boss.ID)
 	if err != nil {
@@ -4820,6 +5598,43 @@ func TestWorkerBindCodes(t *testing.T) {
 	}
 	if _, _, err := s.RedeemWorkerBindCode(ctx, code4); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("停用 worker 的绑定码应作废, got %v", err)
+	}
+}
+
+func TestWorkerBindCodeResultsRecoverByInvocation(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "worker-recovery-boss", true)
+
+	worker, code, err := s.CreateWorkerForRequest(ctx, "recoverable-worker", boss.ID, "create-request-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayedWorker, replayedCode, err := s.CreateWorkerForRequest(ctx, "recoverable-worker", boss.ID, "create-request-1")
+	if err != nil || replayedWorker.ID != worker.ID || replayedCode != code {
+		t.Fatalf("create recovery worker=%+v code_equal=%v err=%v", replayedWorker, replayedCode == code, err)
+	}
+	byRequest, recoveredCode, err := s.WorkerBindCodeByRequest(ctx, boss.ID, "create-request-1")
+	if err != nil || byRequest.ID != worker.ID || recoveredCode != code {
+		t.Fatalf("lookup recovery worker=%+v code_equal=%v err=%v", byRequest, recoveredCode == code, err)
+	}
+
+	issued, err := s.NewWorkerBindCodeForRequest(ctx, worker.ID, boss.ID, "issue-request-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuedAgain, err := s.NewWorkerBindCodeForRequest(ctx, worker.ID, boss.ID, "issue-request-1")
+	if err != nil || issuedAgain != issued {
+		t.Fatalf("issue recovery code_equal=%v err=%v", issuedAgain == issued, err)
+	}
+	if _, got, err := s.WorkerBindCodeByRequest(ctx, boss.ID, "issue-request-1"); err != nil || got != issued {
+		t.Fatalf("issue lookup code_equal=%v err=%v", got == issued, err)
+	}
+	if err := s.ClearWorkerBindCodeRecovery(ctx, boss.ID, "issue-request-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.WorkerBindCodeByRequest(ctx, boss.ID, "issue-request-1"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("持久调用结果后应清理恢复明文: %v", err)
 	}
 }
 
@@ -5377,7 +6192,7 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 
 	// Active role changes preserve an explicit listener choice and do not
 	// announce again.
-	if err := s.SetKV(ctx, TelegramGroupListenKey(chatID), ""); err != nil {
+	if err := s.SetTelegramGroupListen(ctx, chatID, false); err != nil {
 		t.Fatal(err)
 	}
 	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
@@ -5389,6 +6204,16 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 	state, err := s.TelegramGroupState(ctx, chatID)
 	if err != nil || state.Listen {
 		t.Fatalf("role change should preserve disabled listening: state=%+v err=%v", state, err)
+	}
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: chatID, Title: "并发群", Type: "supergroup",
+	}, true)
+	if err != nil || joined {
+		t.Fatalf("imprecise active observation joined=%v err=%v", joined, err)
+	}
+	state, err = s.TelegramGroupState(ctx, chatID)
+	if err != nil || state.Status != "administrator" {
+		t.Fatalf("imprecise observation downgraded role: state=%+v err=%v", state, err)
 	}
 
 	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
@@ -5402,6 +6227,112 @@ func TestTelegramGroupMembershipTransitionIsAtomicAndReusable(t *testing.T) {
 	}, true)
 	if err != nil || !joined {
 		t.Fatalf("rejoin joined=%v err=%v", joined, err)
+	}
+
+	// Reordered webhook retries cannot roll membership backward. Equal update IDs
+	// may still refine an imprecise service observation with an authoritative role.
+	const orderedChatID int64 = -2003
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", LastMembershipUpdateID: 300,
+	}, true)
+	if err != nil || !joined {
+		t.Fatalf("ordered first join joined=%v err=%v", joined, err)
+	}
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "administrator", LastMembershipUpdateID: 300,
+	}, true)
+	if err != nil || joined {
+		t.Fatalf("same update role refinement joined=%v err=%v", joined, err)
+	}
+	if _, err := s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "left", LastMembershipUpdateID: 301,
+	}, false); err != nil {
+		t.Fatal(err)
+	}
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 299,
+	}, true)
+	if err != nil || joined {
+		t.Fatalf("stale join must be ignored: joined=%v err=%v", joined, err)
+	}
+	state, err = s.TelegramGroupState(ctx, orderedChatID)
+	if err != nil || state.Status != "left" || state.LastMembershipUpdateID != 301 {
+		t.Fatalf("stale join changed state: state=%+v err=%v", state, err)
+	}
+	if err := s.MergeTelegramGroupObservation(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "普通消息观测", Type: "supergroup", Status: "member", Listen: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	state, err = s.TelegramGroupState(ctx, orderedChatID)
+	if err != nil || state.Status != "left" || state.LastMembershipUpdateID != 301 || state.Title != "普通消息观测" {
+		t.Fatalf("ordinary observation overwrote membership: state=%+v err=%v", state, err)
+	}
+	if state.Listen {
+		t.Fatalf("ordinary observation overwrote authoritative listen switch: %+v", state)
+	}
+	if err := s.SetTelegramGroupTitle(ctx, orderedChatID, "新群名"); err != nil {
+		t.Fatal(err)
+	}
+	state, err = s.TelegramGroupState(ctx, orderedChatID)
+	if err != nil || state.Title != "新群名" || state.Status != "left" || state.LastMembershipUpdateID != 301 || state.Listen {
+		t.Fatalf("title-only update overwrote group state: state=%+v err=%v", state, err)
+	}
+	joined, err = s.TransitionTelegramGroupMembership(ctx, TelegramGroupState{
+		ChatID: orderedChatID, Title: "乱序群", Type: "supergroup", Status: "member", LastMembershipUpdateID: 302,
+	}, true)
+	if err != nil || !joined {
+		t.Fatalf("newer rejoin joined=%v err=%v", joined, err)
+	}
+}
+
+func TestTelegramGroupMessageStateIsMonotonic(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	const chatID int64 = -2010
+
+	for _, messageID := range []int{102, 99, 101, 103, 100} {
+		if err := s.SaveTelegramGroupLastMessage(ctx, chatID, messageID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lastMessageID, err := s.TelegramGroupLastMessage(ctx, chatID)
+	if err != nil || lastMessageID != 103 {
+		t.Fatalf("last Telegram message regressed: id=%d err=%v", lastMessageID, err)
+	}
+
+	newerSeenAt := time.Now().UTC().Truncate(time.Second)
+	if err := s.SaveTelegramGroupSeenMember(ctx, TelegramGroupSeenMember{
+		ChatID: chatID, UserID: 42, Name: "新名字", Username: "new", LastSeen: newerSeenAt,
+		LastText: "最新发言", MessageID: 103,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveTelegramGroupSeenMember(ctx, TelegramGroupSeenMember{
+		ChatID: chatID, UserID: 42, Name: "旧名字", Username: "old", LastSeen: newerSeenAt.Add(time.Second),
+		LastText: "旧发言", MessageID: 99,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	members, err := s.ListTelegramGroupSeenMembers(ctx, chatID, 10)
+	if err != nil || len(members) != 1 || members[0].Name != "新名字" || members[0].Username != "new" {
+		t.Fatalf("older message regressed member identity: members=%+v err=%v", members, err)
+	}
+	if err := s.SaveTelegramGroupSeenMember(ctx, TelegramGroupSeenMember{
+		ChatID: chatID, UserID: 42, Name: "成员事件名字", Username: "member-event", LastSeen: newerSeenAt.Add(2 * time.Second),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	members, err = s.ListTelegramGroupSeenMembers(ctx, chatID, 10)
+	if err != nil || len(members) != 1 {
+		t.Fatalf("seen members=%+v err=%v", members, err)
+	}
+	got := members[0]
+	if got.MessageID != 103 || got.LastText != "最新发言" {
+		t.Fatalf("older observation erased latest message: %+v", got)
+	}
+	if got.Name != "成员事件名字" || got.Username != "member-event" || !got.LastSeen.Equal(newerSeenAt.Add(2*time.Second)) {
+		t.Fatalf("membership observation was not merged: %+v", got)
 	}
 }
 

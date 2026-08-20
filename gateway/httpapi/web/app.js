@@ -119,18 +119,38 @@ function addLog(source, level, message, status = "", duration = "") {
   renderLogsOnly();
 }
 
+function newRequestID() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  globalThis.crypto?.getRandomValues?.(bytes);
+  const random = bytes.some(Boolean)
+    ? Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("")
+    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  return `web-${random}`;
+}
+
 async function api(path, opts = {}) {
   const started = performance.now();
   const headers = { ...(opts.headers || {}) };
+	const method = String(opts.method || "GET").toUpperCase();
   if (tg && !useAccessToken) headers["X-Telegram-Init-Data"] = tg.initData;
   else headers.Authorization = "Bearer " + storage.token;
+	if (method !== "GET" && method !== "HEAD" && !headers["Idempotency-Key"]) {
+		headers["Idempotency-Key"] = newRequestID();
+	}
   if (opts.body && !(opts.body instanceof FormData) && !Object.prototype.hasOwnProperty.call(headers, "Content-Type")) {
     headers["Content-Type"] = "application/json";
   }
-  const res = await fetch(path, { ...opts, headers });
+  let res;
+  try {
+    res = await fetch(path, { ...opts, headers });
+  } catch (err) {
+    if (method === "GET" || method === "HEAD" || !headers["Idempotency-Key"]) throw err;
+    res = await fetch(path, { ...opts, headers });
+  }
   const duration = `${Math.max(1, Math.round(performance.now() - started))}ms`;
   const level = res.ok ? "INFO" : "WARN";
-  addLog("http", level, `${opts.method || "GET"} ${path}`, String(res.status), duration);
+  addLog("http", level, `${method} ${path}`, String(res.status), duration);
   if (res.status === 401) {
     storage.token = "";
     state.me = null;
@@ -344,7 +364,11 @@ function renderCommandRoute() {
   const decisions = state.decisions.length;
   const activeWorkers = state.workers.filter(w => w.online).length;
 	const health = state.ops?.product_health || {};
-	const exceptionCount = [health.delivery_failures_24h, health.tool_failures_24h,
+	const exceptionCount = [health.delivery_failures_24h, health.notification_failures_24h,
+		health.notification_uncertain, health.external_action_failures_24h, health.external_action_uncertain,
+		health.telegram_inbound_failures_24h, health.telegram_inbound_backlog,
+		health.telegram_delivery_failures_24h, health.telegram_delivery_uncertain,
+		health.worker_llm_failures_24h, health.worker_llm_uncertain, health.tool_failures_24h,
 		health.action_failures_24h, health.conversation_failures_24h, health.worker_needs_input,
 		health.worker_retrying, health.learning_conflicts, state.ops?.evals?.failing_cases]
 		.filter(value => Number(value || 0) > 0).length;
@@ -441,6 +465,16 @@ function renderProductExceptions() {
 		["动作工具失败", health.action_failures_24h, "近24小时", "action"],
 		["底层工具错误", health.tool_failures_24h, "近24小时", "tool"],
 		["定时投递失败", health.delivery_failures_24h, "近24小时", "schedule"],
+		["外部通知失败", health.notification_failures_24h, "近24小时", "notification"],
+		["外部通知结果不确定", health.notification_uncertain, "当前", "notification"],
+		["渠道直达动作失败", health.external_action_failures_24h, "近24小时", "transport"],
+		["渠道直达动作中断", health.external_action_uncertain, "当前", "transport"],
+		["Telegram 入站失败", health.telegram_inbound_failures_24h, "近24小时", "telegram"],
+		["Telegram 入站积压", health.telegram_inbound_backlog, "当前", "telegram"],
+		["Telegram 分片失败", health.telegram_delivery_failures_24h, "近24小时", "telegram"],
+		["Telegram 分片不确定", health.telegram_delivery_uncertain, "当前", "telegram"],
+		["Worker 模型调用失败", health.worker_llm_failures_24h, "近24小时", "worker"],
+		["Worker 模型调用不确定", health.worker_llm_uncertain, "当前", "worker"],
 		["Worker 待补充", health.worker_needs_input, "当前", "worker"],
 		["Worker 等待重试", health.worker_retrying, "当前", "worker"],
 		["学习候选冲突", health.learning_conflicts, "当前", "learning"],
@@ -732,7 +766,7 @@ function renderOpsRoute() {
 		<div class="metrics">
 			${metric("message-circle", "群聊工作证据", Number(state.ops?.work_evidence?.observed_messages || 0), "近7天")}
 			${metric("folder-up", "待处理材料", Number(state.ops?.materials?.stats?.received || 0) + Number(state.ops?.materials?.stats?.queued || 0) + Number(state.ops?.materials?.stats?.processing || 0) + Number(state.ops?.materials?.stats?.needs_input || 0), `${Number(state.ops?.materials?.stats?.needs_input || 0)} 需补充`)}
-			${metric("alert-triangle", "24小时异常类别", [health.tool_failures_24h, health.action_failures_24h, health.conversation_failures_24h].filter(value => Number(value || 0) > 0).length, "工具 / 动作 / 对话")}
+			${metric("alert-triangle", "异常类别", [health.tool_failures_24h, health.action_failures_24h, health.conversation_failures_24h, health.delivery_failures_24h, health.notification_failures_24h, health.notification_uncertain, health.external_action_failures_24h, health.external_action_uncertain, health.telegram_inbound_failures_24h, health.telegram_inbound_backlog, health.telegram_delivery_failures_24h, health.telegram_delivery_uncertain, health.worker_llm_failures_24h, health.worker_llm_uncertain].filter(value => Number(value || 0) > 0).length, "执行 / 投递 / 渠道")}
 			${metric("test-pipe", "评测健康", Number(evals.passing_cases || 0), `${Number(evals.failing_cases || 0)} 未通过`)}
 		</div>
     <div class="two-col">
@@ -876,7 +910,7 @@ function renderInspector() {
 	}
 	if (state.route === "ops") {
 		const health = state.ops?.product_health || {};
-		el.innerHTML = inspectorFrame("当前异常", "activity", `<dl class="kv"><dt>对话失败</dt><dd>${Number(health.conversation_failures_24h || 0)}</dd><dt>动作失败</dt><dd>${Number(health.action_failures_24h || 0)}</dd><dt>投递失败</dt><dd>${Number(health.delivery_failures_24h || 0)}</dd><dt>Worker 待输入</dt><dd>${Number(health.worker_needs_input || 0)}</dd></dl>`);
+		el.innerHTML = inspectorFrame("当前异常", "activity", `<dl class="kv"><dt>对话失败</dt><dd>${Number(health.conversation_failures_24h || 0)}</dd><dt>Agent 动作失败</dt><dd>${Number(health.action_failures_24h || 0)}</dd><dt>定时投递失败</dt><dd>${Number(health.delivery_failures_24h || 0)}</dd><dt>外部通知失败 / 不确定</dt><dd>${Number(health.notification_failures_24h || 0)} / ${Number(health.notification_uncertain || 0)}</dd><dt>渠道动作失败 / 中断</dt><dd>${Number(health.external_action_failures_24h || 0)} / ${Number(health.external_action_uncertain || 0)}</dd><dt>Telegram 入站失败 / 积压</dt><dd>${Number(health.telegram_inbound_failures_24h || 0)} / ${Number(health.telegram_inbound_backlog || 0)}</dd><dt>Telegram 分片失败 / 不确定</dt><dd>${Number(health.telegram_delivery_failures_24h || 0)} / ${Number(health.telegram_delivery_uncertain || 0)}</dd><dt>Worker 模型失败 / 不确定</dt><dd>${Number(health.worker_llm_failures_24h || 0)} / ${Number(health.worker_llm_uncertain || 0)}</dd><dt>Worker 待输入</dt><dd>${Number(health.worker_needs_input || 0)}</dd></dl>`);
 		return;
 	}
   const selected = selectedItem();

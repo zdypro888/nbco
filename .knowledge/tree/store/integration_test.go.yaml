@@ -1245,9 +1245,31 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestTelegramGroupMembershipTransitionIsAtomicAndReusable
-        hash: sha256:96161670329169b27f20859bab52695a4936dba775014b93acc5c31bba2af0cc
-        struct_hash: sha256:0a67eca1b643dcb06b94014833d538ee6299ba85b4a18a98b44389731cd59d66
-        doc_struct_hash: sha256:0a67eca1b643dcb06b94014833d538ee6299ba85b4a18a98b44389731cd59d66
-        lines: [5323, 5406]
+        hash: sha256:a7d0f81409ff4558fbb5bde7785beff6e0e130b178ca38c4e6c886d85fbe3c42
+        struct_hash: sha256:fcfa78bbbb6973174003cb19766f97b7767b4eaeae30e0f3a716738d7da88149
+        doc_struct_hash: sha256:fcfa78bbbb6973174003cb19766f97b7767b4eaeae30e0f3a716738d7da88149
+        lines: [6138, 6287]
       status: fresh
       since: 2026-08-20T08:21:06.530474Z
+    - id: store/integration_test.go#TestTelegramInboundHeartbeatOnlyRenewsActiveClaims
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestTelegramInboundHeartbeatOnlyRenewsActiveClaims
+        hash: sha256:887cfd528261dc2e354c2a367c6c96cd6496c6771835639a70b1d832fff28786
+        struct_hash: sha256:72b225e0c3097877d273fb061f8d89d0c404d73e1677661c638e4c5c00f568d4
+        doc_struct_hash: sha256:72b225e0c3097877d273fb061f8d89d0c404d73e1677661c638e4c5c00f568d4
+        lines: [4444, 4468]
+      status: fresh
+      since: 2026-08-20T12:56:16.168186Z
+    - id: store/integration_test.go#TestTelegramGroupMessageStateIsMonotonic
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestTelegramGroupMessageStateIsMonotonic
+        hash: sha256:74a210b7f4fe2823cbd91fa81021348cf28f971a872be83a43accec403a832f7
+        struct_hash: sha256:8bf2113eaa2a1d8753aaae3565880e94d0d08fc5121732f3c96d3e5f5da9e030
+        doc_struct_hash: sha256:8bf2113eaa2a1d8753aaae3565880e94d0d08fc5121732f3c96d3e5f5da9e030
+        lines: [6289, 6337]
+      status: fresh
+      since: 2026-08-20T12:56:34.522159Z

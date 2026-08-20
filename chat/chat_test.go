@@ -541,6 +541,19 @@ func TestAutomationAssessmentCannotInventActionSuccess(t *testing.T) {
 	}
 }
 
+func TestAutomationInvocationScopeSeparatesOccurrences(t *testing.T) {
+	first := automationInvocationScope(7, "scheduler", "daily:2026-08-20")
+	retry := automationInvocationScope(7, "scheduler", "daily:2026-08-20")
+	next := automationInvocationScope(7, "scheduler", "daily:2026-08-21")
+	otherChannel := automationInvocationScope(7, "events", "daily:2026-08-20")
+	if first == "" || first != retry {
+		t.Fatalf("same occurrence is not stable: first=%q retry=%q", first, retry)
+	}
+	if first == next || first == otherChannel {
+		t.Fatalf("distinct automation executions collided: first=%q next=%q channel=%q", first, next, otherChannel)
+	}
+}
+
 func TestAutomationAssessmentAcceptsNoChangeFromTrustedSchedulerFacts(t *testing.T) {
 	engine := &fakeEngine{reply: `{"outcome":"no_change","summary":"候选证据不足，保持待审","reason":"现有事实不足以批准或拒绝"}`}
 	orchestrator := &Orchestrator{engine: engine}

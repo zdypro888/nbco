@@ -937,46 +937,98 @@ func deleteUnreferencedFileRowTx(ctx context.Context, tx pgx.Tx, fileID int64) (
 
 // AddWorkerArtifact records the file against the run. Linked business tasks
 // also receive the artifact projection used by review and subsequent rework.
-func (s *Store) AddWorkerArtifact(ctx context.Context, runID, workerID int64, claimID string, fileID int64, caption string) error {
+func (s *Store) AddWorkerArtifact(ctx context.Context, runID, workerID int64, claimID string, fileID int64, requestID, caption string) (canonicalFileID int64, inserted bool, err error) {
+	caption = strings.TrimSpace(caption)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return 0, false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	taskID, err := lockWorkerRunTx(ctx, tx, runID, workerID)
 	if err != nil {
-		return err
+		return 0, false, err
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE worker_runs SET claimed_at = now(), updated_at = now()
 		 WHERE id = $1 AND worker_id = $2 AND status = 'claimed' AND claim_id = $3
 		`, runID, workerID, claimID); err != nil {
-		return wrapErr(err)
+		return 0, false, wrapErr(err)
 	}
 	attemptTag, err := tx.Exec(ctx,
 		`UPDATE worker_run_attempts SET heartbeat_at = now(), updated_at = now()
 		 WHERE run_id = $1 AND worker_id = $2 AND claim_id = $3 AND status = 'claimed'`, runID, workerID, claimID)
 	if err != nil {
-		return wrapErr(err)
+		return 0, false, wrapErr(err)
 	}
 	if attemptTag.RowsAffected() == 0 {
-		return ErrNotFound
+		return 0, false, ErrNotFound
+	}
+	requestID = strings.TrimSpace(requestID)
+	var incomingSHA string
+	var incomingSize int64
+	if err := tx.QueryRow(ctx,
+		`SELECT sha256, size_bytes FROM files WHERE id=$1 AND created_by=$2`, fileID, workerID).
+		Scan(&incomingSHA, &incomingSize); err != nil {
+		return 0, false, wrapErr(err)
+	}
+	if requestID != "" {
+		var existingID, existingSize int64
+		var existingSHA, existingCaption string
+		err := tx.QueryRow(ctx,
+			`SELECT rf.file_id, f.sha256, f.size_bytes, rf.caption
+			   FROM worker_run_files rf JOIN files f ON f.id=rf.file_id
+			  WHERE rf.run_id=$1 AND rf.request_id=$2`, runID, requestID).
+			Scan(&existingID, &existingSHA, &existingSize, &existingCaption)
+		switch {
+		case err == nil:
+			if existingSHA != incomingSHA || existingSize != incomingSize || existingCaption != caption {
+				return 0, false, ErrConflict
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return 0, false, err
+			}
+			return existingID, false, nil
+		case wrapErr(err) != ErrNotFound:
+			return 0, false, wrapErr(err)
+		}
 	}
 	fileTag, err := tx.Exec(ctx,
-		`INSERT INTO worker_run_files (run_id, file_id, role, caption, created_by)
-		 VALUES ($1,$2,'artifact',$3,$4) ON CONFLICT DO NOTHING`,
-		runID, fileID, caption, workerID)
+		`INSERT INTO worker_run_files (run_id, file_id, role, caption, created_by, request_id)
+		 VALUES ($1,$2,'artifact',$3,$4,$5) ON CONFLICT DO NOTHING`,
+		runID, fileID, caption, workerID, requestID)
 	if err != nil {
-		return wrapErr(err)
+		return 0, false, wrapErr(err)
 	}
-	if taskID != nil && fileTag.RowsAffected() == 1 {
+	inserted = fileTag.RowsAffected() == 1
+	canonicalFileID = fileID
+	if !inserted && requestID != "" {
+		var existingID, existingSize int64
+		var existingSHA, existingCaption string
+		err := tx.QueryRow(ctx,
+			`SELECT rf.file_id, f.sha256, f.size_bytes, rf.caption
+			   FROM worker_run_files rf JOIN files f ON f.id=rf.file_id
+			  WHERE rf.run_id=$1 AND rf.request_id=$2`, runID, requestID).
+			Scan(&existingID, &existingSHA, &existingSize, &existingCaption)
+		if err == nil {
+			if existingSHA != incomingSHA || existingSize != incomingSize || existingCaption != caption {
+				return 0, false, ErrConflict
+			}
+			canonicalFileID = existingID
+		} else if wrapErr(err) != ErrNotFound {
+			return 0, false, wrapErr(err)
+		}
+	}
+	if taskID != nil && inserted {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO task_artifacts (task_id, file_id, claim_id, created_by, caption)
 			 VALUES ($1,$2,$3,$4,$5)`, *taskID, fileID, claimID, workerID, caption); err != nil {
-			return wrapErr(err)
+			return 0, false, wrapErr(err)
 		}
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return 0, false, err
+	}
+	return canonicalFileID, inserted, nil
 }
 
 // TaskArtifacts 返回任务产物。

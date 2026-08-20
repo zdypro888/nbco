@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: ai/einoengine/tool_scope.go
         symbol: turnToolMiddleware.AfterModelRewriteState
-        hash: sha256:447764b8660bd7dd1dc4c4656194979d28c3f39f998210e53951fee2000ebd92
-        struct_hash: sha256:9bd8fc5632f224589fca362101e9fac5a963dff8811613c174498d8901a12567
-        doc_struct_hash: sha256:93d1f6ffbd56f2b6c14dab77b30e3406ffb5c722ea14204810edb5ef5c340d5b
-        lines: [127, 175]
+        hash: sha256:8e07b77a3782e8653512bc3b7bc78804126d8a0b3e6371ff899d0171baa67688
+        struct_hash: sha256:424fef06fe8b8a4a4ce77dcfe5c4cedbf39fe688857982d7e8cbc125c8503ba9
+        doc_struct_hash: sha256:21cacf781ce8108efad80b31bcc4bad699a2ab6ed9a42981f3824c1fed0d3162
+        lines: [130, 178]
       status: fresh
       since: 2026-07-20T12:05:19.429632Z
     - id: ai/einoengine/tool_scope.go#turnToolMiddleware.WrapModel

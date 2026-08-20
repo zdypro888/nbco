@@ -184,3 +184,25 @@ nodes:
         lines: [301, 370]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: gateway/httpapi/httpapi_test.go#TestDecodeJSONRejectsTrailingValues
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi_test.go
+        symbol: TestDecodeJSONRejectsTrailingValues
+        hash: sha256:a90074e2c184e5aadd6bc76fa39daa779f09d78c11bf32dcf7be1282a9c2a466
+        struct_hash: sha256:0c29967ef9ac7c7582712231f1fb357c799e651c76f6670d8bb49edc1a85c194
+        doc_struct_hash: sha256:0c29967ef9ac7c7582712231f1fb357c799e651c76f6670d8bb49edc1a85c194
+        lines: [98, 121]
+      status: fresh
+      since: 2026-08-20T12:56:58.30613Z
+    - id: gateway/httpapi/httpapi_test.go#TestTelegramWebhookRouteIsMethodScoped
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi_test.go
+        symbol: TestTelegramWebhookRouteIsMethodScoped
+        hash: sha256:2c5ff1cf69c32ed449fa17b28e9745647df020c64eb513fdfea00b4741700d60
+        struct_hash: sha256:fb1ee4a924534cb9cebf205388393f18b2ed2f260ded8ad421ee12a0717864a1
+        doc_struct_hash: sha256:fb1ee4a924534cb9cebf205388393f18b2ed2f260ded8ad421ee12a0717864a1
+        lines: [199, 227]
+      status: fresh
+      since: 2026-08-20T12:56:58.308476Z

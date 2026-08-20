@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/telegram/delivery_test.go
+      level: file
+      anchor:
+        file: gateway/telegram/delivery_test.go
+        hash: sha256:b6a7677dca5ff3910841ad08d51986d8746a2e1156607f8a36fa5cfd0753e32b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T12:56:25.170007Z
+    - id: gateway/telegram/delivery_test.go#TestDeliverTelegramPartOnceDoesNotRepeatAnEditOrSend
+      level: function
+      anchor:
+        file: gateway/telegram/delivery_test.go
+        symbol: TestDeliverTelegramPartOnceDoesNotRepeatAnEditOrSend
+        hash: sha256:e6a6f2f5e33eb8a3bc0434c33ed54eae213bce9f88493ae0c05c9c5913c81182
+        struct_hash: sha256:13ac4c2835f45f0938c6212f91e6d34229f5d8a202049c1adaac6bb055f7e2e4
+        doc_struct_hash: sha256:13ac4c2835f45f0938c6212f91e6d34229f5d8a202049c1adaac6bb055f7e2e4
+        lines: [59, 84]
+      status: fresh
+      since: 2026-08-20T12:56:25.169987Z
+    - id: gateway/telegram/delivery_test.go#TestDeliverTelegramPartOnceSettlesFailedBoundary
+      level: function
+      anchor:
+        file: gateway/telegram/delivery_test.go
+        symbol: TestDeliverTelegramPartOnceSettlesFailedBoundary
+        hash: sha256:aa90c648117a476bdf5cd842c04b049241ed3d1e84809c9ffcd89913f9b58ba2
+        struct_hash: sha256:881d468cd3c557b8da27e5e6c4e4a3816793e791646c2adeb4bcb8b6e456b136
+        doc_struct_hash: sha256:881d468cd3c557b8da27e5e6c4e4a3816793e791646c2adeb4bcb8b6e456b136
+        lines: [86, 97]
+      status: fresh
+      since: 2026-08-20T12:56:25.170338Z

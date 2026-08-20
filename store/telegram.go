@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,12 +22,13 @@ const KVTelegramPendingEmployeeInvitePrefix = "telegram.pending_employee_invite:
 // TelegramGroupState 记录 bot 与 Telegram 群的接入事实。
 // 这是系统事实状态，不是聊天记忆；AI 回答群接入问题时应以它为准。
 type TelegramGroupState struct {
-	ChatID    int64     `json:"chat_id"`
-	Title     string    `json:"title"`
-	Type      string    `json:"type"`
-	Status    string    `json:"status"`
-	Listen    bool      `json:"listen"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ChatID                 int64     `json:"chat_id"`
+	Title                  string    `json:"title"`
+	Type                   string    `json:"type"`
+	Status                 string    `json:"status"`
+	Listen                 bool      `json:"listen"`
+	LastMembershipUpdateID int64     `json:"last_membership_update_id,omitempty"`
+	UpdatedAt              time.Time `json:"updated_at"`
 }
 
 type TelegramGroupSeenMember struct {
@@ -110,11 +112,157 @@ func (s *Store) SaveTelegramGroupState(ctx context.Context, st TelegramGroupStat
 	if st.UpdatedAt.IsZero() {
 		st.UpdatedAt = time.Now()
 	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, telegramGroupMembershipKey(st.ChatID)); err != nil {
+		return err
+	}
 	raw, err := json.Marshal(st)
 	if err != nil {
 		return err
 	}
-	return s.SetKV(ctx, telegramGroupKey(st.ChatID), string(raw))
+	listenValue := ""
+	if st.Listen {
+		listenValue = "1"
+	}
+	for key, value := range map[string]string{
+		telegramGroupKey(st.ChatID):       string(raw),
+		TelegramGroupListenKey(st.ChatID): listenValue,
+	} {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO kv_state (key, value) VALUES ($1,$2)
+			 ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, key, value); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// SetTelegramGroupListen changes the operational listen switch and its
+// denormalized group-state view in one transaction. All membership and
+// observation writers use the same advisory lock, so concurrent updates cannot
+// leave the two KV records disagreeing.
+func (s *Store) SetTelegramGroupListen(ctx context.Context, chatID int64, listen bool) error {
+	return s.updateTelegramGroupView(ctx, chatID, func(st *TelegramGroupState) {
+		st.Listen = listen
+	}, &listen)
+}
+
+// SetTelegramGroupTitle updates only the mutable display fact while preserving
+// membership ordering and listener state owned by their dedicated paths.
+func (s *Store) SetTelegramGroupTitle(ctx context.Context, chatID int64, title string) error {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return ErrNotFound
+	}
+	return s.updateTelegramGroupView(ctx, chatID, func(st *TelegramGroupState) {
+		st.Title = title
+	}, nil)
+}
+
+func (s *Store) updateTelegramGroupView(ctx context.Context, chatID int64, update func(*TelegramGroupState), listen *bool) error {
+	if chatID == 0 || update == nil {
+		return ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, telegramGroupMembershipKey(chatID)); err != nil {
+		return err
+	}
+	var raw string
+	if err := tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key=$1`, telegramGroupKey(chatID)).Scan(&raw); err != nil {
+		return wrapErr(err)
+	}
+	var st TelegramGroupState
+	if err := json.Unmarshal([]byte(raw), &st); err != nil {
+		return fmt.Errorf("解析 Telegram 群状态: %w", err)
+	}
+	update(&st)
+	st.UpdatedAt = time.Now()
+	rawBytes, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1,$2)
+		 ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, telegramGroupKey(chatID), string(rawBytes)); err != nil {
+		return err
+	}
+	if listen != nil {
+		value := ""
+		if *listen {
+			value = "1"
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO kv_state (key, value) VALUES ($1,$2)
+			 ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, TelegramGroupListenKey(chatID), value); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// MergeTelegramGroupObservation updates non-authoritative facts observed on an
+// ordinary group message. It shares the membership advisory lock and never
+// overwrites a role/leave transition recorded by my_chat_member or a service
+// update.
+func (s *Store) MergeTelegramGroupObservation(ctx context.Context, st TelegramGroupState) error {
+	if st.ChatID == 0 {
+		return nil
+	}
+	if st.UpdatedAt.IsZero() {
+		st.UpdatedAt = time.Now()
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	membershipKey := telegramGroupMembershipKey(st.ChatID)
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, membershipKey); err != nil {
+		return err
+	}
+	var raw string
+	err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key=$1`, telegramGroupKey(st.ChatID)).Scan(&raw)
+	if err == nil {
+		var current TelegramGroupState
+		if err := json.Unmarshal([]byte(raw), &current); err != nil {
+			return fmt.Errorf("解析 Telegram 群状态: %w", err)
+		}
+		st.Status = current.Status
+		st.LastMembershipUpdateID = current.LastMembershipUpdateID
+		if strings.TrimSpace(st.Title) == "" {
+			st.Title = current.Title
+		}
+		if strings.TrimSpace(st.Type) == "" {
+			st.Type = current.Type
+		}
+	} else if wrapErr(err) != ErrNotFound {
+		return err
+	}
+	var listenRaw string
+	err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key=$1`, TelegramGroupListenKey(st.ChatID)).Scan(&listenRaw)
+	if err == nil {
+		st.Listen = listenRaw == "1"
+	} else if wrapErr(err) != ErrNotFound {
+		return err
+	}
+	rawBytes, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1,$2)
+		 ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, telegramGroupKey(st.ChatID), string(rawBytes)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // TransitionTelegramGroupMembership atomically records whether the bot is an
@@ -154,6 +302,12 @@ func (s *Store) TransitionTelegramGroupMembership(ctx context.Context, st Telegr
 	} else if wrapErr(err) != ErrNotFound {
 		return false, err
 	}
+	if previousFound && st.LastMembershipUpdateID > 0 && previous.LastMembershipUpdateID > st.LastMembershipUpdateID {
+		if err := tx.Commit(ctx); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
 
 	var marker string
 	markerFound := false
@@ -169,6 +323,19 @@ func (s *Store) TransitionTelegramGroupMembership(ctx context.Context, st Telegr
 		previousActive = telegramGroupStatusActive(previous.Status)
 	}
 	joined = active && !previousActive
+	if strings.TrimSpace(st.Status) == "" {
+		switch {
+		case previousFound && telegramGroupStatusActive(previous.Status) == active:
+			st.Status = previous.Status
+		case active:
+			st.Status = "member"
+		default:
+			st.Status = "left"
+		}
+	}
+	if previousFound && st.LastMembershipUpdateID == 0 {
+		st.LastMembershipUpdateID = previous.LastMembershipUpdateID
+	}
 
 	listen := false
 	if active {
@@ -272,7 +439,15 @@ func (s *Store) SaveTelegramGroupLastMessage(ctx context.Context, chatID int64, 
 	if chatID == 0 || messageID <= 0 {
 		return nil
 	}
-	return s.SetKV(ctx, telegramGroupLastMessageKey(chatID), strconv.Itoa(messageID))
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1, $2)
+		 ON CONFLICT (key) DO UPDATE SET value = CASE
+			WHEN kv_state.value ~ '^[0-9]{1,10}$'
+			 AND kv_state.value::bigint >= EXCLUDED.value::bigint
+			THEN kv_state.value
+			ELSE EXCLUDED.value
+		 END`, telegramGroupLastMessageKey(chatID), strconv.Itoa(messageID))
+	return err
 }
 
 func (s *Store) TelegramGroupLastMessage(ctx context.Context, chatID int64) (int, error) {
@@ -297,11 +472,49 @@ func (s *Store) SaveTelegramGroupSeenMember(ctx context.Context, m TelegramGroup
 	if m.LastSeen.IsZero() {
 		m.LastSeen = time.Now()
 	}
+	key := telegramGroupSeenMemberKey(m.ChatID, m.UserID)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, key); err != nil {
+		return err
+	}
+
+	var currentRaw string
+	err = tx.QueryRow(ctx, `SELECT value FROM kv_state WHERE key=$1`, key).Scan(&currentRaw)
+	if err == nil {
+		var current TelegramGroupSeenMember
+		if err := json.Unmarshal([]byte(currentRaw), &current); err != nil {
+			return fmt.Errorf("解析 Telegram 群成员状态: %w", err)
+		}
+		incomingMessageID := m.MessageID
+		if current.LastSeen.After(m.LastSeen) {
+			m.LastSeen = current.LastSeen
+		}
+		if incomingMessageID == 0 || current.MessageID > incomingMessageID {
+			m.LastText = current.LastText
+			m.MessageID = current.MessageID
+		}
+		if incomingMessageID > 0 && incomingMessageID < current.MessageID {
+			m.Name = current.Name
+			m.Username = current.Username
+			m.IsBot = current.IsBot
+		}
+	} else if wrapErr(err) != ErrNotFound {
+		return err
+	}
 	raw, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
-	return s.SetKV(ctx, telegramGroupSeenMemberKey(m.ChatID, m.UserID), string(raw))
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO kv_state (key, value) VALUES ($1,$2)
+		 ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, key, string(raw)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) ListTelegramGroupSeenMembers(ctx context.Context, chatID int64, limit int) ([]TelegramGroupSeenMember, error) {

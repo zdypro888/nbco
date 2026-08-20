@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/telegram_delivery.go
+      level: file
+      anchor:
+        file: store/telegram_delivery.go
+        hash: sha256:0329dd8970652bef45609ac972cb58cfc1d2067ed30f98a4ef933bdd1dd1c4f3
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T12:56:16.137782Z
+    - id: store/telegram_delivery.go#Store.HeartbeatTelegramInboundClaims
+      level: function
+      anchor:
+        file: store/telegram_delivery.go
+        symbol: Store.HeartbeatTelegramInboundClaims
+        hash: sha256:847a3ef594fc86dc5b5bc22e72704aa6e81e99373b8b1bc2d3847a0ac7a49352
+        struct_hash: sha256:424baefaed8a5d8506a93c5c7b4a4f57d3c9606af98ca52a2a17f6f05a2d4436
+        doc_struct_hash: sha256:424baefaed8a5d8506a93c5c7b4a4f57d3c9606af98ca52a2a17f6f05a2d4436
+        lines: [170, 182]
+      status: fresh
+      since: 2026-08-20T12:56:16.13768Z

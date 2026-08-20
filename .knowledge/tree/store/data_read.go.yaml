@@ -57,12 +57,24 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: dataSourceDefs
-        hash: sha256:445451ef5a15f9fa4c97abbe6b476ee129cdcf1e016e911c0f7ffa9cc1b264ae
-        struct_hash: sha256:15b40f11b372c9f04b1963a6ff559f761d42d14c6b1c69ef42f204055a28a222
-        doc_struct_hash: sha256:15b40f11b372c9f04b1963a6ff559f761d42d14c6b1c69ef42f204055a28a222
-        lines: [49, 651]
-      status: undigested
+        hash: sha256:abc8718c966e3131b77a2d528fe5c7c208b7851e8d02303cf112bdf01ee2e6fc
+        struct_hash: sha256:9b4a21778aacd9f4f0be7ba9e6f2cc917b6660aece2d73d82bd0307db2891b51
+        doc_struct_hash: sha256:9b4a21778aacd9f4f0be7ba9e6f2cc917b6660aece2d73d82bd0307db2891b51
+        lines: [50, 725]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_f2b63eaa
+          kind: contract
+          text: dataSourceDefs 是 AI 通用读接口的权限边界而非裸表目录：每个 source 的 SQL 必须先按调用者稳定 user_id/授权图裁剪，再应用 EntityIDs 语义候选；semanticFields 只能包含该 source 对所有可查询者均可公开的字段，字段级隐藏内容不得进入全局向量索引。
+          confidence: inferred
+          at: 2026-08-20T13:02:08.191323Z
+          author: codex-mcp-client
+      keywords:
+        - query_data curated sources
+        - permission-aware read models
+        - semantic fields visibility
+        - stable ids
     - id: store/data_read.go#DataSources
       level: function
       anchor:

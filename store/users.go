@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"time"
@@ -94,13 +95,52 @@ func (s *Store) BootstrapSuperadminWithAPIToken(ctx context.Context, name string
 	if err != nil {
 		return nil, "", err
 	}
+	return s.BootstrapSuperadminWithAPITokenCandidate(ctx, name, ident, plain)
+}
+
+// BootstrapSuperadminWithAPITokenCandidate lets the unauthenticated bootstrap
+// client persist its token before crossing the one-time initialization
+// boundary. A retry with the same identity and token returns the original user;
+// changed input or any unrelated existing superadmin remains a conflict.
+func (s *Store) BootstrapSuperadminWithAPITokenCandidate(ctx context.Context, name string, ident Identity, plain string) (*User, string, error) {
+	decoded, err := hex.DecodeString(strings.TrimSpace(plain))
+	if err != nil || len(decoded) != 24 {
+		return nil, "", ErrConflict
+	}
+	plain = strings.TrimSpace(plain)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, "", err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := lockNoSuperadmin(ctx, tx); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, bootstrapLockKey); err != nil {
 		return nil, "", err
+	}
+
+	existing, existingErr := scanUser(tx.QueryRow(ctx,
+		`SELECT u.id, u.name, u.info, u.status, u.is_superadmin, u.is_worker,
+		        u.owner_id, u.worker_last_seen, u.created_at
+		   FROM users u
+		   JOIN identities i ON i.user_id=u.id
+		   JOIN api_tokens t ON t.user_id=u.id
+		  WHERE i.provider=$1 AND i.external_id=$2 AND t.token_hash=$3`,
+		ident.Provider, ident.ExternalID, hashToken(plain)))
+	if existingErr == nil {
+		if existing.Name != name || existing.Status != UserActive || !existing.IsSuperadmin || existing.IsWorker {
+			return nil, "", ErrConflict
+		}
+		return existing, plain, tx.Commit(ctx)
+	}
+	if existingErr != ErrNotFound {
+		return nil, "", existingErr
+	}
+	var hasSuperadmin bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM users WHERE is_superadmin AND status='active')`).Scan(&hasSuperadmin); err != nil {
+		return nil, "", err
+	}
+	if hasSuperadmin {
+		return nil, "", ErrConflict
 	}
 	u, err := scanUser(tx.QueryRow(ctx,
 		`INSERT INTO users (name, is_superadmin) VALUES ($1, TRUE) RETURNING `+userCols, name))

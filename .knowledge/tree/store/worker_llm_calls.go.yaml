@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: store/worker_llm_calls.go
+      level: file
+      anchor:
+        file: store/worker_llm_calls.go
+        hash: sha256:77149e29ca6317333f8f1f05b6b8f61fab98a8598bdd9e2dc811d6728c45206f
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T12:59:31.826382Z
+    - id: store/worker_llm_calls.go#Store.BeginWorkerLLMCall
+      level: function
+      anchor:
+        file: store/worker_llm_calls.go
+        symbol: Store.BeginWorkerLLMCall
+        hash: sha256:085219ab51e35f9ca23173a51730ecdae3996eea22d412e3cd1a4976c137bb82
+        struct_hash: sha256:2ef1f95267fbdf248f6ee75c2d54fd75e01d6143c52e89f783b569f6dd5ff317
+        doc_struct_hash: sha256:4301484db00298ce4885bce6ed779d841fb39cf8e0d5db074c600f3609361912
+        lines: [42, 71]
+      status: fresh
+      since: 2026-08-20T12:59:31.826319Z

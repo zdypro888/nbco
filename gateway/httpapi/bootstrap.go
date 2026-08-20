@@ -1,13 +1,11 @@
 package httpapi
 
 import (
-	"encoding/json"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/zdypro888/nbco/store"
 )
@@ -16,10 +14,10 @@ const bootstrapMaxBody = 16 << 10
 
 func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
+		AccessToken string `json:"access_token"`
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, bootstrapMaxBody)
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONLimit(w, r, &req, bootstrapMaxBody); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name 必填"})
 		return
 	}
@@ -28,12 +26,24 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name 必填"})
 		return
 	}
+	requestKey, err := requestIdempotencyKey(r, true)
+	if err != nil {
+		writeHTTPActionClaimError(w, err, nil)
+		return
+	}
+	accessToken := strings.TrimSpace(req.AccessToken)
+	decoded, decodeErr := hex.DecodeString(accessToken)
+	if decodeErr != nil || len(decoded) != 24 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "access_token 必须是客户端预生成的 48 位十六进制随机值"})
+		return
+	}
+	externalID := "bootstrap:" + httpActionKey(0, "bootstrap", requestKey)
 	ident := store.Identity{
 		Provider:   "api",
-		ExternalID: "bootstrap:" + strconv.FormatInt(time.Now().UnixNano(), 10),
-		ChatRef:    "api:" + name,
+		ExternalID: externalID,
+		ChatRef:    "api:" + externalID,
 	}
-	u, token, err := s.store.BootstrapSuperadminWithAPIToken(r.Context(), name, ident)
+	u, token, err := s.store.BootstrapSuperadminWithAPITokenCandidate(r.Context(), name, ident, accessToken)
 	if errors.Is(err, store.ErrConflict) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "系统已有活跃超级管理员"})
 		return

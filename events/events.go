@@ -74,6 +74,49 @@ func (b *Bus) EnqueueRequired(kind string, deciderID int64, detail string) bool 
 	return b.emit(kind, deciderID, detail, true)
 }
 
+// EnqueueRequiredOnce durably represents one caller-owned domain occurrence.
+// Reclaiming the caller's lease or replaying its request returns the same event
+// instead of relying on the short noise-deduplication window.
+func (b *Bus) EnqueueRequiredOnce(sourceKey, kind string, deciderID int64, detail string) bool {
+	return b.EnqueueOnce(sourceKey, kind, deciderID, detail, true)
+}
+
+// EnqueueOnce durably represents one caller-owned occurrence without relying
+// on the short noise-deduplication window. required controls delivery policy;
+// it does not change the stable identity of the occurrence.
+func (b *Bus) EnqueueOnce(sourceKey, kind string, deciderID int64, detail string, required bool) bool {
+	if b == nil || b.store == nil || deciderID <= 0 || strings.TrimSpace(sourceKey) == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	id, created, err := b.store.EnqueueEventOnceWithPolicy(ctx, sourceKey, kind, deciderID, detail, required)
+	if errors.Is(err, store.ErrConflict) && id > 0 {
+		// The source occurrence is already durably represented. Treat it as an
+		// accepted handoff so callers never fall through to a second transport,
+		// while surfacing the key/payload mismatch for diagnosis.
+		slog.Warn("稳定系统事件重放内容冲突，沿用首次事件", "source", sourceKey, "kind", kind, "user", deciderID, "event", id)
+		if created {
+			select {
+			case b.wake <- struct{}{}:
+			default:
+			}
+		}
+		return true
+	}
+	if err != nil {
+		slog.Error("稳定系统事件入队失败", "source", sourceKey, "kind", kind, "user", deciderID, "err", err)
+		return false
+	}
+	if created {
+		select {
+		case b.wake <- struct{}{}:
+		default:
+		}
+	}
+	return true
+}
+
 func (b *Bus) emit(kind string, deciderID int64, detail string, required bool) bool {
 	if b == nil || b.store == nil || deciderID <= 0 {
 		return false
@@ -227,11 +270,25 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 		}
 	}
 	sendCtx, sendCancel := context.WithTimeout(parent, eventSendTimeout)
-	err = b.send(sendCtx, event.DeciderID, reply)
+	delivery, err := notify.SendOnce(sendCtx, b.store, b.notifier,
+		fmt.Sprintf("event:%d", event.ID), event.DeciderID, reply)
 	sendCancel()
-	if err != nil {
+	if !delivery.Settled() {
 		slog.Warn("事件通知推送失败，等待重试", "event", event.ID, "user", event.DeciderID, "err", err)
-		b.retry(event, err.Error())
+		cause := "通知投递未跨过持久边界"
+		if err != nil {
+			cause = err.Error()
+		}
+		b.retry(event, cause)
+		return
+	}
+	if !delivery.Delivered {
+		if err != nil {
+			slog.Warn("事件通知投递结果不确定，禁止自动重发", "event", event.ID, "user", event.DeciderID, "state", delivery.State, "err", err)
+		}
+		if err := b.completeEvent(parent, event, store.EventOutcomeSendFailed); err != nil {
+			slog.Warn("事件不确定投递 ack 失败", "event", event.ID, "err", err)
+		}
 		return
 	}
 	if err := b.completeEvent(parent, event, mode); err != nil {
@@ -268,6 +325,9 @@ func (b *Bus) retry(event *store.Event, cause string) {
 	}
 }
 
+// send is retained as the raw channel adapter for focused transport tests.
+// Durable event handling uses notify.SendOnce above and must not call this
+// helper directly.
 func (b *Bus) send(ctx context.Context, userID int64, text string) error {
 	if b.notifier == nil {
 		return fmt.Errorf("通知通道尚未就绪")

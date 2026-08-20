@@ -263,9 +263,13 @@ func builtinAgentEvidence(msgs []chatMessage) string {
 
 // llmWithRetry 模型调用带瞬时故障重试；任务被取消/杀死时立即放弃。
 func (w *Worker) llmWithRetry(ctx context.Context, msgs []chatMessage) (chatMessage, error) {
+	requestID, err := newTransportRequestID()
+	if err != nil {
+		return chatMessage{}, fmt.Errorf("生成模型请求 ID: %w", err)
+	}
 	var lastErr error
 	for attempt := 0; ; attempt++ {
-		msg, err := w.client.LLM(ctx, msgs, agentTools)
+		msg, err := w.client.LLMWithRequestID(ctx, requestID, msgs, agentTools)
 		if err == nil {
 			return msg, nil
 		}

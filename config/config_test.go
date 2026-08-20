@@ -292,6 +292,45 @@ func TestLoadTelegramAPIURL(t *testing.T) {
 	}
 }
 
+func TestLoadTelegramWebhookMode(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{
+		"telegram_token":"t",
+		"public_base_url":"https://nbco.example.com/",
+		"postgres_dsn":"d",
+		"ai":{"api_key":"k","model":"m"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TelegramUpdateMode != TelegramUpdateAuto || cfg.TelegramWebhookURL != "https://nbco.example.com/api/telegram/webhook" {
+		t.Fatalf("auto webhook config = mode %q url %q", cfg.TelegramUpdateMode, cfg.TelegramWebhookURL)
+	}
+
+	polling, err := Load(writeConfig(t, `{
+		"telegram_token":"t",
+		"telegram_update_mode":"polling",
+		"public_base_url":"https://nbco.example.com",
+		"postgres_dsn":"d",
+		"ai":{"api_key":"k","model":"m"}
+	}`))
+	if err != nil || polling.TelegramWebhookURL != "" {
+		t.Fatalf("explicit polling = %+v, %v", polling, err)
+	}
+
+	for _, raw := range []string{"http://nbco.example.com/hook", "https://nbco.example.com", "https://user@nbco.example.com/hook?x=1"} {
+		_, err := Load(writeConfig(t, `{
+			"telegram_token":"t",
+			"telegram_update_mode":"webhook",
+			"telegram_webhook_url":"`+raw+`",
+			"postgres_dsn":"d",
+			"ai":{"api_key":"k","model":"m"}
+		}`))
+		if err == nil || !strings.Contains(err.Error(), "telegram_webhook_url") {
+			t.Errorf("telegram_webhook_url=%q should fail, got %v", raw, err)
+		}
+	}
+}
+
 func TestLoadRejectsCLIEngines(t *testing.T) {
 	for _, engine := range []string{"claudecli", "codexcli"} {
 		_, err := Load(writeConfig(t, `{

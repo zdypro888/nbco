@@ -41,7 +41,8 @@ type dataSourceDef struct {
 var dataSourceOrder = []string{
 	"users", "identities", "profiles", "permissions", "workers", "worker_sessions", "worker_capabilities",
 	"roles", "org_groups", "projects", "tasks", "task_updates",
-	"files", "file_intakes", "file_chunks", "schedules", "deliveries", "knowledge", "learning_candidates",
+	"files", "file_intakes", "file_chunks", "schedules", "deliveries", "notification_deliveries", "external_action_receipts",
+	"telegram_inbound_updates", "telegram_delivery_parts", "worker_llm_calls", "knowledge", "learning_candidates",
 	"goals", "milestones", "campaigns", "decisions", "events", "conversation_turns", "action_turns", "chat_messages",
 	"telegram_groups", "material_entities", "script_tools", "eval_cases", "audit_activity",
 }
@@ -403,6 +404,79 @@ var dataSourceDefs = map[string]dataSourceDef{
 		WHERE $2 OR d.user_id = $1 OR s.created_by = $1`,
 		semanticID: "delivery_id", semanticFields: []string{"mode", "title", "message", "result_text", "status", "last_error"},
 	},
+	"notification_deliveries": {
+		DataSource: DataSource{
+			Name: "notification_deliveries", Description: "外部通知的逐次幂等投递边界；仅超级管理员可读，用于核对已确认、失败和结果不确定的消息。",
+			Fields:         []string{"delivery_key", "user_id", "status", "attempts", "started_at", "delivered_at", "last_error", "created_at", "updated_at"},
+			SuperadminOnly: true,
+		},
+		query: `SELECT jsonb_build_object(
+			'delivery_key', d.delivery_key, 'user_id', d.user_id,
+			'status', d.status, 'attempts', d.attempts,
+			'started_at', d.started_at, 'delivered_at', d.delivered_at,
+			'last_error', d.last_error, 'created_at', d.created_at, 'updated_at', d.updated_at
+		) AS item, d.updated_at AS sort_at,
+		  hashtextextended(d.delivery_key, 0) AS sort_id
+			FROM notification_deliveries d WHERE $2`,
+	},
+	"external_action_receipts": {
+		DataSource: DataSource{
+			Name: "external_action_receipts", Description: "外部渠道直达动作的幂等执行凭据；仅超级管理员可读，用于核对命令是否已领取、完成或中断。",
+			Fields:         []string{"action_key", "kind", "status", "last_error", "started_at", "completed_at", "created_at", "updated_at"},
+			SuperadminOnly: true,
+		},
+		query: `SELECT jsonb_build_object(
+			'action_key', r.action_key, 'kind', r.kind, 'status', r.status,
+			'last_error', r.last_error, 'started_at', r.started_at,
+			'completed_at', r.completed_at, 'created_at', r.created_at, 'updated_at', r.updated_at
+		) AS item, r.updated_at AS sort_at,
+		  hashtextextended(r.action_key, 0) AS sort_id
+		FROM external_action_receipts r WHERE $2`,
+	},
+	"telegram_inbound_updates": {
+		DataSource: DataSource{
+			Name: "telegram_inbound_updates", Description: "Telegram 入站持久队列的处理状态；仅超级管理员可读，不暴露消息正文。",
+			Fields:         []string{"update_id", "status", "attempts", "available_at", "claimed_at", "claim_owner", "processed_at", "last_error", "created_at", "updated_at"},
+			SuperadminOnly: true,
+		},
+		query: `SELECT jsonb_build_object(
+			'update_id', u.update_id, 'status', u.status, 'attempts', u.attempts,
+			'available_at', u.available_at, 'claimed_at', u.claimed_at,
+			'claim_owner', u.claim_owner, 'processed_at', u.processed_at,
+			'last_error', u.last_error, 'created_at', u.created_at, 'updated_at', u.updated_at
+		) AS item, u.updated_at AS sort_at, u.update_id AS sort_id
+		FROM telegram_inbound_updates u WHERE $2`,
+	},
+	"telegram_delivery_parts": {
+		DataSource: DataSource{
+			Name: "telegram_delivery_parts", Description: "Telegram 长消息逐分片投递回执；仅超级管理员可读，用于定位部分送达和不确定结果。",
+			Fields:         []string{"delivery_key", "part_index", "part_count", "chat_id", "status", "telegram_message_id", "delivered_at", "last_error", "created_at", "updated_at"},
+			SuperadminOnly: true,
+		},
+		query: `SELECT jsonb_build_object(
+			'delivery_key', p.delivery_key, 'part_index', p.part_index,
+			'part_count', p.part_count, 'chat_id', p.chat_id, 'status', p.status,
+			'telegram_message_id', p.telegram_message_id, 'delivered_at', p.delivered_at,
+			'last_error', p.last_error, 'created_at', p.created_at, 'updated_at', p.updated_at
+		) AS item, p.updated_at AS sort_at,
+		  hashtextextended(p.delivery_key || ':' || p.part_index::text, 0) AS sort_id
+		FROM telegram_delivery_parts p WHERE $2`,
+	},
+	"worker_llm_calls": {
+		DataSource: DataSource{
+			Name: "worker_llm_calls", Description: "Worker 内置智能体的模型请求回执；仅超级管理员可读，不暴露请求或响应正文。",
+			Fields:         []string{"worker_id", "request_id", "status", "http_status", "last_error", "started_at", "completed_at", "created_at", "updated_at"},
+			SuperadminOnly: true,
+		},
+		query: `SELECT jsonb_build_object(
+			'worker_id', c.worker_id, 'request_id', c.request_id, 'status', c.status,
+			'http_status', c.http_status, 'last_error', c.last_error,
+			'started_at', c.started_at, 'completed_at', c.completed_at,
+			'created_at', c.created_at, 'updated_at', c.updated_at
+		) AS item, c.updated_at AS sort_at,
+		  hashtextextended(c.worker_id::text || ':' || c.request_id, 0) AS sort_id
+		FROM worker_llm_calls c WHERE $2`,
+	},
 	"knowledge": {
 		DataSource: DataSource{
 			Name: "knowledge", Description: "共享事实和skill；策略规则仅超管可全量读取。",
@@ -502,10 +576,10 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"events": {
 		DataSource: DataSource{
 			Name: "events", Description: "领域事件及 AI 处理结果；普通用户只看由自己决策的事件。",
-			Fields: []string{"event_id", "kind", "decider_id", "detail", "notification_required", "status", "outcome", "reply", "delivery_mode", "attempts", "last_error", "created_at", "handled_at"},
+			Fields: []string{"event_id", "source_key", "kind", "decider_id", "detail", "notification_required", "status", "outcome", "reply", "delivery_mode", "attempts", "last_error", "created_at", "handled_at"},
 		},
 		query: `SELECT jsonb_build_object(
-			'event_id', e.id, 'kind', e.kind, 'decider_id', e.decider_id,
+			'event_id', e.id, 'source_key', e.source_key, 'kind', e.kind, 'decider_id', e.decider_id,
 			'detail', e.detail, 'notification_required', e.notification_required,
 			'status', e.status, 'outcome', e.outcome,
 			'reply', e.reply, 'delivery_mode', e.delivery_mode,

@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: workerhub/hub.go
         symbol: Hub.Detach
-        hash: sha256:97d73f460b32db89188217537804dd1e01d097f4282478ab3522ead6f009242b
-        struct_hash: sha256:f0a86cd121ee092d6b145761ed3fe4b7af6d12880eb90c3cd8fbe723f6ca3d24
-        doc_struct_hash: sha256:72b8d2806e697c680b2f26a28f87fd759d95ca573e0ad4c30791cc496185207b
-        lines: [50, 58]
+        hash: sha256:9fc575ad03bfca291eb258b4068afd8fb40b833ce46fc012c51c38fa3e3f7f03
+        struct_hash: sha256:663b5772156fff146de0e2c09581e9b9393b6cfe6873e14ea614eea1d42e125c
+        doc_struct_hash: sha256:b38a7a59e42d2a80a2b74de09697b44b2c78cc3f6fbb0fda0a0daffe237282db
+        lines: [50, 61]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: workerhub/hub.go#Hub.Online

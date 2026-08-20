@@ -5,6 +5,7 @@ package mcpbridge
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -29,6 +30,7 @@ func NewServer(name, version string, tools []ai.Tool) *mcp.Server {
 			if err != nil {
 				return errResult("参数解析失败: " + err.Error()), nil
 			}
+			ctx = withMCPInvocationKey(ctx, req, t.Effect)
 			out, err := handler(ctx, raw)
 			if err != nil {
 				// MCP 规范：工具错误放 content + IsError，让模型可见并自我修正。
@@ -38,6 +40,21 @@ func NewServer(name, version string, tools []ai.Tool) *mcp.Server {
 		})
 	}
 	return s
+}
+
+// withMCPInvocationKey carries the standard HTTP idempotency header into the
+// same write/execute middleware used by Eino and REST. The MCP SDK does not
+// currently expose the JSON-RPC request ID to tool handlers, so clients that
+// need response-loss recovery supply an opaque Idempotency-Key themselves.
+func withMCPInvocationKey(ctx context.Context, req *mcp.CallToolRequest, effect string) context.Context {
+	if effect != ai.ToolEffectWrite && effect != ai.ToolEffectExecute || req == nil || req.Extra == nil {
+		return ctx
+	}
+	key := strings.TrimSpace(req.Extra.Header.Get("Idempotency-Key"))
+	if key == "" || len(key) > 200 || strings.ContainsAny(key, "\r\n") {
+		return ctx
+	}
+	return ai.WithToolInvocationKey(ctx, "mcp:"+key)
 }
 
 func rawArguments(args any) (json.RawMessage, error) {

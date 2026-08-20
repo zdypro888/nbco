@@ -4,8 +4,17 @@ package notify
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/textfmt"
 )
 
 // Notifier 向用户主动投递消息（提醒、催办、系统通知）。
@@ -21,6 +30,148 @@ type Notifier interface {
 // filesystem paths or asking users to fetch internal URLs.
 type FileNotifier interface {
 	SendFile(ctx context.Context, userID int64, fileID int64, caption string) error
+}
+
+// DeliveryResult describes the durable transport boundary. Settled means this
+// logical occurrence must not be retried; Delivered distinguishes a confirmed
+// channel acknowledgement from failed or crash-uncertain delivery.
+type DeliveryResult struct {
+	State     string
+	Delivered bool
+	Replayed  bool
+}
+
+func (r DeliveryResult) Settled() bool { return strings.TrimSpace(r.State) != "" }
+
+type deliveryKeyContextKey struct{}
+
+// WithDeliveryKey carries the stable logical notification identity through a
+// channel adapter. Fragmenting transports use it to persist finer-grained
+// delivery receipts without exposing transport details to schedulers/tools.
+func WithDeliveryKey(ctx context.Context, key string) context.Context {
+	key = strings.TrimSpace(key)
+	if ctx == nil || key == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, deliveryKeyContextKey{}, key)
+}
+
+func DeliveryKey(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	key, _ := ctx.Value(deliveryKeyContextKey{}).(string)
+	return strings.TrimSpace(key)
+}
+
+// ToolDeliveryKey scopes an outbound side effect to one Eino write/execute
+// invocation and one recipient. Empty means the caller is outside an Agent
+// runtime and must use its own domain occurrence identity.
+func ToolDeliveryKey(ctx context.Context, scope string, userID int64) string {
+	invocation := ai.ToolInvocationKey(ctx)
+	scope = strings.TrimSpace(scope)
+	if invocation == "" || scope == "" || userID <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("agent:%s:%s:%d", invocation, scope, userID)
+}
+
+// SendOnce performs an at-most-once external delivery under a stable logical
+// key. Exactly-once cannot be made atomic across PostgreSQL and an IM API: after
+// crossing the boundary, an interrupted or ambiguous send is recorded for
+// audit and never replayed blindly.
+func SendOnce(ctx context.Context, st *store.Store, n Notifier, key string, userID int64, text string) (DeliveryResult, error) {
+	return deliverOnce(ctx, st, n, key, userID, text, func(sendCtx context.Context) error {
+		return n.Send(sendCtx, userID, text)
+	})
+}
+
+// SendForToolInvocation gives Agent-originated text delivery a stable transport
+// identity. Direct callers without a runtime invocation retain normal one-shot
+// behavior and should supply a domain key to SendOnce when they can be reclaimed.
+func SendForToolInvocation(ctx context.Context, st *store.Store, n Notifier, scope string, userID int64, text string) (DeliveryResult, error) {
+	sum := sha256.Sum256([]byte(text))
+	if key := ToolDeliveryKey(ctx, fmt.Sprintf("%s:%x", scope, sum[:8]), userID); key != "" {
+		return SendOnce(ctx, st, n, key, userID, text)
+	}
+	if n == nil {
+		return DeliveryResult{}, errors.New("通知通道尚未就绪")
+	}
+	if err := n.Send(ctx, userID, text); err != nil {
+		return DeliveryResult{}, err
+	}
+	return DeliveryResult{State: store.NotificationDeliveryDelivered, Delivered: true}, nil
+}
+
+// SendFileOnce applies the same no-replay boundary to a file delivery. The
+// content identity covers the stable file record and its visible caption.
+func SendFileOnce(ctx context.Context, st *store.Store, n FileNotifier, key string, userID, fileID int64, caption string) (DeliveryResult, error) {
+	identity := fmt.Sprintf("file:%d\x00%s", fileID, caption)
+	return deliverOnce(ctx, st, n, key, userID, identity, func(sendCtx context.Context) error {
+		return n.SendFile(sendCtx, userID, fileID, caption)
+	})
+}
+
+func SendFileForToolInvocation(ctx context.Context, st *store.Store, n FileNotifier, scope string, userID, fileID int64, caption string) (DeliveryResult, error) {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%d\x00%s", fileID, caption)))
+	if key := ToolDeliveryKey(ctx, fmt.Sprintf("%s:%x", scope, sum[:8]), userID); key != "" {
+		return SendFileOnce(ctx, st, n, key, userID, fileID, caption)
+	}
+	if n == nil {
+		return DeliveryResult{}, errors.New("通知通道尚未就绪")
+	}
+	if err := n.SendFile(ctx, userID, fileID, caption); err != nil {
+		return DeliveryResult{}, err
+	}
+	return DeliveryResult{State: store.NotificationDeliveryDelivered, Delivered: true}, nil
+}
+
+type deliverySender interface{}
+
+func deliverOnce(ctx context.Context, st *store.Store, ready deliverySender, key string, userID int64, contentIdentity string, send func(context.Context) error) (DeliveryResult, error) {
+	key = strings.TrimSpace(key)
+	if st == nil || ready == nil || key == "" || userID <= 0 || send == nil {
+		return DeliveryResult{}, fmt.Errorf("通知投递参数不完整")
+	}
+	if readiness, ok := ready.(interface{ Ready() bool }); ok && !readiness.Ready() {
+		return DeliveryResult{}, errors.New("通知通道尚未就绪")
+	}
+	sum := sha256.Sum256([]byte(contentIdentity))
+	delivery, created, err := st.BeginNotificationDelivery(ctx, key, userID, hex.EncodeToString(sum[:]))
+	if err != nil {
+		if delivery != nil {
+			return DeliveryResult{
+				State: delivery.Status, Delivered: delivery.Status == store.NotificationDeliveryDelivered, Replayed: true,
+			}, err
+		}
+		return DeliveryResult{}, err
+	}
+	if !created {
+		return DeliveryResult{
+			State: delivery.Status, Delivered: delivery.Status == store.NotificationDeliveryDelivered, Replayed: true,
+		}, nil
+	}
+
+	result := DeliveryResult{State: store.NotificationDeliveryStarted}
+	if err := send(WithDeliveryKey(ctx, key)); err != nil {
+		ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		if markErr := st.MarkNotificationDeliveryFailed(ackCtx, key, textfmt.RedactSecrets(err.Error())); markErr != nil {
+			return result, fmt.Errorf("通知发送失败: %w；失败状态保存失败: %v", err, markErr)
+		}
+		result.State = store.NotificationDeliveryFailed
+		return result, err
+	}
+	result.Delivered = true
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if err := st.MarkNotificationDeliveryDelivered(ackCtx, key, time.Now().UTC()); err != nil {
+		// The external side effect already happened. Keep State=started so callers
+		// settle their domain claim without claiming a durable delivery ack.
+		return result, fmt.Errorf("通知已发送但投递状态保存失败: %w", err)
+	}
+	result.State = store.NotificationDeliveryDelivered
+	return result, nil
 }
 
 // Func 便捷适配器。

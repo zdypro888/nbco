@@ -437,3 +437,14 @@ nodes:
         lines: [414, 468]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/goals.go#Store.MarkGoalDeadlineReminderAttempt
+      level: function
+      anchor:
+        file: store/goals.go
+        symbol: Store.MarkGoalDeadlineReminderAttempt
+        hash: sha256:00e818e5a3c6404c1500da664c1107c514038025eee4c3b9572d05faf3b29ab0
+        struct_hash: sha256:15d0a201eab215de68bb9fd7db87540594bb6ffc9e7641a39c911ff0461a97e1
+        doc_struct_hash: sha256:15d0a201eab215de68bb9fd7db87540594bb6ffc9e7641a39c911ff0461a97e1
+        lines: [343, 350]
+      status: fresh
+      since: 2026-08-20T12:58:22.020706Z

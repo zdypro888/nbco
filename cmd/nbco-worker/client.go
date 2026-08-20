@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -30,6 +31,11 @@ type httpStatusError struct {
 	Code int
 	Text string
 	Body string
+}
+
+func definitiveClientRejection(err error) bool {
+	var statusErr *httpStatusError
+	return errors.As(err, &statusErr) && statusErr.Code >= http.StatusBadRequest && statusErr.Code < http.StatusInternalServerError
 }
 
 func (e *httpStatusError) Error() string {
@@ -79,9 +85,66 @@ type CapabilityReport struct {
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
-// RedeemBindCode 用一次性绑定码兑换 Worker Access Token（无需已有 token）。
+// RedeemBindCode is the compatibility path for servers that issue the token.
+// New worker binding uses RedeemBindCodeWithToken so an ambiguous response can
+// be recovered without consuming an unrecoverable one-time code.
 func (c *Client) RedeemBindCode(ctx context.Context, code string) (*BindResult, error) {
-	buf, _ := json.Marshal(map[string]string{"code": code})
+	return c.redeemBindCode(ctx, code, "")
+}
+
+func (c *Client) RedeemBindCodeWithToken(ctx context.Context, code, accessToken string) (*BindResult, error) {
+	return c.redeemBindCode(ctx, code, strings.TrimSpace(accessToken))
+}
+
+func (c *Client) redeemBindCode(ctx context.Context, code, accessToken string) (*BindResult, error) {
+	attempts := 1
+	if accessToken != "" {
+		attempts = 3
+	}
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		requestCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		res, err := c.redeemBindCodeOnce(requestCtx, code, accessToken)
+		cancel()
+		if err == nil {
+			return res, nil
+		}
+		lastErr = err
+		var probeErr error
+		if accessToken != "" {
+			probeCtx, probeCancel := context.WithTimeout(ctx, 10*time.Second)
+			var ident *Identity
+			ident, probeErr = newClient(c.base, accessToken).Me(probeCtx)
+			probeCancel()
+			if probeErr == nil && ident.IsWorker {
+				return &BindResult{Token: accessToken, WorkerID: ident.ID, WorkerName: ident.Name}, nil
+			}
+		}
+		var statusErr *httpStatusError
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if errors.As(err, &statusErr) && statusErr.Code < http.StatusInternalServerError {
+			if accessToken != "" && !definitiveClientRejection(probeErr) {
+				return nil, fmt.Errorf("绑定响应与候选 Token 状态尚未同时确认: %v", err)
+			}
+			return nil, err
+		}
+		if attempt+1 < attempts {
+			timer := time.NewTimer(time.Duration(attempt+1) * 250 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return nil, lastErr
+}
+
+func (c *Client) redeemBindCodeOnce(ctx context.Context, code, accessToken string) (*BindResult, error) {
+	buf, _ := json.Marshal(map[string]string{"code": code, "access_token": accessToken})
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/bind", bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.http.Do(req)
@@ -97,6 +160,19 @@ func (c *Client) RedeemBindCode(ctx context.Context, code string) (*BindResult, 
 		return nil, err
 	}
 	return &res, nil
+}
+
+func newWorkerAccessToken() (string, error) {
+	var raw [24]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw[:]), nil
+}
+
+func bindCodeRecoveryHash(code string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(code)))
+	return hex.EncodeToString(sum[:])
 }
 
 // Identity 是当前 token 对应的 nbco 用户身份。
@@ -215,14 +291,29 @@ const llmCallTimeout = 6 * time.Minute
 // LLM 经中枢管道调一次模型（OpenAI 兼容 function calling），返回首个候选消息。
 // model 由中枢钉死，worker 只发 messages + tools。
 func (c *Client) LLM(ctx context.Context, messages []chatMessage, tools []map[string]any) (chatMessage, error) {
+	requestID, err := newTransportRequestID()
+	if err != nil {
+		return chatMessage{}, fmt.Errorf("生成模型请求 ID: %w", err)
+	}
+	return c.LLMWithRequestID(ctx, requestID, messages, tools)
+}
+
+// LLMWithRequestID keeps one logical model call stable across transport
+// retries. The hub caches the exact upstream response under this identity.
+func (c *Client) LLMWithRequestID(ctx context.Context, requestID string, messages []chatMessage, tools []map[string]any) (chatMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, llmCallTimeout)
 	defer cancel()
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return chatMessage{}, errors.New("模型请求 ID 不能为空")
+	}
 	buf, err := json.Marshal(map[string]any{"messages": messages, "tools": tools})
 	if err != nil {
 		return chatMessage{}, err
 	}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/llm", bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", requestID)
 	c.auth(req)
 	resp, err := c.files.Do(req)
 	if err != nil {
@@ -254,7 +345,13 @@ func (c *Client) LLM(ctx context.Context, messages []chatMessage, tools []map[st
 
 // Progress 回传一段执行进度。
 func (c *Client) Progress(ctx context.Context, runID int64, claimID, content string) error {
-	return c.post(ctx, "/api/worker/progress", map[string]any{"run_id": runID, "task_id": runID, "claim_id": claimID, "content": content})
+	requestID, err := newTransportRequestID()
+	if err != nil {
+		return err
+	}
+	return c.postRetried(ctx, "/api/worker/progress", map[string]any{
+		"run_id": runID, "task_id": runID, "claim_id": claimID, "request_id": requestID, "content": content,
+	}, 3)
 }
 
 func (c *Client) Heartbeat(ctx context.Context, runID int64, claimID string) error {
@@ -376,9 +473,55 @@ func (c *Client) DownloadFile(ctx context.Context, urlPath, dst string) error {
 // UploadArtifact 上传一个已安全打开的产物文件（r 通常是校验过的 *os.File）。
 // run_id/claim_id 走 query（task_id 是滚动升级兼容别名），服务端可在解析
 // 文件体之前校验 claim，拒绝时不把大文件 spool 到临时盘。
-func (c *Client) UploadArtifact(ctx context.Context, runID int64, claimID, name string, r io.Reader) error {
+func (c *Client) UploadArtifact(ctx context.Context, runID int64, claimID, name string, r io.ReadSeeker) error {
 	ctx, cancel := context.WithTimeout(ctx, fileTransferTimeout)
 	defer cancel()
+	requestID, err := artifactRequestID(claimID, name, r)
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if _, err := r.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		lastErr = c.uploadArtifactOnce(ctx, runID, claimID, requestID, name, r)
+		if lastErr == nil {
+			return nil
+		}
+		var statusErr *httpStatusError
+		if errors.As(lastErr, &statusErr) && statusErr.Code < http.StatusInternalServerError {
+			return lastErr
+		}
+		if attempt < 2 {
+			timer := time.NewTimer(time.Duration(attempt+1) * 250 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return lastErr
+}
+
+func artifactRequestID(claimID, name string, r io.ReadSeeker) (string, error) {
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	_, _ = io.WriteString(h, strings.TrimSpace(claimID))
+	_, _ = io.WriteString(h, "\x00")
+	_, _ = io.WriteString(h, filepath.ToSlash(strings.TrimSpace(name)))
+	_, _ = io.WriteString(h, "\x00")
+	if _, err := io.Copy(h, r); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (c *Client) uploadArtifactOnce(ctx context.Context, runID int64, claimID, requestID, name string, r io.Reader) error {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	writeErr := make(chan error, 1)
@@ -397,7 +540,7 @@ func (c *Client) UploadArtifact(ctx context.Context, runID int64, claimID, name 
 		}
 		writeErr <- err
 	}()
-	q := url.Values{"run_id": {fmt.Sprint(runID)}, "task_id": {fmt.Sprint(runID)}, "claim_id": {claimID}}
+	q := url.Values{"run_id": {fmt.Sprint(runID)}, "task_id": {fmt.Sprint(runID)}, "claim_id": {claimID}, "request_id": {requestID}}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/api/worker/artifacts?"+q.Encode(), pr)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	c.auth(req)
@@ -409,7 +552,6 @@ func (c *Client) UploadArtifact(ctx context.Context, runID int64, claimID, name 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		err := c.errStatus(resp)
-		cancel()
 		_ = pr.CloseWithError(err)
 		return err
 	}
@@ -438,17 +580,32 @@ func (c *Client) post(ctx context.Context, path string, payload any) error {
 }
 
 func (c *Client) postFinal(ctx context.Context, path string, payload map[string]any) error {
-	var raw [16]byte
-	if _, err := rand.Read(raw[:]); err != nil {
+	requestID, err := newTransportRequestID()
+	if err != nil {
 		return fmt.Errorf("生成最终化请求编号: %w", err)
 	}
-	payload["finalization_id"] = hex.EncodeToString(raw[:])
+	payload["finalization_id"] = requestID
+	return c.postRetried(ctx, path, payload, 3)
+}
+
+func newTransportRequestID() (string, error) {
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw[:]), nil
+}
+
+func (c *Client) postRetried(ctx context.Context, path string, payload any, attempts int) error {
 	buf, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
+	if attempts <= 0 {
+		attempts = 1
+	}
 	var lastErr error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < attempts; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(buf))
 		if err != nil {
 			return err
@@ -470,7 +627,7 @@ func (c *Client) postFinal(ctx context.Context, path string, payload map[string]
 		} else {
 			lastErr = err
 		}
-		if attempt < 2 {
+		if attempt+1 < attempts {
 			timer := time.NewTimer(time.Duration(attempt+1) * 250 * time.Millisecond)
 			select {
 			case <-ctx.Done():

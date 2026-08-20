@@ -127,8 +127,12 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				if !ok || fn == nil {
 					return "当前通知通道不支持发送文件。", nil
 				}
-				if err := fn.SendFile(ctx, targetID, args.FileID, args.Caption); err != nil {
-					return "", err
+				delivery, err := notify.SendFileForToolInvocation(ctx, d.Store, fn, "send-file", targetID, args.FileID, args.Caption)
+				if err != nil || !delivery.Delivered {
+					if err == nil {
+						err = fmt.Errorf("投递结果不确定，系统未自动重发")
+					}
+					return "发送文件失败：" + err.Error(), nil
 				}
 				if targetID == u.ID {
 					return "已发送文件给你。", nil

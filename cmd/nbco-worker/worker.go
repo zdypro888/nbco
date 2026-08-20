@@ -32,7 +32,7 @@ const (
 	taskIORelDir      = ".nbco-task/current"
 )
 
-var errAgentNoProgress = errors.New("Agent 连续多个交互回合没有产生可见进展")
+var errAgentNoProgress = errors.New("agent 连续多个交互回合没有产生可见进展")
 
 // 默认完成哨兵：测试与兼容辅助使用。真实 worker 任务会用带 nonce 的唯一哨兵，
 // 避免任务描述里提前注入固定标记后被 parseCompletion 误认成完成输出。
@@ -841,7 +841,7 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 			rejected = append(rejected, relSlash)
 			continue
 		}
-		upErr := w.client.UploadArtifact(ctx, taskID, claimID, filepath.Base(path), f)
+		upErr := w.client.UploadArtifact(ctx, taskID, claimID, relSlash, f)
 		_ = f.Close()
 		if upErr != nil {
 			log.Printf("任务 #%d 产物 %s 上传失败: %v", taskID, relSlash, upErr)

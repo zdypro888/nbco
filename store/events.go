@@ -32,6 +32,7 @@ const (
 
 type Event struct {
 	ID                   int64
+	SourceKey            string
 	Kind                 string
 	DeciderID            int64
 	Detail               string
@@ -50,7 +51,7 @@ type Event struct {
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	var e Event
-	if err := row.Scan(&e.ID, &e.Kind, &e.DeciderID, &e.Detail, &e.NotificationRequired, &e.Outcome, &e.Reply,
+	if err := row.Scan(&e.ID, &e.SourceKey, &e.Kind, &e.DeciderID, &e.Detail, &e.NotificationRequired, &e.Outcome, &e.Reply,
 		&e.Status, &e.Attempts, &e.AvailableAt, &e.ClaimedAt, &e.DeliveryMode,
 		&e.LastError, &e.CreatedAt, &e.HandledAt); err != nil {
 		return nil, wrapErr(err)
@@ -77,28 +78,57 @@ func (s *Store) EnqueueEvent(ctx context.Context, kind string, deciderID int64, 
 // reopens it, so changing a caller to the stronger policy cannot leave an old
 // dedupe record silently suppressing the notification.
 func (s *Store) EnqueueEventWithPolicy(ctx context.Context, kind string, deciderID int64, detail string, required bool, dedupeWindow time.Duration) (int64, bool, error) {
+	return s.enqueueEventWithPolicy(ctx, "", kind, deciderID, detail, required, dedupeWindow)
+}
+
+// EnqueueEventOnceWithPolicy uses a caller-owned occurrence key instead of a
+// time window. It is intended for durable domain facts such as one task/deadline
+// occurrence, where a lease retry must resolve to the original event forever.
+func (s *Store) EnqueueEventOnceWithPolicy(ctx context.Context, sourceKey, kind string, deciderID int64, detail string, required bool) (int64, bool, error) {
+	return s.enqueueEventWithPolicy(ctx, strings.TrimSpace(sourceKey), kind, deciderID, detail, required, 0)
+}
+
+func (s *Store) enqueueEventWithPolicy(ctx context.Context, sourceKey, kind string, deciderID int64, detail string, required bool, dedupeWindow time.Duration) (int64, bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	key := fmt.Sprintf("%s|%d|%s", kind, deciderID, detail)
+	key := fmt.Sprintf("window|%s|%d|%s", kind, deciderID, detail)
+	if sourceKey != "" {
+		key = fmt.Sprintf("source|%d|%s", deciderID, sourceKey)
+	}
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, key); err != nil {
 		return 0, false, err
 	}
 	var existing int64
 	var existingRequired bool
-	var existingStatus, existingOutcome string
-	err = tx.QueryRow(ctx,
-		`SELECT id, notification_required, status, outcome
-		   FROM events WHERE kind=$1 AND decider_id=$2 AND detail=$3 AND created_at > now()-$4::interval
-		  ORDER BY id DESC LIMIT 1 FOR UPDATE`, kind, deciderID, detail, fmt.Sprintf("%f seconds", dedupeWindow.Seconds())).
-		Scan(&existing, &existingRequired, &existingStatus, &existingOutcome)
+	var existingKind, existingDetail, existingStatus, existingOutcome string
+	if sourceKey != "" {
+		err = tx.QueryRow(ctx,
+			`SELECT id, notification_required, kind, detail, status, outcome
+			   FROM events WHERE decider_id=$1 AND source_key=$2 FOR UPDATE`, deciderID, sourceKey).
+			Scan(&existing, &existingRequired, &existingKind, &existingDetail, &existingStatus, &existingOutcome)
+	} else {
+		err = tx.QueryRow(ctx,
+			`SELECT id, notification_required, kind, detail, status, outcome
+			   FROM events WHERE kind=$1 AND decider_id=$2 AND detail=$3 AND created_at > now()-$4::interval
+			  ORDER BY id DESC LIMIT 1 FOR UPDATE`, kind, deciderID, detail, fmt.Sprintf("%f seconds", dedupeWindow.Seconds())).
+			Scan(&existing, &existingRequired, &existingKind, &existingDetail, &existingStatus, &existingOutcome)
+	}
 	if err == nil {
+		payloadConflict := sourceKey != "" && (existingKind != kind || existingDetail != detail)
 		wake := false
 		if required {
 			delivered := existingStatus == "done" && (existingOutcome == EventOutcomeHandled || existingOutcome == EventOutcomeFallback)
 			reopen := (existingStatus == "done" || existingStatus == "failed") && !delivered
+			// A stable required occurrence already owns an at-most-once transport
+			// key. Reopening its terminal event would only regenerate text and churn
+			// state; the notification ledger deliberately will not resend it. The one
+			// valid upgrade is an older optional occurrence that was skipped/failed.
+			if sourceKey != "" && existingRequired {
+				reopen = false
+			}
 			if !existingRequired || reopen {
 				if _, err := tx.Exec(ctx,
 					`UPDATE events
@@ -118,15 +148,21 @@ func (s *Store) EnqueueEventWithPolicy(ctx context.Context, kind string, decider
 				wake = true
 			}
 		}
-		return existing, wake, tx.Commit(ctx)
+		if err := tx.Commit(ctx); err != nil {
+			return 0, false, err
+		}
+		if payloadConflict {
+			return existing, wake, ErrConflict
+		}
+		return existing, wake, nil
 	}
 	if wrapErr(err) != ErrNotFound {
 		return 0, false, err
 	}
 	var id int64
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO events (kind, decider_id, detail, notification_required, status, handled_at)
-		 VALUES ($1,$2,$3,$4,'pending',NULL) RETURNING id`, kind, deciderID, detail, required).Scan(&id); err != nil {
+		`INSERT INTO events (source_key, kind, decider_id, detail, notification_required, status, handled_at)
+		 VALUES ($1,$2,$3,$4,$5,'pending',NULL) RETURNING id`, sourceKey, kind, deciderID, detail, required).Scan(&id); err != nil {
 		return 0, false, wrapErr(err)
 	}
 	return id, true, tx.Commit(ctx)
@@ -170,7 +206,7 @@ func (s *Store) DueEvents(ctx context.Context, now time.Time, limit int) ([]*Eve
 }
 
 func eventColsWithAlias(alias string) string {
-	cols := []string{"id", "kind", "decider_id", "detail", "notification_required", "outcome", "reply", "status", "attempts", "available_at", "claimed_at", "delivery_mode", "last_error", "created_at", "handled_at"}
+	cols := []string{"id", "source_key", "kind", "decider_id", "detail", "notification_required", "outcome", "reply", "status", "attempts", "available_at", "claimed_at", "delivery_mode", "last_error", "created_at", "handled_at"}
 	for i := range cols {
 		cols[i] = alias + "." + cols[i]
 	}

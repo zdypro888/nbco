@@ -85,6 +85,10 @@ type requiredEventer interface {
 	EmitRequired(kind string, deciderID int64, detail string)
 }
 
+type stableRequiredEventer interface {
+	EnqueueRequiredOnce(sourceKey, kind string, deciderID int64, detail string) bool
+}
+
 // EventHub 后注入的 Eventer 容器（装配顺序：deps → orch → bus，bus 建好后 Set）。
 type EventHub struct {
 	mu sync.Mutex
@@ -124,11 +128,25 @@ func (h *EventHub) EmitRequired(kind string, deciderID int64, detail string) {
 	e.Emit(kind, deciderID, detail)
 }
 
-// emitEvent 便捷入口：Deps.Events 可为 nil。
-func emitEvent(d Deps, kind string, deciderID int64, detail string) {
-	if d.Events != nil {
-		d.Events.Emit(kind, deciderID, detail)
+// EnqueueRequiredOnce preserves a caller-owned domain occurrence key when the
+// concrete bus supports durable events. Lightweight test eventers fall back to
+// one required emission and report that the handoff was accepted.
+func (h *EventHub) EnqueueRequiredOnce(sourceKey, kind string, deciderID int64, detail string) bool {
+	h.mu.Lock()
+	e := h.e
+	h.mu.Unlock()
+	if e == nil {
+		return false
 	}
+	if stable, ok := e.(stableRequiredEventer); ok {
+		return stable.EnqueueRequiredOnce(sourceKey, kind, deciderID, detail)
+	}
+	if required, ok := e.(requiredEventer); ok {
+		required.EmitRequired(kind, deciderID, detail)
+	} else {
+		e.Emit(kind, deciderID, detail)
+	}
+	return true
 }
 
 func emitRequiredEvent(d Deps, kind string, deciderID int64, detail string) {
@@ -140,6 +158,17 @@ func emitRequiredEvent(d Deps, kind string, deciderID int64, detail string) {
 		return
 	}
 	d.Events.Emit(kind, deciderID, detail)
+}
+
+func emitRequiredEventOnce(d Deps, sourceKey, kind string, deciderID int64, detail string) bool {
+	if d.Events == nil {
+		return false
+	}
+	if stable, ok := d.Events.(stableRequiredEventer); ok {
+		return stable.EnqueueRequiredOnce(sourceKey, kind, deciderID, detail)
+	}
+	emitRequiredEvent(d, kind, deciderID, detail)
+	return true
 }
 
 // saveKnowledge / searchKnowledge：优先走 Knowledge 服务（含语义检索），
@@ -220,7 +249,8 @@ func ForUserContextWithTools(ctx context.Context, d Deps, u *store.User, session
 		// 参数归一化放最外层，让审计、审批哈希和实际 handler 看到同一份
 		// schema 规范参数；MCP/HTTP 等非聊天入口也获得相同行为。
 		ts[i] = withArgumentNormalization(withAudit(d.Store, u.ID, sessionID,
-			withCurrentPermission(d.Store, u, withApproval(d.Store, u.ID, ts[i]))))
+			withCurrentPermission(d.Store, u,
+				withInvocationIdempotency(d.Store, u.ID, withApproval(d.Store, u.ID, ts[i])))))
 	}
 	return ts
 }

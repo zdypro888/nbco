@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/config"
@@ -42,7 +44,17 @@ import (
 // Channel HTTP 渠道标识（Web 页与 REST 共用同一会话）。
 const Channel = "api"
 
-const maxJSONBodyBytes = 1 << 20
+const (
+	maxJSONBodyBytes       = 1 << 20
+	maxIdempotencyKeyBytes = 200
+	httpActionResultTTL    = 24 * time.Hour
+	telegramWebhookPrefix  = "/api/telegram/"
+)
+
+var (
+	errIdempotencyKeyRequired = errors.New("Idempotency-Key 必填")
+	errIdempotencyKeyInvalid  = errors.New("Idempotency-Key 无效")
+)
 
 var Version = "dev"
 
@@ -79,19 +91,21 @@ type LLMConfig struct {
 
 // Server HTTP 入口。
 type Server struct {
-	store         *store.Store
-	orch          *chat.Orchestrator
-	deps          tools.Deps
-	bus           *events.Bus // 系统事件总线（可为 nil）：worker 上线/任务提交等交 AI 分析
-	llm           LLMConfig
-	llmMu         sync.Mutex
-	llmSem        chan struct{} // llm 管道限并发（与 sched/events 同理：护住模型网关）
-	fileStorePath string
-	downloadPath  string
-	telegramToken string
-	ihtmlHandler  http.Handler
-	ihtmlTickets  *ihtmlTicketManager
-	ihtmlClose    func() error
+	store                  *store.Store
+	orch                   *chat.Orchestrator
+	deps                   tools.Deps
+	bus                    *events.Bus // 系统事件总线（可为 nil）：worker 上线/任务提交等交 AI 分析
+	llm                    LLMConfig
+	llmMu                  sync.Mutex
+	llmSem                 chan struct{} // llm 管道限并发（与 sched/events 同理：护住模型网关）
+	fileStorePath          string
+	downloadPath           string
+	telegramToken          string
+	telegramWebhookPath    string
+	telegramWebhookHandler http.Handler
+	ihtmlHandler           http.Handler
+	ihtmlTickets           *ihtmlTicketManager
+	ihtmlClose             func() error
 }
 
 // New 创建 HTTP 入口。
@@ -108,9 +122,30 @@ func (s *Server) brandName() string {
 	return branding.Name(s.deps.BrandName)
 }
 
+// SetTelegramWebhook mounts the transport-owned receiver on the same HTTP
+// server as the rest of the instance. The handler performs its own Telegram
+// secret verification before committing an update to the durable inbox.
+func (s *Server) SetTelegramWebhook(webhookPath string, handler http.Handler) error {
+	webhookPath = strings.TrimSpace(webhookPath)
+	parsed, err := url.ParseRequestURI(webhookPath)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path == "" || parsed.Path == "/" || handler == nil {
+		return errors.New("telegram webhook path/handler 无效")
+	}
+	if parsed.Path != path.Clean(parsed.Path) || strings.HasSuffix(parsed.Path, "/") ||
+		!strings.HasPrefix(parsed.Path, telegramWebhookPrefix) || parsed.Path == telegramWebhookPrefix {
+		return fmt.Errorf("telegram webhook path 必须是 %s 下的规范叶子路径", telegramWebhookPrefix)
+	}
+	s.telegramWebhookPath = parsed.Path
+	s.telegramWebhookHandler = handler
+	return nil
+}
+
 // Handler 组装路由。
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	if s.telegramWebhookHandler != nil {
+		mux.Handle("POST "+s.telegramWebhookPath, s.telegramWebhookHandler)
+	}
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		nonce, err := newCSPNonce()
 		if err != nil {
@@ -304,10 +339,125 @@ func writeJSON(w http.ResponseWriter, code int, v any) error {
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
+	return decodeJSONLimit(w, r, dst, maxJSONBodyBytes)
+}
+
+func decodeJSONLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
-	return dec.Decode(dst)
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("请求正文只能包含一个 JSON 值")
+		}
+		return err
+	}
+	return nil
+}
+
+func requestIdempotencyKey(r *http.Request, required bool) (string, error) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if key == "" {
+		if required {
+			return "", errIdempotencyKeyRequired
+		}
+		return "", nil
+	}
+	if len(key) > maxIdempotencyKeyBytes {
+		return "", errIdempotencyKeyInvalid
+	}
+	return key, nil
+}
+
+func httpActionKey(userID int64, kind, requestKey string) string {
+	sum := sha256.Sum256([]byte(strconv.FormatInt(userID, 10) + "\x00" +
+		strings.TrimSpace(kind) + "\x00" + strings.TrimSpace(requestKey)))
+	return fmt.Sprintf("http:%x", sum[:])
+}
+
+func payloadHash(payload []byte) string {
+	if json.Valid(payload) {
+		dec := json.NewDecoder(bytes.NewReader(payload))
+		dec.UseNumber()
+		var value any
+		if err := dec.Decode(&value); err == nil {
+			if canonical, err := json.Marshal(value); err == nil {
+				payload = canonical
+			}
+		}
+	}
+	sum := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func (s *Server) beginHTTPAction(ctx context.Context, userID int64, kind string, payload []byte, requestKey string) (*store.ExternalActionReceipt, bool, error) {
+	if s.store == nil {
+		return nil, false, errors.New("存储尚未就绪")
+	}
+	return s.store.BeginExternalAction(ctx, httpActionKey(userID, kind, requestKey), kind, payloadHash(payload))
+}
+
+func writeHTTPActionClaimError(w http.ResponseWriter, err error, receipt *store.ExternalActionReceipt) {
+	switch {
+	case errors.Is(err, errIdempotencyKeyRequired):
+		writeJSON(w, http.StatusPreconditionRequired, map[string]string{"error": "写入操作必须提供 Idempotency-Key"})
+	case errors.Is(err, errIdempotencyKeyInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Idempotency-Key 过长或无效"})
+	case errors.Is(err, store.ErrConflict):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "Idempotency-Key 已用于另一项操作"})
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "无法登记操作"})
+	case receipt != nil && receipt.Status == store.ExternalActionCompleted && receipt.ResultUntil != nil &&
+		time.Now().UTC().Before(*receipt.ResultUntil):
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, receipt.ResultText)
+	case receipt != nil:
+		writeJSON(w, http.StatusConflict, map[string]string{
+			"error":  "该请求已被处理；为避免重复执行不会自动重放，请刷新数据核对结果",
+			"status": receipt.Status,
+		})
+	default:
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "该请求已被处理"})
+	}
+}
+
+func (s *Server) failHTTPAction(parent context.Context, key string, cause error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+	defer cancel()
+	if err := s.store.FailExternalAction(ctx, key, textfmt.RedactSecrets(cause.Error())); err != nil {
+		slog.Warn("HTTP 操作失败状态保存失败", "action", key, "err", err)
+	}
+}
+
+func (s *Server) completeHTTPActionWithResult(parent context.Context, key string, result any) error {
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+	defer cancel()
+	if len(raw) > maxJSONBodyBytes {
+		return s.store.CompleteExternalAction(ctx, key)
+	}
+	return s.store.CompleteExternalActionWithResult(ctx, key, string(raw), time.Now().UTC().Add(httpActionResultTTL))
+}
+
+func (s *Server) completeRecoverableHTTPActionWithResult(parent context.Context, key string, result any) error {
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+	defer cancel()
+	if len(raw) > maxJSONBodyBytes {
+		return s.store.CompleteRecoverableExternalAction(ctx, key)
+	}
+	return s.store.CompleteRecoverableExternalActionWithResult(ctx, key, string(raw), time.Now().UTC().Add(httpActionResultTTL))
 }
 
 // truncateRunes 转发到 textfmt.TruncateRunes（跨包共享实现）。
@@ -325,10 +475,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "message 必填"})
 		return
 	}
-	turnCtx := r.Context()
-	if key := strings.TrimSpace(r.Header.Get("Idempotency-Key")); key != "" {
-		turnCtx = chat.WithTurnSourceKey(turnCtx, "http:"+key)
+	key, err := requestIdempotencyKey(r, true)
+	if err != nil {
+		writeHTTPActionClaimError(w, err, nil)
+		return
 	}
+	turnCtx := chat.WithTurnSourceKey(r.Context(), httpActionKey(u.ID, "chat", key))
 	reply, err := s.orch.HandleMessageResult(turnCtx, u, Channel, req.Message)
 	if err != nil {
 		if errors.Is(err, store.ErrTurnInProgress) || errors.Is(err, store.ErrConflict) {
@@ -640,17 +792,35 @@ func (s *Server) handleAdminRunEvals(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	requestKey, err := requestIdempotencyKey(r, true)
+	if err != nil {
+		writeHTTPActionClaimError(w, err, nil)
+		return
+	}
+	payload, _ := json.Marshal(req)
+	receipt, created, err := s.beginHTTPAction(r.Context(), u.ID, "eval:run", payload, requestKey)
+	if err != nil || !created {
+		writeHTTPActionClaimError(w, err, receipt)
+		return
+	}
 	runs := make([]*store.ConversationEvalRun, 0, len(cases))
 	for _, evalCase := range cases {
 		run, err := s.orch.RunEvalCase(r.Context(), u, evalCase)
 		if err != nil {
+			s.failHTTPAction(r.Context(), receipt.Key, err)
 			slog.Error("执行模型评测失败", "case", evalCase.ID, "err", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "保存评测结果失败"})
 			return
 		}
 		runs = append(runs, run)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"runs": runs})
+	response := map[string]any{"runs": runs}
+	if err := s.completeHTTPActionWithResult(r.Context(), receipt.Key, response); err != nil {
+		slog.Error("评测完成状态保存失败", "user", u.ID, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "评测已执行，但结果状态无法确认；请刷新数据核对"})
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (s *Server) handleAdminDecisions(w http.ResponseWriter, r *http.Request) {
@@ -852,8 +1022,36 @@ func (s *Server) handleToolInvoke(w http.ResponseWriter, r *http.Request) {
 		if item.Name != name {
 			continue
 		}
-		result, err := item.Handler(r.Context(), args)
+		callCtx := r.Context()
+		actionKey := ""
+		resumingAction := false
+		if item.Effect != ai.ToolEffectRead {
+			requestKey, keyErr := requestIdempotencyKey(r, true)
+			if keyErr != nil {
+				writeHTTPActionClaimError(w, keyErr, nil)
+				return
+			}
+			kind := "tool:" + name
+			actionPayload := []byte(args)
+			if item.NormalizeInput != nil {
+				if normalized := item.NormalizeInput(args); len(normalized) > 0 {
+					actionPayload = normalized
+				}
+			}
+			receipt, created, claimErr := s.beginHTTPAction(r.Context(), u.ID, kind, actionPayload, requestKey)
+			if claimErr != nil || !created && (receipt == nil || receipt.Status == store.ExternalActionCompleted) {
+				writeHTTPActionClaimError(w, claimErr, receipt)
+				return
+			}
+			actionKey = receipt.Key
+			resumingAction = !created
+			callCtx = ai.WithToolInvocationKey(callCtx, actionKey)
+		}
+		result, err := item.Handler(callCtx, args)
 		if err != nil {
+			if actionKey != "" {
+				s.failHTTPAction(r.Context(), actionKey, err)
+			}
 			slog.Error("HTTP 工具调用失败", "user", u.ID, "tool", name, "err", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "工具执行失败"})
 			return
@@ -863,6 +1061,19 @@ func (s *Server) handleToolInvoke(w http.ResponseWriter, r *http.Request) {
 			response["result"] = parsed.Message
 			response["status"] = parsed.Status
 			response["completion"] = parsed.Completion
+		}
+		if actionKey != "" {
+			var completeErr error
+			if resumingAction {
+				completeErr = s.completeRecoverableHTTPActionWithResult(r.Context(), actionKey, response)
+			} else {
+				completeErr = s.completeHTTPActionWithResult(r.Context(), actionKey, response)
+			}
+			if completeErr != nil {
+				slog.Error("HTTP 工具调用完成状态保存失败", "user", u.ID, "tool", name, "err", completeErr)
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "工具已执行，但结果状态无法确认；请刷新数据核对"})
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, response)
 		return
@@ -905,8 +1116,22 @@ func (s *Server) handleAdminStartWorkflow(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": reason})
 		return
 	}
-	out, err := tools.StartWorkflow(r.Context(), deps, u, req.Name, req.Args)
+	requestKey, err := requestIdempotencyKey(r, true)
 	if err != nil {
+		writeHTTPActionClaimError(w, err, nil)
+		return
+	}
+	payload, _ := json.Marshal(req)
+	kind := "workflow:" + strings.TrimSpace(req.Name)
+	receipt, created, err := s.beginHTTPAction(r.Context(), u.ID, kind, payload, requestKey)
+	if err != nil || !created {
+		writeHTTPActionClaimError(w, err, receipt)
+		return
+	}
+	callCtx := ai.WithToolInvocationKey(r.Context(), receipt.Key)
+	out, err := tools.StartWorkflow(callCtx, deps, u, req.Name, req.Args)
+	if err != nil {
+		s.failHTTPAction(r.Context(), receipt.Key, err)
 		slog.Error("启动工作流失败", "user", u.ID, "workflow", req.Name, "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "启动工作流失败"})
 		return
@@ -916,6 +1141,11 @@ func (s *Server) handleAdminStartWorkflow(w http.ResponseWriter, r *http.Request
 		response["result"] = result.Message
 		response["status"] = result.Status
 		response["completion"] = result.Completion
+	}
+	if err := s.completeHTTPActionWithResult(r.Context(), receipt.Key, response); err != nil {
+		slog.Error("启动工作流完成状态保存失败", "user", u.ID, "workflow", req.Name, "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "工作流已受理，但结果状态无法确认；请刷新数据核对"})
+		return
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -1281,15 +1511,20 @@ func (s *Server) requireWorker(w http.ResponseWriter, r *http.Request) *store.Us
 // 这样长期 token 只出现在工作机与本响应，绝不进入聊天与会话历史。
 func (s *Server) handleWorkerBind(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Code string `json:"code"`
+		Code        string `json:"code"`
+		AccessToken string `json:"access_token"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil || strings.TrimSpace(req.Code) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "code 必填"})
 		return
 	}
-	u, token, err := s.store.RedeemWorkerBindCode(r.Context(), strings.TrimSpace(req.Code))
+	u, token, err := s.store.RedeemWorkerBindCodeWithToken(r.Context(), strings.TrimSpace(req.Code), req.AccessToken)
 	if errors.Is(err, store.ErrNotFound) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "绑定码无效或已过期，请让超管重新签发"})
+		return
+	}
+	if errors.Is(err, store.ErrConflict) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "access_token 格式无效"})
 		return
 	}
 	if err != nil {
@@ -1299,9 +1534,9 @@ func (s *Server) handleWorkerBind(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("worker 绑定码兑换成功", "worker", u.ID)
 	// 上线事件交监护人的 AI 分析：要不要通知、要不要顺手派活，AI 说了算。
-	if u.OwnerID != nil {
-		s.bus.Emit("AI员工上线", *u.OwnerID,
-			fmt.Sprintf("AI 员工「%s」刚在工作机完成绑定，已可领取任务。", u.Name))
+	if u.OwnerID != nil && s.bus != nil {
+		s.bus.EnqueueOnce(fmt.Sprintf("worker-bind:%d:%s", u.ID, payloadHash([]byte(token))), "AI员工上线", *u.OwnerID,
+			fmt.Sprintf("AI 员工「%s」刚在工作机完成绑定，已可领取任务。", u.Name), false)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "worker_id": u.ID, "worker_name": u.Name})
 }
@@ -1366,9 +1601,19 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
+	requestID, err := requestIdempotencyKey(r, true)
+	if err != nil {
+		writeHTTPActionClaimError(w, err, nil)
+		return
+	}
 	model := s.runtimeLLMModel(r.Context())
 	if strings.TrimSpace(s.llm.BaseURL) == "" || strings.TrimSpace(model) == "" {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "中枢未配置 API 模型，内置智能体不可用"})
+		return
+	}
+	provider := s.llmProvider()
+	if provider != config.ProviderClaude && provider != config.ProviderOpenAI {
+		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "中枢未配置可用模型 provider，内置智能体不可用"})
 		return
 	}
 	// 限并发排队：worker 客户端超时富余（6 分钟），排队优于打爆上游。
@@ -1379,10 +1624,39 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	case <-r.Context().Done():
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, llmProxyBodyLimit)
 	var body map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONLimit(w, r, &body, llmProxyBodyLimit); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体须是 JSON 对象"})
+		return
+	}
+	requestBody, err := json.Marshal(body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体无法规范化"})
+		return
+	}
+	call, created, err := s.store.BeginWorkerLLMCall(r.Context(), u.ID, requestID, payloadHash(requestBody))
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrConflict):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "Idempotency-Key 已用于另一份模型请求"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "无法登记模型请求"})
+		}
+		return
+	}
+	if !created {
+		switch call.Status {
+		case store.WorkerLLMCallCompleted:
+			if call.HTTPStatus == nil {
+				writeJSON(w, http.StatusConflict, map[string]string{"error": "模型请求已完成但缓存状态不完整"})
+				return
+			}
+			writeWorkerLLMResponse(w, *call.HTTPStatus, call.Response)
+		case store.WorkerLLMCallFailed:
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "该模型请求此前失败；为避免重复上游调用不会自动重放"})
+		default:
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "该模型请求已越过上游执行边界，最终状态暂时无法确认"})
+		}
 		return
 	}
 	body["model"] = model  // 服务端钉死，防 worker 指定任意模型
@@ -1391,36 +1665,56 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 
 	var out []byte
 	var status int
-	var err error
-	switch s.llmProvider() {
+	err = nil
+	switch provider {
 	case config.ProviderClaude:
 		status, out, err = s.callWorkerLLMClaude(r.Context(), model, body)
 	case config.ProviderOpenAI:
 		status, out, err = s.callWorkerLLMOpenAI(r.Context(), model, body)
-	default:
-		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "中枢未配置可用模型 provider，内置智能体不可用"})
-		return
 	}
 	if err != nil {
-		slog.Warn("worker llm 管道上游失败", "worker", u.ID, "provider", s.llmProvider(), "err", err)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		safeErr := textfmt.RedactSecrets(err.Error())
+		slog.Warn("worker llm 管道上游失败", "worker", u.ID, "provider", provider, "err", safeErr)
+		ackCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Second)
+		if markErr := s.store.FailWorkerLLMCall(ackCtx, u.ID, requestID, safeErr); markErr != nil {
+			slog.Warn("worker llm 失败状态保存失败", "worker", u.ID, "request_id_hash", payloadHash([]byte(requestID)), "err", markErr)
+		}
+		cancel()
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": safeErr})
 		return
 	}
 	if status != http.StatusOK {
-		slog.Warn("worker llm 管道上游非 200", "worker", u.ID, "provider", s.llmProvider(), "status", status)
+		slog.Warn("worker llm 管道上游非 200", "worker", u.ID, "provider", provider, "status", status)
 	}
 	if len(out) > llmProxyBodyLimit*2 {
+		ackCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Second)
+		_ = s.store.FailWorkerLLMCall(ackCtx, u.ID, requestID, "上游响应超出大小上限")
+		cancel()
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "上游响应超出大小上限"})
 		return
 	}
+	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Second)
+	if cacheErr := s.store.CompleteWorkerLLMCall(ackCtx, u.ID, requestID, status, out); cacheErr != nil {
+		// The model call already happened. Returning its response lets the active
+		// worker continue, while the durable started row prevents a later replay.
+		slog.Error("worker llm 响应缓存失败", "worker", u.ID, "request_id_hash", payloadHash([]byte(requestID)), "err", cacheErr)
+	}
+	cancel()
 	if status == http.StatusOK {
 		// 用量落库含两次目标归因查询，异步执行：不阻塞 worker 拿响应（热路径），
 		// 失败不阻断业务。用独立 context，响应已返回后仍能完成。
 		recordWorkerLLMUsageAsync(s.store, u.ID, model, bytes.Clone(out))
 	}
+	writeWorkerLLMResponse(w, status, out)
+}
+
+func writeWorkerLLMResponse(w http.ResponseWriter, status int, body []byte) {
+	if status < 100 || status > 599 {
+		status = http.StatusBadGateway
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_, _ = w.Write(out)
+	_, _ = w.Write(body)
 }
 
 func recordWorkerLLMUsageAsync(st *store.Store, userID int64, model string, out []byte) {
@@ -2201,10 +2495,11 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		RunID   int64  `json:"run_id"`
-		TaskID  int64  `json:"task_id"`
-		ClaimID string `json:"claim_id"`
-		Content string `json:"content"`
+		RunID     int64  `json:"run_id"`
+		TaskID    int64  `json:"task_id"`
+		ClaimID   string `json:"claim_id"`
+		RequestID string `json:"request_id"`
+		Content   string `json:"content"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil || (req.RunID == 0 && req.TaskID == 0) || strings.TrimSpace(req.ClaimID) == "" || strings.TrimSpace(req.Content) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "run_id、claim_id 与 content 必填"})
@@ -2218,15 +2513,24 @@ func (s *Server) handleWorkerProgress(w http.ResponseWriter, r *http.Request) {
 	// Worker progress is authorized task state and may be needed verbatim by a
 	// resumed Agent. Presentation, audit, and learning surfaces redact separately.
 	req.Content = truncateRunes(req.Content, 16000)
-	if err := s.store.AddWorkerRunProgress(r.Context(), runID, u.ID, req.ClaimID, req.Content); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
+	if len(strings.TrimSpace(req.RequestID)) > 128 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request_id 过长"})
+		return
+	}
+	inserted, err := s.store.AddWorkerRunProgress(r.Context(), runID, u.ID, req.ClaimID, req.RequestID, req.Content)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "任务当前状态不允许记录进度（可能已被改派或重置）"})
+			return
+		case errors.Is(err, store.ErrConflict):
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "request_id 已被另一份进度内容使用"})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "记录失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"ok": "1"})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": "1", "recorded": inserted})
 }
 
 // handleWorkerSession persists native CLI continuity while the exact task claim
@@ -2347,13 +2651,14 @@ func (s *Server) handleWorkerRequestInput(w http.ResponseWriter, r *http.Request
 	}
 	sessionSaved := s.persistFinalizedWorkerSession(ctx, req.WorkerSessionID, u.ID, runID,
 		req.ClaimID, finalization.ID, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir)
-	if !replayed && s.bus != nil {
+	if s.bus != nil {
+		eventKey := fmt.Sprintf("worker-run:%d:finalization:%s:input", runID, finalization.ID)
 		if task != nil && task.AssignerID != u.ID {
-			s.bus.EmitRequired("任务需要补充信息", task.AssignerID,
+			s.bus.EnqueueRequiredOnce(eventKey, "任务需要补充信息", task.AssignerID,
 				fmt.Sprintf("AI 员工「%s」执行任务「%s」（任务内部编号 %d）时需要你补充信息：%s",
 					u.Name, task.Title, task.ID, truncateRunes(req.Content, 500)))
 		} else if task == nil && run.RequestedBy != u.ID {
-			s.bus.EmitRequired("Worker 执行需要补充信息", run.RequestedBy,
+			s.bus.EnqueueRequiredOnce(eventKey, "Worker 执行需要补充信息", run.RequestedBy,
 				fmt.Sprintf("AI 员工「%s」执行「%s」（执行内部编号 %d）时需要你补充信息：%s",
 					u.Name, run.Title, run.ID, truncateRunes(req.Content, 500)))
 		}
@@ -2413,13 +2718,14 @@ func (s *Server) handleWorkerFail(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionSaved := s.persistFinalizedWorkerSession(ctx, req.WorkerSessionID, u.ID, runID,
 		req.ClaimID, finalization.ID, req.SessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir)
-	if !replayed && run.Status == store.WorkerRunAwaitingInput && s.bus != nil {
+	if run.Status == store.WorkerRunAwaitingInput && s.bus != nil {
+		eventKey := fmt.Sprintf("worker-run:%d:finalization:%s:paused", runID, finalization.ID)
 		if task != nil && task.AssignerID != u.ID {
-			s.bus.EmitRequired("Worker 任务连续失败", task.AssignerID,
+			s.bus.EnqueueRequiredOnce(eventKey, "Worker 任务连续失败", task.AssignerID,
 				fmt.Sprintf("AI 员工「%s」执行任务「%s」（任务内部编号 %d）连续失败，执行已暂停等待处理。最近错误：%s",
 					u.Name, task.Title, task.ID, truncateRunes(run.LastError, 500)))
 		} else if task == nil && run.RequestedBy != u.ID {
-			s.bus.EmitRequired("Worker 执行连续失败", run.RequestedBy,
+			s.bus.EnqueueRequiredOnce(eventKey, "Worker 执行连续失败", run.RequestedBy,
 				fmt.Sprintf("AI 员工「%s」执行「%s」（执行内部编号 %d）连续失败，已暂停等待处理。最近错误：%s",
 					u.Name, run.Title, run.ID, truncateRunes(run.LastError, 500)))
 		}
@@ -2503,7 +2809,7 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionSaved := s.persistFinalizedWorkerSession(ctx, req.WorkerSessionID, u.ID, runID,
 		req.ClaimID, finalization.ID, sessionSummary, req.EngineSessionRef, req.EngineRuntimeFingerprint, req.Workdir)
-	if !replayed && task != nil && task.Status == store.TaskAccepted {
+	if task != nil && task.Status == store.TaskAccepted {
 		tools.FireReadyDependents(ctx, s.deps, task.ID)
 		for _, c := range chain {
 			tools.FireReadyDependents(ctx, s.deps, c.ID)
@@ -2526,22 +2832,23 @@ func (s *Server) handleWorkerSubmit(w http.ResponseWriter, r *http.Request) {
 	if !replayed && task != nil {
 		learned = s.ingestWorkerLearningCandidates(ctx, u, task, textfmt.RedactSecrets(req.Summary))
 	}
-	if !replayed && s.bus != nil && task != nil && task.AssignerID != u.ID {
+	if s.bus != nil && task != nil && task.AssignerID != u.ID {
 		extra := ""
 		if learned > 0 {
 			extra = fmt.Sprintf(" 已抽取 %d 条学习候选，可用 list_learning_candidates 审核。", learned)
 		}
 		if task.Status == store.TaskDone {
-			s.bus.EmitRequired("任务提交待验收", task.AssignerID,
+			s.bus.EnqueueRequiredOnce(fmt.Sprintf("worker-run:%d:finalization:%s:completed", runID, finalization.ID), "任务提交待验收", task.AssignerID,
 				fmt.Sprintf("AI 员工「%s」提交了任务「%s」（任务内部编号 %d）待你验收。提交摘要：%s%s",
 					u.Name, task.Title, task.ID, truncateRunes(req.Summary, 400), extra))
 		} else {
-			s.bus.EmitRequired("任务执行结束", task.AssignerID,
+			s.bus.EnqueueRequiredOnce(fmt.Sprintf("worker-run:%d:finalization:%s:completed", runID, finalization.ID), "任务执行结束", task.AssignerID,
 				fmt.Sprintf("AI 员工「%s」已完成任务「%s」（任务内部编号 %d），任务已归入历史。执行摘要：%s%s",
 					u.Name, task.Title, task.ID, truncateRunes(req.Summary, 400), extra))
 		}
-	} else if !replayed && s.bus != nil && task == nil && run.RequestedBy != u.ID {
-		s.bus.EmitRequired("Worker 执行结束", run.RequestedBy, workerRunFinishedEventDetail(u.Name, run))
+	} else if s.bus != nil && task == nil && run.RequestedBy != u.ID {
+		s.bus.EnqueueRequiredOnce(fmt.Sprintf("worker-run:%d:finalization:%s:completed", runID, finalization.ID),
+			"Worker 执行结束", run.RequestedBy, workerRunFinishedEventDetail(u.Name, run))
 	}
 	taskStatus := ""
 	if task != nil {
@@ -2786,7 +3093,14 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 // Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。
 func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) error {
 	if strings.TrimSpace(s.fileStorePath) != "" {
-		go s.runFileGC(ctx)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("文件存储 GC 后台 panic 已恢复", "panic", r)
+				}
+			}()
+			s.runFileGC(ctx)
+		}()
 	}
 	srv := &http.Server{
 		Addr:              addr,

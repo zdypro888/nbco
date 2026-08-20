@@ -178,6 +178,30 @@ func TestAgentSupervisorAuditsNarrativeOnlyTurns(t *testing.T) {
 	}
 }
 
+func TestAgentSupervisorSemanticRetryUsesNewRequestID(t *testing.T) {
+	var calls atomic.Int32
+	var keys []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		keys = append(keys, r.Header.Get("Idempotency-Key"))
+		w.Header().Set("Content-Type", "application/json")
+		if calls.Add(1) == 1 {
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"invalid assessment"}}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"audit-2","type":"function","function":{"name":"report_worker_assessment","arguments":"{\"status\":\"progressing\",\"signature\":\"new_evidence\",\"reason\":\"有新证据\",\"guidance\":\"\"}"}}]}}]}`))
+	}))
+	defer server.Close()
+
+	s := &agentSupervisor{worker: &Worker{client: newClient(server.URL, "worker-token")}}
+	got, err := s.assess(context.Background(), "progress", "evidence")
+	if err != nil || !got.progressing() {
+		t.Fatalf("assessment=%+v err=%v", got, err)
+	}
+	if len(keys) != 2 || keys[0] == "" || keys[1] == "" || keys[0] == keys[1] {
+		t.Fatalf("semantic retry keys=%v, want two different non-empty keys", keys)
+	}
+}
+
 func TestAgentSupervisorReviewsCompletionEvidence(t *testing.T) {
 	requestBody := make(chan string, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

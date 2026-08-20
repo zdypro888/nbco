@@ -411,7 +411,11 @@ func (e *Engine) newDeepAgent(
 	summaryUsage *ai.Usage,
 	toolExposure *ai.ToolExposure,
 ) (adk.Agent, *turnToolMiddleware, error) {
-	toolScope, err := newTurnToolMiddleware(ctx, req.Tools, toolExposure)
+	invocationScope := strings.TrimSpace(req.InvocationScope)
+	if invocationScope == "" {
+		invocationScope = req.SessionID
+	}
+	toolScope, err := newTurnToolMiddleware(ctx, invocationScope, req.Tools, toolExposure)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -47,14 +47,17 @@ func (h *Hub) Attach(workerID int64, c Conn) (old Conn) {
 	return old
 }
 
-// Detach 解除连接；仅当当前登记的就是 c 时才移除（防止旧连接晚到的清理
-// 把新连接顶掉）。
-func (h *Hub) Detach(workerID int64, c Conn) {
+// Detach removes c only when it is still the current connection. removed=false
+// means a newer connection replaced it, so callers must not publish an offline
+// transition for the stale connection.
+func (h *Hub) Detach(workerID int64, c Conn) (removed bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.conns[workerID] == c {
 		delete(h.conns, workerID)
+		return true
 	}
+	return false
 }
 
 // Online worker 是否有活跃实时连接。

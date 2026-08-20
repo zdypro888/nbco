@@ -1,0 +1,54 @@
+schema: 1
+nodes:
+    - id: store/external_actions.go
+      level: file
+      anchor:
+        file: store/external_actions.go
+        hash: sha256:0ddfa078b0daeaef8c4c1e69511701075dd166d30e1a1c85983621ccd47094f0
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T13:01:42.710787Z
+    - id: store/external_actions.go#Store.BeginExternalAction
+      level: function
+      anchor:
+        file: store/external_actions.go
+        symbol: Store.BeginExternalAction
+        hash: sha256:e2a0086e5957e9244fe78cac5b7f25a01044cfcbd4933030aa102c1bb4f2b181
+        struct_hash: sha256:37913d3bbd126cdcaeb0df76c07f913c7ae5ff7f3aa98f1b37b26bd072c1e36b
+        doc_struct_hash: sha256:6c161b7e547600a65e52545131ba83048ffb692714d1908630afd2589fa105d4
+        lines: [43, 72]
+      status: fresh
+      since: 2026-08-20T13:01:42.710756Z
+    - id: store/external_actions.go#Store.CompleteExternalActionWithResult
+      level: function
+      anchor:
+        file: store/external_actions.go
+        symbol: Store.CompleteExternalActionWithResult
+        hash: sha256:a0db56cfeaf250a669a779e82e4ae8fd195e6ed34497e069d259c639b7a293ba
+        struct_hash: sha256:e08111506bff9ff2c21708ac131a33956f42e1e412984b001eeeba7e621a4f48
+        doc_struct_hash: sha256:17685063a58e5446be32212b5864df6a43358846abebe01a1895e5e9464d9f09
+        lines: [82, 95]
+      status: fresh
+      since: 2026-08-20T13:01:42.711453Z
+    - id: store/external_actions.go#Store.CompleteRecoverableExternalActionWithResult
+      level: function
+      anchor:
+        file: store/external_actions.go
+        symbol: Store.CompleteRecoverableExternalActionWithResult
+        hash: sha256:eb16c6623b12eb3b5a79338087e793053f97ad453b05e813720df46227899264
+        struct_hash: sha256:4cb162a3624804019a4bd192e3a281893f3d0b8b76060a1ebaa351759f40e840
+        doc_struct_hash: sha256:c9adb8f7725add7bd28633fa2faeda144498a8a3a38e31235665ca52b092f11f
+        lines: [109, 119]
+      status: fresh
+      since: 2026-08-20T13:01:42.711912Z
+    - id: store/external_actions.go#Store.FailExternalAction
+      level: function
+      anchor:
+        file: store/external_actions.go
+        symbol: Store.FailExternalAction
+        hash: sha256:7f66c02d1a6659befab6ba710c77ae5725d96a76addd44ffa4fa9a0f9a6bd2e0
+        struct_hash: sha256:9e6e4751972025c784a810c31a3e4a97cb98723cdd8e45a28d535e824892365c
+        doc_struct_hash: sha256:9e6e4751972025c784a810c31a3e4a97cb98723cdd8e45a28d535e824892365c
+        lines: [121, 127]
+      status: fresh
+      since: 2026-08-20T13:01:42.712352Z

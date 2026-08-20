@@ -429,10 +429,10 @@ nodes:
       anchor:
         file: store/worker_runs.go
         symbol: Store.AddWorkerRunProgress
-        hash: sha256:e9c7e9ba53cbf1e7b15d6543c83b851a8a9f781ad258019198603ecf3169a918
-        struct_hash: sha256:947433c74a4007a4e861d686708a9cc11a6564c436eac0d2134eab83cb2b38bc
-        doc_struct_hash: sha256:947433c74a4007a4e861d686708a9cc11a6564c436eac0d2134eab83cb2b38bc
-        lines: [761, 802]
+        hash: sha256:e00a11a400b9c8ee6556dd0c728a49170391a6d8010830996d34a69aa10c3111
+        struct_hash: sha256:40cc626abb5e46813443a2e5efa00ddf71452a57ab05d0a2b4df4fb5a4bd94b5
+        doc_struct_hash: sha256:40cc626abb5e46813443a2e5efa00ddf71452a57ab05d0a2b4df4fb5a4bd94b5
+        lines: [761, 818]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#Store.RequestWorkerRunInput
@@ -465,7 +465,7 @@ nodes:
         hash: sha256:fd8470e8596622d1182157c2a839e444b64310e5a3c4b772b7afac60541ce870
         struct_hash: sha256:29fb13b0a56427fa069ef34a8c0f99461113c7d8b806054af1efc7a30db08dab
         doc_struct_hash: sha256:29fb13b0a56427fa069ef34a8c0f99461113c7d8b806054af1efc7a30db08dab
-        lines: [980, 1090]
+        lines: [996, 1106]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_runs.go#cancelActiveWorkerRunsTx

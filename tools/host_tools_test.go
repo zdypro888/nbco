@@ -89,6 +89,110 @@ func TestAssembledHostToolRechecksPermissionAtExecution(t *testing.T) {
 	}
 }
 
+func TestAssembledWriteToolUsesDurableInvocationIdentity(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	actor := mkToolsUser(t, s, "host-idempotency-root", true)
+	runs := 0
+	host := ai.Tool{
+		Name: "host_idempotency_probe", Description: "idempotency probe",
+		Effect:      ai.ToolEffectWrite,
+		InputSchema: obj(map[string]any{"value": p("string", "value")}, "value"),
+		Handler: func(context.Context, json.RawMessage) (string, error) {
+			runs++
+			return "executed", nil
+		},
+	}
+	var assembled ai.Tool
+	for _, candidate := range ForUserContextWithTools(ctx, Deps{Store: s}, actor, nil, []ai.Tool{host}) {
+		if candidate.Name == host.Name {
+			assembled = candidate
+			break
+		}
+	}
+	if assembled.Handler == nil {
+		t.Fatal("write host tool was not assembled")
+	}
+
+	firstCtx := ai.WithToolInvocationKey(ctx, "turn-1-call-1")
+	if out, err := assembled.Handler(firstCtx, json.RawMessage(`{"value":"same"}`)); err != nil || out != "executed" {
+		t.Fatalf("first call out=%q err=%v", out, err)
+	}
+	out, err := assembled.Handler(firstCtx, json.RawMessage(`{ "value": "same" }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "executed" || runs != 1 {
+		t.Fatalf("durable replay raw=%q runs=%d", out, runs)
+	}
+
+	conflict, err := assembled.Handler(firstCtx, json.RawMessage(`{"value":"changed"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rejected, ok := ParseToolResult(conflict)
+	if !ok || rejected.Status != "rejected" || rejected.ErrorType != "execution_state_unknown" || runs != 1 {
+		t.Fatalf("mutated replay result=%+v raw=%q runs=%d", rejected, conflict, runs)
+	}
+
+	secondCtx := ai.WithToolInvocationKey(ctx, "turn-2-call-1")
+	if out, err := assembled.Handler(secondCtx, json.RawMessage(`{"value":"same"}`)); err != nil || out != "executed" || runs != 2 {
+		t.Fatalf("distinct invocation out=%q err=%v runs=%d", out, err, runs)
+	}
+}
+
+func TestRecoverableToolReconstructsInterruptedResult(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	actor := mkToolsUser(t, s, "host-recovery-root", true)
+	handlerRuns := 0
+	recoveryRuns := 0
+	finalizerRuns := 0
+	host := ai.Tool{
+		Name: "host_recovery_probe", Description: "recovery probe",
+		Effect:      ai.ToolEffectWrite,
+		InputSchema: obj(map[string]any{"value": p("string", "value")}, "value"),
+		Handler: func(context.Context, json.RawMessage) (string, error) {
+			handlerRuns++
+			return "new-result", nil
+		},
+		RecoverResult: func(context.Context, json.RawMessage) (string, bool, error) {
+			recoveryRuns++
+			return "recovered-result", true, nil
+		},
+		ResultPersisted: func(context.Context, json.RawMessage, string) error {
+			finalizerRuns++
+			return nil
+		},
+	}
+	var assembled ai.Tool
+	for _, candidate := range ForUserContextWithTools(ctx, Deps{Store: s}, actor, nil, []ai.Tool{host}) {
+		if candidate.Name == host.Name {
+			assembled = candidate
+			break
+		}
+	}
+	if assembled.Handler == nil {
+		t.Fatal("recoverable host tool was not assembled")
+	}
+
+	args := json.RawMessage(`{"value":"same"}`)
+	invocation := "turn-interrupted-call-1"
+	key := toolInvocationReceiptKey(actor.ID, host.Name, invocation)
+	if _, created, err := s.BeginExternalAction(ctx, key, "tool:"+host.Name, canonicalArgsHash(args)); err != nil || !created {
+		t.Fatalf("seed interrupted receipt created=%v err=%v", created, err)
+	}
+	callCtx := ai.WithToolInvocationKey(ctx, invocation)
+	out, err := assembled.Handler(callCtx, args)
+	if err != nil || out != "recovered-result" || handlerRuns != 0 || recoveryRuns != 1 || finalizerRuns != 1 {
+		t.Fatalf("recovery out=%q err=%v handler=%d recover=%d finalize=%d", out, err, handlerRuns, recoveryRuns, finalizerRuns)
+	}
+	out, err = assembled.Handler(callCtx, args)
+	if err != nil || out != "recovered-result" || handlerRuns != 0 || recoveryRuns != 1 || finalizerRuns != 1 {
+		t.Fatalf("durable recovered replay out=%q err=%v handler=%d recover=%d finalize=%d", out, err, handlerRuns, recoveryRuns, finalizerRuns)
+	}
+}
+
 func TestHostToolCanDeclareResourceTargetAuthorization(t *testing.T) {
 	s := openToolsTestStore(t)
 	ctx := context.Background()

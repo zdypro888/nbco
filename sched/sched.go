@@ -54,6 +54,8 @@ const (
 	groupDigestMessageLimit   = 240
 	profileRefreshBatchSize   = 6
 	knowledgeRefreshBatchSize = 8
+	deliveryReceiptRetention  = 90 * 24 * time.Hour
+	credentialCleanupInterval = 10 * time.Minute
 )
 
 // Scheduler 调度器。
@@ -70,7 +72,9 @@ type Scheduler struct {
 	aiPool   *pool // AI 轮次限并发（护后端网关）：催办/周报/画像/定时 AI 推送
 	sendPool *pool // 模板推送/逐人查询限并发（廉价）：每日汇总扇出
 
-	nextSnapshotCleanup time.Time
+	nextSnapshotCleanup   time.Time
+	nextReceiptCleanup    time.Time
+	nextCredentialCleanup time.Time
 }
 
 // New 创建调度器。aiConcurrency 是同时进行的 AI 轮次上限（<=0 取默认 4）。
@@ -119,27 +123,28 @@ func (s *Scheduler) runAutomationTurn(ctx context.Context, u *store.User, execut
 // runAIAndSend executes a read-only system report and then delivers it. It is
 // safe to regenerate after a transient failure because the turn cannot mutate
 // business state.
-func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, executionKey, directive, prefix, label string) bool {
+func (s *Scheduler) runAIAndSend(ctx context.Context, u *store.User, executionKey, directive, prefix, label string) notify.DeliveryResult {
 	reply, err := s.runAIReply(ctx, u, executionKey, directive, label, true)
 	if err != nil {
-		return false
+		return notify.DeliveryResult{}
 	}
 	if reply == "" {
 		slog.Warn("定时 AI 轮次返回空内容", "kind", label, "user", u.ID)
-		return false
+		return notify.DeliveryResult{}
 	}
 	// Generation may consume nearly all of aiTurnTimeout. Delivery gets its own
 	// bounded window so a valid result is not retried merely because only a few
 	// milliseconds remained on the model context.
-	return s.send(ctx, u.ID, prefix+reply)
+	return s.send(ctx, "scheduler:"+executionKey, u.ID, prefix+reply)
 }
 
 // dispatchAI 派发一轮系统触发的 AI 生成 + 推送，受 aiPool 限并发、对 tick 非阻塞。
-// prefix 前缀（如「🧭 月度人员盘点\n」），after 在推送成功后执行（可为 nil，用于催办升级）。
-func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, executionKey, directive, prefix, label string, after func()) {
+// prefix 是展示前缀；after 在投递结果跨过持久边界后执行，并收到渠道是否确认送达。
+func (s *Scheduler) dispatchAI(ctx context.Context, u *store.User, executionKey, directive, prefix, label string, after func(delivered bool)) {
 	s.aiPool.submit(ctx, func() {
-		if s.runAIAndSend(ctx, u, executionKey, directive, prefix, label) && after != nil {
-			after()
+		delivery := s.runAIAndSend(ctx, u, executionKey, directive, prefix, label)
+		if delivery.Settled() && after != nil {
+			after(delivery.Delivered)
 		}
 	})
 }
@@ -171,8 +176,13 @@ func (s *Scheduler) dispatchAutomationAI(
 			}
 			run.ResultText = reply
 		}
-		if !s.send(ctx, u.ID, prefix+reply) {
+		delivery := s.send(ctx, "scheduler:"+automationExecutionKey(run), u.ID, prefix+reply)
+		if !delivery.Settled() {
 			s.retryAutomation(ctx, run, label+"投递失败")
+			return
+		}
+		if !delivery.Delivered {
+			s.failAutomationDelivery(ctx, run, label+"投递失败或结果不确定，系统未自动重发")
 			return
 		}
 		s.completeAutomation(ctx, run)
@@ -183,8 +193,9 @@ func (s *Scheduler) dispatchAutomationAI(
 
 // dispatchAutomationAction runs a scheduled maintenance agent that is allowed
 // to write. The action boundary and generated report are durable: after the
-// boundary a crash can only trigger a read-only state reconstruction, and a
-// notification failure only resends the stored report.
+// boundary a crash can only trigger a read-only state reconstruction. Delivery
+// uses a stable at-most-once key, so a reclaimed run settles from the transport
+// ledger instead of blindly resending the stored report.
 func (s *Scheduler) dispatchAutomationAction(
 	ctx context.Context,
 	run *store.AutomationRun,
@@ -250,10 +261,16 @@ func (s *Scheduler) dispatchAutomationAction(
 		}
 		if options.SuppressNotification {
 			s.completeAutomation(ctx, run)
-		} else if s.send(ctx, u.ID, prefix+reply) {
-			s.completeAutomation(ctx, run)
 		} else {
-			s.retryAutomation(ctx, run, label+"投递失败")
+			delivery := s.send(ctx, "scheduler:"+automationExecutionKey(run), u.ID, prefix+reply)
+			switch {
+			case !delivery.Settled():
+				s.retryAutomation(ctx, run, label+"投递失败")
+			case !delivery.Delivered:
+				s.failAutomationDelivery(ctx, run, label+"投递失败或结果不确定，系统未自动重发")
+			default:
+				s.completeAutomation(ctx, run)
+			}
 		}
 	}) {
 		s.retryAutomation(ctx, run, "AI 执行池满载")
@@ -355,6 +372,12 @@ func (s *Scheduler) completeAutomation(ctx context.Context, run *store.Automatio
 	}
 }
 
+func (s *Scheduler) failAutomationDelivery(ctx context.Context, run *store.AutomationRun, cause string) {
+	if err := s.store.FailAutomationRunDelivery(ctx, run, cause); err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.Warn("自动化通知失败状态保存失败", "key", run.AutomationKey, "occurrence", run.OccurrenceKey, "subject", run.SubjectID, "err", err)
+	}
+}
+
 func (s *Scheduler) retryAutomation(ctx context.Context, run *store.AutomationRun, cause string) {
 	if err := s.store.RetryAutomationRun(ctx, run, cause); err != nil && !errors.Is(err, store.ErrNotFound) {
 		slog.Warn("自动化运行重试状态保存失败", "key", run.AutomationKey, "occurrence", run.OccurrenceKey, "subject", run.SubjectID, "err", err)
@@ -402,7 +425,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 			slog.Error("到期任务缺少租约，无法释放", "schedule", sc.ID)
 			continue
 		}
-		if err := s.store.ReleaseScheduleClaim(ctx, sc.ID, *sc.DeliveryClaimedAt); err != nil && !errors.Is(err, store.ErrNotFound) {
+		if err := s.store.ReleaseScheduleClaim(ctx, sc.ID, sc.OccurrenceGeneration, *sc.DeliveryClaimedAt); err != nil && !errors.Is(err, store.ErrNotFound) {
 			slog.Warn("调度池满载且释放任务租约失败", "schedule", sc.ID, "err", err)
 		}
 	}
@@ -419,6 +442,34 @@ func (s *Scheduler) tick(ctx context.Context) {
 			slog.Info("已清理过期自动化快照", "count", deleted)
 		}
 		s.nextSnapshotCleanup = now.Add(24 * time.Hour)
+	}
+	if !now.Before(s.nextReceiptCleanup) {
+		notifications, actions, workerLLMCalls, err := s.store.DeleteExpiredDeliveryReceipts(ctx, now.Add(-deliveryReceiptRetention))
+		if err != nil {
+			slog.Warn("清理过期投递账本失败", "err", err)
+		} else if notifications+actions+workerLLMCalls > 0 {
+			slog.Info("已清理过期投递账本", "notifications", notifications, "actions", actions,
+				"worker_llm_calls", workerLLMCalls)
+		}
+		s.nextReceiptCleanup = now.Add(24 * time.Hour)
+	}
+	if !now.Before(s.nextCredentialCleanup) {
+		rotations, rotationErr := s.store.DeleteExpiredAPITokenRotations(ctx, now)
+		if rotationErr != nil {
+			slog.Warn("清理过期 Access Token 换发记录失败", "err", rotationErr)
+		}
+		results, resultErr := s.store.ClearExpiredExternalActionResults(ctx, now)
+		if resultErr != nil {
+			slog.Warn("清理过期一次性工具结果失败", "err", resultErr)
+		}
+		workerCodes, workerCodeErr := s.store.DeleteExpiredWorkerBindCodes(ctx, now)
+		if workerCodeErr != nil {
+			slog.Warn("清理过期 Worker 绑定码失败", "err", workerCodeErr)
+		}
+		if rotations+results+workerCodes > 0 {
+			slog.Info("已清理过期凭证结果", "token_rotations", rotations, "tool_results", results, "worker_bind_codes", workerCodes)
+		}
+		s.nextCredentialCleanup = now.Add(credentialCleanupInterval)
 	}
 	s.deadlinePass(ctx, now)
 	s.goalDeadlinePass(ctx, now)
@@ -447,7 +498,7 @@ func (s *Scheduler) fireSchedule(ctx context.Context, sc *store.Schedule) {
 		next = &n
 		// 今天不在工作日过滤内（比如补跑/时钟漂移落到周末）：只校正不投递。
 		if !dailyDeliveryAllowed(now, sc.Weekdays, s.tz) {
-			if err := s.store.MarkScheduleDelivered(ctx, sc.ID, claimAt, now, next, false); err != nil {
+			if err := s.store.MarkScheduleDelivered(ctx, sc.ID, sc.OccurrenceGeneration, claimAt, now, next, false); err != nil {
 				slog.Warn("daily 定时跳过校正失败", "schedule", sc.ID, "err", err)
 			}
 			return
@@ -583,8 +634,13 @@ func (s *Scheduler) deliverScheduleRecipient(ctx context.Context, d *store.Sched
 		s.suppressScheduleRecipient(ctx, d, "接收人在投递前关闭了此类定时通知。")
 		return
 	}
-	if !s.send(ctx, u.ID, message) {
+	delivery := s.send(ctx, fmt.Sprintf("schedule-delivery:%d", d.ID), u.ID, message)
+	if !delivery.Settled() {
 		s.retryScheduleRecipient(ctx, d, "通知投递失败")
+		return
+	}
+	if !delivery.Delivered {
+		s.failScheduleRecipient(ctx, d, "通知投递结果不确定，系统禁止自动重发")
 		return
 	}
 	s.recordScheduleWorkEvidence(ctx, d, message)
@@ -715,11 +771,11 @@ func (s *Scheduler) prepareTelegramGroupDigest(
 ) (preparedScheduleAI, error) {
 	chatID, err := strconv.ParseInt(strings.TrimSpace(sc.SourceKey), 10, 64)
 	if err != nil {
-		return preparedScheduleAI{}, fmt.Errorf("Telegram 群摘要来源无效: %w", err)
+		return preparedScheduleAI{}, fmt.Errorf("telegram 群摘要来源无效: %w", err)
 	}
 	group, err := s.store.TelegramGroupState(ctx, chatID)
 	if err != nil {
-		return preparedScheduleAI{}, fmt.Errorf("读取 Telegram 群: %w", err)
+		return preparedScheduleAI{}, fmt.Errorf("读取 telegram 群: %w", err)
 	}
 	planned := d.OccurrenceAt.In(tz)
 	from := time.Date(planned.Year(), planned.Month(), planned.Day(), 0, 0, 0, 0, tz)
@@ -969,18 +1025,18 @@ func (s *Scheduler) nudgePass(ctx context.Context, now time.Time) {
 		directive := s.nudgeDirective(ctx, t, u)
 		t := t // 捕获循环变量
 		// 催办成功后 ack；累计多次仍无进度 → 分配者介入（模板消息，确定性投递）。
-		escalate := func() {
-			if err := s.store.MarkNudgeSent(ctx, t.ID, time.Now().UTC()); err != nil {
+		settle := func(delivered bool) {
+			if err := s.store.MarkNudgeAttempt(ctx, t.ID, t.DeadlineGeneration, time.Now().UTC(), delivered); err != nil {
 				slog.Warn("催办 ack 失败", "task", t.ID, "err", err)
 				return
 			}
-			if t.NudgeCount+1 >= escalateAfter && t.AssignerID != t.AssigneeID {
-				s.send(ctx, t.AssignerID,
+			if delivered && t.NudgeCount+1 >= escalateAfter && t.AssignerID != t.AssigneeID {
+				s.send(ctx, fmt.Sprintf("task-nudge-escalation:%d:g%d:%d", t.ID, t.DeadlineGeneration, t.NudgeCount+1), t.AssignerID,
 					fmt.Sprintf("⚠️ 你分配的任务「%s」（#%d，执行人 %s）已催办 %d 次仍无进度，请介入：调整任务、改期或改派。",
 						t.Title, t.ID, u.Name, t.NudgeCount+1))
 			}
 		}
-		s.dispatchAI(ctx, u, fmt.Sprintf("nudge:%d", t.ID), directive, "", "催办", escalate)
+		s.dispatchAI(ctx, u, fmt.Sprintf("nudge:%d:g%d:%d", t.ID, t.DeadlineGeneration, t.NudgeAttemptCount+1), directive, "", "催办", settle)
 	}
 }
 
@@ -1030,10 +1086,14 @@ func (s *Scheduler) orphanTaskPass(ctx context.Context) {
 		msg := renderOrphanNotice(tasks, names)
 		ownerID := ownerID
 		if !s.sendPool.trySubmit(ctx, func() {
-			if s.send(ctx, ownerID, msg) {
-				s.completeAutomation(ctx, run)
-			} else {
+			delivery := s.send(ctx, "scheduler:"+automationExecutionKey(run), ownerID, msg)
+			switch {
+			case !delivery.Settled():
 				s.retryAutomation(ctx, run, "孤儿任务提醒投递失败")
+			case !delivery.Delivered:
+				s.failAutomationDelivery(ctx, run, "孤儿任务提醒投递失败或结果不确定，系统未自动重发")
+			default:
+				s.completeAutomation(ctx, run)
 			}
 		}) {
 			s.retryAutomation(ctx, run, "通知执行池满载")
@@ -1504,16 +1564,17 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 		t := t
 		s.sendPool.submit(ctx, func() {
 			_, ok := s.humanUser(ctx, t.AssigneeID)
-			if ok && s.send(ctx, t.AssigneeID,
-				fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline))) {
-				if err := s.store.MarkDeadlineReminderSent(ctx, t.ID, time.Now().UTC()); err != nil {
-					slog.Warn("临近截止提醒 ack 失败", "task", t.ID, "err", err)
+			if !ok {
+				if err := s.store.MarkDeadlineReminderAttempt(ctx, t.ID, t.DeadlineGeneration, time.Now().UTC(), false); err != nil {
+					slog.Warn("worker 临近截止提醒跳过 ack 失败", "task", t.ID, "err", err)
 				}
 				return
 			}
-			if !ok {
-				if err := s.store.MarkDeadlineReminderSent(ctx, t.ID, time.Now().UTC()); err != nil {
-					slog.Warn("worker 临近截止提醒跳过 ack 失败", "task", t.ID, "err", err)
+			delivery := s.send(ctx, fmt.Sprintf("task-deadline:%d:g%d", t.ID, t.DeadlineGeneration), t.AssigneeID,
+				fmt.Sprintf("⏳ 任务「%s」（#%d）将于 %s 截止，请安排进度。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+			if delivery.Settled() {
+				if err := s.store.MarkDeadlineReminderAttempt(ctx, t.ID, t.DeadlineGeneration, time.Now().UTC(), delivery.Delivered); err != nil {
+					slog.Warn("临近截止提醒结算失败", "task", t.ID, "err", err)
 				}
 			}
 		})
@@ -1527,24 +1588,34 @@ func (s *Scheduler) deadlinePass(ctx context.Context, now time.Time) {
 		t := t
 		s.sendPool.submit(ctx, func() {
 			_, human := s.humanUser(ctx, t.AssigneeID)
-			ok := true
+			settled := true
+			anyDelivered := false
 			if human {
-				ok = s.send(ctx, t.AssigneeID,
+				delivery := s.send(ctx, fmt.Sprintf("task-overdue:%d:g%d:assignee", t.ID, t.DeadlineGeneration), t.AssigneeID,
 					fmt.Sprintf("🔴 任务「%s」（#%d）已过截止时间（%s）。请立即更新进度，或与分配者沟通调整。", t.Title, t.ID, s.fmtTime(*t.Deadline)))
+				settled = delivery.Settled()
+				anyDelivered = delivery.Delivered
 			}
 			if t.AssignerID != t.AssigneeID {
 				// 分配者侧走事件总线：AI 结合 worker 在线/任务状态决定是否改派或额外通知，
 				// 而非死板模板。bus 未装配（测试）时回退原文模板，保证必达。
 				detail := fmt.Sprintf("你分配的任务「%s」（#%d，执行人 %s）已过截止时间（%s）。",
 					t.Title, t.ID, s.userName(ctx, t.AssigneeID), s.fmtTime(*t.Deadline))
-				enqueued := s.bus != nil && s.bus.EnqueueRequired("任务过期", t.AssignerID, detail)
-				if !enqueued && !s.send(ctx, t.AssignerID, "🔴 "+detail) {
-					slog.Warn("过期通知分配者侧投递失败（不重试）", "task", t.ID, "assigner", t.AssignerID)
+				eventKey := fmt.Sprintf("task-overdue:%d:g%d:assigner", t.ID, t.DeadlineGeneration)
+				enqueued := s.bus != nil && s.bus.EnqueueRequiredOnce(eventKey, "任务过期", t.AssignerID, detail)
+				anyDelivered = anyDelivered || enqueued
+				if !enqueued {
+					delivery := s.send(ctx, eventKey, t.AssignerID, "🔴 "+detail)
+					settled = settled && delivery.Settled()
+					anyDelivered = anyDelivered || delivery.Delivered
+					if delivery.Settled() && !delivery.Delivered {
+						slog.Warn("过期通知分配者侧未确认送达", "task", t.ID, "assigner", t.AssignerID)
+					}
 				}
 			}
-			if ok {
-				if err := s.store.MarkOverdueNoticeSent(ctx, t.ID, time.Now().UTC()); err != nil {
-					slog.Warn("过期通知 ack 失败", "task", t.ID, "err", err)
+			if settled {
+				if err := s.store.MarkOverdueNoticeAttempt(ctx, t.ID, t.DeadlineGeneration, time.Now().UTC(), anyDelivered); err != nil {
+					slog.Warn("过期通知结算失败", "task", t.ID, "err", err)
 				}
 			}
 		})
@@ -1566,15 +1637,16 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 		}
 		s.sendPool.submit(ctx, func() {
 			if _, ok := s.humanUser(ctx, g.OwnerID); !ok {
-				if err := s.store.MarkGoalDeadlineReminderSent(ctx, g.ID, time.Now().UTC()); err != nil {
+				if err := s.store.MarkGoalDeadlineReminderAttempt(ctx, g.ID, g.DeadlineGeneration, time.Now().UTC(), false); err != nil {
 					slog.Warn("worker 目标临近截止提醒跳过 ack 失败", "goal", g.ID, "err", err)
 				}
 				return
 			}
-			if s.send(ctx, g.OwnerID,
-				fmt.Sprintf("⏳ 战略目标「%s」将于 %s 到期，请确认里程碑进度是否需要调整。", g.Title, s.fmtTime(*g.Deadline))) {
-				if err := s.store.MarkGoalDeadlineReminderSent(ctx, g.ID, time.Now().UTC()); err != nil {
-					slog.Warn("目标临近截止提醒 ack 失败", "goal", g.ID, "err", err)
+			delivery := s.send(ctx, fmt.Sprintf("goal-deadline:%d:g%d", g.ID, g.DeadlineGeneration), g.OwnerID,
+				fmt.Sprintf("⏳ 战略目标「%s」将于 %s 到期，请确认里程碑进度是否需要调整。", g.Title, s.fmtTime(*g.Deadline)))
+			if delivery.Settled() {
+				if err := s.store.MarkGoalDeadlineReminderAttempt(ctx, g.ID, g.DeadlineGeneration, time.Now().UTC(), delivery.Delivered); err != nil {
+					slog.Warn("目标临近截止提醒结算失败", "goal", g.ID, "err", err)
 				}
 			}
 		})
@@ -1591,7 +1663,7 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 		}
 		s.sendPool.submit(ctx, func() {
 			if _, human := s.humanUser(ctx, g.OwnerID); !human {
-				if err := s.store.MarkGoalOverdueNoticeSent(ctx, g.ID, time.Now().UTC()); err != nil {
+				if err := s.store.MarkGoalOverdueNoticeAttempt(ctx, g.ID, g.DeadlineGeneration, time.Now().UTC(), false); err != nil {
 					slog.Warn("worker 目标过期通知跳过 ack 失败", "goal", g.ID, "err", err)
 				}
 				return
@@ -1600,13 +1672,16 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 			// 同一条逾期通知沿两条路径重复送达。
 			detail := fmt.Sprintf("战略目标「%s」已过截止时间（%s）。请用 view_goals 核实里程碑进度，判断是否需要点名相关负责人、调整期限或重新拆解。",
 				g.Title, s.fmtTime(*g.Deadline))
-			ok := s.bus != nil && s.bus.EnqueueRequired("目标过期", g.OwnerID, detail)
-			if !ok {
-				ok = s.send(ctx, g.OwnerID, "🔴 "+detail)
+			eventKey := fmt.Sprintf("goal-overdue:%d:g%d", g.ID, g.DeadlineGeneration)
+			delivered := s.bus != nil && s.bus.EnqueueRequiredOnce(eventKey, "目标过期", g.OwnerID, detail)
+			settled := delivered
+			if !delivered {
+				delivery := s.send(ctx, eventKey, g.OwnerID, "🔴 "+detail)
+				settled, delivered = delivery.Settled(), delivery.Delivered
 			}
-			if ok {
-				if err := s.store.MarkGoalOverdueNoticeSent(ctx, g.ID, time.Now().UTC()); err != nil {
-					slog.Warn("目标过期通知 ack 失败", "goal", g.ID, "err", err)
+			if settled {
+				if err := s.store.MarkGoalOverdueNoticeAttempt(ctx, g.ID, g.DeadlineGeneration, time.Now().UTC(), delivered); err != nil {
+					slog.Warn("目标过期通知结算失败", "goal", g.ID, "err", err)
 				}
 			} else {
 				slog.Warn("目标过期通知投递失败", "goal", g.ID, "owner", g.OwnerID)
@@ -1628,18 +1703,22 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 		s.sendPool.submit(ctx, func() {
 			ownerID, gTitle := s.milestoneOwner(ctx, m.GoalID)
 			if ownerID == 0 {
-				return // 目标已删，跳过
+				if err := s.store.MarkMilestoneDeadlineReminderAttempt(ctx, m.ID, m.DeadlineGeneration, time.Now().UTC(), false); err != nil && !errors.Is(err, store.ErrNotFound) {
+					slog.Warn("失去所属目标的里程碑提醒结算失败", "milestone", m.ID, "err", err)
+				}
+				return
 			}
 			if _, ok := s.humanUser(ctx, ownerID); !ok {
-				if err := s.store.MarkMilestoneDeadlineReminderSent(ctx, m.ID, time.Now().UTC()); err != nil {
+				if err := s.store.MarkMilestoneDeadlineReminderAttempt(ctx, m.ID, m.DeadlineGeneration, time.Now().UTC(), false); err != nil {
 					slog.Warn("worker 里程碑临近截止提醒跳过 ack 失败", "milestone", m.ID, "err", err)
 				}
 				return
 			}
-			if s.send(ctx, ownerID,
-				fmt.Sprintf("⏳ 里程碑「%s」（属目标「%s」）将于 %s 到期。", m.Title, gTitle, s.fmtTime(*m.Deadline))) {
-				if err := s.store.MarkMilestoneDeadlineReminderSent(ctx, m.ID, time.Now().UTC()); err != nil {
-					slog.Warn("里程碑临近截止提醒 ack 失败", "milestone", m.ID, "err", err)
+			delivery := s.send(ctx, fmt.Sprintf("milestone-deadline:%d:g%d", m.ID, m.DeadlineGeneration), ownerID,
+				fmt.Sprintf("⏳ 里程碑「%s」（属目标「%s」）将于 %s 到期。", m.Title, gTitle, s.fmtTime(*m.Deadline)))
+			if delivery.Settled() {
+				if err := s.store.MarkMilestoneDeadlineReminderAttempt(ctx, m.ID, m.DeadlineGeneration, time.Now().UTC(), delivery.Delivered); err != nil {
+					slog.Warn("里程碑临近截止提醒结算失败", "milestone", m.ID, "err", err)
 				}
 			}
 		})
@@ -1657,10 +1736,13 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 		s.sendPool.submit(ctx, func() {
 			ownerID, gTitle := s.milestoneOwner(ctx, m.GoalID)
 			if ownerID == 0 {
+				if err := s.store.MarkMilestoneOverdueNoticeAttempt(ctx, m.ID, m.DeadlineGeneration, time.Now().UTC(), false); err != nil && !errors.Is(err, store.ErrNotFound) {
+					slog.Warn("失去所属目标的里程碑过期通知结算失败", "milestone", m.ID, "err", err)
+				}
 				return
 			}
 			if _, human := s.humanUser(ctx, ownerID); !human {
-				if err := s.store.MarkMilestoneOverdueNoticeSent(ctx, m.ID, time.Now().UTC()); err != nil {
+				if err := s.store.MarkMilestoneOverdueNoticeAttempt(ctx, m.ID, m.DeadlineGeneration, time.Now().UTC(), false); err != nil {
 					slog.Warn("worker 里程碑过期通知跳过 ack 失败", "milestone", m.ID, "err", err)
 				}
 				return
@@ -1668,13 +1750,16 @@ func (s *Scheduler) goalDeadlinePass(ctx context.Context, now time.Time) {
 			// 与目标过期同构：优先进入持久事件队列，队列不可用才直发。
 			detail := fmt.Sprintf("里程碑「%s」（属目标「%s」）已过截止时间（%s）。请用 get_milestone_detail 核实任务进度，点名停滞任务的执行人或重新拆解。",
 				m.Title, gTitle, s.fmtTime(*m.Deadline))
-			ok := s.bus != nil && s.bus.EnqueueRequired("里程碑过期", ownerID, detail)
-			if !ok {
-				ok = s.send(ctx, ownerID, "🔴 "+detail)
+			eventKey := fmt.Sprintf("milestone-overdue:%d:g%d", m.ID, m.DeadlineGeneration)
+			delivered := s.bus != nil && s.bus.EnqueueRequiredOnce(eventKey, "里程碑过期", ownerID, detail)
+			settled := delivered
+			if !delivered {
+				delivery := s.send(ctx, eventKey, ownerID, "🔴 "+detail)
+				settled, delivered = delivery.Settled(), delivery.Delivered
 			}
-			if ok {
-				if err := s.store.MarkMilestoneOverdueNoticeSent(ctx, m.ID, time.Now().UTC()); err != nil {
-					slog.Warn("里程碑过期通知 ack 失败", "milestone", m.ID, "err", err)
+			if settled {
+				if err := s.store.MarkMilestoneOverdueNoticeAttempt(ctx, m.ID, m.DeadlineGeneration, time.Now().UTC(), delivered); err != nil {
+					slog.Warn("里程碑过期通知结算失败", "milestone", m.ID, "err", err)
 				}
 			}
 		})
@@ -1737,10 +1822,18 @@ func (s *Scheduler) maybeDailySummary(ctx context.Context) {
 			if u.IsSuperadmin && digest != "" {
 				parts = append(parts, digest)
 			}
-			if len(parts) == 0 || s.send(ctx, u.ID, strings.Join(parts, "\n\n")) {
+			if len(parts) == 0 {
 				s.completeAutomation(ctx, run)
-			} else {
+				return
+			}
+			delivery := s.send(ctx, "scheduler:"+automationExecutionKey(run), u.ID, strings.Join(parts, "\n\n"))
+			switch {
+			case !delivery.Settled():
 				s.retryAutomation(ctx, run, "每日汇总投递失败")
+			case !delivery.Delivered:
+				s.failAutomationDelivery(ctx, run, "每日汇总投递失败或结果不确定，系统未自动重发")
+			default:
+				s.completeAutomation(ctx, run)
 			}
 		}) {
 			s.retryAutomation(ctx, run, "通知执行池满载")
@@ -1863,15 +1956,17 @@ func renderOrphanNotice(tasks []*store.Task, names map[int64]string) string {
 	return b.String()
 }
 
-func (s *Scheduler) send(ctx context.Context, userID int64, text string) bool {
+func (s *Scheduler) send(ctx context.Context, deliveryKey string, userID int64, text string) notify.DeliveryResult {
 	sendCtx, cancel := context.WithTimeout(ctx, messageTimeout)
 	defer cancel()
-	if err := s.notifier.Send(sendCtx, userID, text); err != nil {
-		slog.Warn("调度消息投递失败", "user", userID, "err", err)
-		return false
+	result, err := notify.SendOnce(sendCtx, s.store, s.notifier, deliveryKey, userID, text)
+	if err != nil {
+		slog.Warn("调度消息投递失败", "key", deliveryKey, "user", userID, "state", result.State, "err", err)
+		return result
 	}
-	slog.Info("调度消息已投递", "user", userID, "text_len", len(text))
-	return true
+	slog.Info("调度消息已结算", "key", deliveryKey, "user", userID, "state", result.State,
+		"delivered", result.Delivered, "replayed", result.Replayed, "text_len", len(text))
+	return result
 }
 
 func (s *Scheduler) userName(ctx context.Context, id int64) string {

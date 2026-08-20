@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: store/notifications.go
+      level: file
+      anchor:
+        file: store/notifications.go
+        hash: sha256:ccf6172b8a645606a70d9c715d9628d75a2b84bb42d382dcf4ab88b7090ed3d8
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-20T12:58:21.975498Z
+    - id: store/notifications.go#Store.BeginNotificationDelivery
+      level: function
+      anchor:
+        file: store/notifications.go
+        symbol: Store.BeginNotificationDelivery
+        hash: sha256:66412d590a20cdfc7ddbdbca36bb889d6345c926803c417a940f7dffd2ec6355
+        struct_hash: sha256:bd13a55e0774f2df362b8b79baa148cc3b5db55bc3c84159eb3ca44a8fcadf58
+        doc_struct_hash: sha256:dc9a1733ccf6744c7610b6eb096b75cf5c63c4b8f95b7ed82dfa455dcc9f8698
+        lines: [40, 72]
+      status: fresh
+      since: 2026-08-20T12:58:21.975475Z
+    - id: store/notifications.go#Store.DeleteExpiredDeliveryReceipts
+      level: function
+      anchor:
+        file: store/notifications.go
+        symbol: Store.DeleteExpiredDeliveryReceipts
+        hash: sha256:52700b141c14b9d01e5b4398e7ad74cb203625dc14864ce745716f4e07ce26c6
+        struct_hash: sha256:1c5d15abf195425be61de80c611564f47b9b03cf9af6ed4a65b8a48e2a014f83
+        doc_struct_hash: sha256:a1e1ec88daeaa9ba6918ac0fffae30014f3e0ac9d21cc61fa4378fbac69b1740
+        lines: [88, 127]
+      status: fresh
+      since: 2026-08-20T12:58:21.976006Z

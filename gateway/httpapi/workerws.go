@@ -62,8 +62,12 @@ func (s *Server) handleWorkerWS(w http.ResponseWriter, r *http.Request) {
 	_ = s.store.WorkerHeartbeat(ctx, u.ID)
 	slog.Info("worker 实时通道上线", "worker", u.ID)
 	defer func() {
-		hub.Detach(u.ID, conn)
+		wentOffline := hub.Detach(u.ID, conn)
 		_ = c.CloseNow()
+		if !wentOffline {
+			slog.Debug("worker 旧实时通道已被新连接替换", "worker", u.ID)
+			return
+		}
 		slog.Info("worker 实时通道下线", "worker", u.ID)
 		s.notifyWorkerOffline(u) // 持有在办任务时向监护人推"执行中离线"事件
 	}()

@@ -262,6 +262,7 @@ func TestGoalDeadlineClaims(t *testing.T) {
 	if err != nil || len(warn) != 1 || warn[0].ID != g.ID {
 		t.Fatalf("首次认领 = %d err=%v", len(warn), err)
 	}
+	deadlineGeneration := warn[0].DeadlineGeneration
 	if warn, _ = s.DueGoalDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
 		t.Fatalf("租约内重复认领应为空, got %d", len(warn))
 	}
@@ -269,11 +270,28 @@ func TestGoalDeadlineClaims(t *testing.T) {
 	if warn, err = s.DueGoalDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 {
 		t.Fatalf("租约过期应可重试, got %d err=%v", len(warn), err)
 	}
-	if err := s.MarkGoalDeadlineReminderSent(ctx, g.ID, now); err != nil {
+	if err := s.MarkGoalDeadlineReminderSent(ctx, g.ID, deadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if warn, _ = s.DueGoalDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
 		t.Fatalf("ack 后不应再认领, got %d", len(warn))
+	}
+	failedSoon := now.Add(4 * time.Hour)
+	failedGoal, err := s.CreateGoal(ctx, "投递未确认", "", boss.ID, &failedSoon)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warn, err = s.DueGoalDeadlineReminders(ctx, now, 24*time.Hour); err != nil || len(warn) != 1 || warn[0].ID != failedGoal.ID {
+		t.Fatalf("未确认目标提醒认领=%v err=%v", warn, err)
+	}
+	if err := s.MarkGoalDeadlineReminderAttempt(ctx, failedGoal.ID, warn[0].DeadlineGeneration, now, false); err != nil {
+		t.Fatal(err)
+	}
+	var attemptedAt, sentAt *time.Time
+	if err := s.pool.QueryRow(ctx,
+		`SELECT deadline_reminder_attempted_at, deadline_reminded_at FROM goals WHERE id=$1`, failedGoal.ID).
+		Scan(&attemptedAt, &sentAt); err != nil || attemptedAt == nil || sentAt != nil {
+		t.Fatalf("未确认目标提醒 attempted=%v sent=%v err=%v", attemptedAt, sentAt, err)
 	}
 
 	// 改截止到过去 → 过期通知触发；租约/ack 同样成立。
@@ -292,7 +310,7 @@ func TestGoalDeadlineClaims(t *testing.T) {
 	if over, err = s.DueGoalOverdueNotices(ctx, now); err != nil || len(over) != 1 {
 		t.Fatalf("过期通知租约过期应可重试, got %d err=%v", len(over), err)
 	}
-	if err := s.MarkGoalOverdueNoticeSent(ctx, g.ID, now); err != nil {
+	if err := s.MarkGoalOverdueNoticeSent(ctx, g.ID, over[0].DeadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if over, _ = s.DueGoalOverdueNotices(ctx, now); len(over) != 0 {
@@ -349,10 +367,11 @@ func TestMilestoneDeadlineClaims(t *testing.T) {
 	if err != nil || len(warn) != 1 || warn[0].ID != m.ID {
 		t.Fatalf("首次认领 = %d err=%v", len(warn), err)
 	}
+	deadlineGeneration := warn[0].DeadlineGeneration
 	if warn, _ = s.DueMilestoneDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
 		t.Fatalf("租约内重复认领应为空, got %d", len(warn))
 	}
-	if err := s.MarkMilestoneDeadlineReminderSent(ctx, m.ID, now); err != nil {
+	if err := s.MarkMilestoneDeadlineReminderSent(ctx, m.ID, deadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if warn, _ = s.DueMilestoneDeadlineReminders(ctx, now, 24*time.Hour); len(warn) != 0 {
@@ -368,7 +387,7 @@ func TestMilestoneDeadlineClaims(t *testing.T) {
 	if err != nil || len(over) != 1 {
 		t.Fatalf("改期后过期通知 = %d err=%v", len(over), err)
 	}
-	if err := s.MarkMilestoneOverdueNoticeSent(ctx, m.ID, now); err != nil {
+	if err := s.MarkMilestoneOverdueNoticeSent(ctx, m.ID, over[0].DeadlineGeneration, now); err != nil {
 		t.Fatal(err)
 	}
 	if over, _ = s.DueMilestoneOverdueNotices(ctx, now); len(over) != 0 {

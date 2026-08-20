@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
 	"github.com/zdypro888/nbco/store"
 )
@@ -149,11 +150,9 @@ func createDataCampaign(ctx context.Context, d Deps, u *store.User, title, instr
 	}
 	sent, failed := 0, 0
 	var failedNames []string
+	var notificationErr error
 	if sendNow {
-		sent, failed, failedNames, err = notifyDataCampaignTargets(ctx, d, u, c, targets, message, true)
-		if err != nil {
-			return "", err
-		}
+		sent, failed, failedNames, notificationErr = notifyDataCampaignTargets(ctx, d, u, c, targets, message, true)
 	}
 	view, err := dataCampaignView(ctx, d, u, c.ID)
 	if err != nil {
@@ -168,6 +167,9 @@ func createDataCampaign(ctx context.Context, d Deps, u *store.User, title, instr
 			fmt.Fprintf(&b, "（失败示例：%s）", strings.Join(failedNames, "、"))
 		}
 		b.WriteString("。")
+		if notificationErr != nil {
+			fmt.Fprintf(&b, " 通知已按逐人投递账本结算，但活动通知状态登记失败：%s。", notificationErr)
+		}
 	} else {
 		b.WriteString("\n本次未发送通知；可用 send_data_collection_reminder 后续提醒。")
 	}
@@ -227,14 +229,15 @@ func remindDataCampaign(ctx context.Context, d Deps, u *store.User, id int64, me
 		return "所有目标都已完成，无需提醒。", nil
 	}
 	sent, failed, failedNames, err := notifyDataCampaignTargets(ctx, d, u, c, pending, message, false)
+	warning := ""
 	if err != nil {
-		return "", err
+		warning = " 活动通知状态登记失败：" + err.Error() + "。"
 	}
 	if len(failedNames) > 0 {
-		return fmt.Sprintf("已提醒资料收集活动（%s）的待补目标：成功 %d 人，失败 %d 人（失败示例：%s）。",
-			internalRef("资料收集", id), sent, failed, strings.Join(failedNames, "、")), nil
+		return fmt.Sprintf("已提醒资料收集活动（%s）的待补目标：成功 %d 人，失败 %d 人（失败示例：%s）。%s",
+			internalRef("资料收集", id), sent, failed, strings.Join(failedNames, "、"), warning), nil
 	}
-	return fmt.Sprintf("已提醒资料收集活动（%s）的待补目标：成功 %d 人，失败 %d 人。", internalRef("资料收集", id), sent, failed), nil
+	return fmt.Sprintf("已提醒资料收集活动（%s）的待补目标：成功 %d 人，失败 %d 人。%s", internalRef("资料收集", id), sent, failed, warning), nil
 }
 
 func closeDataCampaign(ctx context.Context, d Deps, u *store.User, id int64, status string) (string, error) {
@@ -360,7 +363,12 @@ func notifyDataCampaignTargets(ctx context.Context, d Deps, sender *store.User, 
 			continue
 		}
 		body := dataCampaignMessage(sender, c, t, custom, initial)
-		if err := d.Notifier.Send(ctx, t.UserID, body); err != nil {
+		scope := fmt.Sprintf("data-campaign:%d:reminder", c.ID)
+		if initial {
+			scope = fmt.Sprintf("data-campaign:%d:initial", c.ID)
+		}
+		delivery, err := notify.SendForToolInvocation(ctx, d.Store, d.Notifier, scope, t.UserID, body)
+		if err != nil || !delivery.Delivered {
 			failed++
 			if len(failedNames) < 5 {
 				failedNames = append(failedNames, dataCampaignTargetName(t))

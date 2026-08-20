@@ -42,23 +42,18 @@ type streamEditor struct {
 	stopped bool
 }
 
-// newStreamEditor 发占位消息 + 起后台节流编辑协程。占位发送失败则 ok=false，
-// onDelta 变 no-op、finish 直接发完整答复（优雅降级为非流式）。
+// newStreamEditor starts a lazy stream editor. The caller already publishes a
+// typing action, so no Telegram message is created until the model has visible
+// text. This keeps a replayed/already-running turn from leaving a duplicate
+// placeholder behind.
 func (g *Gateway) newStreamEditor(ctx context.Context, chatID int64) *streamEditor {
 	return g.newStreamEditorEvery(ctx, chatID, streamEditInterval, streamTypingEvery)
 }
 
-// newStreamEditorEvery 同 newStreamEditor，但可指定编辑/typing 节流间隔——测试注入
-// 短间隔把时间敏感的用例压到亚秒级，无需真等 1.5s/4s。生产路径用默认常量，行为不变。
+// newStreamEditorEvery is the testable form of newStreamEditor.
 func (g *Gateway) newStreamEditorEvery(ctx context.Context, chatID int64, editEvery, typingEvery time.Duration) *streamEditor {
 	ed := &streamEditor{g: g, chatID: chatID, editEvery: editEvery, typingEvery: typingEvery,
 		stop: make(chan struct{}), done: make(chan struct{})}
-	m, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: "💭 正在处理…"})
-	if err != nil || m == nil {
-		close(ed.done)
-		return ed
-	}
-	ed.msgID, ed.ok = m.ID, true
 	go ed.loop(ctx)
 	return ed
 }
@@ -108,7 +103,7 @@ func (g *Gateway) logStreamPanic(chatID int64, r any) {
 // onDelta 收到当前助手消息的累积快照，【替换】显示缓冲（引擎 goroutine 调，只做快
 // 操作）。替换语义让新消息（如工具调用后的最终答复）自然刷新，不与前导文字拼接。
 func (ed *streamEditor) onDelta(snapshot string) {
-	if !ed.ok || snapshot == "" {
+	if snapshot == "" {
 		return
 	}
 	snapshot = textfmt.SanitizeVisibleReply(snapshot)
@@ -131,6 +126,14 @@ func (ed *streamEditor) flush(ctx context.Context) {
 	disp := cur
 	if r := []rune(disp); len(r) > streamMaxRunes {
 		disp = string(r[:streamMaxRunes]) + " …"
+	}
+	if !ed.ok {
+		m, err := ed.g.bot.SendMessage(ctx, &bot.SendMessageParams{ChatID: ed.chatID, Text: disp})
+		if err != nil || m == nil {
+			return
+		}
+		ed.msgID, ed.ok, ed.sent = m.ID, true, cur
+		return
 	}
 	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: disp,
@@ -163,14 +166,44 @@ func (ed *streamEditor) finish(ctx context.Context, answer string) error {
 		return ed.g.sendChunks(ctx, ed.chatID, answer)
 	}
 	chunks := splitChunks(toTelegramHTML(answer), chunkLimit)
-	// 首片覆盖占位消息；编辑不成（HTML 非法先降级纯文本，仍不成=占位不可编辑）则
-	// 整条答复作为新消息发（sendChunks 内部分片 + HTML 兜底），不丢内容。
-	if !ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0])) {
-		return ed.g.sendChunks(ctx, ed.chatID, answer)
+	// 首片覆盖占位消息。最终文本已经是持久 conversation turn 的结果，因此
+	// 编辑占位与“占位不可编辑后改发新消息”必须共用同一分片投递边界；否则进程
+	// 在 Telegram 成功与 delivery_status 落库之间停止时，重放会再发一份完整答复。
+	key := telegramContextDeliveryKey(ctx, ed.chatID)
+	if key == "" {
+		edited, err := ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0]))
+		if err != nil {
+			return err
+		}
+		if !edited {
+			return ed.g.sendChunks(ctx, ed.chatID, answer)
+		}
+	} else {
+		messageID, settled, firstErr := ed.g.deliverPreparedPartOnce(
+			ctx, key, ed.chatID, 0, len(chunks), chunks[0], func() (int, error) {
+				edited, err := ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0]))
+				if err != nil {
+					return 0, err
+				}
+				if edited {
+					return ed.msgID, nil
+				}
+				return ed.g.sendOneMessage(ctx, ed.chatID, chunks[0], false)
+			},
+		)
+		if !telegramPartCanContinue(messageID, settled, firstErr) {
+			return firstErr
+		}
+		if len(chunks) > 1 {
+			_, suffixErr := ed.g.sendPreparedParts(ctx, ed.chatID, chunks, 1, false)
+			return errors.Join(firstErr, suffixErr)
+		}
+		return firstErr
 	}
-	// 其余片作为新消息追加。
-	for _, chunk := range chunks[1:] {
-		if err := ed.g.sendOne(ctx, ed.chatID, chunk); err != nil {
+	// 其余片作为新消息追加，并以同一逻辑回复下的逐片账本防止部分成功
+	// 后重试时重发已确认的前缀。首片是对既有占位消息的编辑，不是新发送。
+	if len(chunks) > 1 {
+		if _, err := ed.g.sendPreparedParts(ctx, ed.chatID, chunks, 1, false); err != nil {
 			return err
 		}
 	}
@@ -201,7 +234,7 @@ func (ed *streamEditor) fail(ctx context.Context, msg string) {
 	}
 	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: msg,
-	}); err != nil {
+	}); err != nil && errors.Is(err, bot.ErrorBadRequest) {
 		ed.g.reply(ctx, ed.chatID, msg)
 	}
 }
@@ -209,16 +242,24 @@ func (ed *streamEditor) fail(ctx context.Context, msg string) {
 // editPlaceholder 用 HTML 编辑占位消息，失败降级纯文本；两者都失败（占位不可编辑）
 // 返回 false，让调用方走发新消息兜底。「内容未变」(not modified) 视作成功——占位
 // 已显示目标文本（流式期间已编辑上去），此时若当作失败去 reply 会发重复消息。
-func (ed *streamEditor) editPlaceholder(ctx context.Context, htmlChunk, plainText string) bool {
+func (ed *streamEditor) editPlaceholder(ctx context.Context, htmlChunk, plainText string) (bool, error) {
 	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: htmlChunk, ParseMode: models.ParseModeHTML,
 	}); err == nil || isNotModified(err) {
-		return true
+		return true, nil
+	} else if !errors.Is(err, bot.ErrorBadRequest) {
+		return false, err
 	}
 	_, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: plainText,
 	})
-	return err == nil || isNotModified(err)
+	if err == nil || isNotModified(err) {
+		return true, nil
+	}
+	if !errors.Is(err, bot.ErrorBadRequest) {
+		return false, err
+	}
+	return false, nil
 }
 
 // isNotModified 判断编辑是否因「新内容与现有完全相同」被 TG 拒绝（HTTP 400

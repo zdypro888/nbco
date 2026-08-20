@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"strings"
 	"time"
 )
@@ -23,11 +25,46 @@ const (
 // worker 无 IM 身份；工作机用 nbco-worker bind/bootstrap 拿绑定码兑换 token 后认证。
 // owner 为监护人。
 func (s *Store) CreateWorker(ctx context.Context, name string, ownerID int64) (*User, string, error) {
+	return s.CreateWorkerForRequest(ctx, name, ownerID, "")
+}
+
+// CreateWorkerForRequest makes creation recoverable for one runtime-owned
+// invocation. Only the short-lived bind code is retained, never the eventual
+// worker access token.
+func (s *Store) CreateWorkerForRequest(ctx context.Context, name string, ownerID int64, requestKey string) (*User, string, error) {
+	requestKey = strings.TrimSpace(requestKey)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, "", err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if requestKey != "" {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "worker-create:"+requestKey); err != nil {
+			return nil, "", err
+		}
+		var workerID int64
+		var recoveryCode string
+		err := tx.QueryRow(ctx,
+			`SELECT worker_id, recovery_code FROM worker_bind_codes
+			 WHERE created_by=$1 AND request_key=$2 AND expires_at > now()`, ownerID, requestKey).
+			Scan(&workerID, &recoveryCode)
+		switch {
+		case err == nil:
+			u, userErr := scanUser(tx.QueryRow(ctx, `SELECT `+userCols+` FROM users WHERE id=$1`, workerID))
+			if userErr != nil {
+				return nil, "", userErr
+			}
+			if strings.TrimSpace(u.Name) != strings.TrimSpace(name) || recoveryCode == "" {
+				return nil, "", ErrConflict
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return nil, "", err
+			}
+			return u, recoveryCode, nil
+		case !errors.Is(wrapErr(err), ErrNotFound):
+			return nil, "", err
+		}
+	}
 	u, err := scanUser(tx.QueryRow(ctx,
 		`INSERT INTO users (name, is_worker, owner_id) VALUES ($1, TRUE, $2) RETURNING `+userCols, name, ownerID))
 	if err != nil {
@@ -37,9 +74,14 @@ func (s *Store) CreateWorker(ctx context.Context, name string, ownerID int64) (*
 	if err != nil {
 		return nil, "", err
 	}
+	recoveryCode := ""
+	if requestKey != "" {
+		recoveryCode = code
+	}
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO worker_bind_codes (code_hash, worker_id, created_by, expires_at) VALUES ($1, $2, $3, $4)`,
-		hashToken(code), u.ID, ownerID, time.Now().UTC().Add(workerBindCodeTTL)); err != nil {
+		`INSERT INTO worker_bind_codes (code_hash, worker_id, created_by, expires_at, request_key, recovery_code)
+		 VALUES ($1,$2,$3,$4,$5,$6)`,
+		hashToken(code), u.ID, ownerID, time.Now().UTC().Add(workerBindCodeTTL), requestKey, recoveryCode); err != nil {
 		return nil, "", wrapErr(err)
 	}
 	return u, code, tx.Commit(ctx)
@@ -57,11 +99,39 @@ func newWorkerBindCode() (string, error) {
 // 已生效的 access token 不受影响，直到新码被兑换才被替换。
 // 目标非 worker 或已停用返回 ErrNotFound。
 func (s *Store) NewWorkerBindCode(ctx context.Context, workerID, createdBy int64) (string, error) {
+	return s.NewWorkerBindCodeForRequest(ctx, workerID, createdBy, "")
+}
+
+func (s *Store) NewWorkerBindCodeForRequest(ctx context.Context, workerID, createdBy int64, requestKey string) (string, error) {
+	requestKey = strings.TrimSpace(requestKey)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if requestKey != "" {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "worker-bind-code:"+requestKey); err != nil {
+			return "", err
+		}
+		var existingWorkerID int64
+		var recoveryCode string
+		err := tx.QueryRow(ctx,
+			`SELECT worker_id, recovery_code FROM worker_bind_codes
+			 WHERE created_by=$1 AND request_key=$2 AND expires_at > now()`, createdBy, requestKey).
+			Scan(&existingWorkerID, &recoveryCode)
+		switch {
+		case err == nil:
+			if existingWorkerID != workerID || recoveryCode == "" {
+				return "", ErrConflict
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return "", err
+			}
+			return recoveryCode, nil
+		case !errors.Is(wrapErr(err), ErrNotFound):
+			return "", err
+		}
+	}
 	var ok bool
 	if err := tx.QueryRow(ctx,
 		`SELECT TRUE FROM users WHERE id = $1 AND is_worker AND status = 'active'`, workerID).Scan(&ok); err != nil {
@@ -74,20 +144,78 @@ func (s *Store) NewWorkerBindCode(ctx context.Context, workerID, createdBy int64
 	if err != nil {
 		return "", err
 	}
+	recoveryCode := ""
+	if requestKey != "" {
+		recoveryCode = code
+	}
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO worker_bind_codes (code_hash, worker_id, created_by, expires_at) VALUES ($1, $2, $3, $4)`,
-		hashToken(code), workerID, createdBy, time.Now().UTC().Add(workerBindCodeTTL)); err != nil {
+		`INSERT INTO worker_bind_codes (code_hash, worker_id, created_by, expires_at, request_key, recovery_code)
+		 VALUES ($1,$2,$3,$4,$5,$6)`,
+		hashToken(code), workerID, createdBy, time.Now().UTC().Add(workerBindCodeTTL), requestKey, recoveryCode); err != nil {
 		return "", wrapErr(err)
 	}
 	return code, tx.Commit(ctx)
+}
+
+func (s *Store) WorkerBindCodeByRequest(ctx context.Context, createdBy int64, requestKey string) (*User, string, error) {
+	requestKey = strings.TrimSpace(requestKey)
+	if requestKey == "" {
+		return nil, "", ErrNotFound
+	}
+	var workerID int64
+	var code string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT worker_id, recovery_code FROM worker_bind_codes
+		 WHERE created_by=$1 AND request_key=$2 AND expires_at > now() AND recovery_code <> ''`,
+		createdBy, requestKey).Scan(&workerID, &code); err != nil {
+		return nil, "", wrapErr(err)
+	}
+	u, err := s.UserByID(ctx, workerID)
+	if err != nil {
+		return nil, "", err
+	}
+	return u, code, nil
+}
+
+func (s *Store) ClearWorkerBindCodeRecovery(ctx context.Context, createdBy int64, requestKey string) error {
+	requestKey = strings.TrimSpace(requestKey)
+	if requestKey == "" {
+		return nil
+	}
+	_, err := s.pool.Exec(ctx,
+		`UPDATE worker_bind_codes SET recovery_code=''
+		 WHERE created_by=$1 AND request_key=$2`, createdBy, requestKey)
+	return err
+}
+
+func (s *Store) DeleteExpiredWorkerBindCodes(ctx context.Context, now time.Time) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM worker_bind_codes WHERE expires_at <= $1`, now)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // RedeemWorkerBindCode 用绑定码兑换 Worker Access Token（一次一用）：
 // 锁定并校验码 → 撤旧 token → 签发新 token → 删掉该 worker 的所有绑定码。
 // 码无效/过期/worker 已停用返回 ErrNotFound。顺带清掉全表过期码。
 func (s *Store) RedeemWorkerBindCode(ctx context.Context, code string) (*User, string, error) {
+	return s.RedeemWorkerBindCodeWithToken(ctx, code, "")
+}
+
+// RedeemWorkerBindCodeWithToken lets the worker choose and persist the access
+// token before crossing the one-time bind boundary. A lost HTTP response can
+// then be recovered by authenticating with that candidate token.
+func (s *Store) RedeemWorkerBindCodeWithToken(ctx context.Context, code, candidateToken string) (*User, string, error) {
 	if !strings.HasPrefix(code, WorkerBindCodePrefix) {
 		return nil, "", ErrNotFound
+	}
+	candidateToken = strings.ToLower(strings.TrimSpace(candidateToken))
+	if candidateToken != "" {
+		decoded, err := hex.DecodeString(candidateToken)
+		if err != nil || len(decoded) != 24 {
+			return nil, "", ErrConflict
+		}
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -101,6 +229,19 @@ func (s *Store) RedeemWorkerBindCode(ctx context.Context, code string) (*User, s
 	if err := tx.QueryRow(ctx,
 		`SELECT worker_id FROM worker_bind_codes WHERE code_hash = $1 AND expires_at > now() FOR UPDATE`,
 		hashToken(code)).Scan(&workerID); err != nil {
+		if errors.Is(wrapErr(err), ErrNotFound) && candidateToken != "" {
+			// The first redemption may have committed while its HTTP response was
+			// lost. The code is intentionally gone, but possession of the exact
+			// persisted candidate proves the completed binding and reconstructs the
+			// original response without rotating again.
+			u, tokenErr := scanUser(tx.QueryRow(ctx,
+				`SELECT u.id, u.name, u.info, u.status, u.is_superadmin, u.is_worker, u.owner_id, u.worker_last_seen, u.created_at
+				 FROM users u JOIN api_tokens t ON t.user_id=u.id
+				 WHERE t.token_hash=$1`, hashToken(candidateToken)))
+			if tokenErr == nil && u.IsWorker && u.Status == UserActive {
+				return u, candidateToken, nil
+			}
+		}
 		return nil, "", wrapErr(err)
 	}
 	u, err := scanUser(tx.QueryRow(ctx,
@@ -108,9 +249,12 @@ func (s *Store) RedeemWorkerBindCode(ctx context.Context, code string) (*User, s
 	if err != nil {
 		return nil, "", err
 	}
-	plain, err := randomHex(24)
-	if err != nil {
-		return nil, "", err
+	plain := candidateToken
+	if plain == "" {
+		plain, err = randomHex(24)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM api_tokens WHERE user_id = $1`, workerID); err != nil {
 		return nil, "", err

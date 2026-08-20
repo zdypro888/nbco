@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/store"
 )
+
+const generatedAPITokenPrefix = "已生成 Access Token（请妥善保存，仅显示一次）：\n"
 
 // roleTools 角色/Skill。列出与激活对所有人开放；增删改超管专用（在 adminTools 里）。
 func roleTools(d Deps, u *store.User) []ai.Tool {
@@ -67,15 +70,40 @@ func roleTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("当前已有控制中心/API Access Token，创建时间：%s。\n明文不可查询（系统只保存哈希）；如果忘记了，只能用 generate_api_token 换发新 token，旧 token 会立即失效。", fmtTime(st.CreatedAt, d.TZ)), nil
 			}),
 
-		tool("generate_api_token", "换发我的控制中心/API Access Token（用于 HTTP API/MCP/控制中心登录），会立即替换旧 token。不能用于查询旧 token；明文仅返回一次，格式不要臆测。",
+		recoverableResultToolWithFinalize(tool("generate_api_token", "换发我的控制中心/API Access Token（用于 HTTP API/MCP/控制中心登录），会立即替换旧 token。不能用于查询旧 token；明文仅返回一次，格式不要臆测。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
-				plain, err := d.Store.IssueAPIToken(ctx, u.ID)
+				if toolInvocationRequestKey(ctx, u.ID, "generate_api_token") == "" {
+					plain, err := d.Store.IssueAPIToken(ctx, u.ID)
+					if err != nil {
+						return "", err
+					}
+					return generatedAPITokenPrefix + plain, nil
+				}
+				if _, err := d.Store.BeginAPITokenRotation(ctx, u.ID, 10*time.Minute); err != nil {
+					return "", err
+				}
+				rotation, err := d.Store.ConfirmAPITokenRotation(ctx, u.ID)
 				if err != nil {
 					return "", err
 				}
-				return "已生成 Access Token（请妥善保存，仅显示一次）：\n" + plain, nil
-			}),
+				return generatedAPITokenPrefix + rotation.Candidate, nil
+			}), func(ctx context.Context, _ json.RawMessage) (string, bool, error) {
+			rotation, err := d.Store.ConfirmAPITokenRotation(ctx, u.ID)
+			if errors.Is(err, store.ErrNotFound) {
+				return "", false, nil
+			}
+			if err != nil {
+				return "", false, err
+			}
+			return generatedAPITokenPrefix + rotation.Candidate, true, nil
+		}, func(ctx context.Context, _ json.RawMessage, result string) error {
+			candidate := strings.TrimSpace(strings.TrimPrefix(result, generatedAPITokenPrefix))
+			if candidate == "" || candidate == strings.TrimSpace(result) {
+				return nil
+			}
+			return d.Store.AcknowledgeAPITokenRotation(ctx, u.ID, candidate)
+		}),
 
 		tool("revoke_api_token", "撤销我的 Access Token。", obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {

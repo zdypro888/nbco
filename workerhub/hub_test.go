@@ -51,7 +51,9 @@ func TestHubReplaceAndDetach(t *testing.T) {
 		t.Fatal("新连接应顶掉旧连接并返回旧连接")
 	}
 	// 旧连接晚到的 Detach 不应影响新连接。
-	h.Detach(7, c1)
+	if h.Detach(7, c1) {
+		t.Fatal("stale connection must not report an offline transition")
+	}
 	if !h.Online(7) {
 		t.Fatal("旧连接的清理不应把新连接顶下线")
 	}
@@ -59,7 +61,9 @@ func TestHubReplaceAndDetach(t *testing.T) {
 	if len(c1.got()) != 0 || len(c2.got()) != 1 {
 		t.Fatal("消息应只发给新连接")
 	}
-	h.Detach(7, c2)
+	if !h.Detach(7, c2) {
+		t.Fatal("current connection must report the offline transition")
+	}
 	if h.Online(7) {
 		t.Fatal("Detach 后应离线")
 	}
