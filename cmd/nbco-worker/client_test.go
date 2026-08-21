@@ -39,6 +39,37 @@ func TestClientMe(t *testing.T) {
 	}
 }
 
+func TestClientRuntimeAuthenticatesAndResolvesProxyURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/worker/runtime" || r.URL.Query().Get("engine") != "codex" {
+			t.Fatalf("runtime request = %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+		if r.Header.Get("Authorization") != "Bearer tok-worker-a" {
+			t.Fatalf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"engine":"codex","source":"central","model":"gpt-central","base_url":"/api/worker/openai/v1","wire_api":"responses"}`))
+	}))
+	defer srv.Close()
+
+	runtime, err := newClient(srv.URL, "tok-worker-a").Runtime(context.Background(), "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.Model != "gpt-central" || runtime.BaseURL != srv.URL+"/api/worker/openai/v1" || runtime.WireAPI != "responses" {
+		t.Fatalf("runtime = %+v", runtime)
+	}
+}
+
+func TestClientRuntimeRejectsCredentialedProxyURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"engine":"codex","source":"central","model":"gpt-central","base_url":"https://user:secret@example.com/v1","wire_api":"responses"}`))
+	}))
+	defer srv.Close()
+	if _, err := newClient(srv.URL, "tok").Runtime(context.Background(), "codex"); err == nil {
+		t.Fatal("credentialed model proxy URL should be rejected")
+	}
+}
+
 func TestWorkerLLMRetryKeepsIdempotencyKey(t *testing.T) {
 	var keys []string
 	attempts := 0

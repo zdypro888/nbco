@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zdypro888/nbco/config"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
 	"github.com/zdypro888/nbco/workerproto"
@@ -458,6 +459,72 @@ func TestApplyWorkerLLMBudget(t *testing.T) {
 	}
 	if got, field := s.llmOutputBudget(); got != 8192 || field != "max_completion_tokens" {
 		t.Fatalf("llmOutputBudget = %d/%s", got, field)
+	}
+}
+
+func TestWorkerResponsesProxyPinsCentralModelAndKeepsCredentialsSeparated(t *testing.T) {
+	var gotPath, gotAuth, gotCookie, gotAcceptEncoding string
+	var gotBody map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		gotCookie = r.Header.Get("Cookie")
+		gotAcceptEncoding = r.Header.Get("Accept-Encoding")
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Errorf("decode upstream body: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("OpenAI-Request-ID", "req-central")
+		w.Header().Set("Set-Cookie", "upstream=secret")
+		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\"}\n\n"))
+	}))
+	defer upstream.Close()
+
+	s := &Server{llm: LLMConfig{
+		Provider: config.ProviderOpenAI, BaseURL: upstream.URL + "/v1",
+		APIKey: "central-api-key", Model: "gpt-central", TimeoutMS: 10_000,
+	}}
+	req := httptest.NewRequest(http.MethodPost, "/api/worker/openai/v1/responses",
+		strings.NewReader(`{"model":"stale-worker-model","stream":true,"input":"test"}`))
+	req.Header.Set("Authorization", "Bearer worker-access-token")
+	req.Header.Set("Cookie", "worker=secret")
+	req.Header.Set("Accept-Encoding", "br")
+	rec := httptest.NewRecorder()
+	s.proxyWorkerOpenAIResponses(rec, req, "/responses")
+
+	if rec.Code != http.StatusOK || rec.Body.String() != "data: {\"type\":\"response.completed\"}\n\n" {
+		t.Fatalf("proxy response = status %d body %q", rec.Code, rec.Body.String())
+	}
+	if gotPath != "/v1/responses" || gotAuth != "Bearer central-api-key" || gotCookie != "" || gotAcceptEncoding == "br" {
+		t.Fatalf("upstream routing/auth = path %q auth %q cookie %q encoding %q", gotPath, gotAuth, gotCookie, gotAcceptEncoding)
+	}
+	if gotBody["model"] != "gpt-central" || gotBody["stream"] != true {
+		t.Fatalf("upstream body = %#v", gotBody)
+	}
+	if rec.Header().Get("OpenAI-Request-ID") != "req-central" || rec.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("response headers were not filtered: %#v", rec.Header())
+	}
+}
+
+func TestWorkerResponsesProxyRejectsNullBody(t *testing.T) {
+	s := &Server{llm: LLMConfig{Provider: config.ProviderOpenAI, BaseURL: "https://api.example/v1", Model: "gpt-central"}}
+	rec := httptest.NewRecorder()
+	s.proxyWorkerOpenAIResponses(rec,
+		httptest.NewRequest(http.MethodPost, "/api/worker/openai/v1/responses", strings.NewReader("null")),
+		"/responses")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("null Responses body status = %d body=%q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestWorkerResponsesProxyRequiresOpenAIRuntime(t *testing.T) {
+	s := &Server{llm: LLMConfig{Provider: config.ProviderClaude, BaseURL: "https://example.com", Model: "claude"}}
+	rec := httptest.NewRecorder()
+	s.proxyWorkerOpenAIResponses(rec,
+		httptest.NewRequest(http.MethodPost, "/api/worker/openai/v1/responses", strings.NewReader(`{"input":"test"}`)),
+		"/responses")
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("non-OpenAI central runtime status = %d body=%q", rec.Code, rec.Body.String())
 	}
 }
 

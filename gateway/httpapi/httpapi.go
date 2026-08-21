@@ -223,6 +223,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/worker/bind", s.handleWorkerBind)
 	mux.HandleFunc("POST /api/worker/capabilities", s.handleWorkerCapabilities)
 	mux.HandleFunc("POST /api/worker/llm", s.handleWorkerLLM)
+	mux.HandleFunc("GET /api/worker/runtime", s.handleWorkerRuntime)
+	mux.HandleFunc("POST /api/worker/openai/v1/responses", s.handleWorkerOpenAIResponses)
+	mux.HandleFunc("POST /api/worker/openai/v1/responses/compact", s.handleWorkerOpenAIResponsesCompact)
 	mux.HandleFunc("GET /api/worker/next", s.handleWorkerNext)
 	mux.HandleFunc("POST /api/worker/heartbeat", s.handleWorkerHeartbeat)
 	mux.HandleFunc("POST /api/worker/progress", s.handleWorkerProgress)
@@ -1594,6 +1597,20 @@ const llmProxyBodyLimit = 4 << 20
 // llmProxyConcurrency 同时在途的上游模型调用上限（多 worker 同跑内置智能体时排队）。
 const llmProxyConcurrency = 8
 
+// workerResponsesProxyBodyLimit covers long Codex contexts while retaining a
+// hard boundary before the request is materialized for model pinning.
+const workerResponsesProxyBodyLimit = 32 << 20
+
+const workerOpenAIProxyBasePath = "/api/worker/openai/v1"
+
+type workerEngineRuntimeJSON struct {
+	Engine  string `json:"engine"`
+	Source  string `json:"source"`
+	Model   string `json:"model"`
+	BaseURL string `json:"base_url"`
+	WireAPI string `json:"wire_api"`
+}
+
 func (s *Server) llmSemaphore() chan struct{} {
 	s.llmMu.Lock()
 	defer s.llmMu.Unlock()
@@ -1601,6 +1618,169 @@ func (s *Server) llmSemaphore() chan struct{} {
 		s.llmSem = make(chan struct{}, llmProxyConcurrency)
 	}
 	return s.llmSem
+}
+
+// handleWorkerRuntime advertises a credential-free runtime descriptor. Stock
+// Codex workers use this on every claimed run, so a central model switch also
+// rotates incompatible native sessions without copying the upstream API key to
+// each worker machine.
+func (s *Server) handleWorkerRuntime(w http.ResponseWriter, r *http.Request) {
+	if s.requireWorker(w, r) == nil {
+		return
+	}
+	engine := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("engine")))
+	if engine != "codex" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "中枢运行时目前仅支持 codex"})
+		return
+	}
+	model := s.runtimeLLMModel(r.Context())
+	if s.llmProvider() != config.ProviderOpenAI || strings.TrimSpace(s.llm.BaseURL) == "" || strings.TrimSpace(model) == "" {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "中枢未配置可供 Codex 使用的 OpenAI Responses 模型"})
+		return
+	}
+	writeJSON(w, http.StatusOK, workerEngineRuntimeJSON{
+		Engine: "codex", Source: "central", Model: model,
+		BaseURL: workerOpenAIProxyBasePath, WireAPI: "responses",
+	})
+}
+
+func (s *Server) handleWorkerOpenAIResponses(w http.ResponseWriter, r *http.Request) {
+	if s.requireWorker(w, r) == nil {
+		return
+	}
+	s.proxyWorkerOpenAIResponses(w, r, "/responses")
+}
+
+func (s *Server) handleWorkerOpenAIResponsesCompact(w http.ResponseWriter, r *http.Request) {
+	if s.requireWorker(w, r) == nil {
+		return
+	}
+	s.proxyWorkerOpenAIResponses(w, r, "/responses/compact")
+}
+
+// proxyWorkerOpenAIResponses is the central model boundary for Codex PTY
+// sessions. The worker authenticates with its own token; this method replaces
+// that credential with the hub's upstream key, pins the current model and
+// streams the Responses API back without buffering the generated event stream.
+func (s *Server) proxyWorkerOpenAIResponses(w http.ResponseWriter, r *http.Request, endpoint string) {
+	model := s.runtimeLLMModel(r.Context())
+	if s.llmProvider() != config.ProviderOpenAI || strings.TrimSpace(s.llm.BaseURL) == "" || strings.TrimSpace(model) == "" {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "中枢 OpenAI Responses 模型不可用"})
+		return
+	}
+	var body map[string]any
+	if err := decodeJSONLimit(w, r, &body, workerResponsesProxyBodyLimit); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Responses 请求体须是单个 JSON 对象"})
+		return
+	}
+	if body == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Responses 请求体须是 JSON 对象"})
+		return
+	}
+	body["model"] = model
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Responses 请求体无法规范化"})
+		return
+	}
+
+	sem := s.llmSemaphore()
+	select {
+	case sem <- struct{}{}:
+		defer func() { <-sem }()
+	case <-r.Context().Done():
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), s.llmTimeout())
+	defer cancel()
+	upstreamURL := strings.TrimRight(s.llm.BaseURL, "/") + endpoint
+	upstream, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(encoded))
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "构造中枢模型请求失败"})
+		return
+	}
+	upstream.Header = r.Header.Clone()
+	stripProxyRequestCredentials(upstream.Header)
+	upstream.Header.Set("Content-Type", "application/json")
+	if key := strings.TrimSpace(s.llm.APIKey); key != "" {
+		upstream.Header.Set("Authorization", "Bearer "+key)
+	}
+	started := time.Now()
+	proxyClient := &http.Client{
+		Transport: http.DefaultTransport,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return errors.New("模型代理不跟随上游重定向")
+		},
+	}
+	resp, err := proxyClient.Do(upstream)
+	if err != nil {
+		slog.Warn("worker Responses 代理上游失败", "endpoint", endpoint, "model", model, "dur", time.Since(started).Round(time.Millisecond), "err", err)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "中枢模型服务不可达"})
+		return
+	}
+	defer resp.Body.Close()
+	copyProxyResponseHeaders(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+	copyErr := copyResponseStream(w, resp.Body)
+	if copyErr != nil && r.Context().Err() == nil {
+		slog.Warn("worker Responses 代理流中断", "endpoint", endpoint, "model", model, "status", resp.StatusCode,
+			"dur", time.Since(started).Round(time.Millisecond), "err", copyErr)
+		return
+	}
+	if resp.StatusCode >= http.StatusBadRequest {
+		slog.Warn("worker Responses 代理上游拒绝", "endpoint", endpoint, "model", model, "status", resp.StatusCode,
+			"dur", time.Since(started).Round(time.Millisecond))
+	} else {
+		slog.Info("worker Responses 代理完成", "endpoint", endpoint, "model", model, "status", resp.StatusCode,
+			"dur", time.Since(started).Round(time.Millisecond))
+	}
+}
+
+func stripProxyRequestCredentials(header http.Header) {
+	for _, name := range []string{
+		"Authorization", "Cookie", "Proxy-Authorization", "Connection", "Proxy-Connection",
+		"Keep-Alive", "Transfer-Encoding", "Upgrade", "TE", "Trailer", "Content-Length",
+		"Accept-Encoding",
+		"X-Api-Key", "OpenAI-Organization", "OpenAI-Project",
+		"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto",
+	} {
+		header.Del(name)
+	}
+}
+
+func copyProxyResponseHeaders(dst, src http.Header) {
+	for _, name := range []string{
+		"Content-Type", "Cache-Control", "OpenAI-Request-ID", "Request-ID", "X-Request-ID",
+		"X-Ratelimit-Limit-Requests", "X-Ratelimit-Remaining-Requests", "X-Ratelimit-Reset-Requests",
+		"X-Ratelimit-Limit-Tokens", "X-Ratelimit-Remaining-Tokens", "X-Ratelimit-Reset-Tokens",
+	} {
+		for _, value := range src.Values(name) {
+			dst.Add(name, value)
+		}
+	}
+}
+
+func copyResponseStream(dst http.ResponseWriter, src io.Reader) error {
+	buf := make([]byte, 32<<10)
+	flusher, _ := dst.(http.Flusher)
+	for {
+		n, readErr := src.Read(buf)
+		if n > 0 {
+			if _, err := dst.Write(buf[:n]); err != nil {
+				return err
+			}
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				return nil
+			}
+			return readErr
+		}
+	}
 }
 
 // handleWorkerLLM 内置智能体的模型管道：worker 固定发送 OpenAI 风格的
@@ -1636,6 +1816,10 @@ func (s *Server) handleWorkerLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	var body map[string]any
 	if err := decodeJSONLimit(w, r, &body, llmProxyBodyLimit); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体须是 JSON 对象"})
+		return
+	}
+	if body == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体须是 JSON 对象"})
 		return
 	}

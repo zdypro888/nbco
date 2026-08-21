@@ -18,6 +18,7 @@
 - vt10x 屏幕仿真、两步投递、忙碌感知等待、屏幕快照进度、结构化收尾。
 - 自适应 Agent 任务：用 `delegate_worker_agent` 派发目标与稳定 scope，worker 通过交互式 PTY 启动或恢复 Codex/Claude 原生 session；显式命令任务仅用于无需判断的原子命令，默认 pipe、可选 PTY。
 - 原生 session 兼容性指纹：只有工作目录和 engine runtime fingerprint 都一致才 resume；CLI、参数、模型/provider 配置或相关环境变化会自动轮换原生 session，同时保留中枢 scope、workspace、摘要和历史。Codex 的 TUI 计数与目录 trust 等启动期本地状态不参与指纹，避免正常启动误触发轮换。
+- Codex 中枢模型运行时：标准 Codex Worker 默认通过自身 Worker Token 访问 nbco 的 Responses 流式代理，运行模型与上游凭据由中枢统一管理；API Key 不落工作机，模型切换自动进入兼容性指纹。需要工作机自有登录时可显式选择 `model_source=local`。
 - 任务级 Agent 循环：CLI 单轮结束但尚未完成/请求输入时继续自主执行；有新进展就不设固定交互轮数，只对连续无进展和任务总时限做资源边界。
 - 验收打回后自动重新领取，带上历史过程和打回理由返工。
 - HTTP/API 文件上传下载、任务附件挂载、worker 附件下载到 `attachments/`、worker 产物从 `artifacts/` 上传。

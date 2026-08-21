@@ -228,6 +228,8 @@ chmod +x nbco-worker
 `bind/bootstrap` 用绑定码兑换 Worker Access Token（也兼容直接传已有 token），校验其必须属于 worker，并把换来的 token 与 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
 worker 上线和单次执行前会向中枢上报能力（OS/Arch、引擎、CLI 版本、可用能力如 code/go/python/pdf/xlsx/images），`list_workers`、Web AI员工页和自动派工都会使用这些信号。自动派工由受限 AI 子调用把任务语义与动态能力声明评分，同时写入结构化 `task.kind`；最终选择仍由代码统一结合权限、同类验收通过率、负载和在线状态排序，不再用中英文关键词表猜任务类型。
 
+标准 `codex` 引擎默认使用 `model_source=central`：每次领取执行时读取 nbco 当前模型，通过 Worker 鉴权的 Responses 流式代理调用；上游 API Key 不下发到工作机，`/model` 或控制中心切换模型后，下次执行会自动使用新模型并按运行时指纹轮换不兼容的原生 session。确实需要使用工作机自己的 Codex 登录/供应商配置时，在 Worker JSON 中显式设置 `"model_source":"local"`。自定义 `bin+args` 和非 Codex 引擎始终保留自己的运行时。
+
 ### 沙箱化部署（推荐）
 
 worker 的模型 CLI 带完整 shell，安全边界必须在部署侧：[deploy/worker-sandbox/](deploy/worker-sandbox/) 提供容器化模板——每个 worker 独立容器、低权限用户、独立卷、一枚绑定码，宿主机密（其他 worker 的 token、SSH 私钥）不在其可达范围。数据库备份模板见 [deploy/backup/](deploy/backup/)（全部公司状态只在 PG，务必启用）。

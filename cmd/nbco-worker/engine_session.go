@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,20 +21,31 @@ import (
 
 type cliInvocation struct {
 	Args               []string
+	Env                []string
 	ResumeRef          string
 	RuntimeFingerprint string
 }
+
+const (
+	modelSourceCentral   = "central"
+	modelSourceLocal     = "local"
+	workerModelTokenEnv  = "NBCO_WORKER_MODEL_TOKEN"
+	centralCodexProvider = "nbco_central"
+)
 
 var uuidSessionRefRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // cliInvocationFor returns the PTY command line for the configured engine. The
 // worker still starts a short-lived interactive process per task; continuity is
 // provided by the engine's native session resume when nbco has a safe ref.
-func (w *Worker) cliInvocationFor(session SessionInfo, dir string) cliInvocation {
-	base := w.cliArgs()
+func (w *Worker) cliInvocationFor(session SessionInfo, dir string, runtime *EngineRuntime) cliInvocation {
+	base := w.cliArgsForRuntime(runtime)
 	inv := cliInvocation{
 		Args:               append([]string(nil), base...),
-		RuntimeFingerprint: w.engineRuntimeFingerprint(dir),
+		RuntimeFingerprint: w.engineRuntimeFingerprint(dir, runtime),
+	}
+	if runtime != nil {
+		inv.Env = []string{workerModelTokenEnv + "=" + w.cfg.Token}
 	}
 	ref := cleanEngineSessionRef(session.EngineSessionRef)
 	if ref == "" || len(w.cfg.Args) > 0 ||
@@ -58,6 +70,36 @@ func (w *Worker) cliInvocationFor(session SessionInfo, dir string) cliInvocation
 	return inv
 }
 
+func (w *Worker) cliArgsForRuntime(runtime *EngineRuntime) []string {
+	base := w.cliArgs()
+	if runtime == nil || !strings.EqualFold(strings.TrimSpace(w.cfg.Engine), "codex") || len(w.cfg.Args) > 0 {
+		return base
+	}
+	providerPrefix := "model_providers." + centralCodexProvider + "."
+	return append(base,
+		"-c", "model="+strconv.Quote(strings.TrimSpace(runtime.Model)),
+		"-c", "model_provider="+strconv.Quote(centralCodexProvider),
+		"-c", providerPrefix+"name="+strconv.Quote("nbco central model"),
+		"-c", providerPrefix+"base_url="+strconv.Quote(strings.TrimRight(runtime.BaseURL, "/")),
+		"-c", providerPrefix+"env_key="+strconv.Quote(workerModelTokenEnv),
+		"-c", providerPrefix+"wire_api="+strconv.Quote("responses"),
+	)
+}
+
+func (w *Worker) usesCentralModelRuntime() bool {
+	return effectiveModelSource(w.cfg) == modelSourceCentral
+}
+
+func effectiveModelSource(cfg Config) string {
+	if !strings.EqualFold(strings.TrimSpace(cfg.Engine), "codex") || len(cfg.Args) > 0 {
+		return modelSourceLocal
+	}
+	if strings.EqualFold(strings.TrimSpace(cfg.ModelSource), modelSourceLocal) {
+		return modelSourceLocal
+	}
+	return modelSourceCentral
+}
+
 type runtimeFingerprintFile struct {
 	Path   string `json:"path"`
 	Digest string `json:"digest"`
@@ -68,7 +110,7 @@ type runtimeFingerprintFile struct {
 // by a native CLI session. It deliberately hashes, rather than uploads, config
 // files and environment values. The server only needs an equality token to
 // decide whether a stored native session is still safe to resume.
-func (w *Worker) engineRuntimeFingerprint(dir string) string {
+func (w *Worker) engineRuntimeFingerprint(dir string, runtime *EngineRuntime) string {
 	engine := strings.ToLower(strings.TrimSpace(w.cfg.Engine))
 	bin := strings.TrimSpace(w.cfg.Bin)
 	if bin == "" {
@@ -92,9 +134,11 @@ func (w *Worker) engineRuntimeFingerprint(dir string) string {
 		Args        []string                 `json:"args"`
 		Files       []runtimeFingerprintFile `json:"files"`
 		Environment []string                 `json:"environment"`
+		Runtime     *EngineRuntime           `json:"runtime,omitempty"`
 	}{
 		Version: 1, Engine: engine, Binary: resolvedBin, CLIVersion: cliVersion(bin),
-		Args: append([]string(nil), w.cliArgs()...), Files: files, Environment: environment,
+		Args: append([]string(nil), w.cliArgsForRuntime(runtime)...), Files: files, Environment: environment,
+		Runtime: runtime,
 	}
 	raw, _ := json.Marshal(payload)
 	return fmt.Sprintf("%x", sha256.Sum256(raw))

@@ -123,10 +123,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/main.go
         symbol: loadConfigForRun
-        hash: sha256:16f0d51c85d0a4b4acfa668d94022ba45ff991098d1e66728ac3c89dfc655be2
-        struct_hash: sha256:0024acb4f44d54b4f8abb89e3bac7eaf1c089c2c00b489d52bfb2132cfcd4778
-        doc_struct_hash: sha256:0024acb4f44d54b4f8abb89e3bac7eaf1c089c2c00b489d52bfb2132cfcd4778
-        lines: [233, 262]
+        hash: sha256:d5e4013966835d4910741b2983614efdccb415c8dd70331faba1a0004bd93439
+        struct_hash: sha256:8c53a931db9f2aee6afcb2215eb01ae45fa83a33b90c27916eb32a7e7fff7618
+        doc_struct_hash: sha256:8c53a931db9f2aee6afcb2215eb01ae45fa83a33b90c27916eb32a7e7fff7618
+        lines: [302, 334]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/main.go#status

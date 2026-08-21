@@ -1570,10 +1570,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.handleModelCommand
-        hash: sha256:37c1ffb93ed6897e5a37f3e5736c96b3365dbad846ca462195a9f49fb3aa17d6
-        struct_hash: sha256:7c55a534e92792a1716e353a222e93618b6fc170eac923a6661e24a86b774e22
-        doc_struct_hash: sha256:7c55a534e92792a1716e353a222e93618b6fc170eac923a6661e24a86b774e22
-        lines: [2791, 2831]
+        hash: sha256:15bb3b86fe5988ec177e215a48582b00dc9fd4f89fa3fc8fe719541441043d38
+        struct_hash: sha256:9485bc51221e9b13dfeb40393cbcea3a59e2ca6c87e73147c93ab8e36059e398
+        doc_struct_hash: sha256:9485bc51221e9b13dfeb40393cbcea3a59e2ca6c87e73147c93ab8e36059e398
+        lines: [2651, 2691]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#apiTokenConfirmTTL

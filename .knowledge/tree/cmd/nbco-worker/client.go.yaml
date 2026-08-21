@@ -415,3 +415,14 @@ nodes:
         lines: [301, 344]
       status: fresh
       since: 2026-08-20T12:59:31.772568Z
+    - id: cmd/nbco-worker/client.go#Client.Runtime
+      level: function
+      anchor:
+        file: cmd/nbco-worker/client.go
+        symbol: Client.Runtime
+        hash: sha256:3ddb52079b8bf457f599905ddff54849d0ee38d063cdf66f6ca28c732a0c0111
+        struct_hash: sha256:e41757b82085ee03f9ef8ce88cc1aac7379a13d2d2b3cc53b9052466ee2dd410
+        doc_struct_hash: sha256:4e842283fac41299bfccbd1a0907c5fe5ee97adff1570e77d7eef939d7a00134
+        lines: [218, 256]
+      status: fresh
+      since: 2026-08-21T10:12:32.815521Z

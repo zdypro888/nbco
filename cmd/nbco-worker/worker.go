@@ -282,9 +282,26 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 		w.executeBuiltin(ctx, runCtx, task, knowledge, history, dir)
 		return
 	}
+	var engineRuntime *EngineRuntime
+	if w.usesCentralModelRuntime() {
+		runtimeCtx, runtimeCancel := context.WithTimeout(runCtx, 15*time.Second)
+		engineRuntime, err = w.client.Runtime(runtimeCtx, w.cfg.Engine)
+		runtimeCancel()
+		if err != nil {
+			w.failTask(ctx, task, "获取中枢模型运行时失败: "+err.Error(), task.Session, dir)
+			return
+		}
+		if !strings.EqualFold(engineRuntime.Engine, w.cfg.Engine) ||
+			!strings.EqualFold(engineRuntime.Source, modelSourceCentral) ||
+			!strings.EqualFold(engineRuntime.WireAPI, "responses") {
+			w.failTask(ctx, task, "中枢返回了不兼容的 "+w.cfg.Engine+" 模型运行时", task.Session, dir)
+			return
+		}
+		log.Printf("任务 #%d 使用中枢模型运行时：engine=%s model=%s", task.ID, w.cfg.Engine, engineRuntime.Model)
+	}
 
 	sessionStartedAt := time.Now()
-	invocation := w.cliInvocationFor(task.Session, dir)
+	invocation := w.cliInvocationFor(task.Session, dir, engineRuntime)
 	task.Session.EngineRuntimeFingerprint = invocation.RuntimeFingerprint
 	persistNewSession := invocation.ResumeRef == ""
 	if persistNewSession {
@@ -295,7 +312,7 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 	if invocation.ResumeRef != "" {
 		log.Printf("worker 会话 #%d scope=%s 恢复 %s 原生会话 %s", task.Session.ID, task.Session.ScopeKey, w.cfg.Engine, invocation.ResumeRef)
 	}
-	sess, err := startSession(runCtx, dir, w.cfg.Bin, invocation.Args...)
+	sess, err := startSessionWithEnv(runCtx, dir, w.cfg.Bin, invocation.Env, invocation.Args...)
 	if err != nil {
 		if w.killed() {
 			return
@@ -309,7 +326,8 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 		sess.Kill()
 		sessionStartedAt = time.Now()
 		persistNewSession = true
-		sess, err = startSession(runCtx, dir, w.cfg.Bin, w.cliArgs()...)
+		freshInvocation := w.cliInvocationFor(SessionInfo{}, dir, engineRuntime)
+		sess, err = startSessionWithEnv(runCtx, dir, w.cfg.Bin, freshInvocation.Env, freshInvocation.Args...)
 		if err != nil {
 			if w.killed() {
 				return

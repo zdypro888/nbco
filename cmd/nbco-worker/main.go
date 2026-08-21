@@ -43,6 +43,11 @@ type Config struct {
 	PendingBindHash string `json:"pending_bind_hash,omitempty"`
 	Engine          string `json:"engine"` // 引擎名：claude | codex | builtin（内置智能体，无 CLI 也能干活），或自定义（配 bin+args）
 	Bin             string `json:"bin"`    // CLI 可执行文件，默认同 engine
+	// ModelSource controls who supplies the model runtime for supported CLIs.
+	// "central" routes Codex through nbco so the model and upstream credential
+	// stay aligned with the hub; "local" preserves the CLI's own login/config.
+	// Empty defaults to central for stock Codex and local for other engines.
+	ModelSource string `json:"model_source,omitempty"`
 	// 深执行引擎可插拔（前瞻「买管道、留业务」）：把任意交互式 harness（如
 	// swarm 编排器 ruflo/claude-flow 的交互 REPL）配成一个引擎，无需改代码。
 	// 仍守 PTY 交互铁律——只是换掉「启动哪个 CLI、怎么判完成」。
@@ -70,6 +75,15 @@ func configPath(override string) string {
 	}
 	dir, _ := os.UserHomeDir()
 	return filepath.Join(dir, ".nbco-worker.json")
+}
+
+func validateModelSource(value string) error {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", modelSourceCentral, modelSourceLocal:
+		return nil
+	default:
+		return fmt.Errorf("model_source 仅支持 %q 或 %q", modelSourceCentral, modelSourceLocal)
+	}
 }
 
 func main() {
@@ -149,6 +163,9 @@ func bindConfig(cfgFile, server, token string, base Config) (Config, string) {
 	cfg.Token = token
 	if cfg.Engine == "" {
 		cfg.Engine = "claude"
+	}
+	if err := validateModelSource(cfg.ModelSource); err != nil {
+		log.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	path := configPath(cfgFile)
@@ -298,6 +315,9 @@ func loadConfigForRun(cfgFile, engine, bin string) (Config, string) {
 	if cfg.Engine == "" {
 		cfg.Engine = "claude"
 	}
+	if err := validateModelSource(cfg.ModelSource); err != nil {
+		log.Fatal(err)
+	}
 	if bin != "" {
 		cfg.Bin = bin
 	}
@@ -325,7 +345,8 @@ func status(args []string) {
 		log.Fatalf("服务端身份校验失败: %v", err)
 	}
 	report := collectCapabilities(cfg)
-	fmt.Printf("config=%s\nserver=%s\nworker=#%d %s\nengine=%s\nbin=%s\ncaps=%v\n", path, cfg.Server, ident.ID, ident.Name, report.Engine, report.CLIName, report.Capabilities)
+	fmt.Printf("config=%s\nserver=%s\nworker=#%d %s\nengine=%s\nmodel_source=%s\nbin=%s\ncaps=%v\n",
+		path, cfg.Server, ident.ID, ident.Name, report.Engine, effectiveModelSource(cfg), report.CLIName, report.Capabilities)
 }
 
 func doctor(args []string) {
@@ -341,6 +362,15 @@ func doctor(args []string) {
 		} else {
 			fmt.Printf("cli: %s ok\n", cfg.Bin)
 		}
+	}
+	if newWorker(cfg).usesCentralModelRuntime() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		runtime, err := newClient(cfg.Server, cfg.Token).Runtime(ctx, cfg.Engine)
+		cancel()
+		if err != nil {
+			log.Fatalf("central model runtime: %v", err)
+		}
+		fmt.Printf("model_runtime: central (%s via %s)\n", runtime.Model, runtime.WireAPI)
 	}
 	fmt.Println("doctor: ok")
 }

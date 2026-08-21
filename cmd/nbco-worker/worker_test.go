@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -609,10 +610,10 @@ func TestCliInvocationResumesKnownEngines(t *testing.T) {
 	// runtime fingerprint between the two calls this test intentionally makes.
 	testBin := filepath.Join(t.TempDir(), "missing-agent-cli")
 	codexWorker := &Worker{cfg: Config{Engine: "codex", Bin: testBin}}
-	codexFingerprint := codexWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo").RuntimeFingerprint
+	codexFingerprint := codexWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo", nil).RuntimeFingerprint
 	codex := codexWorker.cliInvocationFor(SessionInfo{
 		EngineSessionRef: ref, EngineRuntimeFingerprint: codexFingerprint, Workdir: "/tmp/repo",
-	}, "/tmp/repo")
+	}, "/tmp/repo", nil)
 	if len(codex.Args) < 3 || codex.Args[0] != "resume" || codex.Args[len(codex.Args)-1] != ref || codex.ResumeRef != ref {
 		t.Fatalf("codex resume args = %+v", codex)
 	}
@@ -621,10 +622,10 @@ func TestCliInvocationResumesKnownEngines(t *testing.T) {
 	}
 
 	claudeWorker := &Worker{cfg: Config{Engine: "claude", Bin: testBin}}
-	claudeFingerprint := claudeWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo").RuntimeFingerprint
+	claudeFingerprint := claudeWorker.cliInvocationFor(SessionInfo{}, "/tmp/repo", nil).RuntimeFingerprint
 	claude := claudeWorker.cliInvocationFor(SessionInfo{
 		EngineSessionRef: ref, EngineRuntimeFingerprint: claudeFingerprint, Workdir: "/tmp/repo",
-	}, "/tmp/repo")
+	}, "/tmp/repo", nil)
 	if !containsAllInOrder(claude.Args, "--resume", ref) || claude.ResumeRef != ref {
 		t.Fatalf("claude resume args = %+v", claude)
 	}
@@ -634,16 +635,16 @@ func TestCliInvocationResumesKnownEngines(t *testing.T) {
 		}
 	}
 
-	bad := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: "--last", Workdir: "/tmp/repo"}, "/tmp/repo")
+	bad := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: "--last", Workdir: "/tmp/repo"}, "/tmp/repo", nil)
 	if bad.ResumeRef != "" || len(bad.Args) > 0 && bad.Args[0] == "resume" {
 		t.Fatalf("不安全 session ref 不应进入命令参数: %+v", bad)
 	}
 
-	custom := (&Worker{cfg: Config{Engine: "codex", Args: []string{"chat", "--swarm"}}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo")
+	custom := (&Worker{cfg: Config{Engine: "codex", Args: []string{"chat", "--swarm"}}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo", nil)
 	if custom.ResumeRef != "" || strings.Join(custom.Args, " ") != "chat --swarm" {
 		t.Fatalf("自定义 Args 不应被硬塞 resume: %+v", custom)
 	}
-	moved := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/old"}, "/tmp/new")
+	moved := (&Worker{cfg: Config{Engine: "codex"}}).cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/old"}, "/tmp/new", nil)
 	if moved.ResumeRef != "" || len(moved.Args) > 0 && moved.Args[0] == "resume" {
 		t.Fatalf("工作目录变化后不得恢复旧原生会话: %+v", moved)
 	}
@@ -656,10 +657,10 @@ func TestCliInvocationRotatesWhenRuntimeConfigurationChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := &Worker{cfg: Config{Engine: "codex", SessionRuntimeFiles: []string{configFile}}}
-	first := w.cliInvocationFor(SessionInfo{}, "/tmp/repo")
+	first := w.cliInvocationFor(SessionInfo{}, "/tmp/repo", nil)
 	compatible := w.cliInvocationFor(SessionInfo{
 		EngineSessionRef: ref, EngineRuntimeFingerprint: first.RuntimeFingerprint, Workdir: "/tmp/repo",
-	}, "/tmp/repo")
+	}, "/tmp/repo", nil)
 	if compatible.ResumeRef != ref {
 		t.Fatalf("unchanged runtime should resume: %+v", compatible)
 	}
@@ -668,13 +669,74 @@ func TestCliInvocationRotatesWhenRuntimeConfigurationChanges(t *testing.T) {
 	}
 	rotated := w.cliInvocationFor(SessionInfo{
 		EngineSessionRef: ref, EngineRuntimeFingerprint: first.RuntimeFingerprint, Workdir: "/tmp/repo",
-	}, "/tmp/repo")
+	}, "/tmp/repo", nil)
 	if rotated.ResumeRef != "" || rotated.RuntimeFingerprint == first.RuntimeFingerprint {
 		t.Fatalf("changed runtime must rotate native session: before=%+v after=%+v", first, rotated)
 	}
-	legacy := w.cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo")
+	legacy := w.cliInvocationFor(SessionInfo{EngineSessionRef: ref, Workdir: "/tmp/repo"}, "/tmp/repo", nil)
 	if legacy.ResumeRef != "" {
 		t.Fatalf("session without a compatibility fingerprint must rotate once: %+v", legacy)
+	}
+}
+
+func TestCodexCentralRuntimeOverridesLocalProviderAndRotatesSession(t *testing.T) {
+	const token = "worker-secret-token"
+	w := &Worker{cfg: Config{Engine: "codex", Bin: "codex", Token: token}}
+	runtime := &EngineRuntime{
+		Engine: "codex", Source: modelSourceCentral, Model: "gpt-central-one",
+		BaseURL: "https://nbco.example/api/worker/openai/v1", WireAPI: "responses",
+	}
+	first := w.cliInvocationFor(SessionInfo{}, "/tmp/repo", runtime)
+	args := strings.Join(first.Args, " ")
+	for _, want := range []string{
+		`model="gpt-central-one"`,
+		`model_provider="nbco_central"`,
+		`model_providers.nbco_central.base_url="https://nbco.example/api/worker/openai/v1"`,
+		`model_providers.nbco_central.env_key="NBCO_WORKER_MODEL_TOKEN"`,
+		`model_providers.nbco_central.wire_api="responses"`,
+	} {
+		if !strings.Contains(args, want) {
+			t.Fatalf("managed Codex args missing %q: %v", want, first.Args)
+		}
+	}
+	if strings.Contains(args, token) || len(first.Env) != 1 || first.Env[0] != workerModelTokenEnv+"="+token {
+		t.Fatalf("worker token must be child environment only: args=%v env=%v", first.Args, first.Env)
+	}
+
+	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
+	resumed := w.cliInvocationFor(SessionInfo{
+		EngineSessionRef: ref, EngineRuntimeFingerprint: first.RuntimeFingerprint, Workdir: "/tmp/repo",
+	}, "/tmp/repo", runtime)
+	if resumed.ResumeRef != ref {
+		t.Fatalf("unchanged central runtime should resume: %+v", resumed)
+	}
+	changed := *runtime
+	changed.Model = "gpt-central-two"
+	rotated := w.cliInvocationFor(SessionInfo{
+		EngineSessionRef: ref, EngineRuntimeFingerprint: first.RuntimeFingerprint, Workdir: "/tmp/repo",
+	}, "/tmp/repo", &changed)
+	if rotated.ResumeRef != "" || rotated.RuntimeFingerprint == first.RuntimeFingerprint {
+		t.Fatalf("central model change must rotate native session: before=%+v after=%+v", first, rotated)
+	}
+
+	local := &Worker{cfg: Config{Engine: "codex", Token: token, ModelSource: modelSourceLocal}}
+	if local.usesCentralModelRuntime() {
+		t.Fatal("explicit local model source must bypass central runtime")
+	}
+	localInvocation := local.cliInvocationFor(SessionInfo{}, "/tmp/repo", nil)
+	if len(localInvocation.Env) != 0 || strings.Contains(strings.Join(localInvocation.Args, " "), centralCodexProvider) {
+		t.Fatalf("local Codex invocation was rewritten: %+v", localInvocation)
+	}
+}
+
+func TestMergeEnvironmentReplacesOnlyNamedValues(t *testing.T) {
+	got := mergeEnvironment(
+		[]string{"PATH=/bin", workerModelTokenEnv + "=old", "HOME=/tmp"},
+		[]string{workerModelTokenEnv + "=new"},
+	)
+	want := []string{"PATH=/bin", "HOME=/tmp", workerModelTokenEnv + "=new"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("merged environment = %#v, want %#v", got, want)
 	}
 }
 
@@ -691,13 +753,13 @@ func TestCodexRuntimeFingerprintIgnoresStartupBookkeeping(t *testing.T) {
 	}
 	w := &Worker{cfg: Config{Engine: "codex"}}
 	writeConfig("model-one", 1)
-	first := w.engineRuntimeFingerprint("/tmp/repo")
+	first := w.engineRuntimeFingerprint("/tmp/repo", nil)
 	writeConfig("model-one", 9)
-	if got := w.engineRuntimeFingerprint("/tmp/repo"); got != first {
+	if got := w.engineRuntimeFingerprint("/tmp/repo", nil); got != first {
 		t.Fatalf("TUI/trust startup bookkeeping must not rotate a native session: before=%s after=%s", first, got)
 	}
 	writeConfig("model-two", 9)
-	if got := w.engineRuntimeFingerprint("/tmp/repo"); got == first {
+	if got := w.engineRuntimeFingerprint("/tmp/repo", nil); got == first {
 		t.Fatal("model/provider runtime changes must rotate a native session")
 	}
 }

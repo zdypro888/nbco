@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/capabilities.go
         symbol: collectCapabilities
-        hash: sha256:2ab5a47511cba35cfb14ee38413ae4ec1c31c45a11b5518a8ba7304cea2d7ad2
-        struct_hash: sha256:5089e6f888da3ee45845d512f19bb5d3bbf65edb216ba9708fe246d0a7617181
-        doc_struct_hash: sha256:5089e6f888da3ee45845d512f19bb5d3bbf65edb216ba9708fe246d0a7617181
-        lines: [13, 55]
+        hash: sha256:fad53e7ff20fa044d1cafe62afcbdb2a0ddf833c8e41b7ee31b36ce0cddd1106
+        struct_hash: sha256:7c7d98a4439b1c954ea820ecb0e17ee5eff3f2a62b9c0146e7d34d14c03d2415
+        doc_struct_hash: sha256:7c7d98a4439b1c954ea820ecb0e17ee5eff3f2a62b9c0146e7d34d14c03d2415
+        lines: [13, 56]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/capabilities.go#commandExists

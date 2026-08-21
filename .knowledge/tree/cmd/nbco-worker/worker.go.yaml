@@ -321,10 +321,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: Worker.execute
-        hash: sha256:d83936f3777aba3866bba52ae7d1d025820116e3040093f573aedf219e3ced0e
-        struct_hash: sha256:3a932d99164724542d4713c7a4b08a84d2ac0a829e5b2bbd642f148da131dc32
-        doc_struct_hash: sha256:a412046073c20ffa8263e53e2c0fd88626017976798a75682a26598909d3366f
-        lines: [244, 427]
+        hash: sha256:571deff4768162f97a469c7c6b80d5dac2482413214996e12c42824fa6bb2b3f
+        struct_hash: sha256:fc879d075789989ba2f2e76b05a1db69a87b4e3037953e30310fa365346b036f
+        doc_struct_hash: sha256:a79f4e2724b5df411ffc01e19b2d458e816043c67af673b604314d852c36a1a8
+        lines: [250, 460]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker.go#driveAgentTurns

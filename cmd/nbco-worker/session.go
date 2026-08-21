@@ -81,8 +81,19 @@ type cliSession struct {
 
 // startSession 在 dir 下启动交互式 CLI 并开始把输出喂给屏幕仿真器。
 func startSession(ctx context.Context, dir, bin string, args ...string) (*cliSession, error) {
+	return startSessionWithEnv(ctx, dir, bin, nil, args...)
+}
+
+// startSessionWithEnv starts the same interactive PTY while adding a small set
+// of child-only environment values. It never mutates the worker process
+// environment, so multiple local workers cannot overwrite each other's model
+// credentials.
+func startSessionWithEnv(ctx context.Context, dir, bin string, env []string, args ...string) (*cliSession, error) {
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	if len(env) > 0 {
+		cmd.Env = mergeEnvironment(os.Environ(), env)
+	}
 	configurePTYProcessTree(cmd)
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: termCols, Rows: termRows})
 	if err != nil {
@@ -91,6 +102,24 @@ func startSession(ctx context.Context, dir, bin string, args ...string) (*cliSes
 	s := &cliSession{cmd: cmd, ptmx: ptmx, vt: vt10x.New(vt10x.WithSize(termCols, termRows))}
 	go s.readLoop()
 	return s, nil
+}
+
+func mergeEnvironment(base, overrides []string) []string {
+	replaced := make(map[string]bool, len(overrides))
+	for _, item := range overrides {
+		name, _, ok := strings.Cut(item, "=")
+		if ok && name != "" {
+			replaced[name] = true
+		}
+	}
+	out := make([]string, 0, len(base)+len(overrides))
+	for _, item := range base {
+		name, _, _ := strings.Cut(item, "=")
+		if !replaced[name] {
+			out = append(out, item)
+		}
+	}
+	return append(out, overrides...)
 }
 
 func (s *cliSession) readLoop() {

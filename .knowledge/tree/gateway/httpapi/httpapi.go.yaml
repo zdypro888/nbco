@@ -805,10 +805,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.handleWorkerLLM
-        hash: sha256:1a46c95044ae680a37a164c49e1a9380d2a54bd49ed0bf93e55b8dc13e783735
-        struct_hash: sha256:776aa22e89ac723464044f6c1bca1983902307de724f6507b560e5c943c5de49
-        doc_struct_hash: sha256:eb6ba9b290102e58219bfc4f5116a36f9b3d5ae81a9dfc49d58722074cda3725
-        lines: [1596, 1709]
+        hash: sha256:c72071b112dcecf678467159b72728b72fa99b248272b7d89f92218a66b34e91
+        struct_hash: sha256:de2db0681e936ec80a80e831f9232855a2b837b5ece1f5ec6e69d7bc7c48c5db
+        doc_struct_hash: sha256:7efdb871223e8101b7ff89e0b1a97be46cac8ef31df47d5927a763692de7db40
+        lines: [1786, 1903]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#recordWorkerLLMUsageAsync
@@ -1339,3 +1339,25 @@ nodes:
         lines: [397, 402]
       status: fresh
       since: 2026-08-20T13:01:42.665213Z
+    - id: gateway/httpapi/httpapi.go#Server.handleWorkerRuntime
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: Server.handleWorkerRuntime
+        hash: sha256:1c9c555e184b57794ec13f18ded2b617d5978e996867aa5520b48795bfb2400c
+        struct_hash: sha256:c94ad3f7901ecd37e55397b31a7f8fee6116c7967456f7d92df52133114aa3d7
+        doc_struct_hash: sha256:87365bb9a14297babdb8457ae2d56fab3f737aa01df5fe381c3c12d7d3bd3994
+        lines: [1623, 1645]
+      status: fresh
+      since: 2026-08-21T10:12:32.789058Z
+    - id: gateway/httpapi/httpapi.go#Server.proxyWorkerOpenAIResponses
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: Server.proxyWorkerOpenAIResponses
+        hash: sha256:4a38616ff0e1a7a9dba84243587c3c6dbb9a0fad83d01be8bb947ee4c46a58a9
+        struct_hash: sha256:8b44a3c3deba30dbdf87b1096b7f35e585242033a442d78d3c04610a3c7ac1c3
+        doc_struct_hash: sha256:353db0008174800f0c69ec43ba058cc6ce4bd83dd0b79981abfe843f11ef98a1
+        lines: [1661, 1738]
+      status: fresh
+      since: 2026-08-21T10:12:32.800989Z

@@ -2687,7 +2687,7 @@ func (g *Gateway) handleModelCommand(ctx context.Context, chatID int64, u *store
 		return
 	}
 	slog.Info("超级管理员切换运行时模型", "user", u.ID, "model", args)
-	g.reply(ctx, chatID, fmt.Sprintf("✅ 已切换模型：<code>%s</code>\n后续新一轮对话和 worker 内置智能体都会使用它。", html.EscapeString(args)))
+	g.reply(ctx, chatID, fmt.Sprintf("✅ 已切换模型：<code>%s</code>\n后续新一轮对话和中枢托管的 Worker 引擎都会使用它。", html.EscapeString(args)))
 }
 
 const apiTokenConfirmTTL = 10 * time.Minute

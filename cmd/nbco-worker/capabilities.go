@@ -50,6 +50,7 @@ func collectCapabilities(cfg Config) CapabilityReport {
 			"session_workspaces": cfg.SessionWorkspaces,
 			"busy_pattern":       cfg.BusyPattern,
 			"args_count":         len(cfg.Args),
+			"model_source":       effectiveModelSource(cfg),
 		},
 	}
 }

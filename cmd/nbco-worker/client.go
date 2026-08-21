@@ -184,6 +184,18 @@ type Identity struct {
 	OwnerID      *int64 `json:"owner_id"`
 }
 
+// EngineRuntime is a server-owned, credential-free CLI model descriptor. The
+// worker resolves BaseURL against its configured server and supplies its own
+// Worker Access Token to the child process; the upstream API key never leaves
+// nbco.
+type EngineRuntime struct {
+	Engine  string `json:"engine"`
+	Source  string `json:"source"`
+	Model   string `json:"model"`
+	BaseURL string `json:"base_url"`
+	WireAPI string `json:"wire_api"`
+}
+
 // Me 校验 token 并返回当前身份。
 func (c *Client) Me(ctx context.Context) (*Identity, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/api/me", nil)
@@ -201,6 +213,46 @@ func (c *Client) Me(ctx context.Context) (*Identity, error) {
 		return nil, err
 	}
 	return &ident, nil
+}
+
+// Runtime returns the current server-managed model runtime for an interactive
+// CLI engine. It is fetched for each claimed run so a central model switch is
+// observed without rewriting worker files or distributing the upstream key.
+func (c *Client) Runtime(ctx context.Context, engine string) (*EngineRuntime, error) {
+	u := c.base + "/api/worker/runtime?engine=" + url.QueryEscape(strings.TrimSpace(engine))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	c.auth(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.errStatus(resp)
+	}
+	var runtime EngineRuntime
+	if err := json.NewDecoder(resp.Body).Decode(&runtime); err != nil {
+		return nil, fmt.Errorf("解析引擎运行时失败: %w", err)
+	}
+	base, err := url.Parse(c.base + "/")
+	if err != nil {
+		return nil, fmt.Errorf("Worker server 地址无效: %w", err)
+	}
+	endpoint, err := url.Parse(strings.TrimSpace(runtime.BaseURL))
+	if err != nil {
+		return nil, fmt.Errorf("中枢模型代理地址无效: %w", err)
+	}
+	endpoint = base.ResolveReference(endpoint)
+	if endpoint.Scheme != "http" && endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil ||
+		endpoint.RawQuery != "" || endpoint.Fragment != "" ||
+		!strings.EqualFold(endpoint.Scheme, base.Scheme) || !strings.EqualFold(endpoint.Host, base.Host) {
+		return nil, errors.New("中枢模型代理地址不是安全的 http/https 地址")
+	}
+	runtime.BaseURL = strings.TrimRight(endpoint.String(), "/")
+	if strings.TrimSpace(runtime.Engine) == "" || strings.TrimSpace(runtime.Model) == "" || runtime.BaseURL == "" {
+		return nil, errors.New("中枢返回的引擎运行时不完整")
+	}
+	return &runtime, nil
 }
 
 func (c *Client) RegisterCapabilities(ctx context.Context, report CapabilityReport) error {

@@ -305,3 +305,14 @@ nodes:
         lines: [332, 342]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco-worker/session.go#startSessionWithEnv
+      level: function
+      anchor:
+        file: cmd/nbco-worker/session.go
+        symbol: startSessionWithEnv
+        hash: sha256:7fc31111785a12b23900e7798f752b9218a4ffba637292c7f87dd002a29c7cca
+        struct_hash: sha256:5ce58199f12eed0597a7bc6fad5eee9ce36e4737ec2e965882a03787f6471f13
+        doc_struct_hash: sha256:bdbb8983355de31474d61cf2b54ddd8871eebf87e9c1c4e2ff1581b5f8d222f0
+        lines: [87, 105]
+      status: fresh
+      since: 2026-08-21T10:12:32.823358Z
