@@ -607,12 +607,25 @@ nodes:
       anchor:
         file: store/chat.go
         symbol: Store.ListChannelMessagesPage
-        hash: sha256:f526f54f029d754e722369562e65d0e8b81a77d5874058434d3583ccfe3f7d23
-        struct_hash: sha256:b5e10eae90bbeb30375ba3489cf06c19fbe1eac0bc9ea77be559805b0fe82ab2
-        doc_struct_hash: sha256:211b4545470cc66b974b2f733c2a3eb0810ccc0d8ef24301ffc8c76dbccb22ee
-        lines: [680, 732]
-      status: undigested
+        hash: sha256:9af02dafbca212e8c3db5c28e0746b1a9fdef7a82b9732c29c870449bde449c3
+        struct_hash: sha256:3eb9f5c5f27978528e7ec83d9e365fadeee87b368972c7b8f12078d69b6e29ee
+        doc_struct_hash: sha256:dd8ec2eef50308e81eca3b2c841fd980d1044c490221deb23da91df06793d969
+        lines: [708, 765]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_ef905968
+          kind: contract
+          text: 群消息时间窗按 COALESCE(source_created_at, created_at) 过滤，beforeID 使用稳定消息 ID 向更早翻页；返回结果恢复为升序，Total 表示当前游标前的完整匹配数，NextCursor 取本页最早 ID。
+          confidence: inferred
+          at: 2026-08-21T09:52:38.622874Z
+          author: codex-mcp-client
+      keywords:
+        - 群消息分页
+        - 事件时间
+        - source_created_at
+        - 稳定游标
+        - channelmessagepage
     - id: store/chat.go#Store.queryMessages
       level: function
       anchor:

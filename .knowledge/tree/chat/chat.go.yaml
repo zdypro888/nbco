@@ -1766,6 +1766,19 @@ nodes:
         lines: [420, 470]
       status: fresh
       since: 2026-08-21T09:42:55.587582Z
+      entries:
+        - id: e_8fae466e
+          kind: contract
+          text: 群消息使用外部 chat/message ref 作为稳定来源键并保留源事件时间；只有入口已解析到 ActorUserID 时才归属该员工，未知群成员绝不能回退成 transcript owner。CreatedBy 可记录采集责任人但不等同发言人。
+          confidence: inferred
+          at: 2026-08-21T09:52:58.538378Z
+          author: codex-mcp-client
+      keywords:
+        - 群消息工作事实
+        - 发言人归属
+        - actoruserid
+        - 来源信封
+        - 群项目关联
     - id: chat/chat.go#Orchestrator.persistMinedFacts
       level: function
       anchor:

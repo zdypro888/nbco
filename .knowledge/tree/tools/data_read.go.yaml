@@ -79,12 +79,31 @@ nodes:
       anchor:
         file: tools/data_read.go
         symbol: lexicalRowsAcrossSources
-        hash: sha256:4ded0296b25072130bcad5bed199d506d939f53b56ee103c99bbaffa7aae85c3
-        struct_hash: sha256:8e3add9a5774377aefaf9a45199909852574536f1f0aa33d16f569f182d8cacb
-        doc_struct_hash: sha256:8e3add9a5774377aefaf9a45199909852574536f1f0aa33d16f569f182d8cacb
-        lines: [267, 299]
-      status: undigested
+        hash: sha256:f7f5d43dfecfedc635405ea0ed0f6cffaafd6f77d5c85d201278be674e2e350a
+        struct_hash: sha256:40160a2b27876db23c172d2587d42be2630ca60605d9569dd44d3b61055e8504
+        doc_struct_hash: sha256:40160a2b27876db23c172d2587d42be2630ca60605d9569dd44d3b61055e8504
+        lines: [270, 307]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_97b0bd88
+          kind: contract
+          text: 跨源词法召回必须查询 planner 选中的每个数据源，并通过 Store.ReadData 继承行级/字段级权限；单源失败保留其余结果，只有全部数据源失败才返回错误。各源按 rank 交错，避免一个大表吞掉全局候选。
+          confidence: inferred
+          at: 2026-08-21T09:53:07.507952Z
+          author: codex-mcp-client
+        - id: e_5929f890
+          kind: pitfall
+          text: Qdrant 命中不能用于裁剪词法数据源；精确措辞和尚未完成向量同步的新数据仍依赖完整词法回退。
+          confidence: inferred
+          at: 2026-08-21T09:53:07.509586Z
+          author: codex-mcp-client
+      keywords:
+        - 跨源词法检索
+        - 部分失败
+        - 公平交错
+        - lexical fallback
+        - search_context
     - id: tools/data_read.go#interleaveLexicalRows
       level: function
       anchor:
