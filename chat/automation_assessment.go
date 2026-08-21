@@ -78,7 +78,7 @@ func (o *Orchestrator) AssessAutomationExecution(
 
 func decodeAutomationAssessment(raw string, execution AutomationExecution) (AutomationAssessment, error) {
 	var assessment AutomationAssessment
-	if err := json.Unmarshal([]byte(extractJSONObject(raw)), &assessment); err != nil {
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &assessment); err != nil {
 		return AutomationAssessment{}, fmt.Errorf("automation assessment JSON: %w", err)
 	}
 	assessment.Outcome = strings.TrimSpace(assessment.Outcome)

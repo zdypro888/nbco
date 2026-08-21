@@ -473,10 +473,14 @@ func (s *Store) CreateMilestoneTasks(ctx context.Context, subs []*Task) ([]*Task
 				return nil, ErrNotFound
 			}
 		}
+		kind := NormalizeTaskKind(t.Kind)
+		if kind == "" {
+			kind = TaskKindGeneral
+		}
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, depends_on, milestone_id)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING `+taskCols,
-			t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, kind, priority, deadline, depends_on, milestone_id)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING `+taskCols,
+			t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance, kind, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
 		ct, err := scanTask(row)
 		if err != nil {
 			return nil, err

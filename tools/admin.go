@@ -129,29 +129,52 @@ func CompanyOverview(ctx context.Context, s *store.Store, tz *time.Location) (st
 // 其余工具内部仍做权限校验（工具即权限边界）。
 func adminTools(d Deps, u *store.User) []ai.Tool {
 	ts := []ai.Tool{
-		tool("list_users", "列出系统内用户目录。员工ID/user_id 是稳定业务编号，优先用于后续工具；姓名只是展示名，可能变化或重名。结果包含工具引用和用户可见目录。",
-			obj(nil),
-			func(ctx context.Context, _ json.RawMessage) (string, error) {
+		tool("list_users", "分页列出系统内用户目录，返回结构化 JSON。员工ID/user_id 是稳定业务编号，优先用于后续工具；姓名只是展示名，可能变化或重名。完整盘点时按 next_offset 继续，直到 has_more=false。",
+			obj(map[string]any{
+				"query":  p("string", "可选，按员工ID、姓名、human/worker 或状态筛选"),
+				"limit":  p("integer", "每页数量，默认 50，最大 100"),
+				"offset": p("integer", "分页偏移，默认 0"),
+			}),
+			func(ctx context.Context, raw json.RawMessage) (string, error) {
+				var args struct {
+					Query  string `json:"query"`
+					Limit  int    `json:"limit"`
+					Offset int    `json:"offset"`
+				}
+				if err := decode(raw, &args); err != nil {
+					return err.Error(), nil
+				}
+				if args.Limit <= 0 {
+					args.Limit = 50
+				}
+				if args.Limit > 100 {
+					args.Limit = 100
+				}
+				if args.Offset < 0 {
+					return "offset 不能为负数。", nil
+				}
 				users, err := d.Store.ListUsers(ctx)
 				if err != nil {
 					return "", err
 				}
+				users = filterDirectoryUsers(users, args.Query)
+				total := len(users)
+				start := min(args.Offset, total)
+				end := min(start+args.Limit, total)
+				page := users[start:end]
 				viewerActive, err := d.Store.PermsOf(ctx, u.ID)
 				if err != nil {
 					return "", err
 				}
-				stats := make(map[int64]userDirectoryStats, len(users))
-				for _, other := range users {
-					if other.ID == u.ID {
-						continue
-					}
+				stats := make(map[int64]userDirectoryStats, len(page))
+				for _, other := range page {
 					st, err := visibleProfileStats(ctx, d, u, other, viewerActive)
 					if err != nil {
 						return "", err
 					}
 					stats[other.ID] = st
 				}
-				return renderUserDirectory(users, u.ID, stats), nil
+				return renderUserDirectory(page, u.ID, stats, total, start, args.Limit), nil
 			}),
 
 		tool("get_user_info", "查看某用户的基本信息。需要对其 view_self_intro 主动权限。优先传员工ID/user_id；tg_id 仅作 Telegram 精确绑定；姓名只是兜底且必须唯一。",
@@ -863,79 +886,75 @@ func messageTargetSelector(values ...string) string {
 	return ""
 }
 
-func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]userDirectoryStats) string {
-	var humans, workers []string
-	var refs []string
+func filterDirectoryUsers(users []*store.User, query string) []*store.User {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return users
+	}
+	out := make([]*store.User, 0, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		kind := "human"
+		if user.IsWorker {
+			kind = "worker"
+		}
+		haystack := strings.ToLower(fmt.Sprintf("%d\n%s\n%s\n%s", user.ID, user.Name, kind, user.Status))
+		if strings.Contains(haystack, query) {
+			out = append(out, user)
+		}
+	}
+	return out
+}
+
+func renderUserDirectory(users []*store.User, currentID int64, stats map[int64]userDirectoryStats, total, offset, limit int) string {
+	type directoryEntry struct {
+		UserID              int64  `json:"user_id"`
+		Name                string `json:"name"`
+		Kind                string `json:"kind"`
+		Status              string `json:"status"`
+		IsCurrent           bool   `json:"is_current"`
+		IsSuperadmin        bool   `json:"is_superadmin"`
+		VisibleProfileCount int    `json:"visible_profile_count"`
+		VisibleReviewCount  int    `json:"visible_review_count"`
+	}
+	type directoryResult struct {
+		Users       []directoryEntry `json:"users"`
+		Total       int              `json:"total"`
+		Offset      int              `json:"offset"`
+		Limit       int              `json:"limit"`
+		HasMore     bool             `json:"has_more"`
+		NextOffset  *int             `json:"next_offset,omitempty"`
+		HumanCount  int              `json:"page_human_count"`
+		WorkerCount int              `json:"page_worker_count"`
+	}
+	result := directoryResult{Users: make([]directoryEntry, 0, len(users)), Total: total, Offset: offset, Limit: limit}
 	for _, other := range users {
-		if other == nil || other.ID == currentID {
+		if other == nil {
 			continue
 		}
 		kind := "human"
 		if other.IsWorker {
 			kind = "worker"
-		}
-		refs = append(refs, fmt.Sprintf("- user_id=%d name=%q kind=%s status=%s", other.ID, other.Name, kind, other.Status))
-		line := renderUserDirectoryLine(other, stats[other.ID])
-		if other.IsWorker {
-			workers = append(workers, line)
+			result.WorkerCount++
 		} else {
-			humans = append(humans, line)
+			result.HumanCount++
 		}
+		st := stats[other.ID]
+		result.Users = append(result.Users, directoryEntry{
+			UserID: other.ID, Name: other.Name, Kind: kind, Status: other.Status,
+			IsCurrent: other.ID == currentID, IsSuperadmin: other.IsSuperadmin, VisibleProfileCount: st.SelfIntro,
+			VisibleReviewCount: st.PeerReview,
+		})
 	}
-	if len(humans) == 0 && len(workers) == 0 {
-		return "（没有其他用户）"
+	result.HasMore = offset+len(result.Users) < total
+	if result.HasMore {
+		next := offset + len(result.Users)
+		result.NextOffset = &next
 	}
-	var b strings.Builder
-	if len(refs) > 0 {
-		b.WriteString("[工具引用·工作内存]\n")
-		for _, ref := range refs {
-			b.WriteString(ref)
-			b.WriteByte('\n')
-		}
-		b.WriteString("\n[用户可见目录]\n")
-	}
-	if len(humans) > 0 {
-		fmt.Fprintf(&b, "真人员工（%d 位）：\n", len(humans))
-		for _, line := range humans {
-			b.WriteString(line)
-			b.WriteByte('\n')
-		}
-	}
-	if len(workers) > 0 {
-		if b.Len() > 0 {
-			b.WriteByte('\n')
-		}
-		fmt.Fprintf(&b, "AI worker（%d 个，虚拟成员，不计入真人员工）：\n", len(workers))
-		for _, line := range workers {
-			b.WriteString(line)
-			b.WriteByte('\n')
-		}
-	}
-	if len(humans) > 0 && len(workers) > 0 {
-		fmt.Fprintf(&b, "\n统计：真人员工 %d 位，AI worker %d 个。", len(humans), len(workers))
-	}
-	return b.String()
-}
-
-func renderUserDirectoryLine(u *store.User, st userDirectoryStats) string {
-	labels := []string{renderUserStatus(u.Status)}
-	switch {
-	case u.IsWorker && u.IsSuperadmin:
-		labels = append(labels, "admin worker")
-	case u.IsWorker:
-		labels = append(labels, "AI worker")
-	case u.IsSuperadmin:
-		labels = append(labels, "超级管理员")
-	}
-	return fmt.Sprintf("- 员工ID %d｜%s（%s）｜%s｜%s",
-		u.ID, u.Name, strings.Join(labels, "，"), profileCountLabel("画像", st.SelfIntro), profileCountLabel("评价", st.PeerReview))
-}
-
-func profileCountLabel(name string, n int) string {
-	if n <= 0 {
-		return name + "：暂无可见"
-	}
-	return fmt.Sprintf("%s：%d 条", name, n)
+	raw, _ := json.Marshal(result)
+	return string(raw)
 }
 
 func employeeInviteLink(ctx context.Context, d Deps, key string) string {

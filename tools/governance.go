@@ -118,7 +118,7 @@ func governanceTools(d Deps, u *store.User) []ai.Tool {
 				return renderSystemActivity(d.TZ, items), nil
 			}),
 
-		tool("score_learning_candidates", "对待审核学习候选做一次治理评分：识别明显重复、冲突、低证据候选，帮助超管审核。", obj(map[string]any{
+		tool("score_learning_candidates", "对待审核学习候选做一次确定性预评分：识别精确重复并标出文本相关候选；语义重复或冲突仍由 Agent 结合检索结果审核。", obj(map[string]any{
 			"limit": p("integer", "最多处理多少条，默认200"),
 		}),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {

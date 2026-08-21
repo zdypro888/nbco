@@ -1053,10 +1053,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.processGroupMessages
-        hash: sha256:1bb5f7c01eef4a4c3c3425c90d26faf91619336e34bd0cf5f1abe5bb89d4a335
-        struct_hash: sha256:ee76b33afd46681c14de210752f019834a43ef6fff771df886f19e895221d7e2
-        doc_struct_hash: sha256:ee76b33afd46681c14de210752f019834a43ef6fff771df886f19e895221d7e2
-        lines: [1458, 1661]
+        hash: sha256:f029b9cc8d9ef582dff465da31de1f74fc54d8e2fea145daa43ac34f7b845938
+        struct_hash: sha256:016a95666df2092d17c18bfb2dc85f701854afc834c9100b93444920242f7804
+        doc_struct_hash: sha256:016a95666df2092d17c18bfb2dc85f701854afc834c9100b93444920242f7804
+        lines: [1448, 1648]
       status: undigested
       since: 2026-08-20T13:40:03.420324Z
     - id: gateway/telegram/telegram.go#Gateway.groupTranscriptOwner
@@ -2187,10 +2187,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: telegramPlainText
-        hash: sha256:3309784e951f3e2b5ee15702643b20fd1ee4eb9260c21e9b63f4d9c6fd3b4221
-        struct_hash: sha256:9bd1ee1fef90d3c525e3b86e9062e52084cebed8bec1c52137d20bb1773d317f
-        doc_struct_hash: sha256:9bd1ee1fef90d3c525e3b86e9062e52084cebed8bec1c52137d20bb1773d317f
-        lines: [3736, 3744]
+        hash: sha256:56dee2f3c46b260d816ad678c077afabf5fa3b168613bfe9ae5126f3df9b4bba
+        struct_hash: sha256:cdabf864a5352b3a65f64bdc0f94bb0ebcd444919f61d750c3631b7e4cd737ec
+        doc_struct_hash: sha256:cdabf864a5352b3a65f64bdc0f94bb0ebcd444919f61d750c3631b7e4cd737ec
+        lines: [3596, 3602]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/telegram/telegram.go#voiceDownloadLimit
@@ -2556,3 +2556,14 @@ nodes:
         lines: [4264, 4271]
       status: undigested
       since: 2026-08-20T13:40:03.420324Z
+    - id: gateway/telegram/telegram.go#telegramPlainTextOrEmpty
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramPlainTextOrEmpty
+        hash: sha256:af403d2ada7815cacfea2dd7af8f72609d7b23f2a43400a6b5594a5e73342f32
+        struct_hash: sha256:9fb7ce18f70107e6c2b047510e21c8fa273aa09d96b80d3e424346787fa37278
+        doc_struct_hash: sha256:9fb7ce18f70107e6c2b047510e21c8fa273aa09d96b80d3e424346787fa37278
+        lines: [3604, 3608]
+      status: fresh
+      since: 2026-08-21T09:44:14.476679Z

@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: tools/work_facts.go
+      level: file
+      anchor:
+        file: tools/work_facts.go
+        hash: sha256:525ea91e6bb47e6bd8a50ec991235d1f72aaba4cf89eae4532166dc0ce6f00e4
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-21T09:42:55.60037Z
+    - id: tools/work_facts.go#workFactTools
+      level: function
+      anchor:
+        file: tools/work_facts.go
+        symbol: workFactTools
+        hash: sha256:253c04bcb26040b0c29a3dd63a7259f8ca39148ba004f9ee6e096e902830b193
+        struct_hash: sha256:f6f2d8a11eef1e0c47d7d517e03de53c491b7fcfee60f72b6e7c80d5e8977ded
+        doc_struct_hash: sha256:f6f2d8a11eef1e0c47d7d517e03de53c491b7fcfee60f72b6e7c80d5e8977ded
+        lines: [15, 137]
+      status: fresh
+      since: 2026-08-21T09:42:55.60035Z

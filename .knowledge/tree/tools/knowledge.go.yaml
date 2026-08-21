@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/knowledge.go
         symbol: knowledgeTools
-        hash: sha256:c663aaf8e4be8505ca9cc171564dd1d2e9fcb3f76ccba1ea2de870eda9c0d9dd
-        struct_hash: sha256:749c510fe2b2686baa9b1526c3ff868e2a6c7cc6fcffa468508e7764a698fa91
-        doc_struct_hash: sha256:039b7f1cd3fcf423e10061b08535581814bbd90460ecd1498904cb32178c4f41
-        lines: [16, 207]
+        hash: sha256:fe2d42ef47450b1eab46734c6715c128944a02dbefdc5fc6267e8632ec528b4b
+        struct_hash: sha256:9c8a2d67afd666548696f7657b5d8908613e9a4a21a97985bb82c1aa8a36a347
+        doc_struct_hash: sha256:b628190b042bec09ea912a9d88125e653a9638471063f21701d2bea5d218ff96
+        lines: [16, 216]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/knowledge.go#renderKnowledgeList

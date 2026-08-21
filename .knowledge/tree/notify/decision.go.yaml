@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: notify/decision.go
+      level: file
+      anchor:
+        file: notify/decision.go
+        hash: sha256:6bdffaa94fe528906eaa97e0b27d89a074d543aabd5c91b83f24d9f6ae3a05d9
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-21T09:43:44.225267Z
+    - id: notify/decision.go#ParseDecision
+      level: function
+      anchor:
+        file: notify/decision.go
+        symbol: ParseDecision
+        hash: sha256:bb38407399f0fd4e9b02794792ba30e353388428a5333ccca4816996cfed7186
+        struct_hash: sha256:46499293462198b245f33154c60916c062bc31d21b2af2c20eeb9202be6a950b
+        doc_struct_hash: sha256:4a096d6db789015476cb2ced96f120f97ed2ff84cbe565985a941f873141a172
+        lines: [16, 37]
+      status: fresh
+      since: 2026-08-21T09:43:44.225244Z

@@ -259,7 +259,7 @@ nodes:
         hash: sha256:572cb6f0938fd4cdcd6d9d59a7866d3cea8873f14182cd1fe16f2e7d3412e282
         struct_hash: sha256:d937cb805624341ab412b6d44b102912c48635ec0525ce6af8b8dea1165f94dc
         doc_struct_hash: sha256:d77610382e1cea0ee23900889bdefac7de4c75928df747a71d202b5b9fe0e74b
-        lines: [100, 132]
+        lines: [96, 128]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: textfmt/textutil.go#StripHistoryMetadata

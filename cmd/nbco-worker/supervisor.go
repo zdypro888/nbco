@@ -234,15 +234,6 @@ func parseAgentAssessment(msg chatMessage) (agentTurnAssessment, error) {
 		}
 		return assessment, nil
 	}
-	// Some OpenAI-compatible models ignore a single forced-looking tool and
-	// return its JSON as text. Accept only a complete JSON object, never prose.
-	content := strings.TrimSpace(msg.Content)
-	if start, end := strings.Index(content, "{"), strings.LastIndex(content, "}"); start >= 0 && end > start {
-		var assessment agentTurnAssessment
-		if err := json.Unmarshal([]byte(content[start:end+1]), &assessment); err == nil {
-			return assessment, nil
-		}
-	}
 	return agentTurnAssessment{}, errors.New("监督模型未调用评估工具")
 }
 

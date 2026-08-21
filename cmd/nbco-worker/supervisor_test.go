@@ -24,9 +24,8 @@ func TestParseAgentAssessment(t *testing.T) {
 		t.Fatalf("tool assessment = %+v err=%v", got, err)
 	}
 
-	got, err = parseAgentAssessment(chatMessage{Content: "```json\n" + string(args) + "\n```"})
-	if err != nil || got.Reason != want.Reason {
-		t.Fatalf("text assessment = %+v err=%v", got, err)
+	if _, err = parseAgentAssessment(chatMessage{Content: string(args)}); err == nil {
+		t.Fatal("plain-text JSON bypassed the required assessment tool")
 	}
 }
 

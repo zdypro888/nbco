@@ -19,15 +19,11 @@ func TestLearningTextSimilarity(t *testing.T) {
 	}
 }
 
-func TestLearningConflictIsGenericAndNotDuplicate(t *testing.T) {
-	if !LearningTextsConflict(LearningKindRule,
-		"推理过程展示", "以后不要展示模型推理过程。",
-		"推理过程展示", "以后默认开启模型推理过程。") {
-		t.Fatal("same subject with opposite direction must be treated as a conflict")
+func TestLearningTextsEquivalentOnlyAcceptsNormalizedIdentity(t *testing.T) {
+	if !LearningTextsEquivalent(" Worker Token ", "Never expose it", "worker token", "never   expose it") {
+		t.Fatal("case and whitespace differences should remain idempotent")
 	}
-	if LearningTextsConflict(LearningKindKnowledge,
-		"推理过程展示", "不要展示模型推理过程。",
-		"推理过程展示", "默认开启模型推理过程。") {
-		t.Fatal("plain knowledge facts do not use policy polarity governance")
+	if LearningTextsEquivalent("推理过程展示", "以后不要展示模型推理过程。", "推理过程展示", "以后默认开启模型推理过程。") {
+		t.Fatal("similar subject with different meaning must be left to semantic governance")
 	}
 }

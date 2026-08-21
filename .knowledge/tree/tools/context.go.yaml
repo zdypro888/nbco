@@ -1,0 +1,41 @@
+schema: 1
+nodes:
+    - id: tools/context.go
+      level: file
+      anchor:
+        file: tools/context.go
+        hash: sha256:8ce0f7177bdedb993e3c02710ea32ea0cd93275be59be6147823acddbd89b172
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-21T09:42:55.599121Z
+    - id: tools/context.go#contextTools
+      level: function
+      anchor:
+        file: tools/context.go
+        symbol: contextTools
+        hash: sha256:750a5fa44b5306546bf816b08818278f932f5556e18c54b0bf139f28a0cb3a9f
+        struct_hash: sha256:25dca590aa751ef994172ddb2b39091c0b8ab9452a9fdf152422acb9e2465e74
+        doc_struct_hash: sha256:613938fdd08841476183107ba0e60cc1f85bd69fe1843877ece521b524aec00d
+        lines: [31, 101]
+      status: fresh
+      since: 2026-08-21T09:42:55.599093Z
+      entries:
+        - id: e_5c6a6d8a
+          kind: contract
+          text: search_context 的语义候选只能用于定位：返回前必须按当前用户权限回 PostgreSQL 读取。群聊入口只允许检索当前群；私聊/API 可跨可见来源，但任务和项目仍逐项做可见性校验。
+          confidence: inferred
+          at: 2026-08-21T09:44:42.535435Z
+          author: codex-mcp-client
+        - id: e_1409380a
+          kind: pitfall
+          text: Qdrant 可能滞后或残留旧 point，不能直接作为权威结果；任何绕过 PostgreSQL 回表的优化都会破坏删除、权限变更和租户边界。
+          confidence: inferred
+          at: 2026-08-21T09:44:42.53705Z
+          author: codex-mcp-client
+      keywords:
+        - 统一上下文
+        - 权限感知检索
+        - search_context
+        - 工作事实
+        - 向量回表
+        - 群消息检索

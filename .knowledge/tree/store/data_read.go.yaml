@@ -61,7 +61,7 @@ nodes:
         struct_hash: sha256:d4295566bcb7cc9d83582e08a3f2e35da66e28c9cd9c8ba652aed24f8c370f79
         doc_struct_hash: sha256:d4295566bcb7cc9d83582e08a3f2e35da66e28c9cd9c8ba652aed24f8c370f79
         lines: [51, 796]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_f2b63eaa
@@ -180,9 +180,9 @@ nodes:
       anchor:
         file: store/data_read.go
         symbol: Store.ReadData
-        hash: sha256:ddccf065c6497f3d58c0baa841e1be59be45a3c0a17ba3a45233e4ce289e811f
-        struct_hash: sha256:4e922c52bdaad9cb0d08cd773ea781bf098afa4079fe16e5bee2d892eb5e3845
-        doc_struct_hash: sha256:049e95c281137e37e2f01dc35738e96f2bc753037b677076dad21eefec167020
-        lines: [947, 1032]
+        hash: sha256:dfd87367af057b081780d7abb347e76d3ca9d5bb3bbf92a1e5627c8f94bfd4f8
+        struct_hash: sha256:dbdbb6a912c4fcb39c80f1adf2af7183e7740b944580b09c02610ffc166f5d82
+        doc_struct_hash: sha256:b82d940a5e68b72f687f54c8c800747d310a651910c07a5de6111aff3d036dda
+        lines: [1006, 1091]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

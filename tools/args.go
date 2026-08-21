@@ -52,8 +52,7 @@ func compileToolSchema(name string, schema map[string]any) (*jsonschema.Schema, 
 		return nil, err
 	}
 	key := toolSchemaCacheKey{Name: name, Hash: sha256.Sum256(raw)}
-	if cached, ok := toolSchemaCache.Load(key); ok {
-		entry := cached.(toolSchemaCacheEntry)
+	if entry, ok := toolSchemaCache.Load(key); ok {
 		return entry.Schema, entry.Err
 	}
 	var document any
@@ -81,7 +80,49 @@ type toolSchemaCacheEntry struct {
 	Err    error
 }
 
-var toolSchemaCache sync.Map
+const toolSchemaCacheLimit = 2048
+
+type boundedToolSchemaCache struct {
+	mu      sync.Mutex
+	entries map[toolSchemaCacheKey]toolSchemaCacheEntry
+	order   []toolSchemaCacheKey
+	limit   int
+}
+
+func newBoundedToolSchemaCache(limit int) *boundedToolSchemaCache {
+	if limit <= 0 {
+		limit = 1
+	}
+	return &boundedToolSchemaCache{
+		entries: make(map[toolSchemaCacheKey]toolSchemaCacheEntry, limit),
+		order:   make([]toolSchemaCacheKey, 0, limit),
+		limit:   limit,
+	}
+}
+
+func (c *boundedToolSchemaCache) Load(key toolSchemaCacheKey) (toolSchemaCacheEntry, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry, ok := c.entries[key]
+	return entry, ok
+}
+
+func (c *boundedToolSchemaCache) Store(key toolSchemaCacheKey, entry toolSchemaCacheEntry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, exists := c.entries[key]; exists {
+		return
+	}
+	if len(c.order) == c.limit {
+		delete(c.entries, c.order[0])
+		copy(c.order, c.order[1:])
+		c.order = c.order[:len(c.order)-1]
+	}
+	c.entries[key] = entry
+	c.order = append(c.order, key)
+}
+
+var toolSchemaCache = newBoundedToolSchemaCache(toolSchemaCacheLimit)
 
 func validateToolArgs(raw json.RawMessage, schema *jsonschema.Schema) error {
 	if schema == nil {
@@ -111,6 +152,12 @@ func normalizeToolArgs(raw json.RawMessage, schema map[string]any) json.RawMessa
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	if dec.Decode(&value) != nil || value == nil {
+		return raw
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		// Preserve the original payload so validateToolArgs rejects trailing JSON.
+		// Normalization must never turn an invalid multi-value input into a valid call.
 		return raw
 	}
 	if len(schemaProperties(schema)) == 0 {

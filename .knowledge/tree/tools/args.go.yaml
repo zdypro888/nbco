@@ -24,10 +24,10 @@ nodes:
       anchor:
         file: tools/args.go
         symbol: compileToolSchema
-        hash: sha256:3813bbf4bfe151b6bb4550409a5bbb021d19dccd2a52f10eed8e77018f3dd3ae
-        struct_hash: sha256:5bad639e9a4214c304762431b4f2882d439aa9d61ca228c8c3276404729ebc15
-        doc_struct_hash: sha256:5bad639e9a4214c304762431b4f2882d439aa9d61ca228c8c3276404729ebc15
-        lines: [46, 72]
+        hash: sha256:690dbbb8b63c119caddb687787143ef309925ec29f3767aac39c0fe1e8b21aff
+        struct_hash: sha256:f62115d1b17079bb2766d0cfdcbff2974acc3225736cc4e413b78c27295259bf
+        doc_struct_hash: sha256:f62115d1b17079bb2766d0cfdcbff2974acc3225736cc4e413b78c27295259bf
+        lines: [46, 71]
       status: fresh
       since: 2026-07-20T03:54:29.341642Z
     - id: tools/args.go#toolSchemaCacheKey
@@ -140,3 +140,33 @@ nodes:
         lines: [296, 311]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/args.go#boundedToolSchemaCache
+      level: decl
+      anchor:
+        file: tools/args.go
+        symbol: boundedToolSchemaCache
+        hash: sha256:98a2343b6c1424a4f4ba1bce17ab5f08e5e5fab5754c0202ec697ff08657416e
+        struct_hash: sha256:f77bc8be0c7d9beeb37761da1bf1621d5989113f8089cbd34a3b05d569a2d7b9
+        doc_struct_hash: sha256:f77bc8be0c7d9beeb37761da1bf1621d5989113f8089cbd34a3b05d569a2d7b9
+        lines: [85, 90]
+      status: fresh
+      since: 2026-08-21T09:44:06.212979Z
+      entries:
+        - id: e_1073d13d
+          kind: contract
+          text: 工具参数 schema 可以缓存，但缓存上限固定为 2048 且按最早插入项淘汰；脚本工具和动态工具可产生无限 schema，禁止改回全局无界 map。
+          confidence: inferred
+          at: 2026-08-21T09:45:00.419817Z
+          author: codex-mcp-client
+        - id: e_d90081c8
+          kind: pitfall
+          text: Worker 结果 schema 不进入这个工具缓存，也不永久缓存；每次校验动态编译，避免用户提交任意 schema 造成常驻内存增长。
+          confidence: inferred
+          at: 2026-08-21T09:45:00.421226Z
+          author: codex-mcp-client
+      keywords:
+        - 工具 schema 缓存
+        - json schema
+        - 有界缓存
+        - 动态工具
+        - 缓存淘汰

@@ -50,12 +50,12 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 
 动作闭环：
 
-- 权限裁剪后的完整业务能力目录注册到 Eino 原生 `tool_search`；`query_data`、`list_capabilities`、`search_knowledge`、`search_history` 等通用读取能力常驻。模型自己检索能力和上下文，不在 Agent 前增加第二个模型替它分类或预选 schema。
+- 权限裁剪后的完整业务能力目录注册到 Eino 原生 `tool_search`；`search_context`、`query_data`、`list_capabilities`、`search_knowledge`、`search_history` 等通用读取能力常驻。模型自己检索能力和上下文，不在 Agent 前增加第二个模型替它分类或预选 schema。
 - 主 Agent 的规划、工具组合、skill 加载、停止条件和正常最终答复全部由 Eino DeepAgent 原生循环负责；编排器不根据自然语言措辞裁决或改写业务回复。Eino patchtoolcalls 负责修复中断会话的悬空调用，输出截断只做无工具的终端恢复，二者都不参与业务决策。
 - 本轮工具隔离、参数校验、副作用幂等、审批、权限和审计属于执行基础设施：它们约束一次调用能否安全落地，但不替 Agent 决定用户意图、执行步骤或完成条件。
 - 工具参数先按其 JSON Schema 做归一化和验证，再进入审批、审计和业务 handler。异步工具只有在任务已经持久化时才返回 `accepted/asynchronous` 生命周期；待确认、缺参数或无权限不能记成已受理。
 - `conversation_turns` 是交互 Agent 的统一生命周期：来源幂等、用户消息、单轮 Eino session、助手消息、动作证据、用量、学习队列和渠道交付都挂在同一稳定轮次 ID 上。用户输入登记和最终结果发布各自使用事务；外部渠道发送单独确认，失败不会伪装成 Agent 未执行，也不会盲目重放未知副作用。
-- `chat_messages` 是唯一跨轮对话事实，`action_turns` 是工具执行事实；二者与成功轮次同事务提交。每个业务轮次使用独立 Eino managed session，Eino 继续独占本轮规划、工具循环、checkpoint 和恢复，下一轮只从规范聊天与限量动作证据建立上下文，不从另一个可分叉的长期引擎会话读取。
+- `chat_messages` 是唯一跨轮对话原文，`action_turns` 是工具执行事实，`work_evidence` 是私聊、群聊、任务和 Worker 结果的统一运营事实投影；它们与成功轮次使用稳定消息/轮次身份连接。每个业务轮次使用独立 Eino managed session，Eino 继续独占本轮规划、工具循环、checkpoint 和恢复，下一轮只从规范聊天与限量动作证据建立上下文，不从另一个可分叉的长期引擎会话读取。
 - `action_turns` 不再用关键词猜用户是否想执行动作，也不把 handler 正常返回等同于业务成功。它按实际工具轨迹记录摘要、handler 返回数、证据 JSON 和 outcome，为连续对话和审计提供事实，但不控制 DeepAgent 的本轮回复。
 - `audit_log` 是所有工具调用的底层事实流水，超级管理员可通过 `list_system_activity` 按人员、会话、工具、时间和文字查询，不依赖是否创建了专项任务或活动。
 - 消息来源信封保存 provider、外部 chat/message/actor 引用、内部 actor user ID、回复/thread 和源时间。Webhook 重放按来源幂等，改名只更新显示快照。
@@ -85,11 +85,13 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `list_decision_queue`
 - `company_overview`
 - `search_workspace`
+- `search_context`
+- `record_fact`
 - `query_data`
 
 边界：
 
-- `query_data` 是 AI 的通用只读数据面：模型选择 source/search/filters，Store 在搜索前执行行级和字段级权限；凭据、物理文件路径、模型密钥和迁移状态不进入目录。
+- `search_context` 是权限与渠道感知的统一召回入口：私聊/API 跨主数据、运营事实和本人历史；群聊只读当前群共享记录。`query_data` 是可枚举、可过滤的完整只读数据面。Store 对二者都执行行级和字段级权限；凭据、物理文件路径、模型密钥和迁移状态不进入目录。
 - `search_workspace` 的错别字改写和跨类型查询由受控 AI 子调用规划；数据库只做字面候选召回、稳定 ID 和权限裁剪，主 Agent 决定最终对象。
 - 超管保留 `low_level_db_query` 只读兜底；禁止直接读取凭据表，但已授权业务行保持原值，工具审计另存脱敏投影。所有写入仍优先走领域工具、审批和审计。
 - PostgreSQL 中的授权聊天、业务轮次、单轮 Eino 执行日志与 Worker 状态是可恢复的事实源，不做破坏性脱敏；Qdrant、Memory Miner、学习候选、审计摘要和日志属于更宽的派生面，在各自入口脱敏。输出是否展示个人字段或渠道 ID 由工具权限和会话场景决定，不在最终文本阶段正则改写。
@@ -97,7 +99,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - 单一明确执行项直接派任务。
 - 复杂、多依赖、多人并行的工作先拆分。
 - 已提交任务需要深度核查时委派审核，不在普通对话里“脑补验收”。
-- `work_evidence` 统一投影群消息、群摘要、Worker 结果、风险和交付物；它让日报/周报看到真实发生的工作，但没有任务关联时绝不冒充正式承诺或验收结果。
+- `work_evidence` 统一投影私聊/群聊 communication、群摘要、Worker 结果、用户明确陈述的进展/决策/风险/交付物；`record_fact` 和 Memory Miner 共享消息级幂等键。它让检索、日报和周报看到真实发生的工作，但没有任务关联时绝不冒充正式承诺或验收结果。
 
 ### 3. Workers：AI 员工和工作机执行
 
@@ -139,9 +141,9 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 
 - 管理事实知识、行为规则、可复用执行方法、历史对话检索。
 - 从 worker lessons、聊天、资料分析中生成学习候选。
-- 对候选做审核、去重、冲突评分、发布和回滚。
+- 对候选做审核、精确幂等、相关内容召回、语义关系判断、发布和回滚；文本相似度不直接裁决重复或冲突。
 - 在候选层区分 `durable` 长期方法、`canonical` 业务主数据、`transient` 短期事件和 `unclassified` 待判断资产；只有 `durable` 可进入长期知识/规则/Skill，主数据必须回到其领域表。
-- Memory Miner 只读取真实用户输入和已验证工具证据；Gateway 注入的文件上下文、执行要求和模型答复不构成用户长期意图。
+- Memory Miner 只读取真实用户输入和已验证工具证据；Gateway 注入的文件上下文、执行要求和模型答复不构成用户长期意图。提取出的运营事实还要经过独立语义复核，疑问、命令、愿望和待执行动作不会仅凭一次提取进入事实层。
 - 把相关 rule/skill/knowledge 按需注入系统提示，避免提示词无限膨胀。
 - 同一轮知识、规则、skill 和历史检索复用查询向量；embedding 短时故障会限流并回退词法检索。
 - PostgreSQL 是唯一事实源；Qdrant 是可重建索引。Qdrant 只返回 `source + entity_id + score`，任何正文都必须回 PostgreSQL 经过当前用户的行级和字段级权限复核。

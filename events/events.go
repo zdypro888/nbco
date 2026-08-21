@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/notify"
@@ -31,9 +30,6 @@ const (
 // 防 worker 连接抖动等刷出大量重复事件、每个各烧一次 AI token。不同 detail
 // （如不同任务的提交）互不影响。去重窗口与事件本身都持久化在数据库中。
 const dedupeWindow = 5 * time.Minute
-
-// skipWord AI 判定不值得打扰时约定的完整答复。
-const skipWord = "跳过"
 
 // Bus 系统事件总线。orch 为 nil 时事件直接降级为原文推送（测试或引擎未装配）。
 type Bus struct {
@@ -233,18 +229,22 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 				return
 			}
 			mode = store.EventOutcomeHandled
+			var generated string
 			if b.orch != nil {
-				reply, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail, event.NotificationRequired), chat.AutomationTurnOptions{
-					ReadOnly: true,
+				generated, err = b.orch.HandleAutomationMessage(ctx, u, b.channel, fmt.Sprintf("event:%d", event.ID), directive(event.Kind, event.Detail, event.NotificationRequired), chat.AutomationTurnOptions{
+					ReadOnly: true, JSONOutput: true,
 				})
 			}
-			if b.orch == nil || err != nil || strings.TrimSpace(reply) == "" {
+			decision, decisionErr := notify.ParseDecision(generated)
+			if b.orch == nil || err != nil || decisionErr != nil {
 				if err != nil {
 					slog.Warn("事件 AI 轮次失败，准备持久化降级消息", "event", event.ID, "err", err)
+				} else if decisionErr != nil && b.orch != nil {
+					slog.Warn("事件 AI 决策格式无效，准备持久化降级消息", "event", event.ID, "err", decisionErr)
 				}
 				mode = store.EventOutcomeFallback
 				reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
-			} else if ShouldSkip(reply) {
+			} else if !decision.Notify {
 				if event.NotificationRequired {
 					mode = store.EventOutcomeFallback
 					reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
@@ -262,6 +262,8 @@ func (b *Bus) handle(parent context.Context, event *store.Event) {
 					mode = store.EventOutcomeFallback
 					reply = fmt.Sprintf("🔔 %s：%s", event.Kind, event.Detail)
 				}
+			} else {
+				reply = decision.Message
 			}
 		}
 		if err := b.prepareEventDelivery(parent, event, mode, reply); err != nil {
@@ -338,25 +340,12 @@ func (b *Bus) send(ctx context.Context, userID int64, text string) error {
 // directive assembles a read-only notification decision. Domain events are
 // evidence that something happened, not authorization to mutate business data.
 func directive(kind, detail string, required bool) string {
-	policy := fmt.Sprintf("若不值得打扰用户，只回复两个字「%s」，不要任何其他内容。", skipWord)
+	policy := "若不值得打扰用户，notify=false 且 message 为空。"
 	if required {
-		policy = "这是必须送达的关键事件，不可跳过；请直接给出通知内容。"
+		policy = "这是必须送达的关键事件，notify 必须为 true。"
 	}
 	return fmt.Sprintf("[系统事件·%s]（此输入来自系统事件总线，不是用户本人）事件详情：%s\n"+
 		"这是只读通知决策：可用查询工具核实事实，但不得创建、修改、发送或承诺任何业务动作。"+
-		"请以当前用户助理的身份生成简洁自然的通知，包含关键信息；只有证据支持时才给下一步建议，不编造。%s", kind, detail, policy)
-}
-
-// ShouldSkip 判断 AI 答复是否为「静默」决定：剥掉标点/空白/表情后必须
-// 精确等于约定词。旧的「短答复包含即算」会把否定回答（「不跳过」）误判成
-// 静默，把本应通知的事件吞掉。空答复不算静默（由调用方降级原文推送）。
-func ShouldSkip(reply string) bool {
-	var core []rune
-	for _, r := range reply {
-		// 只保留汉字与字母数字参与比对，标点/空白/emoji 全剥掉。
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			core = append(core, r)
-		}
-	}
-	return string(core) == skipWord
+		"请以当前用户助理的身份生成简洁自然的通知，包含关键信息；只有证据支持时才给下一步建议，不编造。"+
+		"只输出严格 JSON：{\"notify\":true|false,\"message\":\"要投递的消息\"}。%s", kind, detail, policy)
 }

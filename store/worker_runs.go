@@ -27,54 +27,61 @@ const (
 // optional: direct commands have an execution lifecycle without pretending to
 // be business work, while delegated work links the run to its task.
 type WorkerRun struct {
-	ID           int64
-	TaskID       *int64
-	TaskRevision *int64
-	LegacyTaskID *int64
-	WorkerID     int64
-	RequestedBy  int64
-	Executor     workerproto.Executor
-	Input        json.RawMessage
-	Title        string
-	Goal         string
-	Description  string
-	Acceptance   string
-	ScopeType    string
-	ScopeKey     string
-	ScopeTitle   string
-	Priority     string
-	Status       string
-	Outcome      string
-	ExitCode     *int
-	ClaimID      string
-	ClaimedAt    *time.Time
-	Attempts     int
-	Failures     int
-	AvailableAt  time.Time
-	LastError    string
-	Summary      string
-	Lessons      string
-	CompletedAt  *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID               int64
+	TaskID           *int64
+	TaskRevision     *int64
+	LegacyTaskID     *int64
+	WorkerID         int64
+	RequestedBy      int64
+	Executor         workerproto.Executor
+	Input            json.RawMessage
+	ResultRequired   bool
+	ResultSchema     json.RawMessage
+	ResultHandler    string
+	StructuredResult json.RawMessage
+	Title            string
+	Goal             string
+	Description      string
+	Acceptance       string
+	ScopeType        string
+	ScopeKey         string
+	ScopeTitle       string
+	Priority         string
+	Status           string
+	Outcome          string
+	ExitCode         *int
+	ClaimID          string
+	ClaimedAt        *time.Time
+	Attempts         int
+	Failures         int
+	AvailableAt      time.Time
+	LastError        string
+	Summary          string
+	Lessons          string
+	CompletedAt      *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type WorkerRunSpec struct {
-	TaskID       *int64
-	TaskRevision *int64
-	WorkerID     int64
-	RequestedBy  int64
-	Executor     workerproto.Executor
-	Input        json.RawMessage
-	Title        string
-	Goal         string
-	Description  string
-	Acceptance   string
-	ScopeType    string
-	ScopeKey     string
-	ScopeTitle   string
-	Priority     string
-	FileIDs      []int64
+	TaskID         *int64
+	TaskRevision   *int64
+	WorkerID       int64
+	RequestedBy    int64
+	Executor       workerproto.Executor
+	Input          json.RawMessage
+	ResultRequired bool
+	ResultSchema   json.RawMessage
+	ResultHandler  string
+	Title          string
+	Goal           string
+	Description    string
+	Acceptance     string
+	ScopeType      string
+	ScopeKey       string
+	ScopeTitle     string
+	Priority       string
+	FileIDs        []int64
 }
 
 type WorkerCommandInput struct {
@@ -164,15 +171,16 @@ func workerAttemptWasFinalizedTx(ctx context.Context, tx pgx.Tx, runID, workerID
 	return true, nil
 }
 
-func finalizeWorkerAttemptTx(ctx context.Context, tx pgx.Tx, runID, workerID int64, claimID, status, kind string, finalization WorkerRunFinalization, outcome workerproto.Outcome, exitCode *int, failure, summary, lessons string) error {
+func finalizeWorkerAttemptTx(ctx context.Context, tx pgx.Tx, runID, workerID int64, claimID, status, kind string, finalization WorkerRunFinalization, outcome workerproto.Outcome, exitCode *int, failure, summary, lessons string, structuredResult json.RawMessage) error {
 	tag, err := tx.Exec(ctx,
 		`UPDATE worker_run_attempts SET status = $5, finalization_id = $6,
 		   finalization_kind = $7, finalization_hash = $8, outcome = $9,
 		   exit_code = $10, error = $11, summary = $12, lessons = $13,
+		   structured_result = $14,
 		   finished_at = now(), updated_at = now()
 		 WHERE run_id = $1 AND worker_id = $2 AND claim_id = $3 AND status = $4`,
 		runID, workerID, claimID, "claimed", status, finalization.ID, kind, finalization.Hash,
-		string(outcome), exitCode, failure, summary, lessons)
+		string(outcome), exitCode, failure, summary, lessons, structuredResult)
 	if err != nil {
 		return wrapErr(err)
 	}
@@ -190,6 +198,7 @@ func taskForWorkerRunTx(ctx context.Context, tx pgx.Tx, run *WorkerRun) (*Task, 
 }
 
 const workerRunCols = `id, task_id, task_revision, legacy_task_id, worker_id, requested_by, executor, input,
+result_required, result_schema, result_handler, structured_result,
 title, goal, description, acceptance, scope_type, scope_key, scope_title, priority,
 status, outcome, exit_code, claim_id, claimed_at, attempts, failure_count, available_at, last_error,
 summary, lessons, completed_at, created_at, updated_at`
@@ -199,6 +208,7 @@ func scanWorkerRun(row interface{ Scan(...any) error }) (*WorkerRun, error) {
 	var executor string
 	if err := row.Scan(
 		&run.ID, &run.TaskID, &run.TaskRevision, &run.LegacyTaskID, &run.WorkerID, &run.RequestedBy, &executor, &run.Input,
+		&run.ResultRequired, &run.ResultSchema, &run.ResultHandler, &run.StructuredResult,
 		&run.Title, &run.Goal, &run.Description, &run.Acceptance, &run.ScopeType, &run.ScopeKey, &run.ScopeTitle,
 		&run.Priority, &run.Status, &run.Outcome, &run.ExitCode, &run.ClaimID, &run.ClaimedAt, &run.Attempts, &run.Failures,
 		&run.AvailableAt, &run.LastError, &run.Summary, &run.Lessons, &run.CompletedAt, &run.CreatedAt,
@@ -254,6 +264,15 @@ func normalizeWorkerRunSpec(spec *WorkerRunSpec) bool {
 	if len(spec.Input) == 0 {
 		spec.Input = json.RawMessage(`{}`)
 	}
+	resultSchema, err := workerproto.NormalizeResultSchema(spec.ResultSchema)
+	if err != nil {
+		return false
+	}
+	spec.ResultSchema = resultSchema
+	spec.ResultHandler = strings.TrimSpace(spec.ResultHandler)
+	if !validWorkerResultHandler(spec.ResultHandler) || spec.ResultHandler != "" && !spec.ResultRequired {
+		return false
+	}
 	if spec.Executor == workerproto.ExecutorCommand {
 		var input WorkerCommandInput
 		if err := json.Unmarshal(spec.Input, &input); err != nil {
@@ -271,6 +290,19 @@ func normalizeWorkerRunSpec(spec *WorkerRunSpec) bool {
 		}
 	}
 	return json.Valid(spec.Input)
+}
+
+func validWorkerResultHandler(value string) bool {
+	if len(value) > 80 {
+		return false
+	}
+	for _, r := range value {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (s *Store) CreateWorkerRun(ctx context.Context, spec WorkerRunSpec) (*WorkerRun, error) {
@@ -300,11 +332,13 @@ func createWorkerRunTx(ctx context.Context, tx pgx.Tx, spec *WorkerRunSpec) (*Wo
 	}
 	run, err := scanWorkerRun(tx.QueryRow(ctx,
 		`INSERT INTO worker_runs (
-		   task_id, task_revision, worker_id, requested_by, executor, input, title, goal, description,
+		   task_id, task_revision, worker_id, requested_by, executor, input,
+		   result_required, result_schema, result_handler, title, goal, description,
 		   acceptance, scope_type, scope_key, scope_title, priority
-		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 		 RETURNING `+workerRunCols,
 		spec.TaskID, spec.TaskRevision, spec.WorkerID, spec.RequestedBy, string(spec.Executor), spec.Input,
+		spec.ResultRequired, spec.ResultSchema, spec.ResultHandler,
 		spec.Title, spec.Goal, spec.Description, spec.Acceptance, spec.ScopeType,
 		spec.ScopeKey, spec.ScopeTitle, spec.Priority))
 	if err != nil {
@@ -365,6 +399,11 @@ func enqueueTaskWorkerRunTx(ctx context.Context, tx pgx.Tx, task *Task, override
 		}
 		if len(override.Input) > 0 {
 			spec.Input = override.Input
+		}
+		if override.ResultRequired || len(override.ResultSchema) > 0 || strings.TrimSpace(override.ResultHandler) != "" {
+			spec.ResultRequired = override.ResultRequired
+			spec.ResultSchema = override.ResultSchema
+			spec.ResultHandler = override.ResultHandler
 		}
 		if strings.TrimSpace(override.ScopeType) != "" {
 			spec.ScopeType = override.ScopeType
@@ -849,7 +888,7 @@ func (s *Store) RequestWorkerRunInput(ctx context.Context, runID, workerID int64
 		return run, task, true, tx.Commit(ctx)
 	}
 	if err := finalizeWorkerAttemptTx(ctx, tx, runID, workerID, claimID,
-		WorkerRunAwaitingInput, workerFinalizationInput, finalization, "", nil, "", "", ""); err != nil {
+		WorkerRunAwaitingInput, workerFinalizationInput, finalization, "", nil, "", "", "", nil); err != nil {
 		return nil, nil, false, err
 	}
 	run, err := scanWorkerRun(tx.QueryRow(ctx,
@@ -938,7 +977,7 @@ func (s *Store) FailWorkerRun(ctx context.Context, runID, workerID int64, claimI
 		retryAt = retryAt.Add(workerFailureBackoff(failureCount))
 	}
 	if err := finalizeWorkerAttemptTx(ctx, tx, runID, workerID, claimID,
-		status, workerFinalizationFail, finalization, "", nil, truncateRunes(cause, 2000), "", ""); err != nil {
+		status, workerFinalizationFail, finalization, "", nil, truncateRunes(cause, 2000), "", "", nil); err != nil {
 		return nil, nil, false, err
 	}
 	run, err := scanWorkerRun(tx.QueryRow(ctx,
@@ -994,6 +1033,14 @@ func (s *Store) FailWorkerRun(ctx context.Context, runID, workerID int64, claimI
 }
 
 func (s *Store) CompleteWorkerRun(ctx context.Context, runID, workerID int64, claimID, summary, lessons string, outcome workerproto.Outcome, exitCode *int, finalization WorkerRunFinalization) (*WorkerRun, *Task, []*Task, bool, error) {
+	return s.completeWorkerRun(ctx, runID, workerID, claimID, summary, lessons, nil, outcome, exitCode, finalization)
+}
+
+func (s *Store) CompleteWorkerRunWithStructuredResult(ctx context.Context, runID, workerID int64, claimID, summary, lessons string, structuredResult json.RawMessage, outcome workerproto.Outcome, exitCode *int, finalization WorkerRunFinalization) (*WorkerRun, *Task, []*Task, bool, error) {
+	return s.completeWorkerRun(ctx, runID, workerID, claimID, summary, lessons, structuredResult, outcome, exitCode, finalization)
+}
+
+func (s *Store) completeWorkerRun(ctx context.Context, runID, workerID int64, claimID, summary, lessons string, structuredResult json.RawMessage, outcome workerproto.Outcome, exitCode *int, finalization WorkerRunFinalization) (*WorkerRun, *Task, []*Task, bool, error) {
 	claimID = strings.TrimSpace(claimID)
 	var ok bool
 	if finalization, ok = normalizeWorkerRunFinalization(finalization); claimID == "" || !outcome.Valid() || !ok {
@@ -1006,6 +1053,17 @@ func (s *Store) CompleteWorkerRun(ctx context.Context, runID, workerID int64, cl
 	defer func() { _ = tx.Rollback(ctx) }()
 	if _, err := lockWorkerRunTx(ctx, tx, runID, workerID); err != nil {
 		return nil, nil, nil, false, err
+	}
+	contractRun, err := scanWorkerRun(tx.QueryRow(ctx,
+		`SELECT `+workerRunCols+` FROM worker_runs WHERE id = $1 AND worker_id = $2`, runID, workerID))
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	structuredResult, err = workerproto.ValidateStructuredResult(
+		contractRun.ResultRequired && outcome == workerproto.OutcomeSucceeded,
+		contractRun.ResultSchema, structuredResult)
+	if err != nil {
+		return nil, nil, nil, false, ErrConflict
 	}
 	replayed, err := workerAttemptWasFinalizedTx(ctx, tx, runID, workerID, claimID, workerFinalizationComplete, finalization)
 	if err != nil {
@@ -1021,20 +1079,28 @@ func (s *Store) CompleteWorkerRun(ctx context.Context, runID, workerID int64, cl
 		if err != nil {
 			return nil, nil, nil, false, err
 		}
-		return run, task, nil, true, tx.Commit(ctx)
+		var chain []*Task
+		if task != nil && task.Status == TaskAccepted {
+			chain, err = replayCascadeChain(ctx, tx, task.ParentID)
+			if err != nil {
+				return nil, nil, nil, false, err
+			}
+		}
+		return run, task, chain, true, tx.Commit(ctx)
 	}
 	if err := finalizeWorkerAttemptTx(ctx, tx, runID, workerID, claimID,
 		WorkerRunCompleted, workerFinalizationComplete, finalization, outcome, exitCode, "",
-		strings.TrimSpace(summary), strings.TrimSpace(lessons)); err != nil {
+		strings.TrimSpace(summary), strings.TrimSpace(lessons), structuredResult); err != nil {
 		return nil, nil, nil, false, err
 	}
 	run, err := scanWorkerRun(tx.QueryRow(ctx,
 		`UPDATE worker_runs SET status = 'completed', outcome = $4, exit_code = $5,
 		   claim_id = '', claimed_at = NULL, last_error = '', summary = $6, lessons = $7,
+		   structured_result = $8,
 		   completed_at = now(), updated_at = now()
 		 WHERE id = $1 AND worker_id = $2 AND status = 'claimed' AND claim_id = $3
 		 RETURNING `+workerRunCols,
-		runID, workerID, claimID, string(outcome), exitCode, strings.TrimSpace(summary), strings.TrimSpace(lessons)))
+		runID, workerID, claimID, string(outcome), exitCode, strings.TrimSpace(summary), strings.TrimSpace(lessons), structuredResult))
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -1140,14 +1206,16 @@ func cancelActiveWorkerRunsTx(ctx context.Context, tx pgx.Tx, taskID int64, reas
 func latestTaskRunSpecTx(ctx context.Context, tx pgx.Tx, task *Task) (WorkerRunSpec, error) {
 	spec := defaultWorkerRunSpec(task)
 	var executor string
-	var input json.RawMessage
+	var input, resultSchema json.RawMessage
 	err := tx.QueryRow(ctx,
-		`SELECT executor, input, scope_type, scope_key, scope_title
+		`SELECT executor, input, result_required, result_schema, result_handler, scope_type, scope_key, scope_title
 		 FROM worker_runs WHERE task_id = $1 ORDER BY id DESC LIMIT 1`, task.ID).
-		Scan(&executor, &input, &spec.ScopeType, &spec.ScopeKey, &spec.ScopeTitle)
+		Scan(&executor, &input, &spec.ResultRequired, &resultSchema, &spec.ResultHandler,
+			&spec.ScopeType, &spec.ScopeKey, &spec.ScopeTitle)
 	if err == nil {
 		spec.Executor = workerproto.Executor(executor)
 		spec.Input = input
+		spec.ResultSchema = resultSchema
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return WorkerRunSpec{}, err
 	}

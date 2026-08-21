@@ -210,18 +210,22 @@ func (c *Client) RegisterCapabilities(ctx context.Context, report CapabilityRepo
 // Run is one claimed execution. TaskID is present only for delegated business
 // work; direct commands have an independent execution lifecycle.
 type Run struct {
-	ID          int64                `json:"id"`
-	TaskID      *int64               `json:"task_id,omitempty"`
-	Executor    workerproto.Executor `json:"executor"`
-	ClaimID     string               `json:"claim_id"`
-	Title       string               `json:"title"`
-	Goal        string               `json:"goal"`
-	Description string               `json:"description"`
-	Acceptance  string               `json:"acceptance"`
-	Command     string               `json:"command"`
-	CommandPTY  bool                 `json:"command_pty"`
-	Attachments []Attachment         `json:"attachments"`
-	Session     SessionInfo          `json:"session"`
+	ID             int64                `json:"id"`
+	TaskID         *int64               `json:"task_id,omitempty"`
+	Executor       workerproto.Executor `json:"executor"`
+	ClaimID        string               `json:"claim_id"`
+	Title          string               `json:"title"`
+	Goal           string               `json:"goal"`
+	Description    string               `json:"description"`
+	Acceptance     string               `json:"acceptance"`
+	Kind           string               `json:"kind,omitempty"`
+	ResultRequired bool                 `json:"result_required"`
+	ResultSchema   json.RawMessage      `json:"result_schema,omitempty"`
+	ResultHandler  string               `json:"result_handler,omitempty"`
+	Command        string               `json:"command"`
+	CommandPTY     bool                 `json:"command_pty"`
+	Attachments    []Attachment         `json:"attachments"`
+	Session        SessionInfo          `json:"session"`
 }
 
 // SessionInfo is the server-owned topic context this run belongs to.
@@ -396,8 +400,9 @@ func (c *Client) Fail(ctx context.Context, runID int64, claimID, cause string, s
 }
 
 type SubmissionResult struct {
-	Outcome  workerproto.Outcome
-	ExitCode *int
+	Outcome          workerproto.Outcome
+	ExitCode         *int
+	StructuredResult json.RawMessage
 }
 
 // Submit reports an execution-neutral outcome. ExitCode is optional evidence;
@@ -406,12 +411,19 @@ func (c *Client) Submit(ctx context.Context, runID int64, claimID, summary, less
 	if !result.Outcome.Valid() {
 		return fmt.Errorf("invalid submission outcome %q", result.Outcome)
 	}
+	structuredResult, err := workerproto.NormalizeStructuredResult(result.StructuredResult)
+	if err != nil {
+		return err
+	}
 	payload := map[string]any{
 		"run_id": runID, "task_id": runID, "claim_id": claimID, "summary": summary, "lessons": lessons,
 		"worker_session_id": session.ID, "session_summary": sessionSummary(summary, lessons),
 		"engine_session_ref": session.EngineSessionRef, "engine_runtime_fingerprint": session.EngineRuntimeFingerprint,
 		"workdir": workdir,
 		"outcome": result.Outcome,
+	}
+	if len(structuredResult) > 0 {
+		payload["structured_result"] = structuredResult
 	}
 	if result.ExitCode != nil {
 		payload["exit_code"] = *result.ExitCode

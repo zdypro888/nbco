@@ -365,10 +365,10 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: withAudit
-        hash: sha256:5770bb660b50ee57a83cd6d05bd6271c22b5b1343d8e3a309ec63443ceddb356
-        struct_hash: sha256:e33fedab73a070efc5ac5fe161238f8e5c813c2a8e319a410018a1d2ffc03e06
-        doc_struct_hash: sha256:e33fedab73a070efc5ac5fe161238f8e5c813c2a8e319a410018a1d2ffc03e06
-        lines: [602, 625]
+        hash: sha256:df62c5094d278e2f21d5da99cca499beb4b1926fa123143f7cf09db689a073f3
+        struct_hash: sha256:50cc141d84fb862a391be6c0fed45ba721efc7c4da4358e257d23871111e8222
+        doc_struct_hash: sha256:50cc141d84fb862a391be6c0fed45ba721efc7c4da4358e257d23871111e8222
+        lines: [641, 664]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#boundedAuditArgs
@@ -602,3 +602,14 @@ nodes:
         lines: [909, 912]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: tools/tools.go#toolInvocationSucceeded
+      level: function
+      anchor:
+        file: tools/tools.go
+        symbol: toolInvocationSucceeded
+        hash: sha256:e292b7589d87cbbcc867a9804b5075daf0f2be9f54ea02d90a0518d34dc110cf
+        struct_hash: sha256:7bb811a40dab2f61228cce5dcecd7b60b31f646ddc975c58193d769c0c61d220
+        doc_struct_hash: sha256:7bb811a40dab2f61228cce5dcecd7b60b31f646ddc975c58193d769c0c61d220
+        lines: [666, 668]
+      status: fresh
+      since: 2026-08-21T09:44:06.21111Z

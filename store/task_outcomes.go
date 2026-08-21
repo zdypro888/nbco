@@ -3,15 +3,21 @@ package store
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 const (
 	TaskOutcomeAccepted = "accepted"
 	TaskOutcomeRejected = "rejected"
+
+	TaskKindEngineering   = "engineering"
+	TaskKindMaterials     = "materials"
+	TaskKindReview        = "review"
+	TaskKindResearch      = "research"
+	TaskKindOperations    = "operations"
+	TaskKindProductDesign = "product_design"
+	TaskKindGeneral       = "general"
 )
 
 const taskOutcomeReasonMax = 800
@@ -96,57 +102,26 @@ func (s *Store) TaskOutcomeStatsFor(ctx context.Context, assigneeID int64, taskK
 	return &st, err
 }
 
-var taskKindWordRe = regexp.MustCompile(`[a-z0-9]+|[\p{Han}]+`)
-
-// InferTaskKind maps free-form task text to a small, stable taxonomy. This is
-// intentionally generic: it gives the learning loop dimensions without encoding
-// one-off business policy into code.
-func InferTaskKind(parts ...string) string {
-	text := strings.ToLower(strings.Join(parts, "\n"))
-	if strings.TrimSpace(text) == "" {
-		return "general"
-	}
-	words := taskKindWordRe.FindAllString(text, -1)
-	has := func(keys ...string) bool {
-		for _, key := range keys {
-			key = strings.ToLower(key)
-			for _, w := range words {
-				if w == key || strings.Contains(w, key) || strings.Contains(key, w) && utf8.RuneCountInString(w) >= 2 {
-					return true
-				}
-			}
-			if strings.Contains(text, key) {
-				return true
-			}
-		}
-		return false
-	}
-	switch {
-	case has("go", "python", "typescript", "javascript", "代码", "开发", "bug", "接口", "api", "部署", "升级", "git", "codex", "claude"):
-		return "engineering"
-	case has("pdf", "xlsx", "excel", "csv", "表格", "资料", "文件", "整理", "提取", "归档", "照片", "图片"):
-		return "materials"
-	case has("测试", "验收", "qa", "review", "审查", "审计", "回归", "用例"):
-		return "review"
-	case has("调研", "搜索", "竞品", "研究", "分析", "报告", "方案"):
-		return "research"
-	case has("通知", "提醒", "值日", "排班", "行政", "人事", "档案", "合同", "账单"):
-		return "operations"
-	case has("前端", "ui", "ux", "设计", "页面", "mini app", "html", "css"):
-		return "product_design"
-	default:
-		return "general"
-	}
-}
-
 func NormalizeTaskKind(kind string) string {
 	k := strings.ToLower(strings.TrimSpace(kind))
 	switch k {
-	case "engineering", "materials", "review", "research", "operations", "product_design", "general":
+	case TaskKindEngineering, TaskKindMaterials, TaskKindReview, TaskKindResearch,
+		TaskKindOperations, TaskKindProductDesign, TaskKindGeneral:
 		return k
 	case "":
 		return ""
 	default:
-		return "general"
+		return TaskKindGeneral
+	}
+}
+
+func IsTaskKind(kind string) bool {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	switch kind {
+	case TaskKindEngineering, TaskKindMaterials, TaskKindReview, TaskKindResearch,
+		TaskKindOperations, TaskKindProductDesign, TaskKindGeneral:
+		return true
+	default:
+		return false
 	}
 }

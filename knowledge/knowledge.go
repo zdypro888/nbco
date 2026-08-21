@@ -240,7 +240,7 @@ func (svc *Service) embedOne(ctx context.Context, k *store.Knowledge) bool {
 		}
 		return true
 	}
-	vecs, err := svc.embedder.Embed(ctx, []string{semanticProjectionText(embedText(k.Title, k.Content))})
+	vecs, err := svc.embedder.Embed(ctx, []string{semanticProjectionText(knowledgeEmbeddingText(k))})
 	if err != nil || len(vecs) != 1 || len(vecs[0]) == 0 {
 		slog.Warn("知识向量化失败（内容已存，回填时补）", "id", k.ID, "err", err)
 		return false
@@ -293,8 +293,9 @@ func (svc *Service) SaveRuleWithStatus(ctx context.Context, title, content strin
 	return k, status, nil
 }
 
-// SaveSkill 存一条执行方法并异步 embedding。
-func (svc *Service) SaveSkill(ctx context.Context, title, content string, tags []string, authorID int64) (*store.Knowledge, error) {
+// SaveSkill stores one typed execution method and asynchronously indexes its
+// human-readable semantic projection.
+func (svc *Service) SaveSkill(ctx context.Context, title string, content store.SkillContent, tags []string, authorID int64) (*store.Knowledge, error) {
 	k, err := svc.store.CreateSkill(ctx, title, content, tags, authorID)
 	if err != nil {
 		return nil, err
@@ -738,12 +739,25 @@ func embedText(title, content string) string {
 	return title + "\n" + title + "\n" + content
 }
 
+func knowledgeEmbeddingText(k *store.Knowledge) string {
+	if k == nil {
+		return ""
+	}
+	content := k.Content
+	if k.Kind == store.KnowledgeKindSkill {
+		if skill, err := store.DecodeSkillContent(k.Content); err == nil {
+			content = store.SkillSearchText(skill)
+		}
+	}
+	return embedText(k.Title, content)
+}
+
 func knowledgeDocument(k *store.Knowledge) semantic.Document {
 	return semantic.Document{
 		Ref: vectorstore.Ref{
 			Source: semantic.SourceKnowledge, EntityID: strconv.FormatInt(k.ID, 10),
 		},
-		Content: embedText(k.Title, k.Content),
+		Content: knowledgeEmbeddingText(k),
 		Payload: map[string]any{
 			vectorstore.PayloadKind: k.Kind,
 			"author_id":             k.AuthorID,

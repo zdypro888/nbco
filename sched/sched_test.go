@@ -173,14 +173,16 @@ func TestKnowledgeBatchOccurrenceTracksExactCandidateSet(t *testing.T) {
 }
 
 func TestActionableLearningCandidatesRequireDurableAuthority(t *testing.T) {
+	conflictID := int64(9)
 	items := []*store.LearningCandidate{
 		{ID: 1, Kind: store.LearningKindKnowledge, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryDurable},
 		{ID: 2, Kind: store.LearningKindKnowledge, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryUnclassified},
 		{ID: 3, Kind: store.LearningKindProfile, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryCanonical},
 		{ID: 4, Kind: store.LearningKindRule, Status: store.LearningStatusPublished, MemoryClass: store.LearningMemoryDurable},
+		{ID: 5, Kind: store.LearningKindRule, Status: store.LearningStatusPending, MemoryClass: store.LearningMemoryDurable, ConflictWith: &conflictID},
 	}
 	got := actionableLearningCandidates(items)
-	if len(got) != 1 || got[0].ID != 1 {
+	if len(got) != 2 || got[0].ID != 1 || got[1].ID != 5 {
 		t.Fatalf("actionable candidates = %+v", got)
 	}
 }

@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -136,6 +137,11 @@ func TestTruncateToolOutput(t *testing.T) {
 	if got := truncateToolOutput(cn); !utf8.ValidString(got) {
 		t.Errorf("截断中文不能切坏 UTF-8")
 	}
+	largeJSON := `{"items":["` + strings.Repeat("x", toolOutputLimit+100) + `"]}`
+	got = truncateToolOutput(largeJSON)
+	if !json.Valid([]byte(got)) || !strings.Contains(got, `"status":"truncated"`) {
+		t.Fatalf("structured output truncation must remain valid JSON: %s", got)
+	}
 }
 
 func TestWithAuditWithoutStore(t *testing.T) {
@@ -151,6 +157,21 @@ func TestWithAuditWithoutStore(t *testing.T) {
 	}
 	if !strings.Contains(got, "已截断") {
 		t.Fatalf("无 Store 审计路径仍应执行并截断输出: len=%d", len([]rune(got)))
+	}
+}
+
+func TestToolInvocationSucceededUsesStructuredLifecycle(t *testing.T) {
+	if !toolInvocationSucceeded("completed", nil) {
+		t.Fatal("plain successful result must remain compatible")
+	}
+	if toolInvocationSucceeded(rejectedToolResult("conflict", "not applied"), nil) {
+		t.Fatal("structured rejection must not be audited as success")
+	}
+	if toolInvocationSucceeded("completed", errors.New("transport failure")) {
+		t.Fatal("Go error must not be audited as success")
+	}
+	if !toolInvocationSucceeded(pendingApprovalResult("confirm"), nil) {
+		t.Fatal("pending approval is a valid boundary response, not a handler failure")
 	}
 }
 
@@ -441,7 +462,14 @@ func TestWorkflowTemplatesAndUpgradeCommand(t *testing.T) {
 			t.Fatalf("nbco code change prompt 缺 %q:\n%s", want, codePrompt)
 		}
 	}
-	prompt := workerSkillTaskPrompt("Oncoin", &store.Knowledge{Title: "通用流程", Content: "执行方法：按步骤做", Tags: []string{"scope:global"}}, "完成本次目标")
+	skillRaw, err := store.EncodeSkillContent(store.NewSkillContent("需要执行通用流程", "按步骤完成目标", "按步骤做", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt, err := workerSkillTaskPrompt("Oncoin", &store.Knowledge{ID: 1, Title: "通用流程", Content: skillRaw, Tags: []string{"scope:global"}}, "完成本次目标")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, want := range []string{"Oncoin", "通用流程", "完成本次目标", "不要泄露密钥"} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("worker skill prompt 缺 %q:\n%s", want, prompt)
@@ -508,17 +536,20 @@ func TestBuildSkillContent(t *testing.T) {
 	if msg != "" {
 		t.Fatalf("buildSkillContent msg=%q", msg)
 	}
-	for _, want := range []string{"触发条件：群里有人要求加入", "摘要：先判断", "执行方法：", "限制与禁忌："} {
-		if !strings.Contains(content, want) {
-			t.Fatalf("skill content 缺 %q:\n%s", want, content)
-		}
+	if content.Trigger != "群里有人要求加入" || content.Summary != "先判断真人员工还是 worker，再走对应邀请路径" ||
+		!strings.Contains(content.Procedure, "查询群成员") || !strings.Contains(content.Constraints, "token") {
+		t.Fatalf("typed skill content 不完整: %#v", content)
 	}
 	if strings.Join(tags, ",") != "scope:telegram,邀请" {
 		t.Fatalf("tags 应重写 scope 且去重: %#v", tags)
 	}
-	parts := parseSkillContent(content)
-	if parts.Trigger == "" || parts.Summary == "" || !strings.Contains(parts.Procedure, "查询群成员") || !strings.Contains(parts.Constraints, "token") {
-		t.Fatalf("parseSkillContent 不完整: %#v", parts)
+	raw, err := store.EncodeSkillContent(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts, err := store.DecodeSkillContent(raw)
+	if err != nil || parts != content {
+		t.Fatalf("skill JSON round trip = %#v err=%v", parts, err)
 	}
 }
 
@@ -562,12 +593,16 @@ func TestFormatBytesHuge(t *testing.T) {
 
 func TestObjectRenderersUseInternalRefsInsteadOfHashIDs(t *testing.T) {
 	now := time.Date(2026, 7, 8, 9, 0, 0, 0, time.UTC)
+	skillContent, err := store.EncodeSkillContent(store.NewSkillContent("系统升级时", "稳定升级", "执行升级并验证健康状态", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
 	got := strings.Join([]string{
 		renderProjects([]store.Project{{ID: 1, Name: "视频项目", Status: store.ProjectActive}}),
 		renderTasks([]*store.Task{{ID: 2, Status: store.TaskPending, Title: "整理资料"}}, time.UTC),
 		renderKnowledgeList([]*store.Knowledge{{ID: 3, Title: "部署流程"}}),
 		renderFileList([]store.File{{ID: 4, OriginalName: "roster.xlsx", MIMEType: "application/vnd.ms-excel", SizeBytes: 128, CreatedAt: now}}, time.UTC),
-		renderSkillList([]*store.Knowledge{{ID: 5, Title: "升级 SOP", Content: "摘要：稳定升级"}}),
+		renderSkillList([]*store.Knowledge{{ID: 5, Title: "升级 SOP", Content: skillContent}}),
 	}, "\n")
 	for _, bad := range []string{"#1", "#2", "#3", "#4", "#5", "用户1", "用户2", "ID 1", "ID: 1"} {
 		if strings.Contains(got, bad) {
@@ -607,7 +642,7 @@ func TestRenderWorkspaceResources(t *testing.T) {
 		{Kind: "file", ID: 4, Name: "申请表.pdf", State: "saved", CreatedAt: now},
 		{Kind: "task", ID: 6, Name: "申请表分析", State: "done", CreatedAt: now},
 	}, time.UTC, semanticSearchPlan{Terms: []string{"申请表"}}, false)
-	for _, want := range []string{"resource_ref=file:4", "类型=file", "申请表.pdf", "resource_ref=task:6", "不要把内部引用主动展示"} {
+	for _, want := range []string{"resource_ref=file:4", "类型=file", "申请表.pdf", "resource_ref=task:6", "稳定引用"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("workspace rendering missing %q:\n%s", want, got)
 		}

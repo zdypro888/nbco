@@ -17,6 +17,16 @@ type ToolResultEnvelope struct {
 	Message    string            `json:"message"`
 }
 
+const toolResultStatusPendingApproval = "pending_approval"
+
+func rejectedToolResult(errorType, message string) string {
+	return encodeToolResult(ToolResultEnvelope{
+		Status:    "rejected",
+		ErrorType: strings.TrimSpace(errorType),
+		Message:   strings.TrimSpace(message),
+	})
+}
+
 func asynchronousAcceptedResult(message string) string {
 	return encodeToolResult(ToolResultEnvelope{
 		Status:     "accepted",
@@ -33,10 +43,13 @@ func invalidToolArgumentsResult(err error) string {
 			message = string(runes[:600]) + "…"
 		}
 	}
+	return rejectedToolResult("invalid_arguments", message)
+}
+
+func pendingApprovalResult(message string) string {
 	return encodeToolResult(ToolResultEnvelope{
-		Status:    "rejected",
-		ErrorType: "invalid_arguments",
-		Message:   message,
+		Status:  toolResultStatusPendingApproval,
+		Message: strings.TrimSpace(message),
 	})
 }
 
@@ -63,4 +76,11 @@ func ToolResultAccepted(result string) bool {
 func ToolResultRejected(result string) bool {
 	envelope, ok := ParseToolResult(result)
 	return ok && envelope.Status == "rejected"
+}
+
+// ToolResultPendingApproval reports a durable two-turn approval boundary.
+// Callers classify the structured lifecycle instead of parsing human wording.
+func ToolResultPendingApproval(result string) bool {
+	envelope, ok := ParseToolResult(result)
+	return ok && envelope.Status == toolResultStatusPendingApproval
 }

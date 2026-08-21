@@ -346,7 +346,7 @@ nodes:
         hash: sha256:dec02a3f7f358c2e0fd09428498706247ee66a6fa16ed50e926044f9593cc48d
         struct_hash: sha256:ffbd61076d860e69af6986513c230a17c3ebd95bd2596a97722f90897bbc2d19
         doc_struct_hash: sha256:05bb6de115b48e72b23af16dadccb21de570053835b72910ccd50befe151ea10
-        lines: [313, 318]
+        lines: [316, 321]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/tasks.go#Store.createTask
@@ -899,3 +899,14 @@ nodes:
         lines: [920, 931]
       status: fresh
       since: 2026-08-20T12:58:22.019172Z
+    - id: store/tasks.go#replayCascadeChain
+      level: function
+      anchor:
+        file: store/tasks.go
+        symbol: replayCascadeChain
+        hash: sha256:e93c791c78885850d76be2cd7d2e185030caa41be706d8973b7e1a97b3ccb925
+        struct_hash: sha256:41cb6891f8730a9854e50f9d52d812ad5876d8cc33f91111e04f544abf866f4e
+        doc_struct_hash: sha256:f47b44a97e1050a8077707910386e1489c013632c10fba1c103257411878369b
+        lines: [849, 873]
+      status: fresh
+      since: 2026-08-21T09:43:55.197297Z

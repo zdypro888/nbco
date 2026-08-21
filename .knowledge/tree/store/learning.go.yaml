@@ -211,10 +211,10 @@ nodes:
       anchor:
         file: store/learning.go
         symbol: Store.CreateLearningCandidate
-        hash: sha256:62b1bf0e022d7bcc1fdcd2ae1297d860899dda60e4d51e89622a1bf991bc1439
-        struct_hash: sha256:1476defcd1852e7b8075b110aa58b91e1b3943a4fc95802660c61d3bd4e77833
-        doc_struct_hash: sha256:1476defcd1852e7b8075b110aa58b91e1b3943a4fc95802660c61d3bd4e77833
-        lines: [92, 113]
+        hash: sha256:67533f2a2d03e2f635db6841d3dc945bc538b0aac34cb678bd2ac3f9eb50a8b5
+        struct_hash: sha256:489f389a7bf47b778bff24f0557889b1d8b91ef48fcdc8105ea6b3bf757cd9b8
+        doc_struct_hash: sha256:489f389a7bf47b778bff24f0557889b1d8b91ef48fcdc8105ea6b3bf757cd9b8
+        lines: [93, 127]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/learning.go#NormalizeLearningMemoryClass

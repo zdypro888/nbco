@@ -221,9 +221,9 @@ nodes:
       anchor:
         file: gateway/telegram/stream.go
         symbol: plainOf
-        hash: sha256:bd23f76cbcd852557ad44ebc77f3273ea67bd44ed26f2a343264cb365659a25b
-        struct_hash: sha256:3341b53055404d2f17af823fe32eb8d908b1d834c153b3dd058ebf6b73b948f8
-        doc_struct_hash: sha256:e2acdbe29a596826f4199787c2e14ad98c72220744058ea8bdd23f162e7b9b69
-        lines: [231, 238]
+        hash: sha256:a4f96429e6a71ef312f1f4983d9482a38138225acfa3f76e36d1044f0e7ec115
+        struct_hash: sha256:f44629741cfaead4303848e6e79b265ec9c5df466b8a83ab325f4731eb414302
+        doc_struct_hash: sha256:62b674d30d8a17f60bb66f85c3b63b3cfeed0a0d9736d6bbabd1d671de3d6261
+        lines: [272, 279]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

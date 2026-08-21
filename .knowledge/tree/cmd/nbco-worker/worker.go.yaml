@@ -336,7 +336,7 @@ nodes:
         struct_hash: sha256:10ddef7bddbb12ddccd0531b7262dec1eddcd4eb7873f4972168c958fd6f4f32
         doc_struct_hash: sha256:d25025f8dbb2cd2a7ea8adda4b85e8aa0e338eb419201fae1fa03644f08a57ad
         lines: [429, 437]
-      status: fresh
+      status: suspect
       since: 2026-07-20T18:19:16.834966Z
       entries:
         - id: e_a4fdad12
@@ -358,7 +358,7 @@ nodes:
         struct_hash: sha256:583d8ea30c54ffba4830e729273a250633aea665c922af054dbfa8f1c2f61dca
         doc_struct_hash: sha256:583d8ea30c54ffba4830e729273a250633aea665c922af054dbfa8f1c2f61dca
         lines: [439, 495]
-      status: fresh
+      status: suspect
       since: 2026-07-21T04:37:52.811793Z
       entries:
         - id: e_bdc875dd
@@ -725,10 +725,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/worker.go
         symbol: parseCompletionWithMarks
-        hash: sha256:5ed8d94de291a11dfa766548a3b66c2bb61efae4a1466a1a06386d24e9f10148
-        struct_hash: sha256:6a3439815506dfffdac0978965abe6e56d11290b3a4c58d8a090c070edfb253b
-        doc_struct_hash: sha256:6a3439815506dfffdac0978965abe6e56d11290b3a4c58d8a090c070edfb253b
-        lines: [1052, 1077]
+        hash: sha256:6d2bce2f99635f7e6a2fbc2d3ec0c33930dd9c2d71f9fdedd68d55184fdc1114
+        struct_hash: sha256:5984bb8824ba2bf778d145b056e96ff25672f5ea40a6bc343480112fabc52e0d
+        doc_struct_hash: sha256:5984bb8824ba2bf778d145b056e96ff25672f5ea40a6bc343480112fabc52e0d
+        lines: [1131, 1154]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/worker.go#parseInputRequestWithMarks

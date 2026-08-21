@@ -189,7 +189,7 @@ func renderWorkspaceResources(items []store.WorkspaceResource, tz *time.Location
 		fmt.Fprintf(&b, "- resource_ref=%s:%d；类型=%s；名称=%s；状态=%s；创建时间=%s\n",
 			item.Kind, item.ID, item.Kind, item.Name, item.State, fmtTime(item.CreatedAt, tz))
 	}
-	b.WriteString("resource_ref 仅供后续工具定位对象；不要把内部引用主动展示给用户。")
+	b.WriteString("resource_ref 是后续工具定位对象的稳定引用；回复可在有助于核对或继续操作时展示。")
 	return strings.TrimSpace(b.String())
 }
 
@@ -214,7 +214,7 @@ func renderFileQueue(fs []store.File, intakes []store.FileIntake, tz *time.Locat
 				in.OriginalName, formatBytes(in.SizeBytes), in.MIMEType, in.Status,
 				fileIntakeReason(in), fmtTime(in.CreatedAt, tz))
 		}
-		b.WriteString("这些记录没有系统 file_id，不能读取或分析；不得声称已经收到文件内容。Telegram 失败消息会提供真实的“打开文件中心”按钮；不要编造 /upload 等命令或链接。")
+		b.WriteString("这些记录没有系统 file_id，不能读取或分析；不得声称已经收到文件内容。只能使用当前入口实际返回的恢复动作，或请用户重新上传；不得编造命令、链接或文件内容。")
 	}
 	if b.Len() == 0 {
 		return "（最近没有文件接收记录）"

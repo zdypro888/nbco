@@ -13,9 +13,9 @@ nodes:
       anchor:
         file: tools/data_read.go
         symbol: dataReadTools
-        hash: sha256:fd59a99d62797e2fbabb3555acf420824a0d2c7873e6b8c7e12bd1047c72a015
-        struct_hash: sha256:7b63f40fcac1464ec1b4c8413dae62257d78292122ec098dd34d5fefc361336d
-        doc_struct_hash: sha256:e55ded4f41dfbce263b807f565be47ca5b3f3de13cda2b11521f102384f8bf56
+        hash: sha256:8fb8134a583019ecf5b7d7e81cdd9991b06cda514b9c33d9f29e02058c986df8
+        struct_hash: sha256:8d77e6e3bc8d08d3ef5033a26fb059f003d187511eb9db1006c8bafd50d02051
+        doc_struct_hash: sha256:d30b31d66de5dbd5c328e7149191d8abe3029560ce5c2121395668c76adbd05e
         lines: [23, 106]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

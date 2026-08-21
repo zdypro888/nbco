@@ -21,7 +21,7 @@ const telegramGroupDigestSourceKind = store.ScheduleSourceTelegramGroupDigest
 // telegramGroupTools 管理 Telegram 群这个外部实体，和用户/worker 一样走 list/get/update。
 func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 	return []ai.Tool{
-		tool("list_telegram_groups", "列出 bot 已记录的 Telegram 群及其接入和监听状态。结果里的 group_ref 是工作内存，可直接给后续群工具当参数；最终出口会清理内部引用。",
+		tool("list_telegram_groups", "列出 bot 已记录的 Telegram 群及其接入和监听状态。结果里的 group_ref 是群的稳定引用，可直接给后续群工具当参数。",
 			obj(nil),
 			func(ctx context.Context, _ json.RawMessage) (string, error) {
 				groups, err := d.Store.ListTelegramGroupStates(ctx, telegramGroupToolLimit)
@@ -34,7 +34,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				var b strings.Builder
 				b.WriteString("Telegram 群列表：\n")
 				for _, g := range groups {
-					fmt.Fprintf(&b, "- %s：%s，%s，%s，%s，每日摘要 %s，最近更新 %s；group_ref=%s（工作内存）\n",
+					fmt.Fprintf(&b, "- %s：%s，%s，%s，%s，每日摘要 %s，最近更新 %s；group_ref=%s\n",
 						telegramGroupTitle(g), telegramGroupStatusText(g), telegramGroupListenText(g),
 						telegramGroupAutoInviteText(ctx, d, g), telegramGroupMonitorText(ctx, d, g),
 						telegramGroupDigestText(ctx, d, u, g), fmtTime(g.UpdatedAt, d.TZ), telegramGroupRef(g.ChatID))
@@ -180,7 +180,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return b.String(), nil
 			}),
 
-		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与系统员工，区分已绑定成员、真人和 AI worker。内部用 Telegram ID 精确绑定，最终按姓名和绑定状态自然汇报。",
+		tool("resolve_telegram_group_members", "批量对照 Telegram 群里已见过的人与系统员工，区分已绑定成员、真人和 AI worker。返回稳定的 Telegram 用户 ID 和已绑定员工 ID，便于后续精确操作；姓名仅用于展示。",
 			obj(map[string]any{
 				"group": p("string", "群名、群名片段或 group_ref，可选；只有一个群时可省略"),
 			}),
@@ -297,12 +297,12 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				return fmt.Sprintf("已关闭 %s 的自动邀请。", telegramGroupTitle(*g)), nil
 			}),
 
-		tool("set_telegram_group_monitor", "开启或关闭 Telegram 群事件监控。需要 manage_telegram_group 权限；它只对开启后的新消息分批做 AI 判断，并在值得关注时私聊发起人，不逐条转发、不回看历史、也不按时钟生成每日摘要。按日汇总请另用 set_telegram_group_digest。",
+		tool("set_telegram_group_monitor", "开启或关闭 Telegram 群事件监控。需要 manage_telegram_group 权限；在群聊中省略 group 时只作用于当前群。它只对开启后的新消息分批做 AI 判断，并在值得关注时私聊发起人，不逐条转发、不回看历史、也不按时钟生成每日摘要。按日汇总请另用 set_telegram_group_digest。",
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
 				"enabled":     p("boolean", "true 开启，false 关闭"),
 				"instruction": p("string", "可选：监控目标、关注条件与通知策略"),
-			}, "group", "enabled"),
+			}, "enabled"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
 				var args struct {
 					Group       string `json:"group"`
@@ -357,8 +357,9 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if args.Enabled {
 					digestNote := "每日摘要仍未开启"
-					if status := telegramGroupDigestText(ctx, d, u, *g); status != "未设置" {
-						digestNote = "每日摘要配置未改变：" + status
+					digest := telegramGroupDigest(ctx, d, u, *g)
+					if digest.State != telegramGroupDigestMissing {
+						digestNote = "每日摘要配置未改变：" + digest.Text
 					}
 					return fmt.Sprintf("已开启 %s 的事件监控，提醒对象为 %s。后续新消息会分批交给 AI 判断，值得关注时私聊汇总；没有回看历史，%s。",
 						telegramGroupTitle(*g), telegramMonitorNotifyName(u), digestNote), nil
@@ -460,7 +461,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				if err := d.Store.SaveTelegramGroupLastMessage(ctx, g.ChatID, messageID); err != nil {
 					return "", err
 				}
-				return fmt.Sprintf("已发送到 %s。message_ref=%s（工作内存）",
+				return fmt.Sprintf("已发送到 %s。message_ref=%s",
 					telegramGroupTitle(*g), telegramMessageRef(g.ChatID, messageID)), nil
 			}),
 
@@ -468,7 +469,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
 				"text":        p("string", "新的消息内容"),
-				"message_ref": p("string", "send_telegram_group_message 返回的内部 message_ref，可选"),
+				"message_ref": p("string", "send_telegram_group_message 返回的稳定 message_ref，可选"),
 				"message_id":  p("integer", "Telegram message_id，可选；优先级低于 message_ref"),
 			}, "group", "text"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -502,7 +503,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 		tool("delete_telegram_group_message", "撤回/删除 Telegram 群消息。默认删除该群里 bot 最近通过工具发送的消息；也可传 message_ref/message_id。删除他人消息要求 bot 在群里有删除消息权限。",
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
-				"message_ref": p("string", "send_telegram_group_message 返回的内部 message_ref，可选"),
+				"message_ref": p("string", "send_telegram_group_message 返回的稳定 message_ref，可选"),
 				"message_id":  p("integer", "Telegram message_id，可选；优先级低于 message_ref"),
 			}, "group"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -535,7 +536,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 		tool("pin_telegram_group_message", "置顶 Telegram 群消息。默认置顶该群里 bot 最近通过工具发送的消息；也可传 message_ref/message_id。要求 bot 有置顶权限。",
 			obj(map[string]any{
 				"group":                p("string", "群名、群名片段或 group_ref"),
-				"message_ref":          p("string", "send_telegram_group_message 返回的内部 message_ref，可选"),
+				"message_ref":          p("string", "send_telegram_group_message 返回的稳定 message_ref，可选"),
 				"message_id":           p("integer", "Telegram message_id，可选；优先级低于 message_ref"),
 				"disable_notification": p("boolean", "是否静默置顶，可选"),
 			}, "group"),
@@ -570,7 +571,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 		tool("unpin_telegram_group_message", "取消置顶 Telegram 群消息。默认取消该群里 bot 最近通过工具发送的消息；也可传 message_ref/message_id。要求 bot 有置顶管理权限。",
 			obj(map[string]any{
 				"group":       p("string", "群名、群名片段或 group_ref"),
-				"message_ref": p("string", "send_telegram_group_message 返回的内部 message_ref，可选"),
+				"message_ref": p("string", "send_telegram_group_message 返回的稳定 message_ref，可选"),
 				"message_id":  p("integer", "Telegram message_id，可选；优先级低于 message_ref"),
 			}, "group"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -672,6 +673,18 @@ func resolveTelegramGroup(ctx context.Context, d Deps, selector string) (*store.
 	if len(groups) == 0 {
 		return nil, "当前没有记录到 Telegram 群。", nil
 	}
+	if selector == "" {
+		if current := interactionChannel(ctx); store.IsGroupChannel(current) {
+			if chatID, ok := parseTelegramGroupRef(current); ok {
+				for i := range groups {
+					if groups[i].ChatID == chatID {
+						return &groups[i], "", nil
+					}
+				}
+				return nil, "当前群尚未进入 Telegram 群目录。", nil
+			}
+		}
+	}
 	if selector == "" && len(groups) == 1 {
 		return &groups[0], "", nil
 	}
@@ -708,7 +721,7 @@ func resolveTelegramGroup(ctx context.Context, d Deps, selector string) (*store.
 		var b strings.Builder
 		b.WriteString("匹配到多个 Telegram 群，请用更完整的群名或 group_ref：\n")
 		for _, g := range matches {
-			fmt.Fprintf(&b, "- %s；group_ref=%s（工作内存）\n", telegramGroupTitle(g), telegramGroupRef(g.ChatID))
+			fmt.Fprintf(&b, "- %s；group_ref=%s\n", telegramGroupTitle(g), telegramGroupRef(g.ChatID))
 		}
 		return nil, b.String(), nil
 	}
@@ -913,10 +926,10 @@ func renderTelegramGroupMessages(
 		content := strings.TrimSpace(clipRunes(message.Content, 600))
 		content = strings.ReplaceAll(content, "\n", "\n  ")
 		if message.Role == "assistant" {
-			fmt.Fprintf(&b, "- %s %s：%s\n", message.CreatedAt.In(tz).Format("01-02 15:04"), brandName, content)
+			fmt.Fprintf(&b, "- %s %s：%s\n", message.EventAt().In(tz).Format("01-02 15:04"), brandName, content)
 			continue
 		}
-		fmt.Fprintf(&b, "- %s %s\n", message.CreatedAt.In(tz).Format("01-02 15:04"), content)
+		fmt.Fprintf(&b, "- %s %s\n", message.EventAt().In(tz).Format("01-02 15:04"), content)
 	}
 	if page.NextCursor > 0 {
 		fmt.Fprintf(&b, "next_cursor: %d（继续读取更早消息时传给 cursor）\n", page.NextCursor)
@@ -924,22 +937,42 @@ func renderTelegramGroupMessages(
 	return strings.TrimSpace(b.String())
 }
 
-func telegramGroupDigestText(ctx context.Context, d Deps, u *store.User, g store.TelegramGroupState) string {
+type telegramGroupDigestState uint8
+
+const (
+	telegramGroupDigestMissing telegramGroupDigestState = iota
+	telegramGroupDigestConfigured
+	telegramGroupDigestUnknown
+)
+
+type telegramGroupDigestInfo struct {
+	State telegramGroupDigestState
+	Text  string
+}
+
+func telegramGroupDigest(ctx context.Context, d Deps, u *store.User, g store.TelegramGroupState) telegramGroupDigestInfo {
 	if d.Store == nil || u == nil {
-		return "状态未知"
+		return telegramGroupDigestInfo{State: telegramGroupDigestUnknown, Text: "状态未知"}
 	}
 	sc, err := d.Store.AutomationSchedule(ctx, u.ID, telegramGroupDigestSourceKind, strconv.FormatInt(g.ChatID, 10))
 	if errors.Is(err, store.ErrNotFound) {
-		return "未设置"
+		return telegramGroupDigestInfo{State: telegramGroupDigestMissing, Text: "未设置"}
 	}
 	if err != nil || sc == nil {
-		return "状态未知"
+		return telegramGroupDigestInfo{State: telegramGroupDigestUnknown, Text: "状态未知"}
 	}
 	days := "每天"
 	if strings.TrimSpace(sc.Weekdays) != "" {
 		days = "周" + sc.Weekdays
 	}
-	return fmt.Sprintf("已设置，%s %s 私聊当前用户，下次 %s", days, sc.DailyAt, fmtTime(sc.FireAt, d.TZ))
+	return telegramGroupDigestInfo{
+		State: telegramGroupDigestConfigured,
+		Text:  fmt.Sprintf("已设置，%s %s 私聊当前用户，下次 %s", days, sc.DailyAt, fmtTime(sc.FireAt, d.TZ)),
+	}
+}
+
+func telegramGroupDigestText(ctx context.Context, d Deps, u *store.User, g store.TelegramGroupState) string {
+	return telegramGroupDigest(ctx, d, u, g).Text
 }
 
 func telegramGroupDigestDirective(g store.TelegramGroupState, instruction string) string {
@@ -1119,21 +1152,23 @@ func renderTelegramGroupMemberBindings(ctx context.Context, d Deps, g store.Tele
 		label := telegramSeenMemberDisplay(m)
 		if u := boundByTG[m.UserID]; u != nil {
 			exact++
-			fmt.Fprintf(&b, "- %s → %s（已绑定，%s）\n", label, telegramCompanyUserLabel(u), "精确匹配")
+			fmt.Fprintf(&b, "- %s（telegram_user_id=%d） → %s（employee_id=%d，已绑定，精确匹配）\n",
+				label, m.UserID, telegramCompanyUserLabel(u), u.ID)
 			continue
 		}
 		if u, ambiguous := matchCompanyUserForSeen(users, m); ambiguous {
 			suspected++
-			fmt.Fprintf(&b, "- %s → 多个同名系统员工，需人工确认绑定\n", label)
+			fmt.Fprintf(&b, "- %s（telegram_user_id=%d） → 多个同名系统员工，需人工确认绑定\n", label, m.UserID)
 		} else if u != nil {
 			suspected++
-			fmt.Fprintf(&b, "- %s → 疑似 %s（名称相同但未绑定）\n", label, telegramCompanyUserLabel(u))
+			fmt.Fprintf(&b, "- %s（telegram_user_id=%d） → 疑似 %s（employee_id=%d，名称相同但未绑定）\n",
+				label, m.UserID, telegramCompanyUserLabel(u), u.ID)
 		} else {
 			unmatched++
-			fmt.Fprintf(&b, "- %s → 未绑定系统员工\n", label)
+			fmt.Fprintf(&b, "- %s（telegram_user_id=%d） → 未绑定系统员工\n", label, m.UserID)
 		}
 	}
-	fmt.Fprintf(&b, "汇总：已绑定 %d，疑似 %d，未绑定 %d。说明：Telegram ID 仅用于内部精确匹配；对用户汇报时按姓名和绑定状态表达。", exact, suspected, unmatched)
+	fmt.Fprintf(&b, "汇总：已绑定 %d，疑似 %d，未绑定 %d。后续动作优先使用上述稳定 ID；是否在回复中展示由当前目标决定。", exact, suspected, unmatched)
 	return b.String(), nil
 }
 
@@ -1361,6 +1396,6 @@ func renderTelegramGroup(g store.TelegramGroupState, tz *time.Location) string {
 	fmt.Fprintf(&b, "- 群类型：%s\n", g.Type)
 	fmt.Fprintf(&b, "- 监听状态：%s\n", telegramGroupListenText(g))
 	fmt.Fprintf(&b, "- 最近更新：%s\n", fmtTime(g.UpdatedAt, tz))
-	fmt.Fprintf(&b, "- group_ref：%s（工作内存）", telegramGroupRef(g.ChatID))
+	fmt.Fprintf(&b, "- group_ref：%s", telegramGroupRef(g.ChatID))
 	return b.String()
 }

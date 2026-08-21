@@ -114,6 +114,15 @@ func knowledgeTools(d Deps, u *store.User) []ai.Tool {
 				if k.AuthorID != u.ID && !u.IsSuperadmin {
 					return "只有作者或超管能修改。", nil
 				}
+				if k.Kind != store.KnowledgeKindFact {
+					message := "该条目有专用的结构化写入契约，不能通过 update_knowledge 修改。"
+					if k.Kind == store.KnowledgeKindSkill {
+						message = "skill 必须通过 update_skill 修改，不能绕过结构化 Skill 契约。"
+					} else if k.Kind == store.KnowledgeKindPolicy {
+						message = "规则必须通过 save_rule 更新，不能绕过规则的稳定身份与版本契约。"
+					}
+					return rejectedToolResult("specialized_write_required", message), nil
+				}
 				var title, content *string
 				if strings.TrimSpace(args.Title) != "" {
 					title = &args.Title

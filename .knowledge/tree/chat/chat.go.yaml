@@ -550,11 +550,11 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:af9b3e649fd16d13551086b9d0995ef4d6729553d1feddd18ddd175638e80741
-        struct_hash: sha256:c69cda978133d3c534165547d35fefad0a28b385b97a117043f0eb0a87fe9bf8
-        doc_struct_hash: sha256:fe65773b9815d07dc030eca23e3a80083f8b0efcae8aa0b4d1395f28f0a49591
-        lines: [462, 800]
-      status: suspect
+        hash: sha256:bd76d8755fc7e0580964248762f3e99e20b22b907a0e81e9406f616a8447a431
+        struct_hash: sha256:8c35095ce613a99a67331c613df2dbdb445366eb2b06449a24bb4811522a4631
+        doc_struct_hash: sha256:904ea137f8663576ba315452957ab19b279ab8409728cd7ccf154b024c3e7b47
+        lines: [482, 829]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_2f3027fc
@@ -955,10 +955,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.persistMinedMemory
-        hash: sha256:fb3a94feda78999a568dc29131c7be3e3c21711bc4b5da7dbeab625cd9578ad1
-        struct_hash: sha256:dabd649b47db750df1b393815a88dbb2cd2ee09f1dee02d8f19b0c9b4d58bbea
-        doc_struct_hash: sha256:dabd649b47db750df1b393815a88dbb2cd2ee09f1dee02d8f19b0c9b4d58bbea
-        lines: [1338, 1496]
+        hash: sha256:4bc8887925c73212b8d220e2f0750e8513abb471dd2aa8376d19089e6d38815f
+        struct_hash: sha256:e15218b54217e0c633ac0f2315d68d56b90ff4e66d2462f70d8a9cb2f673f2ae
+        doc_struct_hash: sha256:e15218b54217e0c633ac0f2315d68d56b90ff4e66d2462f70d8a9cb2f673f2ae
+        lines: [1605, 1747]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.memoryConflicts
@@ -1045,10 +1045,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.recordPendingLearningCandidate
-        hash: sha256:33ab82a9ee2373a7ce4c15cd201d82efbabd61106c12080a0d229fe85baabb96
-        struct_hash: sha256:1568aa6a2e4c3646c1ab49873a8a66f41fbdf15ac7a42432001589a54f0f057d
-        doc_struct_hash: sha256:1568aa6a2e4c3646c1ab49873a8a66f41fbdf15ac7a42432001589a54f0f057d
-        lines: [1587, 1605]
+        hash: sha256:e9fedf0e99bd61eeb92c437905147f38d0e877b7128b95b784044549f46c5c61
+        struct_hash: sha256:9fb558b531c710933b8ba58c569e1e2ec6829388600e17c4a9de813441190489
+        doc_struct_hash: sha256:9fb558b531c710933b8ba58c569e1e2ec6829388600e17c4a9de813441190489
+        lines: [1872, 1888]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.recordPublishedLearningCandidate
@@ -1056,10 +1056,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.recordPublishedLearningCandidate
-        hash: sha256:cf05169108c51744a33d57720dad63734bbb2e82e6ebf093ec8c9772ae843de5
-        struct_hash: sha256:518ca3f63db045cd959e5eadceb709ba1b264d35227a9f7be480d8239934df54
-        doc_struct_hash: sha256:518ca3f63db045cd959e5eadceb709ba1b264d35227a9f7be480d8239934df54
-        lines: [1607, 1624]
+        hash: sha256:9858b60ddadcf4171d75c17f0184b3223e3aee64d4c2ff0fd3a380eb12f7e08d
+        struct_hash: sha256:e570de62f0309ce6ae2f12b19479c89f0f36942c5ec7286926488fc9ca3fa6c9
+        doc_struct_hash: sha256:e570de62f0309ce6ae2f12b19479c89f0f36942c5ec7286926488fc9ca3fa6c9
+        lines: [1890, 1907]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.memoryAlreadyKnown
@@ -1584,10 +1584,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.peopleContext
-        hash: sha256:92e1ad90f91fc0050b9947c262c26d61d2db2c85d585d9bfc0b6508b4cb16080
-        struct_hash: sha256:ad7e3a5fcd627182fc0038c884f2fc6b9e714e79b96653abc586135806321677
-        doc_struct_hash: sha256:ad7e3a5fcd627182fc0038c884f2fc6b9e714e79b96653abc586135806321677
-        lines: [2357, 2394]
+        hash: sha256:f233dc43302ee6ab3ce61f134b5a9623c00f56faf6cd75dbd4e52785a24743a0
+        struct_hash: sha256:659b7fb82719d2bac27b2b251de14d38fe2f670473e973df0990cc3dbe59a42b
+        doc_struct_hash: sha256:659b7fb82719d2bac27b2b251de14d38fe2f670473e973df0990cc3dbe59a42b
+        lines: [2622, 2659]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#renderPromptPersonBase
@@ -1628,10 +1628,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.renderPromptAssigneeStats
-        hash: sha256:9750c587394b614a1b42a88695c59eda184a9879dc19f4bd77895cc39dddc0d4
-        struct_hash: sha256:2791b7a634bd5ca6b67746459c263da8d9c2cb59e273ec86648ce7299b37a5b1
-        doc_struct_hash: sha256:2791b7a634bd5ca6b67746459c263da8d9c2cb59e273ec86648ce7299b37a5b1
-        lines: [2455, 2486]
+        hash: sha256:e722450dee0ce479c9a1b7dcbe11cf76217d7098993c47d3e0cebc92e81d57b3
+        struct_hash: sha256:18b8ab255f7cd968ad1364e4435aeba5264e4ad57694dc0dd29f9e7d5e54c4f6
+        doc_struct_hash: sha256:18b8ab255f7cd968ad1364e4435aeba5264e4ad57694dc0dd29f9e7d5e54c4f6
+        lines: [2719, 2750]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: chat/chat.go#Orchestrator.renderPromptProfiles
@@ -1716,11 +1716,11 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.systemPrompt
-        hash: sha256:d662682cffeef512d7dd6c8a889e7c7cb81a54f0db4a2195155cc433190b4d9b
-        struct_hash: sha256:f94bf5c61f10952ba8ce280552f523e7f6e9c5607add53097537b395406841b9
-        doc_struct_hash: sha256:a86aa44bdfc3db74f482a8340c041be0df8b56ce71816d3cac0b1c731dde00ec
-        lines: [2626, 2694]
-      status: suspect
+        hash: sha256:51f050fa2db3f9a99dd4135b61731f3e27a5daf3753c33538d67b915598e7bc7
+        struct_hash: sha256:795e5ba794b854ddaf27738ea4a349630592185df32444b72bd882a9005c128f
+        doc_struct_hash: sha256:7104132cd67691761d3d1b7a743c4072fa8069b26199d244076cd341b5ed5f4c
+        lines: [2881, 2957]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_5b45a5a9
@@ -1735,12 +1735,56 @@ nodes:
           confidence: inferred
           at: 2026-08-20T06:40:42.204307Z
           author: codex-mcp-client
+        - id: e_3651a7fa
+          kind: contract
+          text: 普通私聊和群聊 mention 都由同一 Eino DeepAgent 规划；确定性代码只负责权限、稳定 ID、协议、生命周期、幂等与传输。不得按具体业务句式、员工名或线上样例增加路由分支。
+          confidence: inferred
+          at: 2026-08-21T09:45:07.709674Z
+          author: codex-mcp-client
+        - id: e_bc6e6266
+          kind: pitfall
+          text: 修复“只回答不执行”不能靠完成话术过滤或动作完成门；应检查工具是否对当前权限可见、工具契约是否清楚、Agent 是否收到真实结果以及副作用是否有幂等边界。
+          confidence: inferred
+          at: 2026-08-21T09:45:07.711543Z
+          author: codex-mcp-client
       keywords:
-        - system prompt
-        - eino deep agent
-        - tool_search
-        - 通用不变量
-        - 禁止语句硬编码
-        - 指定执行介质
+        - eino deepagent
+        - 场景补丁
+        - 话术分支
+        - agent 路由
+        - 自主工具组合
       era_summary: 2026-07-19 的 Agent 架构经历一次验证驱动的收敛：先恢复 Eino 原生 Deep Agent 持续执行契约、跨轮工具目录刷新和未知工具的模型阶段原地纠正，并一度加入权限裁剪后的语义 schema 预选；随后用线上同款模型在 174 工具、零预选条件下验证 Eino 原生 tool_search 能自主找到并执行 Worker，因而删除 PreferredTools 与额外语义预选器，确立“单一 Deep Agent 负责规划执行，业务层只保留权限、协议、幂等、会话隔离和执行证据”的边界。必须保留的负知识：不得按用户原话、关键词、问号、语言或具体业务对象写路由；不得每轮直接注入全部 174 个工具 schema；不得在未知工具后从头重跑整轮以免重复副作用；不得在 Agent 外增加动作规划器或自然语言完成判官；不得在 Deep Agent 前再加一轮 LLM 工具预选；也不得借去硬编码之名删除权限、schema、会话隔离或执行证据校验，这些是稳定系统不变量。
       era_until: 2026-07-19T21:45:31.764703Z
+    - id: chat/chat.go#Orchestrator.recordMessageWorkEvidence
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: Orchestrator.recordMessageWorkEvidence
+        hash: sha256:7852d7efb5955766a6f86b984098b4422bc928172e908112861cadeeeae14a21
+        struct_hash: sha256:78c9f8340f7e1f2d5231fcd9aaf14d5abf9813e00f6a0507990ce7ee7b615f02
+        doc_struct_hash: sha256:78c9f8340f7e1f2d5231fcd9aaf14d5abf9813e00f6a0507990ce7ee7b615f02
+        lines: [420, 470]
+      status: fresh
+      since: 2026-08-21T09:42:55.587582Z
+    - id: chat/chat.go#Orchestrator.persistMinedFacts
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: Orchestrator.persistMinedFacts
+        hash: sha256:ba1dfee0d96158d6bbf5ada76b95f15b26843010d75a420752101d66f9fabb30
+        struct_hash: sha256:56e49b498e9879f3625229e5d25bb4792a341165a7e57551052bf4fa5399799e
+        doc_struct_hash: sha256:56e49b498e9879f3625229e5d25bb4792a341165a7e57551052bf4fa5399799e
+        lines: [1749, 1791]
+      status: fresh
+      since: 2026-08-21T09:42:55.598068Z
+    - id: chat/chat.go#sanitizeTurnOutput
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: sanitizeTurnOutput
+        hash: sha256:cabffbe57babf9dfc188ff90c895803805ee784f92e6665313879d17a08864ec
+        struct_hash: sha256:d75491304254895982cfda5a27d2a279fe9690d538a8eefb3743e9420634a953
+        doc_struct_hash: sha256:d75491304254895982cfda5a27d2a279fe9690d538a8eefb3743e9420634a953
+        lines: [831, 838]
+      status: fresh
+      since: 2026-08-21T09:43:44.221907Z

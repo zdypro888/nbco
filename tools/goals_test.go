@@ -362,8 +362,13 @@ func TestCloseGoalEmitsEventOnAchievedByNonOwner(t *testing.T) {
 	if e.kind != "目标达成" || e.decider != owner.ID {
 		t.Errorf("emit = {%s, decider=%d}, want {目标达成, %d}", e.kind, e.decider, owner.ID)
 	}
-	if !strings.Contains(e.detail, g.Title) || !strings.Contains(e.detail, "复盘") {
-		t.Errorf("detail 应含目标标题与复盘提示, got %q", e.detail)
+	if !strings.Contains(e.detail, g.Title) || !strings.Contains(e.detail, "里程碑 0/1 达成") {
+		t.Errorf("detail 应含目标与进度事实, got %q", e.detail)
+	}
+	for _, protocol := range []string{"回复", "save_knowledge", "跳过"} {
+		if strings.Contains(e.detail, protocol) {
+			t.Errorf("事件事实不应携带旧动作协议 %q: %q", protocol, e.detail)
+		}
 	}
 
 	// 已关闭目标是终态，不能再从 achieved 改 archived，也不能再次触发事件。

@@ -182,7 +182,7 @@ func TestForUserWorkerMinimalSet(t *testing.T) {
 			t.Errorf("worker 工具集出现白名单外的 %s", n)
 		}
 	}
-	for _, keep := range []string{"get_my_tasks", "add_progress", "save_knowledge", "search_knowledge", "search_skills", "load_skill", "query_data"} {
+	for _, keep := range []string{"get_my_tasks", "add_progress", "save_knowledge", "search_knowledge", "search_skills", "load_skill", "search_context", "record_fact", "query_data"} {
 		if !names[keep] {
 			t.Errorf("worker 应保留 %s", keep)
 		}
@@ -257,7 +257,7 @@ func TestStripGroupSensitive(t *testing.T) {
 		"list_action_turns", "list_system_activity",
 		"send_telegram_group_message", "edit_telegram_group_message", "delete_telegram_group_message",
 		"pin_telegram_group_message", "unpin_telegram_group_message", "update_telegram_group_info",
-		"set_telegram_group_listen", "set_telegram_group_auto_invite", "set_telegram_group_monitor", "set_telegram_group_digest", "list_telegram_group_messages",
+		"set_telegram_group_listen", "set_telegram_group_auto_invite", "set_telegram_group_digest", "list_telegram_group_messages",
 	} {
 		if !full[gone] {
 			t.Fatalf("前置条件：超管私聊应有 %s", gone)
@@ -270,7 +270,7 @@ func TestStripGroupSensitive(t *testing.T) {
 	for _, keep := range []string{
 		"get_my_tasks", "assign_task", "delegate_review", "search_knowledge", "company_overview",
 		"list_telegram_groups", "get_telegram_group", "list_telegram_group_members", "resolve_telegram_group_members", "get_telegram_group_member",
-		"search_skills", "load_skill",
+		"set_telegram_group_monitor", "search_context", "record_fact", "search_skills", "load_skill",
 	} {
 		if !grouped[keep] {
 			t.Errorf("群里应保留 %s", keep)

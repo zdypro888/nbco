@@ -62,6 +62,63 @@ func TestResolveWorkerSubmissionOutcome(t *testing.T) {
 	}
 }
 
+func TestIngestWorkerLessonCandidateIsGovernedAndReplaySafe(t *testing.T) {
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN，跳过 PostgreSQL 集成测试")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	conn, err := s.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, 7767002); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, 7767002) }()
+	if _, err := s.Pool().Exec(ctx, `TRUNCATE users RESTART IDENTITY CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	worker, err := s.CreateUser(ctx, "lesson-worker", false, store.Identity{Provider: "test", ExternalID: "lesson-worker"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskID := int64(21)
+	run := &store.WorkerRun{
+		ID: 42, TaskID: &taskID, Executor: workerproto.ExecutorAgent,
+		Title: "资料整理经验", ScopeKey: "materials:company", WorkerID: worker.ID,
+	}
+	task := &store.Task{ID: taskID, ProjectID: 9}
+	server := &Server{store: s}
+	for range 2 {
+		if err := server.ingestWorkerLessonCandidate(ctx, worker, run, task, "先核对来源，再保存结论"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items, err := s.ListLearningCandidates(ctx, store.LearningStatusPending, store.LearningKindKnowledge, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("replayed lesson produced %d candidates: %+v", len(items), items)
+	}
+	got := items[0]
+	if got.SourceType != "worker_lesson" || got.SourceRef != "42" || got.MemoryClass != store.LearningMemoryDurable ||
+		!strings.Contains(strings.Join(got.Tags, ","), "worker:") || !strings.Contains(strings.Join(got.Tags, ","), "project:9") {
+		t.Fatalf("lesson candidate = %+v", got)
+	}
+	formal, err := s.RecentKnowledge(ctx, 10)
+	if err != nil || len(formal) != 0 {
+		t.Fatalf("unreviewed lesson must not publish directly: %+v err=%v", formal, err)
+	}
+}
+
 func TestWorkerRunFinishedEventPreservesExecutionEvidenceBoundary(t *testing.T) {
 	zero := 0
 	run := &store.WorkerRun{

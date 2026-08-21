@@ -136,14 +136,19 @@ func (s *Store) UpsertRule(ctx context.Context, title, content string, tags []st
 	return updated, RuleUpdated, tx.Commit(ctx)
 }
 
-// CreateSkill 存一条执行方法（kind=skill）。content 使用工具层约定的结构化文本。
-func (s *Store) CreateSkill(ctx context.Context, title, content string, tags []string, authorID int64) (*Knowledge, error) {
+// CreateSkill stores one reusable procedure using the versioned SkillContent
+// contract. Presentation text never crosses this persistence boundary.
+func (s *Store) CreateSkill(ctx context.Context, title string, content SkillContent, tags []string, authorID int64) (*Knowledge, error) {
 	if tags == nil {
 		tags = []string{}
 	}
+	raw, err := EncodeSkillContent(content)
+	if err != nil {
+		return nil, err
+	}
 	return scanKnowledge(s.pool.QueryRow(ctx,
 		`INSERT INTO knowledge (title, content, tags, author_id, kind) VALUES ($1, $2, $3, $4, $5)
-		 RETURNING `+knowledgeCols, title, content, tags, authorID, KnowledgeKindSkill))
+		 RETURNING `+knowledgeCols, title, raw, tags, authorID, KnowledgeKindSkill))
 }
 
 // PinnedRules 全部常驻规则（按创建序）。
@@ -208,6 +213,36 @@ func (s *Store) EmbeddedSkills(ctx context.Context, model string) ([]KnowledgeVe
 // 让旧向量失真；清标签后即时 Reembed 或启动回填都会重新嵌入，不清则永不刷新。
 func (s *Store) UpdateKnowledge(ctx context.Context, id int64, title, content *string, tags []string) (*Knowledge, error) {
 	return s.updateKnowledge(ctx, id, title, content, tags, true)
+}
+
+// UpdateSkill keeps skill writes on the same typed boundary as creation.
+func (s *Store) UpdateSkill(ctx context.Context, id int64, title *string, content *SkillContent, tags []string) (*Knowledge, error) {
+	var raw *string
+	if content != nil {
+		encoded, err := EncodeSkillContent(*content)
+		if err != nil {
+			return nil, err
+		}
+		raw = &encoded
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	current, err := scanKnowledge(tx.QueryRow(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge WHERE id = $1 AND kind = $2 FOR UPDATE`, id, KnowledgeKindSkill))
+	if err != nil {
+		return nil, err
+	}
+	if err := snapshotKnowledgeRow(ctx, tx, current.ID, nil, "before skill update"); err != nil {
+		return nil, err
+	}
+	updated, err := updateKnowledgeRow(ctx, tx, id, title, raw, tags)
+	if err != nil {
+		return nil, err
+	}
+	return updated, tx.Commit(ctx)
 }
 
 func (s *Store) updateKnowledge(ctx context.Context, id int64, title, content *string, tags []string, snapshot bool) (*Knowledge, error) {

@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: store/product_loop.go
         symbol: Store.UpsertWorkEvidence
-        hash: sha256:aef3a2c02ec7e28f4d6e515b7ed1f89e6cd90061a54239ca59e80998a3094e2f
-        struct_hash: sha256:995cc25c37eb42066f71e856119d0391037626f41f9d4087e52ab9916b917f33
-        doc_struct_hash: sha256:51fc81a7c45678be7638a57ba9178ac76c8ae5076753f68d1e76c6b2c9e73c7a
-        lines: [125, 130]
+        hash: sha256:7d95cd1b4056ea35e31044c17c7da07b9af3d7a40f3e9d7f3d47f73add533395
+        struct_hash: sha256:fc054da15f2b71d5303e05713569bcdcbe7fa5f0a85e36299ab06fc78601837d
+        doc_struct_hash: sha256:7d487a0e04e906a7d796e3cd33dcff78141ef5ca228bade81228679935c1115c
+        lines: [140, 145]
       status: fresh
       since: 2026-08-20T06:37:01.374552Z
     - id: store/product_loop.go#upsertWorkEvidence

@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -27,7 +28,7 @@ func TestArgumentBoundaryValidatesBeforeBusinessHandler(t *testing.T) {
 		},
 	})
 
-	for _, raw := range []string{`{}`, `{"worker_id":2,"mode":"other"}`, `{"worker_id":"bad","mode":"read"}`, `{broken`} {
+	for _, raw := range []string{`{}`, `{"worker_id":2,"mode":"other"}`, `{"worker_id":"bad","mode":"read"}`, `{broken`, `{"worker_id":2,"mode":"read"} {"worker_id":3,"mode":"write"}`} {
 		result, err := wrapped.Handler(context.Background(), json.RawMessage(raw))
 		if err != nil {
 			t.Fatalf("invalid model input should be repairable tool output, got %v", err)
@@ -60,6 +61,34 @@ func TestToolResultLifecycleIsStructured(t *testing.T) {
 	}
 	if ToolResultAccepted("任务已持久化") {
 		t.Fatal("plain prose must not be treated as durable acceptance evidence")
+	}
+	pending := pendingApprovalResult("请确认")
+	if !ToolResultPendingApproval(pending) || ToolResultRejected(pending) || ToolResultAccepted(pending) {
+		t.Fatalf("pending approval result was not classified structurally: %s", pending)
+	}
+	if ToolResultPendingApproval("[nbco:pending_approval] 请确认") {
+		t.Fatal("plain-text sentinels must not be interpreted as lifecycle state")
+	}
+}
+
+func TestBoundedToolSchemaCacheEvictsOldestEntry(t *testing.T) {
+	cache := newBoundedToolSchemaCache(2)
+	key := func(name string) toolSchemaCacheKey {
+		return toolSchemaCacheKey{Name: name, Hash: sha256.Sum256([]byte(name))}
+	}
+	first, second, third := key("first"), key("second"), key("third")
+	cache.Store(first, toolSchemaCacheEntry{})
+	cache.Store(second, toolSchemaCacheEntry{})
+	cache.Store(second, toolSchemaCacheEntry{})
+	cache.Store(third, toolSchemaCacheEntry{})
+	if _, ok := cache.Load(first); ok {
+		t.Fatal("oldest schema cache entry was not evicted")
+	}
+	if _, ok := cache.Load(second); !ok {
+		t.Fatal("duplicate store changed FIFO order")
+	}
+	if _, ok := cache.Load(third); !ok {
+		t.Fatal("new schema cache entry is missing")
 	}
 }
 

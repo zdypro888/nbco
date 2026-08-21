@@ -60,6 +60,10 @@ func (s *Store) CreateOrMergeTask(ctx context.Context, t *Task, participants []T
 	t.Goal = strings.TrimSpace(t.Goal)
 	t.Description = strings.TrimSpace(t.Description)
 	t.Acceptance = strings.TrimSpace(t.Acceptance)
+	t.Kind = NormalizeTaskKind(t.Kind)
+	if t.Kind == "" {
+		t.Kind = TaskKindGeneral
+	}
 	t.Priority = nonEmpty(strings.TrimSpace(t.Priority), "normal")
 	deps, ok := normalizeTaskDeps(t.DependsOn)
 	if !ok {
@@ -172,8 +176,15 @@ func mergeTaskConstraintsTx(ctx context.Context, tx pgx.Tx, current, incoming *T
 		value := *incoming.MilestoneID
 		milestoneID = &value
 	}
+	kind := current.Kind
+	if kind == "" || kind == TaskKindGeneral {
+		kind = incoming.Kind
+	}
+	if kind == "" {
+		kind = TaskKindGeneral
+	}
 
-	updated := make([]string, 0, 4)
+	updated := make([]string, 0, 5)
 	if priority != current.Priority {
 		updated = append(updated, "priority")
 	}
@@ -186,14 +197,17 @@ func mergeTaskConstraintsTx(ctx context.Context, tx pgx.Tx, current, incoming *T
 	if !sameOptionalID(milestoneID, current.MilestoneID) {
 		updated = append(updated, "milestone_id")
 	}
+	if kind != current.Kind {
+		updated = append(updated, "kind")
+	}
 	if len(updated) == 0 {
 		return current, nil, nil
 	}
 	merged, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET priority = $2, deadline = $3, depends_on = $4,
-		                    milestone_id = $5, revision = revision + 1, updated_at = now()
+		                    milestone_id = $5, kind = $6, revision = revision + 1, updated_at = now()
 		  WHERE id = $1 RETURNING `+taskCols,
-		current.ID, priority, deadline, deps, milestoneID))
+		current.ID, priority, deadline, deps, milestoneID, kind))
 	return merged, updated, err
 }
 

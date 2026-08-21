@@ -106,6 +106,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 					"type": "array", "description": "任务列表",
 					"items": obj(map[string]any{
 						"assignee_id": p("integer", "执行人用户ID（省略=自动选 AI 员工）"),
+						"kind":        taskKindParam("任务类型（可选；用于能力匹配和同类结果学习）"),
 						"title":       p("string", "任务标题"),
 						"goal":        p("string", "为什么做（可选）"),
 						"description": p("string", "做什么"),
@@ -122,6 +123,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 					ProjectID   int64 `json:"project_id"`
 					Tasks       []struct {
 						AssigneeID  int64   `json:"assignee_id"`
+						Kind        string  `json:"kind"`
 						Title       string  `json:"title"`
 						Goal        string  `json:"goal"`
 						Description string  `json:"description"`
@@ -179,11 +181,14 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 					}
 					assigneeID := st.AssigneeID
 					if assigneeID == 0 {
-						wid, _, perr := pickWorkerAssignee(ctx, d, u, st.Title, st.Description, st.Acceptance)
+						wid, _, plannedKind, perr := pickWorkerAssignee(ctx, d, u, st.Kind, st.Title, st.Description, st.Acceptance)
 						if perr != nil {
 							return perr.Error(), nil
 						}
 						assigneeID = wid
+						if strings.TrimSpace(st.Kind) == "" {
+							st.Kind = plannedKind
+						}
 						if w, werr := d.Store.UserByID(ctx, wid); werr == nil {
 							assignees[w.ID] = w
 						}
@@ -204,7 +209,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 					subs = append(subs, &store.Task{
 						ProjectID: args.ProjectID, AssignerID: u.ID, AssigneeID: assigneeID,
 						Title: st.Title, Goal: st.Goal, Description: st.Description,
-						Acceptance: st.Acceptance, Priority: st.Priority, Deadline: deadline,
+						Acceptance: st.Acceptance, Kind: nonEmptyTaskKind(st.Kind, store.TaskKindGeneral), Priority: st.Priority, Deadline: deadline,
 						DependsOn: st.DependsOn, MilestoneID: &mid,
 					})
 				}
@@ -306,10 +311,8 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				if args.Status == store.GoalArchived {
 					label = "已归档"
 				}
-				// 达成（非归档）且非 owner 自行关闭时，发事件让 owner 侧的 AI 自决是否复盘：
-				// 归档是放弃、无复盘价值；owner 自己关不必自我打扰（镜像任务提交的 AssignerID!=AssigneeID 守卫）。
-				// 沉淀动作（save_knowledge/save_infos_on_user）由事件触发的 AI 轮次自决，不在工具内硬塞——
-				// 与「达成靠判断、不自动推导」同理。
+				// 达成（非归档）且非 owner 自行关闭时通知 owner；事件轮次
+				// 只判断如何表达，不承载知识写入或其他业务动作。
 				if args.Status == store.GoalAchieved && g.OwnerID != u.ID {
 					emitRequiredEvent(d, "目标达成", g.OwnerID, buildGoalClosedDetail(ctx, d.Store, g, u.Name))
 				}
@@ -393,7 +396,7 @@ func goalTools(d Deps, u *store.User) []ai.Tool {
 				if args.Status == store.GoalArchived {
 					label = "已归档"
 				}
-				// 达成（非归档）且非目标 owner 自行关闭时发事件，让其侧 AI 自决是否复盘。
+				// 达成（非归档）且非目标 owner 自行关闭时通知 owner。
 				if args.Status == store.GoalAchieved && g.OwnerID != u.ID {
 					emitRequiredEvent(d, "里程碑达成", g.OwnerID, buildMilestoneClosedDetail(ctx, d.Store, m, g, u.Name))
 				}
@@ -629,8 +632,8 @@ func renderMilestoneLine(b *strings.Builder, m *store.Milestone, mp store.Milest
 	b.WriteByte('\n')
 }
 
-// buildGoalClosedDetail 拼目标达成事件详情（自包含，供事件 AI 轮次判断是否复盘）。
-// 失败的进度聚合只静默降级（事件本身仍发）——复盘价值不依赖这些计数。
+// buildGoalClosedDetail 拼目标达成事件事实。失败的进度聚合只静默降级，
+// 不影响事件本身投递。
 func buildGoalClosedDetail(ctx context.Context, s *store.Store, g *store.Goal, closerName string) string {
 	detail := fmt.Sprintf("战略目标「%s」（%s）已被 %s 标记为已达成。", g.Title, internalRef("目标", g.ID), closerName)
 	if ms, err := s.MilestonesOfGoal(ctx, g.ID); err == nil && len(ms) > 0 {
@@ -640,7 +643,6 @@ func buildGoalClosedDetail(ctx context.Context, s *store.Store, g *store.Goal, c
 			}
 		}
 	}
-	detail += "值得复盘：达成原因、关键经验、相关成员表现。如确有沉淀价值，用 save_knowledge 存入知识库；否则回复「跳过」。"
 	return detail
 }
 
@@ -653,6 +655,5 @@ func buildMilestoneClosedDetail(ctx context.Context, s *store.Store, m *store.Mi
 			detail += fmt.Sprintf(" 任务 %d/%d accepted。", p.Accepted, p.Total)
 		}
 	}
-	detail += "值得复盘：节点经验、踩过的坑。如确有沉淀价值，用 save_knowledge 存入知识库；否则回复「跳过」。"
 	return detail
 }

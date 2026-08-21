@@ -9,9 +9,8 @@ import (
 )
 
 // AuditActivity is one canonical tool invocation recorded by the shared tool
-// wrapper. OK reports whether the handler returned a Go error; callers must
-// still read Result because domain-level rejections are intentionally returned
-// as model-readable text.
+// wrapper. OK is false for Go errors and machine-readable boundary rejections;
+// Result preserves the business response for diagnosis and display.
 type AuditActivity struct {
 	ID        int64
 	UserID    int64

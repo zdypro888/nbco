@@ -470,7 +470,9 @@ func TestRulesSemanticSearch(t *testing.T) {
 	if _, err := svc.Save(ctx, "部署知识", "部署走一键脚本", nil, u.ID); err != nil {
 		t.Fatal(err)
 	}
-	groupSkill, err := svc.SaveSkill(ctx, "群邀请流程", "触发条件：群里有人要加入\n摘要：先识别身份再邀请员工\n执行方法：查群成员，确认真人员工后生成邀请", []string{"scope:telegram"}, u.ID)
+	groupSkill, err := svc.SaveSkill(ctx, "群邀请流程", store.NewSkillContent(
+		"群里有人要加入", "先识别身份再邀请员工", "查群成员，确认真人员工后生成邀请", "",
+	), []string{"scope:telegram"}, u.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -39,36 +40,45 @@ func TestRenderUserDirectoryIsTelegramFriendlyAndSeparatesWorkers(t *testing.T) 
 		2: {SelfIntro: 0, PeerReview: 0},
 		3: {SelfIntro: 6, PeerReview: 1},
 		4: {},
+	}, 4, 0, 50)
+	var result struct {
+		Users []struct {
+			UserID              int64  `json:"user_id"`
+			Name                string `json:"name"`
+			Kind                string `json:"kind"`
+			Status              string `json:"status"`
+			IsCurrent           bool   `json:"is_current"`
+			VisibleProfileCount int    `json:"visible_profile_count"`
+			VisibleReviewCount  int    `json:"visible_review_count"`
+		} `json:"users"`
+		Total       int  `json:"total"`
+		HasMore     bool `json:"has_more"`
+		HumanCount  int  `json:"page_human_count"`
+		WorkerCount int  `json:"page_worker_count"`
+	}
+	if err := json.Unmarshal([]byte(got), &result); err != nil {
+		t.Fatalf("directory is not structured JSON: %v\n%s", err, got)
+	}
+	if result.Total != 4 || result.HasMore || result.HumanCount != 3 || result.WorkerCount != 1 || len(result.Users) != 4 {
+		t.Fatalf("directory counts = humans:%d workers:%d users:%d", result.HumanCount, result.WorkerCount, len(result.Users))
+	}
+	byID := make(map[int64]struct {
+		name, kind, status string
+		profiles, reviews  int
 	})
-	for _, want := range []string{
-		"[工具引用·工作内存]",
-		`user_id=2 name="UTM" kind=worker status=active`,
-		`user_id=3 name="黄桑" kind=human status=active`,
-		"[用户可见目录]",
-	} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("目录缺工具引用 %q:\n%s", want, got)
-		}
+	for _, item := range result.Users {
+		byID[item.UserID] = struct {
+			name, kind, status string
+			profiles, reviews  int
+		}{item.Name, item.Kind, item.Status, item.VisibleProfileCount, item.VisibleReviewCount}
 	}
-	visible := got
-	if idx := strings.Index(visible, "[用户可见目录]"); idx >= 0 {
-		visible = visible[idx+len("[用户可见目录]"):]
+	if got := byID[2]; got.name != "UTM" || got.kind != "worker" || got.status != store.UserActive {
+		t.Fatalf("worker entry = %+v", got)
 	}
-	for _, bad := range []string{"user_id", "tg_id", "Telegram ID", "<table", "|---"} {
-		if strings.Contains(visible, bad) {
-			t.Fatalf("用户可见目录不应泄露工具字段或表格标记 %q:\n%s", bad, visible)
-		}
+	if got := byID[3]; got.name != "黄桑" || got.kind != "human" || got.profiles != 6 || got.reviews != 1 {
+		t.Fatalf("human entry = %+v", got)
 	}
-	for _, want := range []string{
-		"真人员工（2 位）",
-		"- 员工ID 3｜黄桑（正常）｜画像：6 条｜评价：1 条",
-		"- 员工ID 4｜JA（已停用）｜画像：暂无可见｜评价：暂无可见",
-		"AI worker（1 个，虚拟成员，不计入真人员工）",
-		"- 员工ID 2｜UTM（正常，AI worker）｜画像：暂无可见｜评价：暂无可见",
-		"统计：真人员工 2 位，AI worker 1 个。",
-	} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("目录缺 %q:\n%s", want, got)
-		}
+	if !result.Users[0].IsCurrent || result.Users[0].UserID != ownerID {
+		t.Fatalf("current user must remain in complete directory: %+v", result.Users[0])
 	}
 }

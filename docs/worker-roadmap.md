@@ -23,7 +23,7 @@
 - HTTP/API 文件上传下载、任务附件挂载、worker 附件下载到 `attachments/`、worker 产物从 `artifacts/` 上传。
 - Telegram 网关可选；未配置 `telegram_token` 时，HTTP/API/MCP/worker 仍可运行。
 - worker 运维命令：`status` 校验身份与能力，`doctor` 做本机配置检查，`workspace` 展示主题 workspace 映射，`once` 单次领取任务，`logs` 读取平台服务状态。
-- worker 能力上报：启动/单次执行前把 OS/Arch、引擎、CLI 版本、可用能力（code/go/python/pdf/xlsx/images 等）写回中枢，自动派工会优先匹配能力。
+- worker 能力上报：启动/单次执行前把 OS/Arch、引擎、CLI 版本、可用能力（code/go/python/pdf/xlsx/images 等）写回中枢；自动派工用受限 AI 子调用做任务语义与动态能力匹配，再结合结构化任务类型、同类验收率、负载和在线状态排序，不使用语言关键词表。
 
 ## 后续增强
 

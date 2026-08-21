@@ -954,10 +954,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.nudgeDirective
-        hash: sha256:5b9d82db9115dbce3656f617e1d90c5dfe11ad0a64523b6ff21c460537df2712
-        struct_hash: sha256:2c4d3c65dd160b5b13590a118ab71aca9a4d6b2fbdca28b77efcd442990ab33d
-        doc_struct_hash: sha256:2c4d3c65dd160b5b13590a118ab71aca9a4d6b2fbdca28b77efcd442990ab33d
-        lines: [1517, 1552]
+        hash: sha256:9395a24cbd27f872fab3645c6168e174d800a230aad3792341ed3b7e41e2f14c
+        struct_hash: sha256:9f886b94faa5dd7673de2a2482cafb0cdbcf3e75679169fdea7fb09635d06fb7
+        doc_struct_hash: sha256:9f886b94faa5dd7673de2a2482cafb0cdbcf3e75679169fdea7fb09635d06fb7
+        lines: [1518, 1553]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.weeklyReportDirective

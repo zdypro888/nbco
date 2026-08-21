@@ -56,12 +56,19 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 				if msg := validateSkillScope(scope); msg != "" {
 					return msg, nil
 				}
-				exists, err := d.Store.LearningCandidateExists(ctx, kind, title, store.LearningStatusPending, store.LearningStatusPublished)
+				memoryClass := store.NormalizeLearningMemoryClass(kind, args.MemoryClass)
+				if memoryClass == store.LearningMemoryCanonical || memoryClass == store.LearningMemoryTransient {
+					return "该信息由结构化业务数据维护或仅具临时价值，不进入学习候选；请使用对应领域工具更新主数据。", nil
+				}
+				exists, err := d.Store.EquivalentLearningCandidateExistsInClass(
+					ctx, kind, memoryClass, scope, title, content,
+					store.LearningStatusPending, store.LearningStatusPublished,
+				)
 				if err != nil {
 					return "", err
 				}
 				if exists {
-					return "已有同名学习候选或已发布条目，不重复提交。", nil
+					return "相同作用域内已有内容完全一致的学习候选或已发布条目，不重复提交。", nil
 				}
 				confidence := args.Confidence
 				if confidence <= 0 {
@@ -69,10 +76,6 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 				}
 				if confidence > 1 {
 					confidence = 1
-				}
-				memoryClass := store.NormalizeLearningMemoryClass(kind, args.MemoryClass)
-				if memoryClass == store.LearningMemoryCanonical || memoryClass == store.LearningMemoryTransient {
-					return "该信息由结构化业务数据维护或仅具临时价值，不进入学习候选；请使用对应领域工具更新主数据。", nil
 				}
 				ev, _ := json.Marshal(map[string]any{
 					"source":   "tool",
@@ -171,6 +174,9 @@ func learningTools(d Deps, u *store.User) []ai.Tool {
 					if errors.Is(err, store.ErrNotFound) {
 						return "学习候选不存在或已结束审核。", nil
 					}
+					if errors.Is(err, store.ErrConflict) {
+						return "相同作用域和权威类别中已有内容完全一致的有效候选；请审核现有候选，本条保持原状态。", nil
+					}
 					return "", err
 				}
 				if args.MemoryClass == store.LearningMemoryDurable {
@@ -253,7 +259,11 @@ func publishLearningCandidate(ctx context.Context, d Deps, u *store.User, c *sto
 		}
 		return &k.ID, fmt.Sprintf("已发布为行为规则（%s）。", internalRef("规则", k.ID)), nil
 	case store.LearningKindSkill:
-		k, err := d.saveSkill(ctx, title, content, tags, u.ID)
+		skill, err := store.DecodeSkillContent(content)
+		if err != nil {
+			return nil, "skill 候选内容格式无效，不能发布。", nil
+		}
+		k, err := d.saveSkill(ctx, title, skill, tags, u.ID)
 		if err != nil {
 			return nil, "", err
 		}

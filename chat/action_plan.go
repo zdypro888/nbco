@@ -207,7 +207,7 @@ func toolCanProveAction(name string, byName map[string]ai.Tool) bool {
 }
 
 func toolResultLooksPendingApproval(result string) bool {
-	return strings.Contains(result, nbtools.PendingApprovalMarker)
+	return nbtools.ToolResultPendingApproval(result)
 }
 
 func firstPendingApprovalStep(steps []ai.Step) (ai.Step, bool) {

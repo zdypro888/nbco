@@ -446,6 +446,30 @@ func TestClientSubmitRejectsMissingOutcome(t *testing.T) {
 	}
 }
 
+func TestClientSubmitCarriesStructuredResultAsJSON(t *testing.T) {
+	var got struct {
+		StructuredResult json.RawMessage `json:"structured_result"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"ok":"1"}`))
+	}))
+	defer srv.Close()
+
+	err := newClient(srv.URL, "tok-worker-a").Submit(context.Background(), 42, "claim-1",
+		"done", "", SessionInfo{}, "/tmp/repo", SubmissionResult{
+			Outcome: workerproto.OutcomeSucceeded, StructuredResult: json.RawMessage(` { "items": [1] } `),
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got.StructuredResult) != `{"items":[1]}` {
+		t.Fatalf("structured_result = %s", got.StructuredResult)
+	}
+}
+
 func TestClientUpdateSessionCarriesActiveClaim(t *testing.T) {
 	var body struct {
 		RunID                    int64  `json:"run_id"`

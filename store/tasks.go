@@ -57,6 +57,7 @@ type Task struct {
 	Goal               string
 	Description        string
 	Acceptance         string
+	Kind               string
 	Priority           string
 	Deadline           *time.Time
 	DeadlineGeneration int64
@@ -107,7 +108,7 @@ type Attachment struct {
 	CreatedAt time.Time
 }
 
-const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, deadline_generation, status, revision, nudge_count, nudge_attempt_count, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
+const taskCols = `id, project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, kind, priority, deadline, deadline_generation, status, revision, nudge_count, nudge_attempt_count, depends_on, milestone_id, submitted_by, submitted_at, cancel_reason, cancelled_at, superseded_by, created_at, updated_at`
 
 // successfulTaskCompletionStatusSQL is the business review rule. Work assigned
 // to somebody else requires review; self-owned work can close directly unless
@@ -133,7 +134,7 @@ func taskColsWithAlias(alias string) string {
 func scanTask(row interface{ Scan(...any) error }) (*Task, error) {
 	var t Task
 	if err := row.Scan(&t.ID, &t.ProjectID, &t.ParentID, &t.AssignerID, &t.AssigneeID,
-		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.Priority, &t.Deadline,
+		&t.Title, &t.Goal, &t.Description, &t.Acceptance, &t.Kind, &t.Priority, &t.Deadline,
 		&t.DeadlineGeneration, &t.Status, &t.Revision, &t.NudgeCount, &t.NudgeAttemptCount, &t.DependsOn, &t.MilestoneID,
 		&t.SubmittedBy, &t.SubmittedAt, &t.CancelReason, &t.CancelledAt, &t.SupersededBy,
 		&t.CreatedAt, &t.UpdatedAt); err != nil {
@@ -337,6 +338,10 @@ func createTaskTx(ctx context.Context, tx pgx.Tx, t *Task, runSpec *WorkerRunSpe
 	t.Goal = strings.TrimSpace(t.Goal)
 	t.Description = strings.TrimSpace(t.Description)
 	t.Acceptance = strings.TrimSpace(t.Acceptance)
+	t.Kind = NormalizeTaskKind(t.Kind)
+	if t.Kind == "" {
+		t.Kind = TaskKindGeneral
+	}
 	deps, ok := normalizeTaskDeps(t.DependsOn)
 	if !ok {
 		return nil, ErrNotFound
@@ -367,10 +372,10 @@ func createTaskTx(ctx context.Context, tx pgx.Tx, t *Task, runSpec *WorkerRunSpe
 		}
 	}
 	row := tx.QueryRow(ctx,
-		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, depends_on, milestone_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+taskCols,
+		`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, kind, priority, deadline, depends_on, milestone_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING `+taskCols,
 		t.ProjectID, t.ParentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance,
-		nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
+		t.Kind, nonEmpty(t.Priority, "normal"), t.Deadline, deps, t.MilestoneID)
 	created, err := scanTask(row)
 	if err != nil {
 		return nil, err
@@ -606,6 +611,16 @@ func (s *Store) ReassignTaskWithProgress(ctx context.Context, id, newAssigneeID,
 // UpdateTaskContent 分配者修改任务要素（nil 字段不动）。
 // 截止时间变更时重置提醒标记，让新截止时间重新获得临近提醒与过期通知。
 func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, description, acceptance *string, deadline *time.Time) (*Task, error) {
+	return s.updateTaskContent(ctx, id, goal, description, acceptance, nil, deadline)
+}
+
+// UpdateTaskContentWithKind also updates the structured dispatch/outcome
+// category. Keeping it optional preserves callers that only change prose.
+func (s *Store) UpdateTaskContentWithKind(ctx context.Context, id int64, goal, description, acceptance, kind *string, deadline *time.Time) (*Task, error) {
+	return s.updateTaskContent(ctx, id, goal, description, acceptance, kind, deadline)
+}
+
+func (s *Store) updateTaskContent(ctx context.Context, id int64, goal, description, acceptance, kind *string, deadline *time.Time) (*Task, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -627,9 +642,17 @@ func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, descripti
 	goal = trim(goal)
 	description = trim(description)
 	acceptance = trim(acceptance)
+	if kind != nil {
+		if !IsTaskKind(*kind) {
+			return nil, ErrConflict
+		}
+		normalized := NormalizeTaskKind(*kind)
+		kind = &normalized
+	}
 	changed := goal != nil && *goal != current.Goal ||
 		description != nil && *description != current.Description ||
 		acceptance != nil && *acceptance != current.Acceptance ||
+		kind != nil && *kind != current.Kind ||
 		deadline != nil && !sameOptionalTime(deadline, current.Deadline)
 	if !changed {
 		if err := tx.Commit(ctx); err != nil {
@@ -646,16 +669,17 @@ func (s *Store) UpdateTaskContent(ctx context.Context, id int64, goal, descripti
 			   goal = COALESCE($2, t.goal),
 			   description = COALESCE($3, t.description),
 			   acceptance = COALESCE($4, t.acceptance),
-			   status = CASE WHEN $6::boolean THEN 'pending' ELSE t.status END,
+			   kind = COALESCE($5, t.kind),
+			   status = CASE WHEN $7::boolean THEN 'pending' ELSE t.status END,
 			   revision = t.revision + 1,
-			   deadline = COALESCE($5, t.deadline),
-			   nudge_claimed_at = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN NULL ELSE t.nudge_claimed_at END,
-			   nudged_at = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN NULL ELSE t.nudged_at END,
-			   nudge_count = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN 0 ELSE t.nudge_count END,
-			   nudge_attempt_count = CASE WHEN $5::timestamptz IS NOT NULL AND $5::timestamptz IS DISTINCT FROM t.deadline THEN 0 ELSE t.nudge_attempt_count END,
+			   deadline = COALESCE($6, t.deadline),
+			   nudge_claimed_at = CASE WHEN $6::timestamptz IS NOT NULL AND $6::timestamptz IS DISTINCT FROM t.deadline THEN NULL ELSE t.nudge_claimed_at END,
+			   nudged_at = CASE WHEN $6::timestamptz IS NOT NULL AND $6::timestamptz IS DISTINCT FROM t.deadline THEN NULL ELSE t.nudged_at END,
+			   nudge_count = CASE WHEN $6::timestamptz IS NOT NULL AND $6::timestamptz IS DISTINCT FROM t.deadline THEN 0 ELSE t.nudge_count END,
+			   nudge_attempt_count = CASE WHEN $6::timestamptz IS NOT NULL AND $6::timestamptz IS DISTINCT FROM t.deadline THEN 0 ELSE t.nudge_attempt_count END,
 			   updated_at = now()
 			 WHERE t.id = $1 AND t.status IN ('pending', 'in_progress', 'awaiting_input')
-			 RETURNING `+taskColsWithAlias("t"), id, goal, description, acceptance, deadline, isWorker))
+			 RETURNING `+taskColsWithAlias("t"), id, goal, description, acceptance, kind, deadline, isWorker))
 	if err != nil {
 		return nil, err
 	}
@@ -818,6 +842,32 @@ func cascadeUp(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error)
 			break // 父任务等待真人验收，传播止步于此
 		}
 		parentID = p.ParentID
+	}
+	return chain, nil
+}
+
+// replayCascadeChain reconstructs the durable result of cascadeUp after an
+// idempotent caller retry. It never mutates state: only ancestors whose stored
+// status proves that propagation crossed that boundary are returned.
+func replayCascadeChain(ctx context.Context, tx pgx.Tx, parentID *int64) ([]*Task, error) {
+	var chain []*Task
+	for parentID != nil {
+		parent, err := scanTask(tx.QueryRow(ctx,
+			`SELECT `+taskCols+` FROM tasks WHERE id = $1`, *parentID))
+		if errors.Is(err, ErrNotFound) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if parent.Status != TaskAccepted && parent.Status != TaskDone {
+			break
+		}
+		chain = append(chain, parent)
+		if parent.Status != TaskAccepted {
+			break
+		}
+		parentID = parent.ParentID
 	}
 	return chain, nil
 }
@@ -1043,10 +1093,10 @@ func (s *Store) SplitTask(ctx context.Context, parentID int64, subs []*Task) ([]
 	created := make([]*Task, 0, len(subs))
 	for _, t := range subs {
 		row := tx.QueryRow(ctx,
-			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, priority, deadline, milestone_id)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING `+taskCols,
+			`INSERT INTO tasks (project_id, parent_id, assigner_id, assignee_id, title, goal, description, acceptance, kind, priority, deadline, milestone_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING `+taskCols,
 			t.ProjectID, parentID, t.AssignerID, t.AssigneeID, t.Title, t.Goal, t.Description, t.Acceptance,
-			nonEmpty(t.Priority, "normal"), t.Deadline, t.MilestoneID)
+			nonEmpty(NormalizeTaskKind(t.Kind), parent.Kind), nonEmpty(t.Priority, "normal"), t.Deadline, t.MilestoneID)
 		ct, err := scanTask(row)
 		if err != nil {
 			return nil, err

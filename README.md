@@ -226,7 +226,7 @@ chmod +x nbco-worker
 ```
 
 `bind/bootstrap` 用绑定码兑换 Worker Access Token（也兼容直接传已有 token），校验其必须属于 worker，并把换来的 token 与 worker ID/名字写入 `~/.nbco-worker.json`；`run` 启动时也会打印当前上线身份。
-worker 上线和单次执行前会向中枢上报能力（OS/Arch、引擎、CLI 版本、可用能力如 code/go/python/pdf/xlsx/images），`list_workers`、Web AI员工页和自动派工都会使用这些信号；任务里出现代码、PDF、Excel、图片等线索时会优先派给匹配能力的 worker，再看负载、在线状态和历史通过数。
+worker 上线和单次执行前会向中枢上报能力（OS/Arch、引擎、CLI 版本、可用能力如 code/go/python/pdf/xlsx/images），`list_workers`、Web AI员工页和自动派工都会使用这些信号。自动派工由受限 AI 子调用把任务语义与动态能力声明评分，同时写入结构化 `task.kind`；最终选择仍由代码统一结合权限、同类验收通过率、负载和在线状态排序，不再用中英文关键词表猜任务类型。
 
 ### 沙箱化部署（推荐）
 
@@ -316,7 +316,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 
 ## 会话与上下文压缩
 
-`chat_messages` 是唯一的跨轮对话事实源；`action_turns` 是与回复同事务提交的执行证据。每个交互轮次先在 `conversation_turns` 原子登记用户输入，再创建独立的 Eino managed session：Eino 原生 DeepAgent 在该轮内部持久记录模型消息、工具调用、结果和 checkpoint，完成后一次性提交助手消息、动作证据、用量和 Memory Miner 队列。下一轮从滚动摘要、近期聊天和限量执行事实重新建立 Eino session，不依赖上一轮可能回滚或缺失的引擎事件。
+`chat_messages` 是唯一的跨轮对话原文；`action_turns` 是与回复同事务提交的执行证据；`work_evidence` 是可检索的运营事实投影。每条私聊和群消息都先投影为 communication，用户明确陈述的进展、决策、风险或产物可由 `record_fact` 或 Memory Miner 幂等升级成结构化事实，即使暂时没有任务/项目关联也不会丢失。每个交互轮次先在 `conversation_turns` 原子登记用户输入，再创建独立的 Eino managed session：Eino 原生 DeepAgent 在该轮内部持久记录模型消息、工具调用、结果和 checkpoint，完成后一次性提交助手消息、动作证据、用量和 Memory Miner 队列。下一轮从滚动摘要、近期聊天和限量执行事实重新建立 Eino session，不依赖上一轮可能回滚或缺失的引擎事件。
 
 `conversation_turns` 同时记录 Agent 执行状态与渠道交付状态。Telegram 消息 ID 和 HTTP `Idempotency-Key` 经过用户与操作域隔离后只保存哈希，用于抑制重放；结果提交与外部发送分开确认，因此“Agent 已完成但 Telegram 发送失败”可被准确审计。进程启动会关闭超过轮次截止时间的失联 claim，但不会自动重放可能已经产生外部副作用的操作。私聊、群聊和 ihtml 共用这套生命周期；群 `/listen` 的旁听消息仍直接进入共享聊天事实，随后由同一产品层摘要和历史重放处理。
 
@@ -335,7 +335,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 - **每日待办**：`daily_summary_hour` 时刻给每个有待办的人推清单
 - **老板日报**：同一时刻给超管推全局概览（进行中/过期/待验收/近24小时验收 + 过期任务点名）
 - **AI 周报**：每周一同一时刻，AI 调 `company_overview` 等工具核实数据后，给每位超管写叙事周报
-- **权限感知通用读取**：`query_data` 让 AI 自行发现并查询成员、身份、画像、权限、项目、任务、文件、日程、知识、目标、活动与审计等数据；数据库在检索前按调用者做行级/字段级裁剪，超管另有只读 SQL 兜底
+- **权限感知通用读取**：`search_context` 是当前会话的统一召回入口，私聊/API 跨业务主数据、工作事实和本人历史，群聊严格限定当前群；`query_data` 提供可发现、可过滤的完整只读数据面。两者的语义命中都只返回稳定 ID，再由 PostgreSQL 按调用者复核行级/字段级权限；超管另有只读 SQL 兜底
 - **月度人员盘点**：每月 1 号，AI 以超管身份基于任务履历更新成员画像草稿，并推送盘点摘要。所有周期批处理在首次运行时冻结当期成员快照；后续 tick 只重试该快照中的失败项，当期新增成员进入下个周期，避免开放重试窗口变成持续吸收新数据的常驻任务
 
 ### 系统事件总线（事件 → AI 决策）
@@ -351,7 +351,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 ## 知识与画像（越用越值钱）
 
 - **知识库**：`save_knowledge` / `search_knowledge` 等工具全员可用；系统提示要求 AI 主动沉淀有复用价值的结论、回答公司事实前先检索
-- **行为规则（Policy Memory）**：超管对 AI 提出持久要求时，Memory Miner 先抽取、再由独立治理子调用判断发布/待审/拒绝；冲突候选不会并排自动生效。少数 `pinned` 底线规则每轮常驻，其余规则按当前输入语义召回并校验作用域。知识、规则和 Skill 都支持 `set_knowledge_active` 可逆归档；归档后立即退出提示注入、搜索和 Qdrant 对账，原文、版本与审计仍保留。
+- **行为规则（Policy Memory）**：超管对 AI 提出持久要求时，Memory Miner 先抽取，再把相关正式记忆和候选交给独立治理模型判断发布、待审、重复或冲突；数据库只做精确幂等，不再靠“不要/必须”等词表猜语义。少数 `pinned` 底线规则每轮常驻，其余规则按当前输入语义召回并校验作用域。知识、规则和 Skill 都支持 `set_knowledge_active` 可逆归档；归档后立即退出提示注入、搜索和 Qdrant 对账，原文、版本与审计仍保留。
 - **情景记忆（Episodic Memory）**：每条有效非空聊天消息都建立 embedding，`search_history` 作为常驻只读能力交给 DeepAgent，是否检索、检索什么由 Agent 根据当前目标决定。授权聊天原文、单轮 Eino 执行日志和 Worker 主题会话在 PostgreSQL 中保持原值，保证 Agent/PTY 恢复时不丢参数和凭据；embedding、Memory Miner、学习候选和审计摘要使用独立的脱敏投影。旧 AI 答复不会被自动当成当前事实回灌；短确认仍会索引并携带相邻上下文供显式检索；历史控制文案或截断碎片只标记为不可回放，原始行仍保留审计。
 - **知识代谢**：每月 2 号 AI 对当期冻结的学习候选快照做一次治理——合并重复、归档过期、点名冲突条目待裁决（冲突不擅自定夺）。批次可跨 tick 重试，但快照成员和最终汇报在本期保持稳定；月中新候选进入下期
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
@@ -370,9 +370,9 @@ Prompt Skill 负责“什么时候想起某个流程、按什么步骤做”；�
 nbco 不把每次模型归纳都直接混进不可见的系统提示，而是把可长期复用的结论沉淀成可治理资产：
 
 - **学习候选**：`learning_candidates` 记录自动归纳出的 knowledge / rule / skill / script / profile / summary，带来源、证据、置信度、状态、审核人和权威类别。`memory_class` 将资产分为可长期复用的 `durable`、应回写业务表的 `canonical`、仅供历史检索的 `transient` 与待人工判断的 `unclassified`
-- **对话学习**：Memory Miner 只消费用户真实输入和已验证工具结果，不消费 Gateway 为执行而补充的文件路径、控制指令或模型答复。它从证据中抽取规则、skill、知识，再由独立治理子调用复核权威类别和是否过度泛化；只有双方一致判定为 `durable` 的候选才可自动进入长期资产。员工档案、任务、项目、日程等 `canonical` 主数据必须由对应领域工具维护，短期事件留在聊天与活动索引中
-- **worker 学习**：worker 完成资料分析任务时，可在汇报末尾输出 `NBCO_LEARNING_CANDIDATES_JSON:`，nbco 会解析为学习候选
-- **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，并只在同一 `memory_class` 内判断重复/冲突；调度器月度治理和 Web 学习页会自动触发一次轻量评分
+- **对话学习**：Memory Miner 只消费用户真实输入和已验证工具结果，不消费 Gateway 为执行而补充的文件路径、控制指令或模型答复。它从证据中抽取规则、skill、知识和运营事实，再由独立治理子调用复核长期资产的权威类别/相关记忆关系，以及运营事实是否确为已经发生或正在发生；只有双方一致判定为 `durable` 且语义为新内容的长期候选才能自动发布，只有通过独立事实复核的进展/决策/风险等可变事实才能进入 `work_evidence`。员工档案、任务、项目、日程等 `canonical` 主数据必须由对应领域工具维护
+- **worker 学习**：需要结构化沉淀的任务会在领取时下发 JSON Schema；交互式 Worker 把严格 JSON 写入 `.nbco/result.json`，服务端校验 schema、文件归属和任务身份后再把其中的知识、规则、Skill、实体或待确认问题进入治理流程。自然语言汇报只用于用户阅读，不再解析控制前缀
+- **治理评分**：`score_learning_candidates` 会给候选计算 `value_score`，精确相同内容可幂等归档，文本相似只用于召回相关候选；是否语义重复或冲突由 Eino Agent 结合 `search_context` 审核。调度器月度治理和 Web 学习页会自动触发一次轻量预评分
 - **审核发布**：超管用 `list_learning_candidates` 查看，用 `approve_learning_candidate` 发布 `durable` 知识/规则/Skill，用 `classify_learning_candidate` 把误入长期资产的主数据或短期事件可逆归档。状态机禁止已拒绝候选被重新发布，也禁止未分类候选绕过权威判断
 - **版本回滚**：知识/规则/Skill 更新前会写入 `knowledge_versions`；误改后用 `list_knowledge_versions` / `rollback_knowledge` 恢复
 - **资料实体库**：worker 资料分析可同时输出客户、项目、合同、制度、联系人等结构化实体，入 `material_entities`，再由 `list_material_entities` 检索

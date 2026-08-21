@@ -1,0 +1,63 @@
+schema: 1
+nodes:
+    - id: store/skill_content.go
+      level: file
+      anchor:
+        file: store/skill_content.go
+        hash: sha256:5b39cf2ea75b13f9f9df12a55efb65cd7b5b2a433cb4ff45b06ecc8298e57831
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-21T09:43:29.302723Z
+    - id: store/skill_content.go#SkillContent
+      level: decl
+      anchor:
+        file: store/skill_content.go
+        symbol: SkillContent
+        hash: sha256:cb489eea68b72eb2396b22974004420583be7eeec3c8e35d8afdb72f518b6632
+        struct_hash: sha256:955336eda7050fc82dd8613b426d3b3482a6a46757c1a276efc62955a59278d5
+        doc_struct_hash: sha256:58c957098159d1111da2cdb9ce0d636c75613f5b5913efe13004f5e3cde5f60f
+        lines: [16, 24]
+      status: fresh
+      since: 2026-08-21T09:43:29.302654Z
+      entries:
+        - id: e_387eb3b0
+          kind: contract
+          text: Skill 的持久化边界是 version/trigger/summary/procedure/constraints 的严格 JSON；RenderSkillContent 只做单向展示，展示文本不得再被解析回业务字段。
+          confidence: inferred
+          at: 2026-08-21T09:44:48.571553Z
+          author: codex-mcp-client
+        - id: e_19b8b245
+          kind: pitfall
+          text: 新增 Skill 写入路径必须调用 EncodeSkillContent 或 CreateSkill；直接向 knowledge.content 写 Markdown 会被数据库约束拒绝，也会破坏 Eino skill middleware 的按需加载。
+          confidence: inferred
+          at: 2026-08-21T09:44:48.5737Z
+          author: codex-mcp-client
+      keywords:
+        - 结构化 skill
+        - skillcontent
+        - skill json
+        - 触发条件
+        - 执行步骤
+        - 展示渲染
+    - id: store/skill_content.go#EncodeSkillContent
+      level: function
+      anchor:
+        file: store/skill_content.go
+        symbol: EncodeSkillContent
+        hash: sha256:a1787d827025d928aafaa96888078cf649774ff62e6a50f0bc94a9f86665c145
+        struct_hash: sha256:8d27f688f846e5f4f65099552ba19e5394d7995593e2a3eb2218bfc69895e5df
+        doc_struct_hash: sha256:8d27f688f846e5f4f65099552ba19e5394d7995593e2a3eb2218bfc69895e5df
+        lines: [46, 56]
+      status: fresh
+      since: 2026-08-21T09:43:29.303125Z
+    - id: store/skill_content.go#DecodeSkillContent
+      level: function
+      anchor:
+        file: store/skill_content.go
+        symbol: DecodeSkillContent
+        hash: sha256:c9c92c67955785ae93c7701d505d20747ca12895af7a573df02363f676276607
+        struct_hash: sha256:9cfea222ffa36ecff110198ad49d53182a0496e276a125a5a65afea10805527d
+        doc_struct_hash: sha256:9cfea222ffa36ecff110198ad49d53182a0496e276a125a5a65afea10805527d
+        lines: [58, 76]
+      status: fresh
+      since: 2026-08-21T09:43:29.303516Z

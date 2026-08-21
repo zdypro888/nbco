@@ -640,10 +640,10 @@ nodes:
       anchor:
         file: store/chat.go
         symbol: Store.MessagesAfter
-        hash: sha256:d1bc18313e68141d11c27cde1d726159c7b288bef55ef4d072e9d14dcb95f0ef
-        struct_hash: sha256:ecb5415c29fc732ff47bf081a47afe96297939625429b103bf20a98109612ec9
-        doc_struct_hash: sha256:8468c595366ce75993742e39937f4a42e5e04f9d8b3322896e5db2dda51bc9f4
-        lines: [756, 784]
+        hash: sha256:cb546b4163b450b61ed43cdff3118cfa57f200de91a1ad098b9214646cb737bb
+        struct_hash: sha256:74535a43c1f00f4a434fb8df770546c782ed0735978e64b5b7a90e5dbb8ab49e
+        doc_struct_hash: sha256:12dc79c694ca854b986743c056dc301a8affabac7b0ec52a1f62b6f959b5213f
+        lines: [789, 811]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/chat.go#Store.MessagesBefore

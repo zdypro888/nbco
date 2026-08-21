@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -207,30 +208,65 @@ type MaterialEntity struct {
 	Evidence          json.RawMessage
 	Confidence        float32
 	SourceCandidateID *int64
+	SourceType        string
+	SourceRef         string
+	SourceItemKey     string
 	CreatedBy         *int64
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
 
-const materialEntityCols = `id, file_id, entity_type, name, content, evidence, confidence, source_candidate_id, created_by, created_at, updated_at`
+const materialEntityCols = `id, file_id, entity_type, name, content, evidence, confidence, source_candidate_id, source_type, source_ref, source_item_key, created_by, created_at, updated_at`
 
 func scanMaterialEntity(row interface{ Scan(...any) error }) (*MaterialEntity, error) {
 	var e MaterialEntity
-	if err := row.Scan(&e.ID, &e.FileID, &e.EntityType, &e.Name, &e.Content, &e.Evidence, &e.Confidence, &e.SourceCandidateID, &e.CreatedBy, &e.CreatedAt, &e.UpdatedAt); err != nil {
+	if err := row.Scan(&e.ID, &e.FileID, &e.EntityType, &e.Name, &e.Content, &e.Evidence, &e.Confidence,
+		&e.SourceCandidateID, &e.SourceType, &e.SourceRef, &e.SourceItemKey,
+		&e.CreatedBy, &e.CreatedAt, &e.UpdatedAt); err != nil {
 		return nil, wrapErr(err)
 	}
 	return &e, nil
 }
 
 func (s *Store) CreateMaterialEntity(ctx context.Context, e MaterialEntity) (*MaterialEntity, error) {
+	entity, _, err := s.UpsertMaterialEntity(ctx, e)
+	return entity, err
+}
+
+// UpsertMaterialEntity makes a derived result replay-safe when its source
+// identity is present. Canonical/manual entities omit that identity and retain
+// ordinary insert semantics.
+func (s *Store) UpsertMaterialEntity(ctx context.Context, e MaterialEntity) (*MaterialEntity, bool, error) {
 	if len(e.Evidence) == 0 {
 		e.Evidence = json.RawMessage(`{}`)
 	}
-	return scanMaterialEntity(s.pool.QueryRow(ctx,
-		`INSERT INTO material_entities (file_id, entity_type, name, content, evidence, confidence, source_candidate_id, created_by)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	e.SourceType = strings.TrimSpace(e.SourceType)
+	e.SourceRef = strings.TrimSpace(e.SourceRef)
+	e.SourceItemKey = strings.TrimSpace(e.SourceItemKey)
+	identified := e.SourceType != "" || e.SourceRef != "" || e.SourceItemKey != ""
+	if identified && (e.SourceType == "" || e.SourceRef == "" || e.SourceItemKey == "") {
+		return nil, false, ErrConflict
+	}
+	entity, err := scanMaterialEntity(s.pool.QueryRow(ctx,
+		`INSERT INTO material_entities
+		   (file_id, entity_type, name, content, evidence, confidence, source_candidate_id,
+		    source_type, source_ref, source_item_key, created_by)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		 ON CONFLICT DO NOTHING
 		 RETURNING `+materialEntityCols,
-		e.FileID, e.EntityType, e.Name, e.Content, e.Evidence, e.Confidence, e.SourceCandidateID, e.CreatedBy))
+		e.FileID, e.EntityType, e.Name, e.Content, e.Evidence, e.Confidence, e.SourceCandidateID,
+		e.SourceType, e.SourceRef, e.SourceItemKey, e.CreatedBy))
+	if err == nil {
+		return entity, true, nil
+	}
+	if !identified || !errors.Is(err, ErrNotFound) {
+		return nil, false, err
+	}
+	entity, err = scanMaterialEntity(s.pool.QueryRow(ctx,
+		`SELECT `+materialEntityCols+` FROM material_entities
+		  WHERE source_type=$1 AND source_ref=$2 AND source_item_key=$3`,
+		e.SourceType, e.SourceRef, e.SourceItemKey))
+	return entity, false, err
 }
 
 func (s *Store) ListMaterialEntities(ctx context.Context, entityType string, limit int) ([]*MaterialEntity, error) {

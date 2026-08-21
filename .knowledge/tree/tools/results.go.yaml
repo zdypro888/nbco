@@ -82,6 +82,6 @@ nodes:
         hash: sha256:493cc6fe804acb4aeb5067f0c7c2a5db814418fd753d461f1e340af863da5cdc
         struct_hash: sha256:403125e76e0a63fe2ae1a077cc15e382dc79ea8437e3248bfd4f109f2115918f
         doc_struct_hash: sha256:900689370d9c225ed358554cd6caa18f8cba9f679cec3d1ea3dbc310bf622d0c
-        lines: [62, 66]
+        lines: [75, 79]
       status: fresh
       since: 2026-07-20T03:54:29.343301Z

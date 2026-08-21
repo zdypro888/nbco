@@ -73,10 +73,6 @@ var (
 	escapedReasoningCloseRe = regexp.MustCompile(`(?is)&lt;\s*/\s*think\s*&gt;`)
 	escapedReasoningOpenRe  = regexp.MustCompile(`(?is)&lt;\s*think\b[^&]*?&gt;`)
 
-	toolOnlySectionRe            = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*?\n\[用户可见目录\]\s*\n?`)
-	trailingToolOnlyRe           = regexp.MustCompile(`(?is)(^|\n)\[工具引用[^\n]*\]\s*\n.*$`)
-	internalMarkerRe             = regexp.MustCompile(`(?i)\[nbco:[a-z0-9_-]+\]\s*`)
-	legacyHistoryTimeRe          = regexp.MustCompile(`(?m)(^|\n)[\t ]*\[历史消息时间[^\r\n]{1,240}\][\t ]*`)
 	historyMetaTagRe             = regexp.MustCompile(`(?is)[\t ]*<nbco_history_meta\b[^>]*?/?>[\t ]*`)
 	historyMetaDanglingRe        = regexp.MustCompile(`(?is)[\t ]*<nbco_history_meta\b[^>]*$`)
 	escapedHistoryMetaTagRe      = regexp.MustCompile(`(?is)[\t ]*&lt;nbco_history_meta\b.*?/?&gt;[\t ]*`)
@@ -133,16 +129,15 @@ func StripReasoning(s string) string {
 
 // StripHistoryMetadata removes nbco's internal replay-time protocol from model
 // text. Historical timestamps are useful to resolve relative dates, but they
-// are not presentation content and must never be persisted or shown. The
-// legacy natural-language prefix is removed as well so already polluted history
-// cannot teach later turns to repeat it. Dangling forms cover streamed partials.
+// are not presentation content and must never be persisted or shown. Legacy
+// natural-language markers are removed once by a database migration rather
+// than interpreted forever at runtime. Dangling forms cover streamed partials.
 func StripHistoryMetadata(s string) string {
 	if s == "" {
 		return s
 	}
 	for {
-		next := legacyHistoryTimeRe.ReplaceAllString(s, "$1")
-		next = historyMetaTagRe.ReplaceAllString(next, "")
+		next := historyMetaTagRe.ReplaceAllString(s, "")
 		next = escapedHistoryMetaTagRe.ReplaceAllString(next, "")
 		if next == s {
 			break
@@ -151,13 +146,6 @@ func StripHistoryMetadata(s string) string {
 	}
 	s = historyMetaDanglingRe.ReplaceAllString(s, "")
 	s = escapedHistoryMetaDanglingRe.ReplaceAllString(s, "")
-	// A streaming snapshot can end halfway through the old prefix before the
-	// closing bracket arrives. Suppress only that unfinished final line.
-	lineStart := strings.LastIndexByte(s, '\n') + 1
-	lastLine := strings.TrimLeft(s[lineStart:], " \t")
-	if strings.HasPrefix(lastLine, "[历史消息时间") && !strings.Contains(lastLine, "]") {
-		s = s[:lineStart]
-	}
 	return strings.TrimSpace(s)
 }
 
@@ -238,16 +226,13 @@ func NormalizeEscapedLineBreaks(s string) string {
 	return b.String()
 }
 
-// SanitizeVisibleReply removes reasoning and internal presentation protocols
+// SanitizeVisibleReply removes reasoning and structured replay metadata
 // from text that is about to be shown to end users. Authorization belongs at
 // the tool/data boundary; stable business IDs and explicitly requested channel
 // IDs must not be regex-rewritten after an authorized tool returned them.
 func SanitizeVisibleReply(s string) string {
 	s = StripReasoning(s)
 	s = StripHistoryMetadata(s)
-	s = toolOnlySectionRe.ReplaceAllString(s, "$1")
-	s = trailingToolOnlyRe.ReplaceAllString(s, "$1")
-	s = internalMarkerRe.ReplaceAllString(s, "")
 	s = NormalizeEscapedLineBreaks(s)
 	return strings.TrimSpace(s)
 }

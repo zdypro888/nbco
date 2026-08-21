@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: workerproto/structured_result.go
+      level: file
+      anchor:
+        file: workerproto/structured_result.go
+        hash: sha256:36f8d6c7341fef2bf6f25c8d907c398b70fc661300f758e36d8b44d4d653e98b
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-21T09:43:55.181318Z
+    - id: workerproto/structured_result.go#ValidateStructuredResult
+      level: function
+      anchor:
+        file: workerproto/structured_result.go
+        symbol: ValidateStructuredResult
+        hash: sha256:5b88c08e45acefdb8e16c5fd572c214593d77d0f3f7f28ebcaf3abba68df73bc
+        struct_hash: sha256:54e1f95bbeec3dc188431f3761956e6a8920ab2665ef0ca58e1903d631c78810
+        doc_struct_hash: sha256:1e986d7c22d2dde62abf100d8650d6c08226138620dfa1254fed2f37e060ac9f
+        lines: [77, 106]
+      status: fresh
+      since: 2026-08-21T09:43:55.18125Z

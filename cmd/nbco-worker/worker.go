@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,7 +30,7 @@ const (
 	progressInterval  = 60 * time.Second // 屏幕快照回传间隔（有变化才发）
 	progressTail      = 25               // 每次快照回传的屏幕行数
 	maxStalledTurns   = 3                // 同一停滞根因连续出现才判卡；真实进展不限制轮数
-	taskIORelDir      = ".nbco-task/current"
+	taskIORelDir      = workerproto.TaskIORelDir
 )
 
 var errAgentNoProgress = errors.New("agent 连续多个交互回合没有产生可见进展")
@@ -72,6 +73,11 @@ func newCompletionMarks() completionMarks {
 		NeedInput: "[[NBCO_NEED_INPUT:" + nonce + "]]",
 		End:       "[[NBCO_END:" + nonce + "]]",
 	}
+}
+
+func completionPromptEchoMark(marks completionMarks) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{marks.Summary, marks.Lessons, marks.NeedInput, marks.End}, "\x00")))
+	return "[[NBCO_PROMPT_ECHO:" + hex.EncodeToString(sum[:8]) + "]]"
 }
 
 // Worker 轮询+实时唤醒的执行循环。
@@ -406,6 +412,15 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 		w.failTask(ctx, task, note, submitSession, dir)
 		return
 	}
+	structuredResult, err := collectStructuredResult(task, dir, nil, true)
+	if err != nil {
+		submitSession := task.Session
+		if ref := w.detectEngineSessionRef(dir, sessionStartedAt); ref != "" {
+			submitSession.EngineSessionRef = ref
+		}
+		w.failTask(ctx, task, "结构化任务结果无效: "+err.Error(), submitSession, dir)
+		return
+	}
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
 	if w.killed() {
 		log.Printf("执行 #%d 在上传产物时被取消", task.ID)
@@ -416,7 +431,7 @@ func (w *Worker) execute(ctx context.Context, task *Run, knowledge, history []st
 		submitSession.EngineSessionRef = ref
 	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, submitSession, dir,
-		SubmissionResult{Outcome: workerproto.OutcomeSucceeded}); err != nil {
+		SubmissionResult{Outcome: workerproto.OutcomeSucceeded, StructuredResult: structuredResult}); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交任务结果失败: "+err.Error(), submitSession, dir)
 		w.handoffDeferredRestart()
@@ -574,10 +589,15 @@ func (w *Worker) executeCommand(ctx, runCtx context.Context, task *Run, dir stri
 	if res.ExitCode != 0 {
 		outcome = workerproto.OutcomeFailed
 	}
+	structuredResult, resultErr := collectStructuredResult(task, dir, nil, outcome == workerproto.OutcomeSucceeded)
+	if resultErr != nil {
+		w.failTask(ctx, task, "结构化命令结果无效: "+resultErr.Error(), task.Session, dir)
+		return
+	}
 	// Deterministic commands produce execution evidence, not reusable lessons.
 	// Learning remains reserved for an agent's explicit, task-derived findings.
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, "", task.Session, dir,
-		SubmissionResult{Outcome: outcome, ExitCode: &res.ExitCode}); err != nil {
+		SubmissionResult{Outcome: outcome, ExitCode: &res.ExitCode, StructuredResult: structuredResult}); err != nil {
 		log.Printf("提交命令任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交命令任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()
@@ -771,6 +791,48 @@ func taskArtifactRelDir() string {
 	return filepath.ToSlash(filepath.Join(taskIORelDir, "artifacts"))
 }
 
+func collectStructuredResult(task *Run, dir string, supplied json.RawMessage, enforceRequired bool) (json.RawMessage, error) {
+	fromFile, err := readStructuredResultFile(dir)
+	if err != nil {
+		return nil, err
+	}
+	supplied, err = workerproto.NormalizeStructuredResult(supplied)
+	if err != nil {
+		return nil, err
+	}
+	if len(supplied) > 0 && len(fromFile) > 0 {
+		return nil, errors.New("structured_result 同时来自 task_done 和结果文件，来源不唯一")
+	}
+	result := supplied
+	if len(result) == 0 {
+		result = fromFile
+	}
+	if task == nil {
+		return workerproto.ValidateStructuredResult(false, nil, result)
+	}
+	return workerproto.ValidateStructuredResult(enforceRequired && task.ResultRequired, task.ResultSchema, result)
+}
+
+func readStructuredResultFile(dir string) (json.RawMessage, error) {
+	path := filepath.Join(dir, filepath.FromSlash(workerproto.StructuredResultRelativePath))
+	f, err := openArtifactFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("打开 %s: %w", workerproto.StructuredResultRelativePath, err)
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(io.LimitReader(f, workerproto.StructuredResultMaxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > workerproto.StructuredResultMaxBytes {
+		return nil, fmt.Errorf("%s 超过 %d bytes", workerproto.StructuredResultRelativePath, workerproto.StructuredResultMaxBytes)
+	}
+	return workerproto.NormalizeStructuredResult(raw)
+}
+
 func (w *Worker) prepareFiles(ctx context.Context, task *Run, dir string) error {
 	ioDir := filepath.Join(dir, taskIORelDir)
 	if err := os.RemoveAll(ioDir); err != nil {
@@ -959,6 +1021,9 @@ func taskBrief(task *Run, knowledge, history []string) string {
 		b.WriteByte('\n')
 	}
 	fmt.Fprintf(&b, "任务：%s\n", task.Title)
+	if task.Kind != "" {
+		fmt.Fprintf(&b, "任务类型：%s\n", task.Kind)
+	}
 	if task.Goal != "" {
 		fmt.Fprintf(&b, "目标（为什么做）：%s\n", task.Goal)
 	}
@@ -967,6 +1032,18 @@ func taskBrief(task *Run, knowledge, history []string) string {
 	}
 	if task.Acceptance != "" {
 		fmt.Fprintf(&b, "验收标准：%s\n", task.Acceptance)
+	}
+	schema := strings.TrimSpace(string(task.ResultSchema))
+	if task.ResultRequired || schema != "" && schema != "{}" {
+		if schema == "" {
+			schema = "{}"
+		}
+		b.WriteString("\n机器可读结果契约：\n")
+		if task.ResultRequired {
+			b.WriteString("- 本任务必须提交结构化结果；自然语言摘要不能替代它。\n")
+		}
+		fmt.Fprintf(&b, "- JSON Schema：%s\n", schema)
+		fmt.Fprintf(&b, "- 交互式 CLI 请把严格 JSON 对象写入 %s；支持 structured_result 参数的执行器也可直接提交该对象。\n", workerproto.StructuredResultRelativePath)
 	}
 	if len(history) > 0 {
 		b.WriteString("\n此前的过程记录（若含「验收未通过」的打回理由，必须逐条对照整改）：\n")
@@ -1003,6 +1080,7 @@ func taskBrief(task *Run, knowledge, history []string) string {
 
 func buildPromptWithMarks(task *Run, knowledge, history []string, marks completionMarks) string {
 	var b strings.Builder
+	echoMark := completionPromptEchoMark(marks)
 	b.WriteString("你是公司的 AI 员工，需独立完成下面分配给你的任务。\n\n")
 	b.WriteString(taskBrief(task, knowledge, history))
 	b.WriteString("\n请在当前工作目录中自主完成：分析、动手、自我验证。\n")
@@ -1011,10 +1089,10 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 	b.WriteString("workspace 可能尚未初始化；先检查现状，任务提供了仓库地址时可自行 clone。\n")
 	fmt.Fprintf(&b, "如果需要交付文件，请把文件放进 %s/ 目录，系统会在提交前自动上传。\n", taskArtifactRelDir())
 	b.WriteString("如果确实缺少只有分配者才能提供的关键信息，不要猜测或假装完成；输出以下提问段并结束：\n")
-	fmt.Fprintf(&b, "%s\n（一个具体、可直接回答的问题）\n%s\n", marks.NeedInput, marks.End)
+	fmt.Fprintf(&b, "%s\n%s\n（一个具体、可直接回答的问题；真实输出时删除回显防护标记）\n%s\n", marks.NeedInput, echoMark, marks.End)
 	b.WriteString("全部完成后，务必在最后依次输出以下三段，每个标记独占一行：\n")
-	fmt.Fprintf(&b, "%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n",
-		marks.Summary, marks.Lessons, marks.End)
+	fmt.Fprintf(&b, "%s\n%s\n（一句话说明你做了什么、结果如何；真实输出时删除回显防护标记）\n%s\n（可复用的经验教训；没有则保持本段为空，不写占位词）\n%s\n",
+		marks.Summary, echoMark, marks.Lessons, marks.End)
 	b.WriteString("\n输出完成标记后不要继续解释，等待系统退出当前交互会话。")
 	return b.String()
 }
@@ -1023,12 +1101,13 @@ func buildPromptWithMarks(task *Run, knowledge, history []string, marks completi
 // asking the CLI to keep working. It deliberately does not demand immediate
 // closure: ending one model turn is not proof that the assigned task is done.
 func agentContinuationWithMarks(marks completionMarks) string {
+	echoMark := completionPromptEchoMark(marks)
 	return fmt.Sprintf("继续自主推进当前任务。检查已有结果与验收标准，立即执行仍缺少的步骤和验证，不要只描述下一步计划。\n"+
 		"如果同一工具或步骤重复失败，不要原样重试；根据实际错误修正输入、删除非必要参数，或改用等价路径。\n"+
 		"当验收项已有充分证据且新增步骤不会实质改变结论时，停止扩展查证，立即生成、自检并提交交付物。\n"+
-		"任务确实完成后，最后输出：\n%s\n（一句话说明你做了什么、结果如何）\n%s\n（可复用的经验教训，没有就写：无）\n%s\n"+
-		"只有缺少分配者才能提供的关键信息时，输出：\n%s\n（一个具体、可直接回答的问题）\n%s",
-		marks.Summary, marks.Lessons, marks.End, marks.NeedInput, marks.End)
+		"任务确实完成后，最后输出：\n%s\n%s\n（一句话说明你做了什么、结果如何；真实输出时删除回显防护标记）\n%s\n（可复用的经验教训；没有则保持本段为空，不写占位词）\n%s\n"+
+		"只有缺少分配者才能提供的关键信息时，输出：\n%s\n%s\n（一个具体、可直接回答的问题；真实输出时删除回显防护标记）\n%s",
+		marks.Summary, echoMark, marks.Lessons, marks.End, marks.NeedInput, echoMark, marks.End)
 }
 
 func agentRecoveryContinuationWithMarks(marks completionMarks, assessment agentTurnAssessment) string {
@@ -1050,6 +1129,7 @@ func parseCompletion(out string) (summary, lessons string, ok bool) {
 }
 
 func parseCompletionWithMarks(out string, marks completionMarks) (summary, lessons string, ok bool) {
+	echoMark := completionPromptEchoMark(marks)
 	for si := strings.LastIndex(out, marks.Summary); si >= 0; si = strings.LastIndex(out[:si], marks.Summary) {
 		rest := out[si+len(marks.Summary):]
 		ei := strings.Index(rest, marks.End)
@@ -1064,11 +1144,8 @@ func parseCompletionWithMarks(out string, marks completionMarks) (summary, lesso
 		} else {
 			s = strings.TrimSpace(block)
 		}
-		if s == "" || isPromptEcho(s) {
+		if s == "" || containsCompletionPromptEcho(block, echoMark) {
 			continue
-		}
-		if l == "无" || l == "None" || isPromptEcho(l) {
-			l = ""
 		}
 		// 屏幕折行会给文本掺进换行和成串的补位空格，归一成单空格。
 		return strings.Join(strings.Fields(s), " "), strings.Join(strings.Fields(l), " "), true
@@ -1077,6 +1154,7 @@ func parseCompletionWithMarks(out string, marks completionMarks) (summary, lesso
 }
 
 func parseInputRequestWithMarks(out string, marks completionMarks) (question string, ok bool) {
+	echoMark := completionPromptEchoMark(marks)
 	for si := strings.LastIndex(out, marks.NeedInput); si >= 0; si = strings.LastIndex(out[:si], marks.NeedInput) {
 		rest := out[si+len(marks.NeedInput):]
 		ei := strings.Index(rest, marks.End)
@@ -1084,7 +1162,7 @@ func parseInputRequestWithMarks(out string, marks completionMarks) (question str
 			continue
 		}
 		question = strings.TrimSpace(rest[:ei])
-		if question == "" || isInputPromptEcho(question) {
+		if question == "" || containsCompletionPromptEcho(question, echoMark) {
 			continue
 		}
 		return strings.Join(strings.Fields(question), " "), true
@@ -1092,15 +1170,6 @@ func parseInputRequestWithMarks(out string, marks completionMarks) (question str
 	return "", false
 }
 
-// isPromptEcho 是否是任务指令里的占位说明（回显）。屏幕换行/空格可能把文字
-// 折断，先压掉空白再比对。
-func isPromptEcho(s string) bool {
-	flat := strings.NewReplacer("\n", "", " ", "").Replace(s)
-	return strings.Contains(flat, "一句话说明你做了什么") ||
-		strings.Contains(flat, "可复用的经验教训")
-}
-
-func isInputPromptEcho(s string) bool {
-	flat := strings.NewReplacer("\n", "", " ", "").Replace(s)
-	return strings.Contains(flat, "一个具体、可直接回答的问题")
+func containsCompletionPromptEcho(text, echoMark string) bool {
+	return echoMark != "" && strings.Contains(strings.Join(strings.Fields(text), ""), echoMark)
 }

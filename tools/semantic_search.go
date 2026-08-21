@@ -79,7 +79,7 @@ func searchPlannerUserID(u *store.User) int64 {
 
 func parseSemanticSearchPlan(text string, allowedKinds []string) (semanticSearchPlan, bool) {
 	var raw semanticSearchPlan
-	if err := json.Unmarshal([]byte(extractToolJSONObject(text)), &raw); err != nil {
+	if err := json.Unmarshal([]byte(strings.TrimSpace(text)), &raw); err != nil {
 		return semanticSearchPlan{}, false
 	}
 	allowed := make(map[string]bool, len(allowedKinds))
@@ -109,16 +109,4 @@ func cleanSearchPlanValues(values []string, allowed map[string]bool, limit, rune
 		}
 	}
 	return out
-}
-
-func extractToolJSONObject(text string) string {
-	text = strings.TrimSpace(text)
-	if strings.HasPrefix(text, "{") && strings.HasSuffix(text, "}") {
-		return text
-	}
-	start, end := strings.IndexByte(text, '{'), strings.LastIndexByte(text, '}')
-	if start >= 0 && end > start {
-		return text[start : end+1]
-	}
-	return text
 }

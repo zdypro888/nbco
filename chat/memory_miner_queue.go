@@ -104,7 +104,7 @@ func (o *Orchestrator) processMemoryMiningJob(parent context.Context, job *store
 			// surface and receives a credential-safe projection instead.
 			UserText:      memoryMiningProjection(userText),
 			AssistantText: memoryMiningProjection(assistantMessage.Content),
-			ToolEvidence:  job.ToolEvidence, OccurredAt: userMessage.CreatedAt.In(orTimeZone(o.tz)),
+			ToolEvidence:  job.ToolEvidence, OccurredAt: userMessage.EventAt().In(orTimeZone(o.tz)),
 			ExplicitCommit: job.ExplicitCommit,
 		})
 	}()

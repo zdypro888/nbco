@@ -12,11 +12,24 @@ import (
 	"github.com/zdypro888/nbco/workerproto"
 )
 
-// MaterialLearningMarker 是材料分析工具与 httpapi 之间的约定协议串：worker 汇报里
-// 出现该标记后接严格 JSON，httpapi 据此抽取学习候选。双方必须引用同一常量，漂移会让
-// 学习候选静默丢失。
-const MaterialLearningMarker = "NBCO_LEARNING_CANDIDATES_JSON:"
-const materialLearningMarker = MaterialLearningMarker // 内部旧引用兼容
+const MaterialLearningResultHandler = "material_learning.v1"
+
+const materialLearningResultSchemaJSON = `{
+  "type":"object",
+  "additionalProperties":false,
+  "required":["knowledge","entities","rules","skills","questions"],
+  "properties":{
+    "knowledge":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","content","tags","confidence","evidence"],"properties":{"title":{"type":"string","minLength":1},"content":{"type":"string","minLength":1},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"object"}}}},
+    "entities":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["entity_type","name","content","file_id","confidence","evidence"],"properties":{"entity_type":{"type":"string","enum":["customer","project","contract","policy","contact","asset","system"]},"name":{"type":"string","minLength":1},"content":{"type":"string"},"file_id":{"type":"integer","minimum":0},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"object"}}}},
+    "rules":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","content","scope","tags","confidence","evidence"],"properties":{"title":{"type":"string","minLength":1},"content":{"type":"string","minLength":1},"scope":{"type":"string","minLength":1},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"object"}}}},
+    "skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","trigger","summary","procedure","constraints","scope","tags","confidence","evidence"],"properties":{"title":{"type":"string","minLength":1},"trigger":{"type":"string","minLength":1},"summary":{"type":"string","minLength":1},"procedure":{"type":"string","minLength":1},"constraints":{"type":"string"},"scope":{"type":"string","minLength":1},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"object"}}}},
+    "questions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","content","evidence"],"properties":{"title":{"type":"string","minLength":1},"content":{"type":"string","minLength":1},"evidence":{"type":"object"}}}}
+  }
+}`
+
+func materialLearningResultSchema() json.RawMessage {
+	return json.RawMessage(materialLearningResultSchemaJSON)
+}
 
 type materialAnalysisArgs struct {
 	FileIDs     []int64 `json:"file_ids"`
@@ -81,11 +94,12 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 		Title:       title,
 		Goal:        fmt.Sprintf("把公司资料读成可复用、可审计、可检索的 %s 学习资产。", instanceBrand(d)),
 		Description: materialAnalysisPrompt(instanceBrand(d), instruction),
-		Acceptance:  "完成汇报必须包含自然语言摘要，并在末尾输出 " + materialLearningMarker + " 后接严格 JSON。",
+		Acceptance:  "提交自然语言摘要，并按本次 Worker Run 下发的结构化结果契约提供可审计的学习候选。",
 		Priority:    "high",
 	}, args.FileIDs, "公司资料分析输入", store.WorkerRunSpec{
 		Executor: workerproto.ExecutorAgent, ScopeType: "materials",
 		ScopeKey: "materials:company-intelligence", ScopeTitle: "Company material analysis",
+		ResultRequired: true, ResultSchema: materialLearningResultSchema(), ResultHandler: MaterialLearningResultHandler,
 	}, store.MaterialTaskSpec{
 		OwnerID: u.ID, Title: title, Instruction: instruction,
 	})
@@ -159,17 +173,6 @@ func materialAnalysisPrompt(brandName, instruction string) string {
 2. 输出一份简洁摘要：资料讲了什么、确认了哪些公司事实、有哪些疑问或冲突。
 3. 只提取有长期价值的信息，不要把一次性状态、寒暄、无证据猜测写成学习候选。
 4. 对每条候选保留 evidence，写明来自哪个文件/工作表/页码/图片观察；不确定时降低 confidence。
-5. 不要直接改系统数据库；由 %s 中枢解析你的结构化结果后入库或进入审核。
-
-完成汇报末尾必须输出：
-%s
-{
-	  "knowledge": [{"title":"","content":"","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
-	  "entities": [{"entity_type":"customer|project|contract|policy|contact|asset|system","name":"","content":"","file_id":0,"confidence":0.8,"evidence":{"files":[],"notes":""}}],
-	  "rules": [{"title":"","content":"","scope":"global","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
-  "skills": [{"title":"","trigger":"","summary":"","procedure":"","constraints":"","scope":"global","tags":[],"confidence":0.8,"evidence":{"files":[],"notes":""}}],
-  "questions": [{"title":"","content":"","evidence":{"files":[],"notes":""}}]
-}
-
-JSON 必须严格合法；没有的数组给 []。`, instruction, brandName, materialLearningMarker))
+5. 不要直接改系统数据库；由 %s 中枢接收机器结果后入库或进入审核。
+6. 按任务下发的 JSON Schema 分别给出 knowledge、entities、rules、skills、questions；没有内容的类别使用空数组，不要把机器结果混进自然语言摘要。`, instruction, brandName))
 }

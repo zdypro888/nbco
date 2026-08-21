@@ -272,7 +272,7 @@ func isNotModified(err error) bool {
 // plainOf：HTML 编辑失败时的纯文本兜底。不能退回原始答复，否则模型吐坏 HTML
 // 时会把 <b> 等标签原样展示给用户。
 func plainOf(answer, chunk string) string {
-	if plain := telegramPlainText(chunk); plain != "（空回复）" {
+	if plain := telegramPlainTextOrEmpty(chunk); plain != "" {
 		return plain
 	}
 	return telegramPlainText(answer)

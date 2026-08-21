@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: tools/tasks.go
         symbol: recordTaskOutcome
-        hash: sha256:64f842ba9d31f0b0401cea162f98355e96767704d05d576a09ac0ccac113365f
-        struct_hash: sha256:00e459a5cc29056b42660ce1a864b0c7c223bd97f78e1a71db715cd3d5ed98d1
-        doc_struct_hash: sha256:00e459a5cc29056b42660ce1a864b0c7c223bd97f78e1a71db715cd3d5ed98d1
-        lines: [1309, 1324]
+        hash: sha256:90f2e187bfba30fa379588ec926fc224b3be5159358fd9c2e850d611d823a278
+        struct_hash: sha256:a0ec985662a800c3a3dab6072809ac820e92faab28c9338f17375b5b7702f1bf
+        doc_struct_hash: sha256:a0ec985662a800c3a3dab6072809ac820e92faab28c9338f17375b5b7702f1bf
+        lines: [1325, 1340]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tasks.go#parseDeadline
@@ -211,10 +211,10 @@ nodes:
       anchor:
         file: tools/tasks.go
         symbol: pickWorkerAssignee
-        hash: sha256:d2be47f62ef1b0a05527f44872f3aef4eaaeb480761c51217da03071438b6a48
-        struct_hash: sha256:e7310d5df0a7afcca201b4f21295ff71aa2f12aa304da43232a4e531e7d6c06a
-        doc_struct_hash: sha256:e7310d5df0a7afcca201b4f21295ff71aa2f12aa304da43232a4e531e7d6c06a
-        lines: [1513, 1591]
+        hash: sha256:17ad84c470d235ad17467b6c9d74049f056da5abb1520e23db16594043bb547c
+        struct_hash: sha256:551a1ca37ff0e5bfe350aebf36154eedf053b54d23239f2ddc0b7124a5c886d8
+        doc_struct_hash: sha256:551a1ca37ff0e5bfe350aebf36154eedf053b54d23239f2ddc0b7124a5c886d8
+        lines: [1530, 1597]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tasks.go#workerDispatchRank
@@ -266,9 +266,9 @@ nodes:
       anchor:
         file: tools/tasks.go
         symbol: FireReadyDependents
-        hash: sha256:11acd228a559e154811de55ba26e570acb3aa484c1f0ac7b3637d0c7041c3052
-        struct_hash: sha256:2ea0304e34eaddcce1f5a8fb3cac5e027a3793d5a3406c7492d462104f4c4a1e
-        doc_struct_hash: sha256:589864dd5a1fe91223df446af7aace7a44ac227fbd7d6e6db216ce53ebc9bfee
-        lines: [1664, 1682]
+        hash: sha256:fb44dc6eafa9226519e93030104936237f70906dff3779c8f11987d7bca627d1
+        struct_hash: sha256:7dd8e7524cdc100c64b843330867bea10b12e298c01f8c0bf27d9423d3c59152
+        doc_struct_hash: sha256:384657f15100b2aa2e7238a05ade4fffb3ba38329ed6c52232b2755623d9c21c
+        lines: [1743, 1764]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -44,6 +44,15 @@ func TestIsNotModified(t *testing.T) {
 	}
 }
 
+func TestPlainOfUsesRawEmptinessInsteadOfFallbackText(t *testing.T) {
+	if got := plainOf("<b>最终答案</b>", "<b></b>"); got != "最终答案" {
+		t.Fatalf("plainOf empty chunk = %q", got)
+	}
+	if got := plainOf("<b>最终答案</b>", "<i>流式内容</i>"); got != "流式内容" {
+		t.Fatalf("plainOf non-empty chunk = %q", got)
+	}
+}
+
 type streamLoopHTTP struct {
 	mu         sync.Mutex
 	editCount  int

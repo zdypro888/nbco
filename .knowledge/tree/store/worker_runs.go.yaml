@@ -534,3 +534,45 @@ nodes:
         lines: [1262, 1279]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
+    - id: store/worker_runs.go#Store.CompleteWorkerRunWithStructuredResult
+      level: function
+      anchor:
+        file: store/worker_runs.go
+        symbol: Store.CompleteWorkerRunWithStructuredResult
+        hash: sha256:abcaca0d9e000348e120b5d92d9c5d651bf1948d41fd6c9e5c1e2a029ff03868
+        struct_hash: sha256:b3088f832e80637ec087c322934fccac23665dd136b5b2c0131f07c5136e03dd
+        doc_struct_hash: sha256:b3088f832e80637ec087c322934fccac23665dd136b5b2c0131f07c5136e03dd
+        lines: [1039, 1041]
+      status: fresh
+      since: 2026-08-21T09:43:55.186505Z
+      entries:
+        - id: e_27b64f38
+          kind: contract
+          text: Worker 提交只有在结果 schema、文件引用、run/claim/finalization 身份通过服务端校验后才能进入终态；HTTP 200 前还必须确保持久 session、学习/材料派生数据和事件均已写入。
+          confidence: inferred
+          at: 2026-08-21T09:44:54.681587Z
+          author: codex-mcp-client
+        - id: e_be41e7e0
+          kind: pitfall
+          text: 同一 finalization 重放必须返回叶子任务以及当初已完成的父任务级联链；只返回叶子会让通知与依赖触发在网络重试后丢失。
+          confidence: inferred
+          at: 2026-08-21T09:44:54.683766Z
+          author: codex-mcp-client
+      keywords:
+        - worker 终态
+        - 结构化结果
+        - finalization replay
+        - 父任务级联
+        - http 重试
+        - 结果契约
+    - id: store/worker_runs.go#Store.completeWorkerRun
+      level: function
+      anchor:
+        file: store/worker_runs.go
+        symbol: Store.completeWorkerRun
+        hash: sha256:b56e82daee570b8b4e775f8765d3a732dd98afd1f2ef054a1e494179d42c3881
+        struct_hash: sha256:daf3317a2f669e18b308360bdc92f72d7d39def2520fef3c9acbd2915f3fb7f8
+        doc_struct_hash: sha256:daf3317a2f669e18b308360bdc92f72d7d39def2520fef3c9acbd2915f3fb7f8
+        lines: [1043, 1172]
+      status: fresh
+      since: 2026-08-21T09:43:55.191629Z

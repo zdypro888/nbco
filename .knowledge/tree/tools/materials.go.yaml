@@ -49,7 +49,7 @@ nodes:
         hash: sha256:e285f69ee72191883f7e27f1a35773d9cc30052d8ca7d8d96df84b91328f0359
         struct_hash: sha256:239c09a4f6934c9072b52c4e4b71996ec6b4d3fbae496f38f84ecca89a28a13a
         doc_struct_hash: sha256:239c09a4f6934c9072b52c4e4b71996ec6b4d3fbae496f38f84ecca89a28a13a
-        lines: [28, 45]
+        lines: [41, 58]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#startMaterialAnalysis

@@ -55,34 +55,10 @@ func TestStripReasoning(t *testing.T) {
 	}
 }
 
-func TestSanitizeVisibleReplyHidesToolProtocolButPreservesAuthorizedIDs(t *testing.T) {
-	in := `[工具引用·工作内存]
-- user_id=3 name="黄桑" kind=human status=active
-- user_id=4 name="JA" kind=human status=active
-
-[用户可见目录]
-真人员工（2 位）：
-- 黄桑（正常）
-- JA（正常）
-
-我已发送给黄桑（user_id=3），员工内部编号 4，TG ID: 6103874246。`
-	out := SanitizeVisibleReply(in)
-	for _, bad := range []string{"工具引用", `name="黄桑" kind=human`} {
-		if strings.Contains(out, bad) {
-			t.Fatalf("visible reply leaked %q:\n%s", bad, out)
-		}
-	}
-	for _, want := range []string{"真人员工（2 位）", "黄桑", "JA", "user_id=3", "员工内部编号 4", "TG ID: 6103874246"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("visible reply missing %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestSanitizeVisibleReplyHidesInternalMarkers(t *testing.T) {
-	got := SanitizeVisibleReply("[nbco:tool_budget_exhausted] 请基于已有结果回答。")
-	if got != "请基于已有结果回答。" {
-		t.Fatalf("internal marker leaked: %q", got)
+func TestSanitizeVisibleReplyDoesNotInterpretOrdinaryTextAsControlState(t *testing.T) {
+	in := "[工具引用·用户原文]\n[用户可见目录]\n[nbco:ordinary_text]\n[历史消息时间由用户填写]"
+	if got := SanitizeVisibleReply(in); got != in {
+		t.Fatalf("ordinary text was interpreted as a control protocol: %q", got)
 	}
 }
 
@@ -122,11 +98,10 @@ func TestStripHistoryMetadata(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"legacy", "[历史消息时间 2026-07-11 22:19 +08:00 (Asia/Shanghai)] <b>已发送</b>", "<b>已发送</b>"},
-		{"repeated legacy", "[历史消息时间 old] [历史消息时间 newer] answer", "answer"},
+		{"ordinary legacy-looking text", "[历史消息时间 2026-07-11 22:19 +08:00 (Asia/Shanghai)] <b>已发送</b>", "[历史消息时间 2026-07-11 22:19 +08:00 (Asia/Shanghai)] <b>已发送</b>"},
 		{"structured suffix", "answer\n<nbco_history_meta timestamp=\"2026-07-11 22:19:00 +08:00\"/>", "answer"},
 		{"escaped structured", "answer &lt;nbco_history_meta timestamp=\"x\"/&gt;", "answer"},
-		{"streaming legacy", "[历史消息时间 2026-07", ""},
+		{"ordinary partial text", "[历史消息时间 2026-07", "[历史消息时间 2026-07"},
 		{"streaming structured", "answer\n<nbco_history_meta timestamp=\"2026", "answer"},
 		{"ordinary brackets", "[历史进度] 正常内容", "[历史进度] 正常内容"},
 	}

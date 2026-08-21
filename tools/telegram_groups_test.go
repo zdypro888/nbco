@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,13 @@ func TestParseTelegramGroupRef(t *testing.T) {
 	}
 	if _, ok := parseTelegramGroupRef("示例公司群"); ok {
 		t.Fatal("group title should not parse as group ref")
+	}
+}
+
+func TestTelegramGroupDigestUsesTypedUnknownState(t *testing.T) {
+	digest := telegramGroupDigest(context.Background(), Deps{}, &store.User{ID: 1}, store.TelegramGroupState{ChatID: -100123})
+	if digest.State != telegramGroupDigestUnknown || digest.Text == "" {
+		t.Fatalf("digest = %+v", digest)
 	}
 }
 
@@ -214,6 +222,11 @@ func TestTelegramGroupMessageAndDigestToolsIntegration(t *testing.T) {
 	if err != nil || storedGroup.Listen {
 		t.Fatalf("monitor must not change explicit listen setting: group=%+v err=%v", storedGroup, err)
 	}
+	currentGroupCtx := WithInteractionChannel(ctx, telegramGroupChannel(group.ChatID))
+	monitorOut, err = byName["set_telegram_group_monitor"](currentGroupCtx, json.RawMessage(`{"enabled":false}`))
+	if err != nil || !strings.Contains(monitorOut, "已关闭") {
+		t.Fatalf("current-group monitor resolution = %q err=%v", monitorOut, err)
+	}
 
 	setOut, err := byName["set_telegram_group_digest"](ctx, json.RawMessage(`{"group":"项目群","enabled":true,"daily_at":"18:30","instruction":"只看风险"}`))
 	if err != nil || !strings.Contains(setOut, "每日摘要") || !strings.Contains(setOut, "18:30") {
@@ -303,5 +316,34 @@ func TestMatchSeenTelegramMember(t *testing.T) {
 	}
 	if m, ambiguous := matchSeenTelegramMember(members, "@", false); m != nil || ambiguous {
 		t.Fatalf("empty username should not match = %+v ambiguous=%v", m, ambiguous)
+	}
+}
+
+func TestRenderTelegramGroupMemberBindingsReturnsStableIDs(t *testing.T) {
+	s := openToolsTestStore(t)
+	ctx := context.Background()
+	employee, err := s.CreateUser(ctx, "Alice", false, store.Identity{
+		Provider: "telegram", ExternalID: "991", ChatRef: "991",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	group := store.TelegramGroupState{ChatID: -100991, Title: "项目群", Type: "supergroup", Status: "member"}
+	if err := s.SaveTelegramGroupState(ctx, group); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveTelegramGroupSeenMember(ctx, store.TelegramGroupSeenMember{
+		ChatID: group.ChatID, UserID: 991, Name: "Alice", LastSeen: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := renderTelegramGroupMemberBindings(ctx, Deps{Store: s}, group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"telegram_user_id=991", fmt.Sprintf("employee_id=%d", employee.ID), "精确匹配"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("member bindings missing %q:\n%s", want, got)
+		}
 	}
 }

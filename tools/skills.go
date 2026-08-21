@@ -59,12 +59,16 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if k.Kind != store.KnowledgeKindSkill {
 					return "该条目不是 skill。", nil
 				}
+				content, err := store.DecodeSkillContent(k.Content)
+				if err != nil {
+					return "", fmt.Errorf("读取 skill %d: %w", k.ID, err)
+				}
 				var b strings.Builder
 				fmt.Fprintf(&b, "%s：%s\n", internalRef("skill", k.ID), k.Title)
 				if len(k.Tags) > 0 {
 					fmt.Fprintf(&b, "标签: %s\n", strings.Join(k.Tags, ", "))
 				}
-				fmt.Fprintf(&b, "更新于 %s\n\n%s", fmtTime(k.UpdatedAt, d.TZ), k.Content)
+				fmt.Fprintf(&b, "更新于 %s\n\n%s", fmtTime(k.UpdatedAt, d.TZ), store.RenderSkillContent(content))
 				return b.String(), nil
 			}),
 
@@ -148,13 +152,17 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if title == "" {
 					title = "执行 skill：" + k.Title
 				}
+				description, err := workerSkillTaskPrompt(instanceBrand(d), k, instruction)
+				if err != nil {
+					return "", err
+				}
 				t, err := d.Store.CreateTaskWithFileAttachmentsAndWorkerRun(ctx, &store.Task{
 					ProjectID:   pj.ID,
 					AssignerID:  u.ID,
 					AssigneeID:  worker.ID,
 					Title:       title,
 					Goal:        fmt.Sprintf("按已保存的 skill 执行本次任务，并把可复用结果沉淀回 %s。", instanceBrand(d)),
-					Description: workerSkillTaskPrompt(instanceBrand(d), k, instruction),
+					Description: description,
 					Acceptance:  "完成汇报必须包含执行了哪条 skill、关键步骤结果、验证情况、产物清单；失败时说明阻塞点和下一步需要什么。",
 					Priority:    skillPriority(highRisk),
 				}, args.FileIDs, "skill 执行输入", store.WorkerRunSpec{
@@ -226,7 +234,10 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if k.Kind != store.KnowledgeKindSkill {
 					return "该条目不是 skill。", nil
 				}
-				next := parseSkillContent(k.Content)
+				next, err := store.DecodeSkillContent(k.Content)
+				if err != nil {
+					return "", fmt.Errorf("读取 skill %d: %w", k.ID, err)
+				}
 				if strings.TrimSpace(args.Trigger) != "" {
 					next.Trigger = args.Trigger
 				}
@@ -259,7 +270,7 @@ func skillTools(d Deps, u *store.User) []ai.Tool {
 				if strings.TrimSpace(args.Title) != "" {
 					title = &args.Title
 				}
-				updated, err := d.Store.UpdateKnowledge(ctx, args.ID, title, &content, tags)
+				updated, err := d.Store.UpdateSkill(ctx, args.ID, title, &content, tags)
 				if err != nil {
 					return "", err
 				}
@@ -292,37 +303,23 @@ type skillUpdateArgs struct {
 	Tags        []string `json:"tags"`
 }
 
-type skillParts struct {
-	Trigger     string
-	Summary     string
-	Procedure   string
-	Constraints string
-}
-
-func buildSkillContent(args skillArgs) (string, []string, string) {
+func buildSkillContent(args skillArgs) (store.SkillContent, []string, string) {
 	title := strings.TrimSpace(args.Title)
 	trigger := strings.TrimSpace(args.Trigger)
 	summary := strings.TrimSpace(args.Summary)
 	procedure := strings.TrimSpace(args.Procedure)
 	if title == "" || trigger == "" || summary == "" || procedure == "" {
-		return "", nil, "title、trigger、summary、procedure 都不能为空。"
+		return store.SkillContent{}, nil, "title、trigger、summary、procedure 都不能为空。"
 	}
 	scope := strings.TrimSpace(args.Scope)
 	if scope == "" {
 		scope = "global"
 	}
 	if msg := validateSkillScope(scope); msg != "" {
-		return "", nil, msg
+		return store.SkillContent{}, nil, msg
 	}
 	tags := normalizeSkillTags(args.Tags, scope)
-	var b strings.Builder
-	fmt.Fprintf(&b, "触发条件：%s\n", trigger)
-	fmt.Fprintf(&b, "摘要：%s\n", summary)
-	fmt.Fprintf(&b, "执行方法：\n%s\n", procedure)
-	if c := strings.TrimSpace(args.Constraints); c != "" {
-		fmt.Fprintf(&b, "限制与禁忌：\n%s\n", c)
-	}
-	return strings.TrimSpace(b.String()), tags, ""
+	return store.NewSkillContent(trigger, summary, procedure, args.Constraints), tags, ""
 }
 
 func validateSkillScope(scope string) string {
@@ -355,42 +352,17 @@ func chooseSkillTags(argsTags, oldTags []string, scope string) []string {
 	return out
 }
 
-func parseSkillContent(content string) skillParts {
-	var p skillParts
-	var section string
-	for _, line := range strings.Split(content, "\n") {
-		switch {
-		case strings.HasPrefix(line, "触发条件："):
-			p.Trigger = strings.TrimSpace(strings.TrimPrefix(line, "触发条件："))
-			section = ""
-		case strings.HasPrefix(line, "摘要："):
-			p.Summary = strings.TrimSpace(strings.TrimPrefix(line, "摘要："))
-			section = ""
-		case strings.HasPrefix(line, "执行方法："):
-			section = "procedure"
-		case strings.HasPrefix(line, "限制与禁忌："):
-			section = "constraints"
-		default:
-			switch section {
-			case "procedure":
-				p.Procedure += line + "\n"
-			case "constraints":
-				p.Constraints += line + "\n"
-			}
-		}
-	}
-	p.Procedure = strings.TrimSpace(p.Procedure)
-	p.Constraints = strings.TrimSpace(p.Constraints)
-	return p
-}
-
 func renderSkillList(ks []*store.Knowledge) string {
 	if len(ks) == 0 {
 		return "（没有匹配的 skill）"
 	}
 	var b strings.Builder
 	for _, k := range ks {
-		parts := parseSkillContent(k.Content)
+		parts, err := store.DecodeSkillContent(k.Content)
+		if err != nil {
+			fmt.Fprintf(&b, "- %s：%s（内容格式异常）\n", internalRef("skill", k.ID), k.Title)
+			continue
+		}
 		fmt.Fprintf(&b, "- %s：%s", internalRef("skill", k.ID), k.Title)
 		if scope := skillScopeOf(k.Tags); scope != "global" {
 			fmt.Fprintf(&b, "（%s）", scope)
@@ -431,7 +403,11 @@ func skillPriority(highRisk bool) string {
 	return "normal"
 }
 
-func workerSkillTaskPrompt(brandName string, k *store.Knowledge, instruction string) string {
+func workerSkillTaskPrompt(brandName string, k *store.Knowledge, instruction string) (string, error) {
+	content, err := store.DecodeSkillContent(k.Content)
+	if err != nil {
+		return "", fmt.Errorf("读取 skill %d: %w", k.ID, err)
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "请按 %s 已保存的 skill 执行本次任务。\n\n", brandName)
 	fmt.Fprintf(&b, "本次目标：\n%s\n\n", strings.TrimSpace(instruction))
@@ -439,14 +415,14 @@ func workerSkillTaskPrompt(brandName string, k *store.Knowledge, instruction str
 	if len(k.Tags) > 0 {
 		fmt.Fprintf(&b, "skill 标签：%s\n", strings.Join(k.Tags, ", "))
 	}
-	fmt.Fprintf(&b, "\n%s\n\n", strings.TrimSpace(k.Content))
+	fmt.Fprintf(&b, "\n%s\n\n", store.RenderSkillContent(content))
 	b.WriteString("通用执行要求：\n")
 	b.WriteString("1. 以 skill 内容为准执行；如果 skill 与本次目标冲突，先解释冲突并按更高权限/更具体的用户要求处理。\n")
 	b.WriteString("2. 需要读取附件、改文件、运行命令或生成产物时，在 worker 工作机内完成；产物写入任务提示指定的产物目录。\n")
 	b.WriteString("3. 不要泄露密钥、token、数据库 DSN、绑定码或内部凭据。\n")
 	b.WriteString("4. 如果信息不足或前置条件不存在，停止并汇报缺什么，不要猜。\n")
 	fmt.Fprintf(&b, "5. 完成后总结可复用经验；确有长期价值时写入 lessons，供 %s 审核沉淀。\n", brandName)
-	return strings.TrimSpace(b.String())
+	return strings.TrimSpace(b.String()), nil
 }
 
 func firstNonEmpty(v, fallback string) string {

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -11,6 +12,8 @@ import (
 )
 
 const (
+	WorkEvidenceSourceConversationFact = "conversation_fact"
+
 	WorkEvidenceCommunication = "communication"
 	WorkEvidenceSummary       = "summary"
 	WorkEvidenceUpdate        = "update"
@@ -24,6 +27,18 @@ const (
 	WorkEvidenceSuperseded = "superseded"
 	WorkEvidenceIgnored    = "ignored"
 )
+
+// ConversationFactSourceKey gives the Agent tool and the asynchronous memory
+// miner the same idempotency identity. If both recognize the same fact from one
+// user message, they refresh one projection instead of creating parallel facts.
+func ConversationFactSourceKey(messageID, actorID int64, evidence string) string {
+	identity := strings.Join(strings.Fields(evidence), " ")
+	sum := sha256.Sum256([]byte(identity))
+	if messageID > 0 {
+		return fmt.Sprintf("message:%d:%x", messageID, sum[:16])
+	}
+	return fmt.Sprintf("actor:%d:%x", actorID, sum[:16])
+}
 
 type WorkEvidence struct {
 	ID              int64           `json:"id"`
@@ -141,15 +156,32 @@ func upsertWorkEvidence(ctx context.Context, queryer workEvidenceQueryer, in Wor
 		   event_at, metadata, created_by
 		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		 ON CONFLICT (source_type, source_key) DO UPDATE SET
-		   kind = EXCLUDED.kind, status = EXCLUDED.status, title = EXCLUDED.title,
-		   content = EXCLUDED.content,
-		   actor_user_id = COALESCE(EXCLUDED.actor_user_id, work_evidence.actor_user_id),
-		   project_id = COALESCE(EXCLUDED.project_id, work_evidence.project_id),
-		   task_id = COALESCE(EXCLUDED.task_id, work_evidence.task_id),
-		   worker_run_id = COALESCE(EXCLUDED.worker_run_id, work_evidence.worker_run_id),
-		   source_message_id = COALESCE(EXCLUDED.source_message_id, work_evidence.source_message_id),
-		   confidence = EXCLUDED.confidence, event_at = EXCLUDED.event_at,
-		   metadata = EXCLUDED.metadata, updated_at = now()
+		   kind = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence THEN EXCLUDED.kind ELSE work_evidence.kind END,
+		   status = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence THEN EXCLUDED.status ELSE work_evidence.status END,
+		   title = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence THEN EXCLUDED.title ELSE work_evidence.title END,
+		   content = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence THEN EXCLUDED.content ELSE work_evidence.content END,
+		   actor_user_id = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		     THEN COALESCE(EXCLUDED.actor_user_id, work_evidence.actor_user_id)
+		     ELSE COALESCE(work_evidence.actor_user_id, EXCLUDED.actor_user_id) END,
+		   project_id = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		     THEN COALESCE(EXCLUDED.project_id, work_evidence.project_id)
+		     ELSE COALESCE(work_evidence.project_id, EXCLUDED.project_id) END,
+		   task_id = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		     THEN COALESCE(EXCLUDED.task_id, work_evidence.task_id)
+		     ELSE COALESCE(work_evidence.task_id, EXCLUDED.task_id) END,
+		   worker_run_id = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		     THEN COALESCE(EXCLUDED.worker_run_id, work_evidence.worker_run_id)
+		     ELSE COALESCE(work_evidence.worker_run_id, EXCLUDED.worker_run_id) END,
+		   source_message_id = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		     THEN COALESCE(EXCLUDED.source_message_id, work_evidence.source_message_id)
+		     ELSE COALESCE(work_evidence.source_message_id, EXCLUDED.source_message_id) END,
+		   confidence = GREATEST(EXCLUDED.confidence, work_evidence.confidence),
+		   event_at = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence THEN EXCLUDED.event_at ELSE work_evidence.event_at END,
+		   metadata = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence THEN EXCLUDED.metadata ELSE work_evidence.metadata END,
+		   created_by = CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		     THEN COALESCE(EXCLUDED.created_by, work_evidence.created_by)
+		     ELSE COALESCE(work_evidence.created_by, EXCLUDED.created_by) END,
+		   updated_at = now()
 		 RETURNING *
 		) SELECT `+workEvidenceCols+`
 		    FROM upserted e

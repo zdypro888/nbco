@@ -80,8 +80,9 @@ var agentTools = []map[string]any{
 		"name":        "task_done",
 		"description": "任务全部完成且自我验证通过后调用：提交验收总结。交付文件必须已放入 " + taskArtifactRelDir() + "/ 目录（系统自动上传）。",
 		"parameters": map[string]any{"type": "object", "properties": map[string]any{
-			"summary": map[string]any{"type": "string", "description": "一句话说明做了什么、结果如何"},
-			"lessons": map[string]any{"type": "string", "description": "可复用的经验教训，没有就留空"},
+			"summary":           map[string]any{"type": "string", "description": "一句话说明做了什么、结果如何"},
+			"lessons":           map[string]any{"type": "string", "description": "可复用的经验教训，没有就留空"},
+			"structured_result": map[string]any{"type": "object", "description": "任务下发了机器结果契约时提交符合其 JSON Schema 的对象；没有契约时省略"},
 		}, "required": []string{"summary"}},
 	}},
 }
@@ -161,8 +162,9 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 					continue
 				}
 				var args struct {
-					Summary string `json:"summary"`
-					Lessons string `json:"lessons"`
+					Summary          string          `json:"summary"`
+					Lessons          string          `json:"lessons"`
+					StructuredResult json.RawMessage `json:"structured_result"`
 				}
 				if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: "task_done 参数解析失败：" + err.Error()})
@@ -172,6 +174,13 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 				summary := strings.TrimSpace(args.Summary)
 				if summary == "" {
 					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID, Content: "summary 不能为空"})
+					continueAgent = true
+					continue
+				}
+				structuredResult, resultErr := collectStructuredResult(task, dir, args.StructuredResult, true)
+				if resultErr != nil {
+					msgs = append(msgs, chatMessage{Role: "tool", ToolCallID: tc.ID,
+						Content: "结构化结果不符合任务契约：" + resultErr.Error()})
 					continueAgent = true
 					continue
 				}
@@ -192,7 +201,7 @@ func (w *Worker) executeBuiltin(ctx, runCtx context.Context, task *Run, knowledg
 					continueAgent = true
 					continue
 				}
-				w.submitAgent(ctx, runCtx, task, dir, summary, strings.TrimSpace(args.Lessons))
+				w.submitAgent(ctx, runCtx, task, dir, summary, strings.TrimSpace(args.Lessons), structuredResult)
 				return
 			case "request_input":
 				var args struct {
@@ -360,14 +369,14 @@ func (w *Worker) agentRunCommand(ctx, runCtx context.Context, task *Run, dir, ra
 }
 
 // submitAgent 收尾：上传产物、拼报告、提交结果（与 CLI 路径同一套约定）。
-func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Run, dir, summary, lessons string) {
+func (w *Worker) submitAgent(ctx, runCtx context.Context, task *Run, dir, summary, lessons string, structuredResult json.RawMessage) {
 	summary = w.appendArtifactReport(runCtx, task, dir, summary)
 	if w.killed() {
 		log.Printf("执行 #%d 在上传产物时被取消", task.ID)
 		return
 	}
 	if err := w.client.Submit(ctx, task.ID, task.ClaimID, summary, lessons, task.Session, dir,
-		SubmissionResult{Outcome: workerproto.OutcomeSucceeded}); err != nil {
+		SubmissionResult{Outcome: workerproto.OutcomeSucceeded, StructuredResult: structuredResult}); err != nil {
 		log.Printf("提交任务 #%d 失败: %v", task.ID, err)
 		w.failTask(ctx, task, "提交内置智能体任务结果失败: "+err.Error(), task.Session, dir)
 		w.handoffDeferredRestart()

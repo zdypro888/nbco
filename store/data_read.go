@@ -3,11 +3,16 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 )
+
+// ErrInvalidDataQuery marks caller-correctable query validation failures.
+// Tools may expose the wrapped message without depending on its wording.
+var ErrInvalidDataQuery = errors.New("数据查询参数无效")
 
 // DataSource describes one curated, permission-aware read model exposed to AI.
 // It is intentionally not a database table catalog: credentials, raw storage
@@ -37,6 +42,7 @@ type dataSourceDef struct {
 	semanticID        string
 	semanticFields    []string
 	semanticPredicate string
+	canonicalRef      func(map[string]json.RawMessage) (string, bool)
 }
 
 var dataSourceOrder = []string{
@@ -217,20 +223,20 @@ var dataSourceDefs = map[string]dataSourceDef{
 	"tasks": {
 		DataSource: DataSource{
 			Name: "tasks", Description: "任务全字段读模型；普通用户只看自己分配或执行的任务，超管可看全部。",
-			Fields: []string{"task_id", "project_id", "parent_id", "assigner_id", "assignee_id", "title", "goal", "description", "acceptance", "priority", "deadline", "status", "depends_on", "milestone_id", "created_at", "updated_at"},
+			Fields: []string{"task_id", "project_id", "parent_id", "assigner_id", "assignee_id", "title", "goal", "description", "acceptance", "kind", "priority", "deadline", "status", "depends_on", "milestone_id", "created_at", "updated_at"},
 		},
 		query: `SELECT jsonb_build_object(
 			'task_id', t.id, 'project_id', t.project_id, 'parent_id', t.parent_id,
 			'assigner_id', t.assigner_id, 'assignee_id', t.assignee_id,
 			'title', t.title, 'goal', t.goal, 'description', t.description,
-			'acceptance', t.acceptance, 'priority', t.priority, 'deadline', t.deadline,
+			'acceptance', t.acceptance, 'kind', t.kind, 'priority', t.priority, 'deadline', t.deadline,
 			'status', t.status, 'depends_on', t.depends_on, 'milestone_id', t.milestone_id,
 			'created_at', t.created_at, 'updated_at', t.updated_at
 		) AS item, t.updated_at AS sort_at, t.id AS sort_id
 			FROM tasks t WHERE $2 OR t.assigner_id = $1 OR t.assignee_id = $1
 			 OR EXISTS (SELECT 1 FROM task_participants tp
 			             WHERE tp.task_id = t.id AND tp.user_id = $1)`,
-		semanticID: "task_id", semanticFields: []string{"title", "goal", "description", "acceptance", "priority", "status"},
+		semanticID: "task_id", semanticFields: []string{"title", "goal", "description", "acceptance", "kind", "priority", "status"},
 	},
 	"task_updates": {
 		DataSource: DataSource{
@@ -329,6 +335,17 @@ var dataSourceDefs = map[string]dataSourceDef{
 		// whose immediate vector pipeline already preserves channel scope. Keep
 		// richer derived facts searchable here without indexing chat text twice.
 		semanticPredicate: "item ->> 'kind' <> 'communication'",
+		canonicalRef: func(object map[string]json.RawMessage) (string, bool) {
+			kind, ok := semanticJSONScalar(object["kind"])
+			if !ok || kind != WorkEvidenceCommunication {
+				return "", false
+			}
+			messageID, ok := semanticJSONScalar(object["source_message_id"])
+			if !ok || messageID == "" {
+				return "", false
+			}
+			return "chat_messages\x00" + messageID, true
+		},
 	},
 	"files": {
 		DataSource: DataSource{
@@ -715,7 +732,7 @@ var dataSourceDefs = map[string]dataSourceDef{
 			 ORDER BY p.id DESC LIMIT 1
 		) prev ON TRUE
 		WHERE cs.channel NOT LIKE 'internal:%'
-		  AND ($2 OR (cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0))`,
+		  AND ($2 OR (cs.user_id = $1 AND ` + nonGroupChannelSQL + `))`,
 		// Chat messages use the immediate message-index pipeline so their
 		// permission payload is preserved. A stable ID still lets query_data
 		// reuse that index and re-read the authoritative row here.
@@ -857,6 +874,32 @@ func DataRowEntityID(source string, row json.RawMessage) (string, bool) {
 	return semanticJSONScalar(object[field])
 }
 
+// DataRowCanonicalKey returns the stable identity of the underlying fact. Most
+// rows are their own canonical entity. A read model that is explicitly a
+// projection of another source can declare that provenance in its definition;
+// equal prose alone never makes two business records identical.
+func DataRowCanonicalKey(source string, row json.RawMessage) (string, bool) {
+	source = strings.TrimSpace(source)
+	def, ok := dataSourceDefs[source]
+	if !ok || def.semanticID == "" {
+		return "", false
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(row, &object); err != nil {
+		return "", false
+	}
+	if def.canonicalRef != nil {
+		if key, found := def.canonicalRef(object); found {
+			return key, true
+		}
+	}
+	id, ok := semanticJSONScalar(object[def.semanticID])
+	if !ok || id == "" {
+		return "", false
+	}
+	return source + "\x00" + id, true
+}
+
 // SemanticDocuments returns one stable page from a superadmin-visible curated
 // read model. The exported content contains only fields already allowed by the
 // AI read catalog; credentials, storage paths, hashes, and migration state are
@@ -994,12 +1037,12 @@ func (s *Store) ReadData(ctx context.Context, userID int64, isSuperadmin bool, q
 		fieldSet[field] = true
 	}
 	if len(q.Filters) > 20 {
-		return nil, fmt.Errorf("单次最多使用 20 个精确过滤字段")
+		return nil, fmt.Errorf("%w: 单次最多使用 20 个精确过滤字段", ErrInvalidDataQuery)
 	}
 	filterKeys := make([]string, 0, len(q.Filters))
 	for key := range q.Filters {
 		if !fieldSet[key] {
-			return nil, fmt.Errorf("数据源 %s 不支持字段 %s；可用字段：%s", name, key, strings.Join(def.Fields, ", "))
+			return nil, fmt.Errorf("%w: 数据源 %s 不支持字段 %s；可用字段：%s", ErrInvalidDataQuery, name, key, strings.Join(def.Fields, ", "))
 		}
 		filterKeys = append(filterKeys, key)
 	}

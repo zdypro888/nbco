@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zdypro888/nbco/workerproto"
 )
 
 func TestParseCompletion(t *testing.T) {
@@ -32,7 +35,7 @@ func TestParseCompletion(t *testing.T) {
 
 func TestCompletionMarksAreTerminalRenderSafe(t *testing.T) {
 	marks := newCompletionMarks()
-	for _, mark := range []string{marks.Summary, marks.Lessons, marks.NeedInput, marks.End} {
+	for _, mark := range []string{marks.Summary, marks.Lessons, marks.NeedInput, marks.End, completionPromptEchoMark(marks)} {
 		if strings.ContainsAny(mark, "<>") {
 			t.Fatalf("PTY completion mark must not be interpreted as an HTML-like tag: %q", mark)
 		}
@@ -100,11 +103,11 @@ func TestAcknowledgeRunRetriesAmbiguousHTTPFailure(t *testing.T) {
 	}
 }
 
-func TestParseCompletionNoLessons(t *testing.T) {
-	out := markSummary + "\n改完了\n" + markLessons + "\n无\n" + markEnd
+func TestParseCompletionEmptyLessons(t *testing.T) {
+	out := markSummary + "\n改完了\n" + markLessons + "\n\n" + markEnd
 	summary, lessons, ok := parseCompletion(out)
 	if !ok || summary != "改完了" || lessons != "" {
-		t.Errorf("summary=%q lessons=%q ok=%v（无/None 应归空）", summary, lessons, ok)
+		t.Errorf("summary=%q lessons=%q ok=%v（空经验段应保持为空）", summary, lessons, ok)
 	}
 }
 
@@ -171,9 +174,11 @@ func TestParseInputRequestRequiresRunNonce(t *testing.T) {
 }
 
 func TestParseCompletionEchoWrapped(t *testing.T) {
-	// TUI 窄屏可能把回显的占位说明折行，仍应识别为回显。
-	echo := markSummary + "\n（一句话说明你做\n了什么、结果如何）\n" + markLessons +
-		"\n（可复用的经验\n教训，没有就写：无）\n" + markEnd
+	// TUI 窄屏可能把协议防护标记折行，仍应识别为回显。
+	echoMark := completionPromptEchoMark(defaultCompletionMarks)
+	middle := len(echoMark) / 2
+	echo := markSummary + "\n" + echoMark[:middle] + "\n" + echoMark[middle:] +
+		"\n模板占位内容\n" + markLessons + "\n模板经验\n" + markEnd
 	if s, _, ok := parseCompletion(echo); ok {
 		t.Fatalf("折行回显不应判定完成: %q", s)
 	}
@@ -181,11 +186,11 @@ func TestParseCompletionEchoWrapped(t *testing.T) {
 
 func TestBuildPrompt(t *testing.T) {
 	p := buildPrompt(
-		&Run{Title: "写登录页", Goal: "让用户能登录", Description: "实现表单", Acceptance: "能提交"},
+		&Run{Title: "写登录页", Goal: "让用户能登录", Description: "实现表单", Acceptance: "能提交", Kind: "engineering"},
 		[]string{"经验A：先看规范"},
 		[]string{"🔍 验收未通过：缺少错误态"},
 	)
-	for _, want := range []string{"写登录页", "让用户能登录", "实现表单", "能提交",
+	for _, want := range []string{"写登录页", "任务类型：engineering", "让用户能登录", "实现表单", "能提交",
 		"经验A：先看规范", "验收未通过：缺少错误态", "此前的过程记录", "不是外部事实证据",
 		"先用可靠来源核对其中的假设", "不要用记忆补齐", "新增查证可能改变结论", markSummary, markEnd} {
 		if !strings.Contains(p, want) {
@@ -454,7 +459,7 @@ func TestDriveAgentTurnsContinuesWhileProgressing(t *testing.T) {
 		"第二步：已查到第一项资料",
 		"第三步：正在交叉验证",
 		"第四步：已完成验证",
-		marks.Summary + "\n已查询并核验全部比赛\n" + marks.Lessons + "\n无\n" + marks.End,
+		marks.Summary + "\n已查询并核验全部比赛\n" + marks.Lessons + "\n\n" + marks.End,
 	}
 	calls := 0
 	screen, summary, lessons, question, ok, needsInput, err := driveAgentTurns("第一步：开始检索", nil, marks,
@@ -557,7 +562,7 @@ func TestDriveAgentTurnsSupervisorAllowsVerifiedProgress(t *testing.T) {
 		Summary: "<<<SUMMARY:judge-progress>>>", Lessons: "<<<LESSONS:judge-progress>>>",
 		NeedInput: "<<<NEED_INPUT:judge-progress>>>", End: "<<<END:judge-progress>>>",
 	}
-	final := marks.Summary + "\n已完成真实修改并验证\n" + marks.Lessons + "\n无\n" + marks.End
+	final := marks.Summary + "\n已完成真实修改并验证\n" + marks.Lessons + "\n\n" + marks.End
 	screen, summary, _, _, ok, needsInput, err := driveAgentTurnsWithJudge(
 		"已取得第一份可靠证据", nil, marks,
 		func(string) (string, error) { return final, nil },
@@ -573,7 +578,7 @@ func TestDriveAgentTurnsSupervisorAllowsVerifiedProgress(t *testing.T) {
 func TestAgentRevisionRequiresFreshCompletionMarks(t *testing.T) {
 	oldMarks := newCompletionMarks()
 	newMarks := newCompletionMarks()
-	oldResult := oldMarks.Summary + "\n旧结果\n" + oldMarks.Lessons + "\n无\n" + oldMarks.End
+	oldResult := oldMarks.Summary + "\n旧结果\n" + oldMarks.Lessons + "\n\n" + oldMarks.End
 	revision := agentRevisionWithMarks(newMarks, agentTurnAssessment{Reason: "旧结果不合格", Guidance: "修正交付物"})
 	screen := oldResult + "\n" + revision + "\n正在返工"
 	if _, _, ok := parseCompletionWithMarks(screen, newMarks); ok {
@@ -927,7 +932,7 @@ dd bs=1 count=%d of=/dev/null 2>/dev/null
 printf 'thinking... esc to interrupt\n'
 sleep 1.2
 printf '\033[2J\033[H'
-printf '%s\n建好了 hello.txt\n%s\n无\n%s\n'
+printf '%s\n建好了 hello.txt\n%s\n\n%s\n'
 sleep 60
 `, pasteBytes, markSummary, markLessons, markEnd)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1087,6 +1092,65 @@ func TestOpenArtifactFileRejectsLinks(t *testing.T) {
 		case <-time.After(3 * time.Second):
 			t.Fatal("openArtifactFile 在 FIFO 上阻塞了（应 O_NONBLOCK 立即返回）")
 		}
+	}
+}
+
+func TestCollectStructuredResultUsesDedicatedValidatedChannel(t *testing.T) {
+	dir := t.TempDir()
+	resultPath := filepath.Join(dir, filepath.FromSlash(workerproto.StructuredResultRelativePath))
+	if err := os.MkdirAll(filepath.Dir(resultPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	task := &Run{
+		ResultRequired: true,
+		ResultSchema:   json.RawMessage(`{"type":"object","required":["items"],"properties":{"items":{"type":"array"}}}`),
+	}
+	if _, err := collectStructuredResult(task, dir, nil, true); !errors.Is(err, workerproto.ErrStructuredResultRequired) {
+		t.Fatalf("missing required result error = %v", err)
+	}
+	if err := os.WriteFile(resultPath, []byte(` { "items": [1] } `), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := collectStructuredResult(task, dir, nil, true)
+	if err != nil || string(got) != `{"items":[1]}` {
+		t.Fatalf("file result = %s, %v", got, err)
+	}
+	if _, err := collectStructuredResult(task, dir, json.RawMessage(`{"items":[2]}`), true); err == nil {
+		t.Fatal("ambiguous file and task_done result accepted")
+	}
+	if err := os.Remove(resultPath); err != nil {
+		t.Fatal(err)
+	}
+	got, err = collectStructuredResult(task, dir, json.RawMessage(`{"items":[2]}`), true)
+	if err != nil || string(got) != `{"items":[2]}` {
+		t.Fatalf("tool result = %s, %v", got, err)
+	}
+}
+
+func TestReadStructuredResultFileRejectsLinksAndOversize(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, filepath.FromSlash(workerproto.StructuredResultRelativePath))
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "result.json")
+	if err := os.WriteFile(outside, []byte(`{"secret":"outside"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, path); err != nil {
+		t.Skipf("symbolic links unavailable: %v", err)
+	}
+	if _, err := readStructuredResultFile(dir); err == nil {
+		t.Fatal("structured result symlink accepted")
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"value":"`+strings.Repeat("x", workerproto.StructuredResultMaxBytes)+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readStructuredResultFile(dir); err == nil {
+		t.Fatal("oversize structured result accepted")
 	}
 }
 

@@ -93,7 +93,7 @@ func dataReadTools(d Deps, u *store.User) []ai.Tool {
 					if errors.Is(err, store.ErrNotFound) {
 						return "数据源不存在或当前身份无权读取。请先把 source 留空查看可用目录。", nil
 					}
-					if strings.Contains(err.Error(), "不支持字段") {
+					if errors.Is(err, store.ErrInvalidDataQuery) {
 						return err.Error(), nil
 					}
 					return "", err
@@ -245,6 +245,9 @@ func searchVisibleSemanticSources(ctx context.Context, d Deps, u *store.User, qu
 	if successful == 0 && len(searchErrors) > 0 {
 		return nil, errors.Join(searchErrors...)
 	}
+	if len(searchErrors) > 0 {
+		slog.Warn("部分语义数据源查询失败，保留其余授权结果", "failed", len(searchErrors), "total", len(sources), "err", errors.Join(searchErrors...))
+	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
 	return hits, nil
 }
@@ -271,6 +274,7 @@ func lexicalRowsAcrossSources(ctx context.Context, d Deps, u *store.User, terms,
 	perSource := min(max(wanted, 12), 60)
 	rowsBySource := make(map[string][]json.RawMessage, len(sources))
 	var readErrors []error
+	var successful int
 	var mu sync.Mutex
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(6)
@@ -285,14 +289,18 @@ func lexicalRowsAcrossSources(ctx context.Context, d Deps, u *store.User, terms,
 			if err != nil {
 				readErrors = append(readErrors, fmt.Errorf("%s: %w", source, err))
 			} else {
+				successful++
 				rowsBySource[source] = rows
 			}
 			return nil
 		})
 	}
 	_ = group.Wait()
-	if len(readErrors) > 0 {
+	if successful == 0 && len(readErrors) > 0 {
 		return nil, errors.Join(readErrors...)
+	}
+	if len(readErrors) > 0 {
+		slog.Warn("部分词法数据源查询失败，保留其余授权结果", "failed", len(readErrors), "total", len(sources), "err", errors.Join(readErrors...))
 	}
 	capRows := min(max(wanted*6, 60), 500)
 	return interleaveLexicalRows(sources, rowsBySource, capRows), nil
@@ -338,6 +346,7 @@ func visibleRowsForHits(ctx context.Context, d Deps, u *store.User, hits []vecto
 		bySource[hit.Source] = append(bySource[hit.Source], hit.EntityID)
 	}
 	visible := make(map[string]json.RawMessage)
+	var readErrors []error
 	var mu sync.Mutex
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(6)
@@ -351,6 +360,9 @@ func visibleRowsForHits(ctx context.Context, d Deps, u *store.User, hits []vecto
 				Source: source, EntityIDs: ids, Limit: min(len(ids), 500),
 			})
 			if err != nil {
+				mu.Lock()
+				readErrors = append(readErrors, fmt.Errorf("%s: %w", source, err))
+				mu.Unlock()
 				return nil
 			}
 			mu.Lock()
@@ -364,6 +376,9 @@ func visibleRowsForHits(ctx context.Context, d Deps, u *store.User, hits []vecto
 		})
 	}
 	_ = group.Wait()
+	if len(readErrors) > 0 {
+		slog.Warn("部分语义命中授权回查失败，丢弃不可核实命中", "failed", len(readErrors), "total", len(bySource), "err", errors.Join(readErrors...))
+	}
 	out := make([]rankedDataRow, 0, min(limit, len(visible)))
 	for _, hit := range hits {
 		key := hit.Source + "\x00" + hit.EntityID
@@ -432,33 +447,27 @@ func mergeCrossRankedDataRows(primary, secondary []rankedDataRow, limit int) []r
 		bestRank int
 	}
 	items := make(map[string]*fused, len(primary)+len(secondary))
-	facts := make(map[string]string)
 	for _, rows := range [][]rankedDataRow{primary, secondary} {
+		seenInRetrieval := make(map[string]bool, len(rows))
 		for rank, row := range rows {
-			id, ok := store.DataRowEntityID(row.Source, row.Row)
-			key := row.Source + "\x00" + id
+			key, ok := store.DataRowCanonicalKey(row.Source, row.Row)
 			if !ok {
 				key = row.Source + "\x00" + string(row.Row)
-			}
-			factKeys := crossSourceFactKeys(row)
-			for _, factKey := range factKeys {
-				if existingKey := facts[factKey]; existingKey != "" {
-					if existing := items[existingKey]; existing != nil && existing.item.Source != row.Source {
-						key = existingKey
-						break
-					}
-				}
 			}
 			item := items[key]
 			if item == nil {
 				item = &fused{item: row, key: key, bestRank: rank}
 				items[key] = item
+			} else if canonicalSource, _, found := strings.Cut(key, "\x00"); found &&
+				row.Source == canonicalSource && item.item.Source != canonicalSource {
+				// Keep the authoritative row even when a lexical-only retrieval sees
+				// its projection first because of source ordering.
+				item.item = row
 			}
-			for _, factKey := range factKeys {
-				if facts[factKey] == "" {
-					facts[factKey] = key
-				}
+			if seenInRetrieval[key] {
+				continue
 			}
+			seenInRetrieval[key] = true
 			item.score += 1 / float64(60+rank+1)
 			item.bestRank = min(item.bestRank, rank)
 		}
@@ -502,52 +511,6 @@ func mergeCrossRankedDataRows(primary, secondary []rankedDataRow, limit int) []r
 		}
 		if !selected[item] {
 			out = append(out, item.item)
-		}
-	}
-	return out
-}
-
-func crossSourceFactKeys(row rankedDataRow) []string {
-	switch row.Source {
-	case "chat_messages", "action_turns", "audit_activity", "events", "deliveries":
-	default:
-		return nil
-	}
-	var value any
-	if json.Unmarshal(row.Row, &value) != nil {
-		return nil
-	}
-	var candidates []string
-	var collect func(any)
-	collect = func(value any) {
-		switch typed := value.(type) {
-		case string:
-			normalized := strings.ToLower(strings.Join(strings.Fields(typed), " "))
-			if len([]rune(normalized)) >= 20 {
-				candidates = append(candidates, normalized)
-			}
-		case []any:
-			for _, item := range typed {
-				collect(item)
-			}
-		case map[string]any:
-			for _, item := range typed {
-				collect(item)
-			}
-		}
-	}
-	collect(value)
-	sort.SliceStable(candidates, func(i, j int) bool { return len([]rune(candidates[i])) > len([]rune(candidates[j])) })
-	seen := make(map[string]bool)
-	out := make([]string, 0, min(4, len(candidates)))
-	for _, candidate := range candidates {
-		if seen[candidate] {
-			continue
-		}
-		seen[candidate] = true
-		out = append(out, candidate)
-		if len(out) == 4 {
-			break
 		}
 	}
 	return out

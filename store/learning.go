@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -28,8 +29,8 @@ const (
 	LearningMemoryCanonical    = "canonical"
 	LearningMemoryTransient    = "transient"
 
-	// LearningDuplicateThreshold is intentionally below exact-text territory:
-	// the miner commonly paraphrases the same durable rule across conversations.
+	// LearningDuplicateThreshold only admits related text into Agent review. It
+	// never authorizes an automatic duplicate or conflict verdict.
 	LearningDuplicateThreshold = 0.60
 )
 
@@ -93,6 +94,7 @@ func (s *Store) CreateLearningCandidate(ctx context.Context, in LearningCandidat
 	if len(in.Evidence) == 0 {
 		in.Evidence = json.RawMessage(`{}`)
 	}
+	in.Scope = strings.TrimSpace(in.Scope)
 	if in.Scope == "" {
 		in.Scope = "global"
 	}
@@ -102,14 +104,31 @@ func (s *Store) CreateLearningCandidate(ctx context.Context, in LearningCandidat
 	if in.Status == "" {
 		in.Status = LearningStatusPending
 	}
+	if in.Kind == LearningKindSkill {
+		content, err := DecodeSkillContent(in.Content)
+		if err != nil {
+			return nil, err
+		}
+		canonical, err := EncodeSkillContent(content)
+		if err != nil {
+			return nil, err
+		}
+		in.Content = canonical
+	}
 	in.MemoryClass = NormalizeLearningMemoryClass(in.Kind, in.MemoryClass)
+	contentIdentity := learningContentIdentity(in.Title, in.Content)
 	return scanLearningCandidate(s.pool.QueryRow(ctx,
 		`INSERT INTO learning_candidates
-		   (kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by, memory_class)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		   (kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by, memory_class, content_identity)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		 RETURNING `+learningCandidateCols,
 		in.Kind, in.Scope, in.Title, in.Content, in.Tags, in.Evidence, in.Confidence,
-		in.Status, in.SourceType, in.SourceRef, in.CreatedBy, in.MemoryClass))
+		in.Status, in.SourceType, in.SourceRef, in.CreatedBy, in.MemoryClass, contentIdentity))
+}
+
+func learningContentIdentity(title, content string) string {
+	sum := sha256.Sum256([]byte(normalizeLearningText(title) + "\x00" + normalizeLearningText(content)))
+	return fmt.Sprintf("%x", sum[:])
 }
 
 func NormalizeLearningMemoryClass(kind, memoryClass string) string {
@@ -224,7 +243,7 @@ func (s *Store) SetLearningCandidateMemoryClass(ctx context.Context, id, reviewe
 		    SET memory_class=$2, status=$3, reviewed_by=$4, reviewed_at=now(),
 		        review_note=$5, updated_at=now()
 		  WHERE id=$1`, id, memoryClass, status, reviewerID, note); err != nil {
-		return err
+		return wrapErr(err)
 	}
 	return tx.Commit(ctx)
 }
@@ -261,24 +280,6 @@ func (s *Store) ListLearningCandidates(ctx context.Context, status, kind string,
 	return out, rows.Err()
 }
 
-func (s *Store) LearningCandidateExists(ctx context.Context, kind, title string, statuses ...string) (bool, error) {
-	if kind == "" || title == "" {
-		return false, nil
-	}
-	sql := `SELECT EXISTS(SELECT 1 FROM learning_candidates WHERE kind = $1 AND lower(trim(title)) = lower(trim($2))`
-	args := []any{kind, title}
-	if len(statuses) > 0 {
-		args = append(args, statuses)
-		sql += ` AND status = ANY($3)`
-	}
-	sql += `)`
-	var ok bool
-	if err := s.pool.QueryRow(ctx, sql, args...).Scan(&ok); err != nil {
-		return false, err
-	}
-	return ok, nil
-}
-
 func (s *Store) MarkLearningCandidatePublished(ctx context.Context, id, reviewerID int64, knowledgeID *int64) error {
 	return s.execOne(ctx,
 		`UPDATE learning_candidates
@@ -296,10 +297,10 @@ func (s *Store) RejectLearningCandidate(ctx context.Context, id, reviewerID int6
 }
 
 // ScoreLearningCandidates gives pending candidates a deterministic governance
-// score and links obvious duplicates/conflicts. It is deliberately conservative:
-// AI can add nuance in review_note, but the store pass must be stable and cheap.
+// score and links exact duplicates. Text similarity is only a retrieval hint for
+// Agent review; the store never infers semantic agreement or conflict.
 func (s *Store) ScoreLearningCandidates(ctx context.Context, limit int) (int, error) {
-	// 上限 200：冲突检测对每个候选最多再扫 200 条同类（learningConflictID），
+	// 上限 200：相关候选检测对每个候选最多再扫 200 条同类，
 	// 外层候选数也限 200，把单次评分的最坏比较次数钳在 200×200=4万，而非无界。
 	if limit <= 0 || limit > 200 {
 		limit = 200
@@ -344,29 +345,23 @@ func (s *Store) scoreLearningCandidates(ctx context.Context, items []*LearningCa
 			continue
 		}
 		score := learningValueScore(c)
-		dupe, similarity, err := s.learningDuplicateID(ctx, c)
+		related, similarity, equivalent, err := s.learningDuplicateID(ctx, c)
 		if err != nil {
 			return updated, err
 		}
-		conflict, err := s.learningConflictID(ctx, c)
-		if err != nil {
-			return updated, err
-		}
+		var dupe *int64
 		note := ""
-		if conflict != nil {
-			// A polarity conflict can also have very high lexical similarity. It
-			// must remain reviewable instead of being auto-rejected as a duplicate.
-			dupe = nil
-			note = "疑似冲突：与候选 " + fmt.Sprint(*conflict) + " 的规则/结论方向可能相反。"
-			score *= 0.8
-		} else if dupe != nil {
-			note = fmt.Sprintf("疑似重复：与候选 %d 的语义相似度 %.2f。", *dupe, similarity)
+		if equivalent && related != nil {
+			dupe = related
+			note = fmt.Sprintf("精确重复：与候选 %d 的规范化标题和正文相同。", *dupe)
 			score *= 0.3
+		} else if related != nil {
+			note = fmt.Sprintf("相关候选：与候选 %d 的文本相似度 %.2f；重复或冲突由 Agent 结合语义审核。", *related, similarity)
 		}
 		status := LearningStatusPending
-		if dupe != nil && similarity >= 0.9 {
+		if dupe != nil {
 			status = LearningStatusRejected
-			note += " 高置信重复，已自动归档。"
+			note += " 已自动归档。"
 		}
 		tag, err := s.pool.Exec(ctx,
 			`UPDATE learning_candidates
@@ -376,7 +371,7 @@ func (s *Store) scoreLearningCandidates(ctx context.Context, items []*LearningCa
 			  WHERE id = $1 AND status = $6
 			    AND (duplicate_of IS DISTINCT FROM $2 OR conflict_with IS DISTINCT FROM $3
 			      OR value_score IS DISTINCT FROM $4 OR review_note IS DISTINCT FROM $5 OR status IS DISTINCT FROM $7)`,
-			c.ID, dupe, conflict, score, note, LearningStatusPending, status)
+			c.ID, dupe, nil, score, note, LearningStatusPending, status)
 		if err != nil {
 			return updated, err
 		}
@@ -387,17 +382,17 @@ func (s *Store) scoreLearningCandidates(ctx context.Context, items []*LearningCa
 	return updated, nil
 }
 
-func (s *Store) learningDuplicateID(ctx context.Context, c *LearningCandidate) (*int64, float64, error) {
+func (s *Store) learningDuplicateID(ctx context.Context, c *LearningCandidate) (*int64, float64, bool, error) {
 	if c == nil || strings.TrimSpace(c.Title) == "" {
-		return nil, 0, nil
+		return nil, 0, false, nil
 	}
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, title, content FROM learning_candidates
-		  WHERE id <> $1 AND kind = $2 AND status = ANY($3) AND memory_class = $4
+		  WHERE id <> $1 AND kind = $2 AND status = ANY($3) AND memory_class = $4 AND scope = $5
 		  ORDER BY CASE WHEN id < $1 THEN 0 ELSE 1 END, id DESC
-		  LIMIT 200`, c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished}, c.MemoryClass)
+		  LIMIT 200`, c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished}, c.MemoryClass, c.Scope)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, false, err
 	}
 	defer rows.Close()
 	var bestID int64
@@ -406,7 +401,10 @@ func (s *Store) learningDuplicateID(ctx context.Context, c *LearningCandidate) (
 		var id int64
 		var title, content string
 		if err := rows.Scan(&id, &title, &content); err != nil {
-			return nil, 0, err
+			return nil, 0, false, err
+		}
+		if LearningTextsEquivalent(c.Title, c.Content, title, content) {
+			return &id, 1, true, nil
 		}
 		sim := LearningTextSimilarity(c.Title, c.Content, title, content)
 		if sim > best {
@@ -414,29 +412,26 @@ func (s *Store) learningDuplicateID(ctx context.Context, c *LearningCandidate) (
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, false, err
 	}
 	if bestID == 0 || best < LearningDuplicateThreshold {
-		return nil, best, nil
+		return nil, best, false, nil
 	}
-	return &bestID, best, nil
+	return &bestID, best, false, nil
 }
 
-// SimilarLearningCandidateExists checks semantic-ish text overlap against a
-// bounded recent set. It catches paraphrased candidates without another model
-// call and is deterministic enough for retries.
-func (s *Store) SimilarLearningCandidateExists(ctx context.Context, kind, title, content string, threshold float64, statuses ...string) (bool, error) {
-	return s.similarLearningCandidateExists(ctx, kind, "", title, content, threshold, statuses...)
+// EquivalentLearningCandidateExists checks exact normalized identity. Semantic
+// similarity is intentionally not a write gate because similar rules may have
+// opposite meaning.
+func (s *Store) EquivalentLearningCandidateExists(ctx context.Context, kind, scope, title, content string, statuses ...string) (bool, error) {
+	return s.equivalentLearningCandidateExists(ctx, kind, "", scope, title, content, statuses...)
 }
 
-func (s *Store) SimilarLearningCandidateExistsInClass(ctx context.Context, kind, memoryClass, title, content string, threshold float64, statuses ...string) (bool, error) {
-	return s.similarLearningCandidateExists(ctx, kind, NormalizeLearningMemoryClass(kind, memoryClass), title, content, threshold, statuses...)
+func (s *Store) EquivalentLearningCandidateExistsInClass(ctx context.Context, kind, memoryClass, scope, title, content string, statuses ...string) (bool, error) {
+	return s.equivalentLearningCandidateExists(ctx, kind, NormalizeLearningMemoryClass(kind, memoryClass), scope, title, content, statuses...)
 }
 
-func (s *Store) similarLearningCandidateExists(ctx context.Context, kind, memoryClass, title, content string, threshold float64, statuses ...string) (bool, error) {
-	if threshold <= 0 {
-		threshold = LearningDuplicateThreshold
-	}
+func (s *Store) equivalentLearningCandidateExists(ctx context.Context, kind, memoryClass, scope, title, content string, statuses ...string) (bool, error) {
 	if len(statuses) == 0 {
 		statuses = []string{LearningStatusPending, LearningStatusPublished}
 	}
@@ -446,7 +441,9 @@ func (s *Store) similarLearningCandidateExists(ctx context.Context, kind, memory
 		query += ` AND memory_class = $3`
 		args = append(args, memoryClass)
 	}
-	query += ` ORDER BY id DESC LIMIT 200`
+	args = append(args, strings.TrimSpace(scope))
+	query += ` AND scope = $` + fmt.Sprint(len(args))
+	query += ` ORDER BY id DESC`
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return false, err
@@ -457,14 +454,22 @@ func (s *Store) similarLearningCandidateExists(ctx context.Context, kind, memory
 		if err := rows.Scan(&otherTitle, &otherContent); err != nil {
 			return false, err
 		}
-		if LearningTextsConflict(kind, title, content, otherTitle, otherContent) {
-			continue
-		}
-		if LearningTextSimilarity(title, content, otherTitle, otherContent) >= threshold {
+		if LearningTextsEquivalent(title, content, otherTitle, otherContent) {
 			return true, nil
 		}
 	}
 	return false, rows.Err()
+}
+
+// LearningTextsEquivalent is the only automatic duplicate verdict. It ignores
+// case and whitespace but does not guess the meaning of natural language.
+func LearningTextsEquivalent(titleA, contentA, titleB, contentB string) bool {
+	return normalizeLearningText(titleA) == normalizeLearningText(titleB) &&
+		normalizeLearningText(contentA) == normalizeLearningText(contentB)
+}
+
+func normalizeLearningText(text string) string {
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(text))), " ")
 }
 
 func LearningTextSimilarity(titleA, contentA, titleB, contentB string) float64 {
@@ -491,10 +496,6 @@ func learningShingleDice(a, b map[string]struct{}) float64 {
 		}
 	}
 	return float64(2*intersection) / float64(len(a)+len(b))
-}
-
-func normalizedLearningTitle(title string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(title))), " ")
 }
 
 func learningShingles(text string) map[string]struct{} {
@@ -524,33 +525,6 @@ func learningShingles(text string) map[string]struct{} {
 	return out
 }
 
-func (s *Store) learningConflictID(ctx context.Context, c *LearningCandidate) (*int64, error) {
-	if c == nil || (c.Kind != LearningKindRule && c.Kind != LearningKindSkill) {
-		return nil, nil
-	}
-	rows, err := s.pool.Query(ctx,
-		`SELECT `+learningCandidateCols+`
-		   FROM learning_candidates
-		  WHERE id <> $1 AND kind = $2 AND status = ANY($3) AND memory_class = $4
-		  ORDER BY id DESC LIMIT 200`,
-		c.ID, c.Kind, []string{LearningStatusPending, LearningStatusPublished}, c.MemoryClass)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		other, err := scanLearningCandidate(rows)
-		if err != nil {
-			return nil, err
-		}
-		if likelyLearningConflict(c, other) {
-			id := other.ID
-			return &id, nil
-		}
-	}
-	return nil, rows.Err()
-}
-
 func learningValueScore(c *LearningCandidate) float32 {
 	score := c.Confidence
 	if score <= 0 {
@@ -572,69 +546,4 @@ func learningValueScore(c *LearningCandidate) float32 {
 		return 1
 	}
 	return score
-}
-
-func likelyLearningConflict(a, b *LearningCandidate) bool {
-	if a == nil || b == nil {
-		return false
-	}
-	if a.Kind != LearningKindRule && a.Kind != LearningKindSkill {
-		return false
-	}
-	if !learningSubjectOverlaps(a.Title, a.Content, b.Title, b.Content) {
-		return false
-	}
-	return learningPolarity(a.Title+"\n"+a.Content)*learningPolarity(b.Title+"\n"+b.Content) == -1
-}
-
-// LearningTextsConflict exposes the deterministic governance guard used both
-// while mining and during periodic candidate scoring.
-func LearningTextsConflict(kind, titleA, contentA, titleB, contentB string) bool {
-	return likelyLearningConflict(
-		&LearningCandidate{Kind: kind, Title: titleA, Content: contentA},
-		&LearningCandidate{Kind: kind, Title: titleB, Content: contentB},
-	)
-}
-
-func learningSubjectOverlaps(titleA, contentA, titleB, contentB string) bool {
-	if a, b := normalizedLearningTitle(titleA), normalizedLearningTitle(titleB); a != "" && a == b {
-		return true
-	}
-	titleScore := learningShingleDice(learningShingles(titleA), learningShingles(titleB))
-	combinedScore := learningShingleDice(
-		learningShingles(stripLearningPolarity(titleA+" "+contentA)),
-		learningShingles(stripLearningPolarity(titleB+" "+contentB)),
-	)
-	return titleScore >= 0.45 || combinedScore >= 0.50
-}
-
-func learningPolarity(text string) int {
-	text = strings.ToLower(text)
-	if containsAny(text, "不要", "禁止", "不能", "不得", "不允许", "关闭", "禁用", "disable", "never", "must not", "do not", "don't") {
-		return -1
-	}
-	if containsAny(text, "必须", "应当", "允许", "可以", "启用", "开启", "默认", "enable", "always", "must", "should") {
-		return 1
-	}
-	return 0
-}
-
-func stripLearningPolarity(text string) string {
-	text = strings.ToLower(text)
-	for _, term := range []string{
-		"不要", "禁止", "不能", "不得", "不允许", "关闭", "禁用", "disable", "never", "must not", "do not", "don't",
-		"必须", "应当", "允许", "可以", "启用", "开启", "默认", "enable", "always", "must", "should",
-	} {
-		text = strings.ReplaceAll(text, term, " ")
-	}
-	return text
-}
-
-func containsAny(s string, terms ...string) bool {
-	for _, t := range terms {
-		if strings.Contains(s, t) {
-			return true
-		}
-	}
-	return false
 }

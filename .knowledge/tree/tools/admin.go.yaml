@@ -55,10 +55,10 @@ nodes:
       anchor:
         file: tools/admin.go
         symbol: adminTools
-        hash: sha256:2397e618c0281549e7ce61b9ddd1a0d2f7155be11937ee3f9a24f14b2d3c9d56
-        struct_hash: sha256:de32df5002c92f94ecd654f7528a4cdc49fa2fcc9409742c3c72b13635b3ed5a
-        doc_struct_hash: sha256:c37e2d87d3661619c0815730a4b9e8e0c8d89961b285ea275cf7d679b313b863
-        lines: [120, 776]
+        hash: sha256:e54254cf8418edc8a0c4a0d2633be736bfb598431e4f900a8db6005816ddb71c
+        struct_hash: sha256:39b83cfe83b793b021ac2326addea5415694ad6dcfdf9578355cfa93a00835bb
+        doc_struct_hash: sha256:52903b83690b25e0210d32ad51e0c9c07537bbc4696865fb2acb0e14159ae247
+        lines: [128, 810]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/admin.go#userDirectoryStats

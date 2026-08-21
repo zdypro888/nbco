@@ -248,6 +248,59 @@ func TestTaskReviewLifecycle(t *testing.T) {
 	}
 }
 
+func TestWorkEvidenceUpsertPreservesHigherConfidenceProjection(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	user := mkUser(t, s, "evidence-confidence", false)
+	other := mkUser(t, s, "evidence-confidence-other", false)
+	strongProject := mkProject(t, s, user.ID)
+	weakProject := mkProject(t, s, other.ID)
+	strongTask := mkTask(t, s, strongProject.ID, user.ID, user.ID, "strong evidence task", nil)
+	weakTask := mkTask(t, s, weakProject.ID, other.ID, other.ID, "weak evidence task", nil)
+	now := time.Now().UTC()
+	strong, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: WorkEvidenceSourceConversationFact, SourceKey: "confidence-order",
+		Kind: WorkEvidenceDecision, Status: WorkEvidenceActive,
+		Title: "用户确认的决定", Content: "已经决定按正式方案执行", ActorUserID: &user.ID,
+		ProjectID: &strongProject.ID, TaskID: &strongTask.ID,
+		Confidence: 1, EventAt: now, Metadata: json.RawMessage(`{"origin":"agent_tool"}`), CreatedBy: &user.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	weaker, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: WorkEvidenceSourceConversationFact, SourceKey: "confidence-order",
+		Kind: WorkEvidenceRisk, Status: WorkEvidenceObserved,
+		Title: "模型猜测的风险", Content: "模型对同一句话的较弱解释", ActorUserID: &other.ID,
+		ProjectID: &weakProject.ID, TaskID: &weakTask.ID,
+		Confidence: 0.6, EventAt: now.Add(time.Minute), Metadata: json.RawMessage(`{"origin":"memory_miner"}`), CreatedBy: &other.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if weaker.ID != strong.ID || weaker.Kind != WorkEvidenceDecision || weaker.Status != WorkEvidenceActive ||
+		weaker.Title != strong.Title || weaker.Content != strong.Content || weaker.Confidence != 1 ||
+		weaker.ActorUserID == nil || *weaker.ActorUserID != user.ID || weaker.ProjectID == nil || *weaker.ProjectID != strongProject.ID ||
+		weaker.TaskID == nil || *weaker.TaskID != strongTask.ID || weaker.CreatedBy == nil || *weaker.CreatedBy != user.ID ||
+		!weaker.EventAt.Equal(now) || !strings.Contains(string(weaker.Metadata), "agent_tool") {
+		t.Fatalf("weaker projection overwrote stronger evidence: strong=%+v weaker=%+v", strong, weaker)
+	}
+
+	equal, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
+		SourceType: WorkEvidenceSourceConversationFact, SourceKey: "confidence-order",
+		Kind: WorkEvidenceDecision, Status: WorkEvidenceResolved,
+		Title: "同级来源更新", Content: "同等强度来源确认了最终状态", ActorUserID: &user.ID,
+		Confidence: 1, EventAt: now.Add(2 * time.Minute), Metadata: json.RawMessage(`{"origin":"verified_update"}`), CreatedBy: &user.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if equal.Status != WorkEvidenceResolved || equal.Title != "同级来源更新" ||
+		!equal.EventAt.Equal(now.Add(2*time.Minute)) || !strings.Contains(string(equal.Metadata), "verified_update") {
+		t.Fatalf("equal-confidence update was not applied: %+v", equal)
+	}
+}
+
 func TestTaskQueue(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -657,6 +710,41 @@ func TestWorkerRunIsSeparateFromTaskAndReviewUsesResponsibility(t *testing.T) {
 	}
 }
 
+func TestWorkerFinalizationReplayReconstructsCascadeResult(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "boss", true)
+	worker, _, err := s.CreateWorker(ctx, "cascade-worker", boss.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := mkProject(t, s, boss.ID)
+	parent := mkTask(t, s, project.ID, worker.ID, worker.ID, "worker parent", nil)
+	children, err := s.SplitTask(ctx, parent.ID, []*Task{{
+		ProjectID: project.ID, AssignerID: worker.ID, AssigneeID: worker.ID, Title: "worker child",
+	}})
+	if err != nil || len(children) != 1 {
+		t.Fatalf("split worker task = %+v err=%v", children, err)
+	}
+	claimed, err := s.ClaimNextWorkerRun(ctx, worker.ID)
+	if err != nil || claimed.TaskID == nil || *claimed.TaskID != children[0].ID {
+		t.Fatalf("claim child = %+v err=%v", claimed, err)
+	}
+	finalization := testWorkerFinalization(claimed.ClaimID, "cascade-replay")
+	_, completed, chain, replayed, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+		"done", "", workerproto.OutcomeSucceeded, nil, finalization)
+	if err != nil || replayed || completed.Status != TaskAccepted || len(chain) != 1 ||
+		chain[0].ID != parent.ID || chain[0].Status != TaskAccepted {
+		t.Fatalf("first completion task=%+v chain=%+v replayed=%v err=%v", completed, chain, replayed, err)
+	}
+	_, completed, chain, replayed, err = s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+		"done", "", workerproto.OutcomeSucceeded, nil, finalization)
+	if err != nil || !replayed || completed.Status != TaskAccepted || len(chain) != 1 ||
+		chain[0].ID != parent.ID || chain[0].Status != TaskAccepted {
+		t.Fatalf("replayed completion task=%+v chain=%+v replayed=%v err=%v", completed, chain, replayed, err)
+	}
+}
+
 func TestReassignTaskRemovesConflictingRoleAndWritesAuditAtomically(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
@@ -853,11 +941,24 @@ func TestTaskOutcomeStats(t *testing.T) {
 	boss := mkUser(t, s, "boss", true)
 	alice := mkUser(t, s, "alice", false)
 	pj := mkProject(t, s, boss.ID)
-	tk := mkTask(t, s, pj.ID, boss.ID, alice.ID, "整理员工 xlsx 资料", nil)
+	tk, err := s.CreateTask(ctx, &Task{
+		ProjectID: pj.ID, AssignerID: boss.ID, AssigneeID: alice.ID,
+		Title: "整理员工资料", Kind: TaskKindMaterials,
+	})
+	if err != nil || tk.Kind != TaskKindMaterials {
+		t.Fatalf("task kind = %+v err=%v", tk, err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE tasks SET kind = 'unsupported' WHERE id = $1`, tk.ID); err == nil {
+		t.Fatal("database must reject unsupported task kinds")
+	}
+	persisted, err := s.TaskByID(ctx, tk.ID)
+	if err != nil || persisted.Kind != TaskKindMaterials {
+		t.Fatalf("rejected task kind update changed task = %+v err=%v", persisted, err)
+	}
 
 	if err := s.RecordTaskOutcome(ctx, TaskOutcomeInput{
 		TaskID: tk.ID, AssigneeID: alice.ID, ReviewerID: boss.ID,
-		Outcome: TaskOutcomeAccepted, TaskKind: InferTaskKind(tk.Title), Reason: "结构清晰",
+		Outcome: TaskOutcomeAccepted, TaskKind: TaskKindMaterials, Reason: "结构清晰",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -866,6 +967,9 @@ func TestTaskOutcomeStats(t *testing.T) {
 		Outcome: TaskOutcomeRejected, TaskKind: "engineering", Reason: "代码任务不相关",
 	}); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE task_outcomes SET task_kind = 'unsupported' WHERE task_id = $1`, tk.ID); err == nil {
+		t.Fatal("database must reject unsupported task outcome kinds")
 	}
 	materials, err := s.TaskOutcomeStatsFor(ctx, alice.ID, "materials")
 	if err != nil || materials.Accepted != 1 || materials.Rejected != 0 {
@@ -1332,6 +1436,7 @@ func TestMaterialWorkerLifecycleFollowsTaskTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := mkProject(t, s, boss.ID)
+	resultSchema := json.RawMessage(`{"type":"object","required":["facts"],"additionalProperties":false,"properties":{"facts":{"type":"array"}}}`)
 	file, err := s.CreateFileWithMaterialCase(ctx, &File{
 		Source: "api", OriginalName: "company.pdf", MIMEType: "application/pdf",
 		SizeBytes: 42, SHA256: "material-lifecycle-sha", StoragePath: "material-lifecycle/file", CreatedBy: &boss.ID,
@@ -1339,12 +1444,25 @@ func TestMaterialWorkerLifecycleFollowsTaskTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	entityInput := MaterialEntity{
+		FileID: &file.ID, EntityType: "system", Name: "Company source", Content: "verified",
+		SourceType: "worker_result", SourceRef: "run:test", SourceItemKey: "entity:0", CreatedBy: &worker.ID,
+	}
+	firstEntity, created, err := s.UpsertMaterialEntity(ctx, entityInput)
+	if err != nil || !created {
+		t.Fatalf("first sourced material entity = %+v created=%v err=%v", firstEntity, created, err)
+	}
+	replayedEntity, created, err := s.UpsertMaterialEntity(ctx, entityInput)
+	if err != nil || created || replayedEntity.ID != firstEntity.ID {
+		t.Fatalf("replayed sourced material entity = %+v created=%v err=%v", replayedEntity, created, err)
+	}
 	task, err := s.CreateMaterialTaskWithWorkerRun(ctx, &Task{
 		ProjectID: project.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
 		Title: "整理公司资料", Description: "提炼结构化事实", Priority: "normal",
 	}, []int64{file.ID}, "材料输入", WorkerRunSpec{
 		Executor: workerproto.ExecutorAgent, ScopeType: "materials",
 		ScopeKey: "materials:test", ScopeTitle: "Material lifecycle test",
+		ResultRequired: true, ResultSchema: resultSchema, ResultHandler: "test.material.v1",
 	}, MaterialTaskSpec{OwnerID: boss.ID, Title: "整理公司资料", Instruction: "提炼结构化事实"})
 	if err != nil {
 		t.Fatal(err)
@@ -1372,9 +1490,36 @@ func TestMaterialWorkerLifecycleFollowsTaskTransaction(t *testing.T) {
 	if materialCase := materialForTask(false); materialCase == nil || materialCase.Status != MaterialProcessing {
 		t.Fatalf("claimed material task = %+v", materialCase)
 	}
-	if _, completedTask, _, replayed, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID,
-		"已提炼公司资料", "", workerproto.OutcomeSucceeded, nil, testWorkerFinalization(claimed.ClaimID, "material-complete")); err != nil || replayed || completedTask == nil || completedTask.Status != TaskDone {
+	if _, _, _, _, err := s.CompleteWorkerRun(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+		"缺少机器结果", "", workerproto.OutcomeSucceeded, nil,
+		testWorkerFinalization(claimed.ClaimID, "material-missing-result")); !errors.Is(err, ErrConflict) {
+		t.Fatalf("missing structured result error = %v", err)
+	}
+	structuredResult := json.RawMessage(`{"facts":[{"name":"company"}]}`)
+	finalization := testWorkerFinalization(claimed.ClaimID, "material-complete")
+	completedRun, completedTask, _, replayed, err := s.CompleteWorkerRunWithStructuredResult(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+		"已提炼公司资料", "", structuredResult, workerproto.OutcomeSucceeded, nil, finalization)
+	if err != nil || replayed || completedTask == nil || completedTask.Status != TaskDone {
 		t.Fatalf("complete material task = %+v replayed=%v err=%v", completedTask, replayed, err)
+	}
+	var completedResultCompact, expectedResultCompact bytes.Buffer
+	_ = json.Compact(&completedResultCompact, completedRun.StructuredResult)
+	_ = json.Compact(&expectedResultCompact, structuredResult)
+	if !bytes.Equal(completedResultCompact.Bytes(), expectedResultCompact.Bytes()) || !completedRun.ResultRequired || completedRun.ResultHandler != "test.material.v1" {
+		t.Fatalf("completed structured contract/result = %+v", completedRun)
+	}
+	var attemptResult json.RawMessage
+	var attemptResultCompact bytes.Buffer
+	attemptErr := s.pool.QueryRow(ctx, `SELECT structured_result FROM worker_run_attempts WHERE run_id=$1 AND claim_id=$2`, claimed.ID, claimed.ClaimID).Scan(&attemptResult)
+	if attemptErr == nil {
+		_ = json.Compact(&attemptResultCompact, attemptResult)
+	}
+	if attemptErr != nil || !bytes.Equal(attemptResultCompact.Bytes(), expectedResultCompact.Bytes()) {
+		t.Fatalf("attempt structured result = %s err=%v", attemptResult, attemptErr)
+	}
+	if _, _, _, replayed, err := s.CompleteWorkerRunWithStructuredResult(ctx, claimed.ID, worker.ID, claimed.ClaimID,
+		"已提炼公司资料", "", structuredResult, workerproto.OutcomeSucceeded, nil, finalization); err != nil || !replayed {
+		t.Fatalf("structured finalization replay = %v err=%v", replayed, err)
 	}
 	if materialCase := materialForTask(true); materialCase == nil || materialCase.Status != MaterialCompleted {
 		t.Fatalf("completed material task = %+v", materialCase)
@@ -1400,6 +1545,14 @@ func TestMaterialWorkerLifecycleFollowsTaskTransaction(t *testing.T) {
 	reopened := materialForTask(false)
 	if reopened == nil || reopened.Status != MaterialQueued || reopened.CompletedAt != nil || reopened.WorkerRunID == nil || *reopened.WorkerRunID == claimed.ID || reopened.LastError != "" {
 		t.Fatalf("rejected material task = %+v", reopened)
+	}
+	reworkRun, err := s.ActiveWorkerRunForTask(ctx, task.ID)
+	if err != nil || reworkRun == nil {
+		t.Fatalf("rework run unavailable: %+v err=%v", reworkRun, err)
+	}
+	_, schemaErr := workerproto.ValidateStructuredResult(true, reworkRun.ResultSchema, structuredResult)
+	if schemaErr != nil || !reworkRun.ResultRequired || reworkRun.ResultHandler != "test.material.v1" {
+		t.Fatalf("rework lost structured result contract: %+v schema_err=%v", reworkRun, schemaErr)
 	}
 	if _, err := s.CreateMaterialTaskWithWorkerRun(ctx, &Task{
 		ProjectID: project.ID, AssignerID: boss.ID, AssigneeID: worker.ID,
@@ -1591,6 +1744,33 @@ func TestChannelMessagesCrossSessionBoundaries(t *testing.T) {
 	}
 	if len(page.Messages) != 2 || page.Messages[0].Content != "【Alice】第一条" || page.Messages[1].Content != "【Bob】第二条" {
 		t.Fatalf("channel messages should be chronological: %+v", page.Messages)
+	}
+}
+
+func TestChannelMessagesFilterBySourceEventTime(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "channel-source-time", true)
+	channel := "telegram:group:-100124"
+	session, err := s.StartGroupSession(ctx, boss.ID, channel, "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventAt := time.Date(2025, 4, 2, 8, 30, 0, 0, time.UTC)
+	messageID, err := s.AppendMessageWithEnvelope(ctx, session.ID, "user", "延迟送达的历史消息", MessageEnvelope{
+		Provider: "telegram", ExternalChatRef: "-100124", ExternalMessageRef: "51", SourceCreatedAt: &eventAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	historical, err := s.ListChannelMessages(ctx, channel, eventAt.Add(-time.Minute), eventAt.Add(time.Minute), 10)
+	if err != nil || len(historical.Messages) != 1 || historical.Messages[0].ID != messageID {
+		t.Fatalf("source-time range = %+v err=%v", historical, err)
+	}
+	now := time.Now().UTC()
+	current, err := s.ListChannelMessages(ctx, channel, now.Add(-time.Minute), now.Add(time.Minute), 10)
+	if err != nil || len(current.Messages) != 0 {
+		t.Fatalf("ingestion time must not move event into current range: %+v err=%v", current, err)
 	}
 }
 
@@ -1875,9 +2055,13 @@ func TestWorkerRequestInputPausesUntilTaskUpdate(t *testing.T) {
 		t.Fatalf("empty update must not resume waiting task: %q", unchanged.Status)
 	}
 	description := "仓库地址：https://example.invalid/repo.git"
-	updated, err := s.UpdateTaskContent(ctx, tk.ID, nil, &description, nil, nil)
+	kind := TaskKindEngineering
+	updated, err := s.UpdateTaskContentWithKind(ctx, tk.ID, nil, &description, nil, &kind, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if updated.Kind != TaskKindEngineering {
+		t.Fatalf("updated task kind = %q", updated.Kind)
 	}
 	if updated.Status != TaskPending {
 		t.Fatalf("updated waiting task status = %q, want pending", updated.Status)
@@ -2781,6 +2965,11 @@ func TestReadDataEnforcesRowAndFieldVisibility(t *testing.T) {
 	if _, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{Source: "audit_activity"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ordinary audit access = %v", err)
 	}
+	if _, err := s.ReadData(ctx, owner.ID, false, DataReadQuery{
+		Source: "users", Filters: map[string]string{"unknown_field": "x"},
+	}); !errors.Is(err, ErrInvalidDataQuery) {
+		t.Fatalf("invalid data filter error = %v", err)
+	}
 }
 
 func TestReadDataWorkEvidenceUsesStableIdentityAndRelationshipVisibility(t *testing.T) {
@@ -3392,7 +3581,7 @@ func TestKnowledgeVersionsRollbackAndLearningGovernance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dupe, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+	related, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
 		Kind: LearningKindRule, Title: " worker token 不外发 ", Content: "不要把 worker token 发到群里。", CreatedBy: &boss.ID,
 	})
 	if err != nil {
@@ -3401,12 +3590,39 @@ func TestKnowledgeVersionsRollbackAndLearningGovernance(t *testing.T) {
 	if n, err := s.ScoreLearningCandidates(ctx, 1); err != nil || n != 1 {
 		t.Fatalf("ScoreLearningCandidates = %d, %v", n, err)
 	}
-	got, err := s.LearningCandidateByID(ctx, dupe.ID)
+	got, err := s.LearningCandidateByID(ctx, related.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.DuplicateOf == nil || *got.DuplicateOf != old.ID || got.ValueScore <= 0 {
-		t.Fatalf("应跨历史识别重复候选: %+v old=%d", got, old.ID)
+	if got.DuplicateOf != nil || got.ConflictWith != nil || got.Status != LearningStatusPending ||
+		!strings.Contains(got.ReviewNote, "相关候选") || got.ValueScore <= 0 {
+		t.Fatalf("相似文本只能作为 Agent 审核线索: %+v old=%d", got, old.ID)
+	}
+	// Simulate an exact duplicate carried by a pre-identity migration row. New
+	// concurrent writes are blocked by the database unique identity below.
+	var exactID int64
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO learning_candidates
+		   (kind, scope, title, content, created_by, memory_class, content_identity)
+		 VALUES ($1, 'global', $2, $3, $4, $5, $6) RETURNING id`,
+		LearningKindRule, " worker token 不外发 ", "不要把 worker token 发给用户。", boss.ID,
+		LearningMemoryDurable, "legacy:test-exact").Scan(&exactID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exact, err := s.LearningCandidateByID(ctx, exactID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.ScoreLearningCandidates(ctx, 1); err != nil || n != 1 {
+		t.Fatalf("ScoreLearningCandidates exact = %d, %v", n, err)
+	}
+	got, err = s.LearningCandidateByID(ctx, exact.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DuplicateOf == nil || *got.DuplicateOf != old.ID || got.Status != LearningStatusRejected {
+		t.Fatalf("精确重复应幂等归档: %+v old=%d", got, old.ID)
 	}
 	conflicting, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
 		Kind: LearningKindRule, Title: "Worker Token 外发规则", Content: "默认允许把 worker token 发给用户。", CreatedBy: &boss.ID,
@@ -3421,8 +3637,140 @@ func TestKnowledgeVersionsRollbackAndLearningGovernance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ConflictWith == nil || got.DuplicateOf != nil || got.Status != LearningStatusPending {
-		t.Fatalf("相反规则必须保留为待审核冲突，不能按重复归档: %+v", got)
+	if got.ConflictWith != nil || got.DuplicateOf != nil || got.Status != LearningStatusPending ||
+		!strings.Contains(got.ReviewNote, "Agent") {
+		t.Fatalf("自然语言方向不能由数据库词表猜测: %+v", got)
+	}
+}
+
+func TestLearningCandidateIdentityIsConcurrent(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	user := mkUser(t, s, "learning-concurrent", false)
+	input := LearningCandidateInput{
+		Kind: LearningKindRule, Scope: "user:1", Title: " 统一 通知 ", Content: "只发送一次。",
+		CreatedBy: &user.ID, MemoryClass: LearningMemoryDurable,
+	}
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := s.CreateLearningCandidate(ctx, input)
+			errs <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	var created, conflicts int
+	for err := range errs {
+		switch {
+		case err == nil:
+			created++
+		case errors.Is(err, ErrConflict):
+			conflicts++
+		default:
+			t.Fatalf("concurrent insert error = %v", err)
+		}
+	}
+	if created != 1 || conflicts != 1 {
+		t.Fatalf("concurrent identity results = created:%d conflicts:%d", created, conflicts)
+	}
+}
+
+func TestLearningCandidateIdentityNormalizesScopeWhitespace(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	user := mkUser(t, s, "learning-scope-normalization", false)
+	input := LearningCandidateInput{
+		Kind: LearningKindRule, Scope: " user:42 ", Title: "统一通知", Content: "只发送一次。",
+		CreatedBy: &user.ID, MemoryClass: LearningMemoryDurable,
+	}
+	created, err := s.CreateLearningCandidate(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Scope != "user:42" {
+		t.Fatalf("normalized scope = %q", created.Scope)
+	}
+	input.Scope = "user:42"
+	if _, err := s.CreateLearningCandidate(ctx, input); !errors.Is(err, ErrConflict) {
+		t.Fatalf("scope whitespace bypassed identity: %v", err)
+	}
+}
+
+func TestLearningCandidateDeduplicationRespectsScope(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	boss := mkUser(t, s, "learning-scope-boss", true)
+
+	first, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Scope: "scope:user:101", Title: "回复风格", Content: "回复保持简洁。", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Scope: "scope:user:202", Title: "回复风格", Content: "回复保持简洁。", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.ScoreLearningCandidates(ctx, 10); err != nil || n != 2 {
+		t.Fatalf("ScoreLearningCandidates = %d, %v", n, err)
+	}
+	for _, id := range []int64{first.ID, second.ID} {
+		candidate, err := s.LearningCandidateByID(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if candidate.Status != LearningStatusPending || candidate.DuplicateOf != nil {
+			t.Fatalf("cross-scope candidate %d was deduplicated: %+v", id, candidate)
+		}
+	}
+
+	found, err := s.EquivalentLearningCandidateExistsInClass(
+		ctx, LearningKindRule, LearningMemoryDurable, "scope:user:101", "回复风格", "回复保持简洁。", LearningStatusPending,
+	)
+	if err != nil || !found {
+		t.Fatalf("same-scope equivalent = %v, %v", found, err)
+	}
+	found, err = s.EquivalentLearningCandidateExistsInClass(
+		ctx, LearningKindRule, LearningMemoryDurable, "scope:user:303", "回复风格", "回复保持简洁。", LearningStatusPending,
+	)
+	if err != nil || found {
+		t.Fatalf("cross-scope equivalent = %v, %v", found, err)
+	}
+}
+
+func TestEquivalentLearningCandidateExistsBeyondRecentWindow(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	user := mkUser(t, s, "learning-deep-dedupe", false)
+	scope := fmt.Sprintf("user:%d", user.ID)
+	original, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindRule, Scope: scope, Title: "长期沟通规则", Content: "非紧急通知统一在工作时间发送。",
+		Status: LearningStatusPending, MemoryClass: LearningMemoryDurable, CreatedBy: &user.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 205; i++ {
+		if _, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+			Kind: LearningKindRule, Scope: scope, Title: fmt.Sprintf("其他规则 %03d", i), Content: fmt.Sprintf("不同内容 %03d", i),
+			Status: LearningStatusPending, MemoryClass: LearningMemoryDurable, CreatedBy: &user.ID,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found, err := s.EquivalentLearningCandidateExistsInClass(ctx, LearningKindRule, LearningMemoryDurable, scope,
+		original.Title, original.Content, LearningStatusPending)
+	if err != nil || !found {
+		t.Fatalf("old exact candidate should remain discoverable: found=%t err=%v", found, err)
 	}
 }
 
@@ -5866,7 +6214,9 @@ func TestKnowledgeRules(t *testing.T) {
 	if err != nil || fact.Kind != KnowledgeKindFact || fact.Pinned {
 		t.Fatalf("普通知识应 kind=fact 不常驻: %+v err=%v", fact, err)
 	}
-	skill, err := s.CreateSkill(ctx, "群入职处理", "触发条件：群里有人要求加入\n摘要：先判断真人还是 worker\n执行方法：先查群身份再邀请", []string{"scope:telegram"}, boss.ID)
+	skill, err := s.CreateSkill(ctx, "群入职处理", NewSkillContent(
+		"群里有人要求加入", "先判断真人还是 worker", "先查群身份再邀请", "",
+	), []string{"scope:telegram"}, boss.ID)
 	if err != nil || skill.Kind != KnowledgeKindSkill {
 		t.Fatalf("skill 应 kind=skill: %+v err=%v", skill, err)
 	}
@@ -6097,29 +6447,84 @@ func TestMigration0065ArchivesExistingDuplicateRules(t *testing.T) {
 	}
 }
 
-func TestLearningCandidateExists(t *testing.T) {
+func TestMigration0097ConvertsAndConstrainsSkillContent(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
-	boss := mkUser(t, s, "boss", true)
-	createdBy := boss.ID
-	if _, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
-		Kind: LearningKindSkill, Scope: "telegram", Title: "群邀请流程",
-		Content: "先判断真人还是 worker", Status: LearningStatusPending,
-		CreatedBy: &createdBy,
-	}); err != nil {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
-	ok, err := s.LearningCandidateExists(ctx, LearningKindSkill, " 群邀请流程 ", LearningStatusPending)
-	if err != nil || !ok {
-		t.Fatalf("pending 候选应可查重: ok=%v err=%v", ok, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+	schema := fmt.Sprintf("migration_0097_%d", time.Now().UnixNano())
+	if _, err := tx.Exec(ctx, `CREATE SCHEMA `+schema); err != nil {
+		t.Fatal(err)
 	}
-	ok, err = s.LearningCandidateExists(ctx, LearningKindSkill, "群邀请流程", LearningStatusPublished)
-	if err != nil || ok {
-		t.Fatalf("限定 published 不应命中 pending: ok=%v err=%v", ok, err)
+	if _, err := tx.Exec(ctx, `SET LOCAL search_path TO `+schema); err != nil {
+		t.Fatal(err)
 	}
-	ok, err = s.LearningCandidateExists(ctx, LearningKindRule, "群邀请流程", LearningStatusPending)
-	if err != nil || ok {
-		t.Fatalf("kind 不同不应命中: ok=%v err=%v", ok, err)
+	if _, err := tx.Exec(ctx, `
+		CREATE TABLE knowledge (
+			id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL,
+			kind TEXT NOT NULL, embedding REAL[], embed_model TEXT NOT NULL DEFAULT '',
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		);
+		CREATE TABLE knowledge_versions (
+			id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, kind TEXT NOT NULL
+		);
+		CREATE TABLE learning_candidates (
+			id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL,
+			kind TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		);
+		INSERT INTO knowledge (title, content, kind) VALUES
+			('群邀请流程', E'触发条件：群里有人申请加入\n摘要：核实身份后邀请\n执行方法：\n1. 查询身份\n2. 创建邀请\n限制与禁忌：\n不得公开凭据', 'skill');
+		INSERT INTO knowledge_versions (title, content, kind) VALUES
+			('群邀请流程', E'触发条件：群里有人申请加入\n摘要：旧版本\n执行方法：旧步骤', 'skill');
+		INSERT INTO learning_candidates (title, content, kind) VALUES
+			('简短流程', E'触发条件：需要处理\n摘要：简短流程\n执行方法：同一行步骤', 'skill');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	migration, err := migrationsFS.ReadFile("migrations/0097_structured_skill_content.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, string(migration)); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, table := range []string{"knowledge", "knowledge_versions", "learning_candidates"} {
+		var raw string
+		if err := tx.QueryRow(ctx, `SELECT content FROM `+table+` LIMIT 1`).Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		content, err := DecodeSkillContent(raw)
+		if err != nil {
+			t.Fatalf("%s content was not migrated: %q: %v", table, raw, err)
+		}
+		if content.Trigger == "" || content.Summary == "" || content.Procedure == "" {
+			t.Fatalf("%s migrated incomplete content: %#v", table, content)
+		}
+	}
+	var candidateRaw string
+	if err := tx.QueryRow(ctx, `SELECT content FROM learning_candidates LIMIT 1`).Scan(&candidateRaw); err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := DecodeSkillContent(candidateRaw)
+	if err != nil || candidate.Procedure != "同一行步骤" {
+		t.Fatalf("single-line procedure migration = %#v err=%v", candidate, err)
+	}
+
+	if _, err := tx.Exec(ctx, `SAVEPOINT invalid_skill`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO knowledge (title, content, kind) VALUES ('bad', 'not-json', 'skill')`); err == nil {
+		t.Fatal("skill constraint accepted unstructured content")
+	}
+	if _, err := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT invalid_skill`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO knowledge (title, content, kind) VALUES ('fact', 'plain text', 'fact')`); err != nil {
+		t.Fatalf("skill constraint must not affect other knowledge kinds: %v", err)
 	}
 }
 
@@ -6175,6 +6580,28 @@ func TestLearningCandidateMemoryAuthority(t *testing.T) {
 	if classified.MemoryClass != LearningMemoryCanonical || classified.Status != LearningStatusRejected {
 		t.Fatalf("classified candidate=%+v", classified)
 	}
+	candidateToClassify, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindKnowledge, Title: "重复分类边界", Content: "相同内容", CreatedBy: &boss.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
+		Kind: LearningKindKnowledge, Title: "重复分类边界", Content: "相同内容",
+		MemoryClass: LearningMemoryDurable, CreatedBy: &boss.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetLearningCandidateMemoryClass(ctx, candidateToClassify.ID, boss.ID, LearningMemoryDurable); !errors.Is(err, ErrConflict) {
+		t.Fatalf("classification identity conflict = %v", err)
+	}
+	unchanged, err := s.LearningCandidateByID(ctx, candidateToClassify.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.MemoryClass != LearningMemoryUnclassified || unchanged.Status != LearningStatusPending {
+		t.Fatalf("failed classification must roll back: %+v", unchanged)
+	}
 	rule, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
 		Kind: LearningKindRule, Title: "长期规则", Content: "持续生效", CreatedBy: &boss.ID,
 	})
@@ -6226,9 +6653,15 @@ func TestLearningGovernanceBoundaryIsCompleteAndOldestFirst(t *testing.T) {
 
 	want := make([]int64, 0, 105)
 	for i := range 105 {
+		content, err := EncodeSkillContent(NewSkillContent(
+			fmt.Sprintf("治理场景 %03d", i), fmt.Sprintf("可复用流程 %03d", i), "执行并验证结果", "",
+		))
+		if err != nil {
+			t.Fatal(err)
+		}
 		candidate, err := s.CreateLearningCandidate(ctx, LearningCandidateInput{
 			Kind: LearningKindSkill, Title: fmt.Sprintf("治理候选 %03d", i),
-			Content: fmt.Sprintf("可复用流程 %03d", i), CreatedBy: &boss.ID,
+			Content: content, CreatedBy: &boss.ID,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -6696,7 +7129,7 @@ func TestTelegramPendingEmployeeInvite(t *testing.T) {
 	}
 }
 
-func TestLegacyHistoryMarkerMigrationIsIdempotent(t *testing.T) {
+func TestRetireLegacyTextProtocolsMigrationIsIdempotent(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	u := mkUser(t, s, "history-owner", false)
@@ -6712,7 +7145,7 @@ func TestLegacyHistoryMarkerMigrationIsIdempotent(t *testing.T) {
 	if err := s.SetMessageEmbedding(ctx, id, "test-model", []float32{1, 2}); err != nil {
 		t.Fatal(err)
 	}
-	sql, err := migrationsFS.ReadFile("migrations/0052_strip_legacy_history_markers.sql")
+	sql, err := migrationsFS.ReadFile("migrations/0094_retire_legacy_text_protocols.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -6945,6 +7378,9 @@ func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
 	if err != nil || len(rows) != 1 || rows[0].ID != firstID {
 		t.Fatalf("exact group search = %+v, %v", rows, err)
 	}
+	if rows[0].ActorDisplayName != "历史显示名" || !rows[0].EventAt().Equal(sourceAt) {
+		t.Fatalf("lexical search dropped source provenance: %+v", rows[0])
+	}
 	if rows, err := s.SearchMessagesOfChannel(ctx, "telegram", "路线图", 10); err != nil || len(rows) != 0 {
 		t.Fatalf("private channel must not enter shared-group search: %+v, %v", rows, err)
 	}
@@ -6955,6 +7391,9 @@ func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
 	rows, err = s.MessagesByIDsForChannel(ctx, "telegram:group:-1001", []int64{secondID, firstID})
 	if err != nil || len(rows) != 1 || rows[0].ID != firstID {
 		t.Fatalf("group SQL reauthorization = %+v, %v", rows, err)
+	}
+	if rows[0].ActorDisplayName != "历史显示名" || !rows[0].EventAt().Equal(sourceAt) {
+		t.Fatalf("semantic reauthorization dropped source provenance: %+v", rows[0])
 	}
 	rows, err = s.MessagesByIDsForUser(ctx, owner.ID, []int64{firstID, secondID})
 	if err != nil || len(rows) != 0 {
@@ -6993,7 +7432,8 @@ func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
 		t.Fatalf("stable actor row = %+v", actorRow)
 	}
 	doc, err := s.MessageSemanticDocumentByID(ctx, firstID)
-	if err != nil || doc.Channel != "telegram:group:-1001" || doc.UserID != owner.ID {
+	if err != nil || doc.Channel != "telegram:group:-1001" || doc.UserID != owner.ID ||
+		doc.ActorDisplayName != "历史显示名" || !doc.EventAt().Equal(sourceAt) {
 		t.Fatalf("semantic group document = %+v, %v", doc, err)
 	}
 	pending, err := s.SemanticMessagesNeedingIndexAfter(ctx, "model@revision", 0, 10)
@@ -7006,6 +7446,20 @@ func TestGroupMessageSearchUsesExactSharedChannel(t *testing.T) {
 	pending, err = s.SemanticMessagesNeedingIndexAfter(ctx, "model@revision", 0, 10)
 	if err != nil || len(pending) != 1 || pending[0].ID != secondID {
 		t.Fatalf("durable message marker = %+v, %v", pending, err)
+	}
+	private, err := s.StartSession(ctx, owner.ID, "api:private:archive:group:notes", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateID, err := s.AppendMessage(ctx, private.ID, "user", "私聊通道名包含 group 片段但仍属于个人历史")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataRows, err = s.ReadData(ctx, owner.ID, false, DataReadQuery{
+		Source: "chat_messages", EntityIDs: []string{fmt.Sprint(privateID)}, Limit: 10,
+	})
+	if err != nil || len(dataRows) != 1 {
+		t.Fatalf("structurally private query_data row was hidden by a substring match = %s, %v", dataRows, err)
 	}
 }
 

@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: store/task_outcomes.go
         symbol: Store.RecordTaskOutcome
-        hash: sha256:b78e4ecdac1f11269135e50f73c0dc90c19a3a90d9ac02a990116d9ec4f0d1d2
-        struct_hash: sha256:aa93e4aef9dee9859fb2f72b90eb2b53f6c208c906773e76a70a8e54245df997
-        doc_struct_hash: sha256:e1674b29f87abb33883b89e25d5d7dda8ff92ae019955ec93eab0fa4f427769e
-        lines: [56, 73]
+        hash: sha256:f208e71c1f71b0c02bb0271e0e8c18a9293909befdc8f557739545589905b3c1
+        struct_hash: sha256:7406bde8bef8994879487473f1fca749ffed219a0d89e0fe2df068917a0689ea
+        doc_struct_hash: sha256:8c15a020017131d688576ce70e97fb5735efb67df233cb30779cda71277cf893
+        lines: [62, 79]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/task_outcomes.go#Store.TaskOutcomeStatsFor
@@ -112,10 +112,10 @@ nodes:
       anchor:
         file: store/task_outcomes.go
         symbol: Store.TaskOutcomeStatsFor
-        hash: sha256:4b8fc4a2b4cc72cde86029ea83d73de56283db3ecc8ca60943820150e52a5948
-        struct_hash: sha256:76ac341100039aceff84a94151f95784caa942f6bf5038af653959b2ee6eb3ec
-        doc_struct_hash: sha256:9f91ff845a3b52e758ab666668c6701e657903329c76f91cf5de6b82b879955c
-        lines: [75, 97]
+        hash: sha256:b4571dd3ff5d874a7198b54fed363b232efae1d5f4155fe4d747015a3d69adab
+        struct_hash: sha256:e4fb37eafad7a5e1eff83ea5491392fbdb68af5e7364e1211ec5e57694a69122
+        doc_struct_hash: sha256:9677feed05dcf2fe03c5f06131f4749511f22a779dac7daf9a811f08aad7eca1
+        lines: [81, 103]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/task_outcomes.go#taskKindWordRe
@@ -145,9 +145,9 @@ nodes:
       anchor:
         file: store/task_outcomes.go
         symbol: NormalizeTaskKind
-        hash: sha256:60cabdd170964b62e1d6e4369071365856224f6b10ff30362023221591b095c6
-        struct_hash: sha256:5748d5f93810f6a0ab54f03ed5a8f334976640aa6439aa58b32d65aeaf7d276e
-        doc_struct_hash: sha256:5748d5f93810f6a0ab54f03ed5a8f334976640aa6439aa58b32d65aeaf7d276e
-        lines: [142, 152]
+        hash: sha256:bc0c51afd8162b0185117367608cc9b6ad7013612387c84818738f6878d8d01d
+        struct_hash: sha256:b77005845b561fa5ca25a8b7fe431f7da9d98e6d6af99cfbe47d5d71fcc51cf9
+        doc_struct_hash: sha256:b77005845b561fa5ca25a8b7fe431f7da9d98e6d6af99cfbe47d5d71fcc51cf9
+        lines: [105, 116]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -53,7 +53,7 @@ func memoryTools(d Deps, u *store.User) []ai.Tool {
 						who = "AI"
 						content = textfmt.StripHistoryMetadata(content)
 					}
-					fmt.Fprintf(&b, "- [%s·%s] %s\n", fmtTime(m.CreatedAt, d.TZ), who, truncate(content, 300))
+					fmt.Fprintf(&b, "- [%s·%s] %s\n", fmtTime(m.EventAt(), d.TZ), who, truncate(content, 300))
 				}
 				return b.String(), nil
 			})),

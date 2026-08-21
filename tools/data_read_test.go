@@ -23,6 +23,18 @@ func TestLexicalRowsAcrossSourcesDoesNotTurnDatabaseFailureIntoEmptyResult(t *te
 	}
 }
 
+func TestLexicalRowsAcrossSourcesPreservesPartialSuccess(t *testing.T) {
+	s := openToolsTestStore(t)
+	rows, err := lexicalRowsAcrossSources(context.Background(), Deps{Store: s}, &store.User{ID: 1, IsSuperadmin: true},
+		[]string{"不存在的检索词"}, []string{"tasks", "not_a_source"}, 10, false)
+	if err != nil {
+		t.Fatalf("one unavailable source must not discard successful sources: %v", err)
+	}
+	if rows == nil {
+		t.Fatal("successful empty result should remain distinguishable from total query failure")
+	}
+}
+
 func TestDataSemanticFilterAppliesCoarsePrivateScopes(t *testing.T) {
 	user := &store.User{ID: 42}
 	chat := dataSemanticFilter(semantic.SourceChatMessage, user)
@@ -78,13 +90,30 @@ func TestMergeCrossRankedDataRowsUsesSourceAndID(t *testing.T) {
 	}
 }
 
-func TestMergeCrossRankedDataRowsCollapsesExactCrossSourceFacts(t *testing.T) {
+func TestMergeCrossRankedDataRowsPreservesEqualTextAcrossDistinctFacts(t *testing.T) {
 	fact := "已通知全体员工完善手机号职位和组别资料信息"
 	chat := rankedDataRow{Source: "chat_messages", Row: json.RawMessage(`{"chat_message_id":1,"content":"` + fact + `"}`)}
 	action := rankedDataRow{Source: "action_turns", Row: json.RawMessage(`{"turn_id":2,"reply":"` + fact + `"}`)}
 	out := mergeCrossRankedDataRows([]rankedDataRow{chat}, []rankedDataRow{action}, 10)
-	if len(out) != 1 {
-		t.Fatalf("exact fact should collapse: %+v", out)
+	if len(out) != 2 {
+		t.Fatalf("equal prose does not prove equal business identity: %+v", out)
+	}
+}
+
+func TestMergeCrossRankedDataRowsCollapsesDeclaredProjection(t *testing.T) {
+	chat := rankedDataRow{Source: "chat_messages", Row: json.RawMessage(`{"chat_message_id":1,"content":"项目有风险"}`)}
+	projection := rankedDataRow{Source: "work_evidence", Row: json.RawMessage(`{"evidence_id":9,"kind":"communication","source_message_id":1,"content":"项目有风险"}`)}
+	derived := rankedDataRow{Source: "work_evidence", Row: json.RawMessage(`{"evidence_id":10,"kind":"risk","source_message_id":1,"content":"项目有风险"}`)}
+	out := mergeCrossRankedDataRows([]rankedDataRow{chat}, []rankedDataRow{projection, derived}, 10)
+	if len(out) != 2 {
+		t.Fatalf("only the declared raw-message projection should collapse: %+v", out)
+	}
+	if out[0].Source != "chat_messages" {
+		t.Fatalf("two retrieval paths should reinforce the canonical chat row: %+v", out)
+	}
+	out = mergeCrossRankedDataRows(nil, []rankedDataRow{projection, chat, derived}, 10)
+	if len(out) != 2 || out[0].Source != "chat_messages" {
+		t.Fatalf("canonical source must win even when its projection is retrieved first: %+v", out)
 	}
 }
 

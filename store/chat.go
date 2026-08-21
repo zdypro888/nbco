@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -45,6 +46,11 @@ type ChatMessage struct {
 	CreatedAt          time.Time
 }
 
+const nonGroupChannelSQL = `NOT (
+	split_part(cs.channel, ':', 2) = 'group'
+	AND split_part(cs.channel, ':', 3) <> ''
+)`
+
 // MessageEnvelope is provider provenance for one human-originated message.
 // Stable identifiers live here; display names remain point-in-time labels.
 type MessageEnvelope struct {
@@ -64,6 +70,10 @@ const chatMessageCols = `id, session_id, role, content, provider, external_chat_
 external_message_ref, actor_user_id, external_actor_ref, actor_display_name,
 reply_to_external_ref, thread_ref, source_created_at, source_metadata, created_at`
 
+const chatMessageColsM = `m.id, m.session_id, m.role, m.content, m.provider, m.external_chat_ref,
+m.external_message_ref, m.actor_user_id, m.external_actor_ref, m.actor_display_name,
+m.reply_to_external_ref, m.thread_ref, m.source_created_at, m.source_metadata, m.created_at`
+
 func scanChatMessage(row interface{ Scan(...any) error }) (*ChatMessage, error) {
 	var m ChatMessage
 	if err := row.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.Provider, &m.ExternalChatRef,
@@ -74,11 +84,25 @@ func scanChatMessage(row interface{ Scan(...any) error }) (*ChatMessage, error) 
 	return &m, nil
 }
 
+// EventAt is the authoritative business timestamp. Provider-originated events
+// keep their signed source time; locally created messages use insertion time.
+func (m ChatMessage) EventAt() time.Time {
+	if m.SourceCreatedAt != nil && !m.SourceCreatedAt.IsZero() {
+		return *m.SourceCreatedAt
+	}
+	return m.CreatedAt
+}
+
 // IsGroupChannel reports whether a gateway channel uses the shared-group
-// namespace. Gateways may vary by provider; the ":group:" segment is the
+// namespace. Gateways may vary by provider; provider:group:reference is the
 // stable protocol contract used by sessions and semantic permission scopes.
 func IsGroupChannel(channel string) bool {
-	return strings.Contains(strings.TrimSpace(channel), ":group:")
+	provider, rest, ok := strings.Cut(strings.TrimSpace(channel), ":")
+	if !ok || provider == "" {
+		return false
+	}
+	kind, reference, ok := strings.Cut(rest, ":")
+	return ok && kind == "group" && strings.TrimSpace(reference) != ""
 }
 
 // IsInternalChannel identifies scheduler/runtime sessions that are execution
@@ -311,9 +335,8 @@ func (m MessageSemanticDocument) ContextContent() string {
 }
 
 func (s *Store) MessageSemanticDocumentByID(ctx context.Context, id int64) (*MessageSemanticDocument, error) {
-	var doc MessageSemanticDocument
-	err := s.pool.QueryRow(ctx,
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
+	doc, err := scanMessageSemanticDocument(s.pool.QueryRow(ctx,
+		`SELECT `+chatMessageColsM+`, cs.user_id, cs.channel,
 		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
 		   LEFT JOIN LATERAL (
@@ -321,13 +344,20 @@ func (s *Store) MessageSemanticDocumentByID(ctx context.Context, id int64) (*Mes
 		        WHERE p.session_id = m.session_id AND p.id < m.id AND p.context_eligible
 		        ORDER BY p.id DESC LIMIT 1
 		   ) prev ON TRUE
-		  WHERE m.id = $1 AND m.context_eligible`, id).
-		Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel,
-			&doc.PreviousRole, &doc.PreviousContent)
+		  WHERE m.id = $1 AND m.context_eligible`, id))
 	if err != nil {
 		return nil, wrapErr(err)
 	}
-	return &doc, nil
+	return doc, nil
+}
+
+func scanMessageSemanticDocument(row interface{ Scan(...any) error }) (*MessageSemanticDocument, error) {
+	var doc MessageSemanticDocument
+	err := row.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.Provider, &doc.ExternalChatRef,
+		&doc.ExternalMessageRef, &doc.ActorUserID, &doc.ExternalActorRef, &doc.ActorDisplayName,
+		&doc.ReplyToExternalRef, &doc.ThreadRef, &doc.SourceCreatedAt, &doc.SourceMetadata, &doc.CreatedAt,
+		&doc.UserID, &doc.Channel, &doc.PreviousRole, &doc.PreviousContent)
+	return &doc, err
 }
 
 // SemanticMessagesAfter scans every non-empty message for Qdrant
@@ -347,7 +377,7 @@ func (s *Store) SemanticMessagesNeedingIndexAfter(ctx context.Context, marker st
 
 func (s *Store) querySemanticMessages(ctx context.Context, predicate string, args ...any) ([]MessageSemanticDocument, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
+		`SELECT `+chatMessageColsM+`, cs.user_id, cs.channel,
 		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
 		   LEFT JOIN LATERAL (
@@ -363,12 +393,11 @@ func (s *Store) querySemanticMessages(ctx context.Context, predicate string, arg
 	defer rows.Close()
 	var out []MessageSemanticDocument
 	for rows.Next() {
-		var doc MessageSemanticDocument
-		if err := rows.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt, &doc.UserID, &doc.Channel,
-			&doc.PreviousRole, &doc.PreviousContent); err != nil {
+		doc, err := scanMessageSemanticDocument(rows)
+		if err != nil {
 			return nil, err
 		}
-		out = append(out, doc)
+		out = append(out, *doc)
 	}
 	return out, rows.Err()
 }
@@ -450,7 +479,7 @@ func (s *Store) embeddedMessagesOfUser(ctx context.Context, model string, userID
 	rows, err := s.pool.Query(ctx,
 		`SELECT m.id, m.embedding FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0 AND cs.channel NOT LIKE 'internal:%'
+		 WHERE cs.user_id = $1 AND `+nonGroupChannelSQL+` AND cs.channel NOT LIKE 'internal:%'
 		   AND m.context_eligible AND m.embed_model = $2 AND m.embedding IS NOT NULL
 		   `+rolePredicate+`
 		 ORDER BY m.id DESC LIMIT $3`, args...)
@@ -499,9 +528,9 @@ func (s *Store) searchMessagesOfUser(ctx context.Context, userID int64, query st
 	}
 	args = append(args, limit)
 	return s.queryMessages(ctx, fmt.Sprintf(
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
+		`SELECT `+chatMessageColsM+` FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
-		 WHERE cs.user_id = $1 AND strpos(cs.channel, ':group:') = 0 AND cs.channel NOT LIKE 'internal:%%'
+		 WHERE cs.user_id = $1 AND `+nonGroupChannelSQL+` AND cs.channel NOT LIKE 'internal:%%'
 		   AND m.context_eligible%s AND (%s)
 		 ORDER BY m.id DESC LIMIT $%d`, rolePredicate, strings.Join(conds, " OR "), len(args)), args...)
 }
@@ -533,7 +562,7 @@ func (s *Store) searchMessagesOfChannel(ctx context.Context, channel, query stri
 	}
 	args = append(args, limit)
 	return s.queryMessages(ctx, fmt.Sprintf(
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at FROM chat_messages m
+		`SELECT `+chatMessageColsM+` FROM chat_messages m
 		 JOIN chat_sessions cs ON cs.id = m.session_id
 		 WHERE cs.channel = $1 AND m.context_eligible%s AND (%s)
 		 ORDER BY m.id DESC LIMIT $%d`, rolePredicate, strings.Join(conds, " OR "), len(args)), args...)
@@ -634,7 +663,7 @@ func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, 
 	predicates := []string{"cs.channel NOT LIKE 'internal:%'", "m.context_eligible"}
 	if userID > 0 {
 		args = append(args, userID)
-		predicates = append(predicates, fmt.Sprintf("cs.user_id = $%d AND strpos(cs.channel, ':group:') = 0", len(args)))
+		predicates = append(predicates, fmt.Sprintf("cs.user_id = $%d AND %s", len(args), nonGroupChannelSQL))
 	}
 	if channel != "" {
 		args = append(args, channel)
@@ -646,7 +675,7 @@ func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, 
 	}
 	scopePredicate := " AND " + strings.Join(predicates, " AND ")
 	rows, err := s.pool.Query(ctx,
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, cs.user_id, cs.channel,
+		`SELECT `+chatMessageColsM+`, cs.user_id, cs.channel,
 		        COALESCE(prev.role, ''), COALESCE(prev.content, '')
 		   FROM chat_messages m JOIN chat_sessions cs ON cs.id = m.session_id
 		   LEFT JOIN LATERAL (
@@ -661,18 +690,17 @@ func (s *Store) messageSemanticDocumentsByIDs(ctx context.Context, ids []int64, 
 	defer rows.Close()
 	var out []MessageSemanticDocument
 	for rows.Next() {
-		var doc MessageSemanticDocument
-		if err := rows.Scan(&doc.ID, &doc.SessionID, &doc.Role, &doc.Content, &doc.CreatedAt,
-			&doc.UserID, &doc.Channel, &doc.PreviousRole, &doc.PreviousContent); err != nil {
+		doc, err := scanMessageSemanticDocument(rows)
+		if err != nil {
 			return nil, err
 		}
-		out = append(out, doc)
+		out = append(out, *doc)
 	}
 	return out, rows.Err()
 }
 
-// ListChannelMessages 按渠道读取 [from, to) 范围内的消息，返回最新 limit 条并按
-// 写入顺序排列。Total 是该范围完整数量，调用方可据此明确是否发生截断。
+// ListChannelMessages 按渠道读取事件时间位于 [from, to) 的消息，返回最新 limit
+// 条并按写入顺序排列。Total 是该范围完整数量，调用方可据此明确是否发生截断。
 func (s *Store) ListChannelMessages(ctx context.Context, channel string, from, to time.Time, limit int) (ChannelMessagePage, error) {
 	return s.ListChannelMessagesPage(ctx, channel, from, to, 0, limit)
 }
@@ -700,10 +728,12 @@ func (s *Store) ListChannelMessagesPage(ctx context.Context, channel string, fro
 		beforeID = 0
 	}
 	rows, err := s.pool.Query(ctx,
-		`SELECT m.id, m.session_id, m.role, m.content, m.created_at, count(*) OVER ()
+		`SELECT `+chatMessageColsM+`, count(*) OVER ()
 		   FROM chat_messages m
 		   JOIN chat_sessions cs ON cs.id = m.session_id
-		  WHERE cs.channel = $1 AND m.created_at >= $2 AND m.created_at < $3
+		  WHERE cs.channel = $1
+		    AND COALESCE(m.source_created_at, m.created_at) >= $2
+		    AND COALESCE(m.source_created_at, m.created_at) < $3
 		    AND ($4::bigint = 0 OR m.id < $4)
 		  ORDER BY m.id DESC
 		  LIMIT $5`, channel, from, to, beforeID, limit)
@@ -714,7 +744,10 @@ func (s *Store) ListChannelMessagesPage(ctx context.Context, channel string, fro
 	page := ChannelMessagePage{Messages: []ChatMessage{}}
 	for rows.Next() {
 		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt, &page.Total); err != nil {
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.Provider, &m.ExternalChatRef,
+			&m.ExternalMessageRef, &m.ActorUserID, &m.ExternalActorRef, &m.ActorDisplayName,
+			&m.ReplyToExternalRef, &m.ThreadRef, &m.SourceCreatedAt, &m.SourceMetadata, &m.CreatedAt,
+			&page.Total); err != nil {
 			return ChannelMessagePage{}, err
 		}
 		page.Messages = append(page.Messages, m)
@@ -739,11 +772,11 @@ func (s *Store) queryMessages(ctx context.Context, sql string, args ...any) ([]C
 	defer rows.Close()
 	var ms []ChatMessage
 	for rows.Next() {
-		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+		m, err := scanChatMessage(rows)
+		if err != nil {
 			return nil, err
 		}
-		ms = append(ms, m)
+		ms = append(ms, *m)
 	}
 	return ms, rows.Err()
 }
@@ -756,31 +789,25 @@ func (s *Store) MessagesOf(ctx context.Context, sessionID int64, limit int) ([]C
 // MessagesAfter 会话中 ID 大于 afterID 的消息（升序），limit>0 时取其中最近 limit 条。
 // 滚动摘要压缩用：afterID = 会话的 summary_upto。
 func (s *Store) MessagesAfter(ctx context.Context, sessionID, afterID int64, limit int) ([]ChatMessage, error) {
-	sql := `SELECT id, session_id, role, content, created_at FROM chat_messages
+	sql := `SELECT ` + chatMessageCols + ` FROM chat_messages
 	        WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id`
 	args := []any{sessionID, afterID}
+	reverse := false
 	if limit > 0 {
-		// 取最近 limit 条但保持升序。
-		sql = `SELECT id, session_id, role, content, created_at FROM (
-		         SELECT id, session_id, role, content, created_at FROM chat_messages
-		         WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id DESC LIMIT $3
-		       ) sub ORDER BY id`
+		// 先取最近 limit 条，扫描后恢复为会话顺序。
+		sql = `SELECT ` + chatMessageCols + ` FROM chat_messages
+		         WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id DESC LIMIT $3`
 		args = append(args, limit)
+		reverse = true
 	}
-	rows, err := s.pool.Query(ctx, sql, args...)
+	msgs, err := s.queryMessages(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var msgs []ChatMessage
-	for rows.Next() {
-		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
-			return nil, err
-		}
-		msgs = append(msgs, m)
+	if reverse {
+		slices.Reverse(msgs)
 	}
-	return msgs, rows.Err()
+	return msgs, nil
 }
 
 // MessagesBefore returns the most recent context-eligible messages after the
@@ -788,53 +815,34 @@ func (s *Store) MessagesAfter(ctx context.Context, sessionID, afterID int64, lim
 // after atomically appending the current user message, so that message cannot
 // be replayed both as History and UserText.
 func (s *Store) MessagesBefore(ctx context.Context, sessionID, afterID, beforeID int64, limit int) ([]ChatMessage, error) {
-	query := `SELECT id, session_id, role, content, created_at FROM chat_messages
+	query := `SELECT ` + chatMessageCols + ` FROM chat_messages
 	          WHERE session_id = $1 AND id > $2 AND id < $3 AND context_eligible
 	          ORDER BY id`
 	args := []any{sessionID, afterID, beforeID}
+	reverse := false
 	if limit > 0 {
-		query = `SELECT id, session_id, role, content, created_at FROM (
-		           SELECT id, session_id, role, content, created_at FROM chat_messages
+		query = `SELECT ` + chatMessageCols + ` FROM chat_messages
 		           WHERE session_id = $1 AND id > $2 AND id < $3 AND context_eligible
-		           ORDER BY id DESC LIMIT $4
-		         ) sub ORDER BY id`
+		           ORDER BY id DESC LIMIT $4`
 		args = append(args, limit)
+		reverse = true
 	}
-	rows, err := s.pool.Query(ctx, query, args...)
+	msgs, err := s.queryMessages(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var msgs []ChatMessage
-	for rows.Next() {
-		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
-			return nil, err
-		}
-		msgs = append(msgs, m)
+	if reverse {
+		slices.Reverse(msgs)
 	}
-	return msgs, rows.Err()
+	return msgs, nil
 }
 
 // OldestMessagesAfter 会话中 ID 大于 afterID 的【最早】limit 条消息（升序）。
 // 压缩用：折叠最旧的一批未折叠消息。
 func (s *Store) OldestMessagesAfter(ctx context.Context, sessionID, afterID int64, limit int) ([]ChatMessage, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, session_id, role, content, created_at FROM chat_messages
+	return s.queryMessages(ctx,
+		`SELECT `+chatMessageCols+` FROM chat_messages
 		 WHERE session_id = $1 AND id > $2 AND context_eligible ORDER BY id LIMIT $3`, sessionID, afterID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var msgs []ChatMessage
-	for rows.Next() {
-		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
-			return nil, err
-		}
-		msgs = append(msgs, m)
-	}
-	return msgs, rows.Err()
 }
 
 // CountMessagesAfter 会话中 ID 大于 afterID 的消息条数（未折叠消息数）。

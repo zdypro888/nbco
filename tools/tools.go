@@ -187,7 +187,7 @@ func (d Deps) searchKnowledge(ctx context.Context, query string, limit int) ([]*
 	return d.Store.SearchKnowledge(ctx, query, limit)
 }
 
-func (d Deps) saveSkill(ctx context.Context, title, content string, tags []string, authorID int64) (*store.Knowledge, error) {
+func (d Deps) saveSkill(ctx context.Context, title string, content store.SkillContent, tags []string, authorID int64) (*store.Knowledge, error) {
 	if d.Knowledge != nil {
 		return d.Knowledge.SaveSkill(ctx, title, content, tags, authorID)
 	}
@@ -296,6 +296,8 @@ func baseStaticTools(d Deps, u *store.User) []ai.Tool {
 	ts = append(ts, materialTools(d, u)...)
 	ts = append(ts, workflowTools(d, u)...)
 	ts = append(ts, capabilityTools(d, u)...)
+	ts = append(ts, contextTools(d, u)...)
+	ts = append(ts, workFactTools(d, u)...)
 	ts = append(ts, dataReadTools(d, u)...)
 	ts = append(ts, webTools(d, u)...)
 	ts = append(ts, telegramGroupTools(d, u)...)
@@ -429,6 +431,8 @@ var workerAllowed = map[string]bool{
 	"propose_learning_candidate": true,
 	"list_recent_files":          true,
 	"search_workspace":           true,
+	"search_context":             true,
+	"record_fact":                true,
 	"query_data":                 true,
 }
 
@@ -508,7 +512,6 @@ var groupSensitive = map[string]bool{
 	"update_schedule":                 true,
 	"set_telegram_group_listen":       true,
 	"set_telegram_group_auto_invite":  true,
-	"set_telegram_group_monitor":      true,
 	"set_telegram_group_digest":       true,
 	"list_telegram_group_messages":    true,
 	"send_telegram_group_message":     true,
@@ -633,13 +636,14 @@ func withCurrentPermission(s *store.Store, actor *store.User, t ai.Tool) ai.Tool
 // 用户只得到「出错了请重试」且无截断兜底。这里在所有工具的统一包装层兜底截断。
 const toolOutputLimit = 12000
 const auditArgsLimit = 64 << 10
+const toolJSONPreviewLimit = 8000
 
 func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Tool {
 	inner := t.Handler
 	name := t.Name
 	t.Handler = func(ctx context.Context, args json.RawMessage) (string, error) {
 		out, err := inner(ctx, args)
-		result, ok := out, err == nil
+		result, ok := out, toolInvocationSucceeded(out, err)
 		if err != nil {
 			result = err.Error()
 		}
@@ -657,6 +661,10 @@ func withAudit(s *store.Store, userID int64, sessionID *int64, t ai.Tool) ai.Too
 		return out, err
 	}
 	return t
+}
+
+func toolInvocationSucceeded(result string, err error) bool {
+	return err == nil && !ToolResultRejected(result)
 }
 
 func boundedAuditArgs(args json.RawMessage) json.RawMessage {
@@ -684,6 +692,18 @@ func truncateToolOutput(s string) string {
 	r := []rune(s)
 	if len(r) <= toolOutputLimit {
 		return s
+	}
+	if json.Valid([]byte(s)) {
+		previewRunes := min(toolJSONPreviewLimit, len(r))
+		sum := sha256.Sum256([]byte(s))
+		envelope, _ := json.Marshal(map[string]any{
+			"status":         "truncated",
+			"message":        "结构化工具结果超过上下文上限；请使用该工具的分页或筛选参数继续读取。",
+			"original_runes": len(r),
+			"sha256":         hex.EncodeToString(sum[:]),
+			"preview":        string(r[:previewRunes]),
+		})
+		return string(envelope)
 	}
 	return string(r[:toolOutputLimit]) + "\n\n…（输出已截断，结果过大；如需完整内容用带分页/筛选参数的工具分批查看）"
 }
