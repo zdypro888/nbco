@@ -239,6 +239,38 @@ func (s *Store) RecentWorkEvidence(ctx context.Context, since time.Time, limit i
 	return out, rows.Err()
 }
 
+// RecentStructuredWorkEvidence returns report-ready operational facts. Raw
+// communication remains searchable evidence, but must not be copied into
+// proactive reports without an explicit summarization step.
+func (s *Store) RecentStructuredWorkEvidence(ctx context.Context, since time.Time, limit int) ([]*WorkEvidence, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+workEvidenceCols+`
+		   FROM work_evidence e
+		   LEFT JOIN users u ON u.id = e.actor_user_id
+		   LEFT JOIN projects p ON p.id = e.project_id
+		  WHERE e.event_at >= $1
+		    AND e.kind <> $2
+		    AND e.status IN ($3, $4)
+		  ORDER BY e.event_at DESC, e.id DESC LIMIT $5`,
+		since, WorkEvidenceCommunication, WorkEvidenceObserved, WorkEvidenceActive, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]*WorkEvidence, 0, limit)
+	for rows.Next() {
+		item, err := scanWorkEvidence(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 const (
 	MaterialReceived   = "received"
 	MaterialQueued     = "queued"

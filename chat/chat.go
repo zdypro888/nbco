@@ -623,11 +623,11 @@ func (o *Orchestrator) runTurn(
 		system += "\n\n[当前宿主界面能力]\n" + strings.TrimSpace(extension.System)
 	}
 	// Closed scheduler inputs already contain the complete business dataset.
-	// They still honor pinned company policy, but skip semantic rules and skills
-	// that can only add latency or unrelated instructions to the bounded job.
+	// They honor pinned company policy and bounded user-scoped rules, but skip
+	// semantic retrieval and skills that can add latency or unrelated context.
 	var ruleBlock string
 	if automationOptions.ClosedContext {
-		ruleBlock, ruleIDs = o.pinnedRuleContext(ctx, u, channel)
+		ruleBlock, ruleIDs = o.closedRuleContext(ctx, u, channel)
 	} else {
 		// Rules and skill candidates share one bounded retrieval window. Running
 		// the independent reads concurrently lets the semantic layer coalesce
@@ -2437,14 +2437,20 @@ func (o *Orchestrator) ruleContext(ctx context.Context, u *store.User, channel, 
 		uniqueApplicableKnowledgeIDs(u, channel, pinned, dyn)
 }
 
-func (o *Orchestrator) pinnedRuleContext(ctx context.Context, u *store.User, channel string) (string, []int64) {
+func (o *Orchestrator) closedRuleContext(ctx context.Context, u *store.User, channel string) (string, []int64) {
 	pinned, err := o.store.PinnedRules(ctx)
 	if err != nil {
 		slog.Warn("常驻规则加载失败，本轮跳过", "err", err)
-		return "", nil
+		pinned = nil
 	}
-	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel),
-		uniqueApplicableKnowledgeIDs(u, channel, pinned)
+	personal, err := o.store.UserScopedRules(ctx, u.ID, 20)
+	if err != nil {
+		slog.Warn("用户规则加载失败，本轮跳过", "user", u.ID, "err", err)
+		personal = nil
+	}
+	return renderApplicableRules("[公司规则·必须遵守]", pinned, u, channel) +
+			renderApplicableRules("[当前用户规则·必须遵守]", personal, u, channel),
+		uniqueApplicableKnowledgeIDs(u, channel, pinned, personal)
 }
 
 func uniqueApplicableKnowledgeIDs(u *store.User, channel string, groups ...[]*store.Knowledge) []int64 {

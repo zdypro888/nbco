@@ -550,9 +550,9 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:bd76d8755fc7e0580964248762f3e99e20b22b907a0e81e9406f616a8447a431
-        struct_hash: sha256:8c35095ce613a99a67331c613df2dbdb445366eb2b06449a24bb4811522a4631
-        doc_struct_hash: sha256:904ea137f8663576ba315452957ab19b279ab8409728cd7ccf154b024c3e7b47
+        hash: sha256:4b00a58f8f2b16789b7cd1706a5eefbafa742c40cc27312c24757cdffb5915b0
+        struct_hash: sha256:2f76cbf7cd4967c37358b0f2fc185f7501b310e19a4a4d7d833b541838405446
+        doc_struct_hash: sha256:61a0452d533837b5de3dac4f64c3b8ef61501c004b7e66a5a3d9e6d02ec256b3
         lines: [482, 829]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
@@ -1801,3 +1801,14 @@ nodes:
         lines: [831, 838]
       status: fresh
       since: 2026-08-21T09:43:44.221907Z
+    - id: chat/chat.go#Orchestrator.closedRuleContext
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: Orchestrator.closedRuleContext
+        hash: sha256:02e2ee291977929052b9ec23cd9bd3ed826e6251800a6dfdb6cebff39ee884c4
+        struct_hash: sha256:e9674d138f514270daba89815290272acfd88b8ae17b2215d016c4c7bc2180af
+        doc_struct_hash: sha256:e9674d138f514270daba89815290272acfd88b8ae17b2215d016c4c7bc2180af
+        lines: [2440, 2454]
+      status: fresh
+      since: 2026-08-22T04:47:34.407404Z

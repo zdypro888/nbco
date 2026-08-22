@@ -1020,10 +1020,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.buildDigest
-        hash: sha256:8f1df4e851b521051e9dc8c0be213967420c6a0263c290491c22f59feb80b532
-        struct_hash: sha256:5a82acfe9b08942c780bc2d2347d4030ace16c66432ef83ced78880894cc6c7e
-        doc_struct_hash: sha256:711100064033b1e65991b1729604ac319045e564db62ace86d32f697f9d64054
-        lines: [1850, 1886]
+        hash: sha256:fb5ca00abd02f28740354b35a9a1d51fffa81541496e1d45d48255ac5eb96fb0
+        struct_hash: sha256:72d671995b7c35e96300cd165f37a696b42110d08ffbed6bbeeb0bb16425a06f
+        doc_struct_hash: sha256:67a13e3fa9a8afb31fb3ba11562e5b4d2b95e7faca447ed0f87d5f970b04aae0
+        lines: [1858, 1897]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#renderWorkEvidenceDigest
@@ -1031,10 +1031,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: renderWorkEvidenceDigest
-        hash: sha256:937c8d64129b65530e27d2bf784777e36862fc6d9cfab2142cfdd1def41efa6a
-        struct_hash: sha256:42f946ec56f63d75da92fdc571f6ef199fe6e1d2ab6d84449b43d976d592d213
-        doc_struct_hash: sha256:42f946ec56f63d75da92fdc571f6ef199fe6e1d2ab6d84449b43d976d592d213
-        lines: [1888, 1905]
+        hash: sha256:e7d48f9a6f4638bbd6456eeb9c75874cd7ebf138f5ca2d7e5e7a6db643d24dd8
+        struct_hash: sha256:642f42a719e52fdf13879548c4ce3a09c48977228091742134c5fd29afc312c4
+        doc_struct_hash: sha256:642f42a719e52fdf13879548c4ce3a09c48977228091742134c5fd29afc312c4
+        lines: [1904, 1924]
       status: undigested
       since: 2026-08-20T06:41:03.169207Z
     - id: sched/sched.go#renderTodos
@@ -1103,3 +1103,14 @@ nodes:
         lines: [1985, 1987]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: sched/sched.go#hasDailyDigestContent
+      level: function
+      anchor:
+        file: sched/sched.go
+        symbol: hasDailyDigestContent
+        hash: sha256:6534d31a169820fed1ca9877080fdb2605defb91fbafe22a7f4f84433bb9b3e5
+        struct_hash: sha256:e464243a96a72037c656507c4e859453d3af9b45587a51f2cc7fb1c057f6ae08
+        doc_struct_hash: sha256:e464243a96a72037c656507c4e859453d3af9b45587a51f2cc7fb1c057f6ae08
+        lines: [1899, 1902]
+      status: fresh
+      since: 2026-08-22T04:47:34.378426Z

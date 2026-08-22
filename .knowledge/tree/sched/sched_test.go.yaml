@@ -68,10 +68,10 @@ nodes:
       anchor:
         file: sched/sched_test.go
         symbol: TestRenderWorkEvidenceDigestKeepsEvidenceSeparateFromTasks
-        hash: sha256:a673467f3ab8a310d9f88149a37ccaeaae0223d0225fd163d6808e6a019c01b0
-        struct_hash: sha256:7fa20db391a3d6dfa021443297937757590cca2d3848bd39a4bed605dc3c9fd4
-        doc_struct_hash: sha256:7fa20db391a3d6dfa021443297937757590cca2d3848bd39a4bed605dc3c9fd4
-        lines: [62, 75]
+        hash: sha256:fa8a852a2e87bbe1b439060d646eed27c77516b6f0409903e076a4e5440989aa
+        struct_hash: sha256:d4bdd357c290b6f231d53939bd9c86864777ecb0e725d6885f20ebf92e821b17
+        doc_struct_hash: sha256:d4bdd357c290b6f231d53939bd9c86864777ecb0e725d6885f20ebf92e821b17
+        lines: [62, 78]
       status: undigested
       since: 2026-08-20T06:41:03.169207Z
     - id: sched/sched_test.go#TestRenderDigestUnknownUser
@@ -250,3 +250,14 @@ nodes:
         lines: [306, 318]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
+    - id: sched/sched_test.go#TestDailyDigestRequiresTasksOrStructuredEvidence
+      level: function
+      anchor:
+        file: sched/sched_test.go
+        symbol: TestDailyDigestRequiresTasksOrStructuredEvidence
+        hash: sha256:012291318f75df58f58896c21cfdf3ef42388c32e5ea30c2f323fd8e42fa847d
+        struct_hash: sha256:8435d727428684bff572c4ec251f9560d6657879d9219832c1688cad23231ffd
+        doc_struct_hash: sha256:8435d727428684bff572c4ec251f9560d6657879d9219832c1688cad23231ffd
+        lines: [80, 91]
+      status: fresh
+      since: 2026-08-22T04:47:34.415642Z

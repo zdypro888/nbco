@@ -301,6 +301,68 @@ func TestWorkEvidenceUpsertPreservesHigherConfidenceProjection(t *testing.T) {
 	}
 }
 
+func TestRecentStructuredWorkEvidenceExcludesRawCommunication(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	user := mkUser(t, s, "structured-evidence", false)
+	now := time.Now().UTC()
+	for _, in := range []WorkEvidenceInput{
+		{
+			SourceType: "telegram", SourceKey: "raw-message", Kind: WorkEvidenceCommunication,
+			Status: WorkEvidenceObserved, Title: "成员", Content: "原始聊天内容",
+			ActorUserID: &user.ID, EventAt: now, CreatedBy: &user.ID,
+		},
+		{
+			SourceType: "telegram_group_digest", SourceKey: "summary", Kind: WorkEvidenceSummary,
+			Status: WorkEvidenceActive, Title: "项目摘要", Content: "已提炼的关键进展",
+			ActorUserID: &user.ID, EventAt: now.Add(time.Second), CreatedBy: &user.ID,
+		},
+		{
+			SourceType: "telegram_group_digest", SourceKey: "resolved", Kind: WorkEvidenceRisk,
+			Status: WorkEvidenceResolved, Title: "已关闭风险", Content: "不属于当前主动摘要",
+			ActorUserID: &user.ID, EventAt: now.Add(2 * time.Second), CreatedBy: &user.ID,
+		},
+	} {
+		if _, err := s.UpsertWorkEvidence(ctx, in); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items, err := s.RecentStructuredWorkEvidence(ctx, now.Add(-time.Minute), 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Kind != WorkEvidenceSummary || items[0].Content != "已提炼的关键进展" {
+		t.Fatalf("structured evidence = %+v", items)
+	}
+}
+
+func TestUserScopedRulesExcludeOtherUsersAndPinnedRules(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "scoped-rule-owner", true)
+	other := mkUser(t, s, "scoped-rule-other", false)
+	personal, err := s.CreateRule(ctx, "个人自动化偏好", "主动报告只发送摘要",
+		[]string{fmt.Sprintf("scope:user:%d", owner.ID)}, owner.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateRule(ctx, "其他人的偏好", "只属于其他人",
+		[]string{fmt.Sprintf("scope:user:%d", other.ID)}, other.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateRule(ctx, "公司常驻规则", "通过常驻规则通道加载",
+		[]string{"scope:global"}, owner.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	rules, err := s.UserScopedRules(ctx, owner.ID, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 1 || rules[0].ID != personal.ID {
+		t.Fatalf("user scoped rules = %+v", rules)
+	}
+}
+
 func TestTaskQueue(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

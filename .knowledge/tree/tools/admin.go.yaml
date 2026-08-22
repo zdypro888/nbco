@@ -24,11 +24,11 @@ nodes:
       anchor:
         file: tools/admin.go
         symbol: CompanyOverview
-        hash: sha256:75ba15b4c51ff28fddea24236feb7736f5805af13c31fd32940a12e8be18df89
-        struct_hash: sha256:6d5e78fbdff5ca9e178279b95c6e88b7b24890c46aad369b7745fa3177f10f0c
-        doc_struct_hash: sha256:1f39c8ed742aeb6ad53bd9405661767580081853e45b04f9139d21423a7738a8
-        lines: [19, 118]
-      status: suspect
+        hash: sha256:911f6401b2b7e86e30d1dd617898d12922a26a38486304853ea3318fdce41a23
+        struct_hash: sha256:801867e2de082874659e5403fc1e33cde39928a7d2d05a8fcc0ed923d59a51b8
+        doc_struct_hash: sha256:4291b45fa8a18a719ac6b585e0545db63e86d39130c81b3110277c7cd0843137
+        lines: [27, 128]
+      status: fresh
       since: 2026-08-05T08:43:28.601134Z
       entries:
         - id: e_a5533cf8
@@ -41,8 +41,9 @@ nodes:
         - id: e_462c7ce2
           kind: pitfall
           text: 不要把 CompanyOverview 误读成只统计正式任务：它同时读取近 7 天 work_evidence 并明确以“区别于正式任务”的区块展示群聊、摘要和执行证据；这些证据仍不能自动视为任务承诺或验收结果。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T06:38:33.473168Z
+          confirmed_at: 2026-08-22T04:47:40.565084Z
           author: codex-mcp-client
       keywords:
         - 公司总览

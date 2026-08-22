@@ -558,3 +558,14 @@ nodes:
         lines: [536, 540]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/knowledge.go#Store.UserScopedRules
+      level: function
+      anchor:
+        file: store/knowledge.go
+        symbol: Store.UserScopedRules
+        hash: sha256:1c20b53775d22ad331d8083be8990feac4868898a30a5211a3088c28be8becb0
+        struct_hash: sha256:98a526dbeeb1e3489b93117a13685f5d91197a293b3e4d5305ac5f39118c9a64
+        doc_struct_hash: sha256:4ffbe7534d35e55dbbc48dac5d6e4bf57449c93a7365d9faa49d97197bdabc2c
+        lines: [160, 176]
+      status: fresh
+      since: 2026-08-22T04:47:34.389607Z

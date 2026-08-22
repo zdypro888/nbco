@@ -613,3 +613,14 @@ nodes:
         lines: [616, 654]
       status: undigested
       since: 2026-08-20T06:41:03.169207Z
+    - id: store/product_loop.go#Store.RecentStructuredWorkEvidence
+      level: function
+      anchor:
+        file: store/product_loop.go
+        symbol: Store.RecentStructuredWorkEvidence
+        hash: sha256:811eac0db8fcb1414a03064739a9e898f5c0fecd3b746ef5fdb55cb4f2ce5eea
+        struct_hash: sha256:af5cfd6787e426a353fda48bd97ef9e46719bdd3b3316be655ec7eb006f8de0c
+        doc_struct_hash: sha256:75d9e6bba9c2f57529e388d2aa57f21b872db602d8ed3a65aa8f9539f05efe0f
+        lines: [242, 272]
+      status: fresh
+      since: 2026-08-22T04:47:34.387251Z

@@ -101,26 +101,28 @@ func CompanyOverview(ctx context.Context, s *store.Store, tz *time.Location) (st
 	if evidenceStats.ObservedMessages > 0 || evidenceStats.StructuredItems > 0 {
 		fmt.Fprintf(&b, "工作证据（近7天，区别于正式任务）：群聊消息 %d · 结构化摘要/进展 %d · 已识别成员 %d · 已绑定项目 %d\n",
 			evidenceStats.ObservedMessages, evidenceStats.StructuredItems, evidenceStats.Actors, evidenceStats.Projects)
-		recent, err := s.RecentWorkEvidence(ctx, evidenceSince, 10)
-		if err != nil {
-			return "", err
+		if evidenceStats.StructuredItems > 0 {
+			recent, err := s.RecentStructuredWorkEvidence(ctx, evidenceSince, 10)
+			if err != nil {
+				return "", err
+			}
+			for _, item := range recent {
+				label := item.Kind
+				if item.ProjectName != "" {
+					label += " / " + item.ProjectName
+				}
+				actor := item.ActorName
+				if actor == "" {
+					actor = item.Title
+				}
+				if actor != "" {
+					label += " / " + actor
+				}
+				fmt.Fprintf(&b, "- [%s] %s：%s\n", item.EventAt.In(tz).Format("01-02 15:04"), label,
+					textfmt.TruncateRunes(strings.TrimSpace(item.Content), 320))
+			}
 		}
-		for _, item := range recent {
-			label := item.Kind
-			if item.ProjectName != "" {
-				label += " / " + item.ProjectName
-			}
-			actor := item.ActorName
-			if actor == "" {
-				actor = item.Title
-			}
-			if actor != "" {
-				label += " / " + actor
-			}
-			fmt.Fprintf(&b, "- [%s] %s：%s\n", item.EventAt.In(tz).Format("01-02 15:04"), label,
-				textfmt.TruncateRunes(strings.TrimSpace(item.Content), 320))
-		}
-		b.WriteString("说明：以上是有来源的沟通/执行证据；未关联任务的内容不能直接视为已承诺、已完成或已验收。\n")
+		b.WriteString("说明：明细仅展开已提炼的摘要、进展、风险、决策和交付物；原始沟通仍可按需查询。未关联任务的内容不能直接视为已承诺、已完成或已验收。\n")
 	}
 	return b.String(), nil
 }

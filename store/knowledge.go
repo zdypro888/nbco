@@ -157,6 +157,24 @@ func (s *Store) PinnedRules(ctx context.Context) ([]*Knowledge, error) {
 		`SELECT `+knowledgeCols+` FROM knowledge WHERE kind = $1 AND pinned AND active ORDER BY id`, KnowledgeKindPolicy)
 }
 
+// UserScopedRules returns a bounded set of durable rules that apply to one
+// user's experience. Closed background automations use this deterministic
+// lookup instead of semantic retrieval so personal rules are not bypassed and
+// automation latency remains bounded.
+func (s *Store) UserScopedRules(ctx context.Context, userID int64, limit int) ([]*Knowledge, error) {
+	if userID <= 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	scope := fmt.Sprintf("scope:user:%d", userID)
+	return s.queryKnowledge(ctx,
+		`SELECT `+knowledgeCols+` FROM knowledge
+		  WHERE kind = $1 AND NOT pinned AND active AND $2 = ANY(tags)
+		  ORDER BY id DESC LIMIT $3`, KnowledgeKindPolicy, scope, limit)
+}
+
 // ListRules 全部规则，常驻在前、新的在前。
 func (s *Store) ListRules(ctx context.Context, limit int) ([]*Knowledge, error) {
 	return s.queryKnowledge(ctx,

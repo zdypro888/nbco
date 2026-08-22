@@ -1868,7 +1868,10 @@ func (s *Scheduler) buildDigest(ctx context.Context, users []*store.User) string
 		slog.Error("日报工作证据统计失败", "err", err)
 		return ""
 	}
-	if stats.Open == 0 && stats.DoneSince == 0 && evidenceStats.ObservedMessages == 0 && evidenceStats.StructuredItems == 0 {
+	// Raw communication is evidence for explicit search and later extraction,
+	// not a reason to push message excerpts proactively. A daily digest is only
+	// useful when there is task activity or a structured operational fact.
+	if !hasDailyDigestContent(stats, evidenceStats) {
 		return ""
 	}
 	var overdue []*store.Task
@@ -1882,15 +1885,20 @@ func (s *Scheduler) buildDigest(ctx context.Context, users []*store.User) string
 		names[u.ID] = u.Name
 	}
 	digest := renderDigest(stats, overdue, names, s.tz)
-	if evidenceStats.ObservedMessages == 0 && evidenceStats.StructuredItems == 0 {
+	if evidenceStats.StructuredItems == 0 {
 		return digest
 	}
-	recent, err := s.store.RecentWorkEvidence(ctx, since, 6)
+	recent, err := s.store.RecentStructuredWorkEvidence(ctx, since, 6)
 	if err != nil {
 		slog.Error("日报工作证据明细失败", "err", err)
 		return digest
 	}
 	return digest + "\n" + renderWorkEvidenceDigest(evidenceStats, recent, s.tz)
+}
+
+func hasDailyDigestContent(stats *store.TaskStats, evidence *store.WorkEvidenceStats) bool {
+	return stats != nil && (stats.Open > 0 || stats.DoneSince > 0) ||
+		evidence != nil && evidence.StructuredItems > 0
 }
 
 func renderWorkEvidenceDigest(stats *store.WorkEvidenceStats, recent []*store.WorkEvidence, tz *time.Location) string {
@@ -1899,6 +1907,9 @@ func renderWorkEvidenceDigest(stats *store.WorkEvidenceStats, recent []*store.Wo
 	fmt.Fprintf(&b, "群聊消息 %d · 摘要/进展/风险 %d · 涉及成员 %d · 关联项目 %d\n",
 		stats.ObservedMessages, stats.StructuredItems, stats.Actors, stats.Projects)
 	for _, item := range recent {
+		if item == nil || item.Kind == store.WorkEvidenceCommunication {
+			continue
+		}
 		label := strings.TrimSpace(item.ProjectName)
 		if label == "" {
 			label = strings.TrimSpace(item.Title)

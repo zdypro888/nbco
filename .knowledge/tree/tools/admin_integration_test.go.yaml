@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: tools/admin_integration_test.go
+      level: file
+      anchor:
+        file: tools/admin_integration_test.go
+        hash: sha256:fd662d31b190ce277006006fcd19975f5f7216779c17fb6cc6995eb7960d9d44
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-22T04:47:34.471718Z
+    - id: tools/admin_integration_test.go#TestCompanyOverviewExpandsOnlyStructuredWorkEvidence
+      level: function
+      anchor:
+        file: tools/admin_integration_test.go
+        symbol: TestCompanyOverviewExpandsOnlyStructuredWorkEvidence
+        hash: sha256:82ab06241d9b098a6865387cb42f92da1593d4effab5fa6347795eb75d0df040
+        struct_hash: sha256:d9512f38b3bbc38d85a5d7fdabe7a1845a897aed2874eec9b5ab7f9c7daa9b7e
+        doc_struct_hash: sha256:d9512f38b3bbc38d85a5d7fdabe7a1845a897aed2874eec9b5ab7f9c7daa9b7e
+        lines: [12, 43]
+      status: fresh
+      since: 2026-08-22T04:47:34.4717Z

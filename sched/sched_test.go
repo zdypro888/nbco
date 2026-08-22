@@ -63,14 +63,30 @@ func TestRenderWorkEvidenceDigestKeepsEvidenceSeparateFromTasks(t *testing.T) {
 	tz := time.FixedZone("CST", 8*60*60)
 	out := renderWorkEvidenceDigest(&store.WorkEvidenceStats{
 		ObservedMessages: 7, StructuredItems: 2, Actors: 3, Projects: 1,
-	}, []*store.WorkEvidence{{
-		Kind: store.WorkEvidenceSummary, ProjectName: "视频项目",
-		Content: "讨论了素材交付风险", EventAt: time.Date(2026, 8, 19, 1, 0, 0, 0, time.UTC),
-	}}, tz)
+	}, []*store.WorkEvidence{
+		{Kind: store.WorkEvidenceCommunication, Content: "原始群聊不得主动外发", EventAt: time.Date(2026, 8, 19, 2, 0, 0, 0, time.UTC)},
+		{Kind: store.WorkEvidenceSummary, ProjectName: "视频项目", Content: "讨论了素材交付风险", EventAt: time.Date(2026, 8, 19, 1, 0, 0, 0, time.UTC)},
+	}, tz)
 	for _, want := range []string{"不等同于正式任务", "群聊消息 7", "视频项目", "讨论了素材交付风险"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("digest missing %q: %s", want, out)
 		}
+	}
+	if strings.Contains(out, "原始群聊不得主动外发") {
+		t.Fatalf("digest leaked raw communication: %s", out)
+	}
+}
+
+func TestDailyDigestRequiresTasksOrStructuredEvidence(t *testing.T) {
+	rawOnly := &store.WorkEvidenceStats{ObservedMessages: 42}
+	if hasDailyDigestContent(&store.TaskStats{}, rawOnly) {
+		t.Fatal("raw communication alone must not trigger a proactive digest")
+	}
+	if !hasDailyDigestContent(&store.TaskStats{Open: 1}, rawOnly) {
+		t.Fatal("open tasks should trigger a digest")
+	}
+	if !hasDailyDigestContent(&store.TaskStats{}, &store.WorkEvidenceStats{StructuredItems: 1}) {
+		t.Fatal("structured evidence should trigger a digest")
 	}
 }
 

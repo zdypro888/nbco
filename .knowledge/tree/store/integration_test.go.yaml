@@ -1427,3 +1427,25 @@ nodes:
         lines: [7054, 7107]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/integration_test.go#TestRecentStructuredWorkEvidenceExcludesRawCommunication
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestRecentStructuredWorkEvidenceExcludesRawCommunication
+        hash: sha256:1e6173ec7314fec4c43cfb3608b976d81bc161d50d42f5a0819f4eac62b8b20d
+        struct_hash: sha256:ba84b3ad86079d9fb2a7d9c17a04e6b60d3b967eb0bb722f5d34ba9b6b3e58a6
+        doc_struct_hash: sha256:ba84b3ad86079d9fb2a7d9c17a04e6b60d3b967eb0bb722f5d34ba9b6b3e58a6
+        lines: [304, 337]
+      status: fresh
+      since: 2026-08-22T04:47:34.444556Z
+    - id: store/integration_test.go#TestUserScopedRulesExcludeOtherUsersAndPinnedRules
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestUserScopedRulesExcludeOtherUsersAndPinnedRules
+        hash: sha256:811c12d6e980e3c27616a735331468aa3c37169eb086fba1432c8a13ba097870
+        struct_hash: sha256:72cde992d137be09a82b59847c394f2ed4a215a1c68f9186473b6ee49a1db779
+        doc_struct_hash: sha256:72cde992d137be09a82b59847c394f2ed4a215a1c68f9186473b6ee49a1db779
+        lines: [339, 364]
+      status: fresh
+      since: 2026-08-22T04:47:34.471131Z
