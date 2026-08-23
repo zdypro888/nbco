@@ -206,3 +206,14 @@ nodes:
         lines: [199, 227]
       status: fresh
       since: 2026-08-20T12:56:58.308476Z
+    - id: gateway/httpapi/httpapi_test.go#TestControlCenterAdaptsToBrowserAndTelegramViewports
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi_test.go
+        symbol: TestControlCenterAdaptsToBrowserAndTelegramViewports
+        hash: sha256:fb349f20d0fcf16586b6c2e22d7486b0f213787ac8d1561b18f093800fa5534c
+        struct_hash: sha256:2fb403f42d24cad30c35f369f7f62e862328def195efd83621a043a2acc030bc
+        doc_struct_hash: sha256:2fb403f42d24cad30c35f369f7f62e862328def195efd83621a043a2acc030bc
+        lines: [378, 411]
+      status: fresh
+      since: 2026-08-23T05:26:54.363069Z
