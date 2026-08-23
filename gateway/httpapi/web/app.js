@@ -68,10 +68,42 @@ let ihtmlTicket = { userID: "", token: "", expiresAt: 0 };
 let ihtmlTicketPromise = { userID: "", value: null };
 let ihtmlMountGeneration = 0;
 
+function finitePixels(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function syncViewportMetrics() {
+  const visualHeight = finitePixels(window.visualViewport?.height);
+  const windowHeight = finitePixels(window.innerHeight);
+  const telegramHeight = finitePixels(tg?.viewportHeight);
+  const currentHeight = telegramHeight || visualHeight || windowHeight;
+  const stableHeight = finitePixels(tg?.viewportStableHeight) || currentHeight;
+  if (currentHeight) document.documentElement.style.setProperty("--app-viewport-height", `${currentHeight}px`);
+  if (stableHeight) document.documentElement.style.setProperty("--app-stable-viewport-height", `${stableHeight}px`);
+
+  if (!tg) return;
+  const safe = tg.safeAreaInset || {};
+  const contentSafe = tg.contentSafeAreaInset || {};
+  for (const side of ["top", "right", "bottom", "left"]) {
+    const inset = Math.max(finitePixels(safe[side]), finitePixels(contentSafe[side]));
+    document.body.style.setProperty(`--app-safe-${side}`, `${inset}px`);
+  }
+}
+
+syncViewportMetrics();
+window.addEventListener("resize", syncViewportMetrics, { passive: true });
+window.addEventListener("orientationchange", syncViewportMetrics, { passive: true });
+window.visualViewport?.addEventListener("resize", syncViewportMetrics, { passive: true });
+
 if (tg) {
   document.body.classList.add("tg-mini");
+  for (const event of ["viewportChanged", "safeAreaChanged", "contentSafeAreaChanged"]) {
+    tg.onEvent(event, syncViewportMetrics);
+  }
   tg.ready();
   tg.expand();
+  syncViewportMetrics();
 }
 
 function esc(value) {

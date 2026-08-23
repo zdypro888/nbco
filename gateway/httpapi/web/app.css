@@ -21,6 +21,20 @@
   --sidebar: 132px;
   --inspector: 360px;
   --log: 156px;
+  --app-viewport-height: 100vh;
+  --app-stable-viewport-height: 100vh;
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-content-height: calc(var(--app-viewport-height) - var(--app-safe-top) - var(--app-safe-bottom));
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-viewport-height: 100dvh;
+    --app-stable-viewport-height: 100dvh;
+  }
 }
 
 * {
@@ -37,6 +51,7 @@ body,
 
 body {
   margin: 0;
+  padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
@@ -120,7 +135,7 @@ button:disabled {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  min-height: 100vh;
+  min-height: var(--app-content-height);
   display: grid;
   grid-template-columns: var(--sidebar) minmax(0, 1fr);
   grid-template-rows: 50px minmax(0, 1fr) var(--log);
@@ -136,7 +151,7 @@ button:disabled {
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: var(--app-content-height);
 }
 
 .brand {
@@ -734,7 +749,7 @@ button:disabled {
 .chat-layout {
   display: grid;
   grid-template-rows: minmax(260px, 1fr) auto;
-  min-height: calc(100vh - 270px);
+  min-height: calc(var(--app-content-height) - 270px);
 }
 
 .chat-log {
@@ -983,7 +998,7 @@ button:disabled {
   }
 
   .ihtml-workspace-shell {
-    min-height: calc(100vh - 180px);
+    min-height: calc(var(--app-content-height) - 180px);
     grid-template-columns: minmax(0, 1fr);
   }
 

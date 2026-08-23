@@ -375,6 +375,41 @@ func TestControlCenterKeepsIHTMLPageInShareableURL(t *testing.T) {
 	}
 }
 
+func TestControlCenterAdaptsToBrowserAndTelegramViewports(t *testing.T) {
+	javascript, err := webAssets.ReadFile("web/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`window.visualViewport?.height`,
+		`tg?.viewportHeight`,
+		`tg?.viewportStableHeight`,
+		`"viewportChanged", "safeAreaChanged", "contentSafeAreaChanged"`,
+		`--app-viewport-height`,
+		`--app-safe-${side}`,
+	} {
+		if !strings.Contains(string(javascript), expected) {
+			t.Fatalf("adaptive viewport runtime is missing %q", expected)
+		}
+	}
+
+	stylesheet, err := webAssets.ReadFile("web/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`--app-viewport-height: 100vh`,
+		`--app-viewport-height: 100dvh`,
+		`--app-content-height: calc(`,
+		`padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left)`,
+		`min-height: var(--app-content-height)`,
+	} {
+		if !strings.Contains(string(stylesheet), expected) {
+			t.Fatalf("adaptive viewport stylesheet is missing %q", expected)
+		}
+	}
+}
+
 func TestWorkerDownloadBinary(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "worker")
