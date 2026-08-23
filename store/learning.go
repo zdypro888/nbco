@@ -77,6 +77,86 @@ type LearningCandidateInput struct {
 	MemoryClass string
 }
 
+// LearningContextAsset is a rule or skill that actually participated in a
+// recent turn. Memory mining uses it to understand what a later correction is
+// referring to; it is context, never user evidence.
+type LearningContextAsset struct {
+	ID      int64
+	Kind    string
+	Title   string
+	Content string
+	Tags    []string
+	Phase   string
+}
+
+type LearningTurnContext struct {
+	Messages []ChatMessage
+	Assets   []LearningContextAsset
+}
+
+// LearningContextBeforeMessage returns a bounded conversational neighborhood
+// and the memory assets used by the immediately preceding turns. This closes
+// the reference gap for feedback such as "the previous result was wrong"
+// without promoting prior assistant text to evidence.
+func (s *Store) LearningContextBeforeMessage(
+	ctx context.Context,
+	sessionID, beforeMessageID int64,
+	messageLimit, turnLimit int,
+) (*LearningTurnContext, error) {
+	if sessionID <= 0 || beforeMessageID <= 0 {
+		return &LearningTurnContext{}, nil
+	}
+	if messageLimit <= 0 || messageLimit > 12 {
+		messageLimit = 6
+	}
+	if turnLimit <= 0 || turnLimit > 4 {
+		turnLimit = 2
+	}
+	messages, err := s.MessagesBefore(ctx, sessionID, 0, beforeMessageID, messageLimit)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.pool.Query(ctx,
+		`WITH recent_turns AS (
+		   SELECT id, assistant_message_id
+		     FROM conversation_turns
+		    WHERE session_id = $1 AND status = 'completed'
+		      AND assistant_message_id IS NOT NULL AND assistant_message_id < $2
+		    ORDER BY assistant_message_id DESC
+		    LIMIT $3
+		 )
+		 SELECT k.id, k.kind, k.title, k.content, k.tags, u.phase
+		   FROM recent_turns t
+		   JOIN conversation_asset_usages u ON u.conversation_turn_id = t.id
+		   JOIN knowledge k ON k.id = u.knowledge_id
+		  WHERE k.active
+		  ORDER BY t.assistant_message_id DESC,
+		           CASE u.phase WHEN 'loaded' THEN 0 WHEN 'injected' THEN 1 ELSE 2 END,
+		           k.id DESC
+		  LIMIT 16`, sessionID, beforeMessageID, turnLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	assets := make([]LearningContextAsset, 0, 16)
+	seen := make(map[int64]bool, 16)
+	for rows.Next() {
+		var asset LearningContextAsset
+		if err := rows.Scan(&asset.ID, &asset.Kind, &asset.Title, &asset.Content, &asset.Tags, &asset.Phase); err != nil {
+			return nil, wrapErr(err)
+		}
+		if seen[asset.ID] {
+			continue
+		}
+		seen[asset.ID] = true
+		assets = append(assets, asset)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapErr(err)
+	}
+	return &LearningTurnContext{Messages: messages, Assets: assets}, nil
+}
+
 const learningCandidateCols = `id, kind, scope, title, content, tags, evidence, confidence, status, source_type, source_ref, created_by, reviewed_by, reviewed_at, published_knowledge_id, duplicate_of, conflict_with, value_score, review_note, memory_class, created_at, updated_at`
 
 func scanLearningCandidate(row interface{ Scan(...any) error }) (*LearningCandidate, error) {

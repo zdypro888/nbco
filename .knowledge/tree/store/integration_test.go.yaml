@@ -431,11 +431,11 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestDeleteTaskClosesSubtreeDecisionsAndDependencies
-        hash: sha256:6e397caa0829b94814a34002de11ee837f3ba1563c2ac696bf14c64ecf9a5d21
-        struct_hash: sha256:f959730a21a4f58ec9850cdc39d3d8ea8be0d2dc690ccd3be20f8870a99b9058
-        doc_struct_hash: sha256:f959730a21a4f58ec9850cdc39d3d8ea8be0d2dc690ccd3be20f8870a99b9058
-        lines: [2126, 2176]
-      status: suspect
+        hash: sha256:261ee236145fd606d7866fd72948a7bd95f02e1860ad6655ef64cc6f247246d8
+        struct_hash: sha256:3234bb86b8174718d71296841c49175c405f42c67072ec7461ba11ace97549a8
+        doc_struct_hash: sha256:3234bb86b8174718d71296841c49175c405f42c67072ec7461ba11ace97549a8
+        lines: [2375, 2425]
+      status: fresh
       since: 2026-07-21T20:53:24.277987Z
     - id: store/integration_test.go#TestUpsertDecisionItemDoesNotReopenClosed
       level: function
@@ -816,11 +816,11 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestUpdateScheduleTimingVisibleKeepsStableFields
-        hash: sha256:204cbb7dc64efbe0350610de5e5e53694acaad2542527ea6e9131505b582a080
-        struct_hash: sha256:459b616b3fad86e0ca73f119bc52432d7c7a55d3e9757a50b6290a6c7936c309
-        doc_struct_hash: sha256:459b616b3fad86e0ca73f119bc52432d7c7a55d3e9757a50b6290a6c7936c309
-        lines: [3889, 3934]
-      status: suspect
+        hash: sha256:d5cad0b84018c0215eb7f8993f68e3f27d7ec1b20a7430a4de25bd8936ef4a4e
+        struct_hash: sha256:9985276ee0fdc8b9b452c49bc3f01c036b11db9737b15cf76228f6e304d61b52
+        doc_struct_hash: sha256:9985276ee0fdc8b9b452c49bc3f01c036b11db9737b15cf76228f6e304d61b52
+        lines: [4459, 4504]
+      status: fresh
       since: 2026-07-25T04:57:24.806436Z
     - id: store/integration_test.go#TestQuarantineLegacyAutomationHistoryMigration
       level: function
@@ -1003,22 +1003,22 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestAutomationOutcomeExpiryAndReplaySafety
-        hash: sha256:6e3f022fd975e9fdd829bf4a99a77acd03088cf5391f6910d4c186df13d1eb2f
-        struct_hash: sha256:db425c54c9eee90acf0565af3d2450af69f665ad54d159687bdc5a02dd85af1b
-        doc_struct_hash: sha256:db425c54c9eee90acf0565af3d2450af69f665ad54d159687bdc5a02dd85af1b
-        lines: [4906, 5016]
-      status: suspect
+        hash: sha256:d98a1999d7c87bf5fbb90138dfd431f2033cf1920e9a0d0c404e04c325b793b3
+        struct_hash: sha256:a1b5e1421a3b02e0706b8c0c4c015cca2199fa4f70a49787aff37fdee067d347
+        doc_struct_hash: sha256:a1b5e1421a3b02e0706b8c0c4c015cca2199fa4f70a49787aff37fdee067d347
+        lines: [5476, 5586]
+      status: fresh
       since: 2026-08-05T08:18:56.752291Z
     - id: store/integration_test.go#TestHasActiveAutomationRunIgnoresExpiredLease
       level: function
       anchor:
         file: store/integration_test.go
         symbol: TestHasActiveAutomationRunIgnoresExpiredLease
-        hash: sha256:89c527001817e90769f566065d548359ab8fbff42bf6cfac839fff979d754c08
-        struct_hash: sha256:69801fae336a3a1d64ce79c8e47b56b35cd8a74329adda45da354cba7ec1a7eb
-        doc_struct_hash: sha256:69801fae336a3a1d64ce79c8e47b56b35cd8a74329adda45da354cba7ec1a7eb
-        lines: [5018, 5037]
-      status: suspect
+        hash: sha256:4b80b1ab6a7225c7b3b1b9932cb7fef14b3df31ff8ccad1ad69d2a46a7221d70
+        struct_hash: sha256:5bdeda605c3a4a2699898e2d7011310f9cecd5682f0aef19c1d06cf880fa5e15
+        doc_struct_hash: sha256:5bdeda605c3a4a2699898e2d7011310f9cecd5682f0aef19c1d06cf880fa5e15
+        lines: [5588, 5607]
+      status: fresh
       since: 2026-08-05T09:39:47.277588Z
     - id: store/integration_test.go#TestGroupSessionAndSummary
       level: function
@@ -1190,11 +1190,11 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestAutomationSnapshotIsImmutable
-        hash: sha256:c48a920689b54449b48f93fc8cbb37dad52924dd07c4ebdcae5b44b31e684813
-        struct_hash: sha256:0294354b019ceb0c4b22f70a0a85c298a1d538bf729deb2c38430e745449bc5c
-        doc_struct_hash: sha256:0294354b019ceb0c4b22f70a0a85c298a1d538bf729deb2c38430e745449bc5c
-        lines: [5969, 5996]
-      status: suspect
+        hash: sha256:1bb07e774a4634c1d987f9fe6eaa83b6600451ea7b52e45b0f32e9c142a64746
+        struct_hash: sha256:9f14c335127b46cd696f55367481626dc3f1825bfca92e694080911993e1eac8
+        doc_struct_hash: sha256:9f14c335127b46cd696f55367481626dc3f1825bfca92e694080911993e1eac8
+        lines: [6596, 6623]
+      status: fresh
       since: 2026-08-06T07:42:42.315031Z
     - id: store/integration_test.go#TestLearningCandidateMemoryAuthority
       level: function
@@ -1212,11 +1212,11 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestLearningGovernanceBoundaryIsCompleteAndOldestFirst
-        hash: sha256:c40e4b7223a0083850b2c85dbe73c9a0c6368ee0ed7f10e177d41cfd7b0081a5
-        struct_hash: sha256:7176af1c716d022b3feed894cf35122e0b149c006bdbbfef150fa7be9fd9c3d0
-        doc_struct_hash: sha256:7176af1c716d022b3feed894cf35122e0b149c006bdbbfef150fa7be9fd9c3d0
-        lines: [6065, 6094]
-      status: suspect
+        hash: sha256:d5deae8dc7a09eef2962d12ad64d3bf1f25e81a2d16095ff12042bc9c0052fa8
+        struct_hash: sha256:77770324f5d41d07efb53db513a7677eb0e3b40a9c83bf5b1f167d423eb83ae6
+        doc_struct_hash: sha256:77770324f5d41d07efb53db513a7677eb0e3b40a9c83bf5b1f167d423eb83ae6
+        lines: [6714, 6749]
+      status: fresh
       since: 2026-08-06T07:38:52.589127Z
     - id: store/integration_test.go#TestTelegramGroupState
       level: function
@@ -1449,3 +1449,14 @@ nodes:
         lines: [339, 364]
       status: fresh
       since: 2026-08-22T04:47:34.471131Z
+    - id: store/integration_test.go#TestLearningContextIncludesPreviousTurnAndActuallyUsedAssets
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestLearningContextIncludesPreviousTurnAndActuallyUsedAssets
+        hash: sha256:5c3c1c84f5cf3781611d99ec99e5445f3d96a6d31fff79f87247596d8a261aa0
+        struct_hash: sha256:678eaf4518adda80708752cd6f3da858596551e85b019f71ca83dc36e2221b26
+        doc_struct_hash: sha256:678eaf4518adda80708752cd6f3da858596551e85b019f71ca83dc36e2221b26
+        lines: [7337, 7374]
+      status: fresh
+      since: 2026-08-23T07:27:25.308786Z

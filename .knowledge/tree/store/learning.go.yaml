@@ -525,3 +525,14 @@ nodes:
         lines: [633, 640]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/learning.go#Store.LearningContextBeforeMessage
+      level: function
+      anchor:
+        file: store/learning.go
+        symbol: Store.LearningContextBeforeMessage
+        hash: sha256:5af469bbd9eb1ab87c85b5a56737a8047465e50d1a63f322b78344506b07be09
+        struct_hash: sha256:9c3184022ec09d3c0e14342239eaea60f7171109e4d7e36882ff9f9fc02e8ec4
+        doc_struct_hash: sha256:e9107b411a6aa0049d6acebba3e9cd9dfd2bb5f87c0c6ae6bb224f8c373ffe0d
+        lines: [97, 158]
+      status: fresh
+      since: 2026-08-23T07:27:25.245062Z

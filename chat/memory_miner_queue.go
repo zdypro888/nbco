@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
@@ -97,14 +98,29 @@ func (o *Orchestrator) processMemoryMiningJob(parent context.Context, job *store
 		if job.UserEvidenceText != nil {
 			userText = *job.UserEvidenceText
 		}
+		learningContext, err := o.store.LearningContextBeforeMessage(ctx, job.SessionID, job.UserMessageID, 10, 2)
+		if err != nil {
+			return fmt.Errorf("load learning context: %w", err)
+		}
+		contextText, contextMessageIDs, priorUserText, priorUserMessageIDs := renderMemoryMiningContext(learningContext.Messages, u, job.Channel, o.tz)
+		priorAssets := make([]memoryContextAsset, 0, len(learningContext.Assets))
+		for _, asset := range learningContext.Assets {
+			priorAssets = append(priorAssets, memoryContextAsset{
+				ID: asset.ID, Kind: asset.Kind,
+				Title:   textfmt.TruncateRunes(memoryMiningProjection(asset.Title), 160),
+				Content: textfmt.TruncateRunes(memoryMiningProjection(asset.Content), 800),
+				Tags:    normalizeMemoryContextTags(asset.Tags), Phase: asset.Phase,
+			})
+		}
 		return o.mineMemory(ctx, u, memorySource{
 			Channel: job.Channel, SessionID: job.SessionID,
 			UserMessageID: job.UserMessageID, AssistantMessageID: job.AssistantMessageID,
 			// Canonical chat remains lossless; durable learning is a wider, derived
 			// surface and receives a credential-safe projection instead.
-			UserText:      memoryMiningProjection(userText),
-			AssistantText: memoryMiningProjection(assistantMessage.Content),
-			ToolEvidence:  job.ToolEvidence, OccurredAt: userMessage.EventAt().In(orTimeZone(o.tz)),
+			UserText: memoryMiningProjection(userText), AssistantText: memoryMiningProjection(assistantMessage.Content),
+			ToolEvidence: job.ToolEvidence, ContextText: contextText, ContextMessageIDs: contextMessageIDs,
+			PriorUserText: priorUserText, PriorUserMessageIDs: priorUserMessageIDs,
+			PriorAssets: priorAssets, OccurredAt: userMessage.EventAt().In(orTimeZone(o.tz)),
 			ExplicitCommit: job.ExplicitCommit,
 		})
 	}()
@@ -123,6 +139,58 @@ func (o *Orchestrator) processMemoryMiningJob(parent context.Context, job *store
 	}
 }
 
+func normalizeMemoryContextTags(tags []string) []string {
+	out := make([]string, 0, min(len(tags), 8))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(textfmt.TruncateRunes(memoryMiningProjection(tag), 80))
+		if tag == "" {
+			continue
+		}
+		out = append(out, tag)
+		if len(out) == 8 {
+			break
+		}
+	}
+	return out
+}
+
 func memoryMiningProjection(text string) string {
 	return textfmt.RedactSecrets(text)
+}
+
+func renderMemoryMiningContext(messages []store.ChatMessage, u *store.User, channel string, tz *time.Location) (string, []int64, string, []int64) {
+	if len(messages) == 0 {
+		return "", nil, "", nil
+	}
+	var b, priorUser strings.Builder
+	ids := make([]int64, 0, len(messages))
+	priorUserIDs := make([]int64, 0, len(messages)/2)
+	for _, message := range messages {
+		role := message.Role
+		if role != string(ai.RoleUser) && role != string(ai.RoleAssistant) {
+			continue
+		}
+		content := strings.TrimSpace(memoryMiningProjection(message.Content))
+		if content == "" {
+			continue
+		}
+		ids = append(ids, message.ID)
+		fmt.Fprintf(&b, "[%s] %s: %s\n", messageTime(message.EventAt(), tz), role, textfmt.TruncateRunes(content, 800))
+		if role == string(ai.RoleUser) && priorMessageBelongsToUser(message, u, channel) {
+			priorUserIDs = append(priorUserIDs, message.ID)
+			fmt.Fprintf(&priorUser, "[message:%d] %s\n", message.ID, textfmt.TruncateRunes(content, 1000))
+		}
+	}
+	return textfmt.TruncateRunes(strings.TrimSpace(b.String()), 3200), ids,
+		textfmt.TruncateRunes(strings.TrimSpace(priorUser.String()), 2400), priorUserIDs
+}
+
+func priorMessageBelongsToUser(message store.ChatMessage, u *store.User, channel string) bool {
+	if u == nil || u.ID <= 0 {
+		return false
+	}
+	if !store.IsGroupChannel(channel) {
+		return true
+	}
+	return message.ActorUserID != nil && *message.ActorUserID == u.ID
 }

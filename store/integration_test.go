@@ -7334,6 +7334,45 @@ func TestMemoryMiningQueueIsDurableAndIdempotent(t *testing.T) {
 	}
 }
 
+func TestLearningContextIncludesPreviousTurnAndActuallyUsedAssets(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "learning-context-owner", true)
+	sess, err := s.StartSession(ctx, u.ID, "telegram", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule, err := s.CreateRule(ctx, "页面设计标准", "页面必须适配移动端。", []string{"scope:global"}, u.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, created, err := s.BeginConversationTurn(ctx, "learning-context:first", u.ID, sess.ID, "telegram", "创建一个员工概览页面")
+	if err != nil || !created {
+		t.Fatalf("BeginConversationTurn first = %+v %t %v", first, created, err)
+	}
+	assistantID, err := s.CompleteConversationTurn(ctx, ConversationTurnCompletion{
+		TurnID: first.ID, AssistantText: "页面已经生成。", ResultText: "页面已经生成。",
+		AssetUsages: []ConversationAssetUsage{{KnowledgeID: rule.ID, Phase: AssetPhaseInjected, TurnOutcome: AssetOutcomeCompleted}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, created, err := s.BeginConversationTurn(ctx, "learning-context:second", u.ID, sess.ID, "telegram", "刚才的排版不适合手机，以后要改进")
+	if err != nil || !created || second.UserMessageID == nil {
+		t.Fatalf("BeginConversationTurn second = %+v %t %v", second, created, err)
+	}
+	got, err := s.LearningContextBeforeMessage(ctx, sess.ID, *second.UserMessageID, 6, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Messages) != 2 || got.Messages[1].ID != assistantID || got.Messages[1].Content != "页面已经生成。" {
+		t.Fatalf("learning context messages = %+v", got.Messages)
+	}
+	if len(got.Assets) != 1 || got.Assets[0].ID != rule.ID || got.Assets[0].Phase != AssetPhaseInjected {
+		t.Fatalf("learning context assets = %+v", got.Assets)
+	}
+}
+
 func TestEpisodicMessageSearch(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()

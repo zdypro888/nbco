@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -421,9 +422,20 @@ func TestReviewMinedMemoryRequiresIndependentPublicationDecision(t *testing.T) {
 		if req.Purpose != "memory_governance" {
 			t.Fatalf("purpose = %q", req.Purpose)
 		}
-		return `{"rules":[{"decision":"review","memory_class":"durable","relation":"conflict"}],"skills":[],"knowledge":[{"decision":"publish","memory_class":"durable","relation":"new"}],"facts":[{"decision":"publish"}]}`, nil
+		for _, want := range []string{"previous assistant result", "previous user instruction", "previously_used_memory"} {
+			if !strings.Contains(req.Prompt, want) {
+				t.Fatalf("memory review prompt missing %q", want)
+			}
+		}
+		return `{"learning_intent":"correction","rules":[{"decision":"review","memory_class":"durable","relation":"conflict"}],"skills":[],"knowledge":[{"decision":"publish","memory_class":"durable","relation":"new"}],"facts":[{"decision":"publish"}]}`, nil
 	}}}
-	review := o.reviewMinedMemory(context.Background(), &store.User{ID: 1}, mined, memorySource{UserText: "evidence"})
+	review := o.reviewMinedMemory(context.Background(), &store.User{ID: 1}, mined, memorySource{
+		UserText: "evidence", ContextText: "previous assistant result", PriorUserText: "previous user instruction",
+		PriorAssets: []memoryContextAsset{{ID: 7, Kind: store.KnowledgeKindPolicy, Title: "prior rule"}},
+	})
+	if review.LearningIntent != "correction" {
+		t.Fatalf("learning intent = %q", review.LearningIntent)
+	}
 	if got := review.decision(store.KnowledgeKindPolicy, 0); got != "review" {
 		t.Fatalf("rule decision = %q", got)
 	}
@@ -461,6 +473,90 @@ func TestMemoryReviewRelationDefaultsToUncertain(t *testing.T) {
 	review := memoryReview{Rules: []memoryReviewDecision{{Decision: "publish"}}}
 	if got := review.relation(store.KnowledgeKindPolicy, 0); got != "uncertain" {
 		t.Fatalf("missing relation must not auto-publish, got %q", got)
+	}
+}
+
+func TestEffectiveLearningIntentRequiresIndependentAgreement(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		mined    string
+		reviewed string
+		explicit bool
+		want     string
+	}{
+		{name: "explicit", mined: "explicit", reviewed: "explicit", want: "explicit"},
+		{name: "correction", mined: "correction", reviewed: "correction", want: "correction"},
+		{name: "disagreement", mined: "correction", reviewed: "incidental", want: "none"},
+		{name: "durable explicit marker", mined: "none", reviewed: "correction", explicit: true, want: "explicit"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := effectiveLearningIntent(minedMemory{LearningIntent: tc.mined}, memoryReview{LearningIntent: tc.reviewed}, tc.explicit)
+			if got != tc.want {
+				t.Fatalf("effectiveLearningIntent = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPriorUserEvidenceRequiresExplicitSummaryIntent(t *testing.T) {
+	src := memorySource{UserText: "把刚才的讨论总结成规则", PriorUserText: "页面必须同时适配手机和桌面。"}
+	explicit := minedMemory{LearningIntent: "explicit"}
+	explicitReview := memoryReview{LearningIntent: "explicit"}
+	if !validMinedUserMemoryEvidence(src, explicit, explicitReview, "页面必须同时适配手机和桌面。", 8) {
+		t.Fatal("explicit summary should be allowed to quote the same user's prior statement")
+	}
+	correction := minedMemory{LearningIntent: "correction"}
+	correctionReview := memoryReview{LearningIntent: "correction"}
+	if validMinedUserMemoryEvidence(src, correction, correctionReview, "页面必须同时适配手机和桌面。", 8) {
+		t.Fatal("implicit correction must not silently promote prior context to evidence")
+	}
+	if validMinedUserMemoryEvidence(src, explicit, memoryReview{LearningIntent: "none"}, "页面必须同时适配手机和桌面。", 8) {
+		t.Fatal("prior evidence requires independent intent agreement")
+	}
+}
+
+func TestMemoryReviewRelatedIDMustComeFromRetrievedReferences(t *testing.T) {
+	review := memoryReview{
+		Rules: []memoryReviewDecision{{RelatedSource: "knowledge", RelatedID: 42}},
+		references: memoryReviewReferences{Rules: [][]memoryReviewReference{{
+			{Source: "knowledge", ID: 42},
+		}}},
+	}
+	if id, ok := review.relatedKnowledgeID(store.KnowledgeKindPolicy, 0); !ok || id != 42 {
+		t.Fatalf("validated related id = %d, %t", id, ok)
+	}
+	review.Rules[0].RelatedID = 99
+	if id, ok := review.relatedKnowledgeID(store.KnowledgeKindPolicy, 0); ok || id != 0 {
+		t.Fatalf("hallucinated related id passed validation: %d, %t", id, ok)
+	}
+}
+
+func TestRenderMemoryMiningContextIsBoundedAndCredentialSafe(t *testing.T) {
+	secret := strings.Repeat("a", 48)
+	text, ids, priorUser, priorIDs := renderMemoryMiningContext([]store.ChatMessage{
+		{ID: 7, Role: string(ai.RoleUser), Content: "token=" + secret, CreatedAt: time.Date(2026, 8, 23, 9, 0, 0, 0, time.UTC)},
+		{ID: 8, Role: string(ai.RoleAssistant), Content: "已生成上一版页面", CreatedAt: time.Date(2026, 8, 23, 9, 0, 1, 0, time.UTC)},
+	}, &store.User{ID: 1}, "telegram", time.UTC)
+	if len(ids) != 2 || ids[0] != 7 || ids[1] != 8 {
+		t.Fatalf("context ids = %v", ids)
+	}
+	if strings.Contains(text, secret) || !strings.Contains(text, "[redacted]") || !strings.Contains(text, "已生成上一版页面") {
+		t.Fatalf("unsafe or incomplete learning context: %q", text)
+	}
+	if len(priorIDs) != 1 || priorIDs[0] != 7 || strings.Contains(priorUser, secret) || !strings.Contains(priorUser, "[redacted]") {
+		t.Fatalf("unsafe prior user evidence: ids=%v text=%q", priorIDs, priorUser)
+	}
+}
+
+func TestMergeMemoryTagsKeepsClassificationAndOneScope(t *testing.T) {
+	got := mergeMemoryTags([]string{"scope:global", "domain:design"}, []string{"scope:global", "channel:web"}, "global")
+	for _, want := range []string{"scope:global", "domain:design", "channel:web"} {
+		if !slices.Contains(got, want) {
+			t.Fatalf("merged tags missing %q: %v", want, got)
+		}
+	}
+	if got := memoryScopeFromTags(got); got != "global" {
+		t.Fatalf("merged scope = %q", got)
 	}
 }
 
@@ -1150,9 +1246,10 @@ func TestPendingLearningCandidateIsIdempotentAtDatabaseBoundary(t *testing.T) {
 
 	o := New(s, &fakeEngine{reply: "ok"}, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, time.Minute)
 	write := func() error {
-		return o.recordPendingLearningCandidate(ctx, u.ID, store.LearningKindRule, "global",
+		_, err := o.recordPendingLearningCandidate(ctx, u.ID, store.LearningKindRule, "global",
 			"统一并发写入", "相同长期规则只保留一份。", []string{"scope:global"},
 			store.LearningMemoryDurable, "memory_miner", memorySource{SessionID: sessionID}, 0.8)
+		return err
 	}
 	if err := write(); err != nil {
 		t.Fatal(err)
@@ -1166,6 +1263,85 @@ func TestPendingLearningCandidateIsIdempotentAtDatabaseBoundary(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("equivalent candidate count = %d, want 1", count)
+	}
+}
+
+func TestExplicitCorrectionSupersedesRetrievedRuleWithVersionHistory(t *testing.T) {
+	dsn := os.Getenv("NBCO_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("未设置 NBCO_TEST_PG_DSN")
+	}
+	ctx := context.Background()
+	s, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+
+	u, err := s.CreateUser(ctx, "学习替代测试员", false, store.Identity{
+		Provider: "test", ExternalID: fmt.Sprintf("learning-supersede-%d", time.Now().UnixNano()),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u.IsSuperadmin = true
+	oldRule, err := s.CreateRule(ctx, "页面交付标准", "生成页面只需要适配桌面浏览器。",
+		[]string{"scope:global", "domain:design"}, u.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = s.Pool().Exec(context.Background(), `DELETE FROM learning_candidates WHERE created_by = $1`, u.ID)
+		_, _ = s.Pool().Exec(context.Background(), `DELETE FROM knowledge WHERE author_id = $1`, u.ID)
+		_, _ = s.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID)
+	})
+
+	const correction = "生成页面必须同时适配 Telegram Mini App 和桌面浏览器，并遵循统一设计系统。"
+	var mined minedMemory
+	if err := json.Unmarshal([]byte(`{
+		"learning_intent":"correction",
+		"rules":[{"title":"多端页面交付标准","content":"`+correction+`","scope":"global","pinned":false,"evidence":"`+correction+`"}],
+		"skills":[],"knowledge":[],"facts":[]
+	}`), &mined); err != nil {
+		t.Fatal(err)
+	}
+	review := memoryReview{
+		LearningIntent: "correction",
+		Rules: []memoryReviewDecision{{
+			Decision: "publish", Scope: "global", Relation: "supersedes",
+			RelatedSource: "knowledge", RelatedID: oldRule.ID,
+		}},
+		references: memoryReviewReferences{Rules: [][]memoryReviewReference{{
+			{Source: "knowledge", ID: oldRule.ID, Title: oldRule.Title, Content: oldRule.Content},
+		}}},
+	}
+	o := New(s, &fakeEngine{reply: "ok"}, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, time.Minute)
+	result, err := o.persistMinedMemory(ctx, u, mined, review, memorySource{
+		Channel: "telegram:private:test", SessionID: time.Now().UnixNano(), UserText: correction,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Items) != 1 || result.Items[0].Status != "updated" {
+		t.Fatalf("persist result = %+v", result)
+	}
+	updated, err := s.KnowledgeByID(ctx, oldRule.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Content != correction || !slices.Contains(updated.Tags, "domain:design") || !slices.Contains(updated.Tags, "scope:global") {
+		t.Fatalf("updated rule = %+v", updated)
+	}
+	var versions int
+	if err := s.Pool().QueryRow(ctx, `SELECT count(*) FROM knowledge_versions WHERE knowledge_id = $1`, oldRule.ID).Scan(&versions); err != nil {
+		t.Fatal(err)
+	}
+	if versions == 0 {
+		t.Fatal("superseded rule did not preserve version history")
+	}
+	ruleText, ruleIDs := o.ruleContext(ctx, u, "telegram:private:test", "手机 桌面 页面")
+	if !slices.Contains(ruleIDs, oldRule.ID) || !strings.Contains(ruleText, correction) {
+		t.Fatalf("updated rule was not available to the next related turn: ids=%v text=%q", ruleIDs, ruleText)
 	}
 }
 
