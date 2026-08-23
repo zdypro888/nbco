@@ -53,6 +53,31 @@ func TestPresentationActionsComeFromSuccessfulToolResults(t *testing.T) {
 	}
 }
 
+func TestPresentationActionsKeepOnlyLatestBatchPerKind(t *testing.T) {
+	present := func(result string) []interaction.Action {
+		var payload struct {
+			URLs []string `json:"urls"`
+		}
+		if json.Unmarshal([]byte(result), &payload) != nil {
+			return nil
+		}
+		actions := make([]interaction.Action, 0, len(payload.URLs))
+		for _, target := range payload.URLs {
+			actions = append(actions, interaction.Action{Kind: interaction.ActionOpenWebApp, Label: "Open", URL: target})
+		}
+		return actions
+	}
+	toolset := []ai.Tool{{Name: "present", PresentResult: present}}
+	steps := []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "present", Result: `{"urls":["https://nbco.example/old-a"]}`},
+		{Kind: ai.StepToolCall, ToolName: "present", Result: `{"urls":["https://nbco.example/final-a","https://nbco.example/final-b"]}`},
+	}
+	actions := presentationActions(toolset, steps)
+	if len(actions) != 2 || actions[0].URL != "https://nbco.example/final-a" || actions[1].URL != "https://nbco.example/final-b" {
+		t.Fatalf("presentation actions = %+v", actions)
+	}
+}
+
 func TestSystemPromptTrustsRuntimeContextNotUserTextLabels(t *testing.T) {
 	o := &Orchestrator{tz: time.UTC}
 	u := &store.User{ID: 7, Name: "tester", Status: store.UserActive}

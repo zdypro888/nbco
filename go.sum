@@ -261,6 +261,8 @@ github.com/yosida95/uritemplate/v3 v3.0.2 h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zI
 github.com/yosida95/uritemplate/v3 v3.0.2/go.mod h1:ILOh0sOhIJR3+L/8afwt/kE++YT040gmv5BQTMR2HP4=
 github.com/zdypro888/ihtml v0.0.0-20260820141816-4ab9769c718d h1:tEq6/3ItakhhIdAAtN8kiPQxjwbKuG/f5dnhDk/EL8M=
 github.com/zdypro888/ihtml v0.0.0-20260820141816-4ab9769c718d/go.mod h1:ZI1565I4VTRsiquoytd4Gd8M1D7/rHlRkyonN6rItdQ=
+github.com/zdypro888/ihtml v0.0.0-20260823054529-35358ebfda33 h1:P6nA93wXxhhh41WljItYznr0Wnz8S90aT2TXm+363K0=
+github.com/zdypro888/ihtml v0.0.0-20260823054529-35358ebfda33/go.mod h1:ZI1565I4VTRsiquoytd4Gd8M1D7/rHlRkyonN6rItdQ=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 h1:2yEATaop1/a1I4psnSLgWVPLWwCzkqWakgJy7xTDVy0=

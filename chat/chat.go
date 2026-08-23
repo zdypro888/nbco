@@ -847,7 +847,24 @@ func presentationActions(toolset []ai.Tool, steps []ai.Step) []interaction.Actio
 			tools.ToolResultRejected(step.Result) {
 			continue
 		}
-		actions = append(actions, present(step.Result)...)
+		batch := interaction.Normalize(present(step.Result), 4)
+		if len(batch) == 0 {
+			continue
+		}
+		// A later successful tool result owns the current affordance for each
+		// action kind it emits. This keeps final navigation state without
+		// coupling orchestration to a tool name or business phrase.
+		kinds := make(map[interaction.ActionKind]struct{}, len(batch))
+		for _, action := range batch {
+			kinds[action.Kind] = struct{}{}
+		}
+		kept := actions[:0]
+		for _, action := range actions {
+			if _, replaced := kinds[action.Kind]; !replaced {
+				kept = append(kept, action)
+			}
+		}
+		actions = append(kept, batch...)
 	}
 	return interaction.Normalize(actions, 4)
 }

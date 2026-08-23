@@ -56,7 +56,7 @@ func (s *Server) EnableIHTML() error {
 	}
 
 	s.ihtmlTickets = tickets
-	backend := newIHTMLChatBackend(s.orch, s.store, s.llm.Provider, s.brandName(), s.runtimeLLMModel,
+	backend := newIHTMLChatBackend(s.orch, s.store, s.llm.Provider, s.brandName(), s.runtimeLLMModel, s.deps.SubcallAI,
 		timeDurationMilliseconds(s.llm.TimeoutMS))
 	handler, err := ihtml.NewHandler(uiStore,
 		ihtml.WithPageTitle(s.brandName()+" 动态工作台"),
@@ -89,6 +89,7 @@ func (s *Server) EnableIHTML() error {
 			System: crossChannelIHTMLSystem(),
 			Tools: ihtmlAgentTools(scoped, ihtmlAgentToolOptions{
 				APIs: apis, PublicBaseURL: s.deps.PublicBaseURL,
+				ReviewPage: newIHTMLPageReviewer(s.deps.SubcallAI, u),
 			}),
 		}, nil
 	})
@@ -186,5 +187,7 @@ func crossChannelIHTMLSystem() string {
 	return "当前用户拥有一个可持久化的 ihtml 动态工作台。用户要求网页、表格视图、仪表盘或可视化操作界面时，使用 ui_* 工具直接实现；" +
 		"需要实时业务数据时先读取 ui_list_host_apis；GET 使用 ihtml.http(path, options) 或 ihtml.http.get(path, options)，其他请求使用对应方法。" +
 		"已有宿主数据必须由页面通过已登记 API 按稳定 ID 加载，不要把大批业务记录手工复制进源码；派生数据量较大或需要独立更新时，用 ui_put_data 保存结构化 JSON，页面通过 ihtml.kv.get(key) 读取；创建或整体更新页面用 ui_publish_page 原子发布。" +
-		"发布后用 ui_inspect_page 核对，并把工具返回的 workspace_url 原样交给用户；不要自行拼接地址，也不要用通用工作台首页代替具体页面。"
+		"ui_publish_page 会在写入前执行同模型设计审核：design_review.verdict=revise 表示没有提交，须按 issues 修正后重试；unavailable 表示只缺少设计审核，不得声称已经过视觉验收。" +
+		"发布后用 ui_inspect_page 核对，并把工具返回的 workspace_url 原样交给用户；不要自行拼接地址，也不要用通用工作台首页代替具体页面。" +
+		"\n[ihtml 页面设计与实现契约]\n" + ihtml.PageAuthoringGuide
 }

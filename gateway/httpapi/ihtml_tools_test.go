@@ -14,6 +14,8 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/interaction"
+	"github.com/zdypro888/nbco/store"
+	"github.com/zdypro888/nbco/tools"
 )
 
 type failingInspectPublishingService struct {
@@ -188,6 +190,90 @@ func TestIHTMLPagePublicationDoesNotReportCommittedWriteAsFailedWhenInspectionFa
 	pages, err := base.ListPages(context.Background())
 	if err != nil || len(pages) != 1 || pages[0].Name != "ops" {
 		t.Fatalf("committed page = %+v, %v", pages, err)
+	}
+}
+
+func TestIHTMLPagePublicationHonorsDesignReviewBeforeCommit(t *testing.T) {
+	handler, err := ihtml.NewHandler(ihtml.NewMemoryStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = handler.Close() })
+	svc, err := ihtml.ScopeService(handler, "review-user")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	review := ihtmlPageReviewer(func(context.Context, ihtml.Page, []ihtml.Item) ihtmlDesignReview {
+		return ihtmlDesignReview{Verdict: ihtmlReviewRevise, Summary: "mobile overflow", Issues: []ihtmlReviewIssue{{
+			Severity: "major", Category: "responsive", Evidence: "fixed-width table", Fix: "provide a mobile representation",
+		}}}
+	})
+	var publish ai.Tool
+	for _, tool := range ihtmlAgentTools(svc, ihtmlAgentToolOptions{ReviewPage: review}) {
+		if tool.Name == "ui_publish_page" {
+			publish = tool
+			break
+		}
+	}
+	raw := json.RawMessage(`{"page":{"name":"overview","title":"Overview"},"items":[{"id":"overview-html","type":"html","page":"overview","content":"<main>overview</main>"}]}`)
+	out, err := publish.Handler(context.Background(), raw)
+	if err != nil || !strings.Contains(out, `"committed":false`) || !strings.Contains(out, `"verdict":"revise"`) {
+		t.Fatalf("rejected publication = %s, %v", out, err)
+	}
+	if actions := publish.PresentResult(out); len(actions) != 0 {
+		t.Fatalf("rejected publication exposed actions: %+v", actions)
+	}
+	pages, err := svc.ListPages(context.Background())
+	if err != nil || len(pages) != 0 {
+		t.Fatalf("rejected publication mutated pages: %+v, %v", pages, err)
+	}
+
+	review = func(context.Context, ihtml.Page, []ihtml.Item) ihtmlDesignReview {
+		return ihtmlDesignReview{Verdict: ihtmlReviewPass, Summary: "ready", Issues: []ihtmlReviewIssue{}}
+	}
+	for _, tool := range ihtmlAgentTools(svc, ihtmlAgentToolOptions{ReviewPage: review, PublicBaseURL: "https://nbco.example"}) {
+		if tool.Name == "ui_publish_page" {
+			publish = tool
+			break
+		}
+	}
+	out, err = publish.Handler(context.Background(), raw)
+	if err != nil || !strings.Contains(out, `"committed":true`) || !strings.Contains(out, `"verdict":"pass"`) {
+		t.Fatalf("accepted publication = %s, %v", out, err)
+	}
+	pages, err = svc.ListPages(context.Background())
+	if err != nil || len(pages) != 1 || pages[0].Name != "overview" {
+		t.Fatalf("accepted publication pages: %+v, %v", pages, err)
+	}
+}
+
+func TestParseIHTMLDesignReviewNormalizesModelOutput(t *testing.T) {
+	review, ok := parseIHTMLDesignReview(`{"verdict":"pass","summary":"looks good","issues":[{"severity":"major","category":"overflow","evidence":"min-width","fix":"responsive layout"},{"severity":"unknown","category":"x","evidence":"x","fix":"x"}]}`)
+	if !ok || review.Verdict != ihtmlReviewRevise || len(review.Issues) != 1 {
+		t.Fatalf("review = %+v, ok=%v", review, ok)
+	}
+	if _, ok := parseIHTMLDesignReview(`{"verdict":"revise","summary":"bad","issues":[]}`); ok {
+		t.Fatal("revise without actionable issues must be rejected")
+	}
+}
+
+func TestIHTMLPageReviewerUsesBoundedToolFreeSubcall(t *testing.T) {
+	u := &store.User{ID: 17, Name: "designer", Status: store.UserActive}
+	called := false
+	reviewer := newIHTMLPageReviewer(func(_ context.Context, got *store.User, req tools.SubcallRequest) (string, error) {
+		called = true
+		if got != u || req.Purpose != "ihtml_design_review" || !req.JSONOutput || req.Reasoning != ai.ReasoningDisabled ||
+			!strings.Contains(req.Prompt, "ui-table-wrap") || !strings.Contains(req.Prompt, `"name":"overview"`) {
+			t.Fatalf("review subcall = user:%+v request:%+v", got, req)
+		}
+		return `{"verdict":"pass","summary":"responsive and consistent","issues":[]}`, nil
+	}, u)
+	review := reviewer(context.Background(), ihtml.Page{Name: "overview", Title: "Overview"}, []ihtml.Item{{
+		ID: "overview-html", Type: ihtml.ItemHTML, Page: "overview", Content: "<main class=\"ui-page\"></main>",
+	}})
+	if !called || review.Verdict != ihtmlReviewPass {
+		t.Fatalf("review = %+v, called=%v", review, called)
 	}
 }
 

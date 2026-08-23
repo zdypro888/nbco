@@ -73,7 +73,8 @@ func TestIHTMLTurnUsesLatestUserMessageAndBoundsBrowserContext(t *testing.T) {
 	system := ihtmlTurnSystem("Oncoin", []ihtml.APISpec{{Name: "overview", Method: "GET", Path: "/api/overview"}})
 	if !strings.Contains(system, `"Oncoin" 控制中心`) || !strings.Contains(system, "同一个公司运营 Agent") || !strings.Contains(system, "ui_list_state") ||
 		!strings.Contains(system, `"path":"/api/overview"`) || !strings.Contains(system, "ihtml.http(path, options)") ||
-		!strings.Contains(system, "ui_publish_page") || !strings.Contains(system, "workspace_url") {
+		!strings.Contains(system, "ui_publish_page") || !strings.Contains(system, "workspace_url") ||
+		!strings.Contains(system, "ui-page") || !strings.Contains(system, "design_review.verdict=revise") {
 		t.Fatalf("unexpected host system prompt length/content: %d", len([]rune(system)))
 	}
 	browser := ihtmlBrowserContext(ihtml.ChatClientContext{Page: ihtml.ChatClientPage{VisibleText: strings.Repeat("x", 5000)}})
@@ -101,7 +102,7 @@ func TestIHTMLHTTPContractStaysAlignedAcrossAgentSurfaces(t *testing.T) {
 
 func TestCrossChannelIHTMLPublishesVerifiablePageLinks(t *testing.T) {
 	system := crossChannelIHTMLSystem()
-	for _, expected := range []string{"ui_put_data", "ui_publish_page", "ui_inspect_page", "workspace_url", "ihtml.kv.get(key)"} {
+	for _, expected := range []string{"ui_put_data", "ui_publish_page", "ui_inspect_page", "workspace_url", "ihtml.kv.get(key)", "ui-table-wrap", "design_review.verdict=revise"} {
 		if !strings.Contains(system, expected) {
 			t.Fatalf("cross-channel ihtml contract is missing %q: %s", expected, system)
 		}

@@ -1817,9 +1817,9 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: presentationActions
-        hash: sha256:9c88a988725a7830994610a9122613a578d3637df76eb116066f2a6aab560626
-        struct_hash: sha256:26ef57d10c686dd703d5b8b580c004d78bead9046bcbd5560b16b0a5bfaa677b
-        doc_struct_hash: sha256:26ef57d10c686dd703d5b8b580c004d78bead9046bcbd5560b16b0a5bfaa677b
-        lines: [836, 853]
+        hash: sha256:2605a4bd97221d2e989b0aeb1c65fa4e99e3fb475c3614066473182662ccb64f
+        struct_hash: sha256:8d39ca6d28ceb40f93c84020d477a153b7207563d468ed2cea95ef5469b87169
+        doc_struct_hash: sha256:8d39ca6d28ceb40f93c84020d477a153b7207563d468ed2cea95ef5469b87169
+        lines: [836, 870]
       status: fresh
       since: 2026-08-23T01:14:58.638217Z

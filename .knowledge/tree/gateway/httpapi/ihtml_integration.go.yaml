@@ -90,9 +90,9 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_integration.go
         symbol: crossChannelIHTMLSystem
-        hash: sha256:6e9d2568e14a19d3faa1f66dda40450429ab4778fdf7e74b29ebafdff572ed9e
-        struct_hash: sha256:b2c11bf3652bd3a6333e7aa2a450998b43d9d4f963ce824b1f0f953d881a180b
-        doc_struct_hash: sha256:b2c11bf3652bd3a6333e7aa2a450998b43d9d4f963ce824b1f0f953d881a180b
-        lines: [185, 190]
+        hash: sha256:59191d6de83abb5a190fb304572582b1bb8da4bdacd33f0072d4851465c6739e
+        struct_hash: sha256:7beaa5f40794911a835ec806e4017a773380f794e563046032e2d844689e3bde
+        doc_struct_hash: sha256:7beaa5f40794911a835ec806e4017a773380f794e563046032e2d844689e3bde
+        lines: [186, 193]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

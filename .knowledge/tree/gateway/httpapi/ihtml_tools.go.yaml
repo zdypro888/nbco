@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_tools.go
         symbol: ihtmlAgentTools
-        hash: sha256:845b3114563545ae45e5514d69ad87e7c051753bbfb40215de1afb844d8781f7
-        struct_hash: sha256:6bbe71499a8d46d30d52869888e1a01af45e8b744ae1bc506bce74799f6d7732
-        doc_struct_hash: sha256:6bbe71499a8d46d30d52869888e1a01af45e8b744ae1bc506bce74799f6d7732
-        lines: [123, 551]
+        hash: sha256:8348756a65021bf627ea0e56d6258f6a701c397075d7b2949dedd562922c94d8
+        struct_hash: sha256:4a0dc8a64a959398116b2200002903337e8233835d041ac39baff51a4c752c5e
+        doc_struct_hash: sha256:4a0dc8a64a959398116b2200002903337e8233835d041ac39baff51a4c752c5e
+        lines: [124, 559]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/ihtml_tools.go#ihtmlTool
@@ -123,9 +123,9 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_tools.go
         symbol: ihtmlPageActions
-        hash: sha256:518881c3af0c42f0e0befa78b86286aa5366c3678dfe58b86b34f284e08ac8f0
-        struct_hash: sha256:990d00eac6422a183bc8e1120ed3dda5738fbcd3a11d09c6e073fc1acde29a90
-        doc_struct_hash: sha256:990d00eac6422a183bc8e1120ed3dda5738fbcd3a11d09c6e073fc1acde29a90
-        lines: [569, 614]
+        hash: sha256:1969f0f7c44f61f67b5c2e3fbec9fe2c046e1dd2a52a5c860caab0a348f758b4
+        struct_hash: sha256:12115f0ee167bd95023d4a0f1a767dfa21466b76fe3600d4776d43f59337fd2b
+        doc_struct_hash: sha256:12115f0ee167bd95023d4a0f1a767dfa21466b76fe3600d4776d43f59337fd2b
+        lines: [577, 625]
       status: fresh
       since: 2026-08-23T01:14:58.620062Z

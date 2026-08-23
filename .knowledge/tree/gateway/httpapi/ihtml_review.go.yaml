@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/ihtml_review.go
+      level: file
+      anchor:
+        file: gateway/httpapi/ihtml_review.go
+        hash: sha256:e96eb9e0e76339e837f239f1f03fdaae80bcda213ca6f1c675e8b4552e7d5620
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-23T06:03:29.655897Z
+    - id: gateway/httpapi/ihtml_review.go#newIHTMLPageReviewer
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_review.go
+        symbol: newIHTMLPageReviewer
+        hash: sha256:7a59d7d84e0f4dc13a09a75a0b554bd2060f8bb8bf0344a1f0840d9160514073
+        struct_hash: sha256:0781f8d96686a6c7d367c0c099fa7edbd2ef87a1ef9f85fb3ad6ba4c173e915e
+        doc_struct_hash: sha256:0781f8d96686a6c7d367c0c099fa7edbd2ef87a1ef9f85fb3ad6ba4c173e915e
+        lines: [39, 77]
+      status: fresh
+      since: 2026-08-23T06:03:29.655852Z
+    - id: gateway/httpapi/ihtml_review.go#parseIHTMLDesignReview
+      level: function
+      anchor:
+        file: gateway/httpapi/ihtml_review.go
+        symbol: parseIHTMLDesignReview
+        hash: sha256:244f204b9e559853dc04759a89bf04acc80d58c93883a66671c7cbf8f7ebc6fa
+        struct_hash: sha256:4021fad3bf03d74b0cb7abb392dec00e82369ce097eb0e23e861f2c935038889
+        doc_struct_hash: sha256:4021fad3bf03d74b0cb7abb392dec00e82369ce097eb0e23e861f2c935038889
+        lines: [121, 161]
+      status: fresh
+      since: 2026-08-23T06:03:29.65648Z

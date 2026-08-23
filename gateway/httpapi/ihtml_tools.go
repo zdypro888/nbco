@@ -20,6 +20,7 @@ import (
 type ihtmlAgentToolOptions struct {
 	APIs          []ihtml.APISpec
 	PublicBaseURL string
+	ReviewPage    ihtmlPageReviewer
 }
 
 type ihtmlPageInspection struct {
@@ -424,7 +425,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 				return marshalToolResult(map[string]any{"ok": true, "deleted_ids": deleted})
 			}),
 
-		ihtmlPageTool("ui_publish_page", "原子发布一个完整页面：一次提交同时新增或更新页面注册项，并完整替换该页所有 Item；全局和其他页面不受影响。创建页面、生成报表或整体更新页面时优先使用。结果中的 committed 表示发布已提交；verified=false 时只调用 ui_inspect_page 复核，不要盲目重复发布。",
+		ihtmlPageTool("ui_publish_page", "原子发布一个完整页面：一次提交同时新增或更新页面注册项，并完整替换该页所有 Item；全局和其他页面不受影响。发布前会用同一 AI 配置按 ihtml 设计契约审核源码；design_review.verdict=revise 时不会写入，必须按 issues 通用修正后重新发布。结果中的 committed 表示发布已提交；verified=false 时只调用 ui_inspect_page 复核，不要盲目重复发布。",
 			ai.ToolEffectWrite, false,
 			objectSchema(map[string]any{
 				"page":  ihtmlPageSchema(),
@@ -443,6 +444,12 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 				if len(args.Items) == 0 {
 					return "items 不能为空。", nil
 				}
+				review := reviewIHTMLPage(ctx, options.ReviewPage, args.Page, args.Items)
+				if review.Verdict == ihtmlReviewRevise {
+					return marshalToolResult(map[string]any{
+						"ok": false, "committed": false, "design_review": review,
+					})
+				}
 				publisher, ok := svc.(ihtml.ScopedPagePublicationService)
 				if !ok {
 					return "当前 ihtml 版本不支持原子页面发布。", nil
@@ -455,7 +462,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 					return marshalToolResult(map[string]any{
 						"ok": true, "committed": true, "verified": false,
 						"page": args.Page.Name, "workspace_url": ihtmlWorkspaceURL(options.PublicBaseURL, args.Page.Name),
-						"verification_error": err.Error(),
+						"verification_error": err.Error(), "design_review": review,
 					})
 				}
 				return marshalToolResult(map[string]any{
@@ -464,6 +471,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 					"item_count": inspection.ItemCount, "item_ids": inspection.ItemIDs,
 					"content_bytes": inspection.ContentBytes, "last_updated_at": inspection.LastUpdatedAt,
 					"recent_errors": inspection.RecentErrors, "workspace_url": inspection.WorkspaceURL,
+					"design_review": review,
 				})
 			}),
 
@@ -569,11 +577,14 @@ func ihtmlPageTool(name, description, effect string, approval bool, schema map[s
 func ihtmlPageActions(result string) []interaction.Action {
 	var payload struct {
 		Registered    *bool             `json:"registered"`
+		OK            *bool             `json:"ok"`
+		Committed     *bool             `json:"committed"`
 		WorkspaceURL  string            `json:"workspace_url"`
 		WorkspaceURLs map[string]string `json:"workspace_urls"`
 		Page          json.RawMessage   `json:"page"`
 	}
-	if json.Unmarshal([]byte(result), &payload) != nil || payload.Registered != nil && !*payload.Registered {
+	if json.Unmarshal([]byte(result), &payload) != nil || payload.Registered != nil && !*payload.Registered ||
+		payload.OK != nil && !*payload.OK || payload.Committed != nil && !*payload.Committed {
 		return nil
 	}
 	title := "页面"
