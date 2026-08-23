@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/zdypro888/nbco/interaction"
 	"github.com/zdypro888/nbco/store"
 )
 
@@ -45,6 +47,74 @@ func TestGatewayFormatsTimeInBusinessTimezone(t *testing.T) {
 	utc := time.Date(2026, 7, 9, 17, 30, 0, 0, time.UTC)
 	if got := g.formatTime(utc); got != "2026-07-10 01:30:00 +08:00 (CST)" {
 		t.Fatalf("formatted time = %q", got)
+	}
+}
+
+func TestTelegramReplyMarkupUsesNativeWebAppOnlyInPrivateChats(t *testing.T) {
+	actions := []interaction.Action{{
+		Kind: interaction.ActionOpenWebApp, Label: "打开周报", URL: "https://nbco.example/report",
+	}}
+	privateMarkup, ok := telegramReplyMarkup(42, actions).(*models.InlineKeyboardMarkup)
+	if !ok || len(privateMarkup.InlineKeyboard) != 1 {
+		t.Fatalf("private markup = %#v", privateMarkup)
+	}
+	privateButton := privateMarkup.InlineKeyboard[0][0]
+	if privateButton.WebApp == nil || privateButton.WebApp.URL != actions[0].URL || privateButton.URL != "" {
+		t.Fatalf("private button = %+v", privateButton)
+	}
+	groupMarkup, ok := telegramReplyMarkup(-42, actions).(*models.InlineKeyboardMarkup)
+	if !ok || groupMarkup.InlineKeyboard[0][0].WebApp != nil || groupMarkup.InlineKeyboard[0][0].URL != actions[0].URL {
+		t.Fatalf("group button = %+v", groupMarkup.InlineKeyboard[0][0])
+	}
+	if telegramDeliveryPayload("answer", actions) == telegramDeliveryPayload("answer", nil) {
+		t.Fatal("reply markup must participate in the durable delivery identity")
+	}
+}
+
+type telegramRequestCapture struct {
+	replyMarkup string
+}
+
+func (c *telegramRequestCapture) Do(req *http.Request) (*http.Response, error) {
+	if err := req.ParseMultipartForm(1 << 20); err != nil {
+		return nil, err
+	}
+	c.replyMarkup = req.FormValue("reply_markup")
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(strings.NewReader(
+			`{"ok":true,"result":{"message_id":7,"date":0,"chat":{"id":42,"type":"private"}}}`)),
+		Header: http.Header{},
+	}, nil
+}
+
+func TestTelegramSendSerializesWebAppButton(t *testing.T) {
+	capture := &telegramRequestCapture{}
+	b, err := bot.New("TESTTOKEN", bot.WithHTTPClient(time.Second, capture), bot.WithSkipGetMe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := &Gateway{bot: b}
+	_, err = g.sendOneMessageWithActions(context.Background(), 42, "完成", false, []interaction.Action{{
+		Kind: interaction.ActionOpenWebApp, Label: "打开周报", URL: "https://nbco.example/report",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		ReplyMarkup struct {
+			InlineKeyboard [][]struct {
+				Text   string             `json:"text"`
+				WebApp *models.WebAppInfo `json:"web_app"`
+			} `json:"inline_keyboard"`
+		} `json:"reply_markup"`
+	}
+	if err := json.Unmarshal([]byte(capture.replyMarkup), &payload.ReplyMarkup); err != nil {
+		t.Fatalf("decode reply markup: %v body=%s", err, capture.replyMarkup)
+	}
+	button := payload.ReplyMarkup.InlineKeyboard[0][0]
+	if button.Text != "打开周报" || button.WebApp == nil || button.WebApp.URL != "https://nbco.example/report" {
+		t.Fatalf("serialized button = %+v body=%s", button, capture.replyMarkup)
 	}
 }
 

@@ -550,10 +550,10 @@ nodes:
       anchor:
         file: chat/chat.go
         symbol: Orchestrator.runTurn
-        hash: sha256:4b00a58f8f2b16789b7cd1706a5eefbafa742c40cc27312c24757cdffb5915b0
-        struct_hash: sha256:2f76cbf7cd4967c37358b0f2fc185f7501b310e19a4a4d7d833b541838405446
-        doc_struct_hash: sha256:61a0452d533837b5de3dac4f64c3b8ef61501c004b7e66a5a3d9e6d02ec256b3
-        lines: [482, 829]
+        hash: sha256:98c764e1dd9ccbf0e7880151d034f50f2a8160ee59aaa947bf46114a47017aff
+        struct_hash: sha256:3ca42ad7e409ceb0555123cf28d2d5bf2a12f0854b4ca4ab235a4cf27e562342
+        doc_struct_hash: sha256:7704b79c17569dd6f22c0c3f36f31a115280d5a6a3475daadce639caaf1d9fc3
+        lines: [484, 834]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -1720,7 +1720,7 @@ nodes:
         struct_hash: sha256:795e5ba794b854ddaf27738ea4a349630592185df32444b72bd882a9005c128f
         doc_struct_hash: sha256:7104132cd67691761d3d1b7a743c4072fa8069b26199d244076cd341b5ed5f4c
         lines: [2881, 2957]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_5b45a5a9
@@ -1764,7 +1764,7 @@ nodes:
         struct_hash: sha256:78c9f8340f7e1f2d5231fcd9aaf14d5abf9813e00f6a0507990ce7ee7b615f02
         doc_struct_hash: sha256:78c9f8340f7e1f2d5231fcd9aaf14d5abf9813e00f6a0507990ce7ee7b615f02
         lines: [420, 470]
-      status: fresh
+      status: suspect
       since: 2026-08-21T09:42:55.587582Z
       entries:
         - id: e_8fae466e
@@ -1812,3 +1812,14 @@ nodes:
         lines: [2440, 2454]
       status: fresh
       since: 2026-08-22T04:47:34.407404Z
+    - id: chat/chat.go#presentationActions
+      level: function
+      anchor:
+        file: chat/chat.go
+        symbol: presentationActions
+        hash: sha256:9c88a988725a7830994610a9122613a578d3637df76eb116066f2a6aab560626
+        struct_hash: sha256:26ef57d10c686dd703d5b8b580c004d78bead9046bcbd5560b16b0a5bfaa677b
+        doc_struct_hash: sha256:26ef57d10c686dd703d5b8b580c004d78bead9046bcbd5560b16b0a5bfaa677b
+        lines: [836, 853]
+      status: fresh
+      since: 2026-08-23T01:14:58.638217Z

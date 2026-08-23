@@ -13,6 +13,7 @@ import (
 	ihtml "github.com/zdypro888/ihtml"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/interaction"
 )
 
 type failingInspectPublishingService struct {
@@ -120,6 +121,11 @@ func TestIHTMLAgentToolsUseScopedService(t *testing.T) {
 	if err != nil || !strings.Contains(out, `"registered":true`) || !strings.Contains(out, `"weekly-body"`) {
 		t.Fatalf("inspect page = %s, %v", out, err)
 	}
+	actions := publish.PresentResult(out)
+	if len(actions) != 1 || actions[0].Kind != interaction.ActionOpenWebApp ||
+		actions[0].Label != "打开周报" || actions[0].URL != "https://nbco.example/?view=workspace&workspace_page=weekly-report" {
+		t.Fatalf("page actions = %+v", actions)
+	}
 	if err := svc.ReportErrors(context.Background(), []ihtml.PageError{{
 		ItemID: "weekly-body", Message: "old failure", Time: time.Now().Add(-time.Hour),
 	}}); err != nil {
@@ -191,6 +197,18 @@ func TestIHTMLWorkspaceURLTargetsExactPage(t *testing.T) {
 	}
 	if got := ihtmlWorkspaceURL("", "invalid page"); got != "/?view=workspace" {
 		t.Fatalf("invalid page URL = %q", got)
+	}
+}
+
+func TestIHTMLPageActionsRejectUnregisteredAndInsecureResults(t *testing.T) {
+	for _, result := range []string{
+		`{"registered":false,"workspace_url":"https://nbco.example/?view=workspace"}`,
+		`{"registered":true,"workspace_url":"http://nbco.example/?view=workspace"}`,
+		`not-json`,
+	} {
+		if actions := ihtmlPageActions(result); len(actions) != 0 {
+			t.Fatalf("result %q produced actions %+v", result, actions)
+		}
 	}
 }
 

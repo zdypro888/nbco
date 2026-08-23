@@ -37,6 +37,7 @@ import (
 	"github.com/zdypro888/nbco/branding"
 	"github.com/zdypro888/nbco/chat"
 	"github.com/zdypro888/nbco/events"
+	"github.com/zdypro888/nbco/interaction"
 	"github.com/zdypro888/nbco/keylock"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/perm"
@@ -1639,7 +1640,7 @@ func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message,
 	if monitorOn {
 		g.observeGroupMonitor(ctx, msg.Chat, ask)
 	}
-	if err := g.sendChunks(ctx, chatID, reply.Text); err != nil {
+	if err := g.sendChunksWithActions(ctx, chatID, reply.Text, reply.Actions); err != nil {
 		slog.Error("群对话答复投递失败", "chat", chatID, "turn", reply.TurnID, "err", err)
 		g.recordTurnDelivery(ctx, reply.TurnID, err)
 		return
@@ -2502,7 +2503,7 @@ func (g *Gateway) processMessages(ctx context.Context, msg *models.Message, sour
 		ed.discard(ctx)
 		return
 	}
-	if err := ed.finish(ctx, reply.Text); err != nil {
+	if err := ed.finish(ctx, reply.Text, reply.Actions); err != nil {
 		slog.Error("对话答复投递失败", "user", u.ID, "turn", reply.TurnID, "err", err)
 		g.recordTurnDelivery(ctx, reply.TurnID, err)
 		return
@@ -3060,11 +3061,20 @@ func (g *Gateway) reply(ctx context.Context, chatID int64, text string) {
 
 // sendChunks 按长度分片发送，避免超过 Telegram 单条消息长度。
 func (g *Gateway) sendChunks(ctx context.Context, chatID int64, text string) error {
-	_, err := g.sendChunksResult(ctx, chatID, text, false)
+	_, err := g.sendChunksResultWithActions(ctx, chatID, text, false, nil)
+	return err
+}
+
+func (g *Gateway) sendChunksWithActions(ctx context.Context, chatID int64, text string, actions []interaction.Action) error {
+	_, err := g.sendChunksResultWithActions(ctx, chatID, text, false, actions)
 	return err
 }
 
 func (g *Gateway) sendChunksResult(ctx context.Context, chatID int64, text string, disableNotification bool) (int, error) {
+	return g.sendChunksResultWithActions(ctx, chatID, text, disableNotification, nil)
+}
+
+func (g *Gateway) sendChunksResultWithActions(ctx context.Context, chatID int64, text string, disableNotification bool, actions []interaction.Action) (int, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		text = "（空回复）"
@@ -3073,10 +3083,14 @@ func (g *Gateway) sendChunksResult(ctx context.Context, chatID int64, text strin
 	// 模型不守 HTML 指引时（本地模型常见）把 Markdown 兜底转成 TG HTML。
 	text = toTelegramHTML(text)
 	chunks := splitChunks(text, chunkLimit)
-	return g.sendPreparedParts(ctx, chatID, chunks, 0, disableNotification)
+	return g.sendPreparedPartsWithActions(ctx, chatID, chunks, 0, disableNotification, actions)
 }
 
 func (g *Gateway) sendPreparedParts(ctx context.Context, chatID int64, chunks []string, start int, disableNotification bool) (int, error) {
+	return g.sendPreparedPartsWithActions(ctx, chatID, chunks, start, disableNotification, nil)
+}
+
+func (g *Gateway) sendPreparedPartsWithActions(ctx context.Context, chatID int64, chunks []string, start int, disableNotification bool, actions []interaction.Action) (int, error) {
 	if start < 0 || start > len(chunks) {
 		return 0, errors.New("telegram 分片起点无效")
 	}
@@ -3085,15 +3099,19 @@ func (g *Gateway) sendPreparedParts(ctx context.Context, chatID int64, chunks []
 	var resultErr error
 	for index := start; index < len(chunks); index++ {
 		chunk := chunks[index]
+		partActions := []interaction.Action(nil)
+		if index == 0 {
+			partActions = actions
+		}
 		if key == "" {
-			messageID, err := g.sendOneMessage(ctx, chatID, chunk, disableNotification)
+			messageID, err := g.sendOneMessageWithActions(ctx, chatID, chunk, disableNotification, partActions)
 			if err != nil {
 				return 0, err
 			}
 			lastID = messageID
 			continue
 		}
-		messageID, settled, err := g.sendPreparedPartOnce(ctx, key, chatID, index, len(chunks), chunk, disableNotification)
+		messageID, settled, err := g.sendPreparedPartOnceWithActions(ctx, key, chatID, index, len(chunks), chunk, disableNotification, partActions)
 		if messageID > 0 {
 			lastID = messageID
 		}
@@ -3120,9 +3138,9 @@ func telegramPartCanContinue(messageID int, settled bool, err error) bool {
 	return err == nil || messageID > 0
 }
 
-func (g *Gateway) sendPreparedPartOnce(ctx context.Context, key string, chatID int64, index, count int, chunk string, disableNotification bool) (messageID int, settled bool, err error) {
-	return g.deliverPreparedPartOnce(ctx, key, chatID, index, count, chunk, func() (int, error) {
-		return g.sendOneMessage(ctx, chatID, chunk, disableNotification)
+func (g *Gateway) sendPreparedPartOnceWithActions(ctx context.Context, key string, chatID int64, index, count int, chunk string, disableNotification bool, actions []interaction.Action) (messageID int, settled bool, err error) {
+	return g.deliverPreparedPartOnce(ctx, key, chatID, index, count, telegramDeliveryPayload(chunk, actions), func() (int, error) {
+		return g.sendOneMessageWithActions(ctx, chatID, chunk, disableNotification, actions)
 	})
 }
 
@@ -3201,8 +3219,14 @@ func (g *Gateway) sendOne(ctx context.Context, chatID int64, chunk string) error
 }
 
 func (g *Gateway) sendOneMessage(ctx context.Context, chatID int64, chunk string, disableNotification bool) (int, error) {
+	return g.sendOneMessageWithActions(ctx, chatID, chunk, disableNotification, nil)
+}
+
+func (g *Gateway) sendOneMessageWithActions(ctx context.Context, chatID int64, chunk string, disableNotification bool, actions []interaction.Action) (int, error) {
+	replyMarkup := telegramReplyMarkup(chatID, actions)
 	message, err := g.bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatID, Text: chunk, ParseMode: models.ParseModeHTML, DisableNotification: disableNotification,
+		ReplyMarkup: replyMarkup,
 	})
 	if err == nil {
 		return message.ID, nil
@@ -3213,11 +3237,45 @@ func (g *Gateway) sendOneMessage(ctx context.Context, chatID int64, chunk string
 	slog.Debug("HTML 发送被拒，降级纯文本", "chat", chatID, "err", err)
 	message, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatID, Text: telegramPlainText(chunk), DisableNotification: disableNotification,
+		ReplyMarkup: replyMarkup,
 	})
+	if err != nil && replyMarkup != nil && errors.Is(err, bot.ErrorBadRequest) {
+		slog.Warn("Telegram 原生动作被拒，降级为无按钮文本", "chat", chatID, "err", err)
+		message, err = g.bot.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatID, Text: telegramPlainText(chunk), DisableNotification: disableNotification,
+		})
+	}
 	if err != nil {
 		return 0, err
 	}
 	return message.ID, nil
+}
+
+func telegramReplyMarkup(chatID int64, actions []interaction.Action) models.ReplyMarkup {
+	actions = interaction.Normalize(actions, 4)
+	if len(actions) == 0 {
+		return nil
+	}
+	rows := make([][]models.InlineKeyboardButton, 0, len(actions))
+	for _, action := range actions {
+		button := models.InlineKeyboardButton{Text: action.Label}
+		if action.Kind == interaction.ActionOpenWebApp && chatID > 0 {
+			button.WebApp = &models.WebAppInfo{URL: action.URL}
+		} else {
+			button.URL = action.URL
+		}
+		rows = append(rows, []models.InlineKeyboardButton{button})
+	}
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func telegramDeliveryPayload(chunk string, actions []interaction.Action) string {
+	actions = interaction.Normalize(actions, 4)
+	if len(actions) == 0 {
+		return chunk
+	}
+	raw, _ := json.Marshal(actions)
+	return chunk + "\x00reply_markup:" + string(raw)
 }
 
 func (g *Gateway) sendTyping(ctx context.Context, chatID int64) {

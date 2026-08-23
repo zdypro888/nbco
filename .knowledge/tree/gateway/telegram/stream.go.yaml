@@ -72,7 +72,7 @@ nodes:
         struct_hash: sha256:dcf08b3babc5fc47ac8cc7e5e0ca60d1533337924c643ab4d26bba67493c47fc
         doc_struct_hash: sha256:c70f8551d91f7f0a1de4d40ca7434e2ec83e1e9ec75418e2e89efc445840430b
         lines: [53, 59]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_712d8837
@@ -146,24 +146,26 @@ nodes:
       anchor:
         file: gateway/telegram/stream.go
         symbol: streamEditor.finish
-        hash: sha256:4eaf2873680af0f9e189de723e3e56233f7626c148f927893c617a28c71e871a
-        struct_hash: sha256:446ed4b092285518800685a81d5fd790b27d3b327a642c717195d2d39ecc5ed6
-        doc_struct_hash: sha256:2e5787204341ed858ad0a810d3baf10e2f1fd707b05cdd5cb988d6be618ab3c0
-        lines: [156, 211]
+        hash: sha256:44c35bc0113775e624e40e3708744afe3231eb8060af04b8a422a00fb9a46da3
+        struct_hash: sha256:e77b500c651cdbb5921d243e8053cdd155cf454da7b20a61369f7619709a415c
+        doc_struct_hash: sha256:f23f86b2f07e7194db1788baced43cc86a5dc4f93a93be15b40bb2955bccbbb0
+        lines: [157, 212]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_0305c9ec
           kind: contract
           text: 有稳定 Telegram delivery key 时，最终首片无论通过 EditMessageText 覆盖占位还是因占位不可编辑而 SendMessage，都必须先认领同一个 telegram_delivery_parts 分片；后续重放不得再次跨外部边界。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T12:57:17.646477Z
+          confirmed_at: 2026-08-23T01:15:07.579428Z
           author: codex-mcp-client
         - id: e_969aca14
           kind: pitfall
           text: conversation turn 完成只证明 Agent 结果已持久化，不证明 Telegram 最终消息已送达；编辑成功与 turn delivery_status 写回之间的崩溃窗口必须由分片账本覆盖。
-          confidence: inferred
+          confidence: verified
           at: 2026-08-20T12:57:17.64797Z
+          confirmed_at: 2026-08-23T01:15:07.297418Z
           author: codex-mcp-client
       keywords:
         - telegram 流式回复

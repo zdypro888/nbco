@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+
+	"github.com/zdypro888/nbco/interaction"
 )
 
 // Tool 是领域能力暴露给 AI 的最小单元。
@@ -70,6 +72,10 @@ type Tool struct {
 	// 业务错误（权限不足、目标不存在）应返回 (提示文本, nil) 让模型自行转述；
 	// 只有系统性故障才返回 error。
 	Handler func(ctx context.Context, args json.RawMessage) (string, error)
+	// PresentResult maps a successful structured tool result to optional native
+	// client controls. Business execution remains entirely in Handler; this
+	// adapter only preserves presentation semantics across channel boundaries.
+	PresentResult func(result string) []interaction.Action
 }
 
 type toolInvocationKey struct{}

@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: interaction/actions.go
+      level: file
+      anchor:
+        file: interaction/actions.go
+        hash: sha256:360cbe62cfe95b3ad2e718ac227ac0c0b49da1744af66538842192764e9d06bf
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-23T01:14:58.61155Z
+    - id: interaction/actions.go#Normalize
+      level: function
+      anchor:
+        file: interaction/actions.go
+        symbol: Normalize
+        hash: sha256:9c295d11499c423275101a69ce199050b43092df1d61f29e370428575a9fa7c3
+        struct_hash: sha256:ba2c7805b01a3a9170c28decf88d44b19e8ec0ebef9b62a4e91ee5b0440d5c4d
+        doc_struct_hash: sha256:8ea0d2b6a37203856e63f3821c1256a19245d497631c053800bef5fe02e6b1dc
+        lines: [25, 58]
+      status: fresh
+      since: 2026-08-23T01:14:58.611497Z

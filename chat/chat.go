@@ -22,6 +22,7 @@ import (
 
 	"github.com/zdypro888/nbco/ai"
 	"github.com/zdypro888/nbco/branding"
+	"github.com/zdypro888/nbco/interaction"
 	"github.com/zdypro888/nbco/keylock"
 	"github.com/zdypro888/nbco/knowledge"
 	"github.com/zdypro888/nbco/notify"
@@ -110,6 +111,7 @@ type messageEnvelopeKey struct{}
 // has already been committed.
 type TurnReply struct {
 	Text             string
+	Actions          []interaction.Action
 	TurnID           int64
 	AlreadyDelivered bool
 	Replayed         bool
@@ -516,6 +518,7 @@ func (o *Orchestrator) runTurn(
 			case "completed":
 				return TurnReply{
 					Text:             durableTurn.ResultText,
+					Actions:          durableTurn.ResultActions,
 					TurnID:           durableTurn.ID,
 					AlreadyDelivered: durableTurn.DeliveryStatus == "delivered",
 					Replayed:         true,
@@ -788,6 +791,7 @@ func (o *Orchestrator) runTurn(
 	actionAudit := buildActionAudit(text, toolset, res)
 	execution := buildAutomationExecution(toolset, res)
 	execution.TrustedInputEvidence = automationOptions.TrustedInputEvidence
+	resultActions := presentationActions(toolset, res.Steps)
 	finalizeCtx, finalizeCancel := turnFinalizationContext(ctx)
 	defer finalizeCancel()
 
@@ -795,7 +799,7 @@ func (o *Orchestrator) runTurn(
 		// Scheduler/event ledgers own idempotency and delivery for internal turns.
 		o.recordActionTurn(finalizeCtx, u, sess, channel, text, actionAudit, res, diag)
 		o.recordUsage(finalizeCtx, u.ID, &sess.ID, channelKind(channel), req.Model, res.Usage)
-		return TurnReply{Text: res.Text, Execution: &execution}, nil
+		return TurnReply{Text: res.Text, Actions: resultActions, Execution: &execution}, nil
 	}
 
 	action := buildActionTurnInput(u, sess, channel, text, actionAudit, res, diag)
@@ -807,6 +811,7 @@ func (o *Orchestrator) runTurn(
 		TurnID:           durableTurn.ID,
 		AssistantText:    storedReply,
 		ResultText:       res.Text,
+		ResultActions:    resultActions,
 		EngineSession:    res.EngineSession,
 		Action:           action,
 		Usage:            usage,
@@ -825,7 +830,26 @@ func (o *Orchestrator) runTurn(
 	// Every interactive channel now uses the canonical product transcript across
 	// turns, so every channel shares the same bounded compaction lifecycle.
 	o.maybeCompact(sess.ID, len(msgs)+2, histChars+len(storedUserText)+len(storedReply))
-	return TurnReply{Text: res.Text, TurnID: durableTurn.ID}, nil
+	return TurnReply{Text: res.Text, Actions: resultActions, TurnID: durableTurn.ID}, nil
+}
+
+func presentationActions(toolset []ai.Tool, steps []ai.Step) []interaction.Action {
+	presenters := make(map[string]func(string) []interaction.Action)
+	for _, tool := range toolset {
+		if tool.PresentResult != nil {
+			presenters[tool.Name] = tool.PresentResult
+		}
+	}
+	var actions []interaction.Action
+	for _, step := range steps {
+		present := presenters[step.ToolName]
+		if step.Kind != ai.StepToolCall || step.Err != "" || step.Replayed || present == nil ||
+			tools.ToolResultRejected(step.Result) {
+			continue
+		}
+		actions = append(actions, present(step.Result)...)
+	}
+	return interaction.Normalize(actions, 4)
 }
 
 func sanitizeTurnOutput(text string, jsonOutput bool) string {

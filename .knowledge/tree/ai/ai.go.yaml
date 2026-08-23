@@ -13,10 +13,10 @@ nodes:
       anchor:
         file: ai/ai.go
         symbol: Tool
-        hash: sha256:20e7c5d134931bc7947719657adb2c779827b37205d6df0c5b5417440ad75d09
-        struct_hash: sha256:56b359da15a47f9617ad5733f8711d7a0858206eaa888f3aa607eb3ebc01d21f
-        doc_struct_hash: sha256:ab822c1e95068d2ec2967b181fa2a039f349c945189e0e19356d6988f4cd449f
-        lines: [18, 64]
+        hash: sha256:a2de1a866a81797d1f16137ea87a0c195f97f69af0773cfd855fed47dc47d88b
+        struct_hash: sha256:a672fad538d1c44513fc4e16ba0b344b07bbed2a04a35a11a96cf39b786a8be7
+        doc_struct_hash: sha256:b149599eead3fe41850b2b14312286c4d89a994882c3a69e231743eeffc9daea
+        lines: [20, 79]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/ai.go#ToolMaturity

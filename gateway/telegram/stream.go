@@ -11,6 +11,7 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/zdypro888/nbco/interaction"
 	"github.com/zdypro888/nbco/textfmt"
 )
 
@@ -156,14 +157,14 @@ func (ed *streamEditor) stopLoop() {
 // finish 收尾：停协程，用最终答复 + HTML 排版覆盖占位消息；过长（多片）则占位改
 // 成首片、其余追加发送。占位消息不可编辑（被用户删/限流）时【发新消息兜底】——
 // 绝不因编辑失败把答复静默丢掉。
-func (ed *streamEditor) finish(ctx context.Context, answer string) error {
+func (ed *streamEditor) finish(ctx context.Context, answer string, actions []interaction.Action) error {
 	ed.stopLoop()
 	answer = strings.TrimSpace(answer)
 	if answer == "" {
 		answer = "（空回复）"
 	}
 	if !ed.ok {
-		return ed.g.sendChunks(ctx, ed.chatID, answer)
+		return ed.g.sendChunksWithActions(ctx, ed.chatID, answer, actions)
 	}
 	chunks := splitChunks(toTelegramHTML(answer), chunkLimit)
 	// 首片覆盖占位消息。最终文本已经是持久 conversation turn 的结果，因此
@@ -171,24 +172,24 @@ func (ed *streamEditor) finish(ctx context.Context, answer string) error {
 	// 在 Telegram 成功与 delivery_status 落库之间停止时，重放会再发一份完整答复。
 	key := telegramContextDeliveryKey(ctx, ed.chatID)
 	if key == "" {
-		edited, err := ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0]))
+		edited, err := ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0]), actions)
 		if err != nil {
 			return err
 		}
 		if !edited {
-			return ed.g.sendChunks(ctx, ed.chatID, answer)
+			return ed.g.sendChunksWithActions(ctx, ed.chatID, answer, actions)
 		}
 	} else {
 		messageID, settled, firstErr := ed.g.deliverPreparedPartOnce(
-			ctx, key, ed.chatID, 0, len(chunks), chunks[0], func() (int, error) {
-				edited, err := ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0]))
+			ctx, key, ed.chatID, 0, len(chunks), telegramDeliveryPayload(chunks[0], actions), func() (int, error) {
+				edited, err := ed.editPlaceholder(ctx, chunks[0], plainOf(answer, chunks[0]), actions)
 				if err != nil {
 					return 0, err
 				}
 				if edited {
 					return ed.msgID, nil
 				}
-				return ed.g.sendOneMessage(ctx, ed.chatID, chunks[0], false)
+				return ed.g.sendOneMessageWithActions(ctx, ed.chatID, chunks[0], false, actions)
 			},
 		)
 		if !telegramPartCanContinue(messageID, settled, firstErr) {
@@ -242,19 +243,30 @@ func (ed *streamEditor) fail(ctx context.Context, msg string) {
 // editPlaceholder 用 HTML 编辑占位消息，失败降级纯文本；两者都失败（占位不可编辑）
 // 返回 false，让调用方走发新消息兜底。「内容未变」(not modified) 视作成功——占位
 // 已显示目标文本（流式期间已编辑上去），此时若当作失败去 reply 会发重复消息。
-func (ed *streamEditor) editPlaceholder(ctx context.Context, htmlChunk, plainText string) (bool, error) {
+
+func (ed *streamEditor) editPlaceholder(ctx context.Context, htmlChunk, plainText string, actions []interaction.Action) (bool, error) {
+	replyMarkup := telegramReplyMarkup(ed.chatID, actions)
 	if _, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID: ed.chatID, MessageID: ed.msgID, Text: htmlChunk, ParseMode: models.ParseModeHTML,
+		ReplyMarkup: replyMarkup,
 	}); err == nil || isNotModified(err) {
 		return true, nil
 	} else if !errors.Is(err, bot.ErrorBadRequest) {
 		return false, err
 	}
 	_, err := ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
-		ChatID: ed.chatID, MessageID: ed.msgID, Text: plainText,
+		ChatID: ed.chatID, MessageID: ed.msgID, Text: plainText, ReplyMarkup: replyMarkup,
 	})
 	if err == nil || isNotModified(err) {
 		return true, nil
+	}
+	if replyMarkup != nil && errors.Is(err, bot.ErrorBadRequest) {
+		_, err = ed.g.bot.EditMessageText(ctx, &bot.EditMessageTextParams{
+			ChatID: ed.chatID, MessageID: ed.msgID, Text: plainText,
+		})
+		if err == nil || isNotModified(err) {
+			return true, nil
+		}
 	}
 	if !errors.Is(err, bot.ErrorBadRequest) {
 		return false, err

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/interaction"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/tools"
@@ -31,6 +32,24 @@ func TestBuildCompactInput(t *testing.T) {
 	}
 	if strings.Contains(buildCompactInput("", msgs, tz), "既有摘要") {
 		t.Error("无既有摘要不应有该段")
+	}
+}
+
+func TestPresentationActionsComeFromSuccessfulToolResults(t *testing.T) {
+	toolset := []ai.Tool{{
+		Name: "publish", PresentResult: func(string) []interaction.Action {
+			return []interaction.Action{{Kind: interaction.ActionOpenWebApp, Label: "打开报表", URL: "https://nbco.example/report"}}
+		},
+	}}
+	steps := []ai.Step{
+		{Kind: ai.StepToolCall, ToolName: "publish", Result: `{"ok":true}`},
+		{Kind: ai.StepToolCall, ToolName: "publish", Result: `{"ok":true}`, Replayed: true},
+		{Kind: ai.StepToolCall, ToolName: "publish", Result: `{"status":"rejected"}`},
+		{Kind: ai.StepToolCall, ToolName: "publish", Result: `{"ok":true}`, Err: "failed"},
+	}
+	actions := presentationActions(toolset, steps)
+	if len(actions) != 1 || actions[0].URL != "https://nbco.example/report" {
+		t.Fatalf("presentation actions = %+v", actions)
 	}
 }
 

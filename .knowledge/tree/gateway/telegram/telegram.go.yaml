@@ -358,7 +358,7 @@ nodes:
         struct_hash: sha256:2a41f5ea8ff16b8b42023f793b89022892d818a5e0ebc709636cfbead527dbf3
         doc_struct_hash: sha256:6adc0dd78ca96302630ffab8e7ceeb27968795e56aa6cc497637f144b6faeb09
         lines: [332, 361]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_a1c1318c
@@ -481,7 +481,7 @@ nodes:
         struct_hash: sha256:eb4f878e37657de434fbeb700faf84d0a118af8f0a026c86963aa95d71b510d7
         doc_struct_hash: sha256:eb4f878e37657de434fbeb700faf84d0a118af8f0a026c86963aa95d71b510d7
         lines: [590, 599]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_ff449785
@@ -647,7 +647,7 @@ nodes:
         struct_hash: sha256:934b19aded297e50350bc5db6bade52143d959c028d4a0a639655e7db89cd84c
         doc_struct_hash: sha256:934b19aded297e50350bc5db6bade52143d959c028d4a0a639655e7db89cd84c
         lines: [834, 883]
-      status: fresh
+      status: suspect
       since: 2026-08-20T12:56:16.121142Z
       entries:
         - id: e_4d1a4829
@@ -920,7 +920,7 @@ nodes:
         struct_hash: sha256:0e9958b4995f6775c342d6a2692f673e679c0ce08da051f62d29ef430302a6b7
         doc_struct_hash: sha256:1b3f556ea877ccb548b7c5c77b48ca85a3c57572300a2d6d3d132eb27e30379a
         lines: [1337, 1354]
-      status: fresh
+      status: suspect
       since: 2026-08-20T13:18:38.744747Z
       entries:
         - id: e_c78766e4
@@ -1596,7 +1596,7 @@ nodes:
         struct_hash: sha256:79e598eb3ec62837371546342166e7a5596c2ace267e1f3b839dea85fab3705a
         doc_struct_hash: sha256:79e598eb3ec62837371546342166e7a5596c2ace267e1f3b839dea85fab3705a
         lines: [2835, 2888]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_3ffeafba
@@ -2567,3 +2567,36 @@ nodes:
         lines: [3604, 3608]
       status: fresh
       since: 2026-08-21T09:44:14.476679Z
+    - id: gateway/telegram/telegram.go#Gateway.sendChunksWithActions
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.sendChunksWithActions
+        hash: sha256:bd0a68abe3938d3a523f8d8fb4e83afae3fd3f01d2caada0ed9213c475ad2b2e
+        struct_hash: sha256:cfea0b98b2b1f2dca3ecd78280453612684a099d6554e42854e7fae0c904df3b
+        doc_struct_hash: sha256:cfea0b98b2b1f2dca3ecd78280453612684a099d6554e42854e7fae0c904df3b
+        lines: [3068, 3071]
+      status: fresh
+      since: 2026-08-23T01:14:58.653746Z
+    - id: gateway/telegram/telegram.go#Gateway.sendOneMessageWithActions
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: Gateway.sendOneMessageWithActions
+        hash: sha256:8aa3b4c6513ec4866fa733d4c43543cea48bc2fab8795dc5749120614a2b9f5d
+        struct_hash: sha256:164b36d9aa82aa9d514d28117c6171970fba2169d8ed34aa9852fec76af45e52
+        doc_struct_hash: sha256:164b36d9aa82aa9d514d28117c6171970fba2169d8ed34aa9852fec76af45e52
+        lines: [3225, 3252]
+      status: fresh
+      since: 2026-08-23T01:14:58.669321Z
+    - id: gateway/telegram/telegram.go#telegramReplyMarkup
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramReplyMarkup
+        hash: sha256:91ce8ceced49dc9e6309ff67bb2e13f3ca3155735cb3fadf3067c4567703b03c
+        struct_hash: sha256:28013c2e173ab470a9c218276a35bd06b8b24e0e24534adcbe3f03fb4797f2af
+        doc_struct_hash: sha256:28013c2e173ab470a9c218276a35bd06b8b24e0e24534adcbe3f03fb4797f2af
+        lines: [3254, 3270]
+      status: fresh
+      since: 2026-08-23T01:14:58.684027Z

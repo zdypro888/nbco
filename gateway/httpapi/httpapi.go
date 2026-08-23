@@ -496,7 +496,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "对话处理失败"})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"reply": reply.Text})
+	writeJSON(w, http.StatusOK, map[string]any{"reply": reply.Text, "actions": reply.Actions})
 	ackCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Second)
 	defer cancel()
 	if err := s.orch.MarkTurnDelivered(ackCtx, reply.TurnID); err != nil {

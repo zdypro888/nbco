@@ -171,7 +171,7 @@ func TestStreamEditorFinishReportsTotalDeliveryFailure(t *testing.T) {
 	if !ed.ok {
 		t.Fatal("首个可见增量应创建流式消息")
 	}
-	if err := ed.finish(context.Background(), "最终答复"); err == nil {
+	if err := ed.finish(context.Background(), "最终答复", nil); err == nil {
 		t.Fatal("finish must report failure when edit and fallback sends all fail")
 	}
 }

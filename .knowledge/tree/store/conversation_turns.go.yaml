@@ -101,10 +101,10 @@ nodes:
       anchor:
         file: store/conversation_turns.go
         symbol: Store.CompleteConversationTurn
-        hash: sha256:36aeee58cb54088fbe72864b533e7097730a8c8ed7a908b18413cf6371c2f43e
-        struct_hash: sha256:ff6a325bb385bdc59fc5ea646f7f061eab5181f430f885ee5f33a19bb13a3be0
-        doc_struct_hash: sha256:97dfeabfd614fe78eaa74057cd4f4a61f308f450c747d9576600b98f8e8a03e5
-        lines: [161, 250]
+        hash: sha256:690a6c14de98f1b5ef18f606bb51a597b9bdd4c3acff46f31f2324d56d333e7e
+        struct_hash: sha256:743776aa1c617ef868dea30aed6b30242abb17dd2cb7b6bb5807818de052f36c
+        doc_struct_hash: sha256:5cc84083fdd8aa128742013941e39b96cdbd92a1efea609f0a604b1f833ac609
+        lines: [170, 267]
       status: fresh
       since: 2026-07-25T10:14:40.50635Z
     - id: store/conversation_turns.go#insertActionTurn

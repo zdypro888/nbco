@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zdypro888/nbco/interaction"
 	"github.com/zdypro888/nbco/workerproto"
 )
 
@@ -1182,6 +1183,7 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 	memorySource := "执行并记录"
 	assistantID, err := s.CompleteConversationTurn(ctx, ConversationTurnCompletion{
 		TurnID: turn.ID, AssistantText: "已完成", ResultText: "已完成",
+		ResultActions: []interaction.Action{{Kind: interaction.ActionOpenWebApp, Label: "打开报表", URL: "https://nbco.example/report"}},
 		EngineSession: "eino:turn", Action: action, Usage: usage,
 		EnqueueMemory: true, MemoryEvidence: "[test_tool] ok", MemorySourceText: &memorySource,
 		AssetUsages: []ConversationAssetUsage{
@@ -1243,7 +1245,8 @@ func TestConversationTurnIsIdempotentAndPublishesAtomically(t *testing.T) {
 	}
 	fresh, err = s.ConversationTurnByID(ctx, turn.ID)
 	if err != nil || fresh.Status != "completed" || fresh.DeliveryStatus != "delivered" ||
-		fresh.DeliveryAttempts != 2 || fresh.ResultText != "已完成" {
+		fresh.DeliveryAttempts != 2 || fresh.ResultText != "已完成" || len(fresh.ResultActions) != 1 ||
+		fresh.ResultActions[0].URL != "https://nbco.example/report" {
 		t.Fatalf("delivered turn = %+v err=%v", fresh, err)
 	}
 

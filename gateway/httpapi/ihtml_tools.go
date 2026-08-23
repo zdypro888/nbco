@@ -14,6 +14,7 @@ import (
 	ihtml "github.com/zdypro888/ihtml"
 
 	"github.com/zdypro888/nbco/ai"
+	"github.com/zdypro888/nbco/interaction"
 )
 
 type ihtmlAgentToolOptions struct {
@@ -423,7 +424,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 				return marshalToolResult(map[string]any{"ok": true, "deleted_ids": deleted})
 			}),
 
-		ihtmlTool("ui_publish_page", "原子发布一个完整页面：一次提交同时新增或更新页面注册项，并完整替换该页所有 Item；全局和其他页面不受影响。创建页面、生成报表或整体更新页面时优先使用。结果中的 committed 表示发布已提交；verified=false 时只调用 ui_inspect_page 复核，不要盲目重复发布。",
+		ihtmlPageTool("ui_publish_page", "原子发布一个完整页面：一次提交同时新增或更新页面注册项，并完整替换该页所有 Item；全局和其他页面不受影响。创建页面、生成报表或整体更新页面时优先使用。结果中的 committed 表示发布已提交；verified=false 时只调用 ui_inspect_page 复核，不要盲目重复发布。",
 			ai.ToolEffectWrite, false,
 			objectSchema(map[string]any{
 				"page":  ihtmlPageSchema(),
@@ -466,7 +467,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 				})
 			}),
 
-		ihtmlTool("ui_inspect_page", "核对一个页面持久化后的注册项、Item 数量与 ID、源码总字节、最近运行错误和可直达地址。发布后调用它确认实际结果；它不虚构浏览器渲染状态。",
+		ihtmlPageTool("ui_inspect_page", "核对一个页面持久化后的注册项、Item 数量与 ID、源码总字节、最近运行错误和可直达地址。发布后调用它确认实际结果；它不虚构浏览器渲染状态。",
 			ai.ToolEffectRead, false,
 			objectSchema(map[string]any{"name": property("string", "页面稳定名称")}, "name"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -483,7 +484,7 @@ func ihtmlAgentTools(svc ihtml.ScopedService, options ihtmlAgentToolOptions) []a
 				return marshalToolResult(inspection)
 			}),
 
-		ihtmlTool("ui_set_page", "仅新增或更新动态工作台页面的注册元数据（标题、图标、排序、模板）；不会写入页面内容。创建或整体更新页面应使用 ui_publish_page。",
+		ihtmlPageTool("ui_set_page", "仅新增或更新动态工作台页面的注册元数据（标题、图标、排序、模板）；不会写入页面内容。创建或整体更新页面应使用 ui_publish_page。",
 			ai.ToolEffectWrite, false,
 			objectSchema(map[string]any{"page": ihtmlPageSchema()}, "page"),
 			func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -556,6 +557,60 @@ func ihtmlTool(name, description, effect string, approval bool, schema map[strin
 		GroupSensitive: true, ApprovalRequired: approval,
 		InputSchema: schema, Handler: handler,
 	}
+}
+
+func ihtmlPageTool(name, description, effect string, approval bool, schema map[string]any,
+	handler func(context.Context, json.RawMessage) (string, error)) ai.Tool {
+	tool := ihtmlTool(name, description, effect, approval, schema, handler)
+	tool.PresentResult = ihtmlPageActions
+	return tool
+}
+
+func ihtmlPageActions(result string) []interaction.Action {
+	var payload struct {
+		Registered    *bool             `json:"registered"`
+		WorkspaceURL  string            `json:"workspace_url"`
+		WorkspaceURLs map[string]string `json:"workspace_urls"`
+		Page          json.RawMessage   `json:"page"`
+	}
+	if json.Unmarshal([]byte(result), &payload) != nil || payload.Registered != nil && !*payload.Registered {
+		return nil
+	}
+	title := "页面"
+	if len(payload.Page) > 0 {
+		var page struct {
+			Name  string `json:"name"`
+			Title string `json:"title"`
+		}
+		if json.Unmarshal(payload.Page, &page) == nil {
+			title = strings.TrimSpace(page.Title)
+			if title == "" {
+				title = strings.TrimSpace(page.Name)
+			}
+		} else {
+			var name string
+			if json.Unmarshal(payload.Page, &name) == nil && strings.TrimSpace(name) != "" {
+				title = strings.TrimSpace(name)
+			}
+		}
+	}
+	actions := make([]interaction.Action, 0, 1+len(payload.WorkspaceURLs))
+	if payload.WorkspaceURL != "" {
+		actions = append(actions, interaction.Action{
+			Kind: interaction.ActionOpenWebApp, Label: "打开" + title, URL: payload.WorkspaceURL,
+		})
+	}
+	pages := make([]string, 0, len(payload.WorkspaceURLs))
+	for page := range payload.WorkspaceURLs {
+		pages = append(pages, page)
+	}
+	slices.Sort(pages)
+	for _, page := range pages {
+		actions = append(actions, interaction.Action{
+			Kind: interaction.ActionOpenWebApp, Label: "打开" + page, URL: payload.WorkspaceURLs[page],
+		})
+	}
+	return interaction.Normalize(actions, 4)
 }
 
 func ihtmlItemSchema() map[string]any {

@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/zdypro888/nbco/interaction"
 )
 
 const conversationTurnCols = `id, user_id, session_id, channel, user_message_id,
-	assistant_message_id, status, delivery_status, result_text, engine_session,
+	assistant_message_id, status, delivery_status, result_text, result_actions, engine_session,
 	attempts, delivery_attempts, last_error, started_at, completed_at, delivered_at, updated_at`
 
 var (
@@ -33,6 +35,7 @@ type ConversationTurn struct {
 	Status             string
 	DeliveryStatus     string
 	ResultText         string
+	ResultActions      []interaction.Action
 	EngineSession      string
 	Attempts           int
 	DeliveryAttempts   int
@@ -47,6 +50,7 @@ type ConversationTurnCompletion struct {
 	TurnID           int64
 	AssistantText    string
 	ResultText       string
+	ResultActions    []interaction.Action
 	EngineSession    string
 	Action           *ActionTurnInput
 	Usage            *AIUsage
@@ -59,14 +63,19 @@ type ConversationTurnCompletion struct {
 
 func scanConversationTurn(row interface{ Scan(...any) error }) (*ConversationTurn, error) {
 	var turn ConversationTurn
+	var rawActions []byte
 	if err := row.Scan(
 		&turn.ID, &turn.UserID, &turn.SessionID, &turn.Channel, &turn.UserMessageID,
 		&turn.AssistantMessageID, &turn.Status, &turn.DeliveryStatus, &turn.ResultText,
-		&turn.EngineSession, &turn.Attempts, &turn.DeliveryAttempts, &turn.LastError,
+		&rawActions, &turn.EngineSession, &turn.Attempts, &turn.DeliveryAttempts, &turn.LastError,
 		&turn.StartedAt, &turn.CompletedAt, &turn.DeliveredAt, &turn.UpdatedAt,
 	); err != nil {
 		return nil, wrapErr(err)
 	}
+	if err := json.Unmarshal(rawActions, &turn.ResultActions); err != nil {
+		return nil, err
+	}
+	turn.ResultActions = interaction.Normalize(turn.ResultActions, 4)
 	return &turn, nil
 }
 
@@ -189,6 +198,14 @@ func (s *Store) CompleteConversationTurn(ctx context.Context, in ConversationTur
 	if turn.UserMessageID == nil {
 		return 0, ErrNotFound
 	}
+	normalizedActions := interaction.Normalize(in.ResultActions, 4)
+	if normalizedActions == nil {
+		normalizedActions = []interaction.Action{}
+	}
+	actions, err := json.Marshal(normalizedActions)
+	if err != nil {
+		return 0, err
+	}
 
 	var assistantMessageID int64
 	if err := tx.QueryRow(ctx,
@@ -200,9 +217,9 @@ func (s *Store) CompleteConversationTurn(ctx context.Context, in ConversationTur
 	if _, err := tx.Exec(ctx,
 		`UPDATE conversation_turns
 		    SET assistant_message_id = $2, status = 'completed', result_text = $3,
-		        engine_session = $4, completed_at = now(), last_error = '', updated_at = now()
+		        result_actions = $4, engine_session = $5, completed_at = now(), last_error = '', updated_at = now()
 		  WHERE id = $1`,
-		turn.ID, assistantMessageID, in.ResultText, strings.TrimSpace(in.EngineSession)); err != nil {
+		turn.ID, assistantMessageID, in.ResultText, actions, strings.TrimSpace(in.EngineSession)); err != nil {
 		return 0, wrapErr(err)
 	}
 	if in.Action != nil {
