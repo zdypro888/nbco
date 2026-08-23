@@ -288,15 +288,41 @@ func TestQueryVectorCache(t *testing.T) {
 	}
 }
 
-func TestVectorFingerprintTracksActualModelOutput(t *testing.T) {
-	first := vectorFingerprint([]float32{0.12341, -0.45671, 0.77771})
-	equivalent := vectorFingerprint([]float32{0.123409, -0.456709, 0.777709})
-	different := vectorFingerprint([]float32{0.22341, -0.45671, 0.77771})
-	if first == "" || first != equivalent || first == different {
-		t.Fatalf("fingerprints = %q %q %q", first, equivalent, different)
-	}
-	if tag := modelTag("model", 3, first); tag != "model:3:"+first {
+func TestModelTagUsesStableConfiguredIdentity(t *testing.T) {
+	if tag := modelTag(" model@revision-v2 ", 3072); tag != "model@revision-v2:3072" {
 		t.Fatalf("model tag = %q", tag)
+	}
+}
+
+type varyingProbeEmbedder struct{ calls atomic.Int32 }
+
+func (*varyingProbeEmbedder) Model() string { return "hosted-model@revision-v1" }
+
+func (e *varyingProbeEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	base := float32(e.calls.Add(1))
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i] = []float32{base, base + 1}
+	}
+	return out, nil
+}
+
+func TestCurrentModelIgnoresHostedProbeValueDrift(t *testing.T) {
+	embedder := &varyingProbeEmbedder{}
+	service := New(nil, embedder, newMemoryVectors())
+	first, dim, err := service.CurrentModel(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.modelMu.Lock()
+	service.modelAt = time.Time{}
+	service.modelMu.Unlock()
+	second, secondDim, err := service.CurrentModel(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != "hosted-model@revision-v1:2" || second != first || dim != 2 || secondDim != dim {
+		t.Fatalf("models = %q/%d %q/%d", first, dim, second, secondDim)
 	}
 }
 

@@ -255,10 +255,10 @@ nodes:
       anchor:
         file: semantic/semantic.go
         symbol: Service.CurrentModel
-        hash: sha256:52e0d5eb5575306ad075f8c826c8f6fe5487510c1fbd25ab4b11952d6ac491c8
-        struct_hash: sha256:cb1a6c53c74a84e5b48453f03d9fa76a72e1b98c882a860494fae417373d5cc9
-        doc_struct_hash: sha256:b9aaae47b23bd6736d93fcab2e6b3deb4caa5d3d2d0c184c9ac65a7195ecfcf2
-        lines: [176, 235]
+        hash: sha256:29a1b73ce574f6b6912b280689a848ac7fcceca7dfb927e9c2aba46426e43d4e
+        struct_hash: sha256:2fa8744e5f5a1b32036f5db6a9667da3b8b9f4ba8b9e0633f8b016213a2b000a
+        doc_struct_hash: sha256:48a80aa08946bda408fa4e2964ad8b0391bfa155c77f310923c8baff524c7161
+        lines: [175, 236]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: semantic/semantic.go#Service.UpsertDocuments
@@ -519,10 +519,10 @@ nodes:
       anchor:
         file: semantic/semantic.go
         symbol: modelTag
-        hash: sha256:44dcfe7f7ecca7f45fad701ce77e95a9c706d77cbe24cf38b5c17268eb2236e4
-        struct_hash: sha256:f7afd54f341203393b738fbc222ad7aa9d658d509c1c37c90a54b81f90bb6419
-        doc_struct_hash: sha256:f7afd54f341203393b738fbc222ad7aa9d658d509c1c37c90a54b81f90bb6419
-        lines: [767, 769]
+        hash: sha256:42896321ac5070bcef5a131889567c3380884b8508383fd7a8cea737c16b2702
+        struct_hash: sha256:9b648b41beda46ce90899275b7631fc04e2ee2ef65ab8edfcdcb1652538212e7
+        doc_struct_hash: sha256:9b648b41beda46ce90899275b7631fc04e2ee2ef65ab8edfcdcb1652538212e7
+        lines: [768, 770]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: semantic/semantic.go#vectorFingerprint

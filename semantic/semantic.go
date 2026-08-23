@@ -6,7 +6,6 @@ package semantic
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -174,7 +173,10 @@ func (s *Service) QueryVector(ctx context.Context, query string) ([]float32, err
 }
 
 // CurrentModel periodically probes the embedding endpoint and returns the
-// model, dimension, and quantized-output collection tag used by Qdrant.
+// configured model identity and observed dimension used by Qdrant. The
+// embedder identity includes the explicit revision when one is configured;
+// deriving identity from one floating-point response is unstable on hosted
+// inference backends and would create duplicate collections for the same model.
 func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 	if !s.Enabled() {
 		return "", 0, fmt.Errorf("qdrant 语义索引未启用")
@@ -211,8 +213,7 @@ func (s *Service) CurrentModel(ctx context.Context) (string, int, error) {
 			s.recordFailure(err)
 			return nil, err
 		}
-		fingerprint := vectorFingerprint(vectors[0])
-		tag := modelTag(s.embedder.Model(), len(vectors[0]), fingerprint)
+		tag := modelTag(s.embedder.Model(), len(vectors[0]))
 		s.recordModel(tag, len(vectors[0]))
 		return struct {
 			tag string
@@ -764,23 +765,8 @@ func documentHash(doc Document) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func modelTag(model string, dimension int, fingerprint string) string {
-	return fmt.Sprintf("%s:%d:%s", strings.TrimSpace(model), dimension, fingerprint)
-}
-
-// vectorFingerprint identifies the actual model output rather than trusting a
-// provider-supplied model label. Quantization absorbs insignificant float noise
-// across equivalent inference workers while changing when model weights or
-// routing materially change.
-func vectorFingerprint(vector []float32) string {
-	hash := sha256.New()
-	var buf [4]byte
-	for _, value := range vector {
-		quantized := int32(math.Round(float64(value) * 10_000))
-		binary.LittleEndian.PutUint32(buf[:], uint32(quantized))
-		_, _ = hash.Write(buf[:])
-	}
-	return hex.EncodeToString(hash.Sum(nil)[:6])
+func modelTag(model string, dimension int) string {
+	return fmt.Sprintf("%s:%d", strings.TrimSpace(model), dimension)
 }
 
 func validateVector(vector []float32) error {

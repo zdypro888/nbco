@@ -338,3 +338,14 @@ nodes:
         lines: [344, 381]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic_test.go#TestCurrentModelIgnoresHostedProbeValueDrift
+      level: function
+      anchor:
+        file: semantic/semantic_test.go
+        symbol: TestCurrentModelIgnoresHostedProbeValueDrift
+        hash: sha256:819eadcd8489b590426ec30cd33682741a23fc2bcde4d993bc18947afac8a514
+        struct_hash: sha256:febea481f1c2202b57b509de732273db376f9d0d9ead61c5f12827969d10cf52
+        doc_struct_hash: sha256:febea481f1c2202b57b509de732273db376f9d0d9ead61c5f12827969d10cf52
+        lines: [310, 327]
+      status: fresh
+      since: 2026-08-23T10:26:47.037041Z
