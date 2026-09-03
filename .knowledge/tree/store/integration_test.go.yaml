@@ -134,10 +134,10 @@ nodes:
       anchor:
         file: store/integration_test.go
         symbol: TestReviewerChangeAndSubmissionStayConsistent
-        hash: sha256:c434acc975a500c45884a7f0df5fc3a1b86dfe032dfa1873f0e8ee85e686f644
-        struct_hash: sha256:a97629fb7293761c10ece3b1a0de8712d5871ff7814ff659889d974770bfaad5
-        doc_struct_hash: sha256:a97629fb7293761c10ece3b1a0de8712d5871ff7814ff659889d974770bfaad5
-        lines: [538, 581]
+        hash: sha256:e0b71d23d4a15e58073ad692bf5cd18d22ba4ec19aced6d68bd9b90c44285852
+        struct_hash: sha256:544e67f4c661d7545e5ab1220044880a9bbd00cb79075f7bfc6d04f044f98430
+        doc_struct_hash: sha256:544e67f4c661d7545e5ab1220044880a9bbd00cb79075f7bfc6d04f044f98430
+        lines: [766, 809]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/integration_test.go#TestWorkerRunIsSeparateFromTaskAndReviewUsesResponsibility

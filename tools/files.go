@@ -71,11 +71,12 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				if args.SinceHours <= 0 || args.SinceHours > 24*30 {
 					args.SinceHours = 24
 				}
-				fs, err := d.Store.RecentFilesByUser(ctx, u.ID, args.Limit, time.Now().Add(-time.Duration(args.SinceHours)*time.Hour))
+				channel := interactionChannel(ctx)
+				fs, err := d.Store.RecentFilesForConversation(ctx, u.ID, channel, args.Limit, time.Now().Add(-time.Duration(args.SinceHours)*time.Hour))
 				if err != nil {
 					return "", err
 				}
-				intakes, err := d.Store.RecentFileIntakesByUser(ctx, u.ID, args.Limit, time.Now().Add(-time.Duration(args.SinceHours)*time.Hour))
+				intakes, err := d.Store.RecentFileIntakesForConversation(ctx, u.ID, channel, args.Limit, time.Now().Add(-time.Duration(args.SinceHours)*time.Hour))
 				if err != nil {
 					return "", err
 				}
@@ -116,7 +117,7 @@ func fileTools(d Deps, u *store.User) []ai.Tool {
 				if _, err := mustUser(ctx, d.Store, targetID); err != nil {
 					return err.Error(), nil
 				}
-				ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, args.FileID)
+				ok, err := userCanAccessFile(ctx, d, u, args.FileID)
 				if err != nil {
 					return "", err
 				}

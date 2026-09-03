@@ -73,7 +73,7 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 		return err.Error(), nil
 	}
 	for _, id := range args.FileIDs {
-		ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, id)
+		ok, err := userCanAccessFile(ctx, d, u, id)
 		if err != nil {
 			return "", err
 		}
@@ -101,7 +101,7 @@ func startMaterialAnalysis(ctx context.Context, d Deps, u *store.User, args mate
 		ScopeKey: "materials:company-intelligence", ScopeTitle: "Company material analysis",
 		ResultRequired: true, ResultSchema: materialLearningResultSchema(), ResultHandler: MaterialLearningResultHandler,
 	}, store.MaterialTaskSpec{
-		OwnerID: u.ID, Title: title, Instruction: instruction,
+		OwnerID: u.ID, Title: title, Instruction: instruction, FileScope: interactionChannel(ctx),
 	})
 	if err != nil {
 		return "", err

@@ -1361,3 +1361,25 @@ nodes:
         lines: [1661, 1738]
       status: fresh
       since: 2026-08-21T10:12:32.800989Z
+    - id: gateway/httpapi/httpapi.go#Server.handleAdminMaintenance
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: Server.handleAdminMaintenance
+        hash: sha256:21ac57b4f47b029f29aa4b451a654ed4d9f0af11506f704790795192bd448e22
+        struct_hash: sha256:a9480c832b68a2b0ba2c6efeb673e35bf20f4e5c039463b3914dab1ababe1fbb
+        doc_struct_hash: sha256:a9480c832b68a2b0ba2c6efeb673e35bf20f4e5c039463b3914dab1ababe1fbb
+        lines: [987, 1001]
+      status: fresh
+      since: 2026-08-23T12:00:46.573314Z
+    - id: gateway/httpapi/httpapi.go#Server.handleAdminRunMaintenance
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: Server.handleAdminRunMaintenance
+        hash: sha256:7ac5f41f6a57227c78d2dc44bcf60290e953c1c06a6e1e496dd717717cfb654c
+        struct_hash: sha256:75df33d32dd6f850b0355acb5c30c2ad43524c8b1cd087ac77a05d3c5833c2fd
+        doc_struct_hash: sha256:75df33d32dd6f850b0355acb5c30c2ad43524c8b1cd087ac77a05d3c5833c2fd
+        lines: [1003, 1059]
+      status: fresh
+      since: 2026-08-23T12:00:46.58738Z

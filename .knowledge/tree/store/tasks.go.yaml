@@ -508,12 +508,23 @@ nodes:
       anchor:
         file: store/tasks.go
         symbol: Store.SubmitTaskBy
-        hash: sha256:8f4509c693748c6bff984681bd5320c9792981f0055a8f659736f279f2724d26
-        struct_hash: sha256:51ec4500c0ff03772391b0a32c45f4b2e133c76892623f404e682a2a4185c7c2
-        doc_struct_hash: sha256:0b5d535f308cb61027def354c547ab719afd43e6b79cd66b3c9d1c989087e022
-        lines: [671, 712]
-      status: undigested
+        hash: sha256:f816b480c31e75eb9c937afa6ce60f77f8727b4974ae7744e32da41a354f9e95
+        struct_hash: sha256:c1c551fc9563ffd5aa77318c4207b5d33dece0343e46610a50adc0e45bec9a3e
+        doc_struct_hash: sha256:6c52685ea1f11a8e352ee31ad85cba15cc7598df7ac89dded38e3db99ab28ba1
+        lines: [699, 743]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_17d998da
+          kind: pitfall
+          text: 任务提交的 reviewer 判定不能与 task 行更新合并为一条可能等待并发事务的 UPDATE：PostgreSQL READ COMMITTED 的语句快照可能看不到等待期间刚提交的 task_participants。必须先 SELECT ... FOR UPDATE 锁任务，再在后续语句的新快照中计算完成状态。
+          confidence: inferred
+          at: 2026-09-03T17:05:24.703539Z
+          author: codex-mcp-client
+      keywords:
+        - postgresql statement snapshot
+        - reviewer race
+        - select for update
     - id: store/tasks.go#Store.AcceptTask
       level: function
       anchor:

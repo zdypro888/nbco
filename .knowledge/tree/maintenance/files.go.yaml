@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: maintenance/files.go
+      level: file
+      anchor:
+        file: maintenance/files.go
+        hash: sha256:106aa90df44f6297f3eac49ef965b83aa3b2156a5f2a4c6479d127e2174d8938
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-23T12:00:46.551823Z
+    - id: maintenance/files.go#FileBlobJob
+      level: function
+      anchor:
+        file: maintenance/files.go
+        symbol: FileBlobJob
+        hash: sha256:9c4ed8335a95238c2222c5496933170aba27d6d83d9faea0c72575cc13291292
+        struct_hash: sha256:07992d61b8abf55a22d1f9d81ee2cfccbf2554a59dd1deb4c89223f81b8cb375
+        doc_struct_hash: sha256:07992d61b8abf55a22d1f9d81ee2cfccbf2554a59dd1deb4c89223f81b8cb375
+        lines: [14, 22]
+      status: fresh
+      since: 2026-08-23T12:00:46.551797Z

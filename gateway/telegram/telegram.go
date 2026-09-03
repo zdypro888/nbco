@@ -60,14 +60,15 @@ const groupMonitorMaxWait = 2 * time.Minute
 const groupMonitorAnalysisLease = 4 * time.Minute
 const telegramInboundPollInterval = 250 * time.Millisecond
 const domainOutboxPollInterval = 5 * time.Second
-const telegramTransportRetention = 30 * 24 * time.Hour
 const telegramWebhookMaxBody = 2 << 20
 const telegramInboundMaxInFlight = 256
 
-const groupMonitorSystem = `你是公司运营系统的 Telegram 群智能监控器。你的任务是判断最近群聊是否值得提醒监控发起人。
+const groupMonitorSystem = `你是公司运营系统的 Telegram 群智能监控器。你的任务是把群聊中有依据的运营事实结构化沉淀，并判断是否值得提醒监控发起人。
 
 输出规则：
-- 只输出严格 JSON：{"notify":true|false,"message":""}。
+- 只输出严格 JSON：{"notify":true|false,"message":"","facts":[{"kind":"update|decision|risk|deliverable","title":"","content":"","source_message_ids":[1]}]}。
+- facts 只提取对后续管理有价值的进展、决定、风险或交付物；闲聊、问候、重复内容和无法由原文证明的推断不要写入。
+- 每条 fact 必须引用输入里真实存在的一个或多个 message_id；content 保留明确对象、状态与时间，不把计划写成完成。
 - 如果只是普通通知、闲聊、无行动价值的信息，notify=false 且 message 为空。
 - 如果有明确问题、阻塞、风险、争议、延期、需要管理者知道或跟进的事项，notify=true，message 是适合 Telegram HTML 的简短私聊提醒。
 - 输出只总结关键问题、涉及对象、建议下一步，不逐条转发。
@@ -614,8 +615,6 @@ func (g *Gateway) runInboundUpdates(ctx context.Context) {
 	defer ticker.Stop()
 	heartbeat := time.NewTicker(30 * time.Second)
 	defer heartbeat.Stop()
-	cleanup := time.NewTicker(24 * time.Hour)
-	defer cleanup.Stop()
 	for {
 		g.drainInboundUpdates(ctx)
 		select {
@@ -626,14 +625,6 @@ func (g *Gateway) runInboundUpdates(ctx context.Context) {
 		case <-heartbeat.C:
 			if err := g.store.HeartbeatTelegramInboundClaims(ctx, g.monitorInstanceID, g.activeInboundClaimIDs()); err != nil {
 				slog.Warn("续租 Telegram 入站 update 失败", "err", err)
-			}
-		case <-cleanup.C:
-			before := time.Now().UTC().Add(-telegramTransportRetention)
-			updates, parts, err := g.store.DeleteExpiredTelegramTransportRecords(ctx, before)
-			if err != nil {
-				slog.Warn("清理 Telegram 传输账本失败", "err", err)
-			} else if updates+parts > 0 {
-				slog.Info("已清理 Telegram 传输账本", "updates", updates, "parts", parts)
 			}
 		}
 	}
@@ -1478,8 +1469,13 @@ func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message,
 	fileInstruction := ""
 	if telegramMessagesHaveFiles(sourceMessages) {
 		fileInstruction = strings.TrimSpace(nonMediaText(msg))
-		if bound && (mentioned || listenOn || monitorOn || digestOn) {
-			intakeResults = g.saveIncomingTelegramFileMessages(ctx, sourceMessages, u)
+		captureGroupFiles := mentioned && bound || listenOn || monitorOn || digestOn
+		fileOwner := u
+		if fileOwner == nil || !bound {
+			fileOwner = g.groupTranscriptOwner(ctx, nil)
+		}
+		if captureGroupFiles && fileOwner != nil {
+			intakeResults = g.saveIncomingTelegramFileMessages(ctx, sourceMessages, fileOwner)
 			saved, failed := splitTelegramFileIntakes(intakeResults)
 			text = telegramFileContext(saved, failed, fileInstruction)
 		} else {
@@ -1552,10 +1548,15 @@ func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message,
 			if bound {
 				speaker = u.Name
 			}
-			if err := g.orch.RecordGroupMessageWithEnvelope(ctx, g.groupTranscriptOwner(ctx, u), channel, speaker, text, envelope); err != nil {
+			owner := g.groupTranscriptOwner(ctx, u)
+			recorded := owner != nil
+			if !recorded {
+				slog.Error("Telegram 群消息缺少可用的会话归属", "chat", chatID, "message", msg.ID)
+			} else if err := g.orch.RecordGroupMessageWithEnvelope(ctx, owner, channel, speaker, text, envelope); err != nil {
+				recorded = false
 				slog.Error("Telegram 群消息持久化失败", "chat", chatID, "message", msg.ID, "err", err)
 			}
-			if monitorOn {
+			if monitorOn && recorded {
 				_, actionErr := g.runTelegramDirectAction(ctx, msg, "group-monitor-observation", text, func() {
 					g.observeGroupMonitor(ctx, msg.Chat, text)
 				})
@@ -1567,6 +1568,25 @@ func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message,
 		return
 	}
 	slog.Info("TG 群提及", "chat", chatID, "tg_user", tgID, "bound", bound, "sender_chat", senderChatTitle(msg))
+	if !bound && (listenOn || monitorOn || digestOn) {
+		speaker := displayNameFromMessage(msg)
+		owner := g.groupTranscriptOwner(ctx, nil)
+		recorded := owner != nil
+		if !recorded {
+			slog.Error("未绑定 Telegram 群消息缺少可用的会话归属", "chat", chatID, "message", msg.ID)
+		} else if err := g.orch.RecordGroupMessageWithEnvelope(ctx, owner, channel, speaker, text, envelope); err != nil {
+			recorded = false
+			slog.Error("未绑定 Telegram 群消息持久化失败", "chat", chatID, "message", msg.ID, "err", err)
+		}
+		if monitorOn && recorded {
+			_, actionErr := g.runTelegramDirectAction(ctx, msg, "group-monitor-observation", text, func() {
+				g.observeGroupMonitor(ctx, msg.Chat, text)
+			})
+			if actionErr != nil {
+				slog.Error("登记未绑定群监控消息失败", "chat", chatID, "message", msg.ID, "err", actionErr)
+			}
+		}
+	}
 	if tgID == 0 {
 		_, err := g.runTelegramDirectAction(ctx, msg, "group-missing-actor", text, func() {
 			g.reply(ctx, chatID, "我收到了，但这条消息没有个人 Telegram 身份（可能是匿名管理员或频道身份发言）。请切回个人身份再 @ 我。")
@@ -1874,12 +1894,11 @@ func (g *Gateway) flushGroupMonitor(chatID int64, generation uint64) {
 		}
 		return
 	}
-	lines := make([]string, 0, len(page.Messages)+1)
-	if page.Total > int64(len(page.Messages)) {
-		lines = append(lines, fmt.Sprintf("（本批共 %d 条，仅分析最新 %d 条）", page.Total, len(page.Messages)))
-	}
+	humanMessages := make([]store.ChatMessage, 0, len(page.Messages))
 	for _, message := range page.Messages {
-		lines = append(lines, fmt.Sprintf("%s %s", message.CreatedAt.In(g.timeZone()).Format("2006-01-02 15:04"), message.Content))
+		if message.Role == string(ai.RoleUser) {
+			humanMessages = append(humanMessages, message)
+		}
 	}
 	claimed := false
 	mon, err = g.store.UpdateTelegramGroupMonitor(ctx, chatID, func(current *store.TelegramGroupMonitor) error {
@@ -1905,7 +1924,7 @@ func (g *Gateway) flushGroupMonitor(chatID int64, generation uint64) {
 		return
 	}
 	snapshot := *mon
-	go g.evaluateGroupMonitor(parent, snapshot, lines, to)
+	go g.evaluateGroupMonitor(parent, snapshot, humanMessages, to)
 }
 
 func (g *Gateway) monitorContext() context.Context {
@@ -1957,7 +1976,78 @@ func (g *Gateway) stopGroupMonitorTimers() {
 	}
 }
 
-func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.TelegramGroupMonitor, lines []string, through time.Time) {
+type groupMonitorFact struct {
+	Kind             string  `json:"kind"`
+	Title            string  `json:"title"`
+	Content          string  `json:"content"`
+	SourceMessageIDs []int64 `json:"source_message_ids"`
+}
+
+type groupMonitorAnalysis struct {
+	Decision notify.Decision
+	Facts    []groupMonitorFact
+}
+
+func parseGroupMonitorAnalysis(text string, validMessageIDs map[int64]bool) (groupMonitorAnalysis, error) {
+	var payload struct {
+		Notify  *bool              `json:"notify"`
+		Message string             `json:"message"`
+		Facts   []groupMonitorFact `json:"facts"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(text)), &payload); err != nil {
+		return groupMonitorAnalysis{}, fmt.Errorf("decode group monitor analysis: %w", err)
+	}
+	if payload.Notify == nil {
+		return groupMonitorAnalysis{}, errors.New("group monitor analysis missing notify")
+	}
+	message := strings.TrimSpace(payload.Message)
+	if *payload.Notify && message == "" {
+		return groupMonitorAnalysis{}, errors.New("group monitor analysis missing notification message")
+	}
+	if !*payload.Notify {
+		message = ""
+	}
+	allowedKinds := map[string]bool{
+		store.WorkEvidenceUpdate: true, store.WorkEvidenceDecision: true,
+		store.WorkEvidenceRisk: true, store.WorkEvidenceDeliverable: true,
+	}
+	facts := make([]groupMonitorFact, 0, min(len(payload.Facts), 12))
+	for _, fact := range payload.Facts {
+		fact.Kind = strings.TrimSpace(fact.Kind)
+		fact.Title = textfmt.TruncateRunes(strings.TrimSpace(fact.Title), 160)
+		fact.Content = textfmt.TruncateRunes(strings.TrimSpace(fact.Content), 1200)
+		if !allowedKinds[fact.Kind] || fact.Content == "" {
+			continue
+		}
+		seen := make(map[int64]bool, len(fact.SourceMessageIDs))
+		ids := make([]int64, 0, len(fact.SourceMessageIDs))
+		validSources := true
+		for _, id := range fact.SourceMessageIDs {
+			if id <= 0 || !validMessageIDs[id] {
+				validSources = false
+				break
+			}
+			if !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+		if !validSources || len(ids) == 0 {
+			continue
+		}
+		fact.SourceMessageIDs = ids
+		facts = append(facts, fact)
+		if len(facts) == 12 {
+			break
+		}
+	}
+	return groupMonitorAnalysis{
+		Decision: notify.Decision{Notify: *payload.Notify, Message: message},
+		Facts:    facts,
+	}, nil
+}
+
+func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.TelegramGroupMonitor, messages []store.ChatMessage, through time.Time) {
 	success := false
 	notified := false
 	defer func() {
@@ -1966,7 +2056,7 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 		}
 		g.finishGroupMonitorAnalysis(mon.ChatID, through, success, notified)
 	}()
-	if len(lines) == 0 {
+	if len(messages) == 0 {
 		success = true
 		return
 	}
@@ -1976,20 +2066,35 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 	if title == "" {
 		title = fmt.Sprintf("Telegram 群 %d", mon.ChatID)
 	}
+	var project *store.Project
 	projectLine := ""
 	if pj, err := g.store.TelegramGroupProject(ctx, mon.ChatID); err == nil && pj != nil {
+		project = pj
 		projectLine = "绑定项目：" + pj.Name + "\n"
+	}
+	lines := make([]string, 0, len(messages))
+	messageByID := make(map[int64]store.ChatMessage, len(messages))
+	validMessageIDs := make(map[int64]bool, len(messages))
+	for _, message := range messages {
+		messageByID[message.ID] = message
+		validMessageIDs[message.ID] = true
+		speaker := strings.TrimSpace(message.ActorDisplayName)
+		if speaker == "" {
+			speaker = "群成员"
+		}
+		lines = append(lines, fmt.Sprintf("message_id=%d | %s | %s | %s", message.ID,
+			message.EventAt().In(g.timeZone()).Format("2006-01-02 15:04"), speaker, message.Content))
 	}
 	input := fmt.Sprintf("群名：%s\n%s监控要求：%s\n\n最近群聊：\n%s",
 		title, projectLine, strings.TrimSpace(mon.Instruction), strings.Join(lines, "\n"))
-	var decision notify.Decision
+	var analysis groupMonitorAnalysis
 	var err error
 	for attempt := 1; attempt <= 2; attempt++ {
 		attemptCtx, attemptCancel := context.WithTimeout(ctx, 80*time.Second)
 		var out string
 		out, err = g.orch.SummarizeJSON(attemptCtx, mon.NotifyUserID, "telegram_group_monitor", groupMonitorSystem, input)
 		if err == nil {
-			decision, err = notify.ParseDecision(out)
+			analysis, err = parseGroupMonitorAnalysis(out, validMessageIDs)
 		}
 		attemptCancel()
 		if err == nil {
@@ -2007,10 +2112,6 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 	if err != nil {
 		return
 	}
-	if !decision.Notify {
-		success = true
-		return
-	}
 	latest, loadErr := g.store.TelegramGroupMonitor(ctx, mon.ChatID)
 	if loadErr != nil || latest == nil {
 		return
@@ -2022,7 +2123,15 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 	if latest.NotifyUserID != mon.NotifyUserID || latest.Instruction != mon.Instruction || latest.GroupTitle != mon.GroupTitle {
 		return
 	}
-	msg := fmt.Sprintf("📣 <b>群监控提醒</b>｜%s\n\n%s", html.EscapeString(title), decision.Message)
+	if err := g.persistGroupMonitorFacts(ctx, mon, project, messageByID, analysis.Facts, through); err != nil {
+		slog.Warn("群监控结构化事实保存失败", "chat", mon.ChatID, "err", err)
+		return
+	}
+	if !analysis.Decision.Notify {
+		success = true
+		return
+	}
+	msg := fmt.Sprintf("📣 <b>群监控提醒</b>｜%s\n\n%s", html.EscapeString(title), analysis.Decision.Message)
 	deliveryKey := fmt.Sprintf("telegram-group-monitor:%d:%d:%d", mon.ChatID, through.UnixNano(), mon.NotifyUserID)
 	delivery, err := notify.SendOnce(ctx, g.store, g, deliveryKey, mon.NotifyUserID, msg)
 	if !delivery.Settled() {
@@ -2035,6 +2144,57 @@ func (g *Gateway) evaluateGroupMonitor(parent context.Context, mon store.Telegra
 	}
 	notified = delivery.Delivered
 	success = true
+}
+
+func (g *Gateway) persistGroupMonitorFacts(ctx context.Context, mon store.TelegramGroupMonitor, project *store.Project, messages map[int64]store.ChatMessage, facts []groupMonitorFact, through time.Time) error {
+	for _, fact := range facts {
+		var eventAt time.Time
+		var actorID *int64
+		actorConsistent := true
+		for index, id := range fact.SourceMessageIDs {
+			message, ok := messages[id]
+			if !ok {
+				return fmt.Errorf("group monitor fact references unknown message %d", id)
+			}
+			if at := message.EventAt().UTC(); at.After(eventAt) {
+				eventAt = at
+			}
+			if index == 0 {
+				actorID = message.ActorUserID
+			} else if actorID == nil || message.ActorUserID == nil || *actorID != *message.ActorUserID {
+				actorConsistent = false
+			}
+		}
+		if !actorConsistent {
+			actorID = nil
+		}
+		metadata, err := json.Marshal(map[string]any{
+			"telegram_chat_id": mon.ChatID, "source_message_ids": fact.SourceMessageIDs,
+			"analysis_through": through.UTC().Format(time.RFC3339Nano),
+		})
+		if err != nil {
+			return err
+		}
+		identity := fmt.Sprintf("%d\x00%s\x00%s\x00%s\x00%v", mon.ChatID, fact.Kind, fact.Title, fact.Content, fact.SourceMessageIDs)
+		sum := sha256.Sum256([]byte(identity))
+		sourceMessageID := fact.SourceMessageIDs[0]
+		createdBy := mon.NotifyUserID
+		var projectID *int64
+		if project != nil {
+			projectID = &project.ID
+		}
+		if _, err := g.store.UpsertWorkEvidence(ctx, store.WorkEvidenceInput{
+			SourceType: store.WorkEvidenceSourceTelegramGroupAnalysis,
+			SourceKey:  fmt.Sprintf("%d:%x", mon.ChatID, sum[:16]),
+			Kind:       fact.Kind, Status: store.WorkEvidenceObserved,
+			Title: fact.Title, Content: fact.Content, ActorUserID: actorID,
+			ProjectID: projectID, SourceMessageID: &sourceMessageID,
+			Confidence: 0.85, EventAt: eventAt, Metadata: metadata, CreatedBy: &createdBy,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *Gateway) finishGroupMonitorAnalysis(chatID int64, through time.Time, success, notified bool) {
@@ -3777,12 +3937,13 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 		return nil
 	}
 	results := make([]incomingTelegramFileResult, 0, len(incoming))
+	source := telegramFileSource(msg)
 	for i := range incoming {
 		in := incoming[i]
 		in.externalRef = telegramFileExternalRef(msg.ID, in.uniqueID, in.fileID)
 		result := incomingTelegramFileResult{input: in}
 		intake, err := g.store.CreateFileIntake(ctx, store.FileIntake{
-			UserID: u.ID, Source: "telegram", ExternalRef: in.externalRef,
+			UserID: u.ID, Source: source, ExternalRef: in.externalRef,
 			OriginalName: in.name, MIMEType: in.mime, SizeBytes: in.sizeBytes,
 		})
 		if err != nil {
@@ -3803,7 +3964,7 @@ func (g *Gateway) saveIncomingTelegramFiles(ctx context.Context, msg *models.Mes
 			}
 			slog.Warn("Telegram 重放接收记录指向缺失文件", "user", u.ID, "intake", intake.ID, "file", *intake.FileID, "err", fileErr)
 		}
-		f, err := g.saveTelegramFile(ctx, u.ID, in)
+		f, err := g.saveTelegramFile(ctx, u.ID, source, in)
 		if err != nil {
 			result.errorCode, result.errorMessage = telegramFileIntakeFailure(err)
 			result.err = err
@@ -3853,7 +4014,7 @@ func (g *Gateway) saveIncomingTelegramFileMessages(ctx context.Context, messages
 	return results
 }
 
-func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomingTelegramFile) (*store.File, error) {
+func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, source string, in incomingTelegramFile) (*store.File, error) {
 	if strings.TrimSpace(g.fileStorePath) == "" {
 		return nil, newTelegramFileIntakeError("storage_not_configured", "文件存储尚未配置，文件没有进入系统。", errors.New("file_store_path 未配置"))
 	}
@@ -3889,7 +4050,7 @@ func (g *Gateway) saveTelegramFile(ctx context.Context, userID int64, in incomin
 	if contentType == "" {
 		contentType = in.mime
 	}
-	f, err := g.persistTelegramFile(ctx, userID, in, src, contentType)
+	f, err := g.persistTelegramFile(ctx, userID, source, in, src, contentType)
 	if err != nil {
 		return nil, wrapTelegramFileStorageError(err)
 	}
@@ -3934,7 +4095,7 @@ func wrapTelegramFileStorageError(err error) error {
 	return newTelegramFileIntakeError("storage_failed", "文件下载后暂存失败，请稍后重试。", err)
 }
 
-func (g *Gateway) persistTelegramFile(ctx context.Context, userID int64, in incomingTelegramFile, src io.Reader, contentType string) (*store.File, error) {
+func (g *Gateway) persistTelegramFile(ctx context.Context, userID int64, source string, in incomingTelegramFile, src io.Reader, contentType string) (*store.File, error) {
 	if err := safefs.EnsurePrivateDir(g.fileStorePath); err != nil {
 		return nil, fmt.Errorf("创建文件存储目录失败: %w", err)
 	}
@@ -3984,9 +4145,16 @@ func (g *Gateway) persistTelegramFile(ctx context.Context, userID int64, in inco
 	}
 	uid := userID
 	return g.store.CreateFile(ctx, &store.File{
-		Source: "telegram", OriginalName: name, MIMEType: mimeType,
+		Source: source, OriginalName: name, MIMEType: mimeType,
 		SizeBytes: n, SHA256: sum, StoragePath: rel, CreatedBy: &uid,
 	})
+}
+
+func telegramFileSource(msg *models.Message) string {
+	if msg != nil && (msg.Chat.Type == models.ChatTypeGroup || msg.Chat.Type == models.ChatTypeSupergroup) {
+		return groupChannel(msg.Chat.ID)
+	}
+	return Provider
 }
 
 func telegramFileExternalRef(messageID int, uniqueID, fileID string) string {

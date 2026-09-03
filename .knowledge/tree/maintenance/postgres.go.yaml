@@ -1,0 +1,32 @@
+schema: 1
+nodes:
+    - id: maintenance/postgres.go
+      level: file
+      anchor:
+        file: maintenance/postgres.go
+        hash: sha256:73996e4765e15a67ffc18fe469735615d7bdfcd470e64577aa94e4acb9936372
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-23T12:00:46.5499Z
+    - id: maintenance/postgres.go#PostgresLedger.Claim
+      level: function
+      anchor:
+        file: maintenance/postgres.go
+        symbol: PostgresLedger.Claim
+        hash: sha256:973e311fdb15d9bab4ac5e97a88dec6047541e8612538d7e2bedd96687cd5ec1
+        struct_hash: sha256:17813f7252e7343392ca9833d034eec695dd29a2c7898a16b89140f8b8b44a57
+        doc_struct_hash: sha256:17813f7252e7343392ca9833d034eec695dd29a2c7898a16b89140f8b8b44a57
+        lines: [41, 98]
+      status: fresh
+      since: 2026-08-23T12:00:46.549864Z
+    - id: maintenance/postgres.go#PostgresLedger.Finish
+      level: function
+      anchor:
+        file: maintenance/postgres.go
+        symbol: PostgresLedger.Finish
+        hash: sha256:9cb0a69da6b5abe894f0d605ba476de12fdeed62bd985add551bf775bc2b78d0
+        struct_hash: sha256:3780bd14497cb430443d8509b38279255203c1c1e775749b3d3fe3caceb693b9
+        doc_struct_hash: sha256:3780bd14497cb430443d8509b38279255203c1c1e775749b3d3fe3caceb693b9
+        lines: [100, 152]
+      status: fresh
+      since: 2026-08-23T12:00:46.551053Z

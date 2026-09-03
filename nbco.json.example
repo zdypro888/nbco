@@ -16,6 +16,15 @@
   "timezone": "Asia/Shanghai",
   "daily_summary_hour": 9,
   "sched_ai_concurrency": 4,
+  "maintenance": {
+    "enabled": true,
+    "receipt_retention_days": 90,
+    "telegram_retention_days": 30,
+    "runtime_retention_days": 30,
+    "snapshot_retention_days": 365,
+    "run_retention_days": 365,
+    "file_blob_grace_hours": 24
+  },
   "mcp_servers": [],
   "qdrant": {
     "url": "http://127.0.0.1:6334",

@@ -114,6 +114,20 @@ type QdrantConfig struct {
 
 func (c QdrantConfig) Enabled() bool { return strings.TrimSpace(c.URL) != "" }
 
+// MaintenanceConfig controls deterministic lifecycle maintenance. It never
+// authorizes semantic deletion of business or audit facts.
+type MaintenanceConfig struct {
+	Enabled               *bool `json:"enabled"`
+	ReceiptRetentionDays  int   `json:"receipt_retention_days"`
+	TelegramRetentionDays int   `json:"telegram_retention_days"`
+	RuntimeRetentionDays  int   `json:"runtime_retention_days"`
+	SnapshotRetentionDays int   `json:"snapshot_retention_days"`
+	RunRetentionDays      int   `json:"run_retention_days"`
+	FileBlobGraceHours    int   `json:"file_blob_grace_hours"`
+}
+
+func (c MaintenanceConfig) IsEnabled() bool { return c.Enabled == nil || *c.Enabled }
+
 // Config 全量配置。
 type Config struct {
 	// BrandName 是当前实例面向用户的显示名称。内部协议、二进制和数据库键
@@ -140,9 +154,10 @@ type Config struct {
 	TLSKeyFile         string `json:"tls_key_file"`  // 可选；PEM bundle 可与 tls_cert_file 指向同一文件
 	// PublicBaseURL 对外基地址（如 https://nbco.example.com）：worker 安装指引等面向
 	// 用户的文案用它拼真实地址；为空时文案用占位符。也保留给外部回调集成。
-	PublicBaseURL string       `json:"public_base_url"`
-	AI            AIConfig     `json:"ai"`
-	Qdrant        QdrantConfig `json:"qdrant"`
+	PublicBaseURL string            `json:"public_base_url"`
+	AI            AIConfig          `json:"ai"`
+	Qdrant        QdrantConfig      `json:"qdrant"`
+	Maintenance   MaintenanceConfig `json:"maintenance"`
 	// MCPServers 外接 MCP 工具服务列表（可选）。
 	MCPServers []MCPServer `json:"mcp_servers"`
 	// DailySummaryHour 每日待办汇总的本地小时（0-23），-1 关闭。默认 9。
@@ -244,6 +259,24 @@ func (c *Config) applyDefaults() {
 			c.Qdrant.SyncTimeoutSeconds = 3600
 		}
 	}
+	if c.Maintenance.ReceiptRetentionDays <= 0 {
+		c.Maintenance.ReceiptRetentionDays = 90
+	}
+	if c.Maintenance.TelegramRetentionDays <= 0 {
+		c.Maintenance.TelegramRetentionDays = 30
+	}
+	if c.Maintenance.RuntimeRetentionDays <= 0 {
+		c.Maintenance.RuntimeRetentionDays = 30
+	}
+	if c.Maintenance.SnapshotRetentionDays <= 0 {
+		c.Maintenance.SnapshotRetentionDays = 365
+	}
+	if c.Maintenance.RunRetentionDays <= 0 {
+		c.Maintenance.RunRetentionDays = 365
+	}
+	if c.Maintenance.FileBlobGraceHours <= 0 {
+		c.Maintenance.FileBlobGraceHours = 24
+	}
 	for i := range c.MCPServers {
 		c.MCPServers[i].RequiredAction = strings.TrimSpace(c.MCPServers[i].RequiredAction)
 		if c.MCPServers[i].RequiredAction == "" {
@@ -329,6 +362,20 @@ func (c *Config) validate() error {
 		if !mcpServerNameRE.MatchString(c.Qdrant.CollectionPrefix) {
 			errs = append(errs, errors.New("qdrant.collection_prefix 只能使用字母、数字、下划线和连字符，且最长 64 字符"))
 		}
+	}
+	for field, value := range map[string]int{
+		"receipt_retention_days":  c.Maintenance.ReceiptRetentionDays,
+		"telegram_retention_days": c.Maintenance.TelegramRetentionDays,
+		"runtime_retention_days":  c.Maintenance.RuntimeRetentionDays,
+		"snapshot_retention_days": c.Maintenance.SnapshotRetentionDays,
+		"run_retention_days":      c.Maintenance.RunRetentionDays,
+	} {
+		if value < 1 || value > 3650 {
+			errs = append(errs, fmt.Errorf("maintenance.%s 必须在 1 到 3650 之间", field))
+		}
+	}
+	if c.Maintenance.FileBlobGraceHours < 1 || c.Maintenance.FileBlobGraceHours > 720 {
+		errs = append(errs, errors.New("maintenance.file_blob_grace_hours 必须在 1 到 720 之间"))
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":

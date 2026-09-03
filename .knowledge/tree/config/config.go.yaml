@@ -184,3 +184,14 @@ nodes:
         lines: [363, 365]
       status: fresh
       since: 2026-08-20T08:06:14.468877Z
+    - id: config/config.go#MaintenanceConfig
+      level: decl
+      anchor:
+        file: config/config.go
+        symbol: MaintenanceConfig
+        hash: sha256:a1754f30524ac3b9526ee630e40f475071d31e966d716b0217494ec07ae3983f
+        struct_hash: sha256:288421005eee7899ff83b0b36955b15d525a595443b1b53e13b6ea53e6f18e06
+        doc_struct_hash: sha256:1c55541c4633c1caf7d0eae1bbee78605d70805392c31ecb640f4d40b06ca614
+        lines: [117, 127]
+      status: fresh
+      since: 2026-08-23T12:00:46.617487Z

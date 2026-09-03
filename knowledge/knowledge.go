@@ -709,20 +709,35 @@ func (svc *Service) backfillQdrantKnowledge(ctx context.Context, batch int, afte
 // deleted. Search already re-reads PostgreSQL, so this is hygiene rather than a
 // permission boundary.
 func (svc *Service) CleanupKnowledgeIndex(ctx context.Context) error {
+	_, err := svc.CleanupKnowledgeIndexDetailed(ctx)
+	return err
+}
+
+func (svc *Service) CleanupKnowledgeIndexDetailed(ctx context.Context) (int, error) {
+	return svc.maintainKnowledgeIndex(ctx, false)
+}
+
+func (svc *Service) InspectKnowledgeIndex(ctx context.Context) (int, error) {
+	return svc.maintainKnowledgeIndex(ctx, true)
+}
+
+func (svc *Service) maintainKnowledgeIndex(ctx context.Context, dryRun bool) (int, error) {
 	if svc.semantic == nil {
-		return nil
+		return 0, nil
 	}
 	ids, err := svc.store.KnowledgeIDs(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	valid := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		ref := vectorstore.Ref{Source: semantic.SourceKnowledge, EntityID: strconv.FormatInt(id, 10)}
 		valid[ref.Key()] = true
 	}
-	_, err = svc.semantic.DeleteMissing(ctx, semantic.SourceKnowledge, valid)
-	return err
+	if dryRun {
+		return svc.semantic.CountMissing(ctx, semantic.SourceKnowledge, valid)
+	}
+	return svc.semantic.DeleteMissing(ctx, semantic.SourceKnowledge, valid)
 }
 
 // ClearLegacyKnowledgeVectors drops PostgreSQL vector payloads only when

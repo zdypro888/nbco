@@ -390,20 +390,35 @@ func messageIndexMarker(modelTag string) string {
 }
 
 func (svc *Service) CleanupMessageIndex(ctx context.Context) error {
+	_, err := svc.CleanupMessageIndexDetailed(ctx)
+	return err
+}
+
+func (svc *Service) CleanupMessageIndexDetailed(ctx context.Context) (int, error) {
+	return svc.maintainMessageIndex(ctx, false)
+}
+
+func (svc *Service) InspectMessageIndex(ctx context.Context) (int, error) {
+	return svc.maintainMessageIndex(ctx, true)
+}
+
+func (svc *Service) maintainMessageIndex(ctx context.Context, dryRun bool) (int, error) {
 	if svc.semantic == nil {
-		return nil
+		return 0, nil
 	}
 	ids, err := svc.store.SemanticMessageIDs(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	valid := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		ref := vectorstore.Ref{Source: semantic.SourceChatMessage, EntityID: strconv.FormatInt(id, 10)}
 		valid[ref.Key()] = true
 	}
-	_, err = svc.semantic.DeleteMissing(ctx, semantic.SourceChatMessage, valid)
-	return err
+	if dryRun {
+		return svc.semantic.CountMissing(ctx, semantic.SourceChatMessage, valid)
+	}
+	return svc.semantic.DeleteMissing(ctx, semantic.SourceChatMessage, valid)
 }
 
 // ClearLegacyMessageVectors drops PostgreSQL vector payloads only when Qdrant

@@ -1,0 +1,44 @@
+schema: 1
+nodes:
+    - id: store/maintenance.go
+      level: file
+      anchor:
+        file: store/maintenance.go
+        hash: sha256:ad8ef8a930835bd48b720c3d33d4c5545489df20ac0ff8b85bad8483bfae35a1
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-23T12:00:46.552816Z
+    - id: store/maintenance.go#Store.MaintainCredentials
+      level: function
+      anchor:
+        file: store/maintenance.go
+        symbol: Store.MaintainCredentials
+        hash: sha256:86883950510dc6da3d1cf9a09527f676e366eef01dc9c0561a914d7250f969c6
+        struct_hash: sha256:2d2bdb35ca5df558b19fa307f56b1ff33bacbf916152009782536566b9630d48
+        doc_struct_hash: sha256:2d2bdb35ca5df558b19fa307f56b1ff33bacbf916152009782536566b9630d48
+        lines: [16, 24]
+      status: fresh
+      since: 2026-08-23T12:00:46.552789Z
+    - id: store/maintenance.go#Store.MaintainRetainedOperationalData
+      level: function
+      anchor:
+        file: store/maintenance.go
+        symbol: Store.MaintainRetainedOperationalData
+        hash: sha256:30fd9c728155cd1bcfb31baec7af642e52fe5cea35c2b0db661eb4ba1a859b7b
+        struct_hash: sha256:5faedd219b4112708edeefbaebbb136bc72844722345da974c3b55a7783ca3d0
+        doc_struct_hash: sha256:5faedd219b4112708edeefbaebbb136bc72844722345da974c3b55a7783ca3d0
+        lines: [26, 74]
+      status: fresh
+      since: 2026-08-23T12:00:46.553692Z
+      entries:
+        - id: e_adb8dec3
+          kind: contract
+          text: Eino 私有事件/检查点只有在超过配置保留期且未被 active chat_session 或 running conversation_turn 引用时才可回收；canonical chat_messages、任务、知识、审计日志不进入该维护事务。
+          confidence: inferred
+          at: 2026-08-23T12:01:15.88566Z
+          author: codex-mcp-client
+      keywords:
+        - eino runtime retention
+        - active session protection
+        - 运行载荷回收
+        - 活跃会话保护

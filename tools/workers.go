@@ -509,7 +509,7 @@ func accessibleWorkerFiles(ctx context.Context, d Deps, u *store.User, values []
 		if seen[id] {
 			continue
 		}
-		allowed, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, id)
+		allowed, err := userCanAccessFile(ctx, d, u, id)
 		if err != nil {
 			return nil, "", err
 		}

@@ -62,6 +62,7 @@ type Orchestrator struct {
 	engine                 ai.Engine
 	deps                   tools.Deps
 	tz                     *time.Location
+	defaultModel           string
 	defaultStreamReasoning bool
 	turnTimeout            time.Duration
 
@@ -176,12 +177,17 @@ const (
 	engineAlertTimeout   = 20 * time.Second // 告警投递上限：不能反向卡住用户轮次
 )
 
-// New 创建编排器。
+// New 创建编排器。保留原有构造签名供库调用方使用；服务装配应使用
+// NewWithDefaultModel，使未覆盖模型也能被用量审计准确记录。
 func New(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, streamReasoning bool, turnTimeout time.Duration) *Orchestrator {
+	return NewWithDefaultModel(s, engine, deps, tz, "", streamReasoning, turnTimeout)
+}
+
+func NewWithDefaultModel(s *store.Store, engine ai.Engine, deps tools.Deps, tz *time.Location, defaultModel string, streamReasoning bool, turnTimeout time.Duration) *Orchestrator {
 	if turnTimeout <= 0 {
 		turnTimeout = 10 * time.Minute
 	}
-	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz, defaultStreamReasoning: streamReasoning,
+	return &Orchestrator{store: s, engine: engine, deps: deps, tz: tz, defaultModel: strings.TrimSpace(defaultModel), defaultStreamReasoning: streamReasoning,
 		turnTimeout: turnTimeout,
 		compacting:  map[int64]bool{},
 		memorySem:   make(chan struct{}, 4),
@@ -2472,12 +2478,18 @@ func (o *Orchestrator) SummarizeJSON(ctx context.Context, userID int64, kind, sy
 }
 
 func (o *Orchestrator) runtimeModel(ctx context.Context) string {
+	if o.store == nil {
+		return o.defaultModel
+	}
 	model, err := o.store.GetKV(ctx, store.KVAIModel)
 	if err != nil {
 		slog.Warn("读取运行时 AI 模型失败，使用配置默认模型", "key", store.KVAIModel, "err", err)
-		return ""
+		return o.defaultModel
 	}
-	return strings.TrimSpace(model)
+	if model = strings.TrimSpace(model); model != "" {
+		return model
+	}
+	return o.defaultModel
 }
 
 func (o *Orchestrator) streamReasoningEnabled(ctx context.Context) bool {
@@ -3214,12 +3226,12 @@ func (o *Orchestrator) recentFileContext(ctx context.Context, u *store.User) str
 	if o == nil || o.store == nil || u == nil {
 		return ""
 	}
-	fs, err := o.store.RecentFilesByUser(ctx, u.ID, 8, time.Now().Add(-24*time.Hour))
+	fs, err := o.store.RecentFilesForConversation(ctx, u.ID, "private", 8, time.Now().Add(-24*time.Hour))
 	if err != nil {
 		slog.Warn("最近上传文件加载失败，本轮跳过", "user", u.ID, "err", err)
 		return ""
 	}
-	intakes, err := o.store.RecentFileIntakesByUser(ctx, u.ID, 8, time.Now().Add(-24*time.Hour))
+	intakes, err := o.store.RecentFileIntakesForConversation(ctx, u.ID, "private", 8, time.Now().Add(-24*time.Hour))
 	if err != nil {
 		slog.Warn("最近文件接收流水加载失败，本轮跳过", "user", u.ID, "err", err)
 		return ""

@@ -68,6 +68,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Qdrant.Enabled() {
 		t.Error("未配置 qdrant.url 时不应启用 Qdrant")
 	}
+	if !cfg.Maintenance.IsEnabled() || cfg.Maintenance.ReceiptRetentionDays != 90 ||
+		cfg.Maintenance.TelegramRetentionDays != 30 || cfg.Maintenance.RuntimeRetentionDays != 30 ||
+		cfg.Maintenance.SnapshotRetentionDays != 365 || cfg.Maintenance.RunRetentionDays != 365 ||
+		cfg.Maintenance.FileBlobGraceHours != 24 {
+		t.Errorf("maintenance 默认配置异常: %+v", cfg.Maintenance)
+	}
 }
 
 func TestLoadQdrantConfig(t *testing.T) {

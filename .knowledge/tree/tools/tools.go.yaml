@@ -288,10 +288,10 @@ nodes:
       anchor:
         file: tools/tools.go
         symbol: StripGroupSensitive
-        hash: sha256:0a67d95e28c404e6ca901f4881d65fdf9ec8cb451e15052cd87fc5ce2090921c
-        struct_hash: sha256:265619eecd24f86def063ab8436909102942aef444f233dc59a45b7686357875
-        doc_struct_hash: sha256:2b936d1ee7e45f0dafdd86da512dff9e199f112a6ea91cbdb8f598bdc2a35cfc
-        lines: [488, 498]
+        hash: sha256:e78d752670bb782c9c234623981ee1ef187d9ecbf6c8731b7ad8dd93ca8fb655
+        struct_hash: sha256:33f7cb2ed1ca7163959aa1a40c4384fcf817b1e27a6b2bb5efb83f1dc57470c0
+        doc_struct_hash: sha256:a878361f5a5bea2bb0c557cf806a37102c10c3badc4684734a28cbf8c96ea1c3
+        lines: [525, 535]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/tools.go#StripApprovalRequired

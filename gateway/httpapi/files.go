@@ -23,8 +23,6 @@ import (
 const (
 	maxUploadBytes     = 200 << 20
 	maxMultipartMemory = 8 << 20
-	fileGCEvery        = 6 * time.Hour
-	fileGCGrace        = 24 * time.Hour
 )
 
 type fileJSON struct {
@@ -492,80 +490,4 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, id int64) {
 	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.OriginalName))
 	http.ServeContent(w, r, f.OriginalName, f.CreatedAt, fp)
-}
-
-func (s *Server) runFileGC(ctx context.Context) {
-	s.runFileGCPass(ctx)
-	t := time.NewTicker(fileGCEvery)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			s.runFileGCPass(ctx)
-		}
-	}
-}
-
-func (s *Server) runFileGCPass(ctx context.Context) {
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("文件存储 GC panic 已恢复；后续周期仍会继续", "panic", r)
-		}
-	}()
-	s.gcFileStore(ctx)
-}
-
-func (s *Server) gcFileStore(ctx context.Context) {
-	if err := s.collectOrphanFiles(ctx, fileGCGrace); err != nil {
-		slog.Warn("文件存储 GC 失败", "err", err)
-	}
-}
-
-func (s *Server) collectOrphanFiles(ctx context.Context, grace time.Duration) error {
-	live, err := s.store.FileStoragePaths(ctx)
-	if err != nil {
-		return err
-	}
-	root, err := filepath.Abs(s.fileStorePath)
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	rootFS, err := os.OpenRoot(root)
-	if err != nil {
-		return err
-	}
-	defer rootFS.Close()
-	cutoff := time.Now().Add(-grace)
-	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		info, err := d.Info()
-		if err != nil || info.ModTime().After(cutoff) {
-			return err
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		if strings.HasPrefix(filepath.Base(path), ".upload-") || !live[rel] {
-			if err := rootFS.Remove(rel); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
-		}
-		return nil
-	})
 }

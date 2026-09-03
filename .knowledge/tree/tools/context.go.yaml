@@ -39,3 +39,14 @@ nodes:
         - 工作事实
         - 向量回表
         - 群消息检索
+    - id: tools/context.go#userCanAccessFile
+      level: function
+      anchor:
+        file: tools/context.go
+        symbol: userCanAccessFile
+        hash: sha256:aefd4a3e162b289f1f41656c89e90ee46f325b52e5f0763025f5ce2fb2db701e
+        struct_hash: sha256:55f4deceebae4eda33feb127f42c8721d240dfec0605efc37ada554135ac5245
+        doc_struct_hash: sha256:55f4deceebae4eda33feb127f42c8721d240dfec0605efc37ada554135ac5245
+        lines: [31, 36]
+      status: fresh
+      since: 2026-09-03T17:04:42.912243Z

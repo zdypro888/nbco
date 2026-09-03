@@ -833,7 +833,27 @@ function renderOpsRoute() {
         ${opsTable()}
       </section>
 		</div>
+		${maintenanceSection()}
 		${queueSection("能力成熟度与使用", state.capabilities.length, renderCapabilityRows(), "")}`;
+}
+
+function maintenanceSection() {
+	const lifecycle = state.ops?.maintenance || {};
+	const jobs = lifecycle.jobs || [];
+	if (lifecycle.error) return `<section class="surface section"><div class="section-head"><h2>数据生命周期</h2><span class="pill red">状态不可用</span></div><div class="empty">${esc(lifecycle.error)}</div></section>`;
+	const toolbar = lifecycle.enabled
+		? `<button class="btn" data-action="inspect-maintenance">${icon("scan")}仅检查</button>
+		   <button class="btn danger" data-action="apply-maintenance">${icon("recycle")}立即维护</button>`
+		: `<span class="pill amber">未启用</span>`;
+	const rows = jobs.length ? `<table class="data-table"><thead><tr><th>维护项</th><th>数据类别</th><th>状态</th><th>上次结果</th><th>下次运行</th></tr></thead>
+		<tbody>${jobs.map(job => {
+			const report = job.last_report || {};
+			const status = job.last_status === "succeeded" ? '<span class="pill green">正常</span>'
+				: job.last_status === "failed" ? '<span class="pill red">失败</span>'
+				: job.last_status === "running" ? '<span class="pill blue">运行中</span>' : '<span class="pill">未运行</span>';
+			return `<tr><td class="td-title"><div class="title-strong">${esc(job.name)}</div><div class="subline">${esc(job.description)}</div></td><td>${esc(job.class)}</td><td>${status}${job.last_error ? `<div class="subline">${esc(truncate(job.last_error, 120))}</div>` : ""}</td><td>${Number(report.reclaimed || 0)} 条 · ${fmtBytes(report.bytes || 0)}</td><td>${fmtTime(job.next_run_at)}</td></tr>`;
+		}).join("")}</tbody></table>` : `<div class="empty">维护任务尚未完成首次注册。</div>`;
+	return `<section class="surface section"><div class="section-head"><h2>数据生命周期</h2><span class="count">${jobs.length}</span><span class="spacer"></span>${toolbar}</div>${rows}</section>`;
 }
 
 function renderCapabilityRows() {
@@ -1617,6 +1637,23 @@ async function runEvals(caseID = 0) {
 	renderApp();
 }
 
+async function runMaintenance(mode) {
+	if (mode === "apply" && !window.confirm("立即执行所有到期数据维护？业务事实与审计事实不会被自动删除。")) return;
+	try {
+		setResult(mode === "apply" ? "正在执行数据维护…" : "正在检查可回收数据…");
+		renderApp();
+		const data = await api("/api/admin/maintenance/run", { method: "POST", body: JSON.stringify({ mode }) });
+		const runs = data.runs || [];
+		const inspected = runs.reduce((sum, run) => sum + Number(run.report?.inspected || 0), 0);
+		const reclaimed = runs.reduce((sum, run) => sum + Number(run.report?.reclaimed || 0), 0);
+		setResult(mode === "apply" ? `维护完成：回收 ${reclaimed} 项。` : `检查完成：发现 ${inspected} 项可回收数据。`);
+		await loadAdminData(["ops"]);
+	} catch (err) {
+		setResult(err.message, false);
+	}
+	renderApp();
+}
+
 async function performGlobalSearch(query) {
 	query = String(query || "").trim();
 	if (!query) {
@@ -1984,6 +2021,10 @@ document.addEventListener("click", async event => {
 		await runEvals();
 	} else if (action === "run-eval") {
 		await runEvals(btn.dataset.id);
+	} else if (action === "inspect-maintenance") {
+		await runMaintenance("inspect");
+	} else if (action === "apply-maintenance") {
+		await runMaintenance("apply");
   }
 });
 

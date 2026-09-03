@@ -492,10 +492,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.tick
-        hash: sha256:61e0f2f2f6278f3de2779b52dc10ecf6c1c51e659cd9d829cdc2d0f48c605c69
-        struct_hash: sha256:6c2e70a153cec940482c38d82b546f572feb2462542021fa0321b28efeda9058
-        doc_struct_hash: sha256:6c2e70a153cec940482c38d82b546f572feb2462542021fa0321b28efeda9058
-        lines: [413, 488]
+        hash: sha256:295002b9680816c031acbb633f1f7ab5709542b70c135b8bd7a3bfca038b55be
+        struct_hash: sha256:62c42c72abc37e3aa5beba2159d22473bbfeff2cbc61f6e9b80cb3d0f362a5fa
+        doc_struct_hash: sha256:62c42c72abc37e3aa5beba2159d22473bbfeff2cbc61f6e9b80cb3d0f362a5fa
+        lines: [408, 441]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.fireSchedule

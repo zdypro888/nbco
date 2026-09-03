@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	WorkEvidenceSourceConversationFact = "conversation_fact"
+	WorkEvidenceSourceConversationFact      = "conversation_fact"
+	WorkEvidenceSourceTelegramGroupAnalysis = "telegram_group_analysis"
 
 	WorkEvidenceCommunication = "communication"
 	WorkEvidenceSummary       = "summary"
@@ -305,14 +306,19 @@ type MaterialCase struct {
 	Files       []MaterialCaseFile `json:"files"`
 }
 
-func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileIDs []int64, taskID int64, title, instruction string) error {
+func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileScope string, fileIDs []int64, taskID int64, title, instruction string) error {
 	fileIDs = uniquePositiveIDs(fileIDs)
 	if ownerID <= 0 || taskID <= 0 || len(fileIDs) == 0 {
 		return ErrConflict
 	}
+	fileScope = strings.TrimSpace(fileScope)
+	if !IsGroupChannel(fileScope) {
+		fileScope = ""
+	}
 	rows, err := tx.Query(ctx,
-		`SELECT id FROM files WHERE created_by = $1 AND id = ANY($2::bigint[]) ORDER BY id FOR UPDATE`,
-		ownerID, fileIDs)
+		`SELECT id FROM files
+		  WHERE id = ANY($2::bigint[]) AND (created_by = $1 OR ($3 <> '' AND source = $3))
+		  ORDER BY id FOR UPDATE`, ownerID, fileIDs, fileScope)
 	if err != nil {
 		return err
 	}
@@ -352,17 +358,16 @@ func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileIDs
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM material_case_files cf
 		  USING material_cases c
-		  WHERE c.id = cf.case_id AND c.owner_id = $1
+		  WHERE c.id = cf.case_id AND (c.owner_id = $1 OR ($3 <> '' AND c.source = $3))
 		    AND c.source <> 'workflow'
-		    AND c.status IN ('received','needs_input')
-		    AND cf.file_id = ANY($2)`, ownerID, fileIDs); err != nil {
+		    AND c.status IN ('received','needs_input') AND cf.file_id = ANY($2)`, ownerID, fileIDs, fileScope); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE material_cases c SET status = 'completed', completed_at = now(), updated_at = now()
-		  WHERE c.owner_id = $1 AND c.source <> 'workflow'
+		  WHERE (c.owner_id = $1 OR ($2 <> '' AND c.source = $2)) AND c.source <> 'workflow'
 		    AND c.status IN ('received','needs_input')
-		    AND NOT EXISTS (SELECT 1 FROM material_case_files cf WHERE cf.case_id = c.id)`, ownerID); err != nil {
+		    AND NOT EXISTS (SELECT 1 FROM material_case_files cf WHERE cf.case_id = c.id)`, ownerID, fileScope); err != nil {
 		return err
 	}
 	var caseID int64
@@ -379,8 +384,9 @@ func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileIDs
 	for _, fileID := range fileIDs {
 		tag, err := tx.Exec(ctx,
 			`INSERT INTO material_case_files (case_id, file_id)
-			 SELECT $1, id FROM files WHERE id = $2 AND created_by = $3
-			 ON CONFLICT DO NOTHING`, caseID, fileID, ownerID)
+			 SELECT $1, id FROM files
+			  WHERE id = $2 AND (created_by = $3 OR ($4 <> '' AND source = $4))
+			 ON CONFLICT DO NOTHING`, caseID, fileID, ownerID, fileScope)
 		if err != nil {
 			return err
 		}

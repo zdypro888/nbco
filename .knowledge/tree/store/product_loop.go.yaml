@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/product_loop.go
-        hash: sha256:48c6a1d2ebdc66d4a932c3e405d6208413dbfb28adf65d694aeb9344e06a0c0f
+        hash: sha256:750168cef2b158e47a37911e6a37eacd20bfec2c0eda8786d2704eb4155d9a12
         lines: [0, 0]
       status: undigested
       since: 2026-08-20T06:37:01.374657Z
@@ -343,10 +343,10 @@ nodes:
       anchor:
         file: store/product_loop.go
         symbol: queueMaterialFilesTx
-        hash: sha256:83abf9216846929f09e04441aad8ff41f5baa0fff4afc58ea923decc7e148c7e
-        struct_hash: sha256:f7c82449236bddedf8f78315632da4c8f1c0c0928b34213e03c7f3515fef61b8
-        doc_struct_hash: sha256:f7c82449236bddedf8f78315632da4c8f1c0c0928b34213e03c7f3515fef61b8
-        lines: [244, 333]
+        hash: sha256:45d3f1995f411795ccd65c28a6100652ffc3a80c954c2c95ec3add6ca102da33
+        struct_hash: sha256:c07bd2a89bb5ba43db65512e2348a5b680f8fbddc4e11e74a0180585f7b61b9c
+        doc_struct_hash: sha256:c07bd2a89bb5ba43db65512e2348a5b680f8fbddc4e11e74a0180585f7b61b9c
+        lines: [309, 403]
       status: fresh
       since: 2026-08-20T06:37:16.964601Z
     - id: store/product_loop.go#Store.SetMaterialTaskState

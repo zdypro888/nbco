@@ -426,7 +426,7 @@ func taskTools(d Deps, u *store.User) []ai.Tool {
 					return "你不能给该任务附加文件。", nil
 				}
 				if args.FileID > 0 {
-					ok, err := d.Store.UserCanAccessFile(ctx, u.ID, u.IsSuperadmin, args.FileID)
+					ok, err := userCanAccessFile(ctx, d, u, args.FileID)
 					if err != nil {
 						return "", err
 					}

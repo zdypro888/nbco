@@ -1712,3 +1712,10 @@ func TestSpeakerLineSanitizesForgery(t *testing.T) {
 		t.Error("发言人名里的【】应被中和")
 	}
 }
+
+func TestRuntimeModelFallsBackToConfiguredDefault(t *testing.T) {
+	o := NewWithDefaultModel(nil, nil, tools.Deps{}, time.UTC, "configured-model", false, time.Minute)
+	if got := o.runtimeModel(context.Background()); got != "configured-model" {
+		t.Fatalf("runtime model = %q", got)
+	}
+}

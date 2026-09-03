@@ -704,6 +704,20 @@ func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*
 		return nil, nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	// Acquire the task row before evaluating reviewer participation. A single
+	// UPDATE statement can wait behind ReplaceTaskParticipants while retaining
+	// its older statement snapshot, then miss the newly committed reviewer.
+	current, err := scanTask(tx.QueryRow(ctx,
+		`SELECT `+taskCols+` FROM tasks
+		  WHERE id = $1 AND status IN ('pending', 'in_progress')
+		    AND ($2::bigint = 0 OR assignee_id = $2 OR EXISTS (
+		      SELECT 1 FROM task_participants tp
+		       WHERE tp.task_id = tasks.id AND tp.user_id = $2 AND tp.role = 'collaborator'
+		    ))
+		  FOR UPDATE`, id, actorID))
+	if err != nil {
+		return nil, nil, err
+	}
 	t, err := scanTask(tx.QueryRow(ctx,
 		`UPDATE tasks SET
 				   status = `+successfulTaskCompletionStatusSQL+`,
@@ -711,19 +725,8 @@ func (s *Store) SubmitTaskBy(ctx context.Context, id, actorID int64) (*Task, []*
 				   submitted_by = CASE WHEN $2::bigint > 0 THEN $2 ELSE assignee_id END,
 				   submitted_at = now(),
 			   updated_at = now()
-			 WHERE id = $1
-			   AND status IN ('pending', 'in_progress')
-			   AND (
-			       $2::bigint = 0
-			       OR assignee_id = $2
-			       OR EXISTS (
-			           SELECT 1 FROM task_participants tp
-			            WHERE tp.task_id = tasks.id
-			              AND tp.user_id = $2
-			              AND tp.role = 'collaborator'
-			       )
-			   )
-			 RETURNING `+taskCols, id, actorID))
+			 WHERE id = $1 AND revision = $3
+			 RETURNING `+taskCols, id, actorID, current.Revision))
 	if err != nil {
 		return nil, nil, err
 	}

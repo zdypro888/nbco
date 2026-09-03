@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -26,6 +27,7 @@ import (
 	"github.com/zdypro888/nbco/gateway/httpapi"
 	"github.com/zdypro888/nbco/gateway/telegram"
 	"github.com/zdypro888/nbco/knowledge"
+	"github.com/zdypro888/nbco/maintenance"
 	"github.com/zdypro888/nbco/mcptools"
 	"github.com/zdypro888/nbco/notify"
 	"github.com/zdypro888/nbco/sched"
@@ -234,7 +236,7 @@ func run(configPath string) error {
 		return res.Text, nil
 	}
 
-	orch := chat.New(st, engine, deps, tz, cfg.AI.StreamReasoning, time.Duration(cfg.AI.TurnTimeoutMS)*time.Millisecond)
+	orch := chat.NewWithDefaultModel(st, engine, deps, tz, cfg.AI.Model, cfg.AI.StreamReasoning, time.Duration(cfg.AI.TurnTimeoutMS)*time.Millisecond)
 	go orch.RunMemoryMiner(ctx)
 
 	// AI 催办/周报/事件轮次挂在可用入口渠道上；没有 Telegram 时用 HTTP/API 会话。
@@ -255,7 +257,11 @@ func run(configPath string) error {
 		MaxCompletionTokens: cfg.AI.MaxCompletionTokens, ReasoningEffort: cfg.AI.ReasoningEffort,
 		TimeoutMS: cfg.AI.TimeoutMS,
 	}
-	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath, cfg.TelegramToken)
+	lifecycle, err := buildMaintenanceRunner(cfg, st, kb, fileIndexer)
+	if err != nil {
+		return fmt.Errorf("配置数据生命周期维护: %w", err)
+	}
+	api := httpapi.New(st, orch, deps, bus, llm, cfg.FileStorePath, cfg.WorkerDownloadPath, cfg.TelegramToken, lifecycle)
 	if err := api.EnableIHTML(); err != nil {
 		return fmt.Errorf("启用 ihtml 动态工作台: %w", err)
 	}
@@ -298,6 +304,7 @@ func run(configPath string) error {
 	errCh := make(chan error, 2)
 	go func() { errCh <- api.Serve(ctx, cfg.Listen, cfg.TLSCertFile, cfg.TLSKeyFile) }()
 	go scheduler.Run(ctx)
+	go lifecycle.Run(ctx)
 	if tg != nil {
 		go tg.Run(ctx)
 	}
@@ -309,6 +316,78 @@ func run(configPath string) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+func buildMaintenanceRunner(cfg *config.Config, st *store.Store, kb *knowledge.Service, fileIndexer *documentindex.Service) (*maintenance.Runner, error) {
+	retention := cfg.Maintenance
+	jobs := []maintenance.Job{
+		{
+			Name: "database.credentials", Class: maintenance.ClassEphemeral,
+			Description: "回收过期审批、Token 换发明文、一次性工具结果和 Worker 绑定码",
+			Interval:    10 * time.Minute, Timeout: 2 * time.Minute,
+			Run: func(ctx context.Context, now time.Time, dryRun bool) (maintenance.Result, error) {
+				result, err := st.MaintainCredentials(ctx, now, dryRun)
+				return maintenance.Result{Inspected: result.Inspected, Reclaimed: result.Reclaimed, Details: result.Details}, err
+			},
+		},
+		{
+			Name: "database.operational_retention", Class: maintenance.ClassEphemeral,
+			Description: "按状态和保留期回收终态投递、传输、快照、旧 Agent 运行载荷与维护账本",
+			Interval:    24 * time.Hour, Timeout: 10 * time.Minute,
+			Run: func(ctx context.Context, now time.Time, dryRun bool) (maintenance.Result, error) {
+				result, err := st.MaintainRetainedOperationalData(ctx, now,
+					time.Duration(retention.ReceiptRetentionDays)*24*time.Hour,
+					time.Duration(retention.TelegramRetentionDays)*24*time.Hour,
+					time.Duration(retention.RuntimeRetentionDays)*24*time.Hour,
+					time.Duration(retention.SnapshotRetentionDays)*24*time.Hour,
+					time.Duration(retention.RunRetentionDays)*24*time.Hour,
+					dryRun,
+				)
+				return maintenance.Result{Inspected: result.Inspected, Reclaimed: result.Reclaimed, Details: result.Details}, err
+			},
+		},
+		maintenance.FileBlobJob(cfg.FileStorePath,
+			time.Duration(retention.FileBlobGraceHours)*time.Hour, 6*time.Hour, st.FileStoragePaths),
+		{
+			Name: "semantic.orphan_vectors", Class: maintenance.ClassDerived,
+			Description: "按知识、聊天消息和文件分块的 PostgreSQL 稳定 ID 清单对账 Qdrant",
+			Interval:    6 * time.Hour, Timeout: 30 * time.Minute,
+			Run: func(ctx context.Context, _ time.Time, dryRun bool) (maintenance.Result, error) {
+				details := map[string]int64{}
+				var errs []error
+				var count int
+				var err error
+				if dryRun {
+					count, err = kb.InspectKnowledgeIndex(ctx)
+				} else {
+					count, err = kb.CleanupKnowledgeIndexDetailed(ctx)
+				}
+				details["knowledge"] = int64(count)
+				errs = append(errs, err)
+				if dryRun {
+					count, err = kb.InspectMessageIndex(ctx)
+				} else {
+					count, err = kb.CleanupMessageIndexDetailed(ctx)
+				}
+				details["chat_messages"] = int64(count)
+				errs = append(errs, err)
+				if dryRun {
+					count, err = fileIndexer.InspectVectorIndex(ctx)
+				} else {
+					count, err = fileIndexer.CleanupVectorIndex(ctx)
+				}
+				details["file_chunks"] = int64(count)
+				errs = append(errs, err)
+				total := details["knowledge"] + details["chat_messages"] + details["file_chunks"]
+				result := maintenance.Result{Inspected: total, Details: details}
+				if !dryRun {
+					result.Reclaimed = total
+				}
+				return result, errors.Join(errs...)
+			},
+		},
+	}
+	return maintenance.New(maintenance.NewPostgresLedger(st.Pool()), retention.IsEnabled(), jobs...)
 }
 
 // buildEngine 按配置构建 AI 引擎。中枢只走 API 引擎；CLI 只允许在 worker 端用交互式 PTY。
@@ -395,11 +474,6 @@ func backfillKnowledge(ctx context.Context, kb *knowledge.Service, reconcile boo
 			slog.Warn("知识 PostgreSQL 旧向量清理失败", "err", err)
 		}
 	}
-	if reconcile {
-		if err := kb.CleanupKnowledgeIndex(ctx); err != nil && ctx.Err() == nil {
-			slog.Warn("知识 Qdrant 孤儿索引清理失败", "err", err)
-		}
-	}
 }
 
 // backfillMessages 给存量会话消息补 embedding（情景记忆），节奏同知识回填。
@@ -440,11 +514,6 @@ func backfillMessages(ctx context.Context, kb *knowledge.Service, reconcile bool
 	if complete {
 		if err := kb.ClearLegacyMessageVectors(ctx); err != nil && ctx.Err() == nil {
 			slog.Warn("消息 PostgreSQL 旧向量清理失败", "err", err)
-		}
-	}
-	if reconcile {
-		if err := kb.CleanupMessageIndex(ctx); err != nil && ctx.Err() == nil {
-			slog.Warn("消息 Qdrant 孤儿索引清理失败", "err", err)
 		}
 	}
 }

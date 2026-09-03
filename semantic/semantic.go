@@ -541,6 +541,29 @@ func (s *Service) DeleteMissing(ctx context.Context, source string, valid map[st
 	return len(stale), nil
 }
 
+// CountMissing performs the read-only half of orphan reconciliation. It is
+// used by maintenance dry-runs and never advances the two-scan deletion guard.
+func (s *Service) CountMissing(ctx context.Context, source string, valid map[string]bool) (int, error) {
+	if !s.Enabled() {
+		return 0, nil
+	}
+	tag, dim, err := s.CurrentModel(ctx)
+	if err != nil {
+		return 0, err
+	}
+	items, err := s.vectors.List(ctx, tag, dim, source)
+	if err != nil {
+		return 0, err
+	}
+	missing := 0
+	for _, item := range items {
+		if !valid[item.Ref.Key()] {
+			missing++
+		}
+	}
+	return missing, nil
+}
+
 // SyncStructured reconciles every curated text-bearing read model. Knowledge
 // and chat messages are reconciled by the knowledge service because they carry
 // additional author/session filters.

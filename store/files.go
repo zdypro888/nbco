@@ -542,14 +542,36 @@ func (s *Store) FileByID(ctx context.Context, id int64) (*File, error) {
 // RecentFilesByUser returns recently uploaded files for a user. It is the input
 // buffer for "I just uploaded two files, now do X" style workflows.
 func (s *Store) RecentFilesByUser(ctx context.Context, userID int64, limit int, since time.Time) ([]File, error) {
+	return s.recentFiles(ctx, userID, "", false, limit, since)
+}
+
+// RecentFilesForConversation returns the file buffer visible to one live
+// conversation. Group conversations are scoped by their stable channel key;
+// private/API conversations only include non-group uploads owned by the user.
+func (s *Store) RecentFilesForConversation(ctx context.Context, userID int64, channel string, limit int, since time.Time) ([]File, error) {
+	channel = strings.TrimSpace(channel)
+	return s.recentFiles(ctx, userID, channel, IsGroupChannel(channel), limit, since)
+}
+
+func (s *Store) recentFiles(ctx context.Context, userID int64, channel string, group bool, limit int, since time.Time) ([]File, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at
+	query := `SELECT id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at
 		 FROM files
 		 WHERE created_by = $1 AND created_at >= $2
-		 ORDER BY id DESC LIMIT $3`, userID, since, limit)
+		   AND NOT (split_part(source, ':', 2) = 'group' AND split_part(source, ':', 3) <> '')
+		 ORDER BY id DESC LIMIT $3`
+	args := []any{userID, since, limit}
+	if group {
+		query = `SELECT id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at
+		 FROM files WHERE source = $1 AND created_at >= $2 ORDER BY id DESC LIMIT $3`
+		args = []any{channel, since, limit}
+	} else if channel == "" {
+		query = `SELECT id, source, original_name, mime_type, size_bytes, sha256, storage_path, created_by, created_at
+		 FROM files WHERE created_by = $1 AND created_at >= $2 ORDER BY id DESC LIMIT $3`
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +663,7 @@ func (s *Store) CompleteFileIntake(ctx context.Context, intakeID, fileID int64, 
 	if caseRef == "" {
 		caseRef = strings.TrimSpace(sourceRef)
 	}
-	if source == "telegram" {
+	if source == "telegram" || IsGroupChannel(source) {
 		if messageRef, _, ok := strings.Cut(caseRef, ":"); ok && messageRef != "" && !strings.HasPrefix(caseRef, "media-group:") {
 			caseRef = messageRef
 		}
@@ -678,13 +700,32 @@ func (s *Store) FailFileIntake(ctx context.Context, intakeID int64, code, messag
 }
 
 func (s *Store) RecentFileIntakesByUser(ctx context.Context, userID int64, limit int, since time.Time) ([]FileIntake, error) {
+	return s.recentFileIntakes(ctx, userID, "", false, limit, since)
+}
+
+func (s *Store) RecentFileIntakesForConversation(ctx context.Context, userID int64, channel string, limit int, since time.Time) ([]FileIntake, error) {
+	channel = strings.TrimSpace(channel)
+	return s.recentFileIntakes(ctx, userID, channel, IsGroupChannel(channel), limit, since)
+}
+
+func (s *Store) recentFileIntakes(ctx context.Context, userID int64, channel string, group bool, limit int, since time.Time) ([]FileIntake, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
-	rows, err := s.pool.Query(ctx,
-		`SELECT `+fileIntakeCols+` FROM file_intakes
+	query := `SELECT ` + fileIntakeCols + ` FROM file_intakes
 		 WHERE user_id = $1 AND canonical AND created_at >= $2
-		 ORDER BY id DESC LIMIT $3`, userID, since, limit)
+		   AND NOT (split_part(source, ':', 2) = 'group' AND split_part(source, ':', 3) <> '')
+		 ORDER BY id DESC LIMIT $3`
+	args := []any{userID, since, limit}
+	if group {
+		query = `SELECT ` + fileIntakeCols + ` FROM file_intakes
+		 WHERE source = $1 AND canonical AND created_at >= $2 ORDER BY id DESC LIMIT $3`
+		args = []any{channel, since, limit}
+	} else if channel == "" {
+		query = `SELECT ` + fileIntakeCols + ` FROM file_intakes
+		 WHERE user_id = $1 AND canonical AND created_at >= $2 ORDER BY id DESC LIMIT $3`
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -739,6 +780,7 @@ type MaterialTaskSpec struct {
 	OwnerID     int64
 	Title       string
 	Instruction string
+	FileScope   string
 }
 
 // CreateMaterialTaskWithWorkerRun atomically publishes the task, its worker
@@ -778,7 +820,7 @@ func (s *Store) createTaskWithFileAttachments(ctx context.Context, task *Task, f
 		}
 	}
 	if material != nil {
-		if err := queueMaterialFilesTx(ctx, tx, material.OwnerID, fileIDs, created.ID,
+		if err := queueMaterialFilesTx(ctx, tx, material.OwnerID, material.FileScope, fileIDs, created.ID,
 			material.Title, material.Instruction); err != nil {
 			return nil, err
 		}
@@ -1084,6 +1126,22 @@ func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin 
 		    SELECT 1 FROM worker_run_files rf JOIN worker_runs r ON r.id = rf.run_id
 		      WHERE rf.file_id = $1 AND (r.requested_by = $2 OR r.worker_id = $2)
 		)`, fileID, userID).Scan(&ok)
+	return ok, err
+}
+
+// UserCanAccessFileInConversation extends the normal ownership/task ACL with
+// the current shared-conversation scope. The channel value is supplied by the
+// trusted gateway, never parsed from model text.
+func (s *Store) UserCanAccessFileInConversation(ctx context.Context, userID int64, superadmin bool, fileID int64, channel string) (bool, error) {
+	ok, err := s.UserCanAccessFile(ctx, userID, superadmin, fileID)
+	if err != nil || ok {
+		return ok, err
+	}
+	channel = strings.TrimSpace(channel)
+	if !IsGroupChannel(channel) {
+		return false, nil
+	}
+	err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM files WHERE id = $1 AND source = $2)`, fileID, channel).Scan(&ok)
 	return ok, err
 }
 

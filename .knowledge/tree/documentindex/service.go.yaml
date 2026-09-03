@@ -173,3 +173,14 @@ nodes:
         lines: [200, 202]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: documentindex/service.go#Service.CleanupVectorIndex
+      level: function
+      anchor:
+        file: documentindex/service.go
+        symbol: Service.CleanupVectorIndex
+        hash: sha256:a4d190a97039ba54b9e4c7c08e50e069c4d2b1f39514f6007044ddc78a59d5b2
+        struct_hash: sha256:1c58211fb3a423355d07fd1d6535a61b59c4c1a36eeb0d50c8711834d69c699e
+        doc_struct_hash: sha256:509b5cc47c7414e349dd537f21149655148ee19669b6d40ca344c9bf010da2b8
+        lines: [169, 174]
+      status: fresh
+      since: 2026-08-23T12:00:46.595325Z

@@ -1,0 +1,56 @@
+schema: 1
+nodes:
+    - id: maintenance/maintenance.go
+      level: file
+      anchor:
+        file: maintenance/maintenance.go
+        hash: sha256:5afa6a73b680621f433c779817762cdd9dc79d65ec03eb5c704d4861655748d0
+        lines: [0, 0]
+      status: undigested
+      since: 2026-08-23T12:00:46.546461Z
+    - id: maintenance/maintenance.go#Runner.Run
+      level: function
+      anchor:
+        file: maintenance/maintenance.go
+        symbol: Runner.Run
+        hash: sha256:1dac6065551a21a8c6b64d9f29a0c26ae25b3d7c24b272a283c86d95fb0f7e20
+        struct_hash: sha256:5b66d048fa13b3aa2200065b1e2ec73d64db504455ce007c9e431e6d13fc4e58
+        doc_struct_hash: sha256:5b66d048fa13b3aa2200065b1e2ec73d64db504455ce007c9e431e6d13fc4e58
+        lines: [155, 177]
+      status: fresh
+      since: 2026-08-23T12:00:46.546308Z
+    - id: maintenance/maintenance.go#Runner.RunNow
+      level: function
+      anchor:
+        file: maintenance/maintenance.go
+        symbol: Runner.RunNow
+        hash: sha256:5d3a7acafabc65982b13f3b2f81a773f8b5f0000894757638cf98baab48412b3
+        struct_hash: sha256:aa231daf7205f7056d2e8f050ada250dd016d11e7b3bf09513083acbf604b86c
+        doc_struct_hash: sha256:aa231daf7205f7056d2e8f050ada250dd016d11e7b3bf09513083acbf604b86c
+        lines: [179, 202]
+      status: fresh
+      since: 2026-08-23T12:00:46.548582Z
+    - id: maintenance/maintenance.go#New
+      level: function
+      anchor:
+        file: maintenance/maintenance.go
+        symbol: New
+        hash: sha256:d8d83ed610f8db879608501e9e255b2945ea7dcaa2e727f511389b184f5fc752
+        struct_hash: sha256:135f76a382b44c8aea28c4043ee8972131f3d94e4d3515af9f9f6d4ce458f74b
+        doc_struct_hash: sha256:135f76a382b44c8aea28c4043ee8972131f3d94e4d3515af9f9f6d4ce458f74b
+        lines: [124, 153]
+      status: fresh
+      since: 2026-08-23T12:01:15.738747Z
+      entries:
+        - id: e_9ebf1eb3
+          kind: contract
+          text: Runner 注册即拒绝 authoritative/audit 类自动任务；自动执行面只允许 derived 或 ephemeral。领域 Job 必须给出稳定名称、正间隔和确定性 Run，不能在 Run 内按自然语言判断删除业务数据。
+          confidence: inferred
+          at: 2026-08-23T12:01:15.7424Z
+          author: codex-mcp-client
+      keywords:
+        - data lifecycle
+        - automatic cleanup policy
+        - derived ephemeral only
+        - 数据生命周期
+        - 自动清理边界

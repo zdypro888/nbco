@@ -60,6 +60,9 @@ Go 单二进制：Telegram 网关、HTTP API/MCP、AI 引擎、定时调度跑�
 | `timezone` | IANA 时区，默认 `Asia/Shanghai` |
 | `daily_summary_hour` | 每日待办推送小时（0-23），-1 关闭 |
 | `sched_ai_concurrency` | 调度器同时进行的 AI 轮次上限（催办/周报/定时 AI 推送），默认 4；防「全员问候」几百轮齐发打爆后端 |
+| `maintenance.enabled` | 统一数据生命周期维护，默认开启；关闭后只停止自动维护，不改变业务数据 |
+| `maintenance.*_retention_days` | 终态投递、Telegram 传输、Eino 运行载荷、自动化快照和维护运行记录的保留期；默认分别为 90/30/30/365/365 天 |
+| `maintenance.file_blob_grace_hours` | 孤儿 Blob 和中断上传的回收宽限，默认 24 小时；权威 `files.storage_path` 引用永不按文件名猜测删除 |
 | `mcp_servers` | 外接 MCP 工具服务列表（`name`/`url`/`headers`/`required_action`）；默认仅超管可用，可选 |
 | `ai.engine` | 仅支持 `eino`（直调 API） |
 | `ai.provider` | eino 引擎：`claude` 或 `openai`（兼容网关） |
@@ -359,6 +362,7 @@ bot 可拉进群，交互按场景收敛（命令菜单按作用域注册：私�
 - **成本计量**：每轮对话、压缩轮、worker 内置智能体的 token 用量全部落 `ai_usage` 表；超管用 `ai_usage_stats` 看今日/7天/30天总量与按人排行——每个 AI 员工花多少钱，账算得清
 - **统一语义检索**（可选）：同时配置 `ai.embed_model` 与 `qdrant.url` 后，生效知识/规则/Skill、会话中可用于上下文的全部非空聊天、用户画像、项目、任务、文件元数据与正文分块、日程、决策和资料实体统一进入 Qdrant。`query_data(source="*")` 在这些来源间做语义与词法混合召回。Qdrant 只存向量、内容哈希、类型和稳定实体 ID，不复制正文；命中后必须回 PostgreSQL 按当前身份复核行与字段权限。所有 embedding 输入与路由 payload 都在统一边界脱敏。启动和周期对账按内容哈希只补缺失/变更记录，并清理已删除或归档实体；模型名、维度或固定探针的实际输出指纹变化时自动使用新的物理 collection，避免供应方同名换模后混用不兼容向量
 - **文件正文索引**：上传请求只负责可靠落盘，后台持久队列再提取文本并按重叠窗口分块；PostgreSQL 正文提取与 Qdrant 向量写入分别记录状态和重试。TXT/CSV/JSON/源码和 DOCX/XLSX/PPTX/ODF 使用确定性提取；PDF 优先读取文本层，无文本层时受控 OCR，图片使用 `tesseract`（命令不可用时文件名和元数据仍可搜索，安装新提取器后会自动重试）。该流程限制 Office 解压规模与 OCR 页数，只建立搜索索引，不执行文件内容，也不会自动发布成知识、规则或 Skill
+- **数据生命周期维护**：过期凭证、终态传输账本、旧 Eino 私有运行载荷、孤儿 Blob 和 Qdrant 孤儿点由统一 Runner 自动处理。任务使用 PostgreSQL 跨进程租约并持久化每次检查/执行结果；控制中心支持 dry-run 和手动执行。自动任务只允许注册为 `ephemeral` 或 `derived`，业务事实 `authoritative` 与审计事实 `audit` 在框架层禁止自动删除；所有对账都基于稳定 ID、状态和配置保留期，不按名称或聊天关键词判断“垃圾”。
 - **履历统计**：`get_user_stats` 输出某人的当前负载、验收通过数、按时率——派任务前的参考，也是画像的数据原料
 
 ## 脚本工具（让 nbco 长出新工具）

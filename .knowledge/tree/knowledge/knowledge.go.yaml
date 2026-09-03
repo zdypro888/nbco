@@ -514,3 +514,14 @@ nodes:
         lines: [741, 754]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/knowledge.go#Service.CleanupKnowledgeIndexDetailed
+      level: function
+      anchor:
+        file: knowledge/knowledge.go
+        symbol: Service.CleanupKnowledgeIndexDetailed
+        hash: sha256:e0593620f2bba832b6b55ee8e7f5b68cf4e699a8bdf53f079c974dce73601d63
+        struct_hash: sha256:ab6ace8754eaede92c59a077c2514fa51bcba2fe6d173459158a3235d37d29cd
+        doc_struct_hash: sha256:ab6ace8754eaede92c59a077c2514fa51bcba2fe6d173459158a3235d37d29cd
+        lines: [716, 718]
+      status: fresh
+      since: 2026-08-23T12:00:46.592943Z

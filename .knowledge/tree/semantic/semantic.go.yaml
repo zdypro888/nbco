@@ -547,3 +547,14 @@ nodes:
         lines: [786, 796]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: semantic/semantic.go#Service.CountMissing
+      level: function
+      anchor:
+        file: semantic/semantic.go
+        symbol: Service.CountMissing
+        hash: sha256:f0a0c2f8497d1c99b431cba4a5d3e7d12c12d7693b386f9ecc8b5c3faba6475b
+        struct_hash: sha256:075a37ecfa73a5593b584f10eb63da81b29398a1109517f5b59d0334ae19021c
+        doc_struct_hash: sha256:4a98b7123f7e03e0aebcf11173e5fb3bd21886221b3190ce22ddd17eb88a96df
+        lines: [544, 565]
+      status: fresh
+      since: 2026-08-23T12:00:46.590154Z

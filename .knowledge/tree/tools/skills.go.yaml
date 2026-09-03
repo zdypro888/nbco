@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/skills.go
-        hash: sha256:2cf13f8b19d33680892aed66965ef97fd931b1004643876c1e7ad7ea4aec091f
+        hash: sha256:98ec942b43fbb63988d24478b5762e5f60b49f73a10aa63a770735002a535f61
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

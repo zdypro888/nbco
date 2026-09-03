@@ -431,6 +431,35 @@ func TestGroupMonitorLeaseHonorsOtherLiveInstance(t *testing.T) {
 	}
 }
 
+func TestGroupMonitorAnalysisKeepsOnlyTraceableFacts(t *testing.T) {
+	raw := `{"notify":true,"message":"<b>需要处理</b>","facts":[` +
+		`{"kind":"risk","title":"上线风险","content":"支付回调仍阻塞","source_message_ids":[11,12]},` +
+		`{"kind":"update","title":"伪造引用","content":"不应保存","source_message_ids":[99]},` +
+		`{"kind":"opinion","title":"无效类型","content":"不应保存","source_message_ids":[11]}]}`
+	analysis, err := parseGroupMonitorAnalysis(raw, map[int64]bool{11: true, 12: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !analysis.Decision.Notify || analysis.Decision.Message != "<b>需要处理</b>" {
+		t.Fatalf("decision = %+v", analysis.Decision)
+	}
+	if len(analysis.Facts) != 1 || analysis.Facts[0].Kind != store.WorkEvidenceRisk ||
+		!slices.Equal(analysis.Facts[0].SourceMessageIDs, []int64{11, 12}) {
+		t.Fatalf("facts = %+v", analysis.Facts)
+	}
+}
+
+func TestTelegramFileSourceUsesConversationScope(t *testing.T) {
+	private := &models.Message{Chat: models.Chat{ID: 7, Type: models.ChatTypePrivate}}
+	group := &models.Message{Chat: models.Chat{ID: -1007, Type: models.ChatTypeSupergroup}}
+	if got := telegramFileSource(private); got != Provider {
+		t.Fatalf("private source = %q", got)
+	}
+	if got := telegramFileSource(group); got != "telegram:group:-1007" {
+		t.Fatalf("group source = %q", got)
+	}
+}
+
 func TestShouldDebouncePlainTextOnly(t *testing.T) {
 	g := &Gateway{}
 	if !g.shouldDebounce(&models.Message{Text: "第一句"}, "第一句") {
@@ -945,7 +974,7 @@ func TestOnboardingMessages(t *testing.T) {
 
 func TestTelegramCloudLargeFileFailsBeforeDownload(t *testing.T) {
 	g := &Gateway{fileStorePath: t.TempDir()}
-	_, err := g.saveTelegramFile(context.Background(), 1, incomingTelegramFile{
+	_, err := g.saveTelegramFile(context.Background(), 1, Provider, incomingTelegramFile{
 		fileID: "opaque", name: "large.zip", sizeBytes: telegramCloudFileDownloadLimit + 1,
 	})
 	var intakeErr *telegramFileIntakeError

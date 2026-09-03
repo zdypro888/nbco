@@ -28,6 +28,13 @@ func interactionChannel(ctx context.Context) string {
 	return strings.TrimSpace(channel)
 }
 
+func userCanAccessFile(ctx context.Context, d Deps, u *store.User, fileID int64) (bool, error) {
+	if d.Store == nil || u == nil {
+		return false, nil
+	}
+	return d.Store.UserCanAccessFileInConversation(ctx, u.ID, u.IsSuperadmin, fileID, interactionChannel(ctx))
+}
+
 // contextTools exposes one broad retrieval primitive. Eino decides when and
 // why to search; this layer only applies channel isolation and row-level ACLs.
 func contextTools(d Deps, u *store.User) []ai.Tool {

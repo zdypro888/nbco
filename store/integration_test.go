@@ -24,8 +24,118 @@ import (
 	"time"
 
 	"github.com/zdypro888/nbco/interaction"
+	"github.com/zdypro888/nbco/maintenance"
 	"github.com/zdypro888/nbco/workerproto"
 )
+
+func TestMaintenanceLifecyclePreservesAuthoritativeRuntimeReferences(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	u := mkUser(t, s, "maintenance-runtime-owner", false)
+	session, err := s.StartSession(ctx, u.ID, "api", "eino")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetSessionEngineRef(ctx, session.ID, "active-runtime"); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().UTC().Add(-60 * 24 * time.Hour)
+	for _, id := range []string{"active-runtime", "orphan-runtime"} {
+		if _, err := s.pool.Exec(ctx, `INSERT INTO eino_session_events (session_id,event_id,kind,payload,created_at) VALUES ($1,$2,'message','{}',$3)`, id, id+"-event", old); err != nil {
+			t.Fatal(err)
+		}
+	}
+	preview, err := s.MaintainRetainedOperationalData(ctx, time.Now().UTC(), 90*24*time.Hour, 30*24*time.Hour, 30*24*time.Hour, 365*24*time.Hour, 365*24*time.Hour, true)
+	if err != nil || preview.Details["eino_session_events"] != 1 || preview.Reclaimed != 0 {
+		t.Fatalf("preview = %+v err=%v", preview, err)
+	}
+	result, err := s.MaintainRetainedOperationalData(ctx, time.Now().UTC(), 90*24*time.Hour, 30*24*time.Hour, 30*24*time.Hour, 365*24*time.Hour, 365*24*time.Hour, false)
+	if err != nil || result.Details["eino_session_events"] != 1 {
+		t.Fatalf("apply = %+v err=%v", result, err)
+	}
+	var remaining []string
+	rows, err := s.pool.Query(ctx, `SELECT session_id FROM eino_session_events ORDER BY session_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		remaining = append(remaining, id)
+	}
+	if !slices.Equal(remaining, []string{"active-runtime"}) {
+		t.Fatalf("remaining runtime sessions = %v", remaining)
+	}
+}
+
+func TestMaintenanceLedgerLeaseAndDryRunHistory(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	ledger := maintenance.NewPostgresLedger(s.pool)
+	job := maintenance.Job{
+		Name: "test.lifecycle", Class: maintenance.ClassDerived, Description: "test",
+		Interval: time.Hour, Timeout: time.Minute,
+		Run: func(context.Context, time.Time, bool) (maintenance.Result, error) { return maintenance.Result{}, nil },
+	}
+	now := time.Now().UTC()
+	if err := ledger.EnsureJobs(ctx, []maintenance.Job{job}, now); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ledger.Claim(ctx, job, "owner-a", maintenance.TriggerAutomatic, false, false, now)
+	if err != nil || claim == nil {
+		t.Fatalf("claim = %+v err=%v", claim, err)
+	}
+	if competing, err := ledger.Claim(ctx, job, "owner-b", maintenance.TriggerManual, false, true, now); err != nil || competing != nil {
+		t.Fatalf("competing claim = %+v err=%v", competing, err)
+	}
+	if err := ledger.Finish(ctx, *claim, "owner-a", false, now.Add(time.Second), maintenance.Result{Inspected: 5, Reclaimed: 5}, nil); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := ledger.Claim(ctx, job, "owner-a", maintenance.TriggerManual, true, true, now.Add(2*time.Second))
+	if err != nil || preview == nil {
+		t.Fatalf("preview claim = %+v err=%v", preview, err)
+	}
+	if err := ledger.Finish(ctx, *preview, "owner-a", true, now.Add(3*time.Second), maintenance.Result{Inspected: 9}, nil); err != nil {
+		t.Fatal(err)
+	}
+	jobs, runs, err := ledger.Status(ctx, 10)
+	if err != nil || len(jobs) != 1 || len(runs) != 2 {
+		t.Fatalf("status jobs=%+v runs=%+v err=%v", jobs, runs, err)
+	}
+	if jobs[0].LastReport.Reclaimed != 5 || jobs[0].LastStatus != "succeeded" || !runs[0].DryRun || runs[0].Report.Inspected != 9 {
+		t.Fatalf("dry-run overwrote applied state: job=%+v runs=%+v", jobs[0], runs)
+	}
+	crashed, err := ledger.Claim(ctx, job, "owner-crashed", maintenance.TriggerManual, false, true, now.Add(4*time.Second))
+	if err != nil || crashed == nil {
+		t.Fatalf("crashed claim = %+v err=%v", crashed, err)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE maintenance_jobs SET lease_until=$2 WHERE name=$1`, job.Name, now.Add(3*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := ledger.Claim(ctx, job, "owner-recovered", maintenance.TriggerAutomatic, false, true, now.Add(5*time.Second))
+	if err != nil || recovered == nil {
+		t.Fatalf("recovered claim = %+v err=%v", recovered, err)
+	}
+	if err := ledger.Finish(ctx, *recovered, "owner-recovered", false, now.Add(6*time.Second), maintenance.Result{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	_, runs, err = ledger.Status(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	crashRecovered := false
+	for _, run := range runs {
+		if run.ID == crashed.RunID && run.Status == "failed" && strings.Contains(run.Error, "lease expired") {
+			crashRecovered = true
+		}
+	}
+	if !crashRecovered {
+		t.Fatalf("abandoned run was not finalized: %+v", runs)
+	}
+}
 
 func openTestStore(t *testing.T) *Store {
 	t.Helper()
@@ -55,7 +165,9 @@ func openTestStore(t *testing.T) *Store {
 		`TRUNCATE users, projects, roles, bind_keys, audit_log, knowledge, kv_state, info_fields,
 		 ai_usage, pending_approvals, goals, automation_runs, automation_snapshots,
 		 notification_deliveries, external_action_receipts, telegram_inbound_updates,
-		 telegram_delivery_parts, domain_outbox_events RESTART IDENTITY CASCADE`); err != nil {
+		 telegram_delivery_parts, domain_outbox_events, eino_session_events, eino_checkpoints,
+		 maintenance_jobs, maintenance_runs
+		 RESTART IDENTITY CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	// TRUNCATE 会清掉迁移种入的内置数据；重放全部 seed 迁移（均幂等），
@@ -1417,7 +1529,7 @@ func TestQueueMaterialFilesKeepsUnselectedAlbumFilesPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := queueMaterialFilesTx(ctx, tx, u.ID, []int64{files[0].ID}, task.ID, task.Title, task.Description); err != nil {
+	if err := queueMaterialFilesTx(ctx, tx, u.ID, "", []int64{files[0].ID}, task.ID, task.Title, task.Description); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatal(err)
 	}
@@ -1453,7 +1565,7 @@ func TestQueueMaterialFilesKeepsUnselectedAlbumFilesPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := queueMaterialFilesTx(ctx, tx, u.ID, []int64{files[1].ID}, secondTask.ID, secondTask.Title, secondTask.Description); err != nil {
+	if err := queueMaterialFilesTx(ctx, tx, u.ID, "", []int64{files[1].ID}, secondTask.ID, secondTask.Title, secondTask.Description); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatal(err)
 	}
@@ -2719,6 +2831,100 @@ func TestFileIntakeLifecycle(t *testing.T) {
 	}
 	if got[1].Status != FileIntakeSaved || got[1].FileID == nil || *got[1].FileID != f.ID {
 		t.Fatalf("saved intake = %+v", got[1])
+	}
+}
+
+func TestConversationFileScopeSeparatesPrivateAndGroupBuffers(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner := mkUser(t, s, "file-scope-owner", false)
+	viewer := mkUser(t, s, "file-scope-viewer", false)
+	groupChannel := "telegram:group:-1004242"
+	create := func(source, suffix string) *File {
+		f, err := s.CreateFile(ctx, &File{
+			Source: source, OriginalName: suffix + ".txt", MIMEType: "text/plain",
+			SHA256: "scope-" + suffix, StoragePath: "scope/" + suffix, CreatedBy: &owner.ID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	direct := create("telegram", "direct")
+	group := create(groupChannel, "group")
+
+	privateFiles, err := s.RecentFilesForConversation(ctx, owner.ID, "telegram", 10, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(privateFiles) != 1 || privateFiles[0].ID != direct.ID {
+		t.Fatalf("private files = %+v", privateFiles)
+	}
+	groupFiles, err := s.RecentFilesForConversation(ctx, viewer.ID, groupChannel, 10, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groupFiles) != 1 || groupFiles[0].ID != group.ID {
+		t.Fatalf("group files = %+v", groupFiles)
+	}
+	if ok, err := s.UserCanAccessFileInConversation(ctx, viewer.ID, false, group.ID, groupChannel); err != nil || !ok {
+		t.Fatalf("group access = %v, %v", ok, err)
+	}
+	if ok, err := s.UserCanAccessFileInConversation(ctx, viewer.ID, false, group.ID, "telegram"); err != nil || ok {
+		t.Fatalf("private access to group file = %v, %v", ok, err)
+	}
+}
+
+func TestMaterialQueueAcceptsOnlyTheTrustedGroupFileScope(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	uploader := mkUser(t, s, "group-file-uploader", false)
+	requester := mkUser(t, s, "group-file-requester", false)
+	project := mkProject(t, s, requester.ID)
+	groupChannel := "telegram:group:-1005151"
+	file, err := s.CreateFile(ctx, &File{
+		Source: groupChannel, OriginalName: "shared.pdf", MIMEType: "application/pdf",
+		SHA256: "shared-group-scope", StoragePath: "scope/shared", CreatedBy: &uploader.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	intake, err := s.CreateFileIntake(ctx, FileIntake{
+		UserID: uploader.ID, Source: groupChannel, ExternalRef: "77:shared",
+		OriginalName: file.OriginalName, MIMEType: file.MIMEType,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CompleteFileIntake(ctx, intake.ID, file.ID, "77"); err != nil {
+		t.Fatal(err)
+	}
+	task := mkTask(t, s, project.ID, requester.ID, requester.ID, "分析群文件", nil)
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queueMaterialFilesTx(ctx, tx, requester.ID, "telegram:group:-999", []int64{file.ID}, task.ID, task.Title, "分析"); !errors.Is(err, ErrNotFound) {
+		_ = tx.Rollback(ctx)
+		t.Fatalf("wrong scope error = %v", err)
+	}
+	_ = tx.Rollback(ctx)
+
+	tx, err = s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queueMaterialFilesTx(ctx, tx, requester.ID, groupChannel, []int64{file.ID}, task.ID, task.Title, "分析"); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cases, err := s.MaterialCases(ctx, requester.ID, false, 10)
+	if err != nil || len(cases) != 1 || cases[0].TaskID == nil || *cases[0].TaskID != task.ID {
+		t.Fatalf("requester material cases = %+v, %v", cases, err)
 	}
 }
 

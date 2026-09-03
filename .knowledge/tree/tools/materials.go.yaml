@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: tools/materials.go
         symbol: startMaterialAnalysis
-        hash: sha256:20e6cd116da0b25341f0c09bd8af4e2e8cfd8f3b0378c8207c45f9e70efd4b94
-        struct_hash: sha256:62c03dc322d5cf55b73c08c2b090119962d913adcc29a4a7da742d0394fbf511
-        doc_struct_hash: sha256:62c03dc322d5cf55b73c08c2b090119962d913adcc29a4a7da742d0394fbf511
-        lines: [47, 97]
+        hash: sha256:af44f724cd757e30883fe383b812caf7994e8910811bf913d6862ec509c8366e
+        struct_hash: sha256:60d637915541c76eab5756f42bc150b63ecd8215356e967a1515de4b920fb566
+        doc_struct_hash: sha256:60d637915541c76eab5756f42bc150b63ecd8215356e967a1515de4b920fb566
+        lines: [60, 111]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/materials.go#pickMaterialWorker

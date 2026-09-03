@@ -34,6 +34,7 @@ import (
 	"github.com/zdypro888/nbco/config"
 	"github.com/zdypro888/nbco/events"
 	"github.com/zdypro888/nbco/knowledge"
+	"github.com/zdypro888/nbco/maintenance"
 	"github.com/zdypro888/nbco/mcpbridge"
 	"github.com/zdypro888/nbco/store"
 	"github.com/zdypro888/nbco/textfmt"
@@ -106,13 +107,14 @@ type Server struct {
 	ihtmlHandler           http.Handler
 	ihtmlTickets           *ihtmlTicketManager
 	ihtmlClose             func() error
+	maintenance            *maintenance.Runner
 }
 
 // New 创建 HTTP 入口。
-func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.Bus, llm LLMConfig, fileStorePath, downloadPath, telegramToken string) *Server {
+func New(s *store.Store, orch *chat.Orchestrator, deps tools.Deps, bus *events.Bus, llm LLMConfig, fileStorePath, downloadPath, telegramToken string, lifecycle *maintenance.Runner) *Server {
 	return &Server{store: s, orch: orch, deps: deps, bus: bus, llm: llm,
 		llmSem: make(chan struct{}, llmProxyConcurrency), fileStorePath: fileStorePath,
-		downloadPath: downloadPath, telegramToken: strings.TrimSpace(telegramToken)}
+		downloadPath: downloadPath, telegramToken: strings.TrimSpace(telegramToken), maintenance: lifecycle}
 }
 
 func (s *Server) brandName() string {
@@ -210,6 +212,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/approvals", s.handleAdminApprovals)
 	mux.HandleFunc("GET /api/admin/action-turns", s.handleAdminActionTurns)
 	mux.HandleFunc("GET /api/admin/ops", s.handleAdminOps)
+	mux.HandleFunc("GET /api/admin/maintenance", s.handleAdminMaintenance)
+	mux.HandleFunc("POST /api/admin/maintenance/run", s.handleAdminRunMaintenance)
 	mux.HandleFunc("GET /api/admin/capabilities", s.handleAdminCapabilities)
 	mux.HandleFunc("GET /api/admin/workflows", s.handleAdminWorkflows)
 	mux.HandleFunc("POST /api/admin/workflows/start", s.handleAdminStartWorkflow)
@@ -949,6 +953,15 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取产品健康状态失败"})
 		return
 	}
+	var maintenanceStatus any = maintenance.Status{}
+	if s.maintenance != nil {
+		status, statusErr := s.maintenance.Status(r.Context())
+		if statusErr != nil {
+			maintenanceStatus = map[string]any{"enabled": true, "error": statusErr.Error()}
+		} else {
+			maintenanceStatus = status
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version":    Version,
 		"go":         runtime.Version(),
@@ -967,7 +980,82 @@ func (s *Server) handleAdminOps(w http.ResponseWriter, r *http.Request) {
 		"learning":        map[string]any{"asset_usage_30d": assetUsage},
 		"evals":           evalStats,
 		"product_health":  productHealth,
+		"maintenance":     maintenanceStatus,
 	})
+}
+
+func (s *Server) handleAdminMaintenance(w http.ResponseWriter, r *http.Request) {
+	if s.requireSuper(w, r) == nil {
+		return
+	}
+	if s.maintenance == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "数据生命周期维护未配置"})
+		return
+	}
+	status, err := s.maintenance.Status(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取数据维护状态失败"})
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (s *Server) handleAdminRunMaintenance(w http.ResponseWriter, r *http.Request) {
+	u := s.requireSuper(w, r)
+	if u == nil {
+		return
+	}
+	if s.maintenance == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "数据生命周期维护未配置"})
+		return
+	}
+	var req struct {
+		Mode string   `json:"mode"`
+		Jobs []string `json:"jobs"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	req.Mode = strings.ToLower(strings.TrimSpace(req.Mode))
+	if req.Mode == "" {
+		req.Mode = "inspect"
+	}
+	if req.Mode != "inspect" && req.Mode != "apply" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "mode 只支持 inspect 或 apply"})
+		return
+	}
+	dryRun := req.Mode == "inspect"
+	payload, _ := json.Marshal(req)
+	actionKey := ""
+	if !dryRun {
+		requestKey, keyErr := requestIdempotencyKey(r, true)
+		if keyErr != nil {
+			writeHTTPActionClaimError(w, keyErr, nil)
+			return
+		}
+		receipt, created, claimErr := s.beginHTTPAction(r.Context(), u.ID, "maintenance:apply", payload, requestKey)
+		if claimErr != nil || !created {
+			writeHTTPActionClaimError(w, claimErr, receipt)
+			return
+		}
+		actionKey = receipt.Key
+	}
+	runs, err := s.maintenance.RunNow(r.Context(), req.Jobs, dryRun)
+	if err != nil {
+		if actionKey != "" {
+			s.failHTTPAction(r.Context(), actionKey, err)
+		}
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "数据维护未完整执行", "detail": err.Error(), "runs": runs})
+		return
+	}
+	response := map[string]any{"mode": req.Mode, "runs": runs}
+	if actionKey != "" {
+		if err := s.completeHTTPActionWithResult(r.Context(), actionKey, response); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "维护已执行，但结果状态无法确认；请刷新运维状态核对"})
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func structToMap(value any) map[string]any {
@@ -3426,16 +3514,6 @@ func (s *Server) mcpServer(r *http.Request) *mcp.Server {
 
 // Serve 启动 HTTP/HTTPS 服务并随 ctx 关停。certFile/keyFile 为空时走明文 HTTP。
 func (s *Server) Serve(ctx context.Context, addr, certFile, keyFile string) error {
-	if strings.TrimSpace(s.fileStorePath) != "" {
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					slog.Error("文件存储 GC 后台 panic 已恢复", "panic", r)
-				}
-			}()
-			s.runFileGC(ctx)
-		}()
-	}
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           s.Handler(),

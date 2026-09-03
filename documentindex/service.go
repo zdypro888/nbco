@@ -15,17 +15,14 @@ import (
 )
 
 const (
-	defaultInterval       = 15 * time.Second
-	extractTimeout        = 5 * time.Minute
-	vectorCleanupInterval = time.Hour
-	vectorCleanupRetry    = 10 * time.Minute
+	defaultInterval = 15 * time.Second
+	extractTimeout  = 5 * time.Minute
 )
 
 type Service struct {
-	store             *store.Store
-	semantic          *semantic.Service
-	root              string
-	nextVectorCleanup time.Time
+	store    *store.Store
+	semantic *semantic.Service
+	root     string
 }
 
 func New(s *store.Store, semanticService *semantic.Service, root string) *Service {
@@ -78,7 +75,6 @@ func (s *Service) runOnceSafely(ctx context.Context) {
 		s.process(ctx, job)
 	}
 	s.processVectorQueue(ctx)
-	s.cleanupVectorIndexIfDue(ctx)
 }
 
 func (s *Service) process(ctx context.Context, job store.FileContentIndexJob) {
@@ -170,27 +166,34 @@ func (s *Service) processVector(ctx context.Context, job store.FileVectorIndexJo
 		"chunks", len(job.Chunks), "vectors", report.Indexed, "model", job.VectorModel)
 }
 
-func (s *Service) cleanupVectorIndexIfDue(ctx context.Context) {
-	if s.semantic == nil || !s.semantic.Enabled() || time.Now().Before(s.nextVectorCleanup) {
-		return
+// CleanupVectorIndex removes Qdrant file-chunk points not present in the
+// authoritative PostgreSQL chunk table. The maintenance runner owns cadence,
+// retries and audit; this method owns only the domain reconciliation rule.
+func (s *Service) CleanupVectorIndex(ctx context.Context) (int, error) {
+	return s.maintainVectorIndex(ctx, false)
+}
+
+func (s *Service) InspectVectorIndex(ctx context.Context) (int, error) {
+	return s.maintainVectorIndex(ctx, true)
+}
+
+func (s *Service) maintainVectorIndex(ctx context.Context, dryRun bool) (int, error) {
+	if s == nil || s.semantic == nil || !s.semantic.Enabled() {
+		return 0, nil
 	}
 	ids, err := s.store.FileTextChunkIDs(ctx)
 	if err != nil {
-		s.nextVectorCleanup = time.Now().Add(vectorCleanupRetry)
-		slog.Warn("读取文件分块索引清单失败", "err", err)
-		return
+		return 0, err
 	}
 	valid := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		ref := vectorstore.Ref{Source: semantic.SourceFileChunk, EntityID: strconv.FormatInt(id, 10)}
 		valid[ref.Key()] = true
 	}
-	if _, err := s.semantic.DeleteMissing(ctx, semantic.SourceFileChunk, valid); err != nil {
-		s.nextVectorCleanup = time.Now().Add(vectorCleanupRetry)
-		slog.Warn("清理文件分块孤儿向量失败", "err", err)
-		return
+	if dryRun {
+		return s.semantic.CountMissing(ctx, semantic.SourceFileChunk, valid)
 	}
-	s.nextVectorCleanup = time.Now().Add(vectorCleanupInterval)
+	return s.semantic.DeleteMissing(ctx, semantic.SourceFileChunk, valid)
 }
 
 func isUnsupported(err error) bool {

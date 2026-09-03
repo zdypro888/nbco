@@ -25,7 +25,7 @@ nodes:
           text: Choose run_worker_command only when the command's own exit status completely expresses the technical result. Any goal requiring stdout interpretation, external-data verification, iterative decisions, repository initialization/modification, research, or deployment belongs to delegate_worker_agent/workflow; command outcomes remain process evidence even when exit=0.
           confidence: verified
           at: 2026-07-20T15:05:04.950375Z
-          confirmed_at: 2026-07-20T17:12:21.910036Z
+          confirmed_at: 2026-09-03T17:04:59.122403Z
           author: codex-mcp-client
       keywords:
         - run_worker_command boundary
@@ -69,10 +69,10 @@ nodes:
       anchor:
         file: tools/workers.go
         symbol: accessibleWorkerFiles
-        hash: sha256:1e1103a699e0a00453cd3bc04d74c1234d7c1267da16812cdc3914a6e1587ac9
-        struct_hash: sha256:7e1b2aff798d65f95f5d448357a701e618fdb2300a5b6812eed9e377297facd3
-        doc_struct_hash: sha256:7e1b2aff798d65f95f5d448357a701e618fdb2300a5b6812eed9e377297facd3
-        lines: [445, 466]
+        hash: sha256:bf98f84810666223f56f14da8ce00ca3478551117e2b73cf1d8f935119156e67
+        struct_hash: sha256:1efec51e1cbe4b25d6f24479f6aced101b2101d99e14ee1b7a20a8504c8e3930
+        doc_struct_hash: sha256:1efec51e1cbe4b25d6f24479f6aced101b2101d99e14ee1b7a20a8504c8e3930
+        lines: [502, 523]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/workers.go#mustOwnWorker

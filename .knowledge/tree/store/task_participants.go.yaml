@@ -225,7 +225,7 @@ nodes:
         hash: sha256:56c74b3fae3ff88b6849b6743739dbe4301c3ba8bd41463a4309ea5f1c92aa6a
         struct_hash: sha256:cff60ea782a5671771f1fbda590824dc419d079c557fb0d76f4c4172630b01c4
         doc_struct_hash: sha256:c01ae85c8b411c9d85f03968577beb624e37636e82a9ed3420cd910c5c14df3c
-        lines: [383, 419]
+        lines: [397, 433]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/task_participants.go#Store.TaskParticipants

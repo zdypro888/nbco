@@ -461,7 +461,6 @@ var groupSensitive = map[string]bool{
 	"cancel_worker_run":               true,
 	"set_worker_admin":                true,
 	"revoke_worker":                   true,
-	"analyze_company_materials":       true,
 	"start_worker_skill":              true,
 	"start_workflow":                  true,
 	"save_rule":                       true, // 群历史可被注入，规则变更回私聊做

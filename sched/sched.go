@@ -54,8 +54,6 @@ const (
 	groupDigestMessageLimit   = 240
 	profileRefreshBatchSize   = 6
 	knowledgeRefreshBatchSize = 8
-	deliveryReceiptRetention  = 90 * 24 * time.Hour
-	credentialCleanupInterval = 10 * time.Minute
 )
 
 // Scheduler 调度器。
@@ -72,9 +70,6 @@ type Scheduler struct {
 	aiPool   *pool // AI 轮次限并发（护后端网关）：催办/周报/画像/定时 AI 推送
 	sendPool *pool // 模板推送/逐人查询限并发（廉价）：每日汇总扇出
 
-	nextSnapshotCleanup   time.Time
-	nextReceiptCleanup    time.Time
-	nextCredentialCleanup time.Time
 }
 
 // New 创建调度器。aiConcurrency 是同时进行的 AI 轮次上限（<=0 取默认 4）。
@@ -434,48 +429,6 @@ func (s *Scheduler) tick(ctx context.Context) {
 		slog.Warn("清理过期自动化运行失败", "err", err)
 	} else if expired > 0 {
 		slog.Info("已结束过期自动化运行", "count", expired)
-	}
-	if !now.Before(s.nextSnapshotCleanup) {
-		if deleted, err := s.store.DeleteExpiredAutomationSnapshots(ctx, now.AddDate(-1, 0, 0)); err != nil {
-			slog.Warn("清理过期自动化快照失败", "err", err)
-		} else if deleted > 0 {
-			slog.Info("已清理过期自动化快照", "count", deleted)
-		}
-		s.nextSnapshotCleanup = now.Add(24 * time.Hour)
-	}
-	if !now.Before(s.nextReceiptCleanup) {
-		notifications, actions, workerLLMCalls, err := s.store.DeleteExpiredDeliveryReceipts(ctx, now.Add(-deliveryReceiptRetention))
-		if err != nil {
-			slog.Warn("清理过期投递账本失败", "err", err)
-		} else if notifications+actions+workerLLMCalls > 0 {
-			slog.Info("已清理过期投递账本", "notifications", notifications, "actions", actions,
-				"worker_llm_calls", workerLLMCalls)
-		}
-		outboxEvents, outboxErr := s.store.DeleteExpiredDomainOutboxEvents(ctx, now.Add(-deliveryReceiptRetention))
-		if outboxErr != nil {
-			slog.Warn("清理过期领域 outbox 事件失败", "err", outboxErr)
-		} else if outboxEvents > 0 {
-			slog.Info("已清理过期领域 outbox 事件", "count", outboxEvents)
-		}
-		s.nextReceiptCleanup = now.Add(24 * time.Hour)
-	}
-	if !now.Before(s.nextCredentialCleanup) {
-		rotations, rotationErr := s.store.DeleteExpiredAPITokenRotations(ctx, now)
-		if rotationErr != nil {
-			slog.Warn("清理过期 Access Token 换发记录失败", "err", rotationErr)
-		}
-		results, resultErr := s.store.ClearExpiredExternalActionResults(ctx, now)
-		if resultErr != nil {
-			slog.Warn("清理过期一次性工具结果失败", "err", resultErr)
-		}
-		workerCodes, workerCodeErr := s.store.DeleteExpiredWorkerBindCodes(ctx, now)
-		if workerCodeErr != nil {
-			slog.Warn("清理过期 Worker 绑定码失败", "err", workerCodeErr)
-		}
-		if rotations+results+workerCodes > 0 {
-			slog.Info("已清理过期凭证结果", "token_rotations", rotations, "tool_results", results, "worker_bind_codes", workerCodes)
-		}
-		s.nextCredentialCleanup = now.Add(credentialCleanupInterval)
 	}
 	s.deadlinePass(ctx, now)
 	s.goalDeadlinePass(ctx, now)

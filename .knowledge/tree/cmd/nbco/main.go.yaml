@@ -4,10 +4,22 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco/main.go
-        hash: sha256:60a7a15e7b0f25e03c7b760e37ad50128aeb086206cf86dc14d207c44634edab
+        hash: sha256:64ea71d35e0f083e861fd8a91f6334b069da016792659e82415b5aa83ff70d62
         lines: [0, 0]
-      status: undigested
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_5196ad49
+          kind: summary
+          text: 进程启动时先构建统一 maintenance Runner 并注入 HTTP 控制面，再与 HTTP、scheduler、Telegram 并列启动；Runner 自身以 PostgreSQL lease 持久化调度状态，模块服务不再保存清理时间。
+          confidence: inferred
+          at: 2026-08-23T12:01:46.457207Z
+          author: codex-mcp-client
+      keywords:
+        - startup orchestration
+        - maintenance runner
+        - process services
+        - 进程启动编排
     - id: cmd/nbco/main.go#version
       level: decl
       anchor:
@@ -57,10 +69,10 @@ nodes:
       anchor:
         file: cmd/nbco/main.go
         symbol: run
-        hash: sha256:68876b1dd45801142cae6cc18ebb831bd519f599b21251cb34aa4af9e9880b88
-        struct_hash: sha256:085e5f69d40ff846b769775dad14d3a41bc035c6212a7b54dc70b46ff23a13da
-        doc_struct_hash: sha256:085e5f69d40ff846b769775dad14d3a41bc035c6212a7b54dc70b46ff23a13da
-        lines: [87, 307]
+        hash: sha256:7695238b98249fd262d4e55bac0874ff196e8479dd254f7b800d0fb863405ff8
+        struct_hash: sha256:2b1f3d0e85ba04cf556b7fc8371c24c24e8d7987fdd41341f60fa604b7ebdd2b
+        doc_struct_hash: sha256:2b1f3d0e85ba04cf556b7fc8371c24c24e8d7987fdd41341f60fa604b7ebdd2b
+        lines: [89, 319]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco/main.go#buildEngine
@@ -118,3 +130,25 @@ nodes:
         lines: [399, 444]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: cmd/nbco/main.go#buildMaintenanceRunner
+      level: function
+      anchor:
+        file: cmd/nbco/main.go
+        symbol: buildMaintenanceRunner
+        hash: sha256:50cf9cc98dc473bd1a4fcf5a8ccb10f13960e562343399fc16f0b13899542db5
+        struct_hash: sha256:0dce539fdc5a7e7f65e9b8059d5f461925d9fce10619f626ed32ff2258c7ac31
+        doc_struct_hash: sha256:0dce539fdc5a7e7f65e9b8059d5f461925d9fce10619f626ed32ff2258c7ac31
+        lines: [321, 391]
+      status: fresh
+      since: 2026-08-23T12:00:46.556896Z
+      entries:
+        - id: e_fe9388e5
+          kind: summary
+          text: 全进程生命周期任务只在 buildMaintenanceRunner 集中注册；scheduler、Telegram、HTTP 文件服务和文档索引不再各自持有清理 ticker，避免重启丢状态和多实例重复执行。
+          confidence: inferred
+          at: 2026-08-23T12:01:16.023785Z
+          author: codex-mcp-client
+      keywords:
+        - maintenance registry
+        - central cleanup jobs
+        - 统一维护注册

@@ -257,6 +257,29 @@ func TestDeleteMissing(t *testing.T) {
 	}
 }
 
+func TestCountMissingIsReadOnlyAndDoesNotAdvanceDeletionGuard(t *testing.T) {
+	ctx := context.Background()
+	service := New(nil, &testEmbedder{}, newMemoryVectors())
+	docs := []Document{
+		{Ref: vectorstore.Ref{Source: "tasks", EntityID: "1"}, Content: "one"},
+		{Ref: vectorstore.Ref{Source: "tasks", EntityID: "2"}, Content: "two"},
+	}
+	if _, err := service.UpsertDocuments(ctx, docs); err != nil {
+		t.Fatal(err)
+	}
+	valid := map[string]bool{docs[0].Ref.Key(): true}
+	for range 3 {
+		missing, err := service.CountMissing(ctx, "tasks", valid)
+		if err != nil || missing != 1 {
+			t.Fatalf("dry-run missing=%d err=%v", missing, err)
+		}
+	}
+	deleted, err := service.DeleteMissing(ctx, "tasks", valid)
+	if err != nil || deleted != 0 {
+		t.Fatalf("read-only checks must not consume deletion grace: deleted=%d err=%v", deleted, err)
+	}
+}
+
 func TestStructuredSyncForcesFullOnModelChange(t *testing.T) {
 	now := time.Now()
 	farFuture := now.Add(time.Hour)

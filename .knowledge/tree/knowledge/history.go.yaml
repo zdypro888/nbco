@@ -239,3 +239,14 @@ nodes:
         lines: [449, 458]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: knowledge/history.go#Service.CleanupMessageIndexDetailed
+      level: function
+      anchor:
+        file: knowledge/history.go
+        symbol: Service.CleanupMessageIndexDetailed
+        hash: sha256:cba077f8fd944a244756fecc230185c267e5cf3198a186c390e028ffe2e6e96b
+        struct_hash: sha256:431e16acec2ae2a269f847e183c3aa409770698101cde58ff70f27696ec26c1f
+        doc_struct_hash: sha256:431e16acec2ae2a269f847e183c3aa409770698101cde58ff70f27696ec26c1f
+        lines: [397, 399]
+      status: fresh
+      since: 2026-08-23T12:00:46.594573Z

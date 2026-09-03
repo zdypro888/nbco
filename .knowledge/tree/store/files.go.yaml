@@ -558,3 +558,47 @@ nodes:
         lines: [1062, 1083]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
+    - id: store/files.go#Store.RecentFilesForConversation
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: Store.RecentFilesForConversation
+        hash: sha256:a44af6a1234d91ba4e23d40c248960ab7426138a9c5427f753389490c75ce2aa
+        struct_hash: sha256:733007702a98cc453edf3a549f3bbb6a210f6863c0f16bc92cc86552a39b5d80
+        doc_struct_hash: sha256:55b1dbda506b831acb7b971df9ffe266eebf578c2701203ef462afda016c0f84
+        lines: [548, 554]
+      status: fresh
+      since: 2026-09-03T17:04:42.902863Z
+    - id: store/files.go#Store.RecentFileIntakesForConversation
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: Store.RecentFileIntakesForConversation
+        hash: sha256:c6ff47ceec24d712ecb3ca750c73e78e64bc9644dd5649f794daad22545f8b0b
+        struct_hash: sha256:de10963c9d9f972b665005bb9a21d337b674ddbd9c75d709cd23dcbbfd5398d5
+        doc_struct_hash: sha256:de10963c9d9f972b665005bb9a21d337b674ddbd9c75d709cd23dcbbfd5398d5
+        lines: [706, 709]
+      status: fresh
+      since: 2026-09-03T17:04:42.906191Z
+    - id: store/files.go#Store.UserCanAccessFileInConversation
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: Store.UserCanAccessFileInConversation
+        hash: sha256:ba261d8af64af4ee9be256759b35499bd34ff19253f5554822f2ee9f994f1429
+        struct_hash: sha256:cf334c68451b2875b176e7d59a245a714c5a9203ea7a420efa2ea537d09bcb39
+        doc_struct_hash: sha256:ce0a3c5afaef867da40952fe743bff80fdcac3a551e3b97ec454f8dc6d019d49
+        lines: [1132, 1146]
+      status: fresh
+      since: 2026-09-03T17:04:42.909576Z
+      entries:
+        - id: e_5555df87
+          kind: contract
+          text: 群文件共享权限只由网关写入的稳定 group channel source 与 tools.WithInteractionChannel 的可信运行时上下文扩展；模型正文、群名和文件名都不能形成文件作用域。私聊最近文件缓冲必须排除 group source。
+          confidence: inferred
+          at: 2026-09-03T17:05:24.853947Z
+          author: codex-mcp-client
+      keywords:
+        - group file scope
+        - conversation acl
+        - private file isolation
