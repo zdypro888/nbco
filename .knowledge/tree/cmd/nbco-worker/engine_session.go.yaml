@@ -200,10 +200,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/engine_session.go
         symbol: latestEngineSessionRef
-        hash: sha256:6a6c1088477989ab0c6781e4a4835fff24ac6e6461d104c90b38ede6f21e3393
-        struct_hash: sha256:65c5aa32cbc5881fd6663ec3bb319721c390d45dc48e311f05fc487df1403f52
-        doc_struct_hash: sha256:65c5aa32cbc5881fd6663ec3bb319721c390d45dc48e311f05fc487df1403f52
-        lines: [299, 312]
+        hash: sha256:dd30f125308e095d2c36f1994f50407c869adac60ff574308f046ac3df19f2f4
+        struct_hash: sha256:86ce2c811b4b635543362e0dcf9ec2b48df01b8c6840e804a31c3a67e5ccab73
+        doc_struct_hash: sha256:86ce2c811b4b635543362e0dcf9ec2b48df01b8c6840e804a31c3a67e5ccab73
+        lines: [343, 360]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: cmd/nbco-worker/engine_session.go#sessionMeta

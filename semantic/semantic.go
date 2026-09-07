@@ -408,7 +408,20 @@ func (s *Service) embedBatchResilient(ctx context.Context, batch []Document, dim
 		}
 	}
 	if succeeded == 0 {
-		return out, failures, fmt.Errorf("embedding 批次及所有单条重试均失败: %w", batchErr)
+		// A full batch can consist of rejected inputs. Verify service health
+		// independently before stopping the scan; cached model metadata cannot
+		// distinguish bad content from an outage that just began.
+		probe, probeErr := s.embedBulk(ctx, []string{"nbco semantic index"})
+		if probeErr == nil {
+			if len(probe) != 1 || len(probe[0]) != dim {
+				probeErr = fmt.Errorf("embedding 探测返回维度/数量无效")
+			} else {
+				probeErr = validateVector(probe[0])
+			}
+		}
+		if probeErr != nil {
+			return out, failures, fmt.Errorf("embedding 批次失败且服务探测失败: %w", errors.Join(batchErr, probeErr))
+		}
 	}
 	return out, failures, nil
 }

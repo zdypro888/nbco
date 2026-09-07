@@ -778,6 +778,7 @@ func TestSafeScopePathAvoidsLossyNameCollisions(t *testing.T) {
 func TestLatestEngineSessionRefCodex(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
 	dir := t.TempDir()
 	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
 	root := filepath.Join(home, ".codex", "sessions", "2026", "07", "08")
@@ -795,6 +796,25 @@ func TestLatestEngineSessionRefCodex(t *testing.T) {
 	}
 	if got != ref {
 		t.Fatalf("codex session ref = %q, want %q", got, ref)
+	}
+}
+
+func TestLatestEngineSessionRefUsesConfiguredCodexHome(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CODEX_HOME", root)
+	dir := t.TempDir()
+	ref := "019f2c09-8ec0-7b91-a9bc-f7b95138ef3f"
+	sessions := filepath.Join(root, "sessions")
+	if err := os.MkdirAll(sessions, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"type":"session_meta","payload":{"id":%q,"cwd":%q}}`, ref, dir)
+	if err := os.WriteFile(filepath.Join(sessions, "rollout.jsonl"), []byte(body+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := latestEngineSessionRef("codex", dir, time.Now().Add(-time.Minute))
+	if err != nil || got != ref {
+		t.Fatalf("configured session root ignored: got=%q err=%v", got, err)
 	}
 }
 

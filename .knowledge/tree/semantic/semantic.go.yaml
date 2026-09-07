@@ -299,10 +299,10 @@ nodes:
       anchor:
         file: semantic/semantic.go
         symbol: Service.embedBatchResilient
-        hash: sha256:cdb6a97b24a17baafb27ded5d8137e77f0b6271dce30c30a700d3dc4b3302a01
-        struct_hash: sha256:f3fba2d41ced62c8444e2b0e50b5ebb21f4b41ee1c2234f921f762d2233b9b34
-        doc_struct_hash: sha256:f3fba2d41ced62c8444e2b0e50b5ebb21f4b41ee1c2234f921f762d2233b9b34
-        lines: [355, 413]
+        hash: sha256:ae44c4527759d45b09fd56d3c7c95ea7b5cbd2d61019c45a3ea26a51e201c216
+        struct_hash: sha256:6178167fd9700ec16d6930583c7404f5a68804c396b171af6aa96c70b77d2ee6
+        doc_struct_hash: sha256:6178167fd9700ec16d6930583c7404f5a68804c396b171af6aa96c70b77d2ee6
+        lines: [356, 427]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: semantic/semantic.go#sanitizePayload

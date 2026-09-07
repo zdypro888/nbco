@@ -1101,31 +1101,45 @@ func (s *Store) TaskArtifacts(ctx context.Context, taskID int64) ([]Artifact, er
 
 // UserCanAccessFile 判断普通用户是否能下载文件。
 func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin bool, fileID int64) (bool, error) {
+	return userCanAccessFileInScope(ctx, s.pool, userID, superadmin, fileID, "", 0)
+}
+
+type fileAccessQueryer interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func userCanAccessFileInScope(ctx context.Context, q fileAccessQueryer, userID int64, superadmin bool, fileID int64, channel string, excludeTaskID int64) (bool, error) {
 	if superadmin {
 		return true, nil
 	}
+	channel = strings.TrimSpace(channel)
+	if !IsGroupChannel(channel) {
+		channel = ""
+	}
 	var ok bool
-	err := s.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`SELECT EXISTS(
 		    SELECT 1 FROM files WHERE id = $1 AND created_by = $2
 		    UNION ALL
+		    SELECT 1 FROM files WHERE id=$1 AND $3<>'' AND source=$3
+		    UNION ALL
 		    SELECT 1 FROM task_attachments a JOIN tasks t ON t.id = a.task_id
-		      WHERE a.file_id = $1 AND (
+		      WHERE a.file_id = $1 AND t.id <> $4 AND (
 		        t.assigner_id = $2 OR t.assignee_id = $2 OR EXISTS (
 		          SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $2
 		        )
 		      )
 		    UNION ALL
 		    SELECT 1 FROM task_artifacts a JOIN tasks t ON t.id = a.task_id
-		      WHERE a.file_id = $1 AND (
+		      WHERE a.file_id = $1 AND t.id <> $4 AND (
 		        t.assigner_id = $2 OR t.assignee_id = $2 OR EXISTS (
 		          SELECT 1 FROM task_participants tp WHERE tp.task_id = t.id AND tp.user_id = $2
 		        )
 		      )
 		    UNION ALL
 		    SELECT 1 FROM worker_run_files rf JOIN worker_runs r ON r.id = rf.run_id
-		      WHERE rf.file_id = $1 AND (r.requested_by = $2 OR r.worker_id = $2)
-		)`, fileID, userID).Scan(&ok)
+		      WHERE rf.file_id = $1 AND r.task_id IS DISTINCT FROM $4 AND (r.requested_by = $2 OR r.worker_id = $2)
+		)`, fileID, userID, channel, excludeTaskID).Scan(&ok)
 	return ok, err
 }
 
@@ -1133,16 +1147,7 @@ func (s *Store) UserCanAccessFile(ctx context.Context, userID int64, superadmin 
 // the current shared-conversation scope. The channel value is supplied by the
 // trusted gateway, never parsed from model text.
 func (s *Store) UserCanAccessFileInConversation(ctx context.Context, userID int64, superadmin bool, fileID int64, channel string) (bool, error) {
-	ok, err := s.UserCanAccessFile(ctx, userID, superadmin, fileID)
-	if err != nil || ok {
-		return ok, err
-	}
-	channel = strings.TrimSpace(channel)
-	if !IsGroupChannel(channel) {
-		return false, nil
-	}
-	err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM files WHERE id = $1 AND source = $2)`, fileID, channel).Scan(&ok)
-	return ok, err
+	return userCanAccessFileInScope(ctx, s.pool, userID, superadmin, fileID, channel, 0)
 }
 
 // WorkerCanDownloadFile accepts run-specific input/artifacts and, for linked

@@ -211,10 +211,10 @@ nodes:
       anchor:
         file: store/product_loop.go
         symbol: upsertWorkEvidence
-        hash: sha256:7efc51b5008520c455b2e33eb6741d1eb6b976f0a9b8c8356f84dcf110ef5046
-        struct_hash: sha256:173e5d03fd20d1985cc217910d0a30c758937e3c4a7d8f534609dba442eaa9b8
-        doc_struct_hash: sha256:173e5d03fd20d1985cc217910d0a30c758937e3c4a7d8f534609dba442eaa9b8
-        lines: [132, 161]
+        hash: sha256:5d23bedae7e1a17520dbd4f68d7244a64daf9a27356adb652f17d57dff7ab7e4
+        struct_hash: sha256:1dcb4fa953217da4f77f32fa5aaf6ae7d91b165abb5bb73d68528579ee56df9c
+        doc_struct_hash: sha256:1dcb4fa953217da4f77f32fa5aaf6ae7d91b165abb5bb73d68528579ee56df9c
+        lines: [148, 213]
       status: undigested
       since: 2026-08-20T06:41:03.169207Z
     - id: store/product_loop.go#WorkEvidenceStats
@@ -343,12 +343,19 @@ nodes:
       anchor:
         file: store/product_loop.go
         symbol: queueMaterialFilesTx
-        hash: sha256:45d3f1995f411795ccd65c28a6100652ffc3a80c954c2c95ec3add6ca102da33
-        struct_hash: sha256:c07bd2a89bb5ba43db65512e2348a5b680f8fbddc4e11e74a0180585f7b61b9c
-        doc_struct_hash: sha256:c07bd2a89bb5ba43db65512e2348a5b680f8fbddc4e11e74a0180585f7b61b9c
-        lines: [309, 403]
+        hash: sha256:b4b22e4b1954e519ef866e090c658eb063a91ba569d86d261594e9c477f8ee6e
+        struct_hash: sha256:1785903d91097eeb1c818b7ca15d7801aa420efe8e59e87a13b557dcd97bf6c5
+        doc_struct_hash: sha256:1785903d91097eeb1c818b7ca15d7801aa420efe8e59e87a13b557dcd97bf6c5
+        lines: [328, 435]
       status: fresh
       since: 2026-08-20T06:37:16.964601Z
+      entries:
+        - id: e_9f12eed1
+          kind: contract
+          text: 材料工作流在createTaskTx之后才调用入队校验，新任务附件已在同事务内可见。因此材料ACL必须排除本次taskID及其worker_run_files，不能让刚创建的关联为自身输入授权；既有其他任务/运行关联仍可授予访问。
+          confidence: inferred
+          at: 2026-09-07T04:27:09.37908Z
+          author: codex-mcp-client
     - id: store/product_loop.go#Store.SetMaterialTaskState
       level: function
       anchor:

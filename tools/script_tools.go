@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -252,6 +253,15 @@ func dynamicScriptTools(ctx context.Context, d Deps, u *store.User, grants []sto
 		}
 		script := *st
 		toolDef := tool(script.Name, script.Description, schema, func(ctx context.Context, raw json.RawMessage) (string, error) {
+			current, err := d.Store.ScriptToolByID(ctx, script.ID)
+			if err != nil {
+				return "", err
+			}
+			if !current.Enabled || !current.LastTestOK || current.TestedSourceHash != store.ScriptToolSourceHash(current.Source) ||
+				current.Name != script.Name || current.Source != script.Source || current.RequiredAction != script.RequiredAction ||
+				current.Runtime != script.Runtime || !bytes.Equal(current.InputSchema, script.InputSchema) {
+				return "", errors.New("脚本工具已停用或定义已变更，请重新加载工具")
+			}
 			const timeout = 2 * time.Minute
 			runCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
@@ -365,7 +375,14 @@ func scriptBuiltins(ctx context.Context, d Deps, u *store.User, grants []store.G
 				}
 				if d.Store != nil {
 					t = withAudit(d.Store, u.ID, nil,
-						withCurrentPermission(d.Store, u, withApproval(d.Store, u.ID, t)))
+						withCurrentPermission(d.Store, u, withInvocationIdempotency(d.Store, u.ID, withApproval(d.Store, u.ID, t))))
+				}
+				inner := t.Handler
+				t.Handler = func(callCtx context.Context, args json.RawMessage) (string, error) {
+					if parent := ai.ToolInvocationKey(callCtx); parent != "" {
+						callCtx = ai.WithToolInvocationKey(callCtx, parent+":nested:"+canonicalArgsHash(args))
+					}
+					return inner(callCtx, args)
 				}
 				t = withArgumentNormalization(t)
 				out, err := t.Handler(ctx, raw)

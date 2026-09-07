@@ -79,8 +79,17 @@ type lifecycleQuery struct {
 	args         []any
 }
 
-func (s *Store) runLifecycleQueries(ctx context.Context, dryRun bool, queries []lifecycleQuery, defaultArgs ...any) (LifecycleResult, error) {
-	result := LifecycleResult{Details: make(map[string]int64, len(queries))}
+func (s *Store) runLifecycleQueries(ctx context.Context, dryRun bool, queries []lifecycleQuery, defaultArgs ...any) (result LifecycleResult, err error) {
+	result = LifecycleResult{Details: make(map[string]int64, len(queries))}
+	defer func() {
+		if err != nil && !dryRun {
+			// A later statement or COMMIT can roll back all earlier mutations.
+			result.Reclaimed = 0
+			for name := range result.Details {
+				result.Details[name] = 0
+			}
+		}
+	}()
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return result, err

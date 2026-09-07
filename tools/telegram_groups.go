@@ -324,6 +324,20 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 				}
 				_, err = d.Store.UpdateTelegramGroupMonitor(ctx, g.ChatID, func(mon *store.TelegramGroupMonitor) error {
 					wasEnabled := mon.Enabled
+					if !args.Enabled || !wasEnabled || mon.NotifyUserID != u.ID || mon.GroupTitle != telegramGroupTitle(*g) ||
+						(strings.TrimSpace(args.Instruction) != "" && mon.Instruction != strings.TrimSpace(args.Instruction)) {
+						mon.BatchThrough = time.Time{}
+						mon.BatchLastMessageID = 0
+						mon.BatchResult = nil
+						mon.BatchProjectID = nil
+						if args.Enabled && wasEnabled && !mon.AnalysisThrough.IsZero() {
+							mon.PendingCount = max(mon.PendingCount, 1)
+							mon.BatchStartedAt = now
+						}
+						mon.AnalysisOwner = ""
+						mon.AnalysisStartedAt = time.Time{}
+						mon.AnalysisThrough = time.Time{}
+					}
 					mon.Enabled = args.Enabled
 					mon.GroupTitle = telegramGroupTitle(*g)
 					mon.NotifyUserID = u.ID
@@ -342,6 +356,7 @@ func telegramGroupTools(d Deps, u *store.User) []ai.Tool {
 						mon.Buffer = nil
 					} else if !wasEnabled {
 						mon.LastCheckedAt = now
+						mon.LastMessageID = 0
 						mon.BatchStartedAt = time.Time{}
 						mon.PendingCount = 0
 						mon.AnalysisOwner = ""

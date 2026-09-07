@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: tools/telegram_groups.go
         symbol: telegramGroupTools
-        hash: sha256:858f6cb98c7aebc1daa665e3eb11b45a093a71e8f1be535fb144eea8c06ac31a
-        struct_hash: sha256:ebb8dcf671d2e2e5e378749e0f61e093b9e3442bff625fb9c0bc1c84643f9dfb
-        doc_struct_hash: sha256:d5bb14ae7ae16a612d70c3cccc7c151ac2c0df345a89e2ad6ea88819315b7819
-        lines: [21, 653]
+        hash: sha256:051584a610a43c3b5eaf1ce58e39e8291bd4ab9bb55ffe1e3c6cca007ff072bc
+        struct_hash: sha256:dc656377950b163b2edcbd3d75c57131571d96640f6748e0302b66d5cc7608e7
+        doc_struct_hash: sha256:8c5ac1c20768f8660a6a4cab0df1533f19ea7c36c82be40a3623807d761c3de9
+        lines: [21, 661]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: tools/telegram_groups.go#telegramGroupPermissionTarget

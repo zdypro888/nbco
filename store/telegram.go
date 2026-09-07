@@ -66,23 +66,28 @@ type TelegramPendingEmployeeInvite struct {
 // TelegramGroupMonitor 保存群事件监控配置、持久批次游标和分析租约。
 // Buffer 仅为兼容旧数据保留，新消息正文统一从群共享事实流读取。
 type TelegramGroupMonitor struct {
-	ChatID            int64     `json:"chat_id"`
-	Enabled           bool      `json:"enabled"`
-	GroupTitle        string    `json:"group_title,omitempty"`
-	Instruction       string    `json:"instruction,omitempty"`
-	NotifyUserID      int64     `json:"notify_user_id"`
-	CreatedBy         int64     `json:"created_by"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
-	LastCheckedAt     time.Time `json:"last_checked_at,omitempty"`
-	LastNotifiedAt    time.Time `json:"last_notified_at,omitempty"`
-	BatchStartedAt    time.Time `json:"batch_started_at,omitempty"`
-	PendingCount      int       `json:"pending_count,omitempty"`
-	AnalysisOwner     string    `json:"analysis_owner,omitempty"`
-	AnalysisStartedAt time.Time `json:"analysis_started_at,omitempty"`
-	AnalysisThrough   time.Time `json:"analysis_through,omitempty"`
-	AnalysisFailures  int       `json:"analysis_failures,omitempty"`
-	Buffer            []string  `json:"buffer,omitempty"`
+	ChatID             int64           `json:"chat_id"`
+	Enabled            bool            `json:"enabled"`
+	GroupTitle         string          `json:"group_title,omitempty"`
+	Instruction        string          `json:"instruction,omitempty"`
+	NotifyUserID       int64           `json:"notify_user_id"`
+	CreatedBy          int64           `json:"created_by"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+	LastCheckedAt      time.Time       `json:"last_checked_at,omitempty"`
+	LastMessageID      int64           `json:"last_message_id,omitempty"`
+	BatchThrough       time.Time       `json:"batch_through,omitempty"`
+	BatchLastMessageID int64           `json:"batch_last_message_id,omitempty"`
+	BatchResult        json.RawMessage `json:"batch_result,omitempty"`
+	BatchProjectID     *int64          `json:"batch_project_id,omitempty"`
+	LastNotifiedAt     time.Time       `json:"last_notified_at,omitempty"`
+	BatchStartedAt     time.Time       `json:"batch_started_at,omitempty"`
+	PendingCount       int             `json:"pending_count,omitempty"`
+	AnalysisOwner      string          `json:"analysis_owner,omitempty"`
+	AnalysisStartedAt  time.Time       `json:"analysis_started_at,omitempty"`
+	AnalysisThrough    time.Time       `json:"analysis_through,omitempty"`
+	AnalysisFailures   int             `json:"analysis_failures,omitempty"`
+	Buffer             []string        `json:"buffer,omitempty"`
 }
 
 func telegramGroupKey(chatID int64) string {

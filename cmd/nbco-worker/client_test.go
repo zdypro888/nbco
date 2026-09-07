@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -268,6 +269,21 @@ func TestClientHeartbeatReportsLostLease(t *testing.T) {
 	err := newClient(srv.URL, "tok-worker-a").Heartbeat(context.Background(), 42, "claim-1")
 	if !errors.Is(err, errWorkerLeaseLost) {
 		t.Fatalf("heartbeat error = %v, want errWorkerLeaseLost", err)
+	}
+}
+
+func TestClientHeartbeatDistinguishesRevocationFromTransientFailure(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict, http.StatusInternalServerError, http.StatusBadGateway} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "heartbeat rejected", status)
+			}))
+			defer srv.Close()
+			err := newClient(srv.URL, "tok-worker").Heartbeat(t.Context(), 1, "claim")
+			if errors.Is(err, errWorkerLeaseLost) != (status < 500) {
+				t.Fatalf("status=%d error=%v", status, err)
+			}
+		})
 	}
 }
 

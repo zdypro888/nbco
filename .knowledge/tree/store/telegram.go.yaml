@@ -156,10 +156,10 @@ nodes:
       anchor:
         file: store/telegram.go
         symbol: TelegramGroupMonitor
-        hash: sha256:879b35ee2d3da12f2a6648948f2bc930f8eea32bcfe143f6bbe3ed9b3170852c
-        struct_hash: sha256:4184850cb4518137108b83744446a621962fc11855de11c67751cc164419029b
-        doc_struct_hash: sha256:cadbdda1d278ce55e5df8cd2f49d7dc1a1f3828b4f82ef7d700743727596a2f0
-        lines: [66, 86]
+        hash: sha256:35e2beeb12f6323261e88c68de4e15abadbab79e75ebd3d974f2220bec47f720
+        struct_hash: sha256:2b7c32458ae75e3b269a12818eb29998382f3ad47c2f29ab9e0623ffd8425968
+        doc_struct_hash: sha256:dc4b4504e3499b19c4d42719296f5021c390c2d95fb8872fb38174dcaa8b2656
+        lines: [66, 91]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/telegram.go#telegramGroupKey

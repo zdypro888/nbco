@@ -347,7 +347,11 @@ func latestEngineSessionRef(engine, dir string, since time.Time) (string, error)
 	}
 	switch strings.ToLower(strings.TrimSpace(engine)) {
 	case "codex":
-		return latestJSONLSessionRef(filepath.Join(home, ".codex", "sessions"), dir, since, parseCodexSessionLine)
+		codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+		if codexHome == "" {
+			codexHome = filepath.Join(home, ".codex")
+		}
+		return latestJSONLSessionRef(filepath.Join(codexHome, "sessions"), dir, since, parseCodexSessionLine)
 	case "claude":
 		return latestJSONLSessionRef(filepath.Join(home, ".claude", "projects"), dir, since, parseClaudeSessionLine)
 	default:

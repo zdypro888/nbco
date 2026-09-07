@@ -244,10 +244,10 @@ nodes:
       anchor:
         file: cmd/nbco-worker/client.go
         symbol: Client.Heartbeat
-        hash: sha256:2bc349827033a7d246f858e135a43fae867478af6aedbcf33cf1045446dab5f0
-        struct_hash: sha256:e76f6aaede474dfe65991e023b37f9292b4e63f51bc1f09fdec3a6b96c71a274
-        doc_struct_hash: sha256:e76f6aaede474dfe65991e023b37f9292b4e63f51bc1f09fdec3a6b96c71a274
-        lines: [260, 267]
+        hash: sha256:75ec079f1fd30de932607ab9a5a4c8d43233f287ee6b0895d6397c3f1d2ce498
+        struct_hash: sha256:8e5598125ceeaed49b3b82e173d710a66fa4499dce245fdd2ab117ae0f0e2f52
+        doc_struct_hash: sha256:8e5598125ceeaed49b3b82e173d710a66fa4499dce245fdd2ab117ae0f0e2f52
+        lines: [413, 423]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: cmd/nbco-worker/client.go#Client.UpdateSession

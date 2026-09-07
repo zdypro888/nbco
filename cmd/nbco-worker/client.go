@@ -413,8 +413,11 @@ func (c *Client) Progress(ctx context.Context, runID int64, claimID, content str
 func (c *Client) Heartbeat(ctx context.Context, runID int64, claimID string) error {
 	err := c.post(ctx, "/api/worker/heartbeat", map[string]any{"run_id": runID, "claim_id": claimID})
 	var statusErr *httpStatusError
-	if errors.As(err, &statusErr) && statusErr.Code == http.StatusConflict {
-		return errWorkerLeaseLost
+	if errors.As(err, &statusErr) {
+		switch statusErr.Code {
+		case http.StatusConflict, http.StatusUnauthorized, http.StatusForbidden:
+			return fmt.Errorf("%w: %v", errWorkerLeaseLost, err)
+		}
 	}
 	return err
 }

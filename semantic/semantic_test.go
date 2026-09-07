@@ -3,6 +3,7 @@ package semantic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -222,6 +223,46 @@ func TestUpsertDocumentsIsolatesRejectedInput(t *testing.T) {
 	}
 	if len(vectors.points) != 2 {
 		t.Fatalf("points = %+v", vectors.points)
+	}
+}
+
+func TestUpsertDocumentsContinuesAfterEntireRejectedBatch(t *testing.T) {
+	service := New(nil, &poisonEmbedder{}, newMemoryVectors())
+	docs := make([]Document, embedBatchSize+1)
+	for i := range docs {
+		docs[i] = Document{Ref: vectorstore.Ref{Source: "tasks", EntityID: fmt.Sprint(i)}, Content: "POISON"}
+	}
+	docs[embedBatchSize].Content = "healthy document after rejected batch"
+	report, err := service.UpsertDocumentsDetailed(t.Context(), docs)
+	if err != nil || report.Indexed != 1 || len(report.Failed) != embedBatchSize || !report.Succeeded[docs[embedBatchSize].Ref.Key()] {
+		t.Fatalf("healthy document was blocked by rejected batch: report=%+v err=%v", report, err)
+	}
+}
+
+type outageEmbedder struct{ calls int }
+
+func (*outageEmbedder) Model() string { return "outage-test" }
+func (e *outageEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	e.calls++
+	if e.calls == 1 {
+		return [][]float32{{1, 1}}, nil
+	}
+	return nil, errors.New("provider unavailable")
+}
+
+func TestUpsertDocumentsStopsWhenRejectedBatchProbeAlsoFails(t *testing.T) {
+	embedder := &outageEmbedder{}
+	service := New(nil, embedder, newMemoryVectors())
+	docs := make([]Document, embedBatchSize+1)
+	for i := range docs {
+		docs[i] = Document{Ref: vectorstore.Ref{Source: "tasks", EntityID: fmt.Sprint(i)}, Content: "valid content"}
+	}
+	report, err := service.UpsertDocumentsDetailed(t.Context(), docs)
+	if err == nil || report.Indexed != 0 || len(report.Failed) != embedBatchSize {
+		t.Fatalf("outage must stop scanning: report=%+v err=%v", report, err)
+	}
+	if embedder.calls != embedBatchSize+3 {
+		t.Fatalf("unexpected requests after service outage: %d", embedder.calls)
 	}
 }
 

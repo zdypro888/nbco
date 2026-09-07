@@ -703,3 +703,14 @@ nodes:
         lines: [850, 856]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: store/chat.go#Store.ChannelMessagesForward
+      level: function
+      anchor:
+        file: store/chat.go
+        symbol: Store.ChannelMessagesForward
+        hash: sha256:8d02b4d65d14087727f4815e417113865d3bcd3276082868629b17f06525b23c
+        struct_hash: sha256:b8a9db187d8a7764a66464d18fa7273b614c00221bde605ac040fa3394d53853
+        doc_struct_hash: sha256:50bdf1c2cd9ab8b7bd980529adedb59dae100b5406332428e9b46dbd6978551d
+        lines: [708, 721]
+      status: fresh
+      since: 2026-09-07T04:28:51.068898Z

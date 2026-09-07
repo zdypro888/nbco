@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: cmd/nbco-worker/client_test.go
-        hash: sha256:0a8322aaf882cf1e288b86b97bd70dd187060b7ceb4a57a51be526ba3c2fbbc4
+        hash: sha256:efc27a1e7197b021c4df784dc65eaec4161c58c827b293693241f4025681cbf6
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

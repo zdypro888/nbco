@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: semantic/semantic_test.go
-        hash: sha256:4760b579a31d63d6f16ff72d81d051cbdf775053fead1c113b61de1e0a11d003
+        hash: sha256:17b977919d380f3efa3959bf99f5a9053de908983de1da6c7cb57596be55759f
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

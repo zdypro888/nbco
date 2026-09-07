@@ -42,3 +42,14 @@ nodes:
         - active session protection
         - 运行载荷回收
         - 活跃会话保护
+    - id: store/maintenance.go#Store.runLifecycleQueries
+      level: function
+      anchor:
+        file: store/maintenance.go
+        symbol: Store.runLifecycleQueries
+        hash: sha256:8c27daaff073dde1312f6f7a694e61a16c54b7a68e8cbfeaafc88c12d3a40976
+        struct_hash: sha256:d9480c3b9995b1f6504cab7839627b13f22e1c445b3fbe0a537c6d4b996d0500
+        doc_struct_hash: sha256:d9480c3b9995b1f6504cab7839627b13f22e1c445b3fbe0a537c6d4b996d0500
+        lines: [82, 124]
+      status: fresh
+      since: 2026-09-07T04:23:27.64535Z

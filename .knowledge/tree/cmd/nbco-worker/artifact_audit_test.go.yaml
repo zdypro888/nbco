@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: cmd/nbco-worker/artifact_audit_test.go
+      level: file
+      anchor:
+        file: cmd/nbco-worker/artifact_audit_test.go
+        hash: sha256:8c9854d4394dce1c73d617d2a63fdfcad893abd6b4fae4da44f37c859e490b15
+        lines: [0, 0]
+      status: fresh
+      since: 2026-09-07T04:27:08.893388Z

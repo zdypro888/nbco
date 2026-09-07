@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: gateway/telegram/audit_regression_test.go
+      level: file
+      anchor:
+        file: gateway/telegram/audit_regression_test.go
+        hash: sha256:f48eb6269832832bf408b4ae77dec630121f081c8a6d915b2e081572702e1a03
+        lines: [0, 0]
+      status: fresh
+      since: 2026-09-07T04:28:50.323881Z

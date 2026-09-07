@@ -530,10 +530,10 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.UserCanAccessFile
-        hash: sha256:245aecf05f712a58cc46cfb79023b90b0c6b537f7f6f7f4e3dd96ca88f0c5d92
-        struct_hash: sha256:5de8f44cdd5d9847eb51f853a8c74d030f7376bd58d989e103d7e081246486f8
-        doc_struct_hash: sha256:e2a83e60dd52d929233c51be9edd7fc6bff5d34eb4bfebbae692dacf405f0231
-        lines: [1008, 1036]
+        hash: sha256:e43d483c143832581ce39d0272e52dda33750ba3ebf3ae8127773c15278c264e
+        struct_hash: sha256:63c8c44ba72c25189cb22c5c31d41acc7c30c11971bcd67c9ab5e7519e69a34f
+        doc_struct_hash: sha256:d60926384b4f839f227311488a1498578e3fe203e9b79491ee3154152c46fb8c
+        lines: [1102, 1105]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: store/files.go#Store.WorkerCanDownloadFile
@@ -585,20 +585,43 @@ nodes:
       anchor:
         file: store/files.go
         symbol: Store.UserCanAccessFileInConversation
-        hash: sha256:ba261d8af64af4ee9be256759b35499bd34ff19253f5554822f2ee9f994f1429
-        struct_hash: sha256:cf334c68451b2875b176e7d59a245a714c5a9203ea7a420efa2ea537d09bcb39
-        doc_struct_hash: sha256:ce0a3c5afaef867da40952fe743bff80fdcac3a551e3b97ec454f8dc6d019d49
-        lines: [1132, 1146]
+        hash: sha256:73e9d9e83beba28abb0795b765a74a2d8162aa107b8b4871f4338b7063868cd2
+        struct_hash: sha256:0777406061f55f2a2880147deaa7077daeffcf3a774bd39689c7fe40830c8b45
+        doc_struct_hash: sha256:ad47007818690bbc15b76c60527dcb38a0843b535be7d12005ba493f41504202
+        lines: [1146, 1151]
       status: fresh
       since: 2026-09-03T17:04:42.909576Z
       entries:
         - id: e_5555df87
           kind: contract
           text: 群文件共享权限只由网关写入的稳定 group channel source 与 tools.WithInteractionChannel 的可信运行时上下文扩展；模型正文、群名和文件名都不能形成文件作用域。私聊最近文件缓冲必须排除 group source。
-          confidence: inferred
+          confidence: verified
           at: 2026-09-03T17:05:24.853947Z
+          confirmed_at: 2026-09-07T04:27:09.540154Z
           author: codex-mcp-client
       keywords:
         - group file scope
         - conversation acl
         - private file isolation
+    - id: store/files.go#userCanAccessFileInScope
+      level: function
+      anchor:
+        file: store/files.go
+        symbol: userCanAccessFileInScope
+        hash: sha256:6dfff1cd27e9544b808aa878ac5f73d0677fa8a1ef7e75906f32e94587d9d85a
+        struct_hash: sha256:541869bbb4ca03794bc3fe1b369c5f712a64b92152bfc39d759713b321f13c4b
+        doc_struct_hash: sha256:541869bbb4ca03794bc3fe1b369c5f712a64b92152bfc39d759713b321f13c4b
+        lines: [1111, 1144]
+      status: fresh
+      since: 2026-09-07T04:23:56.085298Z
+    - id: store/files.go#fileAccessQueryer
+      level: decl
+      anchor:
+        file: store/files.go
+        symbol: fileAccessQueryer
+        hash: sha256:fd252a7c4246170c968dd4c316910ba71cb81a8b998b0c75edafb0e85b8a7dd0
+        struct_hash: sha256:fabd612d42df13c9ac7975e1eb34eb9fce775e0c6b5d23fde2b7c5d031789b1e
+        doc_struct_hash: sha256:fabd612d42df13c9ac7975e1eb34eb9fce775e0c6b5d23fde2b7c5d031789b1e
+        lines: [1107, 1109]
+      status: fresh
+      since: 2026-09-07T04:23:56.090053Z

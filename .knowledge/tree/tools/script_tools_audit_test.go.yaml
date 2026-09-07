@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: tools/script_tools_audit_test.go
+      level: file
+      anchor:
+        file: tools/script_tools_audit_test.go
+        hash: sha256:89dd0487c5fa6b25bbad74fb93222aca3c49cdca53317fa6f4f9ddbb81795ac4
+        lines: [0, 0]
+      status: fresh
+      since: 2026-09-07T04:27:08.221442Z

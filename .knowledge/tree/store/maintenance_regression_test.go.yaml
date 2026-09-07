@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: store/maintenance_regression_test.go
+      level: file
+      anchor:
+        file: store/maintenance_regression_test.go
+        hash: sha256:36ad0f4a0bd080c6998527448329d31409739d2bc1f00d0aa51c349180672d4e
+        lines: [0, 0]
+      status: fresh
+      since: 2026-09-07T04:23:27.645599Z

@@ -120,7 +120,31 @@ func (s *Store) UpdateWorkerSessionForFinalization(ctx context.Context, id, work
 	if claimID == "" || finalizationID == "" {
 		return ErrNotFound
 	}
-	return s.execOne(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var currentClaim string
+	var attemptNo int
+	if err := tx.QueryRow(ctx, `SELECT claim_id,attempts FROM worker_runs WHERE id=$1 AND worker_id=$2 FOR UPDATE`, runID, workerID).
+		Scan(&currentClaim, &attemptNo); err != nil {
+		return wrapErr(err)
+	}
+	if currentClaim != claimID {
+		var finalizedAttempt int
+		if err := tx.QueryRow(ctx, `SELECT attempt_no FROM worker_run_attempts
+			WHERE run_id=$1 AND worker_id=$2 AND claim_id=$3 AND finalization_id=$4`, runID, workerID, claimID, finalizationID).
+			Scan(&finalizedAttempt); err != nil {
+			return wrapErr(err)
+		}
+		if finalizedAttempt < attemptNo {
+			// The old finalization is acknowledged, but its replacement owns
+			// session continuity now. The run lock serializes new claims.
+			return tx.Commit(ctx)
+		}
+	}
+	tag, err := tx.Exec(ctx,
 		`UPDATE worker_sessions ws SET
 		   summary = CASE WHEN $6 <> '' THEN $6 ELSE ws.summary END,
 		   engine_session_ref = CASE WHEN $7 <> '' THEN $7 ELSE ws.engine_session_ref END,
@@ -142,6 +166,13 @@ func (s *Store) UpdateWorkerSessionForFinalization(ctx context.Context, id, work
 		   )`,
 		id, workerID, runID, claimID, finalizationID,
 		strings.TrimSpace(summary), strings.TrimSpace(engineRef), normalizeEngineRuntimeFingerprint(runtimeFingerprint), strings.TrimSpace(workdir))
+	if err != nil {
+		return wrapErr(err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return tx.Commit(ctx)
 }
 
 func normalizeEngineRuntimeFingerprint(value string) string {

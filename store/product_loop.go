@@ -149,6 +149,22 @@ func upsertWorkEvidence(ctx context.Context, queryer workEvidenceQueryer, in Wor
 	if !normalizeWorkEvidence(&in) {
 		return nil, ErrConflict
 	}
+	if in.TaskID != nil {
+		var projectID int64
+		if err := queryer.QueryRow(ctx, `SELECT project_id FROM tasks WHERE id=$1`, *in.TaskID).Scan(&projectID); err != nil {
+			return nil, wrapErr(err)
+		}
+		if in.ProjectID != nil && *in.ProjectID != projectID {
+			return nil, ErrConflict
+		}
+		in.ProjectID = &projectID
+	}
+	const mergedTask = `CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		THEN COALESCE(EXCLUDED.task_id, work_evidence.task_id)
+		ELSE COALESCE(work_evidence.task_id, EXCLUDED.task_id) END`
+	const mergedProject = `CASE WHEN EXCLUDED.confidence >= work_evidence.confidence
+		THEN COALESCE(EXCLUDED.project_id, work_evidence.project_id)
+		ELSE COALESCE(work_evidence.project_id, EXCLUDED.project_id) END`
 	return scanWorkEvidence(queryer.QueryRow(ctx,
 		`WITH upserted AS (
 		 INSERT INTO work_evidence (
@@ -183,6 +199,9 @@ func upsertWorkEvidence(ctx context.Context, queryer workEvidenceQueryer, in Wor
 		     THEN COALESCE(EXCLUDED.created_by, work_evidence.created_by)
 		     ELSE COALESCE(work_evidence.created_by, EXCLUDED.created_by) END,
 		   updated_at = now()
+		 WHERE (`+mergedTask+`) IS NULL OR (`+mergedProject+`) IS NULL OR EXISTS (
+		   SELECT 1 FROM tasks t WHERE t.id=(`+mergedTask+`) AND t.project_id=(`+mergedProject+`)
+		 )
 		 RETURNING *
 		) SELECT `+workEvidenceCols+`
 		    FROM upserted e
@@ -317,8 +336,8 @@ func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileSco
 	}
 	rows, err := tx.Query(ctx,
 		`SELECT id FROM files
-		  WHERE id = ANY($2::bigint[]) AND (created_by = $1 OR ($3 <> '' AND source = $3))
-		  ORDER BY id FOR UPDATE`, ownerID, fileIDs, fileScope)
+		  WHERE id = ANY($1::bigint[])
+		  ORDER BY id FOR UPDATE`, fileIDs)
 	if err != nil {
 		return err
 	}
@@ -333,6 +352,20 @@ func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileSco
 	rows.Close()
 	if locked != len(fileIDs) {
 		return ErrNotFound
+	}
+	var superadmin bool
+	if err := tx.QueryRow(ctx, `SELECT is_superadmin FROM users WHERE id=$1 AND status='active'`, ownerID).Scan(&superadmin); err != nil {
+		return wrapErr(err)
+	}
+	for _, fileID := range fileIDs {
+		// The newly created task/run cannot grant itself access to its inputs.
+		ok, err := userCanAccessFileInScope(ctx, tx, ownerID, superadmin, fileID, fileScope, taskID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrNotFound
+		}
 	}
 	var alreadyActive bool
 	if err := tx.QueryRow(ctx,
@@ -384,9 +417,8 @@ func queueMaterialFilesTx(ctx context.Context, tx pgx.Tx, ownerID int64, fileSco
 	for _, fileID := range fileIDs {
 		tag, err := tx.Exec(ctx,
 			`INSERT INTO material_case_files (case_id, file_id)
-			 SELECT $1, id FROM files
-			  WHERE id = $2 AND (created_by = $3 OR ($4 <> '' AND source = $4))
-			 ON CONFLICT DO NOTHING`, caseID, fileID, ownerID, fileScope)
+			 VALUES ($1, $2)
+			 ON CONFLICT DO NOTHING`, caseID, fileID)
 		if err != nil {
 			return err
 		}

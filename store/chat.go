@@ -705,6 +705,21 @@ func (s *Store) ListChannelMessages(ctx context.Context, channel string, from, t
 	return s.ListChannelMessagesPage(ctx, channel, from, to, 0, limit)
 }
 
+// ChannelMessagesForward drains a bounded range from its oldest unprocessed ID.
+// untilID freezes a retry's input; event time remains evidence, while the stable
+// database ID prevents equal timestamps or delayed arrivals from skipping rows.
+func (s *Store) ChannelMessagesForward(ctx context.Context, channel string, from, to time.Time, afterID, untilID int64, limit int) ([]ChatMessage, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 300
+	}
+	return s.queryMessages(ctx, `SELECT `+chatMessageColsM+`
+		FROM chat_messages m JOIN chat_sessions cs ON cs.id=m.session_id
+		WHERE cs.channel=$1 AND m.id>$2 AND ($3::bigint=0 OR m.id<=$3)
+		  AND COALESCE(m.source_created_at,m.created_at)>=$4
+		  AND COALESCE(m.source_created_at,m.created_at)<$5
+		ORDER BY m.id LIMIT $6`, channel, afterID, untilID, from, to, limit)
+}
+
 // ListChannelMessagesPage 使用稳定消息 ID 游标向更早记录翻页。Total 是当前
 // 游标之前仍符合时间范围的完整数量，不依赖 OFFSET，因此新消息不会造成跳页。
 func (s *Store) ListChannelMessagesPage(ctx context.Context, channel string, from, to time.Time, beforeID int64, limit int) (ChannelMessagePage, error) {

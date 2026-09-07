@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: store/worker_sessions.go
         symbol: Store.UpdateWorkerSessionForFinalization
-        hash: sha256:5f6a7aaafb0320785118473fae38cb814bb1bb0870eb41580702d4cdf81af631
-        struct_hash: sha256:033650ee57a39020bbccb7a522103522aa5ff647c7152a760733931806424d10
-        doc_struct_hash: sha256:c7297a762ace8abb4da177647fa11f8b146a46eaff3aa72b842269931ce44b4d
-        lines: [114, 145]
+        hash: sha256:3ff36c0d555c1d0679a7e643b405b894152be187c2b9cf072734c8a8cd74331e
+        struct_hash: sha256:1701badb732da341c5d5952a9354e8d326430a19f6597a5cb7967470a5412471
+        doc_struct_hash: sha256:c14fdf3e9d4e7d9ea48bc0a2f786a6bcfebd60f35ee8e142d2462893b3b4e7c2
+        lines: [114, 176]
       status: undigested
       since: 2026-07-20T11:26:39.730689Z
     - id: store/worker_sessions.go#normalizeEngineRuntimeFingerprint

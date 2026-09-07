@@ -680,7 +680,9 @@ func (w *Worker) persistNativeSession(ctx context.Context, task *Run, dir string
 func (w *Worker) appendArtifactReport(ctx context.Context, task *Run, dir, summary string) string {
 	uploaded, failed, rejected, uerr := w.uploadArtifacts(ctx, task.ID, task.ClaimID, filepath.Join(dir, taskArtifactRelDir()))
 	if uerr != nil {
-		w.report(ctx, task.ID, task.ClaimID, "⚠️ 遍历产物目录出错: "+uerr.Error())
+		warn := "⚠️ 产物目录未完整读取，交付不完整：" + uerr.Error()
+		w.report(ctx, task.ID, task.ClaimID, warn)
+		summary += "\n\n" + warn
 	}
 	if len(uploaded) > 0 {
 		summary += "\n\n已上传产物：\n- " + strings.Join(uploaded, "\n- ")
@@ -902,9 +904,6 @@ func attachmentFileName(a Attachment) string {
 // → 后面的全被跳过 → 静默丢交付物」），分别返回成功、失败与因安全策略被拒的清单。
 func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir string) (uploaded, failed, rejected []string, err error) {
 	entries, err := artifactEntries(dir)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	for _, path := range entries {
 		rel, _ := filepath.Rel(dir, path)
 		relSlash := filepath.ToSlash(rel)
@@ -930,7 +929,7 @@ func (w *Worker) uploadArtifacts(ctx context.Context, taskID int64, claimID, dir
 		}
 		uploaded = append(uploaded, relSlash)
 	}
-	return uploaded, failed, rejected, nil
+	return uploaded, failed, rejected, err
 }
 
 // artifactEntries 枚举 dir 下的候选产物文件名（跳过目录、软链接、.tmp、点文件）。
@@ -940,9 +939,11 @@ func artifactEntries(dir string) ([]string, error) {
 		return nil, nil
 	}
 	var out []string
+	var walkErrors []error
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			walkErrors = append(walkErrors, err)
+			return nil
 		}
 		if d.IsDir() {
 			return nil
@@ -956,7 +957,7 @@ func artifactEntries(dir string) ([]string, error) {
 		out = append(out, path)
 		return nil
 	})
-	return out, err
+	return out, errors.Join(append(walkErrors, err)...)
 }
 
 func errorsIsNotExist(err error) bool {

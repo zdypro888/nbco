@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: store/audit_regression_test.go
+      level: file
+      anchor:
+        file: store/audit_regression_test.go
+        hash: sha256:3b85cf1d75d802e6d769bccaa5bbc24f9202fc0a6f616ca78183d197d468b9ea
+        lines: [0, 0]
+      status: fresh
+      since: 2026-09-07T04:23:56.101905Z
