@@ -1442,6 +1442,30 @@ func (g *Gateway) processGroup(ctx context.Context, msg *models.Message) error {
 	return g.processGroupMessages(ctx, msg, []*models.Message{msg})
 }
 
+type telegramGroupCaptureStore interface {
+	GetKV(context.Context, string) (string, error)
+	TelegramGroupMonitor(context.Context, int64) (*store.TelegramGroupMonitor, error)
+	HasActiveAutomationSchedule(context.Context, string, string) (bool, error)
+}
+
+func telegramGroupCaptureSettings(ctx context.Context, s telegramGroupCaptureStore, chatID int64) (listenOn, monitorOn, digestOn bool, err error) {
+	on, err := s.GetKV(ctx, listenKey(chatID))
+	if err != nil {
+		return false, false, false, fmt.Errorf("读取群监听采集状态: %w", err)
+	}
+	listenOn = on == "1"
+	mon, err := s.TelegramGroupMonitor(ctx, chatID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return false, false, false, fmt.Errorf("读取群监控采集状态: %w", err)
+	}
+	monitorOn = err == nil && mon != nil && mon.Enabled
+	digestOn, err = s.HasActiveAutomationSchedule(ctx, store.ScheduleSourceTelegramGroupDigest, strconv.FormatInt(chatID, 10))
+	if err != nil {
+		return false, false, false, fmt.Errorf("读取群摘要采集状态: %w", err)
+	}
+	return listenOn, monitorOn, digestOn, nil
+}
+
 func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message, sourceMessages []*models.Message) (processingErr error) {
 	chatID := msg.Chat.ID
 	channel := groupChannel(chatID)
@@ -1459,17 +1483,9 @@ func (g *Gateway) processGroupMessages(ctx context.Context, msg *models.Message,
 		bound = uerr == nil && u.Status == store.UserActive
 	}
 	cmd := commandOf(text, g.botUsername())
-	listenOn := false
-	if on, _ := g.store.GetKV(ctx, listenKey(chatID)); on == "1" {
-		listenOn = true
-	}
-	monitorOn := false
-	if mon, err := g.store.TelegramGroupMonitor(ctx, chatID); err == nil && mon.Enabled {
-		monitorOn = true
-	}
-	digestOn, err := g.store.HasActiveAutomationSchedule(ctx, store.ScheduleSourceTelegramGroupDigest, strconv.FormatInt(chatID, 10))
+	listenOn, monitorOn, digestOn, err := telegramGroupCaptureSettings(ctx, g.store, chatID)
 	if err != nil {
-		slog.Warn("读取群摘要采集状态失败", "chat", chatID, "err", err)
+		return err
 	}
 	g.saveGroupState(ctx, msg.Chat, string(models.ChatMemberTypeMember), listenOn)
 	mentioned := g.mentionedInMessages(sourceMessages)

@@ -272,7 +272,7 @@ func turnRunOptions(provider string, req *ai.TurnRequest) []adk.AgentRunOption {
 	var options []einomodel.Option
 	if req.MaxOutputTokens > 0 {
 		if provider == config.ProviderOpenAI {
-			options = append(options, openai.WithMaxCompletionTokens(req.MaxOutputTokens))
+			options = append(options, einomodel.WithMaxTokens(0), openai.WithMaxCompletionTokens(req.MaxOutputTokens))
 		} else {
 			options = append(options, einomodel.WithMaxTokens(req.MaxOutputTokens))
 		}
@@ -596,7 +596,9 @@ func (e *Engine) engineSessionID(req *ai.TurnRequest) string {
 }
 
 func persistentChatSessionID(id string) bool {
-	n, err := strconv.ParseInt(strings.TrimSpace(id), 10, 64)
+	id = strings.TrimSpace(id)
+	id = strings.TrimPrefix(id, "turn:")
+	n, err := strconv.ParseInt(id, 10, 64)
 	return err == nil && n > 0
 }
 

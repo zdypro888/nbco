@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: sched/profile_refresh_test.go
+      level: file
+      anchor:
+        file: sched/profile_refresh_test.go
+        hash: sha256:6ebd50e1717d2399a3849660f7efbd5294964358f62245f6e65aa2b17a707a03
+        lines: [0, 0]
+      status: undigested
+      since: 2026-10-08T18:10:22.724869Z
+    - id: sched/profile_refresh_test.go#TestProfileRefreshReclaimedRunPreservesActionState
+      level: function
+      anchor:
+        file: sched/profile_refresh_test.go
+        symbol: TestProfileRefreshReclaimedRunPreservesActionState
+        hash: sha256:eaf20bae10958906e445101a1c34938699d5028da9594ec2d044a7f228f78cac
+        struct_hash: sha256:13c1b403e0cd405ffb04095fe3c33c7c8679f3b0ecbeb5e55ba795b02ff6e52d
+        doc_struct_hash: sha256:f75a8c48c43c05768d5cb532abe9fd8c8d64afa18e9a6b5effe87b38771d53e2
+        lines: [17, 134]
+      status: fresh
+      since: 2026-10-08T18:10:22.724814Z

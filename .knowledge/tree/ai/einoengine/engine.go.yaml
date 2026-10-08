@@ -101,9 +101,9 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: turnRunOptions
-        hash: sha256:b90891f3f0324f89731ece8a108b081ddf9a45c7b6fbcb0d770a48501e10ea35
-        struct_hash: sha256:41c4f70cad1e62c6eac887670326680741424c5f5f32c6793055c2c3075d2b30
-        doc_struct_hash: sha256:41c4f70cad1e62c6eac887670326680741424c5f5f32c6793055c2c3075d2b30
+        hash: sha256:bcf2188c2f3fd7d3f238840302f941856f5bcf58af17af6c0a20c06caee731a2
+        struct_hash: sha256:fc79fbb77886d8ab40b86816965ed2d3e13626247b7acb3e0d4aee4216a50d48
+        doc_struct_hash: sha256:fc79fbb77886d8ab40b86816965ed2d3e13626247b7acb3e0d4aee4216a50d48
         lines: [268, 296]
       status: undigested
       since: 2026-07-20T08:38:49.997524Z
@@ -346,18 +346,32 @@ nodes:
         hash: sha256:0654c8b87c4574d676080a93987cdcb37853fc0df41f8fe917782e097c0c0ab6
         struct_hash: sha256:34aebcde64c0c9609ada472823481ebafad991871362f753fbe59627dc0df659
         doc_struct_hash: sha256:34aebcde64c0c9609ada472823481ebafad991871362f753fbe59627dc0df659
-        lines: [571, 592]
-      status: undigested
+        lines: [575, 596]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_f94850a3
+          kind: pitfall
+          text: chat.runTurn 为 durable conversation turn 传入 turn:<ID> 并开启 Session，但 persistentChatSessionID 目前只接受正整数字符串，导致正常业务轮次 engineSessionID 返回空；诊断 Eino checkpoint/runtime events 缺失时必须核对这个跨模块身份契约。跨轮上下文来自业务事实源，不应通过恢复复用旧 chat session 来规避该不匹配。
+          confidence: inferred
+          at: 2026-10-08T18:01:32.826124Z
+          author: codex-mcp-client
+          superseded_by: e_cdb822a4
+        - id: e_cdb822a4
+          kind: contract
+          text: durable conversation turn 使用 turn:<正整数> 独立 Eino runtime session；同轮携带匹配 engine_session 可恢复，不同 turn ID 必须隔离，跨轮事实仅来自业务 transcript。internal/无效 ID 或 DisableSession 不能开启持久化。retention 按完整 conversation_turns.engine_session 精确保护 running turns，与 ID 字符串形态无关。
+          confidence: inferred
+          at: 2026-10-08T18:10:57.254884Z
+          author: codex-mcp-client
     - id: ai/einoengine/engine.go#persistentChatSessionID
       level: function
       anchor:
         file: ai/einoengine/engine.go
         symbol: persistentChatSessionID
-        hash: sha256:c0b78605e2ed2d14ef669f648129f1cc630759299d5400ee35cb4cfe2a5110cd
-        struct_hash: sha256:ee8f276003cfc05b968f700dbc128fccf9d95f06882051f11ea3fb7fe51968a9
-        doc_struct_hash: sha256:ee8f276003cfc05b968f700dbc128fccf9d95f06882051f11ea3fb7fe51968a9
-        lines: [594, 597]
+        hash: sha256:b6368b9b61e571ad59fd71a7854936a4b5590c995a481cf66896cfcca53ed4d5
+        struct_hash: sha256:6c4d1dc20f9aea1d5c924e8e3fc693d7f18f7e36f6dedbe74962c37275f880b3
+        doc_struct_hash: sha256:6c4d1dc20f9aea1d5c924e8e3fc693d7f18f7e36f6dedbe74962c37275f880b3
+        lines: [598, 603]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#capabilityFingerprint

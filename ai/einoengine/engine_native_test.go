@@ -287,6 +287,63 @@ func TestOneShotAppliesPerCallReasoningAndOutputOptions(t *testing.T) {
 	}
 }
 
+func TestOneShotOutputBudgetOverrideClearsLegacyBudget(t *testing.T) {
+	for _, completionBudget := range []int{0, 8192} {
+		t.Run(fmt.Sprintf("completion_budget_%d", completionBudget), func(t *testing.T) {
+			var requests []map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer r.Body.Close()
+				var request map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Errorf("decode request: %v", err)
+				}
+				requests = append(requests, request)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"test","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
+			}))
+			defer server.Close()
+			engine, err := New(context.Background(), config.AIConfig{
+				Provider: config.ProviderOpenAI, BaseURL: server.URL, APIKey: "test", Model: "test",
+				MaxTokens: 4096, MaxCompletionTokens: completionBudget, ReasoningEffort: "high",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, budget := range []int{321, 0} {
+				reasoning := ai.ReasoningDefault
+				if budget > 0 {
+					reasoning = ai.ReasoningDisabled
+				}
+				_, err := engine.RunTurn(context.Background(), &ai.TurnRequest{
+					Mode: ai.TurnModeOneShot, UserText: "test", MaxOutputTokens: budget, Reasoning: reasoning,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if len(requests) != 2 {
+				t.Fatalf("requests = %d", len(requests))
+			}
+			if requests[0]["max_completion_tokens"] != float64(321) || requests[0]["reasoning_effort"] != "none" {
+				t.Fatalf("per-call override missing: %#v", requests[0])
+			}
+			if _, exists := requests[0]["max_tokens"]; exists {
+				t.Fatalf("legacy budget survived override: %#v", requests[0])
+			}
+			field, absentField, budget := "max_tokens", "max_completion_tokens", 4096
+			if completionBudget > 0 {
+				field, absentField, budget = absentField, field, completionBudget
+			}
+			if requests[1][field] != float64(budget) || requests[1]["reasoning_effort"] != "high" {
+				t.Fatalf("configured budget changed by prior call: %#v", requests[1])
+			}
+			if _, exists := requests[1][absentField]; exists {
+				t.Fatalf("unexpected second budget: %#v", requests[1])
+			}
+		})
+	}
+}
+
 func TestDeepAgentBlocksUnloadedDeferredToolExecution(t *testing.T) {
 	var executed int
 	state := &scriptedModelState{}
@@ -703,6 +760,67 @@ func TestManagedSessionReplaysHistoryAcrossEngineInstances(t *testing.T) {
 	}
 	if second.EngineSession != first.EngineSession || second.Text != "users=2" {
 		t.Fatalf("second=%+v first_session=%q", second, first.EngineSession)
+	}
+}
+
+func TestManagedTurnSessionsPersistWithoutSharingCrossTurnHistory(t *testing.T) {
+	ctx := context.Background()
+	runtime := session.NewInMemoryStore[*schema.Message](nil)
+	state := &scriptedModelState{}
+	state.fn = func(input []*schema.Message, _ []*schema.ToolInfo) (*schema.Message, error) {
+		var users []string
+		for _, message := range input {
+			if message.Role == schema.User {
+				users = append(users, message.Content)
+			}
+		}
+		return schema.AssistantMessage(strings.Join(users, "|"), nil), nil
+	}
+	engine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
+	first, err := engine.RunTurn(ctx, &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "turn:123", UserText: "private runtime fact",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(first.EngineSession, "eino:chat:turn:123:") {
+		t.Fatalf("turn session was not enabled: %+v", first)
+	}
+	events, err := runtime.LoadEvents(ctx, first.EngineSession, &adk.LoadSessionEventsRequest{})
+	if err != nil || events == nil || len(events.Events) == 0 {
+		t.Fatalf("turn events not persisted: events=%+v err=%v", events, err)
+	}
+	secondEngine := newNativeTestEngine(&scriptedModel{state: state}, runtime)
+	resumed, err := secondEngine.RunTurn(ctx, &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "turn:123", EngineSession: first.EngineSession,
+		History: []ai.Message{{Role: ai.RoleUser, Content: "must not replace runtime"}}, UserText: "resume",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumed.EngineSession != first.EngineSession || resumed.Text != "private runtime fact|resume" {
+		t.Fatalf("same-turn runtime did not survive engine restart: %+v", resumed)
+	}
+	second, err := secondEngine.RunTurn(ctx, &ai.TurnRequest{
+		Mode: ai.TurnModeDeep, SessionID: "turn:124", EngineSession: first.EngineSession,
+		History: []ai.Message{{Role: ai.RoleUser, Content: "canonical business fact"}}, UserText: "next",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(second.EngineSession, "eino:chat:turn:124:") || second.EngineSession == first.EngineSession {
+		t.Fatalf("business turns shared a runtime session: first=%+v second=%+v", first, second)
+	}
+	if second.Text != "canonical business fact\n\nnext" {
+		t.Fatalf("cross-turn history must come only from the business transcript: %+v", second)
+	}
+	for _, id := range []string{"turn:0", "turn:-1", "turn:", "turn:abc", "turn:turn:123", "internal:123", "turn:9223372036854775808"} {
+		if got := engine.engineSessionID(&ai.TurnRequest{SessionID: id}); got != "" {
+			t.Errorf("invalid session ID %q enabled persistence: %q", id, got)
+		}
+	}
+	if got := engine.engineSessionID(&ai.TurnRequest{SessionID: "turn:123", DisableSession: true}); got != "" {
+		t.Fatalf("DisableSession ignored: %q", got)
 	}
 }
 

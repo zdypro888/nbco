@@ -8,3 +8,25 @@ nodes:
         lines: [0, 0]
       status: fresh
       since: 2026-09-07T04:28:50.323881Z
+    - id: gateway/telegram/audit_regression_test.go#TestTelegramGroupCaptureSettings
+      level: function
+      anchor:
+        file: gateway/telegram/audit_regression_test.go
+        symbol: TestTelegramGroupCaptureSettings
+        hash: sha256:511acc08ee13d55900cf4e9c5246666094542f951869018668175b5412744472
+        struct_hash: sha256:a59cbf43ad7b55eb71218038aa431f0f59fa9f3c4d8fb94b6864f42cfc8c3a0b
+        doc_struct_hash: sha256:a59cbf43ad7b55eb71218038aa431f0f59fa9f3c4d8fb94b6864f42cfc8c3a0b
+        lines: [110, 144]
+      status: fresh
+      since: 2026-10-08T18:10:23.312478Z
+    - id: gateway/telegram/audit_regression_test.go#TestGroupCaptureConfigFailureRetriesWithoutDuplicateMessage
+      level: function
+      anchor:
+        file: gateway/telegram/audit_regression_test.go
+        symbol: TestGroupCaptureConfigFailureRetriesWithoutDuplicateMessage
+        hash: sha256:4d1c8f208badd713205f2a6e3a3fb5f04161652e6d918d634617d8eea8a4ef41
+        struct_hash: sha256:79f7bcb3e1859c8c9a75362f4a86ecb155529fabf6c250b44bdb12e90da20f30
+        doc_struct_hash: sha256:79f7bcb3e1859c8c9a75362f4a86ecb155529fabf6c250b44bdb12e90da20f30
+        lines: [146, 220]
+      status: fresh
+      since: 2026-10-08T18:10:23.313871Z

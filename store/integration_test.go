@@ -370,7 +370,7 @@ func TestWorkEvidenceUpsertPreservesHigherConfidenceProjection(t *testing.T) {
 	weakProject := mkProject(t, s, other.ID)
 	strongTask := mkTask(t, s, strongProject.ID, user.ID, user.ID, "strong evidence task", nil)
 	weakTask := mkTask(t, s, weakProject.ID, other.ID, other.ID, "weak evidence task", nil)
-	now := time.Now().UTC()
+	now := time.Date(2026, 10, 8, 12, 0, 0, 123456789, time.UTC)
 	strong, err := s.UpsertWorkEvidence(ctx, WorkEvidenceInput{
 		SourceType: WorkEvidenceSourceConversationFact, SourceKey: "confidence-order",
 		Kind: WorkEvidenceDecision, Status: WorkEvidenceActive,
@@ -395,7 +395,7 @@ func TestWorkEvidenceUpsertPreservesHigherConfidenceProjection(t *testing.T) {
 		weaker.Title != strong.Title || weaker.Content != strong.Content || weaker.Confidence != 1 ||
 		weaker.ActorUserID == nil || *weaker.ActorUserID != user.ID || weaker.ProjectID == nil || *weaker.ProjectID != strongProject.ID ||
 		weaker.TaskID == nil || *weaker.TaskID != strongTask.ID || weaker.CreatedBy == nil || *weaker.CreatedBy != user.ID ||
-		!weaker.EventAt.Equal(now) || !strings.Contains(string(weaker.Metadata), "agent_tool") {
+		!weaker.EventAt.Equal(strong.EventAt) || !strings.Contains(string(weaker.Metadata), "agent_tool") {
 		t.Fatalf("weaker projection overwrote stronger evidence: strong=%+v weaker=%+v", strong, weaker)
 	}
 
@@ -409,7 +409,7 @@ func TestWorkEvidenceUpsertPreservesHigherConfidenceProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	if equal.Status != WorkEvidenceResolved || equal.Title != "同级来源更新" ||
-		!equal.EventAt.Equal(now.Add(2*time.Minute)) || !strings.Contains(string(equal.Metadata), "verified_update") {
+		!equal.EventAt.Equal(strong.EventAt.Add(2*time.Minute)) || !strings.Contains(string(equal.Metadata), "verified_update") {
 		t.Fatalf("equal-confidence update was not applied: %+v", equal)
 	}
 }

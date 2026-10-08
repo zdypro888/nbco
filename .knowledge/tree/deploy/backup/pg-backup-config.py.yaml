@@ -1,0 +1,21 @@
+schema: 1
+nodes:
+    - id: deploy/backup/pg-backup-config.py
+      level: file
+      anchor:
+        file: deploy/backup/pg-backup-config.py
+        hash: sha256:e1aca3cb15cf62a75c60e4d6f615e8117e42fe755094ce7d508d4dbec126baaf
+        lines: [0, 0]
+      status: undigested
+      since: 2026-10-08T18:10:41.425572Z
+    - id: deploy/backup/pg-backup-config.py#main
+      level: function
+      anchor:
+        file: deploy/backup/pg-backup-config.py
+        symbol: main
+        hash: sha256:8d2cd32deb1356665d7fadda59a33ed48564989c7dc46418121347a9d2d6ee83
+        struct_hash: sha256:c78b748077a717c891817e1a4b81cd2bbfb46a969880aac7d58bf810b923c122
+        doc_struct_hash: sha256:c78b748077a717c891817e1a4b81cd2bbfb46a969880aac7d58bf810b923c122
+        lines: [11, 43]
+      status: fresh
+      since: 2026-10-08T18:10:41.425489Z

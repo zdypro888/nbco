@@ -219,12 +219,26 @@ nodes:
       anchor:
         file: store/automation_runs.go
         symbol: Store.RetryAutomationRunReplaySafe
-        hash: sha256:05332ed472576aaf7a571c388c52adc3b75996ec6c6031caf9926965ef27988d
-        struct_hash: sha256:7e2b27421ae68e3d84b83c34e59a3a8528da344f2d45bbe5cea9b2a2ae0cc2c2
-        doc_struct_hash: sha256:33846aa8d0d1e593abbf3c1579b63c5302a2384036bc38c225dc8c0b8a660aca
-        lines: [200, 204]
+        hash: sha256:1d4e2a39010153b26d34ef32321a3d58bcf541533688003e7287b232b81ff855
+        struct_hash: sha256:43b4a4d10d230bacd945148d73ce7f8f8a78f7b1ebecb7bd0e7bc634cea84d9d
+        doc_struct_hash: sha256:5ca2d2a85880586b81e6f5eb63785f10e371fc36091356be680c18aa28b2eef8
+        lines: [219, 223]
       status: fresh
       since: 2026-08-05T08:18:56.67902Z
+      entries:
+        - id: e_fa3f489d
+          kind: contract
+          text: ReplaySafe 会清除 action_started/result_text/outcome，只能在证明没有成功写操作时调用；画像盘点在重新认领后先构造事实，当前该读取失败路径也调用 ReplaySafe，可能清掉上一轮已执行动作边界及缓存。恢复时应先按已有 run 边界选择缓存/只读恢复，不能把本次前置读取失败等同于全生命周期未写入。
+          confidence: inferred
+          at: 2026-10-08T18:01:32.671277Z
+          author: codex-mcp-client
+          superseded_by: e_1ce6223f
+        - id: e_1ce6223f
+          kind: contract
+          text: ReplaySafe 会清除 action_started/result_text/outcome，仅在证明没有成功写操作时调用。重新认领批次后的前置读取失败不能证明整个 run 从未写入，必须普通 Retry 保留持久动作边界与缓存；恢复路径由 dispatchAutomationAction 选择缓存或只读恢复。画像盘点空履历也不能覆盖 ActionStarted 或 ResultText 的恢复状态。
+          confidence: inferred
+          at: 2026-10-08T18:10:57.549371Z
+          author: codex-mcp-client
     - id: store/automation_runs.go#Store.retryAutomationRun
       level: function
       anchor:

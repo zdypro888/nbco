@@ -316,3 +316,25 @@ nodes:
         lines: [966, 981]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
+    - id: ai/einoengine/engine_native_test.go#TestManagedTurnSessionsPersistWithoutSharingCrossTurnHistory
+      level: function
+      anchor:
+        file: ai/einoengine/engine_native_test.go
+        symbol: TestManagedTurnSessionsPersistWithoutSharingCrossTurnHistory
+        hash: sha256:21fc2ee5f84a42a2bb8d34a2d5a77a7616ea578a40586f9a4bc4cd58bb18ba74
+        struct_hash: sha256:5e643259b058c0c724836210af37e1601100df03b80ad459adb2c90bac51691b
+        doc_struct_hash: sha256:5e643259b058c0c724836210af37e1601100df03b80ad459adb2c90bac51691b
+        lines: [766, 825]
+      status: fresh
+      since: 2026-10-08T18:10:23.814801Z
+    - id: ai/einoengine/engine_native_test.go#TestOneShotOutputBudgetOverrideClearsLegacyBudget
+      level: function
+      anchor:
+        file: ai/einoengine/engine_native_test.go
+        symbol: TestOneShotOutputBudgetOverrideClearsLegacyBudget
+        hash: sha256:9c66f6c059f97f753563d297ecee0f598766632fff873727e35a3d7dbe6962fb
+        struct_hash: sha256:8a0f80c8a0182f2e0753e43bdb12a39a54d8e1064b499e4bb8f0ff867dd691bf
+        doc_struct_hash: sha256:8a0f80c8a0182f2e0753e43bdb12a39a54d8e1064b499e4bb8f0ff867dd691bf
+        lines: [290, 345]
+      status: fresh
+      since: 2026-10-08T18:10:24.280714Z

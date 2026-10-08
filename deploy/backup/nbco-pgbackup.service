@@ -1,0 +1,11 @@
+[Unit]
+Description=NBCO PostgreSQL daily backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/bin/sh /root/src/nbco/deploy/backup/pg-backup-config.sh /root/nbco/nbco.json /root/nbco/backups/daily 14
+TimeoutStartSec=30min
+NoNewPrivileges=true
+PrivateTmp=true

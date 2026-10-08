@@ -1053,10 +1053,10 @@ nodes:
       anchor:
         file: gateway/telegram/telegram.go
         symbol: Gateway.processGroupMessages
-        hash: sha256:d61a7a2774e946c53d54cb70081c0473d129a7d81491ff0735791927fa182851
-        struct_hash: sha256:20b26fd4b1197c45be8e45d47487b1d80eb667e23ee3177da851e3f5d343cb60
-        doc_struct_hash: sha256:20b26fd4b1197c45be8e45d47487b1d80eb667e23ee3177da851e3f5d343cb60
-        lines: [1445, 1675]
+        hash: sha256:0c550f38cfc4fbcf444d857a161ec10bee1771d419026005d2c387f077cebeaf
+        struct_hash: sha256:23e9490e2666f801990d3cece9f75001a5d58d26a6f53a7824fc062eb6da45a7
+        doc_struct_hash: sha256:23e9490e2666f801990d3cece9f75001a5d58d26a6f53a7824fc062eb6da45a7
+        lines: [1469, 1691]
       status: undigested
       since: 2026-08-20T13:40:03.420324Z
     - id: gateway/telegram/telegram.go#Gateway.groupTranscriptOwner
@@ -2658,3 +2658,14 @@ nodes:
         lines: [1956, 1963]
       status: fresh
       since: 2026-09-07T04:28:51.016279Z
+    - id: gateway/telegram/telegram.go#telegramGroupCaptureSettings
+      level: function
+      anchor:
+        file: gateway/telegram/telegram.go
+        symbol: telegramGroupCaptureSettings
+        hash: sha256:cc823ad6fc5478543901bfd332887e4ae739ce97d6e80f748da94b5d83cd6588
+        struct_hash: sha256:72623a1757802a2aadcfa6d8bcde6efce129e77c2c066cf5bf9a97f8b69e5cb4
+        doc_struct_hash: sha256:72623a1757802a2aadcfa6d8bcde6efce129e77c2c066cf5bf9a97f8b69e5cb4
+        lines: [1451, 1467]
+      status: fresh
+      since: 2026-10-08T18:10:23.310893Z

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,143 @@ type passiveAuditEngine struct{}
 func (passiveAuditEngine) Name() string { return "eino" }
 func (passiveAuditEngine) RunTurn(context.Context, *ai.TurnRequest) (*ai.TurnResult, error) {
 	panic("passive collection must not invoke AI")
+}
+
+type captureSettingsStub struct {
+	listen     string
+	monitor    *store.TelegramGroupMonitor
+	digest     bool
+	listenErr  error
+	monitorErr error
+	digestErr  error
+	calls      []string
+}
+
+func (s *captureSettingsStub) GetKV(_ context.Context, key string) (string, error) {
+	s.calls = append(s.calls, key)
+	return s.listen, s.listenErr
+}
+
+func (s *captureSettingsStub) TelegramGroupMonitor(_ context.Context, chatID int64) (*store.TelegramGroupMonitor, error) {
+	s.calls = append(s.calls, fmt.Sprintf("monitor:%d", chatID))
+	return s.monitor, s.monitorErr
+}
+
+func (s *captureSettingsStub) HasActiveAutomationSchedule(_ context.Context, kind, key string) (bool, error) {
+	s.calls = append(s.calls, kind+":"+key)
+	return s.digest, s.digestErr
+}
+
+func TestTelegramGroupCaptureSettings(t *testing.T) {
+	failure := errors.New("storage unavailable")
+	for _, tc := range []struct {
+		name  string
+		stub  captureSettingsStub
+		want  [3]bool
+		err   error
+		stage string
+		calls int
+	}{
+		{name: "missing", stub: captureSettingsStub{monitorErr: fmt.Errorf("missing: %w", store.ErrNotFound)}, calls: 3},
+		{name: "disabled", stub: captureSettingsStub{listen: "0", monitor: &store.TelegramGroupMonitor{}}, calls: 3},
+		{name: "listen only", stub: captureSettingsStub{listen: "1", monitorErr: store.ErrNotFound}, want: [3]bool{true, false, false}, calls: 3},
+		{name: "monitor only", stub: captureSettingsStub{monitor: &store.TelegramGroupMonitor{Enabled: true}}, want: [3]bool{false, true, false}, calls: 3},
+		{name: "digest only", stub: captureSettingsStub{monitorErr: store.ErrNotFound, digest: true}, want: [3]bool{false, false, true}, calls: 3},
+		{name: "all enabled", stub: captureSettingsStub{listen: "1", monitor: &store.TelegramGroupMonitor{Enabled: true}, digest: true}, want: [3]bool{true, true, true}, calls: 3},
+		{name: "listen failure", stub: captureSettingsStub{listenErr: failure}, err: failure, stage: "读取群监听采集状态", calls: 1},
+		{name: "monitor failure", stub: captureSettingsStub{listen: "1", monitorErr: failure}, err: failure, stage: "读取群监控采集状态", calls: 2},
+		{name: "digest failure", stub: captureSettingsStub{listen: "1", monitor: &store.TelegramGroupMonitor{Enabled: true}, digestErr: failure}, err: failure, stage: "读取群摘要采集状态", calls: 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			listen, monitor, digest, err := telegramGroupCaptureSettings(t.Context(), &tc.stub, -789)
+			if !errors.Is(err, tc.err) || (tc.err != nil && !strings.Contains(err.Error(), tc.stage)) {
+				t.Fatalf("error = %v, want %v at %s", err, tc.err, tc.stage)
+			}
+			if got := [3]bool{listen, monitor, digest}; got != tc.want {
+				t.Fatalf("settings = %v, want %v", got, tc.want)
+			}
+			wantCalls := []string{listenKey(-789), "monitor:-789", store.ScheduleSourceTelegramGroupDigest + ":-789"}
+			if fmt.Sprint(tc.stub.calls) != fmt.Sprint(wantCalls[:tc.calls]) {
+				t.Fatalf("calls = %v, want %v", tc.stub.calls, wantCalls[:tc.calls])
+			}
+		})
+	}
+}
+
+func TestGroupCaptureConfigFailureRetriesWithoutDuplicateMessage(t *testing.T) {
+	s, c := openTelegramAuditStore(t)
+	ctx := t.Context()
+	u, err := s.CreateUser(ctx, "monitor", true, store.Identity{Provider: "test", ExternalID: "monitor"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chatID := int64(-789)
+	if _, err := s.StartGroupSession(ctx, u.ID, groupChannel(chatID), "eino"); err != nil {
+		t.Fatal(err)
+	}
+	mon := store.TelegramGroupMonitor{ChatID: chatID, Enabled: true, NotifyUserID: u.ID}
+	if err := s.SaveTelegramGroupMonitor(ctx, mon); err != nil {
+		t.Fatal(err)
+	}
+	stopped, cancel := context.WithCancel(ctx)
+	cancel()
+	g := &Gateway{store: s, monitorInstanceID: "audit", runCtx: stopped,
+		orch: chat.New(s, passiveAuditEngine{}, tools.Deps{Store: s}, time.UTC, false, time.Minute)}
+	m := &models.Message{ID: 12, Date: int(time.Now().Unix()), Text: "delivery completed",
+		Chat: models.Chat{ID: chatID, Type: models.ChatTypeGroup}}
+	// An earlier attempt already saved the immutable message before replay.
+	if err := g.processGroup(ctx, m); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetKV(ctx, store.TelegramGroupMonitorKey(chatID), "invalid JSON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.EnqueueTelegramInboundUpdate(ctx, 123, json.RawMessage(`{"update_id":123}`), "audit"); err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := s.ClaimTelegramInboundUpdates(ctx, "audit", 1); err != nil || len(rows) != 1 {
+		t.Fatalf("claim: %v %v", rows, err)
+	}
+	processErr := g.processGroup(ctx, m)
+	if processErr == nil || !strings.Contains(processErr.Error(), "读取群监控采集状态") {
+		t.Fatalf("config failure swallowed: %v", processErr)
+	}
+	g.finishQueuedMessage(&queuedTelegramMessage{done: make(chan struct{}), updateIDs: []int64{123}, processErr: processErr}, processErr == nil)
+	var status string
+	if err := c.QueryRow(ctx, `SELECT status FROM telegram_inbound_updates WHERE update_id=123`).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != store.TelegramInboundPending {
+		t.Fatalf("failed capture acknowledged: %s", status)
+	}
+	if err := s.SaveTelegramGroupMonitor(ctx, mon); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Exec(ctx, `UPDATE telegram_inbound_updates SET available_at=now() WHERE update_id=123`); err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := s.ClaimTelegramInboundUpdates(ctx, "audit", 1); err != nil || len(rows) != 1 {
+		t.Fatalf("reclaim: %v %v", rows, err)
+	}
+	processErr = g.processGroup(ctx, m)
+	if processErr != nil {
+		t.Fatal(processErr)
+	}
+	g.finishQueuedMessage(&queuedTelegramMessage{done: make(chan struct{}), updateIDs: []int64{123}}, true)
+	if err := c.QueryRow(ctx, `SELECT status FROM telegram_inbound_updates WHERE update_id=123`).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != store.TelegramInboundDone {
+		t.Fatalf("recovered capture not acknowledged: %s", status)
+	}
+	messages, err := s.ChannelMessagesForward(ctx, groupChannel(chatID), time.Now().Add(-time.Hour), time.Now().Add(time.Second), 0, 0, 300)
+	if err != nil || len(messages) != 1 {
+		t.Fatalf("replay duplicated or lost message: %+v %v", messages, err)
+	}
+	got, err := s.TelegramGroupMonitor(ctx, chatID)
+	if err != nil || got.PendingCount != 1 {
+		t.Fatalf("recovery lost monitor wake: %+v %v", got, err)
+	}
 }
 
 func TestPassiveGroupCollectionSurvivesStaleAdminConfig(t *testing.T) {

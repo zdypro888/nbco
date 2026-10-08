@@ -1120,11 +1120,13 @@ func (s *Scheduler) maybeProfileRefresh(ctx context.Context) {
 			}
 			directive, relevant, err := s.profileRefreshDirective(ctx, admin, batchSubjects)
 			if err != nil {
-				s.retryAutomationReplaySafe(ctx, run, "构建画像盘点事实失败: "+err.Error())
+				// A reclaimed run may already have written profiles or cached its
+				// report. Failure to read new facts cannot prove it safe to replay.
+				s.retryAutomation(ctx, run, "构建画像盘点事实失败: "+err.Error())
 				continue
 			}
 			label := fmt.Sprintf("画像盘点批次 %d", batch+1)
-			if relevant == 0 {
+			if relevant == 0 && !run.ActionStarted && strings.TrimSpace(run.ResultText) == "" {
 				if err := s.prepareAutomationResult(ctx, run, "本批次成员没有可用于更新工作画像的任务履历，未修改画像。", store.AutomationOutcomeNoChange, ""); err != nil {
 					s.retryAutomation(ctx, run, err.Error())
 					continue

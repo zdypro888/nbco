@@ -855,10 +855,10 @@ nodes:
       anchor:
         file: sched/sched.go
         symbol: Scheduler.maybeProfileRefresh
-        hash: sha256:22a6b823037502433d37aabadae12724cfd850c62e8f261b6239a3a712134a99
-        struct_hash: sha256:a5e3a79e66ca960d3085b4cc5625b46de14c25283bb8caa87297b82ad35cb53c
-        doc_struct_hash: sha256:56466d88ba690507800d944e8b6a1569c888f920dc02439c5cb603447b84c37b
-        lines: [1110, 1188]
+        hash: sha256:2aefb7150e8adec433d75e945c6e7aa52e59264bcae77d810330332f95484152
+        struct_hash: sha256:f11ab69a671974a4680bbf7964a48fffe4043e25d14557e054cacde63d8c4957
+        doc_struct_hash: sha256:ce9881c09d0d24b06a6635f82f7ebd5ed2f73833afd5abc08652accf64310d1b
+        lines: [1063, 1143]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: sched/sched.go#Scheduler.profileRefreshDirective

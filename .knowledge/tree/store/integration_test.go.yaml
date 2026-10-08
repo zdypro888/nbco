@@ -1460,3 +1460,14 @@ nodes:
         lines: [7337, 7374]
       status: fresh
       since: 2026-08-23T07:27:25.308786Z
+    - id: store/integration_test.go#TestWorkEvidenceUpsertPreservesHigherConfidenceProjection
+      level: function
+      anchor:
+        file: store/integration_test.go
+        symbol: TestWorkEvidenceUpsertPreservesHigherConfidenceProjection
+        hash: sha256:c7ce3eab55f7dcc3a414486d60f11e0d3fbd9ff727469927b97fe132980287fb
+        struct_hash: sha256:85c6f01244895c98c8b562ddfd4f6bbc61d7f30a07529f3976c2182e53166b94
+        doc_struct_hash: sha256:85c6f01244895c98c8b562ddfd4f6bbc61d7f30a07529f3976c2182e53166b94
+        lines: [364, 415]
+      status: fresh
+      since: 2026-10-08T18:06:20.710126Z
