@@ -236,8 +236,9 @@ nodes:
         - id: e_1ce6223f
           kind: contract
           text: ReplaySafe 会清除 action_started/result_text/outcome，仅在证明没有成功写操作时调用。重新认领批次后的前置读取失败不能证明整个 run 从未写入，必须普通 Retry 保留持久动作边界与缓存；恢复路径由 dispatchAutomationAction 选择缓存或只读恢复。画像盘点空履历也不能覆盖 ActionStarted 或 ResultText 的恢复状态。
-          confidence: inferred
+          confidence: verified
           at: 2026-10-08T18:10:57.549371Z
+          confirmed_at: 2026-10-08T18:18:23.413154Z
           author: codex-mcp-client
     - id: store/automation_runs.go#Store.retryAutomationRun
       level: function

@@ -360,8 +360,9 @@ nodes:
         - id: e_cdb822a4
           kind: contract
           text: durable conversation turn 使用 turn:<正整数> 独立 Eino runtime session；同轮携带匹配 engine_session 可恢复，不同 turn ID 必须隔离，跨轮事实仅来自业务 transcript。internal/无效 ID 或 DisableSession 不能开启持久化。retention 按完整 conversation_turns.engine_session 精确保护 running turns，与 ID 字符串形态无关。
-          confidence: inferred
+          confidence: verified
           at: 2026-10-08T18:10:57.254884Z
+          confirmed_at: 2026-10-08T18:18:23.131709Z
           author: codex-mcp-client
     - id: ai/einoengine/engine.go#persistentChatSessionID
       level: function
