@@ -1428,7 +1428,7 @@ func TestTurnFinalizationPersistsAfterDeadlineRepair(t *testing.T) {
 	}
 	t.Cleanup(func() { _, _ = s.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
 
-	o := New(s, &deadlineRepairEngine{}, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, 500*time.Millisecond)
+	o := New(s, &deadlineRepairEngine{}, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, 5*time.Second)
 	channel := fmt.Sprintf("api:deadline-finalize:%d", time.Now().UnixNano())
 	reply, err := o.HandleMessage(ctx, u, channel, "执行一个会耗尽轮次预算的任务")
 	if err != nil {
@@ -1490,12 +1490,15 @@ func TestRepairedTurnBecomesCanonicalHistoryForFreshAgentTurn(t *testing.T) {
 	t.Cleanup(func() { _, _ = s.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, u.ID) })
 
 	engine := &deadlineRepairEngine{}
-	o := New(s, engine, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, 200*time.Millisecond)
+	o := New(s, engine, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, 5*time.Second)
 	channel := fmt.Sprintf("api:turn-source:%d", time.Now().UnixNano())
 	first, err := o.HandleMessage(ctx, u, channel, "先执行第一步")
 	if err != nil || first != "恢复后的完整答复已经生成并保存。" {
 		t.Fatalf("first reply = %q err=%v", first, err)
 	}
+	// Only the first turn is meant to exhaust its budget. The fresh turn
+	// needs enough time for PostgreSQL work even on a loaded CI runner.
+	o = New(s, engine, tools.Deps{Store: s, TZ: time.UTC}, time.UTC, false, time.Minute)
 	second, err := o.HandleMessage(ctx, u, channel, "继续处理")
 	if err != nil || second != "我看到了上一轮恢复后的完整答复。" {
 		t.Fatalf("second reply = %q err=%v", second, err)

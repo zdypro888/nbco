@@ -607,10 +607,10 @@ nodes:
       anchor:
         file: chat/chat_test.go
         symbol: TestTurnFinalizationPersistsAfterDeadlineRepair
-        hash: sha256:3e2fe3b9e78b9d006bb73e314560b5fcffecf40979d6a054b4703a221a47ccf6
-        struct_hash: sha256:ed1e564f18d2ed345313b646de1ae72fb4b3319b5781147c877b4f0e2c933c02
-        doc_struct_hash: sha256:ed1e564f18d2ed345313b646de1ae72fb4b3319b5781147c877b4f0e2c933c02
-        lines: [859, 918]
+        hash: sha256:405425e97f56384aa761196dbaada3bad46831cb9bebcc2d0bcc2934c1188652
+        struct_hash: sha256:0147bb4fd79b24af6a43ceb41b341c472030b1a47dd1e11d4424495adb2264ff
+        doc_struct_hash: sha256:0147bb4fd79b24af6a43ceb41b341c472030b1a47dd1e11d4424495adb2264ff
+        lines: [1399, 1458]
       status: fresh
       since: 2026-07-25T04:57:17.550908Z
     - id: chat/chat_test.go#TestRepairedTurnBecomesCanonicalHistoryForFreshAgentTurn
@@ -618,10 +618,10 @@ nodes:
       anchor:
         file: chat/chat_test.go
         symbol: TestRepairedTurnBecomesCanonicalHistoryForFreshAgentTurn
-        hash: sha256:a9577ea8a8c229976fffa3556b7695b398d18a2f395c7ab6829829c679bf276c
-        struct_hash: sha256:628cb2294f664a62008767aca00b95652a8bec7fd67694d387c1d5d7182fb925
-        doc_struct_hash: sha256:628cb2294f664a62008767aca00b95652a8bec7fd67694d387c1d5d7182fb925
-        lines: [920, 987]
+        hash: sha256:e41f32794ce238f7ea7ab3c6d529845e57b67be3b28d0036ad90c9e44f2a6b8f
+        struct_hash: sha256:aec626b82622b705178914269693779c3df09eabebe4b9d8d08498500ebcabb3
+        doc_struct_hash: sha256:aec626b82622b705178914269693779c3df09eabebe4b9d8d08498500ebcabb3
+        lines: [1460, 1530]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
     - id: chat/chat_test.go#TestCompactionCycle
