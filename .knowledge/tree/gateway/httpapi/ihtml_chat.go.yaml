@@ -79,12 +79,28 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_chat.go
         symbol: ihtmlSharedSession.HandleEvent
-        hash: sha256:8122211218cb409c1355a324b2cfe3e60596d4ac97780f293bc70337d90e0ef6
-        struct_hash: sha256:6acde9a4bc9398fcc617d579d21ba1be1308ed05c55341189642e46b6da41983
-        doc_struct_hash: sha256:6acde9a4bc9398fcc617d579d21ba1be1308ed05c55341189642e46b6da41983
-        lines: [105, 126]
-      status: undigested
+        hash: sha256:8a4263980daf16e379a45dba45bbb63bad39a02e87f8a29f212ad5471a1cab63
+        struct_hash: sha256:ea41cb686525c82dbba5b724fcd768f0506b184531a5836c1f3ee4b25d2b8ef0
+        doc_struct_hash: sha256:ea41cb686525c82dbba5b724fcd768f0506b184531a5836c1f3ee4b25d2b8ef0
+        lines: [109, 130]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_61607a45
+          kind: pitfall
+          text: ihtml.mountChat 的确认卡渲染能力不代表 nbco 适配器接受确认事件。当前 ihtmlSharedSession.loop 只处理 user_message；cancel 绕过串行队列，confirm_tool/cancel_tool 则走默认拒绝。升级共享 ihtml 依赖不能自动将 nbco 数据库审批改成网页授权，也不能另启 chat.Backend 制造第二个 Agent。
+          confidence: inferred
+          at: 2026-10-12T09:44:57.716236Z
+          author: codex-mcp-client
+      keywords:
+        - ihtml
+        - mountchat
+        - 确认卡
+        - confirm_tool
+        - cancel_tool
+        - 审批
+        - 共享agent
+        - 助手页面
     - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.Close
       level: function
       anchor:
@@ -101,10 +117,10 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_chat.go
         symbol: ihtmlSharedSession.loop
-        hash: sha256:c7bed8a8a46d9e0263f6bc8d786da0aa8c6f1886b3ba44f689a85570eeb423de
-        struct_hash: sha256:18478153e395978d417426b36bb009c88455f12a40dd20d6f2909ea322fe60b0
-        doc_struct_hash: sha256:18478153e395978d417426b36bb009c88455f12a40dd20d6f2909ea322fe60b0
-        lines: [139, 155]
+        hash: sha256:ff9e4384012650720afb80b16b65dd37e0990a99618b1ddcc68f12e1cc234f9f
+        struct_hash: sha256:9e52196f98e41fb5cf90df409686a9c472856e52854f38951772d8166e523946
+        doc_struct_hash: sha256:9e52196f98e41fb5cf90df409686a9c472856e52854f38951772d8166e523946
+        lines: [143, 159]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/ihtml_chat.go#ihtmlSharedSession.runTurnSafely
