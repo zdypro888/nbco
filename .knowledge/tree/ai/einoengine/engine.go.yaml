@@ -90,11 +90,11 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.RunTurn
-        hash: sha256:da135be6ed7ad107e0dff79132a83e8ffad60a9a68123d851a59be6f148089d4
-        struct_hash: sha256:f91e8f266ac4eb253b246b91447f34ba4d75bf270e6607b2078d833205bad86c
-        doc_struct_hash: sha256:f91e8f266ac4eb253b246b91447f34ba4d75bf270e6607b2078d833205bad86c
-        lines: [49, 86]
-      status: suspect
+        hash: sha256:23db5493c9facfa3e6024cee4af8d374681e52bcbcad87f84cce27f1afb81ad0
+        struct_hash: sha256:6c8f33517010c3a1299dc509ec4acb53cab2683d65d46f5260f1362a90878997
+        doc_struct_hash: sha256:6c8f33517010c3a1299dc509ec4acb53cab2683d65d46f5260f1362a90878997
+        lines: [53, 102]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_12422468
@@ -191,6 +191,7 @@ nodes:
           at: 2026-10-08T18:10:57.254884Z
           confirmed_at: 2026-10-08T18:18:23.131709Z
           author: codex-mcp-client
+          superseded_by: e_58004976
         - id: e_9dc16a11
           kind: contract
           text: 持久 Eino session 的能力指纹同时包含 req.Tools 合约和 deepAgentProtocolVersion；修改内部 final_response schema、生命周期或重试语义时必须 bump 该版本，避免旧工具轨迹污染新协议。
@@ -255,6 +256,12 @@ nodes:
           text: 通用 Eino 执行循环与原生 Responses transport 归属 ihtml/agent/eino；nbco 只转换领域 Tool/TurnRequest、保留 eino:chat 命名空间及数字/turn 会话校验，并把共享 runtime invocation key 桥回 nbco 上下文供持久 receipt 使用。权限裁剪、动作/交付持久化和规范产品 history 仍由 nbco Orchestrator 拥有；原生循环回归测试随实现维护在 ihtml。
           confidence: inferred
           at: 2026-10-12T08:59:28.718056Z
+          author: codex-mcp-client
+        - id: e_58004976
+          kind: contract
+          text: durable conversation turn 使用 turn:<正整数> 独立 Eino runtime session；同轮携带匹配 engine_session 和原生 checkpoint 可恢复，不同 turn 隔离，跨轮事实仅来自业务 transcript。internal/无效 ID 或 DisableSession 不开启持久化。retention 按完整 conversation_turns.engine_session 精确保护 running 与 awaiting_approval，并保护对应持久审批 checkpoint 引用。
+          confidence: inferred
+          at: 2026-10-12T10:57:50.140158Z
           author: codex-mcp-client
       lineage:
         - ai/einoengine/responses_model.go#responsesInput
