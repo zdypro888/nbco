@@ -552,6 +552,112 @@ func TestWorkerResponsesProxyRejectsNullBody(t *testing.T) {
 	}
 }
 
+func TestWorkerResponsesCompatibility(t *testing.T) {
+	for _, endpoint := range []string{"/responses", "/responses/compact"} {
+		t.Run(endpoint, func(t *testing.T) {
+			var got map[string]any
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != endpoint {
+					t.Errorf("path = %q", r.URL.Path)
+				}
+				if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+					t.Error(err)
+				}
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer upstream.Close()
+			s := &Server{llm: LLMConfig{Provider: config.ProviderOpenAI, BaseURL: upstream.URL,
+				Model: "gpt-6.1-sol", MaxTokens: 4096, MaxCompletionTokens: 8192, ReasoningEffort: "medium"}}
+			rec := httptest.NewRecorder()
+			s.proxyWorkerOpenAIResponses(rec, httptest.NewRequest(http.MethodPost, endpoint,
+				strings.NewReader(`{"model":"other","input":"test","reasoning":{"effort":"none","summary":"auto"},"max_output_tokens":123}`)), endpoint)
+			if rec.Code != http.StatusOK || got["model"] != "gpt-6.1-sol" {
+				t.Fatalf("status=%d body=%#v", rec.Code, got)
+			}
+			reasoning := got["reasoning"].(map[string]any)
+			if endpoint == "/responses" {
+				if reasoning["effort"] != "medium" || reasoning["summary"] != "auto" || got["max_output_tokens"] != float64(8192) {
+					t.Fatalf("Responses budget = %#v", got)
+				}
+			} else if reasoning["effort"] != "none" || got["max_output_tokens"] != float64(123) {
+				t.Fatalf("compact payload changed: %#v", got)
+			}
+			if got["reasoning_effort"] != nil || got["max_completion_tokens"] != nil || got["max_tokens"] != nil {
+				t.Fatalf("Chat fields leaked: %#v", got)
+			}
+		})
+	}
+}
+
+func TestWorkerReasoningEffortCompatibility(t *testing.T) {
+	for _, model := range []string{"gpt-6.1-sol", "gpt-6-astra", "gpt-5.6", "gpt-6-sol", "gpt-6.1-sol-custom"} {
+		want := "none"
+		if model == "gpt-6.1-sol" || model == "gpt-6-astra" {
+			want = "low"
+		}
+		if got := workerReasoningEffort(model, "none"); got != want {
+			t.Fatalf("%s: got %q, want %q", model, got, want)
+		}
+		if got := workerReasoningEffort(model, "medium"); got != "medium" {
+			t.Fatalf("%s: medium changed to %q", model, got)
+		}
+		s := &Server{}
+		body := map[string]any{"reasoning": map[string]any{"effort": "none", "summary": "auto"}, "max_output_tokens": 123}
+		s.applyWorkerResponsesBudget(body, model)
+		if body["reasoning"].(map[string]any)["effort"] != want || body["max_output_tokens"] != 123 {
+			t.Fatalf("%s: %#v", model, body)
+		}
+	}
+	s := &Server{llm: LLMConfig{MaxTokens: 4096}}
+	body := map[string]any{}
+	s.applyWorkerResponsesBudget(body, "gpt-6.1-sol")
+	if body["max_output_tokens"] != 4096 || body["reasoning"] != nil {
+		t.Fatalf("fallback budget/unset reasoning = %#v", body)
+	}
+}
+
+func TestWorkerChatResponsesOnlyTools(t *testing.T) {
+	calls := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("unexpected protocol: %s", r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		if body["reasoning_effort"] != "low" {
+			t.Errorf("reasoning_effort = %#v", body["reasoning_effort"])
+		}
+		_, _ = w.Write([]byte(`{"choices":[]}`))
+	}))
+	defer upstream.Close()
+	s := &Server{llm: LLMConfig{BaseURL: upstream.URL}}
+	for _, model := range []string{"gpt-6.1-sol", "gpt-6-astra"} {
+		for _, raw := range []string{
+			`{"tools":[{"type":"function"}]}`,
+			`{"messages":[{"role":"tool","content":"done"}]}`,
+			`{"messages":[{"role":"assistant","tool_calls":[{"id":"c"}]}]}`,
+			`{"functions":[{"name":"f"}]}`,
+		} {
+			var body map[string]any
+			if err := json.Unmarshal([]byte(raw), &body); err != nil {
+				t.Fatal(err)
+			}
+			status, out, err := s.callWorkerLLMOpenAI(context.Background(), model, body)
+			if err != nil || status != http.StatusBadRequest || !strings.Contains(string(out), "responses_required") || calls != 0 {
+				t.Fatalf("Chat tools not rejected locally: status=%d out=%s err=%v calls=%d", status, out, err, calls)
+			}
+		}
+	}
+	status, _, err := s.callWorkerLLMOpenAI(context.Background(), "gpt-6.1-sol",
+		map[string]any{"messages": []any{}, "reasoning_effort": "none"})
+	if err != nil || status != http.StatusOK || calls != 1 {
+		t.Fatalf("text-only Chat: status=%d err=%v calls=%d", status, err, calls)
+	}
+}
+
 func TestWorkerResponsesProxyRequiresOpenAIRuntime(t *testing.T) {
 	s := &Server{llm: LLMConfig{Provider: config.ProviderClaude, BaseURL: "https://example.com", Model: "claude"}}
 	rec := httptest.NewRecorder()

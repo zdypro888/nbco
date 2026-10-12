@@ -108,6 +108,9 @@ func newChatModel(ctx context.Context, cfg config.AIConfig) (einomodel.ToolCalli
 		}
 		return claude.NewChatModel(ctx, c)
 	case config.ProviderOpenAI:
+		if cfg.OpenAIAPI == "responses" {
+			return newResponsesChatModel(cfg), nil
+		}
 		c := &openai.ChatModelConfig{
 			APIKey:  cfg.APIKey,
 			BaseURL: cfg.BaseURL,
@@ -239,6 +242,17 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		replayedToolCall = toolScope.replayed
 	}
 	runOptions := turnRunOptions(e.cfg.Provider, req)
+	if e.cfg.Provider == config.ProviderOpenAI && e.cfg.OpenAIAPI == "responses" {
+		var options []einomodel.Option
+		if req.MaxOutputTokens > 0 {
+			options = append(options, einomodel.WithMaxTokens(req.MaxOutputTokens))
+		}
+		options = append(options, einomodel.WrapImplSpecificOptFn(func(o *responsesCallOptions) {
+			o.DisableReasoning = req.Reasoning == ai.ReasoningDisabled
+			o.JSONOutput = req.JSONOutput
+		}))
+		runOptions = []adk.AgentRunOption{adk.WithChatModelOptions(options)}
+	}
 	outputLimit := e.outputTokenLimit()
 	if req.MaxOutputTokens > 0 {
 		outputLimit = req.MaxOutputTokens

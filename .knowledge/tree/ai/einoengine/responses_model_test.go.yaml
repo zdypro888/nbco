@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/responses_model_test.go
+      level: file
+      anchor:
+        file: ai/einoengine/responses_model_test.go
+        hash: sha256:7acaa2e1e60cfc00b24ddb167dad2e31dd5b252559310a43ec172db4cd8e3d06
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T07:06:10.016354Z

@@ -1,11 +1,45 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestLoadOpenAIAPI(t *testing.T) {
+	for _, api := range []string{"", "chat_completions", "responses", " RESPONSES "} {
+		t.Run(api, func(t *testing.T) {
+			cfg, err := Load(writeConfig(t, `{"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","model":"m","openai_api":"`+api+`"}}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.AI.OpenAIAPI != strings.ToLower(strings.TrimSpace(api)) {
+				t.Fatalf("OpenAIAPI = %q", cfg.AI.OpenAIAPI)
+			}
+		})
+	}
+	for _, body := range []string{
+		`{"postgres_dsn":"d","ai":{"provider":"openai","api_key":"k","model":"m","openai_api":"invalid"}}`,
+		`{"postgres_dsn":"d","ai":{"provider":"claude","api_key":"k","model":"m","openai_api":"responses"}}`,
+	} {
+		if _, err := Load(writeConfig(t, body)); err == nil || !strings.Contains(err.Error(), "ai.openai_api") {
+			t.Fatalf("invalid openai_api: %v", err)
+		}
+	}
+	cfg, err := Load(writeConfig(t, `{"postgres_dsn":"d","ai":{"api_key":"k","model":"m"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AI.OpenAIAPI != "" || cfg.AI.Provider != ProviderClaude || cfg.AI.Model != "m" {
+		t.Fatalf("legacy defaults changed: %+v", cfg.AI)
+	}
+	encoded, err := json.Marshal(cfg.AI)
+	if err != nil || strings.Contains(string(encoded), `"openai_api"`) {
+		t.Fatalf("empty openai_api must be omitted: %s, %v", encoded, err)
+	}
+}
 
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()

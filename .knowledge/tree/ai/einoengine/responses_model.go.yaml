@@ -1,0 +1,122 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/responses_model.go
+      level: file
+      anchor:
+        file: ai/einoengine/responses_model.go
+        hash: sha256:79772a8d782ec6923b58e462596cda8833cf91c93d527944adb735c953f60916
+        lines: [0, 0]
+      status: undigested
+      since: 2026-10-12T07:05:51.902978Z
+    - id: ai/einoengine/responses_model.go#responsesInput
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesInput
+        hash: sha256:7423abbbcb5a1c9b6dec09baeedab9b61d4486409e4d501eea7323f8352e1899
+        struct_hash: sha256:07caa31939a669eb29ab5ea584695fd5927a666db9e564c22e7538faa8639585
+        doc_struct_hash: sha256:07caa31939a669eb29ab5ea584695fd5927a666db9e564c22e7538faa8639585
+        lines: [147, 245]
+      status: fresh
+      since: 2026-10-12T07:05:51.902872Z
+      entries:
+        - id: e_7dc670b3
+          kind: contract
+          text: 适配器store=false，不使用previous_response_id。assistant Extra保存有序原生output的JSON字符串供Eino HumanReadableSerializer事件/检查点往返；回放必须保留reasoning、message.phase及call相对顺序，同时以现有ToolCalls为准尊重Eino过滤/参数修正。跨轮业务history仅正文，不携带这些同轮私有项。
+          confidence: inferred
+          at: 2026-10-12T07:05:51.912421Z
+          author: codex-mcp-client
+      keywords:
+        - responses
+        - encrypted_content
+        - phase
+        - output_items
+        - stateless
+    - id: ai/einoengine/responses_model.go#responsesChatModel
+      level: decl
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesChatModel
+        hash: sha256:ffef02941e9412efc988725c42514d02625ed1a642d77b70cade8cffcd3eeef2
+        struct_hash: sha256:073ffd1131baddb75bf39142b49e18434b7a38aed018d05fdb0bf54067c2e0f6
+        doc_struct_hash: sha256:073ffd1131baddb75bf39142b49e18434b7a38aed018d05fdb0bf54067c2e0f6
+        lines: [29, 33]
+      status: fresh
+      since: 2026-10-12T07:06:09.993763Z
+    - id: ai/einoengine/responses_model.go#newResponsesChatModel
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: newResponsesChatModel
+        hash: sha256:c8cedca5b025ae7f40e5e287c8a26ba7cf60e1bfb29a295b368674edfd9da7cb
+        struct_hash: sha256:ed66030224f1a7f9a17f6b7328daff745bf4d1ada37fb849c987d32af4d096ff
+        doc_struct_hash: sha256:ed66030224f1a7f9a17f6b7328daff745bf4d1ada37fb849c987d32af4d096ff
+        lines: [37, 48]
+      status: fresh
+      since: 2026-10-12T07:06:09.995565Z
+    - id: ai/einoengine/responses_model.go#responsesMinimumEffort
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesMinimumEffort
+        hash: sha256:9d76a9fb901d5ebe4b5118b919e629ba662750d6d46b4cf2dd030da68744da1a
+        struct_hash: sha256:4b389059bff149b5155a7336d10afc3b74b00249428aac43ab64f60a6cac0a1a
+        doc_struct_hash: sha256:4b389059bff149b5155a7336d10afc3b74b00249428aac43ab64f60a6cac0a1a
+        lines: [56, 61]
+      status: fresh
+      since: 2026-10-12T07:06:09.997095Z
+    - id: ai/einoengine/responses_model.go#responsesChatModel.WithTools
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesChatModel.WithTools
+        hash: sha256:aee910dd64ae2828ea7d5da275c13d1eac0bc05f2d50eff72b008ae7ab0f4638
+        struct_hash: sha256:7484fc714ce04b3cf3fcccd18ea195eef92363a3c19ce90eb6edcd11ff078b01
+        doc_struct_hash: sha256:7484fc714ce04b3cf3fcccd18ea195eef92363a3c19ce90eb6edcd11ff078b01
+        lines: [50, 54]
+      status: fresh
+      since: 2026-10-12T07:06:09.998507Z
+    - id: ai/einoengine/responses_model.go#responsesChatModel.request
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesChatModel.request
+        hash: sha256:2dcb7cdbc5de7b1ee672bc8b68baebd5d440751738052da392beccb337d1a81e
+        struct_hash: sha256:ef47c7cf54dfc79f04af604ad0eec334908d24c6d68f2bbc2d3defe853363820
+        doc_struct_hash: sha256:ef47c7cf54dfc79f04af604ad0eec334908d24c6d68f2bbc2d3defe853363820
+        lines: [63, 145]
+      status: fresh
+      since: 2026-10-12T07:06:10.000007Z
+    - id: ai/einoengine/responses_model.go#responsesMessage
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesMessage
+        hash: sha256:614847fa5c6364eb3eb80f5c12be265fb623680bbd6a37e3f2a9007e13357a44
+        struct_hash: sha256:0ebd7eb554db56beff59e60d1a881cd0453779892925612f66f20af41877ca2a
+        doc_struct_hash: sha256:0ebd7eb554db56beff59e60d1a881cd0453779892925612f66f20af41877ca2a
+        lines: [283, 352]
+      status: fresh
+      since: 2026-10-12T07:06:10.003133Z
+    - id: ai/einoengine/responses_model.go#responsesChatModel.Generate
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesChatModel.Generate
+        hash: sha256:dbaacc64b0f326b5aceedc66c59054f0a49ae7e0650d28da0241b8e8b3adea18
+        struct_hash: sha256:c72c22d52ba45798ce63c0b225ab25899a2cf16d7882fcabf202ef60230b7d28
+        doc_struct_hash: sha256:c72c22d52ba45798ce63c0b225ab25899a2cf16d7882fcabf202ef60230b7d28
+        lines: [354, 364]
+      status: fresh
+      since: 2026-10-12T07:06:10.004909Z
+    - id: ai/einoengine/responses_model.go#responsesChatModel.Stream
+      level: function
+      anchor:
+        file: ai/einoengine/responses_model.go
+        symbol: responsesChatModel.Stream
+        hash: sha256:d38ce11d2f6845240b8baf668e773fa6fd951a753c4bb0efcef510d8e3cd2c11
+        struct_hash: sha256:daf5cc27964d3ca688b7eb0bbc2e9615c351750ab1023b92cb1eb52fbb2fc198
+        doc_struct_hash: sha256:daf5cc27964d3ca688b7eb0bbc2e9615c351750ab1023b92cb1eb52fbb2fc198
+        lines: [366, 478]
+      status: fresh
+      since: 2026-10-12T07:06:10.006498Z

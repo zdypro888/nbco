@@ -129,3 +129,14 @@ nodes:
         lines: [266, 278]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: config/config_test.go#TestLoadOpenAIAPI
+      level: function
+      anchor:
+        file: config/config_test.go
+        symbol: TestLoadOpenAIAPI
+        hash: sha256:3a480148fcf753bd0c2847c300664d5cf5beed21e60921a173329bca36417ceb
+        struct_hash: sha256:e3fec766ceb263ece999257ea93a4ad29ff1cd795a896e38f2c691da012c2769
+        doc_struct_hash: sha256:e3fec766ceb263ece999257ea93a4ad29ff1cd795a896e38f2c691da012c2769
+        lines: [11, 42]
+      status: fresh
+      since: 2026-10-12T06:49:45.940169Z

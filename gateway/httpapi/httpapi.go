@@ -1766,6 +1766,9 @@ func (s *Server) proxyWorkerOpenAIResponses(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	body["model"] = model
+	if endpoint == "/responses" {
+		s.applyWorkerResponsesBudget(body, model)
+	}
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Responses 请求体无法规范化"})
@@ -2013,6 +2016,27 @@ func recordWorkerLLMUsageAsync(st *store.Store, userID int64, model string, out 
 }
 
 func (s *Server) callWorkerLLMOpenAI(ctx context.Context, model string, body map[string]any) (int, []byte, error) {
+	if workerModelRequiresResponsesTools(model) {
+		tools, _ := body["tools"].([]any)
+		functions, _ := body["functions"].([]any)
+		hasTools := len(tools) > 0 || len(functions) > 0
+		messages, _ := body["messages"].([]any)
+		for _, message := range messages {
+			m, _ := message.(map[string]any)
+			calls, _ := m["tool_calls"].([]any)
+			hasTools = hasTools || m["role"] == "tool" || m["role"] == "function" || len(calls) > 0 || m["function_call"] != nil
+		}
+		if hasTools {
+			out, _ := json.Marshal(map[string]any{"error": map[string]string{
+				"message": "该中枢模型的工具调用必须使用原生 Responses API；请使用 Codex Worker Responses 管道",
+				"type":    "invalid_request_error", "code": "responses_required",
+			}})
+			return http.StatusBadRequest, out, nil
+		}
+	}
+	if effort, ok := body["reasoning_effort"].(string); ok {
+		body["reasoning_effort"] = workerReasoningEffort(model, effort)
+	}
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return 0, nil, fmt.Errorf("请求体无法序列化")
@@ -2122,6 +2146,41 @@ func (s *Server) applyWorkerLLMBudget(body map[string]any) {
 	}
 	if effort := strings.TrimSpace(s.llm.ReasoningEffort); effort != "" {
 		body["reasoning_effort"] = effort
+	}
+}
+
+func workerModelRequiresResponsesTools(model string) bool {
+	switch strings.TrimSpace(model) {
+	case "gpt-6.1-sol", "gpt-6-astra":
+		return true
+	default:
+		return false
+	}
+}
+
+func workerReasoningEffort(model, effort string) string {
+	if workerModelRequiresResponsesTools(model) && strings.EqualFold(strings.TrimSpace(effort), "none") {
+		return "low"
+	}
+	return effort
+}
+
+func (s *Server) applyWorkerResponsesBudget(body map[string]any, model string) {
+	if s.llm.MaxCompletionTokens > 0 || s.llm.MaxTokens > 0 {
+		budget, _ := s.llmOutputBudget()
+		body["max_output_tokens"] = budget
+	}
+	reasoning, _ := body["reasoning"].(map[string]any)
+	effort, _ := reasoning["effort"].(string)
+	if central := strings.TrimSpace(s.llm.ReasoningEffort); central != "" {
+		effort = central
+	}
+	if effort != "" {
+		if reasoning == nil {
+			reasoning = map[string]any{}
+		}
+		reasoning["effort"] = workerReasoningEffort(model, effort)
+		body["reasoning"] = reasoning
 	}
 }
 

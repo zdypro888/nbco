@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: config/config.go
         symbol: AIConfig
-        hash: sha256:692327e8a16ed7eb722b326269bf09e2092662e048ab385ecee4f3e96a91e811
-        struct_hash: sha256:13bb49d7283f4b3564cdfe82c3222e211bdc28574f6292caeddb3c9a4c09c693
-        doc_struct_hash: sha256:c53eaecb1287267dbede0a9001febc448615e1e90d8ffb1936f6b19b0d53a402
-        lines: [34, 77]
+        hash: sha256:806c785e77f30495e281e438682eaecdc7d04a20a4e4d92dca4a99b724b2a7ce
+        struct_hash: sha256:284a4b9860631f961f23546da98bc878ca58d405b317a8583eae1962c4216e4e
+        doc_struct_hash: sha256:7666155e70301e16d0bca3517944f77f5af585b78cf5c544eb84232df3fe8fc9
+        lines: [44, 88]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: config/config.go#MCPServer
@@ -167,10 +167,10 @@ nodes:
       anchor:
         file: config/config.go
         symbol: Config.validate
-        hash: sha256:cbd30e09fc3629f5ddc40904bf2fa97bec07d9a544a16a9756e39a2e0e576283
-        struct_hash: sha256:da23ca19e17d54cef3bd0723557f0f092a92aa4f130c61492efec4772dbe1bcb
-        doc_struct_hash: sha256:da23ca19e17d54cef3bd0723557f0f092a92aa4f130c61492efec4772dbe1bcb
-        lines: [246, 361]
+        hash: sha256:35f70b3d268c19b17b98c0ed7a47a5a66ae173a486388b4551088009b77aae12
+        struct_hash: sha256:890db45e406d6cec563c7507edf64cd01e113c50e2c5bc5b279b1db3e760e978
+        doc_struct_hash: sha256:890db45e406d6cec563c7507edf64cd01e113c50e2c5bc5b279b1db3e760e978
+        lines: [304, 467]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: config/config.go#invalidBrandRune

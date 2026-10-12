@@ -827,10 +827,10 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.callWorkerLLMOpenAI
-        hash: sha256:a2eb77aaf69384918b82c51b7f70a59e82768dd5e06905e3e4df6966de1b9b77
-        struct_hash: sha256:52b447987cc68ce9fdfa7ec6c801de6b8cda908c8181e122027c2021a6e3d8bc
-        doc_struct_hash: sha256:52b447987cc68ce9fdfa7ec6c801de6b8cda908c8181e122027c2021a6e3d8bc
-        lines: [1428, 1454]
+        hash: sha256:b9ccc80c7414474a3247e3a1a19a09c60ff961b3e502482667a9a56301892904
+        struct_hash: sha256:5736baeb2f81a33dc640a855c4c261c5eb53ad714deb6c5fa043c7fb2a3ad056
+        doc_struct_hash: sha256:5736baeb2f81a33dc640a855c4c261c5eb53ad714deb6c5fa043c7fb2a3ad056
+        lines: [2018, 2065]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: gateway/httpapi/httpapi.go#Server.callWorkerLLMClaude
@@ -1355,12 +1355,19 @@ nodes:
       anchor:
         file: gateway/httpapi/httpapi.go
         symbol: Server.proxyWorkerOpenAIResponses
-        hash: sha256:4a38616ff0e1a7a9dba84243587c3c6dbb9a0fad83d01be8bb947ee4c46a58a9
-        struct_hash: sha256:8b44a3c3deba30dbdf87b1096b7f35e585242033a442d78d3c04610a3c7ac1c3
-        doc_struct_hash: sha256:353db0008174800f0c69ec43ba058cc6ce4bd83dd0b79981abfe843f11ef98a1
-        lines: [1661, 1738]
+        hash: sha256:578b8d851282aba2c3d001acab402d99d64a3532fa4e78cc1644d6d9e6a3e66e
+        struct_hash: sha256:34c41752fd7e553c246488d4dd8f35004bb616b2d9f5b99f565c5a6ebc44d97a
+        doc_struct_hash: sha256:896e5f9a01e58092a8d4817dccb26419712eb5d72b5c6cd3c0c53a997b12132d
+        lines: [1749, 1829]
       status: fresh
       since: 2026-08-21T10:12:32.800989Z
+      entries:
+        - id: e_7479e1c1
+          kind: contract
+          text: Worker有两条独立wire边界：Codex PTY使用原生Responses/compact代理；builtin Worker使用/api/worker/llm的Chat协议。主引擎openai_api选择不等于把builtin管道改为Responses。Responses预算映射只作用/responses，不向compact注入生成参数；所有路径仍由中枢选模型且不下发上游key。
+          confidence: inferred
+          at: 2026-10-12T06:49:47.245703Z
+          author: codex-mcp-client
     - id: gateway/httpapi/httpapi.go#Server.handleAdminMaintenance
       level: function
       anchor:
@@ -1383,3 +1390,36 @@ nodes:
         lines: [1003, 1059]
       status: fresh
       since: 2026-08-23T12:00:46.58738Z
+    - id: gateway/httpapi/httpapi.go#Server.applyWorkerResponsesBudget
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: Server.applyWorkerResponsesBudget
+        hash: sha256:f36e6d3d0773e4fdc7a850f48ab6d82913cd0ed506b45c1bbdc0ed055a155391
+        struct_hash: sha256:416259876a8943e9b6d13b3eb028286b6fd0e2b8f017a6e2517a76f7816b2dcb
+        doc_struct_hash: sha256:416259876a8943e9b6d13b3eb028286b6fd0e2b8f017a6e2517a76f7816b2dcb
+        lines: [2168, 2185]
+      status: fresh
+      since: 2026-10-12T06:49:46.696227Z
+    - id: gateway/httpapi/httpapi.go#workerReasoningEffort
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: workerReasoningEffort
+        hash: sha256:cfb336b93dd0c7990fd07b29fed462d0a140629dc0a67099d93593d2481ed048
+        struct_hash: sha256:44e5323e98039582b483193c031a715148224698f62589cd4a8411fd6afabae1
+        doc_struct_hash: sha256:44e5323e98039582b483193c031a715148224698f62589cd4a8411fd6afabae1
+        lines: [2161, 2166]
+      status: fresh
+      since: 2026-10-12T06:49:46.708938Z
+    - id: gateway/httpapi/httpapi.go#workerModelRequiresResponsesTools
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi.go
+        symbol: workerModelRequiresResponsesTools
+        hash: sha256:26d61376d958daf4f52eae965b2c2d43372adf7019cb590722e66a6c4c1add19
+        struct_hash: sha256:0920242e013a95f232aadcf760263d62ee5acfcf8a85affa7f6d0efed2f5a5a5
+        doc_struct_hash: sha256:0920242e013a95f232aadcf760263d62ee5acfcf8a85affa7f6d0efed2f5a5a5
+        lines: [2152, 2159]
+      status: fresh
+      since: 2026-10-12T06:49:46.72288Z

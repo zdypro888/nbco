@@ -217,3 +217,36 @@ nodes:
         lines: [378, 411]
       status: fresh
       since: 2026-08-23T05:26:54.363069Z
+    - id: gateway/httpapi/httpapi_test.go#TestWorkerResponsesCompatibility
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi_test.go
+        symbol: TestWorkerResponsesCompatibility
+        hash: sha256:565d0b8fc08c3b78d81bf9b3340ec9ef935ebf890017225900788a3431315d21
+        struct_hash: sha256:493b42c26ac36466285e82ea8cb846250a77aa7bacb8c31d0dffcc7f80806469
+        doc_struct_hash: sha256:493b42c26ac36466285e82ea8cb846250a77aa7bacb8c31d0dffcc7f80806469
+        lines: [555, 590]
+      status: fresh
+      since: 2026-10-12T06:49:46.738727Z
+    - id: gateway/httpapi/httpapi_test.go#TestWorkerReasoningEffortCompatibility
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi_test.go
+        symbol: TestWorkerReasoningEffortCompatibility
+        hash: sha256:3247880a016e2eb4d43343d10e7366a5ab3e2fd72e27aa2ed4d62ca810036014
+        struct_hash: sha256:f45659e3d74e3ad01c62869d3cf45476318fbefd0334b01fdafcab42582f82a4
+        doc_struct_hash: sha256:f45659e3d74e3ad01c62869d3cf45476318fbefd0334b01fdafcab42582f82a4
+        lines: [592, 617]
+      status: fresh
+      since: 2026-10-12T06:49:46.741586Z
+    - id: gateway/httpapi/httpapi_test.go#TestWorkerChatResponsesOnlyTools
+      level: function
+      anchor:
+        file: gateway/httpapi/httpapi_test.go
+        symbol: TestWorkerChatResponsesOnlyTools
+        hash: sha256:3dddd36245f67fb4e1306b077fd1d39803e1835e41cf33ac5191a449a0f21128
+        struct_hash: sha256:300fcc52b26a7711927b828efe7c2e801cf1a3a14fbcdb2174a4f6ae40d2b3e1
+        doc_struct_hash: sha256:300fcc52b26a7711927b828efe7c2e801cf1a3a14fbcdb2174a4f6ae40d2b3e1
+        lines: [619, 659]
+      status: fresh
+      since: 2026-10-12T06:49:46.744232Z

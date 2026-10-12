@@ -57,10 +57,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: newChatModel
-        hash: sha256:01816e50a5609c9bbc8794310adb784a51423e6b0a783a2267ff336e91b8859a
-        struct_hash: sha256:a6adf56fe6cdcb5f495d1bb786e5de826bdd802b6852c08d7f8a1944b54a2b23
-        doc_struct_hash: sha256:a6adf56fe6cdcb5f495d1bb786e5de826bdd802b6852c08d7f8a1944b54a2b23
-        lines: [92, 135]
+        hash: sha256:520047d95e0cdd4224ad67ad7562ae3ee7b5dfb1d3c6b7ac70f61f3b7fbf208e
+        struct_hash: sha256:ecba276ec59cdd91a193cb5eeca56bf63112326769a62ea1a211cde0581dc6b8
+        doc_struct_hash: sha256:ecba276ec59cdd91a193cb5eeca56bf63112326769a62ea1a211cde0581dc6b8
+        lines: [92, 138]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#chatHTTPTimeout
@@ -90,10 +90,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.RunTurn
-        hash: sha256:d2a07f15cf1a622642704903060d22b2f8b8b34b06c30b141456e7a28393fd37
-        struct_hash: sha256:80aecc61b1b7cbec6cf0722d287e1a2eccbd3cca7429a0f8076a344d4dc18665
-        doc_struct_hash: sha256:cf40a5cd730b721593c556832684bb21e228b2e6fd741a30b03a1098ff92ced8
-        lines: [147, 266]
+        hash: sha256:e97877e37e05a905a706e7db1bfa368aaded60e79041eef006afb39e9f3f242d
+        struct_hash: sha256:4ff8704012245ce0ec2631973d53f6d18ad42a018c89fd8933101c4ae59e3f54
+        doc_struct_hash: sha256:a40a9c88b6dbd6a3f003d8216bbec6ffb42de8323d501db165112f07cb55597c
+        lines: [150, 280]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#turnRunOptions
