@@ -27,6 +27,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assistant mount integration
+        run: |
+          node --check gateway/httpapi/web/app.js
+          node --test gateway/httpapi/web/app.test.js
       - name: gofmt
         run: test -z "$(gofmt -l .)"
       - name: vet

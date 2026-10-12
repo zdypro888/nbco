@@ -243,6 +243,8 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 边界：
 
 - `ihtml` 是 Web 界面运行时，不是第二个 AI 中枢。宿主只向当前轮次附加用户作用域的 `ui_*` 工具；模型、DeepAgent、会话、memory、skill、权限与审计仍由 nbco 统一提供。
+- 通用 Eino 执行与原生 Responses transport 已归入 `ihtml/agent/eino`，`ai/einoengine` 只转换领域契约并桥接工具幂等上下文键；旧 `eino:chat` 命名空间和数字/turn 会话校验保留。nbco 的权限筛选、PostgreSQL runtime store、规范聊天历史与动作回执不下沉到库。
+- 独立对话页使用 `ihtml.mountChat`，动态工作台使用 `ihtml.mount`，两者都接现有 `/ui/` ChatBackend 和同一个 nbco Orchestrator，不实例化第二套 `ihtml/chat` 后端。新项目的通用桥接、扩展 hooks、示例和实践记录维护在 ihtml 的 `docs/ai-integration.md`。
 - 动态工作台源码、页面、KV 与修订保存在 PostgreSQL，浏览器只持有短期连接票据；UI Item 以当前用户权限调用 nbco API，不携带长期凭据。
 - workflow 编排业务过程，仍然创建标准任务或调用标准工具，不绕过审计。
 - 脚本工具只做无文件、无网络、无 shell 的纯逻辑。

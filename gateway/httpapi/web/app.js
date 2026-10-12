@@ -38,9 +38,6 @@ const state = {
   ai: null,
   selected: null,
   logs: [],
-  chat: [
-    { role: "sys", text: "控制中心和 Telegram 使用同一个中枢能力。复杂操作优先走队列和工作流，临时问题再用对话。" },
-  ],
   actionResult: "",
   actionOK: true,
 	search: null,
@@ -64,6 +61,8 @@ const storage = {
 };
 let useAccessToken = !tg;
 let ihtmlWorkspace = null;
+let ihtmlMountOwner = { chatOnly: false, userID: "" };
+let assistantDisplay = { userID: "", messages: [] };
 let ihtmlTicket = { userID: "", token: "", expiresAt: 0 };
 let ihtmlTicketPromise = { userID: "", value: null };
 let ihtmlMountGeneration = 0;
@@ -373,10 +372,7 @@ function renderContent() {
     break;
   case "chat":
     el.innerHTML = renderChatRoute();
-    setTimeout(() => {
-      const chatLog = document.querySelector("#chatLog");
-      if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
-    }, 0);
+    scheduleIHTMLWorkspaceMount();
     break;
   default:
     el.innerHTML = renderCommandRoute();
@@ -863,16 +859,7 @@ function renderCapabilityRows() {
 }
 
 function renderChatRoute() {
-  return `
-    <section class="surface chat-layout">
-      <div class="chat-log" id="chatLog">
-        ${state.chat.map(m => `<div class="msg ${m.role}">${esc(m.text)}</div>`).join("")}
-      </div>
-      <form class="chat-form" data-form="chat">
-        <textarea class="textarea" id="chatInput" placeholder="输入命令或问题，Enter 发送，Shift+Enter 换行"></textarea>
-        <button class="btn primary" type="submit">${icon("send")}发送</button>
-      </form>
-    </section>`;
+  return `<section class="ihtml-assistant-host" id="ihtmlAssistant" aria-label="AI 助手"></section>`;
 }
 
 function renderWorkspaceRoute() {
@@ -886,8 +873,12 @@ function renderWorkspaceRoute() {
 function disposeIHTMLWorkspace() {
   ihtmlMountGeneration++;
   if (!ihtmlWorkspace) return;
+  if (ihtmlMountOwner.chatOnly && String(state.me?.id || "") === ihtmlMountOwner.userID) {
+    assistantDisplay = { userID: ihtmlMountOwner.userID, messages: ihtmlWorkspace.chat.getMessages() };
+  }
   try { ihtmlWorkspace.destroy(); } catch (_) { /* already detached */ }
   ihtmlWorkspace = null;
+  ihtmlMountOwner = { chatOnly: false, userID: "" };
 }
 
 function scheduleIHTMLWorkspaceMount() {
@@ -921,30 +912,36 @@ async function getIHTMLTicket() {
 function resetIHTMLAuth() {
   ihtmlTicket = { userID: "", token: "", expiresAt: 0 };
   ihtmlTicketPromise = { userID: "", value: null };
+  assistantDisplay = { userID: "", messages: [] };
 }
 
 function mountIHTMLWorkspace(generation) {
-  if (generation !== ihtmlMountGeneration || state.route !== "workspace") return;
-  const host = document.querySelector("#ihtmlWorkspace");
+  if (generation !== ihtmlMountGeneration || !["workspace", "chat"].includes(state.route)) return;
+  const chatOnly = state.route === "chat";
+  const host = document.querySelector(chatOnly ? "#ihtmlAssistant" : "#ihtmlWorkspace");
   const menu = document.querySelector("#ihtmlWorkspaceMenu");
-  if (!host || !menu || !window.ihtml || typeof window.ihtml.mount !== "function") {
-    if (host) host.textContent = "动态工作台内核未加载。";
+  const mount = chatOnly ? window.ihtml?.mountChat : window.ihtml?.mount;
+  if (!host || (!chatOnly && !menu) || typeof mount !== "function") {
+    if (host) host.textContent = "ihtml 内核未加载。";
     return;
   }
   try {
     if (generation !== ihtmlMountGeneration) return;
-    ihtmlWorkspace = window.ihtml.mount(host, {
+    ihtmlWorkspace = mount.call(window.ihtml, host, {
       base: new URL("/ui/", window.location.origin).toString(),
       auth: getIHTMLTicket,
       connectionAuth: getIHTMLTicket,
       theme: "inherit",
+      locale: "zh",
       routing: "memory",
       page: state.workspacePage,
       menu,
       chatEntry: true,
-      storageKey: `nbco-dynamic-workspace:${state.me.id}`,
+      storageKey: `nbco-${chatOnly ? "assistant" : "dynamic-workspace"}:${state.me.id}`,
       scriptNonce: root.dataset.cspNonce || "",
       onAuthError: resetIHTMLAuth,
+      contextProvider: chatOnly ? () => ({ page: { path: "/chat", visible_text: "" } }) : undefined,
+      initialMessages: chatOnly && assistantDisplay.userID === String(state.me.id) ? assistantDisplay.messages : undefined,
       onChange: navState => {
         const page = normalizeWorkspacePage(navState?.page);
         if (page === state.workspacePage) return;
@@ -952,8 +949,9 @@ function mountIHTMLWorkspace(generation) {
         syncBrowserLocation();
       },
     });
+    ihtmlMountOwner = { chatOnly, userID: String(state.me.id) };
   } catch (err) {
-    host.textContent = `动态工作台启动失败：${err.message}`;
+    host.textContent = `ihtml 启动失败：${err.message}`;
     addLog("ihtml", "ERROR", err.message);
   }
 }
@@ -1903,26 +1901,6 @@ async function applyModel() {
   renderApp();
 }
 
-async function sendChat() {
-  const input = document.querySelector("#chatInput");
-  const text = input?.value.trim();
-  if (!text) return;
-  state.chat.push({ role: "me", text });
-  if (input) input.value = "";
-  renderApp();
-  try {
-    state.chat.push({ role: "sys", text: "正在处理…" });
-    renderApp();
-    const data = await api("/api/chat", { method: "POST", body: JSON.stringify({ message: text }) });
-    state.chat = state.chat.filter(m => !(m.role === "sys" && m.text === "正在处理…"));
-    state.chat.push({ role: "ai", text: data.reply || "" });
-  } catch (err) {
-    state.chat = state.chat.filter(m => !(m.role === "sys" && m.text === "正在处理…"));
-    state.chat.push({ role: "sys", text: `出错了：${err.message}` });
-  }
-  renderApp();
-}
-
 function routeFromAction(action) {
   switch (action) {
   case "go-files":
@@ -2028,20 +2006,9 @@ document.addEventListener("click", async event => {
   }
 });
 
-document.addEventListener("submit", async event => {
-  if (event.target.matches('[data-form="chat"]')) {
-    event.preventDefault();
-    await sendChat();
-  }
-});
-
 document.addEventListener("keydown", event => {
   if (event.target?.id === "loginToken" && event.key === "Enter") {
     document.querySelector('[data-action="login"]')?.click();
-  }
-  if (event.target?.id === "chatInput" && event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    event.target.closest("form")?.requestSubmit();
   }
 	if (event.target?.id === "globalSearch" && event.key === "Enter") {
 		event.preventDefault();

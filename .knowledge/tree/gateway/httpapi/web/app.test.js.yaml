@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: gateway/httpapi/web/app.test.js
+      level: file
+      anchor:
+        file: gateway/httpapi/web/app.test.js
+        hash: sha256:90d135aafe621fcd436c1f7a90aed57ba32f56c23a9ca20f477df04a4d17bd24
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T09:00:11.896706Z

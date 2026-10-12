@@ -46,10 +46,10 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: New
-        hash: sha256:85ab01eb3e574ef365c59c45dbfe7c302f59cc2134c4b3bd6c909a2066c00db5
-        struct_hash: sha256:ae8b12974f20cd5bff8d9945fed5cece52bb4df002777dbb8f95c8f088c29f40
-        doc_struct_hash: sha256:56836d1c7259d8a2e8e6e2386bdd6fb4843775dbc7618c6b3149ee80cc64b572
-        lines: [59, 90]
+        hash: sha256:167485e428b6c6cd0e0f1c1943f05f226b8b91898625bccd5aa4a6cfed6fd270
+        struct_hash: sha256:839582c1287a3908ef32a66463ce149ab3be82429b8db680a51aaf876b72ea4e
+        doc_struct_hash: sha256:839582c1287a3908ef32a66463ce149ab3be82429b8db680a51aaf876b72ea4e
+        lines: [25, 39]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
     - id: ai/einoengine/engine.go#newChatModel
@@ -90,12 +90,181 @@ nodes:
       anchor:
         file: ai/einoengine/engine.go
         symbol: Engine.RunTurn
-        hash: sha256:e97877e37e05a905a706e7db1bfa368aaded60e79041eef006afb39e9f3f242d
-        struct_hash: sha256:4ff8704012245ce0ec2631973d53f6d18ad42a018c89fd8933101c4ae59e3f54
-        doc_struct_hash: sha256:a40a9c88b6dbd6a3f003d8216bbec6ffb42de8323d501db165112f07cb55597c
-        lines: [150, 280]
-      status: undigested
+        hash: sha256:da135be6ed7ad107e0dff79132a83e8ffad60a9a68123d851a59be6f148089d4
+        struct_hash: sha256:f91e8f266ac4eb253b246b91447f34ba4d75bf270e6607b2078d833205bad86c
+        doc_struct_hash: sha256:f91e8f266ac4eb253b246b91447f34ba4d75bf270e6607b2078d833205bad86c
+        lines: [49, 86]
+      status: fresh
       since: 2026-07-19T18:32:51.345695Z
+      entries:
+        - id: e_12422468
+          kind: contract
+          text: 通用Eino执行循环正迁至ihtml/agent/eino；nbco只转换领域Tool/TurnRequest、保留旧eino:chat命名空间与数字/turn会话校验，并把共享runtime invocation key桥回nbco上下文供持久化receipt使用。权限裁剪、动作/交付持久化及产品history仍归Orchestrator。
+          confidence: inferred
+          at: 2026-10-12T08:39:33.263621Z
+          author: codex-mcp-client
+          superseded_by: e_35741f89
+        - id: e_7dc670b3
+          kind: contract
+          text: 适配器store=false，不使用previous_response_id。assistant Extra保存有序原生output的JSON字符串供Eino HumanReadableSerializer事件/检查点往返；回放必须保留reasoning、message.phase及call相对顺序，同时以现有ToolCalls为准尊重Eino过滤/参数修正。跨轮业务history仅正文，不携带这些同轮私有项。
+          confidence: inferred
+          at: 2026-10-12T07:05:51.912421Z
+          confirmed_at: 2026-10-12T07:11:22.020396Z
+          author: codex-mcp-client
+        - id: e_8dd422c8
+          kind: contract
+          text: 所有 req.Tools 都作为 toolsearch.DynamicTools 注册，且当前未启用 UseModelToolSearch；Eino 首次模型调用会剥离这些动态工具的 schema，只保留 tool_search、Deep 内建工具（以及可选 skill 工具）。模型会收到包含全部动态工具名的 <available-deferred-tools> reminder，但不会首轮收到全部描述/参数 schema；调用 tool_search 后才把命中的工具 schema 加回。
+          confidence: suspect
+          at: 2026-07-19T19:27:16.674935Z
+          author: codex-mcp-client
+          superseded_by: e_a1bc4d0f
+        - id: e_a09fcc2c
+          kind: pitfall
+          text: tool_search 会扫描持久会话历史中的既往搜索结果并重新激活曾命中的动态工具，因此实际可见 schema 可能随会话累计；但权限目录总数/总 schema 大小不能直接代表任一模型调用的真实暴露量。
+          confidence: refuted
+          at: 2026-07-19T19:27:16.675008Z
+          author: codex-mcp-client
+          refuted_by: chg_20260719T195405Z_08514f0f2449d321
+        - id: e_a1bc4d0f
+          kind: contract
+          text: 所有 req.Tools 仍作为 toolsearch.DynamicTools 注册；首轮只暴露 tool_search、Deep 内建工具、可选 skill 与内部 final_response。历史轮次的 tool_search 命中会被协议中间件过滤，只有本轮搜索结果才重新暴露对应业务 schema；每次模型输出必须调用业务工具或 final_response。
+          confidence: inferred
+          at: 2026-07-19T19:54:05.879394Z
+          confirmed_at: 2026-07-19T20:18:56.808348Z
+          author: codex-mcp-client
+          superseded_by: e_14e009d1
+        - id: e_d8af8e3a
+          kind: pitfall
+          text: 不要仅凭 Eino toolsearch 会扫描全会话历史，就判断旧轮次命中的业务 schema 仍会暴露给模型；nbco 的 deepProtocolMiddleware 在 toolsearch 之后按本轮搜索结果再次过滤。修改 handler 顺序时必须保留 protocol middleware 在 toolsearch 之后，否则会重新引入长会话工具累积。
+          confidence: inferred
+          at: 2026-07-19T19:54:10.24797Z
+          confirmed_at: 2026-07-19T20:18:56.71788Z
+          author: codex-mcp-client
+          superseded_by: e_1956c25f
+        - id: e_14e009d1
+          kind: contract
+          text: req.PreferredTools 中且实际存在于 req.Tools 的工具作为初始工具注册，首轮直接暴露完整 schema；其余授权业务工具注册为 toolsearch.DynamicTools，仍可经 tool_search 加载。协议中间件最后按“本轮首选 + 本轮搜索命中”过滤业务 schema，并始终加入 final_response；handler 顺序必须让协议中间件位于 toolsearch 之后。
+          confidence: suspect
+          at: 2026-07-19T21:24:56.564729Z
+          author: codex-mcp-client
+          superseded_by: e_ad0cf580
+        - id: e_ad0cf580
+          kind: contract
+          text: req.Tools 全部注册为 Eino toolsearch.DynamicTools，不再有 PreferredTools 或额外 LLM 预选；模型从原生 Deep 指令和延迟工具名称目录自主调用 tool_search，命中后才获得完整 schema。deepProtocolMiddleware 位于 toolsearch 之后，只保留当前真实用户轮次搜索命中的业务 schema，并始终加入 final_response；deepInstructionMiddleware 只在 Eino 原生 Deep 指令后追加产品上下文。授权或工具契约变化由 capabilityFingerprint 轮换 managed session。
+          confidence: inferred
+          at: 2026-07-19T21:45:42.177577Z
+          confirmed_at: 2026-07-19T21:45:47.777046Z
+          author: codex-mcp-client
+          superseded_by: e_e3a9ecfd
+        - id: e_e3a9ecfd
+          kind: contract
+          text: req.Tools 全部注册为 Eino toolsearch.DynamicTools；Deep Agent 使用 Eino 原生停止条件，普通 assistant 文本就是合法最终答复，不再注入 final_response、forced tool choice 或语义协议重试。turnToolMiddleware 只保留当前真实用户轮次经 tool_search 命中的业务 schema并统计暴露量；modelRetryConfig 仅重试瞬时传输/服务错误。
+          confidence: inferred
+          at: 2026-07-19T22:19:00.81772Z
+          confirmed_at: 2026-07-20T02:48:02.365434Z
+          author: codex-mcp-client
+        - id: e_1956c25f
+          kind: pitfall
+          text: Eino toolsearch 会把延迟工具选择写入持久会话；turnToolMiddleware 必须位于 toolsearch 之后，并按最后一个非 reminder 的真实 user 边界过滤当前轮未重新选中的业务 schema。移除或调换顺序会让旧轮次工具重新泄漏到模型上下文。
+          confidence: inferred
+          at: 2026-07-19T22:19:05.469949Z
+          confirmed_at: 2026-07-20T02:48:02.173123Z
+          author: codex-mcp-client
+        - id: e_e3fe262f
+          kind: pitfall
+          text: patchtoolcalls 生成的悬空工具结果必须表达“执行状态未知”而不是成功或失败：进程可能在副作用完成后、结果持久化前中断。恢复后的 Agent 应先通过只读能力核实业务状态；不能根据机械补丁直接重放写操作。
+          confidence: inferred
+          at: 2026-07-21T10:55:42.813432Z
+          confirmed_at: 2026-07-21T10:55:50.170612Z
+          author: codex-mcp-client
+        - id: e_f94850a3
+          kind: pitfall
+          text: chat.runTurn 为 durable conversation turn 传入 turn:<ID> 并开启 Session，但 persistentChatSessionID 目前只接受正整数字符串，导致正常业务轮次 engineSessionID 返回空；诊断 Eino checkpoint/runtime events 缺失时必须核对这个跨模块身份契约。跨轮上下文来自业务事实源，不应通过恢复复用旧 chat session 来规避该不匹配。
+          confidence: suspect
+          at: 2026-10-08T18:01:32.826124Z
+          author: codex-mcp-client
+          superseded_by: e_cdb822a4
+        - id: e_cdb822a4
+          kind: contract
+          text: durable conversation turn 使用 turn:<正整数> 独立 Eino runtime session；同轮携带匹配 engine_session 可恢复，不同 turn ID 必须隔离，跨轮事实仅来自业务 transcript。internal/无效 ID 或 DisableSession 不能开启持久化。retention 按完整 conversation_turns.engine_session 精确保护 running turns，与 ID 字符串形态无关。
+          confidence: inferred
+          at: 2026-10-08T18:10:57.254884Z
+          confirmed_at: 2026-10-08T18:18:23.131709Z
+          author: codex-mcp-client
+        - id: e_9dc16a11
+          kind: contract
+          text: 持久 Eino session 的能力指纹同时包含 req.Tools 合约和 deepAgentProtocolVersion；修改内部 final_response schema、生命周期或重试语义时必须 bump 该版本，避免旧工具轨迹污染新协议。
+          confidence: inferred
+          at: 2026-07-19T20:14:58.82018Z
+          confirmed_at: 2026-07-19T21:48:08.472898Z
+          author: codex-mcp-client
+          retired_by: chg_20260720T035526Z_3fe347a3bc58cfa5
+        - id: e_2f424a09
+          kind: pitfall
+          text: collect 只要看到一条无 tool_calls 的非空 assistant Content 就将其当 finalText，并在流结束后正常返回；它不判断目标是否完成、是否需要工具证据或文本是否只是未来承诺。因此 provider 的 finish_reason=stop 只是正常文本终止，不能证明 Deep 任务已完成。
+          confidence: refuted
+          at: 2026-07-19T19:27:16.799156Z
+          author: codex-mcp-client
+          refuted_by: chg_20260719T195725Z_fbc1249fcec64374
+        - id: e_d9e9c20b
+          kind: contract
+          text: Deep 模式(requireStructuredFinal=true)只把 final_response 对应的 return-direct 工具结果作为最终用户文本，并从业务 Steps 中隐藏该内部协议调用；OneShot 才接受普通 assistant Content 直接结束。
+          confidence: inferred
+          at: 2026-07-19T19:57:29.76127Z
+          confirmed_at: 2026-07-19T19:57:46.268784Z
+          author: codex-mcp-client
+          retired_by: chg_20260719T221913Z_8f1486007401f79d
+        - id: e_a4238baf
+          kind: pitfall
+          text: 不要看到 collect 仍有普通 Content→finalText 分支就判断 Deep 可以口头结束；该分支明确受 !requireStructuredFinal 保护。Eino 的 WillRetryError 既可能出现在 AgentEvent.Err，也可能从流读取返回，两条路径都必须视为非终态继续消费。
+          confidence: inferred
+          at: 2026-07-19T19:57:29.761414Z
+          confirmed_at: 2026-07-19T19:57:46.444172Z
+          author: codex-mcp-client
+          retired_by: chg_20260719T221914Z_63821c62a96f8468
+        - id: e_b9bf7b71
+          kind: pitfall
+          text: Eino 的 AgentEvent 仍可能暴露 provider 原始的“业务工具 + final_response”混合批次，即使 AfterModelRewriteState 已从持久状态删除提前收尾；collect 必须同步忽略该 final_response，否则会把已归一化的合法执行误判为终止错误。
+          confidence: suspect
+          at: 2026-07-19T20:14:58.644417Z
+          author: codex-mcp-client
+          retired_by: chg_20260719T221913Z_7a399f62c2842978
+        - id: e_d768b37a
+          kind: contract
+          text: Deep 未收到有效 final_response 时，仅在 req.Tools 中的真实业务工具已经返回后才可保留 Steps 进入 OneShot 渲染修复；只有 tool_search/skill/write_todos 或单纯耗尽输出预算都必须失败回滚。
+          confidence: suspect
+          at: 2026-07-19T20:14:58.645042Z
+          author: codex-mcp-client
+          retired_by: chg_20260719T221913Z_2495f6847c2c883e
+        - id: e_2a951b25
+          kind: contract
+          text: collect 只消费 Eino 原生事件：assistant 无工具调用的 Content 成为最终答复，assistant ToolCalls 与后续 Tool 结果按 ToolCallID 配对进 Steps；不再解释任何自定义终止工具。
+          confidence: inferred
+          at: 2026-07-19T22:19:20.582367Z
+          confirmed_at: 2026-07-20T03:55:25.977115Z
+          author: codex-mcp-client
+        - id: e_c756fa1e
+          kind: pitfall
+          text: Eino 的 WillRetryError 可能从 AgentEvent.Err 或流读取两条路径出现，两处都必须继续消费而非当作终态；其他终端错误若已有轨迹则 preservePartialAgentError 保留已发生工具证据。
+          confidence: inferred
+          at: 2026-07-19T22:19:20.582581Z
+          confirmed_at: 2026-07-20T03:55:25.806228Z
+          author: codex-mcp-client
+        - id: e_35741f89
+          kind: contract
+          text: 通用 Eino 执行循环与原生 Responses transport 归属 ihtml/agent/eino；nbco 只转换领域 Tool/TurnRequest、保留 eino:chat 命名空间及数字/turn 会话校验，并把共享 runtime invocation key 桥回 nbco 上下文供持久 receipt 使用。权限裁剪、动作/交付持久化和规范产品 history 仍由 nbco Orchestrator 拥有；原生循环回归测试随实现维护在 ihtml。
+          confidence: inferred
+          at: 2026-10-12T08:59:28.718056Z
+          author: codex-mcp-client
+      lineage:
+        - ai/einoengine/responses_model.go#responsesInput
+        - chat/tool_selector.go#Orchestrator.selectPreferredTools
+        - chat/turn_context.go#Orchestrator.planTurnContext
+        - chat/turn_context.go#turnContextSelectionPrompt
+        - ai/einoengine/engine.go#Engine.newDeepAgent
+        - ai/einoengine/engine.go#Engine.engineSessionID
+        - ai/einoengine/engine.go#capabilityFingerprint
+        - ai/einoengine/engine.go#collect
     - id: ai/einoengine/engine.go#turnRunOptions
       level: function
       anchor:
@@ -206,94 +375,6 @@ nodes:
         lines: [397, 405]
       status: undigested
       since: 2026-08-19T15:38:18.043251Z
-    - id: ai/einoengine/engine.go#Engine.newDeepAgent
-      level: function
-      anchor:
-        file: ai/einoengine/engine.go
-        symbol: Engine.newDeepAgent
-        hash: sha256:f0c05aad637e2e4c0a8966d87e334dfde9e27d21cf3db82873fe6c1b659e51e6
-        struct_hash: sha256:b5c0cade76f574a7d46776e666ba50a033aad97bad09e271653ac12b386aab01
-        doc_struct_hash: sha256:b5c0cade76f574a7d46776e666ba50a033aad97bad09e271653ac12b386aab01
-        lines: [407, 520]
-      status: fresh
-      since: 2026-07-19T18:32:51.345695Z
-      entries:
-        - id: e_8dd422c8
-          kind: contract
-          text: 所有 req.Tools 都作为 toolsearch.DynamicTools 注册，且当前未启用 UseModelToolSearch；Eino 首次模型调用会剥离这些动态工具的 schema，只保留 tool_search、Deep 内建工具（以及可选 skill 工具）。模型会收到包含全部动态工具名的 <available-deferred-tools> reminder，但不会首轮收到全部描述/参数 schema；调用 tool_search 后才把命中的工具 schema 加回。
-          confidence: inferred
-          at: 2026-07-19T19:27:16.674935Z
-          author: codex-mcp-client
-          superseded_by: e_a1bc4d0f
-        - id: e_a09fcc2c
-          kind: pitfall
-          text: tool_search 会扫描持久会话历史中的既往搜索结果并重新激活曾命中的动态工具，因此实际可见 schema 可能随会话累计；但权限目录总数/总 schema 大小不能直接代表任一模型调用的真实暴露量。
-          confidence: refuted
-          at: 2026-07-19T19:27:16.675008Z
-          author: codex-mcp-client
-          refuted_by: chg_20260719T195405Z_08514f0f2449d321
-        - id: e_a1bc4d0f
-          kind: contract
-          text: 所有 req.Tools 仍作为 toolsearch.DynamicTools 注册；首轮只暴露 tool_search、Deep 内建工具、可选 skill 与内部 final_response。历史轮次的 tool_search 命中会被协议中间件过滤，只有本轮搜索结果才重新暴露对应业务 schema；每次模型输出必须调用业务工具或 final_response。
-          confidence: verified
-          at: 2026-07-19T19:54:05.879394Z
-          confirmed_at: 2026-07-19T20:18:56.808348Z
-          author: codex-mcp-client
-          superseded_by: e_14e009d1
-        - id: e_d8af8e3a
-          kind: pitfall
-          text: 不要仅凭 Eino toolsearch 会扫描全会话历史，就判断旧轮次命中的业务 schema 仍会暴露给模型；nbco 的 deepProtocolMiddleware 在 toolsearch 之后按本轮搜索结果再次过滤。修改 handler 顺序时必须保留 protocol middleware 在 toolsearch 之后，否则会重新引入长会话工具累积。
-          confidence: verified
-          at: 2026-07-19T19:54:10.24797Z
-          confirmed_at: 2026-07-19T20:18:56.71788Z
-          author: codex-mcp-client
-          superseded_by: e_1956c25f
-        - id: e_14e009d1
-          kind: contract
-          text: req.PreferredTools 中且实际存在于 req.Tools 的工具作为初始工具注册，首轮直接暴露完整 schema；其余授权业务工具注册为 toolsearch.DynamicTools，仍可经 tool_search 加载。协议中间件最后按“本轮首选 + 本轮搜索命中”过滤业务 schema，并始终加入 final_response；handler 顺序必须让协议中间件位于 toolsearch 之后。
-          confidence: inferred
-          at: 2026-07-19T21:24:56.564729Z
-          author: codex-mcp-client
-          superseded_by: e_ad0cf580
-        - id: e_ad0cf580
-          kind: contract
-          text: req.Tools 全部注册为 Eino toolsearch.DynamicTools，不再有 PreferredTools 或额外 LLM 预选；模型从原生 Deep 指令和延迟工具名称目录自主调用 tool_search，命中后才获得完整 schema。deepProtocolMiddleware 位于 toolsearch 之后，只保留当前真实用户轮次搜索命中的业务 schema，并始终加入 final_response；deepInstructionMiddleware 只在 Eino 原生 Deep 指令后追加产品上下文。授权或工具契约变化由 capabilityFingerprint 轮换 managed session。
-          confidence: verified
-          at: 2026-07-19T21:45:42.177577Z
-          confirmed_at: 2026-07-19T21:45:47.777046Z
-          author: codex-mcp-client
-          superseded_by: e_e3a9ecfd
-        - id: e_e3a9ecfd
-          kind: contract
-          text: req.Tools 全部注册为 Eino toolsearch.DynamicTools；Deep Agent 使用 Eino 原生停止条件，普通 assistant 文本就是合法最终答复，不再注入 final_response、forced tool choice 或语义协议重试。turnToolMiddleware 只保留当前真实用户轮次经 tool_search 命中的业务 schema并统计暴露量；modelRetryConfig 仅重试瞬时传输/服务错误。
-          confidence: verified
-          at: 2026-07-19T22:19:00.81772Z
-          confirmed_at: 2026-07-20T02:48:02.365434Z
-          author: codex-mcp-client
-        - id: e_1956c25f
-          kind: pitfall
-          text: Eino toolsearch 会把延迟工具选择写入持久会话；turnToolMiddleware 必须位于 toolsearch 之后，并按最后一个非 reminder 的真实 user 边界过滤当前轮未重新选中的业务 schema。移除或调换顺序会让旧轮次工具重新泄漏到模型上下文。
-          confidence: verified
-          at: 2026-07-19T22:19:05.469949Z
-          confirmed_at: 2026-07-20T02:48:02.173123Z
-          author: codex-mcp-client
-        - id: e_e3fe262f
-          kind: pitfall
-          text: patchtoolcalls 生成的悬空工具结果必须表达“执行状态未知”而不是成功或失败：进程可能在副作用完成后、结果持久化前中断。恢复后的 Agent 应先通过只读能力核实业务状态；不能根据机械补丁直接重放写操作。
-          confidence: verified
-          at: 2026-07-21T10:55:42.813432Z
-          confirmed_at: 2026-07-21T10:55:50.170612Z
-          author: codex-mcp-client
-      keywords:
-        - patchtoolcalls
-        - 悬空工具调用
-        - 状态未知
-        - 先核实再重试
-        - eino
-      lineage:
-        - chat/tool_selector.go#Orchestrator.selectPreferredTools
-        - chat/turn_context.go#Orchestrator.planTurnContext
-        - chat/turn_context.go#turnContextSelectionPrompt
     - id: ai/einoengine/engine.go#deepMaxIterations
       level: function
       anchor:
@@ -338,32 +419,6 @@ nodes:
         lines: [563, 569]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: ai/einoengine/engine.go#Engine.engineSessionID
-      level: function
-      anchor:
-        file: ai/einoengine/engine.go
-        symbol: Engine.engineSessionID
-        hash: sha256:0654c8b87c4574d676080a93987cdcb37853fc0df41f8fe917782e097c0c0ab6
-        struct_hash: sha256:34aebcde64c0c9609ada472823481ebafad991871362f753fbe59627dc0df659
-        doc_struct_hash: sha256:34aebcde64c0c9609ada472823481ebafad991871362f753fbe59627dc0df659
-        lines: [575, 596]
-      status: fresh
-      since: 2026-07-19T18:32:51.345695Z
-      entries:
-        - id: e_f94850a3
-          kind: pitfall
-          text: chat.runTurn 为 durable conversation turn 传入 turn:<ID> 并开启 Session，但 persistentChatSessionID 目前只接受正整数字符串，导致正常业务轮次 engineSessionID 返回空；诊断 Eino checkpoint/runtime events 缺失时必须核对这个跨模块身份契约。跨轮上下文来自业务事实源，不应通过恢复复用旧 chat session 来规避该不匹配。
-          confidence: inferred
-          at: 2026-10-08T18:01:32.826124Z
-          author: codex-mcp-client
-          superseded_by: e_cdb822a4
-        - id: e_cdb822a4
-          kind: contract
-          text: durable conversation turn 使用 turn:<正整数> 独立 Eino runtime session；同轮携带匹配 engine_session 可恢复，不同 turn ID 必须隔离，跨轮事实仅来自业务 transcript。internal/无效 ID 或 DisableSession 不能开启持久化。retention 按完整 conversation_turns.engine_session 精确保护 running turns，与 ID 字符串形态无关。
-          confidence: verified
-          at: 2026-10-08T18:10:57.254884Z
-          confirmed_at: 2026-10-08T18:18:23.131709Z
-          author: codex-mcp-client
     - id: ai/einoengine/engine.go#persistentChatSessionID
       level: function
       anchor:
@@ -375,31 +430,6 @@ nodes:
         lines: [598, 603]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: ai/einoengine/engine.go#capabilityFingerprint
-      level: function
-      anchor:
-        file: ai/einoengine/engine.go
-        symbol: capabilityFingerprint
-        hash: sha256:3361ac2969859126c238d76343088f79e0d4dff78980cce929d028a066b03535
-        struct_hash: sha256:965b47866f7333ac44857a317d5b0be4f747a38848a6f26126a6aedc43ac43a4
-        doc_struct_hash: sha256:965b47866f7333ac44857a317d5b0be4f747a38848a6f26126a6aedc43ac43a4
-        lines: [599, 622]
-      status: fresh
-      since: 2026-07-19T18:32:51.345695Z
-      entries:
-        - id: e_9dc16a11
-          kind: contract
-          text: 持久 Eino session 的能力指纹同时包含 req.Tools 合约和 deepAgentProtocolVersion；修改内部 final_response schema、生命周期或重试语义时必须 bump 该版本，避免旧工具轨迹污染新协议。
-          confidence: verified
-          at: 2026-07-19T20:14:58.82018Z
-          confirmed_at: 2026-07-19T21:48:08.472898Z
-          author: codex-mcp-client
-          retired_by: chg_20260720T035526Z_3fe347a3bc58cfa5
-      keywords:
-        - deep agent protocol version
-        - session rotation
-        - internal tool schema
-        - final_response version
     - id: ai/einoengine/engine.go#scopeFingerprint
       level: function
       anchor:
@@ -488,75 +518,6 @@ nodes:
         lines: [738, 795]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
-    - id: ai/einoengine/engine.go#collect
-      level: function
-      anchor:
-        file: ai/einoengine/engine.go
-        symbol: collect
-        hash: sha256:58f01a6b7b406a33db1a3d86000a41352535f45c556824522cc61ac7a250a717
-        struct_hash: sha256:b74bae82d900cadb992586a0f49c49750735b35cc28e7d802caa4500722f54c2
-        doc_struct_hash: sha256:3e2ca7557f25a76c7a289f86010fc6059c137313111f7e0b325bf0ed7c4898a0
-        lines: [797, 921]
-      status: fresh
-      since: 2026-07-19T18:32:51.345695Z
-      entries:
-        - id: e_2f424a09
-          kind: pitfall
-          text: collect 只要看到一条无 tool_calls 的非空 assistant Content 就将其当 finalText，并在流结束后正常返回；它不判断目标是否完成、是否需要工具证据或文本是否只是未来承诺。因此 provider 的 finish_reason=stop 只是正常文本终止，不能证明 Deep 任务已完成。
-          confidence: refuted
-          at: 2026-07-19T19:27:16.799156Z
-          author: codex-mcp-client
-          refuted_by: chg_20260719T195725Z_fbc1249fcec64374
-        - id: e_d9e9c20b
-          kind: contract
-          text: Deep 模式(requireStructuredFinal=true)只把 final_response 对应的 return-direct 工具结果作为最终用户文本，并从业务 Steps 中隐藏该内部协议调用；OneShot 才接受普通 assistant Content 直接结束。
-          confidence: verified
-          at: 2026-07-19T19:57:29.76127Z
-          confirmed_at: 2026-07-19T19:57:46.268784Z
-          author: codex-mcp-client
-          retired_by: chg_20260719T221913Z_8f1486007401f79d
-        - id: e_a4238baf
-          kind: pitfall
-          text: 不要看到 collect 仍有普通 Content→finalText 分支就判断 Deep 可以口头结束；该分支明确受 !requireStructuredFinal 保护。Eino 的 WillRetryError 既可能出现在 AgentEvent.Err，也可能从流读取返回，两条路径都必须视为非终态继续消费。
-          confidence: verified
-          at: 2026-07-19T19:57:29.761414Z
-          confirmed_at: 2026-07-19T19:57:46.444172Z
-          author: codex-mcp-client
-          retired_by: chg_20260719T221914Z_63821c62a96f8468
-        - id: e_b9bf7b71
-          kind: pitfall
-          text: Eino 的 AgentEvent 仍可能暴露 provider 原始的“业务工具 + final_response”混合批次，即使 AfterModelRewriteState 已从持久状态删除提前收尾；collect 必须同步忽略该 final_response，否则会把已归一化的合法执行误判为终止错误。
-          confidence: inferred
-          at: 2026-07-19T20:14:58.644417Z
-          author: codex-mcp-client
-          retired_by: chg_20260719T221913Z_7a399f62c2842978
-        - id: e_d768b37a
-          kind: contract
-          text: Deep 未收到有效 final_response 时，仅在 req.Tools 中的真实业务工具已经返回后才可保留 Steps 进入 OneShot 渲染修复；只有 tool_search/skill/write_todos 或单纯耗尽输出预算都必须失败回滚。
-          confidence: inferred
-          at: 2026-07-19T20:14:58.645042Z
-          author: codex-mcp-client
-          retired_by: chg_20260719T221913Z_2495f6847c2c883e
-        - id: e_2a951b25
-          kind: contract
-          text: collect 只消费 Eino 原生事件：assistant 无工具调用的 Content 成为最终答复，assistant ToolCalls 与后续 Tool 结果按 ToolCallID 配对进 Steps；不再解释任何自定义终止工具。
-          confidence: verified
-          at: 2026-07-19T22:19:20.582367Z
-          confirmed_at: 2026-07-20T03:55:25.977115Z
-          author: codex-mcp-client
-        - id: e_c756fa1e
-          kind: pitfall
-          text: Eino 的 WillRetryError 可能从 AgentEvent.Err 或流读取两条路径出现，两处都必须继续消费而非当作终态；其他终端错误若已有轨迹则 preservePartialAgentError 保留已发生工具证据。
-          confidence: verified
-          at: 2026-07-19T22:19:20.582581Z
-          confirmed_at: 2026-07-20T03:55:25.806228Z
-          author: codex-mcp-client
-      keywords:
-        - mixed final tool call
-        - provider original event
-        - aftermodelrewritestate
-        - 业务工具返回
-        - structured final repair
     - id: ai/einoengine/engine.go#emptyTurnNeedsRepair
       level: function
       anchor:
@@ -634,3 +595,36 @@ nodes:
         lines: [991, 1004]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
+    - id: ai/einoengine/engine.go#sharedTool
+      level: function
+      anchor:
+        file: ai/einoengine/engine.go
+        symbol: sharedTool
+        hash: sha256:e90fd5a526ee4954a91ff43cd3685b50e34885d1d882c21ca4ea9c63093c2325
+        struct_hash: sha256:acc83c4b0178742a20e7957f68bbaadac22dcac1a6b2a852ad9eb9c98ef83bac
+        doc_struct_hash: sha256:acc83c4b0178742a20e7957f68bbaadac22dcac1a6b2a852ad9eb9c98ef83bac
+        lines: [88, 104]
+      status: fresh
+      since: 2026-10-12T08:59:27.92003Z
+    - id: ai/einoengine/engine.go#domainStep
+      level: function
+      anchor:
+        file: ai/einoengine/engine.go
+        symbol: domainStep
+        hash: sha256:f64b2f32c8d138057403af6bc3296414ae4a5ee7b5af45dcc6beaa17fe482af8
+        struct_hash: sha256:3ec84365c8f76803161b0e06562824ce1720c2d3ef05591233c56ccf7f775c4a
+        doc_struct_hash: sha256:3ec84365c8f76803161b0e06562824ce1720c2d3ef05591233c56ccf7f775c4a
+        lines: [106, 109]
+      status: fresh
+      since: 2026-10-12T08:59:27.920755Z
+    - id: ai/einoengine/engine.go#validNBCOSessionID
+      level: function
+      anchor:
+        file: ai/einoengine/engine.go
+        symbol: validNBCOSessionID
+        hash: sha256:eac5241c629de1a1834f0d5a47b9e92dd1198a3d7927c749bccaae245ab762d9
+        struct_hash: sha256:9d628b1e24c6eeaffb27e9b614b6f9b876e35c0af6d2d4c6d09925960f2e069b
+        doc_struct_hash: sha256:9d628b1e24c6eeaffb27e9b614b6f9b876e35c0af6d2d4c6d09925960f2e069b
+        lines: [41, 45]
+      status: fresh
+      since: 2026-10-12T08:59:27.921434Z

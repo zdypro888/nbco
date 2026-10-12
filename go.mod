@@ -5,8 +5,6 @@ go 1.26.9
 require (
 	github.com/cloudwego/eino v0.10.0-alpha.12
 	github.com/cloudwego/eino-ext/components/embedding/openai v0.0.0-20260716140429-9137edd89e72
-	github.com/cloudwego/eino-ext/components/model/claude v0.1.23
-	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/eino-contrib/jsonschema v1.0.3
@@ -15,15 +13,20 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/meguminnnnnnnnn/go-openai v0.1.5
 	github.com/modelcontextprotocol/go-sdk v1.6.1
-	github.com/openai/openai-go/v3 v3.77.0
 	github.com/qdrant/go-client v1.18.3
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
-	github.com/zdypro888/ihtml v0.0.0-20260823054529-35358ebfda33
+	github.com/zdypro888/ihtml v0.0.0-20261012090830-a58822f520d2
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/net v0.60.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	google.golang.org/grpc v1.84.0
+)
+
+require (
+	github.com/cloudwego/eino-ext/components/model/claude v0.1.23 // indirect
+	github.com/cloudwego/eino-ext/components/model/openai v0.1.13 // indirect
+	github.com/openai/openai-go/v3 v3.77.0 // indirect
 )
 
 require (

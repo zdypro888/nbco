@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/engine_adapter_test.go
+      level: file
+      anchor:
+        file: ai/einoengine/engine_adapter_test.go
+        hash: sha256:16929d8533b73edbc8f47a8463b7b110e2ae3de2d0dd4ac992d79e8daf4a3ed6
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T08:59:27.921785Z

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/web/app.js
-        hash: sha256:1ab3058473fd3349e3c945b3e39db80d691b1355c9c6cf79838d4e07da0d7fb2
+        hash: sha256:5887d7a4e2289b9f1699f82301b8c63fb2692740465cefb89414f5f15edcc912
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -153,9 +153,9 @@ nodes:
       anchor:
         file: gateway/httpapi/web/app.js
         symbol: renderContent
-        hash: sha256:ff7005921ecfb503b6c5f1887176cb2a48c7bc5ca95241b8ad8455fa7ac7037c
-        struct_hash: sha256:1fe45d8168932d52c0cb2f7df4a33990129fa0abf871b31cc3945610ca87db47
-        lines: [283, 337]
+        hash: sha256:df6e2a9ef1deae3668dfdba43cc270694f11d7c4e29ebfc8ee0c349ba7b17453
+        struct_hash: sha256:6aa1225120dbcdb9649428d3c77860c2c51c05ae5f6fd3d5f5c938d165a6b18f
+        lines: [333, 384]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -171,6 +171,12 @@ nodes:
           text: 控制中心“待处理材料”必须来自 material_cases 的 active 生命周期视图，而不是最近上传文件总数；文件库是审计/下载目录，材料队列是可清零的运营工作，两者不可再混算。
           confidence: inferred
           at: 2026-08-20T06:41:35.786987Z
+          author: codex-mcp-client
+        - id: e_0d9ef9c5
+          kind: contract
+          text: chat 路由挂载 ihtml.mountChat，workspace 挂载 ihtml.mount；共用 /ui/ 现有 nbco ChatBackend 与短期票据，storageKey 按用途与用户隔离。路由重绘/登出销毁旧实例并提升 generation；浏览器 contextProvider 是非可信信息，不改变后端工具权限或模型所有权。
+          confidence: inferred
+          at: 2026-10-12T08:59:50.080841Z
           author: codex-mcp-client
       keywords:
         - 待处理材料

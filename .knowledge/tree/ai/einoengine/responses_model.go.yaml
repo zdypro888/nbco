@@ -8,31 +8,6 @@ nodes:
         lines: [0, 0]
       status: undigested
       since: 2026-10-12T07:05:51.902978Z
-    - id: ai/einoengine/responses_model.go#responsesInput
-      level: function
-      anchor:
-        file: ai/einoengine/responses_model.go
-        symbol: responsesInput
-        hash: sha256:7423abbbcb5a1c9b6dec09baeedab9b61d4486409e4d501eea7323f8352e1899
-        struct_hash: sha256:07caa31939a669eb29ab5ea584695fd5927a666db9e564c22e7538faa8639585
-        doc_struct_hash: sha256:07caa31939a669eb29ab5ea584695fd5927a666db9e564c22e7538faa8639585
-        lines: [147, 245]
-      status: fresh
-      since: 2026-10-12T07:05:51.902872Z
-      entries:
-        - id: e_7dc670b3
-          kind: contract
-          text: 适配器store=false，不使用previous_response_id。assistant Extra保存有序原生output的JSON字符串供Eino HumanReadableSerializer事件/检查点往返；回放必须保留reasoning、message.phase及call相对顺序，同时以现有ToolCalls为准尊重Eino过滤/参数修正。跨轮业务history仅正文，不携带这些同轮私有项。
-          confidence: verified
-          at: 2026-10-12T07:05:51.912421Z
-          confirmed_at: 2026-10-12T07:11:22.020396Z
-          author: codex-mcp-client
-      keywords:
-        - responses
-        - encrypted_content
-        - phase
-        - output_items
-        - stateless
     - id: ai/einoengine/responses_model.go#responsesChatModel
       level: decl
       anchor:
