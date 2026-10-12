@@ -238,13 +238,19 @@ cleanup_stage() {
 	rm -rf "${stage_dir}"
 }
 
+refresh_binary_link() {
+	if [[ "${current_bin}" != "${link_bin}" ]]; then
+		ln -sfn "${current_bin}" "${link_bin}"
+	fi
+}
+
 rollback() {
 	local reason="$1"
 	log "upgrade failed: ${reason}"
 	if [[ -f "${backup_bin}" ]]; then
 		log "rolling back binary: ${backup_bin} -> ${current_bin}"
 		install -m 0755 "${backup_bin}" "${current_bin}"
-		ln -sfn "${current_bin}" "${link_bin}"
+		refresh_binary_link
 		systemctl restart "${service}" || true
 		if wait_health; then
 			log "rollback succeeded; old service is healthy"
@@ -408,7 +414,7 @@ main() {
 
 	log "installing new binary"
 	install -m 0755 "${stage_bin}" "${current_bin}"
-	ln -sfn "${current_bin}" "${link_bin}"
+	refresh_binary_link
 
 	log "restarting ${service}"
 	systemctl restart "${service}" || rollback "systemctl restart ${service} failed"
