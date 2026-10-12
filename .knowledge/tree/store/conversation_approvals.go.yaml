@@ -1,0 +1,28 @@
+schema: 1
+nodes:
+    - id: store/conversation_approvals.go
+      level: file
+      anchor:
+        file: store/conversation_approvals.go
+        hash: sha256:cabeb04f29c8294bbc5063d21faf4ac7a378daffcb7c956fe835a55848b7b4ef
+        lines: [0, 0]
+      status: undigested
+      since: 2026-10-12T10:40:05.792084Z
+    - id: store/conversation_approvals.go#Store.DecideConversationApproval
+      level: function
+      anchor:
+        file: store/conversation_approvals.go
+        symbol: Store.DecideConversationApproval
+        hash: sha256:06775a0a940a42bb81029b89e78d5a490dc94b8dc477d270ecea85f29070def8
+        struct_hash: sha256:dc3af5e11b02a7d1b69e48bc2ef8577c671ef6b8e32f4473a873006f202ab037
+        doc_struct_hash: sha256:62fa854607a78e255bcfb2de9b22e86d774dba2d6487db5954393ee288169cb7
+        lines: [150, 245]
+      status: fresh
+      since: 2026-10-12T10:40:05.792005Z
+      entries:
+        - id: e_566bf2c2
+          kind: contract
+          text: 原生 Eino 批次全部决策后才领取原 turn，attempt 递增并用 ExpectedAttempt 防旧执行器回写。批准的业务 grants 只允许新增 canonical consent_message_id 消费，不能借其他后来消息复用；运行中不自动重领，崩溃后的未知副作用 fail-closed。checkpoint 可在同一轮次多次暂停，但同一个 pending checkpoint 唯一。
+          confidence: inferred
+          at: 2026-10-12T10:40:05.797072Z
+          author: codex-mcp-client

@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: tools/approval_metadata_test.go
+      level: file
+      anchor:
+        file: tools/approval_metadata_test.go
+        hash: sha256:ac083acc5d9ffec65947d59ff7df4d6e783a66c9704af85b5f395e839acf195c
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T10:40:26.329149Z

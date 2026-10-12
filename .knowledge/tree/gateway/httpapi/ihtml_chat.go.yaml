@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: gateway/httpapi/ihtml_chat.go
-        hash: sha256:6c3a712639c69984a59c04b5326ebc8f53aaf795552ab6de648f95c81243388f
+        hash: sha256:e91e3cee2a650304d1c187945d804b10d4b03d93d8474abeeab1d766dc1bc1af
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -79,10 +79,10 @@ nodes:
       anchor:
         file: gateway/httpapi/ihtml_chat.go
         symbol: ihtmlSharedSession.HandleEvent
-        hash: sha256:8a4263980daf16e379a45dba45bbb63bad39a02e87f8a29f212ad5471a1cab63
-        struct_hash: sha256:ea41cb686525c82dbba5b724fcd768f0506b184531a5836c1f3ee4b25d2b8ef0
-        doc_struct_hash: sha256:ea41cb686525c82dbba5b724fcd768f0506b184531a5836c1f3ee4b25d2b8ef0
-        lines: [109, 130]
+        hash: sha256:0137fb5c2a491ae17dc815d7a0758d86f41c49a8282c3824cc8f53f969e9eaba
+        struct_hash: sha256:9c1f14e41f676fec5e9a9857cb6a1fc9ef6ddd6c01ede3269e32e98cce464c04
+        doc_struct_hash: sha256:9c1f14e41f676fec5e9a9857cb6a1fc9ef6ddd6c01ede3269e32e98cce464c04
+        lines: [112, 137]
       status: fresh
       since: 2026-07-19T18:32:51.345695Z
       entries:
@@ -91,6 +91,13 @@ nodes:
           text: ihtml.mountChat 的确认卡渲染能力不代表 nbco 适配器接受确认事件。当前 ihtmlSharedSession.loop 只处理 user_message；cancel 绕过串行队列，confirm_tool/cancel_tool 则走默认拒绝。升级共享 ihtml 依赖不能自动将 nbco 数据库审批改成网页授权，也不能另启 chat.Backend 制造第二个 Agent。
           confidence: inferred
           at: 2026-10-12T09:44:57.716236Z
+          author: codex-mcp-client
+          superseded_by: e_8120cbf5
+        - id: e_8120cbf5
+          kind: contract
+          text: ihtml 助手所有消息、确认和拒绝共用 nbco Orchestrator；确认卡按数据库持久化 consent_key 签名，绑定可信 user、channel、原始 turn 和精确卡片参数。客户端不能指定 checkpoint/session；重连恢复 pending 卡，turn_paused 仅终止传输段而非业务成功。审批决策和原轮次领取由数据库原子化防重放。
+          confidence: inferred
+          at: 2026-10-12T10:40:05.584709Z
           author: codex-mcp-client
       keywords:
         - ihtml

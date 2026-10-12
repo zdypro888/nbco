@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/chat.go
-        hash: sha256:f346b17bfc5ac893942b141fcf29f360e1726ba4dc157991eed5854bce7c2e43
+        hash: sha256:81f262aa1374f30392560d3f35ed00871cf069ee35064af680202a5dbff08b42
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -554,7 +554,7 @@ nodes:
         struct_hash: sha256:a3c550e1338f16e5fe66e265413789d0fe06550ed0956b7a28205b18dbfeba45
         doc_struct_hash: sha256:ddf3f3da0477d348a3a81b629253e6869580acc1e661ebf8d13c7c2e2360fa9d
         lines: [485, 835]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_2f3027fc

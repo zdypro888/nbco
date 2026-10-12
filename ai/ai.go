@@ -165,12 +165,15 @@ const (
 
 // Step 一次引擎轮次内的执行轨迹条目，用于审计与回放。
 type Step struct {
-	Kind       StepKind
-	ToolName   string
-	Args       json.RawMessage
-	Result     string
-	Err        string
-	Completion ToolCompletion
+	ToolCallID       string
+	ApprovalPending  bool
+	ApprovalRejected bool
+	Kind             StepKind
+	ToolName         string
+	Args             json.RawMessage
+	Result           string
+	Err              string
+	Completion       ToolCompletion
 	// Replayed means the model repeated the exact same write/execute invocation
 	// in one turn. The original call remains in Steps; this entry is evidence of
 	// the suppressed replay and did not invoke the business handler again.
@@ -219,6 +222,8 @@ const (
 
 // TurnRequest 一轮对话请求。
 type TurnRequest struct {
+	RequireApproval bool
+	Resume          *ResumeRequest
 	// Mode selects the orchestration profile. Empty defaults to TurnModeDeep.
 	Mode TurnMode
 	// SessionID 是 nbco 侧会话 ID（落库主键），引擎可用它做日志关联。
@@ -278,6 +283,7 @@ type TurnRequest struct {
 
 // TurnResult 一轮对话结果。
 type TurnResult struct {
+	PendingApproval *PendingApproval
 	// Text 模型最终答复（给用户看的）。
 	Text string
 	// EngineSession 引擎侧会话标识；调用方应持久化以便下一轮传回。
@@ -291,6 +297,24 @@ type TurnResult struct {
 	Steps        []Step
 	Usage        Usage
 	ToolExposure ToolExposure
+}
+
+// ResumeRequest is trusted host input for the original managed execution.
+type ResumeRequest struct {
+	CheckPointID string
+	Decisions    map[string]bool
+}
+
+type ApprovalTool struct {
+	InterruptID string
+	ToolCallID  string
+	ToolName    string
+	Args        json.RawMessage
+}
+
+type PendingApproval struct {
+	CheckPointID string
+	Tools        []ApprovalTool
 }
 
 // Engine 跑一轮带工具的对话。实现：einoengine。

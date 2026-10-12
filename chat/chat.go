@@ -89,6 +89,7 @@ type Orchestrator struct {
 // audit wrappers. This keeps embedded products on the same Agent instead of
 // creating a second Eino stack with separate memory and governance.
 type TurnExtension struct {
+	RequireApproval  bool
 	System           string
 	UntrustedContext string
 	Tools            []ai.Tool
@@ -112,6 +113,7 @@ type messageEnvelopeKey struct{}
 // Gateways use TurnID to acknowledge external delivery after the Agent result
 // has already been committed.
 type TurnReply struct {
+	PendingApproval  *store.ConversationApproval
 	Text             string
 	Actions          []interaction.Action
 	TurnID           int64
@@ -503,6 +505,7 @@ func (o *Orchestrator) runTurn(
 	turnEventAt := start
 	ctx = tools.WithInteractionChannel(ctx, channel)
 	internal, _ := ctx.Value(internalTurnKey{}).(bool)
+	resume, _ := ctx.Value(approvalResumeKey{}).(*approvalResume)
 	var durableTurn *store.ConversationTurn
 	turnCommitted := internal
 	storedUserText := text
@@ -515,8 +518,12 @@ func (o *Orchestrator) runTurn(
 
 	if !internal {
 		var created bool
-		durableTurn, created, err = o.store.BeginConversationTurn(
-			ctx, sourceKeyForTurn(ctx), u.ID, sess.ID, channel, storedUserText)
+		if resume != nil {
+			durableTurn, created = resume.turn, true
+		} else {
+			durableTurn, created, err = o.store.BeginConversationTurn(
+				ctx, sourceKeyForTurn(ctx), u.ID, sess.ID, channel, storedUserText)
+		}
 		if err != nil {
 			return TurnReply{}, err
 		}
@@ -547,7 +554,7 @@ func (o *Orchestrator) runTurn(
 			if err != nil {
 				cause = sanitizeEngineError(err)
 			}
-			if failErr := o.store.FailConversationTurn(failCtx, durableTurn.ID, cause); failErr != nil {
+			if failErr := o.store.FailConversationTurnAttempt(failCtx, durableTurn.ID, durableTurn.Attempts, cause); failErr != nil {
 				slog.Warn("轮次失败状态落库失败", "turn", durableTurn.ID, "err", failErr)
 			}
 			if usageErr := o.store.RecordConversationAssetUsages(failCtx, durableTurn.ID,
@@ -568,9 +575,14 @@ func (o *Orchestrator) runTurn(
 				return TurnReply{TurnID: durableTurn.ID}, fmt.Errorf("保存消息来源身份: %w", err)
 			}
 		}
-		o.recordMessageWorkEvidence(ctx, u, channel, *durableTurn.UserMessageID, memorySourceText, envelope)
-		o.embedMessage(*durableTurn.UserMessageID, storedUserText)
-		ctx = tools.WithApprovalTurn(ctx, sess.ID, *durableTurn.UserMessageID)
+		approvalMessageID := *durableTurn.UserMessageID
+		if resume == nil {
+			o.recordMessageWorkEvidence(ctx, u, channel, *durableTurn.UserMessageID, memorySourceText, envelope)
+			o.embedMessage(*durableTurn.UserMessageID, storedUserText)
+		} else {
+			approvalMessageID = *resume.approval.ConsentMessageID
+		}
+		ctx = tools.WithApprovalTurn(ctx, sess.ID, approvalMessageID)
 	}
 
 	automationOptions, _ := ctx.Value(automationTurnOptionsKey{}).(AutomationTurnOptions)
@@ -681,6 +693,7 @@ func (o *Orchestrator) runTurn(
 		invocationScope = automationInvocationScope(u.ID, channel, executionKey)
 	}
 	req := &ai.TurnRequest{
+		RequireApproval:   extension != nil && extension.RequireApproval,
 		Mode:              turnMode,
 		SessionID:         engineSessionID,
 		InvocationScope:   invocationScope,
@@ -725,6 +738,14 @@ func (o *Orchestrator) runTurn(
 		StreamReasoning: o.streamReasoningEnabled(ctx),
 		MaxIterations:   automationOptions.MaxIterations,
 	}
+	if resume != nil {
+		req.RequireApproval = true
+		req.EngineSession = resume.approval.EngineSession
+		req.Resume = &ai.ResumeRequest{CheckPointID: resume.approval.CheckPointID, Decisions: resume.approval.Decisions}
+		if err := validateResumedTools(toolset, resume.approval.Tools); err != nil {
+			return TurnReply{TurnID: durableTurn.ID}, err
+		}
+	}
 	// eino 引擎需要重放历史：只取摘要位点之后的消息。
 	replayMsgs, inertMsgs := buildModelReplayHistory(msgs)
 	if inert := renderInertDanglingHistory(inertMsgs); inert != "" {
@@ -756,6 +777,35 @@ func (o *Orchestrator) runTurn(
 		slog.Warn("轮次失败", "session", sess.ID, "dur", time.Since(start).Round(time.Millisecond), "err", err)
 		o.noteEngineResult(false, err)
 		return TurnReply{TurnID: turnIDOf(durableTurn)}, fmt.Errorf("AI 引擎失败: %w", err)
+	}
+	if res == nil {
+		return TurnReply{TurnID: turnIDOf(durableTurn)}, errors.New("AI engine returned no result")
+	}
+	markPendingApprovalSteps(res)
+	if resume != nil {
+		mergeApprovalProgress(res, resume.progress)
+	}
+	if res.PendingApproval != nil {
+		if durableTurn == nil || !req.RequireApproval || req.Mode != ai.TurnModeDeep || req.DisableSession {
+			return TurnReply{TurnID: turnIDOf(durableTurn)}, errors.New("unexpected approval interrupt")
+		}
+		pendingTools, pendingErr := durableApprovalTools(toolset, res.PendingApproval.Tools)
+		if pendingErr != nil {
+			return TurnReply{TurnID: durableTurn.ID}, pendingErr
+		}
+		progress, pendingErr := json.Marshal(res)
+		if pendingErr != nil {
+			return TurnReply{TurnID: durableTurn.ID}, pendingErr
+		}
+		pauseCtx, pauseCancel := turnFinalizationContext(ctx)
+		defer pauseCancel()
+		pending, pendingErr := o.store.PauseConversationTurn(pauseCtx, durableTurn.ID, durableTurn.Attempts,
+			res.PendingApproval.CheckPointID, res.EngineSession, pendingTools, progress)
+		if pendingErr != nil {
+			return TurnReply{TurnID: durableTurn.ID}, pendingErr
+		}
+		turnCommitted = true
+		return TurnReply{TurnID: durableTurn.ID, PendingApproval: pending}, nil
 	}
 	res.Text = textfmt.StripReasoning(res.Text)
 	diag.AgentIterations = res.ToolExposure.AgentIterations
@@ -816,6 +866,7 @@ func (o *Orchestrator) runTurn(
 	}
 	assistantMsgID, err := o.store.CompleteConversationTurn(finalizeCtx, store.ConversationTurnCompletion{
 		TurnID:           durableTurn.ID,
+		ExpectedAttempt:  durableTurn.Attempts,
 		AssistantText:    storedReply,
 		ResultText:       res.Text,
 		ResultActions:    resultActions,
@@ -850,7 +901,7 @@ func presentationActions(toolset []ai.Tool, steps []ai.Step) []interaction.Actio
 	var actions []interaction.Action
 	for _, step := range steps {
 		present := presenters[step.ToolName]
-		if step.Kind != ai.StepToolCall || step.Err != "" || step.Replayed || present == nil ||
+		if step.Kind != ai.StepToolCall || step.Err != "" || step.Replayed || step.ApprovalRejected || step.ApprovalPending || present == nil ||
 			tools.ToolResultRejected(step.Result) {
 			continue
 		}
@@ -948,6 +999,7 @@ func mergeTurnExtensions(left, right *TurnExtension) *TurnExtension {
 		if extension == nil {
 			continue
 		}
+		out.RequireApproval = out.RequireApproval || extension.RequireApproval
 		if system := strings.TrimSpace(extension.System); system != "" {
 			if out.System != "" {
 				out.System += "\n"
@@ -2229,7 +2281,7 @@ func verifiedMemoryToolEvidence(toolset []ai.Tool, steps []ai.Step) string {
 	definitions := toolDefinitionsByName(toolset)
 	calls := make([]evidenceCall, 0, 6)
 	for _, step := range steps {
-		if step.Kind != ai.StepToolCall || strings.TrimSpace(step.ToolName) == "" || step.Err != "" ||
+		if step.Kind != ai.StepToolCall || strings.TrimSpace(step.ToolName) == "" || step.Err != "" || step.ApprovalRejected || step.ApprovalPending ||
 			tools.ToolResultRejected(step.Result) || strings.TrimSpace(step.Result) == "" {
 			continue
 		}
@@ -2976,7 +3028,7 @@ func conversationAssetUsages(ruleIDs []int64, skills []ai.Skill, steps []ai.Step
 	if !validConversationAssetOutcome(outcome) {
 		outcome = store.AssetOutcomeCompleted
 		for _, step := range steps {
-			if step.Kind == ai.StepToolCall && (step.Err != "" || step.Replayed || tools.ToolResultRejected(step.Result)) {
+			if step.Kind == ai.StepToolCall && (step.Err != "" || step.Replayed || step.ApprovalRejected || tools.ToolResultRejected(step.Result)) {
 				outcome = store.AssetOutcomePartial
 				break
 			}

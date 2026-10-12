@@ -20,12 +20,13 @@ type actionAudit struct {
 }
 
 type AutomationToolEvidence struct {
-	Tool       string            `json:"tool"`
-	Effect     string            `json:"effect"`
-	Completion ai.ToolCompletion `json:"completion,omitempty"`
-	Result     string            `json:"result,omitempty"`
-	Error      string            `json:"error,omitempty"`
-	Replayed   bool              `json:"replayed,omitempty"`
+	Tool             string            `json:"tool"`
+	Effect           string            `json:"effect"`
+	Completion       ai.ToolCompletion `json:"completion,omitempty"`
+	Result           string            `json:"result,omitempty"`
+	Error            string            `json:"error,omitempty"`
+	Replayed         bool              `json:"replayed,omitempty"`
+	ApprovalRejected bool              `json:"approval_rejected,omitempty"`
 }
 
 // AutomationExecution is a redacted projection of one completed Agent turn.
@@ -61,7 +62,7 @@ func buildAutomationExecution(toolset []ai.Tool, res *ai.TurnResult) AutomationE
 		if action {
 			execution.ActionCalls++
 		}
-		successful := step.Err == "" && !step.Replayed && !nbtools.ToolResultRejected(step.Result) &&
+		successful := step.Err == "" && !step.Replayed && !step.ApprovalRejected && !step.ApprovalPending && !nbtools.ToolResultRejected(step.Result) &&
 			!toolResultLooksPendingApproval(step.Result)
 		if successful {
 			execution.SuccessfulToolCalls++
@@ -75,12 +76,13 @@ func buildAutomationExecution(toolset []ai.Tool, res *ai.TurnResult) AutomationE
 			continue
 		}
 		execution.Evidence = append(execution.Evidence, AutomationToolEvidence{
-			Tool:       step.ToolName,
-			Effect:     effect,
-			Completion: step.Completion,
-			Result:     textfmt.RedactSecrets(textfmt.TruncateRunes(strings.TrimSpace(step.Result), 500)),
-			Error:      textfmt.RedactSecrets(textfmt.TruncateRunes(strings.TrimSpace(step.Err), 240)),
-			Replayed:   step.Replayed,
+			Tool:             step.ToolName,
+			Effect:           effect,
+			Completion:       step.Completion,
+			Result:           textfmt.RedactSecrets(textfmt.TruncateRunes(strings.TrimSpace(step.Result), 500)),
+			Error:            textfmt.RedactSecrets(textfmt.TruncateRunes(strings.TrimSpace(step.Err), 240)),
+			Replayed:         step.Replayed,
+			ApprovalRejected: step.ApprovalRejected,
 		})
 	}
 	return execution
@@ -160,8 +162,8 @@ func summarizeToolEvidence(steps []ai.Step) []toolEvidence {
 		if st.Kind != ai.StepToolCall {
 			continue
 		}
-		rejected := nbtools.ToolResultRejected(st.Result)
-		ok := st.Err == "" && !rejected
+		rejected := st.ApprovalRejected || nbtools.ToolResultRejected(st.Result)
+		ok := st.Err == "" && !rejected && !st.ApprovalPending
 		summary := st.Err
 		if summary == "" {
 			summary = st.Result
@@ -184,7 +186,7 @@ func countToolEvidence(steps []ai.Step) (total, success int) {
 			continue
 		}
 		total++
-		if !st.Replayed && st.Err == "" && !nbtools.ToolResultRejected(st.Result) {
+		if !st.Replayed && !st.ApprovalRejected && !st.ApprovalPending && st.Err == "" && !nbtools.ToolResultRejected(st.Result) {
 			success++
 		}
 	}
@@ -342,13 +344,18 @@ func actionTurnOutcome(audit *actionAudit, res *ai.TurnResult) string {
 		actionTools[name] = struct{}{}
 	}
 	hadTool, hadSuccess, hadError, actionSuccess, actionAccepted, actionError := false, false, false, false, false, false
+	hadDenied := false
 	for _, step := range res.Steps {
 		if step.Kind != ai.StepToolCall {
 			continue
 		}
 		hadTool = true
 		_, action := actionTools[step.ToolName]
-		if step.Replayed {
+		if step.Replayed || step.ApprovalPending {
+			continue
+		}
+		if step.ApprovalRejected {
+			hadDenied = true
 			continue
 		}
 		if step.Err != "" || nbtools.ToolResultRejected(step.Result) {
@@ -359,6 +366,9 @@ func actionTurnOutcome(audit *actionAudit, res *ai.TurnResult) string {
 		hadSuccess = true
 		actionSuccess = actionSuccess || action
 		actionAccepted = actionAccepted || (action && step.Completion == ai.ToolCompletionAsynchronous && nbtools.ToolResultAccepted(step.Result))
+	}
+	if hadDenied && !hadSuccess && !hadError {
+		return "approval_rejected"
 	}
 	if audit.RequiresAction && actionSuccess {
 		if actionAccepted {

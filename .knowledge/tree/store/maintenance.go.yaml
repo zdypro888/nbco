@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/maintenance.go
-        hash: sha256:ad8ef8a930835bd48b720c3d33d4c5545489df20ac0ff8b85bad8483bfae35a1
+        hash: sha256:9d6e2f9f55a400824b76b28ae6db7e56622556a9fe5eb8041408b6d6d802d67f
         lines: [0, 0]
       status: undigested
       since: 2026-08-23T12:00:46.552816Z
@@ -28,7 +28,7 @@ nodes:
         struct_hash: sha256:5faedd219b4112708edeefbaebbb136bc72844722345da974c3b55a7783ca3d0
         doc_struct_hash: sha256:5faedd219b4112708edeefbaebbb136bc72844722345da974c3b55a7783ca3d0
         lines: [26, 74]
-      status: fresh
+      status: suspect
       since: 2026-08-23T12:00:46.553692Z
       entries:
         - id: e_adb8dec3

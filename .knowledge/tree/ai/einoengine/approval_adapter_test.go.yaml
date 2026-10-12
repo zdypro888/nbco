@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: ai/einoengine/approval_adapter_test.go
+      level: file
+      anchor:
+        file: ai/einoengine/approval_adapter_test.go
+        hash: sha256:41a86edf9e6424a6136fe562e3d2ff96447220c2c30b93598c07a82e127cdef1
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T10:40:26.313309Z

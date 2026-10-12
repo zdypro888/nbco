@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/tools.go
-        hash: sha256:90ca766dd7e12e455fd81899409066a1df84b7eb6890192130ee5ffc200f08cf
+        hash: sha256:55f0c088f7c4b3e140ed6ce03bc25d47cf12480ec79853451d9b35c6f6b042d0
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

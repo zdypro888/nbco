@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: store/approvals.go
-        hash: sha256:1df08357ba833632ec16067a4e5521c86df6041c1fa1bec33c89a02e57624e20
+        hash: sha256:eeeae814b38fb08c3b6500480f74b6794470358de5d229d0e451830b730d2b5c
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

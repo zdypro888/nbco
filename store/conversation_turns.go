@@ -48,6 +48,7 @@ type ConversationTurn struct {
 
 type ConversationTurnCompletion struct {
 	TurnID           int64
+	ExpectedAttempt  int
 	AssistantText    string
 	ResultText       string
 	ResultActions    []interaction.Action
@@ -194,6 +195,9 @@ func (s *Store) CompleteConversationTurn(ctx context.Context, in ConversationTur
 	}
 	if turn.Status == "failed" {
 		return 0, ErrTurnFailed
+	}
+	if turn.Status != "running" || (in.ExpectedAttempt > 0 && turn.Attempts != in.ExpectedAttempt) {
+		return 0, ErrConflict
 	}
 	if turn.UserMessageID == nil {
 		return 0, ErrNotFound

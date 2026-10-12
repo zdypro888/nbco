@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: store/conversation_approvals_test.go
+      level: file
+      anchor:
+        file: store/conversation_approvals_test.go
+        hash: sha256:e202608f226f1ebffc625ae724b73763c853e7d856690476e3625e6abc28c524
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T10:40:26.321015Z

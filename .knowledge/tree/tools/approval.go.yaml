@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: tools/approval.go
-        hash: sha256:78bf3f15cafe63c65abfde47e444739bb2dc065df51b23c525d490cf4468d2fa
+        hash: sha256:5f8571f0f38780b4877a8b593820231a401dba95d94ff677db6becac142013b3
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z

@@ -245,7 +245,7 @@ nbco 是 AI 公司运营中枢：入口可换，运行状态和组织记忆沉�
 - `ihtml` 是 Web 界面运行时，不是第二个 AI 中枢。宿主只向当前轮次附加用户作用域的 `ui_*` 工具；模型、DeepAgent、会话、memory、skill、权限与审计仍由 nbco 统一提供。
 - 通用 Eino 执行与原生 Responses transport 已归入 `ihtml/agent/eino`，`ai/einoengine` 只转换领域契约并桥接工具幂等上下文键；旧 `eino:chat` 命名空间和数字/turn 会话校验保留。nbco 的权限筛选、PostgreSQL runtime store、规范聊天历史与动作回执不下沉到库。
 - 独立对话页使用 `ihtml.mountChat`，动态工作台使用 `ihtml.mount`，两者都接现有 `/ui/` ChatBackend 和同一个 nbco Orchestrator，不实例化第二套 `ihtml/chat` 后端。新项目的通用桥接、扩展 hooks、示例和实践记录维护在 ihtml 的 `docs/ai-integration.md`。
-- ihtml 的可复用确认卡与 nbco 的业务审批不是同一授权边界：页面确认不能替代审批记录、实时权限和工具幂等检查。通用助手支持的 `manual_tool_only` 只执行被确认的原始工具，不代表恢复整个计划；nbco 当前自定义 ChatBackend 尚未接收 `confirm_tool/cancel_tool`，不能仅升级依赖就宣称业务审批已接入网页卡片。
+- ihtml 的可复用确认卡与 nbco 的业务审批不是同一授权边界：页面确认不能替代审批记录、实时权限和工具幂等检查。`manual_tool_only` 保留独立执行语义；原生 `checkpoint` 路径通过 Eino 中断暂停原轮次，再由 nbco 持久化待确认工具、进度和签名密钥。网页确认/拒绝验证用户、渠道、卡片完整性和有效期，数据库原子领取原轮次；批准记录只允许精确的后续用户确认消息消费。恢复时刷新权限与工具契约，保留原 invocation scope，拒绝不执行，暂停不记完成，重连从服务端加载确认卡。运行中崩溃的未知副作用不自动重放。
 - 动态工作台源码、页面、KV 与修订保存在 PostgreSQL，浏览器只持有短期连接票据；UI Item 以当前用户权限调用 nbco API，不携带长期凭据。
 - workflow 编排业务过程，仍然创建标准任务或调用标准工具，不绕过审计。
 - 脚本工具只做无文件、无网络、无 shell 的纯逻辑。

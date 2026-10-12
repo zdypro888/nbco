@@ -104,3 +104,7 @@ func canonicalArgsHash(raw json.RawMessage) string {
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
+
+// ApprovalArgsHash exposes the domain gate's exact canonical matching rule to
+// trusted durable consent producers. The caller must normalize with its tool.
+func ApprovalArgsHash(raw json.RawMessage) string { return canonicalArgsHash(raw) }

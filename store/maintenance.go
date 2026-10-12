@@ -15,6 +15,7 @@ type LifecycleResult struct {
 
 func (s *Store) MaintainCredentials(ctx context.Context, now time.Time, dryRun bool) (LifecycleResult, error) {
 	queries := []lifecycleQuery{
+		{name: "expired_conversation_approvals", count: `SELECT count(*) FROM conversation_turns t WHERE t.status='awaiting_approval' AND EXISTS(SELECT 1 FROM conversation_approvals a WHERE a.turn_id=t.id AND a.status='pending' AND a.expires_at<=$1)`, apply: `UPDATE conversation_turns t SET status='failed',last_error='approval expired',completed_at=$1,updated_at=$1 WHERE t.status='awaiting_approval' AND EXISTS(SELECT 1 FROM conversation_approvals a WHERE a.turn_id=t.id AND a.status='pending' AND a.expires_at<=$1)`},
 		{name: "pending_approvals", count: `SELECT count(*) FROM pending_approvals WHERE expires_at <= $1`, apply: `DELETE FROM pending_approvals WHERE expires_at <= $1`},
 		{name: "api_token_rotations", count: `SELECT count(*) FROM api_token_rotations WHERE expires_at <= $1`, apply: `DELETE FROM api_token_rotations WHERE expires_at <= $1`},
 		{name: "external_action_results", count: `SELECT count(*) FROM external_action_receipts WHERE result_expires_at IS NOT NULL AND result_expires_at <= $1`, apply: `UPDATE external_action_receipts SET result_text='', result_expires_at=NULL WHERE result_expires_at IS NOT NULL AND result_expires_at <= $1`},
@@ -48,12 +49,14 @@ func (s *Store) MaintainRetainedOperationalData(
 				WHERE c.updated_at < $1
 				  AND NOT EXISTS (SELECT 1 FROM eino_session_events e WHERE c.checkpoint_id='session/'||e.session_id||'/runner_checkpoint')
 				  AND NOT EXISTS (SELECT 1 FROM chat_sessions s WHERE s.active AND c.checkpoint_id='session/'||s.engine_ref||'/runner_checkpoint')
-				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status='running' AND c.checkpoint_id='session/'||t.engine_session||'/runner_checkpoint')`,
+				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status IN ('running','awaiting_approval') AND c.checkpoint_id='session/'||t.engine_session||'/runner_checkpoint')
+				  AND NOT EXISTS (SELECT 1 FROM conversation_approvals a JOIN conversation_turns t ON t.id=a.turn_id WHERE t.status IN ('running','awaiting_approval') AND a.checkpoint_id=c.checkpoint_id)`,
 			apply: `DELETE FROM eino_checkpoints c
 				WHERE c.updated_at < $1
 				  AND NOT EXISTS (SELECT 1 FROM eino_session_events e WHERE c.checkpoint_id='session/'||e.session_id||'/runner_checkpoint')
 				  AND NOT EXISTS (SELECT 1 FROM chat_sessions s WHERE s.active AND c.checkpoint_id='session/'||s.engine_ref||'/runner_checkpoint')
-				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status='running' AND c.checkpoint_id='session/'||t.engine_session||'/runner_checkpoint')`,
+				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status IN ('running','awaiting_approval') AND c.checkpoint_id='session/'||t.engine_session||'/runner_checkpoint')
+				  AND NOT EXISTS (SELECT 1 FROM conversation_approvals a JOIN conversation_turns t ON t.id=a.turn_id WHERE t.status IN ('running','awaiting_approval') AND a.checkpoint_id=c.checkpoint_id)`,
 			args: []any{runtimeBefore},
 		},
 		{
@@ -61,11 +64,11 @@ func (s *Store) MaintainRetainedOperationalData(
 			count: `SELECT count(*) FROM eino_session_events e
 				WHERE e.created_at < $1
 				  AND NOT EXISTS (SELECT 1 FROM chat_sessions s WHERE s.active AND s.engine_ref=e.session_id)
-				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status='running' AND t.engine_session=e.session_id)`,
+				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status IN ('running','awaiting_approval') AND t.engine_session=e.session_id)`,
 			apply: `DELETE FROM eino_session_events e
 				WHERE e.created_at < $1
 				  AND NOT EXISTS (SELECT 1 FROM chat_sessions s WHERE s.active AND s.engine_ref=e.session_id)
-				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status='running' AND t.engine_session=e.session_id)`,
+				  AND NOT EXISTS (SELECT 1 FROM conversation_turns t WHERE t.status IN ('running','awaiting_approval') AND t.engine_session=e.session_id)`,
 			args: []any{runtimeBefore},
 		},
 		{name: "maintenance_runs", count: `SELECT count(*) FROM maintenance_runs WHERE status IN ('succeeded','failed') AND completed_at < $1 AND id NOT IN (SELECT last_run_id FROM maintenance_jobs WHERE last_run_id IS NOT NULL)`, apply: `DELETE FROM maintenance_runs WHERE status IN ('succeeded','failed') AND completed_at < $1 AND id NOT IN (SELECT last_run_id FROM maintenance_jobs WHERE last_run_id IS NOT NULL)`, args: []any{runBefore}},

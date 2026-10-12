@@ -50,6 +50,7 @@ func (s *Store) ConsumePendingApproval(ctx context.Context, userID int64, tool, 
 		 WHERE id = (SELECT id FROM pending_approvals
 		             WHERE user_id = $1 AND tool = $2 AND args_hash = $3
 		               AND session_id = $4 AND requested_message_id < $5 AND expires_at > now()
+		               AND (consent_message_id IS NULL OR consent_message_id = $5)
 		             ORDER BY id LIMIT 1)`, userID, tool, argsHash, sessionID, currentMessageID)
 	if err != nil {
 		return false, err

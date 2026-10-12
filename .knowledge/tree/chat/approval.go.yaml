@@ -1,0 +1,10 @@
+schema: 1
+nodes:
+    - id: chat/approval.go
+      level: file
+      anchor:
+        file: chat/approval.go
+        hash: sha256:7981dc4a05d80f68492400dbfafbd030600426f53fa745bd6d8d1b4db93014af
+        lines: [0, 0]
+      status: fresh
+      since: 2026-10-12T10:40:26.290716Z

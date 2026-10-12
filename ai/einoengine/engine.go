@@ -46,17 +46,25 @@ func validNBCOSessionID(id string) bool {
 
 func (e *Engine) Name() string { return e.runtime.Name() }
 
+func (e *Engine) SupportsNativeApproval() bool {
+	return e != nil && e.runtime != nil && e.runtime.SupportsNativeApproval()
+}
+
 func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResult, error) {
 	if req == nil {
 		_, err := e.runtime.RunTurn(ctx, nil)
 		return nil, err
 	}
 	input := &sharedai.TurnRequest{
-		Mode: sharedai.TurnMode(req.Mode), SessionID: req.SessionID, InvocationScope: req.InvocationScope,
+		RequireApproval: req.RequireApproval,
+		Mode:            sharedai.TurnMode(req.Mode), SessionID: req.SessionID, InvocationScope: req.InvocationScope,
 		EngineSession: req.EngineSession, DisableSession: req.DisableSession, SessionCapability: req.SessionCapability,
 		System: req.System, UserText: req.UserText, Model: req.Model, OnDelta: req.OnDelta,
 		StreamReasoning: req.StreamReasoning, MaxOutputTokens: req.MaxOutputTokens, MaxIterations: req.MaxIterations,
 		Reasoning: sharedai.ReasoningMode(req.Reasoning), JSONOutput: req.JSONOutput,
+	}
+	if req.Resume != nil {
+		input.Resume = &sharedai.ResumeRequest{CheckPointID: req.Resume.CheckPointID, Decisions: req.Resume.Decisions}
 	}
 	for _, msg := range req.History {
 		input.History = append(input.History, sharedai.Message{Role: sharedai.Role(msg.Role), Content: msg.Content})
@@ -78,6 +86,14 @@ func (e *Engine) RunTurn(ctx context.Context, req *ai.TurnRequest) (*ai.TurnResu
 		Text: result.Text, EngineSession: result.EngineSession, FinishReason: result.FinishReason,
 		OutputLikelyTruncated: result.OutputLikelyTruncated,
 		Usage:                 ai.Usage(result.Usage), ToolExposure: ai.ToolExposure(result.ToolExposure),
+	}
+	if result.PendingApproval != nil {
+		out.PendingApproval = &ai.PendingApproval{CheckPointID: result.PendingApproval.CheckPointID}
+		for _, tool := range result.PendingApproval.Tools {
+			out.PendingApproval.Tools = append(out.PendingApproval.Tools, ai.ApprovalTool{
+				InterruptID: tool.InterruptID, ToolCallID: tool.ToolCallID, ToolName: tool.ToolName, Args: append(json.RawMessage(nil), tool.Args...),
+			})
+		}
 	}
 	for _, step := range result.Steps {
 		out.Steps = append(out.Steps, domainStep(step))
@@ -104,8 +120,9 @@ func sharedTool(item ai.Tool) sharedai.Tool {
 }
 
 func domainStep(step sharedai.Step) ai.Step {
-	return ai.Step{Kind: ai.StepKind(step.Kind), ToolName: step.ToolName, Args: step.Args,
-		Result: step.Result, Err: step.Err, Completion: ai.ToolCompletion(step.Completion), Replayed: step.Replayed}
+	return ai.Step{Kind: ai.StepKind(step.Kind), ToolCallID: step.ToolCallID, ToolName: step.ToolName, Args: step.Args,
+		Result: step.Result, Err: step.Err, Completion: ai.ToolCompletion(step.Completion), Replayed: step.Replayed,
+		ApprovalRejected: step.ApprovalRejected, ApprovalPending: step.ApprovalPending}
 }
 
 var _ ai.Engine = (*Engine)(nil)

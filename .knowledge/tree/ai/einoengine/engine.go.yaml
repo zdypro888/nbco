@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: ai/einoengine/engine.go
-        hash: sha256:cc144dd55c12a52031f53361dd91c08033cc6843193a564f0dd31bcafd3256eb
+        hash: sha256:26c67d15dbdefa4f9b5d50ebec8da24add34ca09d89fddbbfb9be0010f9dc011
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
@@ -94,7 +94,7 @@ nodes:
         struct_hash: sha256:f91e8f266ac4eb253b246b91447f34ba4d75bf270e6607b2078d833205bad86c
         doc_struct_hash: sha256:f91e8f266ac4eb253b246b91447f34ba4d75bf270e6607b2078d833205bad86c
         lines: [49, 86]
-      status: fresh
+      status: suspect
       since: 2026-07-19T18:32:51.345695Z
       entries:
         - id: e_12422468

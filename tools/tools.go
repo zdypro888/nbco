@@ -243,6 +243,7 @@ func ForUserContextWithTools(ctx context.Context, d Deps, u *store.User, session
 	ts = filterByPerm(ts, u, grants)
 
 	for i := range ts {
+		ts[i].ApprovalRequired = requiresApproval(ts[i])
 		// 审计包在审批外层：登记与执行两次调用都留审计记录。
 		// 当前权限校验位于审计内、审批外：每次真实调用都重新读取用户和
 		// 有效委托链，撤权/停用对已开始的 Agent 轮次立即生效且留下失败审计。

@@ -4,7 +4,7 @@ nodes:
       level: file
       anchor:
         file: chat/action_plan.go
-        hash: sha256:69754574493ef4dd0e9a03a2d17eeda557004980cb7e88f48122ae1a1aee83e1
+        hash: sha256:e76302d58894857d95db675338a317ff2087b53e29089b5dcdf15c30eae17062
         lines: [0, 0]
       status: undigested
       since: 2026-07-19T18:32:51.345695Z
